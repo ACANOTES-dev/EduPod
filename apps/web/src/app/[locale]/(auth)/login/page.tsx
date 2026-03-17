@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [mfaCode, setMfaCode] = React.useState('');
   const [mfaRequired, setMfaRequired] = React.useState(false);
-  const [_mfaSessionToken, setMfaSessionToken] = React.useState<string | null>(null);
+  const [, setMfaSessionToken] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 

@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { Button, StatusBadge } from '@school/ui';
+import { Button } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -18,13 +18,6 @@ function formatCurrency(value: number): string {
     maximumFractionDigits: 2,
   });
 }
-
-const statusVariantMap: Record<string, 'success' | 'warning' | 'info' | 'neutral' | 'danger'> = {
-  draft: 'warning',
-  pending_approval: 'info',
-  finalised: 'success',
-  cancelled: 'neutral',
-};
 
 interface PayrollRun {
   id: string;

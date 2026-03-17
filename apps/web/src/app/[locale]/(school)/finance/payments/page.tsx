@@ -2,7 +2,6 @@
 
 import { Banknote, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -50,7 +49,6 @@ const methodLabelMap: Record<PaymentMethod, string> = {
 };
 
 export default function PaymentsPage() {
-  const t = useTranslations();
   const router = useRouter();
 
   const [payments, setPayments] = React.useState<Payment[]>([]);

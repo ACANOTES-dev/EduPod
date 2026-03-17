@@ -62,7 +62,6 @@ interface ClassGroup {
 
 export default function GradebookPage() {
   const t = useTranslations('gradebook');
-  const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';

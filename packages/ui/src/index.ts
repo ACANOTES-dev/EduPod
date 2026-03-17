@@ -72,7 +72,7 @@ export { EmptyState } from './components/empty-state';
 export { SkeletonCascade } from './components/skeleton-cascade';
 export { Modal } from './components/modal';
 export { Drawer } from './components/drawer';
-export { CommandPalette } from './components/command-palette';
+export { CommandPalette, type CommandPaletteGroup } from './components/command-palette';
 export { ToastProvider } from './components/toast-provider';
 export { toast } from 'sonner';
 export { TipTapEditor } from './components/tiptap-editor';

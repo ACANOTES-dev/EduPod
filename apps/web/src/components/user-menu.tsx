@@ -89,15 +89,6 @@ export function UserMenu() {
     setTheme(value);
   }
 
-  const themeIcon =
-    theme === 'light' ? (
-      <Sun className="h-4 w-4" />
-    ) : theme === 'dark' ? (
-      <Moon className="h-4 w-4" />
-    ) : (
-      <Monitor className="h-4 w-4" />
-    );
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

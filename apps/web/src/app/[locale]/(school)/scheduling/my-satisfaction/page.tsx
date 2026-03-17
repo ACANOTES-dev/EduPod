@@ -156,7 +156,7 @@ export default function MySatisfactionPage() {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Badge
-                    variant={detail.direction === 'prefer' ? 'default' : 'destructive'}
+                    variant={detail.direction === 'prefer' ? 'default' : 'danger'}
                     className="text-xs capitalize"
                   >
                     {detail.direction === 'prefer' ? t('prefer') : t('avoid')}

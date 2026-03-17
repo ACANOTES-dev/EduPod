@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { BookOpen, CheckCircle, GraduationCap, Users } from 'lucide-react';
+import { GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 

@@ -127,7 +127,7 @@ export default function AvailabilityPage() {
   const [selectedStaff, setSelectedStaff] = React.useState('');
 
   const [entries, setEntries] = React.useState<DayEntry[]>([]);
-  const [recordId, setRecordId] = React.useState<string | null>(null);
+  const [, setRecordId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 

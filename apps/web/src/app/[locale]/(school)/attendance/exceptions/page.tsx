@@ -5,8 +5,6 @@ import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
-
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

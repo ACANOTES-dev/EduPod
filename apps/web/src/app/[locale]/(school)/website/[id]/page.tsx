@@ -42,13 +42,13 @@ interface WebsitePage {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  const variants: Record<string, 'default' | 'secondary'> = {
     published: 'default',
     draft: 'secondary',
-    archived: 'outline',
+    archived: 'secondary',
   };
   return (
-    <Badge variant={variants[status] ?? 'outline'} className="text-xs capitalize">
+    <Badge variant={variants[status] ?? 'secondary'} className="text-xs capitalize">
       {status}
     </Badge>
   );

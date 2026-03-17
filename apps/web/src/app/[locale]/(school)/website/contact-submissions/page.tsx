@@ -24,13 +24,13 @@ interface ContactSubmission {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function SubmissionStatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'danger' }> = {
     new: { label: 'New', variant: 'default' },
     reviewed: { label: 'Reviewed', variant: 'secondary' },
-    closed: { label: 'Closed', variant: 'outline' },
-    spam: { label: 'Spam', variant: 'destructive' },
+    closed: { label: 'Closed', variant: 'secondary' },
+    spam: { label: 'Spam', variant: 'danger' },
   };
-  const { label, variant } = config[status] ?? { label: status, variant: 'outline' };
+  const { label, variant } = config[status] ?? { label: status, variant: 'secondary' };
   return (
     <Badge variant={variant} className="text-xs">
       {label}

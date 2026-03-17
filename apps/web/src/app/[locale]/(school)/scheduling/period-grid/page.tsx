@@ -81,12 +81,12 @@ const TYPE_STYLES: Record<PeriodType, string> = {
   free: 'bg-surface-secondary border-border text-text-tertiary',
 };
 
-const TYPE_BADGE_VARIANT: Record<PeriodType, 'default' | 'outline'> = {
+const TYPE_BADGE_VARIANT: Record<PeriodType, 'default' | 'secondary'> = {
   teaching: 'default',
-  break: 'outline',
-  assembly: 'outline',
-  lunch: 'outline',
-  free: 'outline',
+  break: 'secondary',
+  assembly: 'secondary',
+  lunch: 'secondary',
+  free: 'secondary',
 };
 
 const EMPTY_EDIT: EditState = {

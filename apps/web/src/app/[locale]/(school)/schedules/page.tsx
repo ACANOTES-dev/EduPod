@@ -67,7 +67,9 @@ const WEEKDAY_KEYS: Record<number, string> = {
 };
 
 function formatTime(time: string): string {
-  const [hours, minutes] = time.split(':');
+  const parts = time.split(':');
+  const hours = parts[0] ?? '0';
+  const minutes = parts[1] ?? '00';
   const h = parseInt(hours, 10);
   const period = h >= 12 ? 'PM' : 'AM';
   const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
@@ -78,7 +80,6 @@ function formatTime(time: string): string {
 
 export default function SchedulesPage() {
   const t = useTranslations('scheduling');
-  const tc = useTranslations('common');
 
   const [data, setData] = React.useState<ScheduleRow[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -193,7 +194,7 @@ export default function SchedulesPage() {
       key: 'source',
       header: 'Source',
       render: (row: ScheduleRow) => (
-        <Badge variant="outline" className="text-xs capitalize">{row.source}</Badge>
+        <Badge variant="secondary" className="text-xs capitalize">{row.source}</Badge>
       ),
     },
   ];

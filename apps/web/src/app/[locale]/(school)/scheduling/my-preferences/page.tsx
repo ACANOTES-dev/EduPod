@@ -285,7 +285,7 @@ export default function MyPreferencesPage() {
                 >
                   {TAB_LABELS[kind]}
                   {count > 0 && (
-                    <Badge variant="outline" className="h-5 min-w-5 justify-center px-1 text-xs">
+                    <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1 text-xs">
                       {count}
                     </Badge>
                   )}
@@ -345,7 +345,7 @@ export default function MyPreferencesPage() {
                       {getEntityLabel(pref, activeTab)}
                     </span>
                     <Badge
-                      variant={pref.sentiment === 'prefer' ? 'default' : 'outline'}
+                      variant={pref.sentiment === 'prefer' ? 'default' : 'secondary'}
                       className={`cursor-pointer select-none text-xs capitalize ${
                         pref.sentiment === 'avoid' ? 'border-red-300 text-red-600' : ''
                       }`}

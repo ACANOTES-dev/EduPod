@@ -7,14 +7,12 @@ import * as React from 'react';
 import {
   Button,
   Skeleton,
-  StatusBadge,
 } from '@school/ui';
 import type { PaymentStatus, PaymentMethod, RefundStatus } from '@school/shared';
 import { RecordHub } from '@/components/record-hub';
 import { EntityLink } from '@/components/entity-link';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
-import { PaymentStatusBadge } from '../../_components/payment-status-badge';
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { RefundStatusBadge } from '../../_components/refund-status-badge';
 import { AllocationPanel } from '../_components/allocation-panel';

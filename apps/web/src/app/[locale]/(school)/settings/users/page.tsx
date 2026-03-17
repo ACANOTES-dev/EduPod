@@ -206,7 +206,6 @@ function ConfirmDialog({ open, title, description, confirmLabel, variant = 'defa
 
 export default function UsersPage() {
   const t = useTranslations('users');
-  const tc = useTranslations('common');
 
   const [data, setData] = React.useState<MembershipRow[]>([]);
   const [total, setTotal] = React.useState(0);

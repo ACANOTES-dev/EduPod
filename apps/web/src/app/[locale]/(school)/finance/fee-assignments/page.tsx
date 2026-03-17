@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Plus, Search } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';

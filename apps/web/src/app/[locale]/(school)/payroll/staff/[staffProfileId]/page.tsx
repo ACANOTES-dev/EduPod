@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useParams, usePathname } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -30,8 +30,6 @@ interface PaymentEntry {
 export default function StaffPaymentHistoryPage() {
   const t = useTranslations('payroll');
   const params = useParams();
-  const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
   const staffProfileId = params.staffProfileId as string;
 
   const [data, setData] = React.useState<PaymentEntry[]>([]);

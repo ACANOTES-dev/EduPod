@@ -2,7 +2,6 @@
 
 import { GraduationCap, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -24,11 +23,6 @@ import { apiClient } from '@/lib/api-client';
 interface YearGroup {
   id: string;
   name: string;
-}
-
-interface Household {
-  id: string;
-  household_name: string;
 }
 
 interface Student {
@@ -53,7 +47,6 @@ const statusVariantMap: Record<
 };
 
 export default function StudentsPage() {
-  const t = useTranslations();
   const router = useRouter();
 
   const [students, setStudents] = React.useState<Student[]>([]);

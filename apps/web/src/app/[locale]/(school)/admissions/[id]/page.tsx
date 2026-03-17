@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle, Clock, Edit, UserPlus, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, UserPlus, XCircle } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -8,7 +8,6 @@ import * as React from 'react';
 import { Button, Textarea, toast } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
-import { ApplicationStatusBadge } from '@/components/admissions/application-status-badge';
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { apiClient } from '@/lib/api-client';
 

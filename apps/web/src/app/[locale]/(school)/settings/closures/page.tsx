@@ -94,7 +94,7 @@ export default function ClosuresPage() {
       key: 'scope',
       header: t('scope'),
       render: (row: ClosureRow) => (
-        <Badge variant="outline" className="capitalize">{scopeLabel(row.scope, row.entity_name)}</Badge>
+        <Badge variant="secondary" className="capitalize">{scopeLabel(row.scope, row.entity_name)}</Badge>
       ),
     },
     {

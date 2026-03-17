@@ -22,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Textarea,
   toast,
 } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
@@ -100,7 +99,6 @@ function FieldCard({
   isFirst: boolean;
   isLast: boolean;
 }) {
-  const t = useTranslations('admissions');
   const showOptions = field.field_type === 'single_select' || field.field_type === 'multi_select';
 
   const otherFields = allFields.filter((f) => f.id !== field.id);
@@ -351,7 +349,10 @@ export default function NewAdmissionFormPage() {
     if (idx === 0) return;
     setFields((prev) => {
       const next = [...prev];
-      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      const a = next[idx - 1] as FormField;
+      const b = next[idx] as FormField;
+      next[idx - 1] = b;
+      next[idx] = a;
       return next.map((f, i) => ({ ...f, display_order: i + 1 }));
     });
   };
@@ -360,7 +361,10 @@ export default function NewAdmissionFormPage() {
     if (idx >= fields.length - 1) return;
     setFields((prev) => {
       const next = [...prev];
-      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      const a = next[idx] as FormField;
+      const b = next[idx + 1] as FormField;
+      next[idx] = b;
+      next[idx + 1] = a;
       return next.map((f, i) => ({ ...f, display_order: i + 1 }));
     });
   };
@@ -375,7 +379,7 @@ export default function NewAdmissionFormPage() {
       const payload = {
         name: formName,
         status: publish ? 'published' : 'draft',
-        fields: fields.map(({ id, expanded, ...rest }) => rest),
+        fields: fields.map(({ id: _id, expanded: _expanded, ...rest }) => rest),
       };
       await apiClient('/api/v1/admission-forms', {
         method: 'POST',

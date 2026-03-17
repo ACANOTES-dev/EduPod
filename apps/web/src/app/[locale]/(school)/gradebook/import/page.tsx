@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, CheckCircle, Download, Upload, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Download, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';

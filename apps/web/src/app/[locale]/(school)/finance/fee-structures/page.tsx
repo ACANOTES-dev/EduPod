@@ -49,7 +49,7 @@ export default function FeeStructuresPage() {
   const router = useRouter();
 
   const [feeStructures, setFeeStructures] = React.useState<FeeStructure[]>([]);
-  const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
+  const [, setYearGroups] = React.useState<YearGroup[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);

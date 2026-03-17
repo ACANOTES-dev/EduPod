@@ -381,7 +381,7 @@ export default function EditAdmissionFormPage({ params }: PageProps) {
     if (idx === 0) return;
     setFields((prev) => {
       const next = [...prev];
-      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      [next[idx - 1], next[idx]] = [next[idx]!, next[idx - 1]!];
       return next.map((f, i) => ({ ...f, display_order: i + 1 }));
     });
   };
@@ -390,7 +390,7 @@ export default function EditAdmissionFormPage({ params }: PageProps) {
     if (idx >= fields.length - 1) return;
     setFields((prev) => {
       const next = [...prev];
-      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      [next[idx], next[idx + 1]] = [next[idx + 1]!, next[idx]!];
       return next.map((f, i) => ({ ...f, display_order: i + 1 }));
     });
   };
@@ -405,7 +405,7 @@ export default function EditAdmissionFormPage({ params }: PageProps) {
       const payload = {
         name: formName,
         status: publish ? 'published' : formStatus,
-        fields: fields.map(({ expanded, ...rest }) => rest),
+        fields: fields.map(({ expanded: _expanded, ...rest }) => rest),
       };
       await apiClient(`/api/v1/admission-forms/${id}`, {
         method: 'PATCH',

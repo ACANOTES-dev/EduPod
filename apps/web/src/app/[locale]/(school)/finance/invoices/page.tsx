@@ -2,17 +2,10 @@
 
 import { FileText, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
-  Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   EmptyState,
 } from '@school/ui';
 import type { InvoiceStatus } from '@school/shared';
@@ -53,7 +46,6 @@ const statusTabs: Array<{ value: string; label: string }> = [
 ];
 
 export default function InvoicesPage() {
-  const t = useTranslations();
   const router = useRouter();
 
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
@@ -64,7 +56,7 @@ export default function InvoicesPage() {
 
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
-  const [householdFilter, setHouseholdFilter] = React.useState('');
+  const [householdFilter, ] = React.useState('');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
 

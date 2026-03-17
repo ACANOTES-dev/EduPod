@@ -74,10 +74,10 @@ function groupEntries(entries: ReviewEntry[]) {
   const byDay: Record<number, ReviewEntry[]> = {};
   for (const e of entries) {
     if (!byDay[e.weekday]) byDay[e.weekday] = [];
-    byDay[e.weekday].push(e);
+    byDay[e.weekday]!.push(e);
   }
   for (const day of Object.keys(byDay)) {
-    byDay[Number(day)].sort((a, b) => a.period_order - b.period_order);
+    byDay[Number(day)]!.sort((a, b) => a.period_order - b.period_order);
   }
   return byDay;
 }
@@ -343,7 +343,7 @@ export default function RunReviewPage() {
             <h3 className="text-sm font-semibold text-text-primary">{t('constraintReport')}</h3>
             <div className="flex items-center justify-between text-sm">
               <span className="text-text-secondary">{t('hardViolations')}</span>
-              <Badge variant={report?.hard_violations > 0 ? 'destructive' : 'default'}>
+              <Badge variant={report?.hard_violations > 0 ? 'danger' : 'default'}>
                 {report?.hard_violations ?? 0}
               </Badge>
             </div>

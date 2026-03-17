@@ -38,13 +38,15 @@ const SUBJECT_COLORS = [
 function getSubjectColor(subjectName: string | undefined, colorMap: Map<string, string>): string {
   if (!subjectName) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
   if (!colorMap.has(subjectName)) {
-    colorMap.set(subjectName, SUBJECT_COLORS[colorMap.size % SUBJECT_COLORS.length]);
+    colorMap.set(subjectName, SUBJECT_COLORS[colorMap.size % SUBJECT_COLORS.length] ?? SUBJECT_COLORS[0] ?? '');
   }
   return colorMap.get(subjectName)!;
 }
 
 function formatTime(time: string): string {
-  const [hours, minutes] = time.split(':');
+  const parts = time.split(':');
+  const hours = parts[0] ?? '0';
+  const minutes = parts[1] ?? '00';
   const h = parseInt(hours, 10);
   const period = h >= 12 ? 'PM' : 'AM';
   const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;

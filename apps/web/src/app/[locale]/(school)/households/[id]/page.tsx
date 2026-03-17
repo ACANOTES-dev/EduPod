@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit, Users, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Edit, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 

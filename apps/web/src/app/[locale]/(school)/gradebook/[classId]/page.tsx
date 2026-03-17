@@ -342,7 +342,7 @@ export default function ClassGradebookPage() {
   ];
 
   // ─── Grade Config Tab ──────────────────────────────────────────────────────
-  const [gradeConfig, setGradeConfig] = React.useState<GradeConfig | null>(null);
+  const [, setGradeConfig] = React.useState<GradeConfig | null>(null);
   const [configLoading, setConfigLoading] = React.useState(true);
   const [scales, setScales] = React.useState<GradingScale[]>([]);
   const [selectedScale, setSelectedScale] = React.useState('');

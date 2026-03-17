@@ -127,7 +127,7 @@ export default function RoomsPage() {
       key: 'room_type',
       header: t('roomType'),
       render: (row: Room) => (
-        <Badge variant="outline" className="capitalize">{row.room_type}</Badge>
+        <Badge variant="secondary" className="capitalize">{row.room_type}</Badge>
       ),
     },
     {

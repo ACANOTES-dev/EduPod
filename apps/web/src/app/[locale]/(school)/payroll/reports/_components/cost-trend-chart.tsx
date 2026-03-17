@@ -90,9 +90,11 @@ export function CostTrendChart({ data, onPointClick }: CostTrendChartProps) {
       <ResponsiveContainer width="100%" height={350}>
         <AreaChart
           data={data}
-          onClick={(e) => {
-            if (e?.activePayload?.[0]?.payload && onPointClick) {
-              onPointClick(e.activePayload[0].payload as CostTrendPoint);
+          onClick={(e: Record<string, unknown> | null) => {
+            const payload = (e as { activePayload?: Array<{ payload: CostTrendPoint }> } | null)
+              ?.activePayload?.[0]?.payload;
+            if (payload && onPointClick) {
+              onPointClick(payload);
             }
           }}
         >

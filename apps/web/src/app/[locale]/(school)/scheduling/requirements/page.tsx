@@ -137,7 +137,7 @@ export default function RequirementsPage() {
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
   const [selectedYear, setSelectedYear] = React.useState('');
   const [classes, setClasses] = React.useState<ClassOption[]>([]);
-  const [subjects, setSubjects] = React.useState<SubjectOption[]>([]);
+  const [, setSubjects] = React.useState<SubjectOption[]>([]);
   const [staff, setStaff] = React.useState<StaffOption[]>([]);
   const [rooms, setRooms] = React.useState<RoomOption[]>([]);
 
@@ -272,7 +272,7 @@ export default function RequirementsPage() {
       header: 'Room Type',
       render: (row: Requirement) => (
         row.room_type ? (
-          <Badge variant="outline" className="text-xs capitalize">
+          <Badge variant="secondary" className="text-xs capitalize">
             {row.room_type}
           </Badge>
         ) : (

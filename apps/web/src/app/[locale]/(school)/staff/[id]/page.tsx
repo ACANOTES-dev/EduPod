@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
-import { Button, StatusBadge } from '@school/ui';
+import { Button } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
 import { DataTable } from '@/components/data-table';

@@ -9,7 +9,6 @@ import { RecordHub } from '@/components/record-hub';
 import { EntityLink } from '@/components/entity-link';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-import { InvoiceStatusBadge } from '../../_components/invoice-status-badge';
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { InvoiceLinesTab } from './_components/invoice-lines-tab';
 import { InvoicePaymentsTab } from './_components/invoice-payments-tab';

@@ -29,10 +29,6 @@ interface PermissionFromApi {
   permission_tier: string;
 }
 
-interface PermissionsListResponse {
-  data: PermissionFromApi[];
-}
-
 // ─── Role with permissions response ──────────────────────────────────────────
 
 // Roles list endpoint returns permissions via role_permissions on role detail

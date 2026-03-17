@@ -12,7 +12,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  StatusBadge,
 } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { DataTable } from '@/components/data-table';

@@ -141,9 +141,9 @@ export default function SchedulingDashboardPage() {
     return 'text-green-600 dark:text-green-400';
   }
 
-  function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' {
+  function statusBadgeVariant(status: string): 'default' | 'secondary' | 'danger' {
     if (status === 'completed' || status === 'applied') return 'default';
-    if (status === 'failed') return 'destructive';
+    if (status === 'failed') return 'danger';
     return 'secondary';
   }
 
@@ -328,7 +328,7 @@ export default function SchedulingDashboardPage() {
                       <td className="px-3 py-2 text-text-secondary">{row.periods_needed}</td>
                       <td className="px-3 py-2 text-text-secondary">{row.periods_assigned}</td>
                       <td className="px-3 py-2">
-                        <Badge variant="destructive">{row.periods_remaining}</Badge>
+                        <Badge variant="danger">{row.periods_remaining}</Badge>
                       </td>
                       <td className="px-3 py-2 text-text-tertiary text-xs">{row.blocked_reason ?? '—'}</td>
                     </tr>

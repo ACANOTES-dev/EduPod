@@ -45,6 +45,7 @@ interface PeriodSlot {
   name: string;
   weekday: number;
   start_time: string;
+  period_type?: string;
 }
 
 type PreferenceKind = 'subject' | 'class' | 'time_slot';
@@ -180,7 +181,7 @@ function PreferenceTabPanel({
             >
               <span className="flex-1 text-sm text-text-primary">{getEntityLabel(pref)}</span>
               <Badge
-                variant={pref.sentiment === 'prefer' ? 'default' : 'outline'}
+                variant={pref.sentiment === 'prefer' ? 'default' : 'secondary'}
                 className={`cursor-pointer text-xs capitalize ${
                   pref.sentiment === 'avoid' ? 'border-red-300 text-red-600' : ''
                 }`}
@@ -417,7 +418,7 @@ export default function PreferencesPage() {
                 >
                   {TAB_LABELS[kind]}
                   {count > 0 && (
-                    <Badge variant="outline" className="h-5 min-w-5 justify-center px-1 text-xs">
+                    <Badge variant="secondary" className="h-5 min-w-5 justify-center px-1 text-xs">
                       {count}
                     </Badge>
                   )}

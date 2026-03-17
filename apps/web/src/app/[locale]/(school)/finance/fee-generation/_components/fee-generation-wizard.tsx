@@ -10,13 +10,8 @@ import {
   Checkbox,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@school/ui';
-import type { FeeGenerationPreview as PreviewData, FeeGenerationPreviewLine } from '@school/shared';
+import type { FeeGenerationPreview as PreviewData } from '@school/shared';
 
 import { apiClient } from '@/lib/api-client';
 import { CurrencyDisplay } from '../../_components/currency-display';
