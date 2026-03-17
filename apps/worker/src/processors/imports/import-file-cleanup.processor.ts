@@ -2,9 +2,8 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
-
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { deleteFromS3 } from '../../base/s3.helpers';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 
@@ -62,7 +61,7 @@ export class ImportFileCleanupProcessor extends WorkerHost {
       if (!importJob.file_key) continue;
 
       try {
-        await this.deleteFromS3(importJob.file_key);
+        await this.deleteS3File(importJob.file_key);
         cleanedCount++;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -90,18 +89,7 @@ export class ImportFileCleanupProcessor extends WorkerHost {
     );
   }
 
-  private async deleteFromS3(fileKey: string): Promise<void> {
-    const s3 = new S3Client({
-      region: process.env['AWS_REGION'] || 'us-east-1',
-    });
-
-    const bucket = process.env['S3_IMPORTS_BUCKET'] || process.env['S3_BUCKET'] || 'school-imports';
-
-    const command = new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: fileKey,
-    });
-
-    await s3.send(command);
+  private async deleteS3File(fileKey: string): Promise<void> {
+    await deleteFromS3(fileKey);
   }
 }

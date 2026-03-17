@@ -18,9 +18,49 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
           script: |
+            set -e
             cd /opt/edupod/app
+
+            echo "=== Pulling latest code ==="
             git pull origin main
-            pnpm install
-            pnpm build
-            pm2 restart all
+
+            echo "=== Installing dependencies ==="
+            pnpm install --frozen-lockfile || pnpm install
+
+            echo "=== Cleaning stale build caches ==="
+            rm -f packages/shared/tsconfig.tsbuildinfo
+
+            echo "=== Building all packages ==="
+            pnpm build --force
+
+            echo "=== Running database migrations ==="
+            set -a && source .env && set +a
+            cd packages/prisma
+            npx prisma migrate deploy
+            cd /opt/edupod/app
+
+            echo "=== Applying post-migration scripts (RLS, triggers) ==="
+            for f in packages/prisma/migrations/*/post_migrate.sql; do
+              if [ -f "$f" ]; then
+                docker exec -i $(docker ps -q --filter ancestor=postgres:16) \
+                  psql -U edupod_admin -d school_platformedupod_prod < "$f" 2>&1 || true
+              fi
+            done
+
+            echo "=== Restarting services ==="
+            pm2 restart api web worker 2>/dev/null || {
+              echo "Some processes not found, starting them..."
+              pm2 restart api web 2>/dev/null || true
+              pm2 start /opt/edupod/app/apps/worker/dist/apps/worker/src/main.js \
+                --name worker 2>/dev/null || pm2 restart worker
+            }
+            pm2 save
+
+            echo "=== Smoke test ==="
+            sleep 5
+            curl -sf http://localhost:3000/en/login > /dev/null && echo "WEB OK" || echo "WEB FAILED"
+            curl -sf http://localhost:3001/api/v1/health > /dev/null && echo "API OK" || echo "API FAILED"
+
+            echo "=== Deploy complete ==="

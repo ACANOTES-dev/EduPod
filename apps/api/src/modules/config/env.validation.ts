@@ -11,11 +11,12 @@ const envSchema = z.object({
   APP_URL: z.string().url().default('http://localhost:5551'),
   API_PORT: z.coerce.number().default(5552),
 
-  // Optional -- S3
-  AWS_REGION: z.string().optional(),
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  // Optional -- S3-compatible object storage (Hetzner, AWS, MinIO, etc.)
+  S3_REGION: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_BUCKET_NAME: z.string().optional(),
+  S3_ENDPOINT: z.string().optional(),
 
   // Optional -- Sentry
   SENTRY_DSN_BACKEND: z.string().optional(),

@@ -2,9 +2,8 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { downloadFromS3, deleteFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -107,48 +106,6 @@ function getField(headers: string[], row: string[], fieldName: string): string |
   if (index === -1 || index >= row.length) return undefined;
   const val = row[index]?.trim();
   return val && val.length > 0 ? val : undefined;
-}
-
-// ─── S3 helpers ──────────────────────────────────────────────────────────────
-
-function getS3Client(): S3Client {
-  return new S3Client({
-    region: process.env['AWS_REGION'] || 'us-east-1',
-  });
-}
-
-function getS3Bucket(): string {
-  return process.env['S3_IMPORTS_BUCKET'] || process.env['S3_BUCKET'] || 'school-imports';
-}
-
-async function downloadFromS3(fileKey: string): Promise<string> {
-  const s3 = getS3Client();
-  const command = new GetObjectCommand({
-    Bucket: getS3Bucket(),
-    Key: fileKey,
-  });
-
-  const response = await s3.send(command);
-
-  if (!response.Body) {
-    throw new Error(`Empty response body from S3 for key ${fileKey}`);
-  }
-
-  const chunks: Uint8Array[] = [];
-  const stream = response.Body as AsyncIterable<Uint8Array>;
-  for await (const chunk of stream) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString('utf-8');
-}
-
-async function deleteFromS3(fileKey: string): Promise<void> {
-  const s3 = getS3Client();
-  const command = new DeleteObjectCommand({
-    Bucket: getS3Bucket(),
-    Key: fileKey,
-  });
-  await s3.send(command);
 }
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────

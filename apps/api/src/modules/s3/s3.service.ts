@@ -16,22 +16,24 @@ export class S3Service implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
-    const region = this.configService.get<string>('AWS_REGION');
-    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
-    const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+    const region = this.configService.get<string>('S3_REGION');
+    const accessKeyId = this.configService.get<string>('S3_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>('S3_SECRET_ACCESS_KEY');
+    const endpoint = this.configService.get<string>('S3_ENDPOINT');
     this.bucket = this.configService.get<string>('S3_BUCKET_NAME');
 
     if (region && accessKeyId && secretAccessKey) {
       this.client = new S3Client({
         region,
         credentials: { accessKeyId, secretAccessKey },
+        ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
       });
     }
   }
 
   private ensureClient(): S3Client {
     if (!this.client) {
-      throw new Error('S3 client not configured. Set AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.');
+      throw new Error('S3 client not configured. Set S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY.');
     }
     return this.client;
   }

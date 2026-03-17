@@ -2,10 +2,10 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { uploadToS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> 
     const exportJson = JSON.stringify(exportData, null, 2);
 
     try {
-      await this.uploadToS3(exportFileKey, exportJson);
+      await this.uploadExportToS3(exportFileKey, exportJson);
     } catch (err) {
       this.logger.warn(
         `Failed to upload export to S3 — storing file_key reference only: ${err instanceof Error ? err.message : String(err)}`,
@@ -313,20 +313,7 @@ class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> 
     });
   }
 
-  private async uploadToS3(fileKey: string, content: string): Promise<void> {
-    const s3 = new S3Client({
-      region: process.env['AWS_REGION'] || 'us-east-1',
-    });
-
-    const bucket = process.env['S3_IMPORTS_BUCKET'] || process.env['S3_BUCKET'] || 'school-imports';
-
-    const command = new PutObjectCommand({
-      Bucket: bucket,
-      Key: fileKey,
-      Body: content,
-      ContentType: 'application/json',
-    });
-
-    await s3.send(command);
+  private async uploadExportToS3(fileKey: string, content: string): Promise<void> {
+    await uploadToS3(fileKey, content);
   }
 }

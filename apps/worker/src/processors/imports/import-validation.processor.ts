@@ -2,9 +2,8 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { downloadFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -357,29 +356,6 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
   }
 
   private async downloadFromS3(fileKey: string): Promise<string> {
-    const s3 = new S3Client({
-      region: process.env['AWS_REGION'] || 'us-east-1',
-    });
-
-    const bucket = process.env['S3_IMPORTS_BUCKET'] || process.env['S3_BUCKET'] || 'school-imports';
-
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: fileKey,
-    });
-
-    const response = await s3.send(command);
-
-    if (!response.Body) {
-      throw new Error(`Empty response body from S3 for key ${fileKey}`);
-    }
-
-    // Stream to string
-    const chunks: Uint8Array[] = [];
-    const stream = response.Body as AsyncIterable<Uint8Array>;
-    for await (const chunk of stream) {
-      chunks.push(chunk);
-    }
-    return Buffer.concat(chunks).toString('utf-8');
+    return downloadFromS3(fileKey);
   }
 }
