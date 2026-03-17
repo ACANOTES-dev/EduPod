@@ -1,0 +1,54 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { JwtPayload } from '@school/shared';
+import { Request } from 'express';
+import * as jwt from 'jsonwebtoken';
+
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    const token = this.extractTokenFromHeader(request);
+
+    if (!token) {
+      throw new UnauthorizedException('Missing authentication token');
+    }
+
+    try {
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        throw new UnauthorizedException('JWT secret not configured');
+      }
+
+      const payload = jwt.verify(token, secret) as JwtPayload;
+
+      // Cross-tenant check: if a tenant context was resolved from the hostname,
+      // the JWT's tenant_id must match. This prevents using a token issued for
+      // Tenant A to access Tenant B's domain.
+      const tenantContext = (request as unknown as { tenantContext?: { tenant_id: string } | null }).tenantContext;
+      if (tenantContext && tenantContext.tenant_id !== payload.tenant_id) {
+        throw new UnauthorizedException('Token does not match the current tenant');
+      }
+
+      const req = request as unknown as { currentUser?: JwtPayload };
+      req.currentUser = payload;
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+
+  private extractTokenFromHeader(request: Request): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
+  }
+}

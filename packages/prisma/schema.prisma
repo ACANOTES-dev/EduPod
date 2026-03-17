@@ -1,0 +1,2553 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext, btree_gist]
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum TenantStatus {
+  active
+  suspended
+  archived
+}
+
+enum DomainType {
+  app
+  public_site
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  failed
+}
+
+enum SslStatus {
+  pending
+  active
+  failed
+}
+
+enum UserGlobalStatus {
+  active
+  suspended
+  disabled
+}
+
+enum MembershipStatus {
+  invited
+  pending_verification
+  active
+  suspended
+  disabled
+  archived
+}
+
+enum RoleTier {
+  platform
+  admin
+  staff
+  parent
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+enum ApprovalActionType {
+  announcement_publish
+  invoice_issue
+  application_accept
+  payment_refund
+  payroll_finalise
+}
+
+enum ApprovalRequestStatus {
+  pending_approval
+  approved
+  rejected
+  executed
+  cancelled
+  expired
+}
+
+// ─── P6B Enums ──────────────────────────────────────────────────────────────
+
+enum CompensationType {
+  salaried
+  per_class
+}
+
+enum PayrollRunStatus {
+  draft
+  pending_approval
+  finalised
+  cancelled
+}
+
+// ─── P2 Enums ──────────────────────────────────────────────────────────────
+
+enum HouseholdStatus {
+  active
+  inactive
+  archived
+}
+
+enum ParentStatus {
+  active
+  inactive
+}
+
+enum StudentStatus {
+  applicant
+  active
+  withdrawn
+  graduated
+  archived
+}
+
+enum Gender {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+enum AcademicYearStatus {
+  planned
+  active
+  closed
+}
+
+enum AcademicPeriodStatus {
+  planned
+  active
+  closed
+}
+
+enum AcademicPeriodType {
+  term
+  semester
+  quarter
+  custom
+}
+
+enum SubjectType {
+  academic
+  supervision
+  duty
+  other
+}
+
+enum ClassStatus {
+  active
+  inactive
+  archived
+}
+
+enum ClassStaffRole {
+  teacher
+  assistant
+  homeroom
+  substitute
+}
+
+enum EmploymentStatus {
+  active
+  inactive
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  contract
+  substitute
+}
+
+enum ClassEnrolmentStatus {
+  active
+  dropped
+  completed
+}
+
+// ─── P4A Enums ────────────────────────────────────────────────────────────
+
+enum RoomType {
+  classroom
+  lab
+  gym
+  auditorium
+  library
+  computer_lab
+  art_room
+  music_room
+  outdoor
+  other
+}
+
+enum ScheduleSource {
+  manual
+  auto_generated
+  pinned
+}
+
+enum ClosureScope {
+  all
+  year_group
+  class
+}
+
+enum AttendanceSessionStatus {
+  open
+  submitted
+  locked
+  cancelled
+}
+
+enum AttendanceRecordStatus {
+  present
+  absent_unexcused
+  absent_excused
+  late
+  left_early
+}
+
+enum DailyAttendanceStatus {
+  present
+  partially_absent
+  absent
+  late
+  excused
+}
+
+// ─── P4B Enums ──────────────────────────────────────────────────────────────
+
+enum SchedulePeriodType {
+  teaching
+  break_supervision
+  assembly
+  lunch_duty
+  free
+}
+
+enum SpreadPreference {
+  spread_evenly
+  cluster
+  no_preference
+}
+
+enum SchedulingPreferenceType {
+  subject
+  class_pref
+  time_slot
+}
+
+enum SchedulingPreferencePriority {
+  low
+  medium
+  high
+}
+
+enum SchedulingRunMode {
+  auto
+  hybrid
+}
+
+enum SchedulingRunStatus {
+  queued
+  running
+  completed
+  failed
+  applied
+  discarded
+}
+
+// ─── P3 Enums ──────────────────────────────────────────────────────────────
+
+enum FormDefinitionStatus {
+  draft
+  published
+  archived
+}
+
+enum ApplicationFieldType {
+  short_text
+  long_text
+  number
+  date
+  boolean
+  single_select
+  multi_select
+  phone
+  email
+  country
+  yes_no
+}
+
+enum ApplicationStatus {
+  draft
+  submitted
+  under_review
+  pending_acceptance_approval
+  accepted
+  rejected
+  withdrawn
+}
+
+// ─── P7 Enums ──────────────────────────────────────────────────────────────
+
+enum AnnouncementStatus {
+  draft
+  pending_approval
+  scheduled
+  published
+  archived
+}
+
+enum AnnouncementScope {
+  school
+  year_group
+  class
+  household
+  custom
+}
+
+enum NotificationChannel {
+  email
+  whatsapp
+  in_app
+}
+
+enum NotificationStatus {
+  queued
+  sent
+  delivered
+  failed
+  read
+}
+
+enum ParentInquiryStatus {
+  open
+  in_progress
+  closed
+}
+
+enum InquiryAuthorType {
+  parent
+  admin
+}
+
+enum WebsitePageType {
+  home
+  about
+  admissions
+  contact
+  custom
+}
+
+enum WebsitePageStatus {
+  draft
+  published
+  unpublished
+}
+
+enum ContactFormStatus {
+  new_submission @map("new")
+  reviewed
+  closed
+  spam
+}
+
+// ─── Platform & Tenancy ──────────────────────────────────────────────────────
+
+model Tenant {
+  id                        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String       @db.VarChar(255)
+  slug                      String       @unique @db.VarChar(100)
+  status                    TenantStatus @default(active)
+  default_locale            String       @default("en") @db.VarChar(10)
+  timezone                  String       @db.VarChar(100)
+  date_format               String       @db.VarChar(50)
+  currency_code             String       @db.VarChar(10)
+  academic_year_start_month Int          @db.SmallInt
+  created_at                DateTime     @default(now()) @db.Timestamptz()
+  updated_at                DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  domains               TenantDomain[]
+  modules               TenantModule[]
+  branding              TenantBranding?
+  settings              TenantSetting?
+  notification_settings TenantNotificationSetting[]
+  sequences             TenantSequence[]
+  stripe_config         TenantStripeConfig?
+  memberships           TenantMembership[]
+  roles                 Role[]
+  role_permissions      RolePermission[]
+  membership_roles      MembershipRole[]
+  invitations           Invitation[]
+  approval_workflows    ApprovalWorkflow[]
+  approval_requests     ApprovalRequest[]
+  user_ui_preferences   UserUiPreference[]
+
+  // P2 Relations
+  households                   Household[]
+  household_emergency_contacts HouseholdEmergencyContact[]
+  parents                      Parent[]
+  household_parents            HouseholdParent[]
+  students                     Student[]
+  student_parents              StudentParent[]
+  staff_profiles               StaffProfile[]
+  academic_years               AcademicYear[]
+  academic_periods             AcademicPeriod[]
+  year_groups                  YearGroup[]
+  subjects                     Subject[]
+  classes                      Class[]
+  class_staff                  ClassStaff[]
+  class_enrolments             ClassEnrolment[]
+
+  // P3 Relations
+  admission_form_definitions AdmissionFormDefinition[]
+  admission_form_fields      AdmissionFormField[]
+  applications               Application[]
+  application_notes          ApplicationNote[]
+
+  // P4A Relations
+  rooms                      Room[]
+  schedules                  Schedule[]
+  school_closures            SchoolClosure[]
+  attendance_sessions        AttendanceSession[]
+  attendance_records         AttendanceRecord[]
+  daily_attendance_summaries DailyAttendanceSummary[]
+
+  // P4B Relations
+  schedule_period_templates     SchedulePeriodTemplate[]
+  class_scheduling_requirements ClassSchedulingRequirement[]
+  staff_availability            StaffAvailability[]
+  staff_scheduling_preferences  StaffSchedulingPreference[]
+  scheduling_runs               SchedulingRun[]
+
+  // P5 Relations
+  grading_scales              GradingScale[]
+  assessment_categories       AssessmentCategory[]
+  class_subject_grade_configs ClassSubjectGradeConfig[]
+  assessments                 Assessment[]
+  grades                      Grade[]
+  period_grade_snapshots      PeriodGradeSnapshot[]
+  report_cards                ReportCard[]
+
+  // P6 Relations
+  fee_structures            FeeStructure[]
+  discounts                 Discount[]
+  household_fee_assignments HouseholdFeeAssignment[]
+  invoices                  Invoice[]
+  invoice_lines             InvoiceLine[]
+  installments              Installment[]
+  payments                  Payment[]
+  payment_allocations       PaymentAllocation[]
+  receipts                  Receipt[]
+  refunds                   Refund[]
+
+  // P6B Relations
+  staff_compensations StaffCompensation[]
+  payroll_runs        PayrollRun[]
+  payroll_entries     PayrollEntry[]
+  payslips            Payslip[]
+
+  // P7 Relations
+  announcements            Announcement[]
+  notification_templates   NotificationTemplate[]
+  notifications            Notification[]
+  parent_inquiries         ParentInquiry[]
+  parent_inquiry_messages  ParentInquiryMessage[]
+  website_pages            WebsitePage[]
+  contact_form_submissions ContactFormSubmission[]
+
+  // P8 Relations
+  audit_logs            AuditLog[]
+  compliance_requests   ComplianceRequest[]
+  import_jobs           ImportJob[]
+  search_index_statuses SearchIndexStatus[]
+
+  @@map("tenants")
+}
+
+model TenantDomain {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String             @db.Uuid
+  domain              String             @unique @db.VarChar(255)
+  domain_type         DomainType
+  verification_status VerificationStatus @default(pending)
+  ssl_status          SslStatus          @default(pending)
+  is_primary          Boolean            @default(false)
+  created_at          DateTime           @default(now()) @db.Timestamptz()
+  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([domain], name: "idx_tenant_domains_domain")
+  @@index([tenant_id], name: "idx_tenant_domains_tenant")
+  @@map("tenant_domains")
+}
+
+model TenantModule {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String  @db.Uuid
+  module_key String  @db.VarChar(100)
+  is_enabled Boolean
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, module_key], name: "idx_tenant_modules_tenant_module")
+  @@index([tenant_id], name: "idx_tenant_modules_tenant")
+  @@map("tenant_modules")
+}
+
+model TenantBranding {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @unique @db.Uuid
+  primary_color       String?  @db.VarChar(20)
+  secondary_color     String?  @db.VarChar(20)
+  logo_url            String?  @db.Text
+  school_name_display String?  @db.VarChar(255)
+  school_name_ar      String?  @db.VarChar(255)
+  email_from_name     String?  @db.VarChar(255)
+  email_from_name_ar  String?  @db.VarChar(255)
+  support_email       String?  @db.VarChar(255)
+  support_phone       String?  @db.VarChar(50)
+  receipt_prefix      String   @default("REC") @db.VarChar(30)
+  invoice_prefix      String   @default("INV") @db.VarChar(30)
+  report_card_title   String?  @db.VarChar(255)
+  payslip_prefix      String   @default("PSL") @db.VarChar(30)
+  created_at          DateTime @default(now()) @db.Timestamptz()
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_branding")
+}
+
+model TenantSetting {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @unique @db.Uuid
+  settings   Json     @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz()
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+model TenantNotificationSetting {
+  id                String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String  @db.Uuid
+  notification_type String  @db.VarChar(100)
+  is_enabled        Boolean @default(true)
+  channels          Json    @default("[\"email\"]")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, notification_type])
+  @@map("tenant_notification_settings")
+}
+
+model TenantSequence {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String @db.Uuid
+  sequence_type String @db.VarChar(50)
+  current_value BigInt @default(0)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, sequence_type])
+  @@map("tenant_sequences")
+}
+
+model TenantStripeConfig {
+  id                              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String    @unique @db.Uuid
+  stripe_secret_key_encrypted     String    @db.Text
+  stripe_publishable_key          String    @db.VarChar(255)
+  stripe_webhook_secret_encrypted String    @db.Text
+  encryption_key_ref              String    @db.VarChar(255)
+  key_last_rotated_at             DateTime? @db.Timestamptz()
+  created_by_user_id              String?   @db.Uuid
+  created_at                      DateTime  @default(now()) @db.Timestamptz()
+  updated_at                      DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User?  @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@map("tenant_stripe_configs")
+}
+
+// ─── Users & Identity ────────────────────────────────────────────────────────
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model User {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email             String           @unique @db.Citext
+  password_hash     String           @db.Text
+  first_name        String           @db.VarChar(100)
+  last_name         String           @db.VarChar(100)
+  phone             String?          @db.VarChar(50)
+  preferred_locale  String?          @db.VarChar(10)
+  global_status     UserGlobalStatus @default(active)
+  email_verified_at DateTime?        @db.Timestamptz()
+  mfa_enabled       Boolean          @default(false)
+  mfa_secret        String?          @db.Text
+  last_login_at     DateTime?        @db.Timestamptz()
+  created_at        DateTime         @default(now()) @db.Timestamptz()
+  updated_at        DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  memberships                 TenantMembership[]
+  mfa_recovery_codes          MfaRecoveryCode[]
+  password_reset_tokens       PasswordResetToken[]
+  stripe_configs_created      TenantStripeConfig[]
+  invitations_sent            Invitation[]
+  approval_requests_submitted ApprovalRequest[]    @relation("requester")
+  approval_requests_decided   ApprovalRequest[]    @relation("approver")
+  ui_preferences              UserUiPreference[]
+
+  // P2 Relations
+  staff_profiles StaffProfile[]
+  parents        Parent[]
+
+  // P3 Relations
+  applications_reviewed ApplicationNote[]
+  applications_decided  Application[]     @relation("reviewer")
+
+  // P4A Relations
+  school_closures_created       SchoolClosure[]
+  attendance_sessions_submitted AttendanceSession[] @relation("session_submitter")
+  attendance_records_marked     AttendanceRecord[]  @relation("record_marker")
+
+  // P4B Relations
+  scheduling_runs_created SchedulingRun[] @relation("scheduling_run_created_by")
+  scheduling_runs_applied SchedulingRun[] @relation("scheduling_run_applied_by")
+
+  // P5 Relations
+  grades_entered         Grade[]               @relation("grades_entered")
+  period_grade_overrides PeriodGradeSnapshot[] @relation("period_grade_overrides")
+  report_cards_published ReportCard[]          @relation("report_card_publisher")
+
+  // P6 Relations
+  invoices_created  Invoice[] @relation("invoice_creator")
+  payments_posted   Payment[] @relation("payment_poster")
+  receipts_issued   Receipt[] @relation("receipt_issuer")
+  refunds_requested Refund[]  @relation("refund_requester")
+  refunds_approved  Refund[]  @relation("refund_approver")
+
+  // P6B Relations
+  compensations_created  StaffCompensation[] @relation("compensation_creator")
+  payroll_runs_created   PayrollRun[]        @relation("payroll_run_creator")
+  payroll_runs_finalised PayrollRun[]        @relation("payroll_run_finaliser")
+  payslips_issued        Payslip[]           @relation("payslip_issuer")
+
+  // P7 Relations
+  authored_announcements    Announcement[]         @relation("announcement_author")
+  received_notifications    Notification[]         @relation("notification_recipient")
+  authored_inquiry_messages ParentInquiryMessage[] @relation("inquiry_message_author")
+  authored_website_pages    WebsitePage[]          @relation("website_page_author")
+
+  // P8 Relations
+  audit_logs_authored      AuditLog[]          @relation("audit_log_actor")
+  compliance_requests_made ComplianceRequest[] @relation("compliance_requested_by")
+  import_jobs_created      ImportJob[]         @relation("import_created_by")
+
+  @@map("users")
+}
+
+/// Append-only, no updated_at
+model MfaRecoveryCode {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  code_hash  String    @db.Text
+  used_at    DateTime? @db.Timestamptz()
+  created_at DateTime  @default(now()) @db.Timestamptz()
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], name: "idx_mfa_recovery_user")
+  @@map("mfa_recovery_codes")
+}
+
+/// Append-only, no updated_at
+model PasswordResetToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @db.Text
+  expires_at DateTime  @db.Timestamptz()
+  used_at    DateTime? @db.Timestamptz()
+  created_at DateTime  @default(now()) @db.Timestamptz()
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], name: "idx_password_reset_tokens_user")
+  @@map("password_reset_tokens")
+}
+
+// ─── RBAC ────────────────────────────────────────────────────────────────────
+
+model TenantMembership {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String           @db.Uuid
+  user_id           String           @db.Uuid
+  membership_status MembershipStatus @default(invited)
+  joined_at         DateTime?        @db.Timestamptz()
+  left_at           DateTime?        @db.Timestamptz()
+  created_at        DateTime         @default(now()) @db.Timestamptz()
+  updated_at        DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  membership_roles MembershipRole[]
+
+  @@unique([tenant_id, user_id], name: "idx_tenant_memberships_tenant_user")
+  @@index([user_id], name: "idx_tenant_memberships_user")
+  @@map("tenant_memberships")
+}
+
+model Role {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String?  @db.Uuid
+  role_key       String   @db.VarChar(100)
+  display_name   String   @db.VarChar(100)
+  is_system_role Boolean  @default(false)
+  role_tier      RoleTier
+  created_at     DateTime @default(now()) @db.Timestamptz()
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant             Tenant?            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  role_permissions   RolePermission[]
+  membership_roles   MembershipRole[]
+  approval_workflows ApprovalWorkflow[]
+
+  @@index([tenant_id], name: "idx_roles_tenant")
+  @@map("roles")
+}
+
+/// Global permission registry — no tenant_id, no updated_at
+model Permission {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  permission_key  String   @unique @db.VarChar(150)
+  description     String   @db.Text
+  permission_tier RoleTier
+
+  // Relations
+  role_permissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  role_id       String  @db.Uuid
+  permission_id String  @db.Uuid
+  tenant_id     String? @db.Uuid
+
+  // Relations
+  role       Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  tenant     Tenant?    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@map("role_permissions")
+}
+
+model MembershipRole {
+  membership_id String @db.Uuid
+  role_id       String @db.Uuid
+  tenant_id     String @db.Uuid
+
+  // Relations
+  membership TenantMembership @relation(fields: [membership_id], references: [id], onDelete: Cascade)
+  role       Role             @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  tenant     Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@id([membership_id, role_id])
+  @@map("membership_roles")
+}
+
+model Invitation {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String           @db.Uuid
+  email                String           @db.Citext
+  invited_role_payload Json
+  invited_by_user_id   String           @db.Uuid
+  token_hash           String           @db.Text
+  expires_at           DateTime         @db.Timestamptz()
+  accepted_at          DateTime?        @db.Timestamptz()
+  status               InvitationStatus @default(pending)
+  created_at           DateTime         @default(now()) @db.Timestamptz()
+  updated_at           DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invited_by User   @relation(fields: [invited_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, email], name: "idx_invitations_tenant_email")
+  @@index([token_hash], name: "idx_invitations_token")
+  @@map("invitations")
+}
+
+// ─── Approvals ───────────────────────────────────────────────────────────────
+
+model ApprovalWorkflow {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String             @db.Uuid
+  action_type      ApprovalActionType
+  approver_role_id String             @db.Uuid
+  is_enabled       Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamptz()
+  updated_at       DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  approver_role Role   @relation(fields: [approver_role_id], references: [id], onDelete: Cascade)
+
+  @@map("approval_workflows")
+}
+
+model ApprovalRequest {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                @db.Uuid
+  action_type        String                @db.VarChar(100)
+  target_entity_type String                @db.VarChar(100)
+  target_entity_id   String                @db.Uuid
+  requester_user_id  String                @db.Uuid
+  approver_user_id   String?               @db.Uuid
+  status             ApprovalRequestStatus @default(pending_approval)
+  request_comment    String?               @db.Text
+  decision_comment   String?               @db.Text
+  submitted_at       DateTime              @default(now()) @db.Timestamptz()
+  decided_at         DateTime?             @db.Timestamptz()
+  executed_at        DateTime?             @db.Timestamptz()
+  created_at         DateTime              @default(now()) @db.Timestamptz()
+  updated_at         DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  requester User   @relation("requester", fields: [requester_user_id], references: [id], onDelete: Cascade)
+  approver  User?  @relation("approver", fields: [approver_user_id], references: [id], onDelete: SetNull)
+
+  // P6 Relations
+  invoices Invoice[]
+
+  // P6B Relations
+  payroll_runs PayrollRun[]
+
+  // P7 Relations
+  announcements Announcement[]
+
+  @@index([tenant_id, status], name: "idx_approval_requests_tenant_status")
+  @@map("approval_requests")
+}
+
+// ─── User UI Preferences ─────────────────────────────────────────────────────
+
+model UserUiPreference {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  preferences Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, user_id])
+  @@map("user_ui_preferences")
+}
+
+// ─── P2: Households, Parents, Students ──────────────────────────────────────
+
+model Household {
+  id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String          @db.Uuid
+  household_name            String          @db.VarChar(255)
+  primary_billing_parent_id String?         @db.Uuid
+  address_line_1            String?         @db.VarChar(255)
+  address_line_2            String?         @db.VarChar(255)
+  city                      String?         @db.VarChar(100)
+  country                   String?         @db.VarChar(100)
+  postal_code               String?         @db.VarChar(30)
+  needs_completion          Boolean         @default(false)
+  status                    HouseholdStatus @default(active)
+  created_at                DateTime        @default(now()) @db.Timestamptz()
+  updated_at                DateTime        @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant             Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  billing_parent     Parent?                     @relation("billing_parent", fields: [primary_billing_parent_id], references: [id], onDelete: SetNull)
+  emergency_contacts HouseholdEmergencyContact[]
+  household_parents  HouseholdParent[]
+  students           Student[]
+
+  // P6 Relations
+  fee_assignments HouseholdFeeAssignment[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  @@index([tenant_id], name: "idx_households_tenant")
+  @@index([tenant_id, status], name: "idx_households_tenant_status")
+  @@map("households")
+}
+
+model HouseholdEmergencyContact {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  household_id       String   @db.Uuid
+  contact_name       String   @db.VarChar(200)
+  phone              String   @db.VarChar(50)
+  relationship_label String   @db.VarChar(100)
+  display_order      Int      @default(1) @db.SmallInt
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [household_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, household_id], name: "idx_emergency_contacts_household")
+  @@map("household_emergency_contacts")
+}
+
+model Parent {
+  id                         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String       @db.Uuid
+  user_id                    String?      @db.Uuid
+  first_name                 String       @db.VarChar(100)
+  last_name                  String       @db.VarChar(100)
+  email                      String?      @db.Citext
+  phone                      String?      @db.VarChar(50)
+  whatsapp_phone             String?      @db.VarChar(50)
+  preferred_contact_channels Json
+  relationship_label         String?      @db.VarChar(100)
+  is_primary_contact         Boolean      @default(false)
+  is_billing_contact         Boolean      @default(false)
+  status                     ParentStatus @default(active)
+  created_at                 DateTime     @default(now()) @db.Timestamptz()
+  updated_at                 DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant             Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user               User?             @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  billing_households Household[]       @relation("billing_parent")
+  household_parents  HouseholdParent[]
+  student_parents    StudentParent[]
+  applications       Application[]
+
+  // P7 Relations
+  inquiries ParentInquiry[]
+
+  @@index([tenant_id], name: "idx_parents_tenant")
+  @@index([tenant_id, email], name: "idx_parents_tenant_email")
+  @@index([user_id], name: "idx_parents_user")
+  @@map("parents")
+}
+
+model HouseholdParent {
+  household_id String   @db.Uuid
+  parent_id    String   @db.Uuid
+  role_label   String?  @db.VarChar(100)
+  tenant_id    String   @db.Uuid
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  parent    Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@id([household_id, parent_id])
+  @@map("household_parents")
+}
+
+model Student {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String        @db.Uuid
+  household_id      String        @db.Uuid
+  student_number    String?       @db.VarChar(50)
+  first_name        String        @db.VarChar(100)
+  last_name         String        @db.VarChar(100)
+  full_name         String?       @db.VarChar(255)
+  first_name_ar     String?       @db.VarChar(100)
+  last_name_ar      String?       @db.VarChar(100)
+  full_name_ar      String?       @db.VarChar(255)
+  date_of_birth     DateTime      @db.Date
+  gender            Gender?
+  status            StudentStatus
+  entry_date        DateTime?     @db.Date
+  exit_date         DateTime?     @db.Date
+  year_group_id     String?       @db.Uuid
+  class_homeroom_id String?       @db.Uuid
+  medical_notes     String?       @db.Text
+  has_allergy       Boolean       @default(false)
+  allergy_details   String?       @db.Text
+  created_at        DateTime      @default(now()) @db.Timestamptz()
+  updated_at        DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                     Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household                  Household                @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  year_group                 YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
+  homeroom_class             Class?                   @relation("homeroom_students", fields: [class_homeroom_id], references: [id], onDelete: SetNull)
+  student_parents            StudentParent[]
+  class_enrolments           ClassEnrolment[]
+  attendance_records         AttendanceRecord[]
+  daily_attendance_summaries DailyAttendanceSummary[]
+
+  // P5 Relations
+  grades                 Grade[]
+  period_grade_snapshots PeriodGradeSnapshot[]
+  report_cards           ReportCard[]
+
+  // P6 Relations
+  fee_assignments HouseholdFeeAssignment[]
+  invoice_lines   InvoiceLine[]
+
+  // P7 Relations
+  inquiries ParentInquiry[]
+
+  @@index([tenant_id], name: "idx_students_tenant")
+  @@index([tenant_id, status], name: "idx_students_tenant_status")
+  @@index([tenant_id, household_id], name: "idx_students_tenant_household")
+  @@index([tenant_id, year_group_id], name: "idx_students_tenant_year_group")
+  @@map("students")
+}
+
+model StudentParent {
+  student_id         String   @db.Uuid
+  parent_id          String   @db.Uuid
+  relationship_label String?  @db.VarChar(100)
+  tenant_id          String   @db.Uuid
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@id([student_id, parent_id])
+  @@map("student_parents")
+}
+
+// ─── P2: Staff Profiles ─────────────────────────────────────────────────────
+
+model StaffProfile {
+  id                            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                     String           @db.Uuid
+  user_id                       String           @db.Uuid
+  staff_number                  String?          @db.VarChar(50)
+  job_title                     String?          @db.VarChar(150)
+  employment_status             EmploymentStatus
+  department                    String?          @db.VarChar(150)
+  employment_type               EmploymentType   @default(full_time)
+  bank_name                     String?          @db.VarChar(150)
+  bank_account_number_encrypted String?          @db.Text
+  bank_iban_encrypted           String?          @db.Text
+  bank_encryption_key_ref       String?          @db.VarChar(255)
+  created_at                    DateTime         @default(now()) @db.Timestamptz()
+  updated_at                    DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  class_staff      ClassStaff[]
+  homeroom_classes Class[]      @relation("homeroom_teacher")
+  schedules        Schedule[]   @relation("schedule_teacher")
+
+  // P4B Relations
+  staff_availability           StaffAvailability[]
+  staff_scheduling_preferences StaffSchedulingPreference[]
+
+  // P6B Relations
+  compensations   StaffCompensation[]
+  payroll_entries PayrollEntry[]
+
+  @@unique([tenant_id, user_id], name: "idx_staff_profiles_tenant_user")
+  @@index([tenant_id], name: "idx_staff_profiles_tenant")
+  @@index([user_id], name: "idx_staff_profiles_user")
+  @@map("staff_profiles")
+}
+
+// ─── P2: Academics ──────────────────────────────────────────────────────────
+
+model AcademicYear {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String             @db.Uuid
+  name       String             @db.VarChar(100)
+  start_date DateTime           @db.Date
+  end_date   DateTime           @db.Date
+  status     AcademicYearStatus
+  created_at DateTime           @default(now()) @db.Timestamptz()
+  updated_at DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  periods   AcademicPeriod[]
+  classes   Class[]
+  schedules Schedule[]
+
+  // P4B Relations
+  schedule_period_templates     SchedulePeriodTemplate[]
+  class_scheduling_requirements ClassSchedulingRequirement[]
+  staff_availability            StaffAvailability[]
+  staff_scheduling_preferences  StaffSchedulingPreference[]
+  scheduling_runs               SchedulingRun[]
+
+  @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
+  @@index([tenant_id], name: "idx_academic_years_tenant")
+  @@map("academic_years")
+}
+
+model AcademicPeriod {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String               @db.Uuid
+  academic_year_id String               @db.Uuid
+  name             String               @db.VarChar(100)
+  period_type      AcademicPeriodType
+  start_date       DateTime             @db.Date
+  end_date         DateTime             @db.Date
+  status           AcademicPeriodStatus
+  created_at       DateTime             @default(now()) @db.Timestamptz()
+  updated_at       DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+
+  // P5 Relations
+  assessments            Assessment[]
+  period_grade_snapshots PeriodGradeSnapshot[]
+  report_cards           ReportCard[]
+
+  @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
+  @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
+  @@map("academic_periods")
+}
+
+model YearGroup {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  name               String   @db.VarChar(100)
+  display_order      Int      @default(0) @db.SmallInt
+  next_year_group_id String?  @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  next_year_group      YearGroup?  @relation("year_group_chain", fields: [next_year_group_id], references: [id], onDelete: SetNull)
+  previous_year_groups YearGroup[] @relation("year_group_chain")
+  students             Student[]
+  classes              Class[]
+
+  // P6 Relations
+  fee_structures FeeStructure[]
+
+  @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
+  @@index([tenant_id], name: "idx_year_groups_tenant")
+  @@map("year_groups")
+}
+
+model Subject {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String      @db.Uuid
+  name         String      @db.VarChar(150)
+  code         String?     @db.VarChar(50)
+  subject_type SubjectType @default(academic)
+  active       Boolean     @default(true)
+  created_at   DateTime    @default(now()) @db.Timestamptz()
+  updated_at   DateTime    @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  classes Class[]
+
+  // P5 Relations
+  class_subject_grade_configs ClassSubjectGradeConfig[]
+  assessments                 Assessment[]
+  period_grade_snapshots      PeriodGradeSnapshot[]
+
+  @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
+  @@index([tenant_id], name: "idx_subjects_tenant")
+  @@map("subjects")
+}
+
+// ─── P2: Classes & Enrolments ───────────────────────────────────────────────
+
+model Class {
+  id                        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String      @db.Uuid
+  academic_year_id          String      @db.Uuid
+  year_group_id             String?     @db.Uuid
+  subject_id                String?     @db.Uuid
+  homeroom_teacher_staff_id String?     @db.Uuid
+  name                      String      @db.VarChar(150)
+  status                    ClassStatus
+  created_at                DateTime    @default(now()) @db.Timestamptz()
+  updated_at                DateTime    @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year       AcademicYear        @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  year_group          YearGroup?          @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
+  subject             Subject?            @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  homeroom_teacher    StaffProfile?       @relation("homeroom_teacher", fields: [homeroom_teacher_staff_id], references: [id], onDelete: SetNull)
+  class_staff         ClassStaff[]
+  class_enrolments    ClassEnrolment[]
+  homeroom_students   Student[]           @relation("homeroom_students")
+  schedules           Schedule[]
+  attendance_sessions AttendanceSession[]
+
+  // P4B Relations
+  scheduling_requirements ClassSchedulingRequirement[]
+
+  // P5 Relations
+  class_subject_grade_configs ClassSubjectGradeConfig[]
+  assessments                 Assessment[]
+  period_grade_snapshots      PeriodGradeSnapshot[]
+
+  @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
+  @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
+  @@index([tenant_id, status], name: "idx_classes_tenant_status")
+  @@map("classes")
+}
+
+model ClassStaff {
+  class_id         String         @db.Uuid
+  staff_profile_id String         @db.Uuid
+  assignment_role  ClassStaffRole
+  tenant_id        String         @db.Uuid
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity  Class        @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+
+  @@id([class_id, staff_profile_id, assignment_role])
+  @@map("class_staff")
+}
+
+model ClassEnrolment {
+  id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String               @db.Uuid
+  class_id   String               @db.Uuid
+  student_id String               @db.Uuid
+  status     ClassEnrolmentStatus
+  start_date DateTime             @db.Date
+  end_date   DateTime?            @db.Date
+  created_at DateTime             @default(now()) @db.Timestamptz()
+  updated_at DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  student      Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, class_id, status], name: "idx_class_enrolments_tenant_class")
+  @@index([tenant_id, student_id, status], name: "idx_class_enrolments_tenant_student")
+  @@map("class_enrolments")
+}
+
+// ─── P3: Admissions ────────────────────────────────────────────────────────
+
+model AdmissionFormDefinition {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String               @db.Uuid
+  name           String               @db.VarChar(255)
+  base_form_id   String?              @db.Uuid
+  version_number Int                  @default(1)
+  status         FormDefinitionStatus @default(draft)
+  created_at     DateTime             @default(now()) @db.Timestamptz()
+  updated_at     DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  base_form    AdmissionFormDefinition?  @relation("form_versions", fields: [base_form_id], references: [id], onDelete: SetNull)
+  versions     AdmissionFormDefinition[] @relation("form_versions")
+  fields       AdmissionFormField[]
+  applications Application[]
+
+  @@unique([tenant_id, base_form_id, version_number], name: "idx_form_definitions_version")
+  @@index([tenant_id, status], name: "idx_form_definitions_tenant")
+  @@index([base_form_id], name: "idx_form_definitions_base")
+  @@map("admission_form_definitions")
+}
+
+model AdmissionFormField {
+  id                          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String               @db.Uuid
+  form_definition_id          String               @db.Uuid
+  field_key                   String               @db.VarChar(100)
+  label                       String               @db.VarChar(255)
+  help_text                   String?              @db.Text
+  field_type                  ApplicationFieldType
+  required                    Boolean              @default(false)
+  visible_to_parent           Boolean              @default(true)
+  visible_to_staff            Boolean              @default(true)
+  searchable                  Boolean              @default(false)
+  reportable                  Boolean              @default(false)
+  options_json                Json?
+  validation_rules_json       Json?
+  conditional_visibility_json Json?
+  display_order               Int
+  active                      Boolean              @default(true)
+
+  // Relations
+  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  form_definition AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
+
+  @@index([form_definition_id], name: "idx_form_fields_definition")
+  @@map("admission_form_fields")
+}
+
+model Application {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String            @db.Uuid
+  form_definition_id     String            @db.Uuid
+  application_number     String            @db.VarChar(50)
+  submitted_by_parent_id String?           @db.Uuid
+  student_first_name     String            @db.VarChar(100)
+  student_last_name      String            @db.VarChar(100)
+  date_of_birth          DateTime?         @db.Date
+  status                 ApplicationStatus @default(draft)
+  submitted_at           DateTime?         @db.Timestamptz()
+  reviewed_at            DateTime?         @db.Timestamptz()
+  reviewed_by_user_id    String?           @db.Uuid
+  payload_json           Json
+  created_at             DateTime          @default(now()) @db.Timestamptz()
+  updated_at             DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  form_definition AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
+  submitted_by    Parent?                 @relation(fields: [submitted_by_parent_id], references: [id], onDelete: SetNull)
+  reviewed_by     User?                   @relation("reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  notes           ApplicationNote[]
+
+  @@unique([tenant_id, application_number], name: "idx_applications_number")
+  @@index([tenant_id, status], name: "idx_applications_tenant_status")
+  @@index([tenant_id, form_definition_id], name: "idx_applications_tenant_form")
+  @@map("applications")
+}
+
+/// Append-only, no updated_at
+model ApplicationNote {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  application_id String   @db.Uuid
+  author_user_id String   @db.Uuid
+  note           String   @db.Text
+  is_internal    Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  author      User        @relation(fields: [author_user_id], references: [id], onDelete: Cascade)
+
+  @@index([application_id], name: "idx_application_notes_application")
+  @@map("application_notes")
+}
+
+// ─── P4A: Rooms & Scheduling ──────────────────────────────────────────────
+
+model Room {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  name         String   @db.VarChar(100)
+  room_type    RoomType @default(classroom)
+  capacity     Int?
+  is_exclusive Boolean  @default(true)
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now()) @db.Timestamptz()
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  schedules Schedule[]
+
+  // P4B Relations
+  class_scheduling_requirements ClassSchedulingRequirement[] @relation("class_req_preferred_room")
+
+  @@unique([tenant_id, name], name: "idx_rooms_tenant_name")
+  @@index([tenant_id], name: "idx_rooms_tenant")
+  @@map("rooms")
+}
+
+model Schedule {
+  id                          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String         @db.Uuid
+  class_id                    String         @db.Uuid
+  academic_year_id            String         @db.Uuid
+  room_id                     String?        @db.Uuid
+  teacher_staff_id            String?        @db.Uuid
+  schedule_period_template_id String?        @db.Uuid
+  period_order                Int?           @db.SmallInt
+  weekday                     Int            @db.SmallInt
+  start_time                  DateTime       @db.Time
+  end_time                    DateTime       @db.Time
+  effective_start_date        DateTime       @db.Date
+  effective_end_date          DateTime?      @db.Date
+  is_pinned                   Boolean        @default(false)
+  pin_reason                  String?        @db.Text
+  source                      ScheduleSource @default(manual)
+  scheduling_run_id           String?        @db.Uuid
+  created_at                  DateTime       @default(now()) @db.Timestamptz()
+  updated_at                  DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                   Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity             Class                   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_year            AcademicYear            @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  room                     Room?                   @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  teacher                  StaffProfile?           @relation("schedule_teacher", fields: [teacher_staff_id], references: [id], onDelete: SetNull)
+  attendance_sessions      AttendanceSession[]
+  schedule_period_template SchedulePeriodTemplate? @relation(fields: [schedule_period_template_id], references: [id], onDelete: SetNull)
+  scheduling_run           SchedulingRun?          @relation(fields: [scheduling_run_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, class_id, weekday], name: "idx_schedules_tenant_class")
+  @@index([tenant_id, room_id, weekday], name: "idx_schedules_tenant_room")
+  @@index([tenant_id, teacher_staff_id, weekday], name: "idx_schedules_tenant_teacher")
+  @@index([tenant_id, weekday, effective_start_date, effective_end_date], name: "idx_schedules_tenant_weekday")
+  @@index([tenant_id, academic_year_id], name: "idx_schedules_tenant_year")
+  @@map("schedules")
+}
+
+// ─── P4A: School Closures ────────────────────────────────────────────────
+
+/// Append-only, no updated_at
+model SchoolClosure {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String       @db.Uuid
+  closure_date       DateTime     @db.Date
+  reason             String       @db.VarChar(255)
+  affects_scope      ClosureScope @default(all)
+  scope_entity_id    String?      @db.Uuid
+  created_by_user_id String       @db.Uuid
+  created_at         DateTime     @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation(fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, closure_date], name: "idx_school_closures_tenant_date")
+  @@map("school_closures")
+}
+
+// ─── P4A: Attendance ─────────────────────────────────────────────────────
+
+model AttendanceSession {
+  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                  @db.Uuid
+  class_id             String                  @db.Uuid
+  schedule_id          String?                 @db.Uuid
+  session_date         DateTime                @db.Date
+  status               AttendanceSessionStatus
+  override_reason      String?                 @db.Text
+  submitted_by_user_id String?                 @db.Uuid
+  submitted_at         DateTime?               @db.Timestamptz()
+  created_at           DateTime                @default(now()) @db.Timestamptz()
+  updated_at           DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  schedule     Schedule?          @relation(fields: [schedule_id], references: [id], onDelete: SetNull)
+  submitted_by User?              @relation("session_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  records      AttendanceRecord[]
+
+  @@index([tenant_id, session_date], name: "idx_attendance_sessions_tenant_date")
+  @@index([tenant_id, session_date, status], name: "idx_attendance_sessions_tenant_date_status")
+  @@index([tenant_id, class_id, status], name: "idx_attendance_sessions_tenant_class_status")
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String                 @db.Uuid
+  attendance_session_id String                 @db.Uuid
+  student_id            String                 @db.Uuid
+  status                AttendanceRecordStatus
+  reason                String?                @db.Text
+  marked_by_user_id     String                 @db.Uuid
+  marked_at             DateTime               @db.Timestamptz()
+  amended_from_status   String?                @db.VarChar(50)
+  amendment_reason      String?                @db.Text
+  created_at            DateTime               @default(now()) @db.Timestamptz()
+  updated_at            DateTime               @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  session AttendanceSession @relation(fields: [attendance_session_id], references: [id], onDelete: Cascade)
+  student Student           @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  marker  User              @relation("record_marker", fields: [marked_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, attendance_session_id], name: "idx_attendance_records_session")
+  @@index([tenant_id, student_id], name: "idx_attendance_records_student")
+  @@map("attendance_records")
+}
+
+model DailyAttendanceSummary {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String                @db.Uuid
+  student_id      String                @db.Uuid
+  summary_date    DateTime              @db.Date
+  derived_status  DailyAttendanceStatus
+  derived_payload Json
+  created_at      DateTime              @default(now()) @db.Timestamptz()
+  updated_at      DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, summary_date], name: "idx_daily_summary_unique")
+  @@index([tenant_id, student_id], name: "idx_daily_summaries_tenant_student")
+  @@map("daily_attendance_summaries")
+}
+
+// ─── P4B: Auto-Scheduling ───────────────────────────────────────────────────
+
+model SchedulePeriodTemplate {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  academic_year_id     String             @db.Uuid
+  weekday              Int                @db.SmallInt
+  period_name          String             @db.VarChar(50)
+  period_name_ar       String?            @db.VarChar(50)
+  period_order         Int                @db.SmallInt
+  start_time           DateTime           @db.Time
+  end_time             DateTime           @db.Time
+  schedule_period_type SchedulePeriodType @default(teaching)
+  created_at           DateTime           @default(now()) @db.Timestamptz()
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  schedules     Schedule[]
+
+  @@unique([tenant_id, academic_year_id, weekday, period_order], name: "idx_schedule_period_templates_order", map: "idx_schedule_period_templates_order")
+  @@unique([tenant_id, academic_year_id, weekday, start_time], name: "idx_schedule_period_templates_time", map: "idx_schedule_period_templates_time")
+  @@index([tenant_id, academic_year_id], name: "idx_schedule_period_templates_tenant_year")
+  @@map("schedule_period_templates")
+}
+
+model ClassSchedulingRequirement {
+  id                      String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String           @db.Uuid
+  class_id                String           @db.Uuid
+  academic_year_id        String           @db.Uuid
+  periods_per_week        Int              @db.SmallInt
+  required_room_type      RoomType?
+  preferred_room_id       String?          @db.Uuid
+  max_consecutive_periods Int              @default(2) @db.SmallInt
+  min_consecutive_periods Int              @default(1) @db.SmallInt
+  spread_preference       SpreadPreference @default(spread_evenly)
+  student_count           Int?
+  created_at              DateTime         @default(now()) @db.Timestamptz()
+  updated_at              DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity   Class        @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_year  AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  preferred_room Room?        @relation("class_req_preferred_room", fields: [preferred_room_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, class_id, academic_year_id], name: "idx_class_sched_req_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_class_sched_req_tenant_year")
+  @@map("class_scheduling_requirements")
+}
+
+model StaffAvailability {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  academic_year_id String   @db.Uuid
+  weekday          Int      @db.SmallInt
+  available_from   DateTime @db.Time
+  available_to     DateTime @db.Time
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, staff_profile_id, academic_year_id, weekday], name: "idx_staff_availability_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_staff_availability_tenant_year")
+  @@map("staff_availability")
+}
+
+model StaffSchedulingPreference {
+  id                 String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                       @db.Uuid
+  staff_profile_id   String                       @db.Uuid
+  academic_year_id   String                       @db.Uuid
+  preference_type    SchedulingPreferenceType
+  preference_payload Json                         @db.JsonB
+  priority           SchedulingPreferencePriority @default(medium)
+  created_at         DateTime                     @default(now()) @db.Timestamptz()
+  updated_at         DateTime                     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, staff_profile_id, academic_year_id], name: "idx_staff_sched_prefs_tenant_staff")
+  @@index([tenant_id, academic_year_id], name: "idx_staff_sched_prefs_tenant_year")
+  @@map("staff_scheduling_preferences")
+}
+
+model SchedulingRun {
+  id                         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String              @db.Uuid
+  academic_year_id           String              @db.Uuid
+  mode                       SchedulingRunMode
+  status                     SchedulingRunStatus
+  config_snapshot            Json?               @db.JsonB
+  result_json                Json?               @db.JsonB
+  proposed_adjustments       Json?               @db.JsonB
+  hard_constraint_violations Int                 @default(0)
+  soft_preference_score      Decimal?            @db.Decimal(8, 2)
+  soft_preference_max        Decimal?            @db.Decimal(8, 2)
+  entries_generated          Int                 @default(0)
+  entries_pinned             Int                 @default(0)
+  entries_unassigned         Int                 @default(0)
+  solver_duration_ms         Int?
+  solver_seed                BigInt?
+  failure_reason             String?             @db.Text
+  created_by_user_id         String              @db.Uuid
+  applied_by_user_id         String?             @db.Uuid
+  applied_at                 DateTime?           @db.Timestamptz()
+  created_at                 DateTime            @default(now()) @db.Timestamptz()
+  updated_at                 DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  created_by    User         @relation("scheduling_run_created_by", fields: [created_by_user_id], references: [id])
+  applied_by    User?        @relation("scheduling_run_applied_by", fields: [applied_by_user_id], references: [id])
+  schedules     Schedule[]
+
+  @@index([tenant_id, academic_year_id, status], name: "idx_scheduling_runs_tenant_year")
+  @@map("scheduling_runs")
+}
+
+// ─── P5 Enums ──────────────────────────────────────────────────────────────
+
+enum AssessmentStatus {
+  draft
+  open
+  closed
+  locked
+}
+
+enum ReportCardStatus {
+  draft
+  published
+  revised
+}
+
+// ─── P6 Enums ──────────────────────────────────────────────────────────────
+
+enum BillingFrequency {
+  one_off
+  term
+  monthly
+  custom
+}
+
+enum DiscountType {
+  fixed
+  percent
+}
+
+enum InvoiceStatus {
+  draft
+  pending_approval
+  issued
+  partially_paid
+  paid
+  overdue
+  void
+  cancelled
+  written_off
+}
+
+enum InstallmentStatus {
+  pending
+  paid
+  overdue
+}
+
+enum PaymentMethod {
+  stripe
+  cash
+  bank_transfer
+  card_manual
+}
+
+enum PaymentStatus {
+  pending
+  posted
+  failed
+  voided
+  refunded_partial
+  refunded_full
+}
+
+enum RefundStatus {
+  pending_approval
+  approved
+  executed
+  failed
+  rejected
+}
+
+// ─── P5: Gradebook & Reporting ─────────────────────────────────────────────
+
+model GradingScale {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  name        String   @db.VarChar(100)
+  config_json Json
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                      Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_subject_grade_configs ClassSubjectGradeConfig[]
+
+  @@unique([tenant_id, name], name: "idx_grading_scales_tenant_name")
+  @@index([tenant_id], name: "idx_grading_scales_tenant")
+  @@map("grading_scales")
+}
+
+model AssessmentCategory {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  name           String   @db.VarChar(100)
+  default_weight Decimal  @db.Decimal(5, 2)
+  created_at     DateTime @default(now()) @db.Timestamptz()
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+
+  @@unique([tenant_id, name], name: "idx_assessment_categories_tenant_name")
+  @@index([tenant_id], name: "idx_assessment_categories_tenant")
+  @@map("assessment_categories")
+}
+
+model ClassSubjectGradeConfig {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String   @db.Uuid
+  class_id             String   @db.Uuid
+  subject_id           String   @db.Uuid
+  grading_scale_id     String   @db.Uuid
+  category_weight_json Json
+  created_at           DateTime @default(now()) @db.Timestamptz()
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity  Class        @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  grading_scale GradingScale @relation(fields: [grading_scale_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, class_id, subject_id], name: "idx_grade_configs_class_subject")
+  @@index([tenant_id], name: "idx_grade_configs_tenant")
+  @@map("class_subject_grade_configs")
+}
+
+model Assessment {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String           @db.Uuid
+  class_id           String           @db.Uuid
+  subject_id         String           @db.Uuid
+  academic_period_id String           @db.Uuid
+  category_id        String           @db.Uuid
+  title              String           @db.VarChar(255)
+  max_score          Decimal          @db.Decimal(10, 2)
+  due_date           DateTime?        @db.Date
+  grading_deadline   DateTime?        @db.Date
+  status             AssessmentStatus @default(draft)
+  created_at         DateTime         @default(now()) @db.Timestamptz()
+  updated_at         DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity    Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject         Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  category        AssessmentCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  grades          Grade[]
+
+  @@index([tenant_id, class_id], name: "idx_assessments_tenant_class")
+  @@index([tenant_id, academic_period_id], name: "idx_assessments_tenant_period")
+  @@map("assessments")
+}
+
+model Grade {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
+  assessment_id      String    @db.Uuid
+  student_id         String    @db.Uuid
+  raw_score          Decimal?  @db.Decimal(10, 4)
+  is_missing         Boolean   @default(false)
+  comment            String?   @db.Text
+  entered_by_user_id String    @db.Uuid
+  entered_at         DateTime? @db.Timestamptz()
+  created_at         DateTime  @default(now()) @db.Timestamptz()
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  entered_by User       @relation("grades_entered", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, assessment_id, student_id], name: "idx_grades_unique")
+  @@index([tenant_id, student_id], name: "idx_grades_student")
+  @@map("grades")
+}
+
+model PeriodGradeSnapshot {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  student_id             String   @db.Uuid
+  class_id               String   @db.Uuid
+  subject_id             String   @db.Uuid
+  academic_period_id     String   @db.Uuid
+  computed_value         Decimal  @db.Decimal(10, 4)
+  display_value          String   @db.VarChar(50)
+  overridden_value       String?  @db.VarChar(50)
+  override_reason        String?  @db.Text
+  override_actor_user_id String?  @db.Uuid
+  snapshot_at            DateTime @db.Timestamptz()
+  created_at             DateTime @default(now()) @db.Timestamptz()
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject         Subject        @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  override_actor  User?          @relation("period_grade_overrides", fields: [override_actor_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, student_id, class_id, subject_id, academic_period_id], name: "idx_period_snapshots_unique")
+  @@index([tenant_id, student_id], name: "idx_period_snapshots_student")
+  @@index([tenant_id, academic_period_id], name: "idx_period_snapshots_period")
+  @@map("period_grade_snapshots")
+}
+
+model ReportCard {
+  id                         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String           @db.Uuid
+  student_id                 String           @db.Uuid
+  academic_period_id         String           @db.Uuid
+  status                     ReportCardStatus @default(draft)
+  template_locale            String           @db.VarChar(10)
+  teacher_comment            String?          @db.Text
+  principal_comment          String?          @db.Text
+  published_at               DateTime?        @db.Timestamptz()
+  published_by_user_id       String?          @db.Uuid
+  revision_of_report_card_id String?          @db.Uuid
+  snapshot_payload_json      Json
+  created_at                 DateTime         @default(now()) @db.Timestamptz()
+  updated_at                 DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  published_by    User?          @relation("report_card_publisher", fields: [published_by_user_id], references: [id], onDelete: SetNull)
+  revision_of     ReportCard?    @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
+  revisions       ReportCard[]   @relation("report_card_revisions")
+
+  @@index([tenant_id, student_id], name: "idx_report_cards_student")
+  @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
+  @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
+  @@map("report_cards")
+}
+
+// ─── P6: Finance ──────────────────────────────────────────────────────────
+
+model FeeStructure {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String           @db.Uuid
+  name              String           @db.VarChar(150)
+  year_group_id     String?          @db.Uuid
+  amount            Decimal          @db.Decimal(12, 2)
+  billing_frequency BillingFrequency
+  active            Boolean          @default(true)
+  created_at        DateTime         @default(now()) @db.Timestamptz()
+  updated_at        DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                    Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  year_group                YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
+  household_fee_assignments HouseholdFeeAssignment[]
+  invoice_lines             InvoiceLine[]
+
+  @@unique([tenant_id, name], name: "idx_fee_structures_tenant_name")
+  @@index([tenant_id], name: "idx_fee_structures_tenant")
+  @@map("fee_structures")
+}
+
+model Discount {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String       @db.Uuid
+  name          String       @db.VarChar(150)
+  discount_type DiscountType
+  value         Decimal      @db.Decimal(12, 2)
+  active        Boolean      @default(true)
+  created_at    DateTime     @default(now()) @db.Timestamptz()
+  updated_at    DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                    Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household_fee_assignments HouseholdFeeAssignment[]
+
+  @@unique([tenant_id, name], name: "idx_discounts_tenant_name")
+  @@index([tenant_id], name: "idx_discounts_tenant")
+  @@map("discounts")
+}
+
+model HouseholdFeeAssignment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String    @db.Uuid
+  household_id     String    @db.Uuid
+  student_id       String?   @db.Uuid
+  fee_structure_id String    @db.Uuid
+  discount_id      String?   @db.Uuid
+  effective_from   DateTime  @db.Date
+  effective_to     DateTime? @db.Date
+  created_at       DateTime  @default(now()) @db.Timestamptz()
+  updated_at       DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household     Household    @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  student       Student?     @relation(fields: [student_id], references: [id], onDelete: SetNull)
+  fee_structure FeeStructure @relation(fields: [fee_structure_id], references: [id], onDelete: Cascade)
+  discount      Discount?    @relation(fields: [discount_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, household_id], name: "idx_household_fees_tenant_household")
+  @@map("household_fee_assignments")
+}
+
+model Invoice {
+  id                       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String        @db.Uuid
+  household_id             String        @db.Uuid
+  invoice_number           String        @db.VarChar(50)
+  status                   InvoiceStatus @default(draft)
+  issue_date               DateTime?     @db.Date
+  due_date                 DateTime      @db.Date
+  subtotal_amount          Decimal       @db.Decimal(12, 2)
+  discount_amount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax_amount               Decimal       @default(0) @db.Decimal(12, 2)
+  total_amount             Decimal       @db.Decimal(12, 2)
+  balance_amount           Decimal       @db.Decimal(12, 2)
+  currency_code            String        @db.VarChar(10)
+  write_off_amount         Decimal?      @db.Decimal(12, 2)
+  write_off_reason         String?       @db.Text
+  last_overdue_notified_at DateTime?     @db.Timestamptz()
+  approval_request_id      String?       @db.Uuid
+  created_by_user_id       String        @db.Uuid
+  created_at               DateTime      @default(now()) @db.Timestamptz()
+  updated_at               DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household           Household           @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  approval_request    ApprovalRequest?    @relation(fields: [approval_request_id], references: [id], onDelete: SetNull)
+  created_by          User                @relation("invoice_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  lines               InvoiceLine[]
+  installments        Installment[]
+  payment_allocations PaymentAllocation[]
+
+  @@unique([tenant_id, invoice_number], name: "idx_invoices_number")
+  @@index([tenant_id, household_id], name: "idx_invoices_tenant_household")
+  @@index([tenant_id, status], name: "idx_invoices_tenant_status")
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String    @db.Uuid
+  invoice_id           String    @db.Uuid
+  description          String    @db.VarChar(255)
+  quantity             Decimal   @default(1) @db.Decimal(10, 2)
+  unit_amount          Decimal   @db.Decimal(12, 2)
+  line_total           Decimal   @db.Decimal(12, 2)
+  student_id           String?   @db.Uuid
+  fee_structure_id     String?   @db.Uuid
+  billing_period_start DateTime? @db.Date
+  billing_period_end   DateTime? @db.Date
+
+  // Relations
+  tenant        Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice       Invoice       @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  student       Student?      @relation(fields: [student_id], references: [id], onDelete: SetNull)
+  fee_structure FeeStructure? @relation(fields: [fee_structure_id], references: [id], onDelete: SetNull)
+
+  @@index([invoice_id], name: "idx_invoice_lines_invoice")
+  @@map("invoice_lines")
+}
+
+model Installment {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String            @db.Uuid
+  invoice_id String            @db.Uuid
+  due_date   DateTime          @db.Date
+  amount     Decimal           @db.Decimal(12, 2)
+  status     InstallmentStatus @default(pending)
+  created_at DateTime          @default(now()) @db.Timestamptz()
+  updated_at DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([invoice_id], name: "idx_installments_invoice")
+  @@map("installments")
+}
+
+model Payment {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String        @db.Uuid
+  household_id      String        @db.Uuid
+  payment_reference String        @db.VarChar(100)
+  payment_method    PaymentMethod
+  external_provider String?       @db.VarChar(50)
+  external_event_id String?       @db.VarChar(255)
+  amount            Decimal       @db.Decimal(12, 2)
+  currency_code     String        @db.VarChar(10)
+  status            PaymentStatus @default(pending)
+  received_at       DateTime      @db.Timestamptz()
+  posted_by_user_id String?       @db.Uuid
+  reason            String?       @db.Text
+  created_at        DateTime      @default(now()) @db.Timestamptz()
+  updated_at        DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household   Household           @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  posted_by   User?               @relation("payment_poster", fields: [posted_by_user_id], references: [id], onDelete: SetNull)
+  allocations PaymentAllocation[]
+  receipt     Receipt?
+  refunds     Refund[]
+
+  @@index([tenant_id, household_id], name: "idx_payments_tenant_household")
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  payment_id       String   @db.Uuid
+  invoice_id       String   @db.Uuid
+  allocated_amount Decimal  @db.Decimal(12, 2)
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([payment_id], name: "idx_payment_allocations_payment")
+  @@index([invoice_id], name: "idx_payment_allocations_invoice")
+  @@map("payment_allocations")
+}
+
+model Receipt {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String   @db.Uuid
+  payment_id        String   @unique @db.Uuid
+  receipt_number    String   @db.VarChar(50)
+  template_locale   String   @db.VarChar(10)
+  issued_at         DateTime @db.Timestamptz()
+  issued_by_user_id String?  @db.Uuid
+  render_version    String   @db.VarChar(50)
+  created_at        DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payment   Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  issued_by User?   @relation("receipt_issuer", fields: [issued_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, receipt_number], name: "idx_receipts_number")
+  @@map("receipts")
+}
+
+model Refund {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String       @db.Uuid
+  payment_id           String       @db.Uuid
+  refund_reference     String       @db.VarChar(100)
+  amount               Decimal      @db.Decimal(12, 2)
+  status               RefundStatus @default(pending_approval)
+  reason               String       @db.Text
+  requested_by_user_id String       @db.Uuid
+  approved_by_user_id  String?      @db.Uuid
+  failure_reason       String?      @db.Text
+  executed_at          DateTime?    @db.Timestamptz()
+  created_at           DateTime     @default(now()) @db.Timestamptz()
+  updated_at           DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payment      Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
+  requested_by User    @relation("refund_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  approved_by  User?   @relation("refund_approver", fields: [approved_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([payment_id], name: "idx_refunds_payment")
+  @@map("refunds")
+}
+
+// ─── P6B: Payroll ──────────────────────────────────────────────────────────
+
+model StaffCompensation {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String           @db.Uuid
+  staff_profile_id     String           @db.Uuid
+  compensation_type    CompensationType
+  base_salary          Decimal?         @db.Decimal(12, 2)
+  per_class_rate       Decimal?         @db.Decimal(12, 2)
+  assigned_class_count Int?
+  bonus_class_rate     Decimal?         @db.Decimal(12, 2)
+  bonus_day_multiplier Decimal          @default(1.0) @db.Decimal(5, 2)
+  effective_from       DateTime         @db.Date
+  effective_to         DateTime?        @db.Date
+  created_by_user_id   String           @db.Uuid
+  created_at           DateTime         @default(now()) @db.Timestamptz()
+  updated_at           DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  created_by    User         @relation("compensation_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, staff_profile_id], name: "idx_staff_compensation_tenant_staff")
+  @@map("staff_compensation")
+}
+
+model PayrollRun {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String           @db.Uuid
+  period_label         String           @db.VarChar(100)
+  period_month         Int              @db.SmallInt
+  period_year          Int              @db.SmallInt
+  total_working_days   Int              @db.SmallInt
+  status               PayrollRunStatus @default(draft)
+  total_basic_pay      Decimal          @default(0) @db.Decimal(14, 2)
+  total_bonus_pay      Decimal          @default(0) @db.Decimal(14, 2)
+  total_pay            Decimal          @default(0) @db.Decimal(14, 2)
+  headcount            Int              @default(0)
+  created_by_user_id   String           @db.Uuid
+  finalised_by_user_id String?          @db.Uuid
+  finalised_at         DateTime?        @db.Timestamptz()
+  approval_request_id  String?          @db.Uuid
+  created_at           DateTime         @default(now()) @db.Timestamptz()
+  updated_at           DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by       User             @relation("payroll_run_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  finalised_by     User?            @relation("payroll_run_finaliser", fields: [finalised_by_user_id], references: [id], onDelete: SetNull)
+  approval_request ApprovalRequest? @relation(fields: [approval_request_id], references: [id], onDelete: SetNull)
+  entries          PayrollEntry[]
+
+  @@index([tenant_id], name: "idx_payroll_runs_tenant")
+  @@index([tenant_id, status], name: "idx_payroll_runs_tenant_status")
+  @@map("payroll_runs")
+}
+
+model PayrollEntry {
+  id                            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                     String           @db.Uuid
+  payroll_run_id                String           @db.Uuid
+  staff_profile_id              String           @db.Uuid
+  compensation_type             CompensationType
+  snapshot_base_salary          Decimal?         @db.Decimal(12, 2)
+  snapshot_per_class_rate       Decimal?         @db.Decimal(12, 2)
+  snapshot_assigned_class_count Int?
+  snapshot_bonus_class_rate     Decimal?         @db.Decimal(12, 2)
+  snapshot_bonus_day_multiplier Decimal?         @db.Decimal(5, 2)
+  days_worked                   Int?             @db.SmallInt
+  classes_taught                Int?
+  auto_populated_class_count    Int?
+  basic_pay                     Decimal          @default(0) @db.Decimal(12, 2)
+  bonus_pay                     Decimal          @default(0) @db.Decimal(12, 2)
+  total_pay                     Decimal          @default(0) @db.Decimal(12, 2)
+  notes                         String?          @db.VarChar(1000)
+  created_at                    DateTime         @default(now()) @db.Timestamptz()
+  updated_at                    DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payroll_run   PayrollRun   @relation(fields: [payroll_run_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  payslip       Payslip?
+
+  @@unique([tenant_id, payroll_run_id, staff_profile_id], name: "idx_payroll_entries_unique")
+  @@index([tenant_id, payroll_run_id], name: "idx_payroll_entries_run")
+  @@index([tenant_id, staff_profile_id], name: "idx_payroll_entries_staff")
+  @@map("payroll_entries")
+}
+
+model Payslip {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @db.Uuid
+  payroll_entry_id      String   @unique @db.Uuid
+  payslip_number        String   @db.VarChar(50)
+  template_locale       String   @db.VarChar(10)
+  issued_at             DateTime @db.Timestamptz()
+  issued_by_user_id     String?  @db.Uuid
+  snapshot_payload_json Json
+  render_version        String   @db.VarChar(50)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payroll_entry PayrollEntry @relation(fields: [payroll_entry_id], references: [id], onDelete: Cascade)
+  issued_by     User?        @relation("payslip_issuer", fields: [issued_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, payslip_number], name: "idx_payslips_number")
+  @@index([payroll_entry_id], name: "idx_payslips_entry")
+  @@map("payslips")
+}
+
+// ─── P7: Announcements ──────────────────────────────────────────────────────
+
+model Announcement {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  title                String             @db.VarChar(255)
+  body_html            String
+  status               AnnouncementStatus @default(draft)
+  scope                AnnouncementScope
+  target_payload       Json
+  scheduled_publish_at DateTime?          @db.Timestamptz(6)
+  published_at         DateTime?          @db.Timestamptz(6)
+  author_user_id       String             @db.Uuid
+  approval_request_id  String?            @db.Uuid
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  author           User             @relation("announcement_author", fields: [author_user_id], references: [id])
+  approval_request ApprovalRequest? @relation(fields: [approval_request_id], references: [id])
+
+  @@index([tenant_id, status], name: "idx_announcements_tenant_status")
+  @@map("announcements")
+}
+
+// ─── P7: Notification Templates & Notifications ─────────────────────────────
+
+model NotificationTemplate {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String?             @db.Uuid
+  channel          NotificationChannel
+  template_key     String              @db.VarChar(100)
+  locale           String              @db.VarChar(10)
+  subject_template String?
+  body_template    String
+  is_system        Boolean             @default(false)
+  created_at       DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("notification_templates")
+}
+
+model Notification {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String              @db.Uuid
+  recipient_user_id   String              @db.Uuid
+  channel             NotificationChannel
+  template_key        String?             @db.VarChar(100)
+  locale              String              @db.VarChar(10)
+  status              NotificationStatus  @default(queued)
+  provider_message_id String?             @db.VarChar(255)
+  payload_json        Json
+  source_entity_type  String?             @db.VarChar(100)
+  source_entity_id    String?             @db.Uuid
+  failure_reason      String?
+  attempt_count       Int                 @default(0) @db.SmallInt
+  max_attempts        Int                 @default(3) @db.SmallInt
+  next_retry_at       DateTime?           @db.Timestamptz(6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  sent_at             DateTime?           @db.Timestamptz(6)
+  delivered_at        DateTime?           @db.Timestamptz(6)
+  read_at             DateTime?           @db.Timestamptz(6)
+
+  // Relations
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  recipient User   @relation("notification_recipient", fields: [recipient_user_id], references: [id])
+
+  @@index([tenant_id, recipient_user_id, status], name: "idx_notifications_tenant_recipient")
+  @@map("notifications")
+}
+
+// ─── P7: Parent Inquiries ────────────────────────────────────────────────────
+
+model ParentInquiry {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String              @db.Uuid
+  parent_id  String              @db.Uuid
+  student_id String?             @db.Uuid
+  subject    String              @db.VarChar(255)
+  status     ParentInquiryStatus @default(open)
+  created_at DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at DateTime            @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant   Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  parent   Parent                 @relation(fields: [parent_id], references: [id])
+  student  Student?               @relation(fields: [student_id], references: [id])
+  messages ParentInquiryMessage[]
+
+  @@index([tenant_id, status], name: "idx_parent_inquiries_tenant_status")
+  @@map("parent_inquiries")
+}
+
+model ParentInquiryMessage {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String            @db.Uuid
+  inquiry_id     String            @db.Uuid
+  author_type    InquiryAuthorType
+  author_user_id String            @db.Uuid
+  message        String
+  created_at     DateTime          @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant  Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  inquiry ParentInquiry @relation(fields: [inquiry_id], references: [id], onDelete: Cascade)
+  author  User          @relation("inquiry_message_author", fields: [author_user_id], references: [id])
+
+  @@index([inquiry_id], name: "idx_parent_inquiry_messages_inquiry")
+  @@map("parent_inquiry_messages")
+}
+
+// ─── P7: Website CMS ─────────────────────────────────────────────────────────
+
+model WebsitePage {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String            @db.Uuid
+  locale           String            @default("en") @db.VarChar(10)
+  page_type        WebsitePageType
+  slug             String            @db.VarChar(150)
+  title            String            @db.VarChar(255)
+  meta_title       String?           @db.VarChar(255)
+  meta_description String?
+  body_html        String
+  status           WebsitePageStatus @default(draft)
+  show_in_nav      Boolean           @default(false)
+  nav_order        Int               @default(0)
+  author_user_id   String            @db.Uuid
+  published_at     DateTime?         @db.Timestamptz(6)
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  author User   @relation("website_page_author", fields: [author_user_id], references: [id])
+
+  @@unique([tenant_id, slug, locale], name: "idx_website_pages_slug")
+  @@index([tenant_id, locale, status], name: "idx_website_pages_tenant_locale")
+  @@map("website_pages")
+}
+
+model ContactFormSubmission {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String            @db.Uuid
+  name       String            @db.VarChar(255)
+  email      String            @db.Citext
+  phone      String?           @db.VarChar(50)
+  message    String
+  source_ip  String?           @db.Inet
+  status     ContactFormStatus @default(new_submission)
+  created_at DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, status], name: "idx_contact_submissions_tenant")
+  @@map("contact_form_submissions")
+}
+
+// ─── P8 Enums ──────────────────────────────────────────────────────────────
+
+enum ComplianceRequestType {
+  access_export
+  erasure
+  rectification
+}
+
+enum ComplianceSubjectType {
+  parent
+  student
+  household
+  user
+}
+
+enum ComplianceRequestStatus {
+  submitted
+  classified
+  approved
+  rejected
+  completed
+}
+
+enum ComplianceClassification {
+  erase
+  anonymise
+  retain_legal_basis
+}
+
+enum ImportType {
+  students
+  parents
+  staff
+  fees
+  exam_results
+  staff_compensation
+}
+
+enum ImportStatus {
+  uploaded
+  validated
+  processing
+  completed
+  failed
+}
+
+enum SearchIndexStatusEnum {
+  pending
+  indexed
+  search_failed
+}
+
+// ─── P8: Audit Logs ─────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String?  @db.Uuid
+  actor_user_id String?  @db.Uuid
+  entity_type   String   @db.VarChar(100)
+  entity_id     String?  @db.Uuid
+  action        String   @db.VarChar(100)
+  metadata_json Json     @default("{}")
+  ip_address    String?  @db.VarChar(45)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  actor  User?   @relation("audit_log_actor", fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, entity_type, entity_id], name: "idx_audit_logs_tenant_entity")
+  @@index([tenant_id, actor_user_id], name: "idx_audit_logs_tenant_actor")
+  @@index([tenant_id, created_at], name: "idx_audit_logs_created")
+  @@map("audit_logs")
+}
+
+// ─── P8: Compliance Requests ────────────────────────────────────────────────
+
+model ComplianceRequest {
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                    @db.Uuid
+  request_type         ComplianceRequestType
+  subject_type         ComplianceSubjectType
+  subject_id           String                    @db.Uuid
+  requested_by_user_id String                    @db.Uuid
+  status               ComplianceRequestStatus   @default(submitted)
+  classification       ComplianceClassification?
+  decision_notes       String?
+  export_file_key      String?
+  created_at           DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  requested_by User   @relation("compliance_requested_by", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, status], name: "idx_compliance_requests_tenant")
+  @@map("compliance_requests")
+}
+
+// ─── P8: Import Jobs ────────────────────────────────────────────────────────
+
+model ImportJob {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String       @db.Uuid
+  import_type        ImportType
+  file_key           String?
+  status             ImportStatus @default(uploaded)
+  summary_json       Json         @default("{}")
+  created_by_user_id String       @db.Uuid
+  created_at         DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("import_created_by", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, status], name: "idx_import_jobs_tenant")
+  @@map("import_jobs")
+}
+
+// ─── P8: Search Index Status ────────────────────────────────────────────────
+
+model SearchIndexStatus {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String                @db.Uuid
+  entity_type  String                @db.VarChar(100)
+  entity_id    String                @db.Uuid
+  index_status SearchIndexStatusEnum @default(pending)
+  updated_at   DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, entity_type, entity_id], name: "idx_search_index_status_unique")
+  @@index([tenant_id, index_status], name: "idx_search_index_status_pending")
+  @@map("search_index_status")
+}

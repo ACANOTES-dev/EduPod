@@ -1,0 +1,37 @@
+{
+  "name": "@school/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 5551",
+    "build": "next build",
+    "start": "next start -p 5551",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@school/shared": "workspace:*",
+    "@school/ui": "workspace:*",
+    "next": "^14.2.21",
+    "next-intl": "^3.25.3",
+    "next-themes": "^0.4.4",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@school/eslint-config": "workspace:*",
+    "@school/tsconfig": "workspace:*",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@playwright/test": "^1.49.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.21",
+    "eslint-plugin-school": "workspace:*",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2"
+  }
+}

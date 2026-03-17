@@ -1,0 +1,99 @@
+'use client';
+
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
+import { Skeleton, toast } from '@school/ui';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import { StudentForm, type StudentFormData } from '../../_components/student-form';
+
+interface StudentDetail {
+  id: string;
+  first_name: string;
+  last_name: string;
+  first_name_ar?: string | null;
+  last_name_ar?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  household_id?: string | null;
+  year_group_id?: string | null;
+  status: string;
+  student_number: string;
+  medical_notes?: string | null;
+  has_allergy: boolean;
+  allergy_details?: string | null;
+}
+
+export default function EditStudentPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+
+  const [student, setStudent] = React.useState<StudentDetail | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetch = async () => {
+      setIsLoading(true);
+      try {
+        const res = await apiClient<{ data: StudentDetail }>(`/api/v1/students/${id}`);
+        setStudent(res.data);
+      } catch {
+        toast.error('Failed to load student');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    void fetch();
+  }, [id]);
+
+  const handleSubmit = async (data: StudentFormData) => {
+    await apiClient<{ data: StudentDetail }>(`/api/v1/students/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    toast.success('Student updated successfully');
+    router.push(`/students/${id}`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full max-w-2xl" />
+      </div>
+    );
+  }
+
+  if (!student) {
+    return (
+      <div className="flex h-64 items-center justify-center text-text-tertiary">
+        Student not found.
+      </div>
+    );
+  }
+
+  const initialData: Partial<StudentFormData> = {
+    first_name: student.first_name,
+    last_name: student.last_name,
+    first_name_ar: student.first_name_ar ?? '',
+    last_name_ar: student.last_name_ar ?? '',
+    date_of_birth: student.date_of_birth
+      ? new Date(student.date_of_birth).toISOString().split('T')[0]
+      : '',
+    gender: student.gender ?? '',
+    household_id: student.household_id ?? '',
+    year_group_id: student.year_group_id ?? '',
+    student_number: student.student_number,
+    medical_notes: student.medical_notes ?? '',
+    has_allergy: student.has_allergy,
+    allergy_details: student.allergy_details ?? '',
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Edit Student" description={`Editing record for ${student.first_name} ${student.last_name}`} />
+      <StudentForm initialData={initialData} onSubmit={handleSubmit} isEditMode />
+    </div>
+  );
+}

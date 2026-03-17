@@ -1,0 +1,409 @@
+/**
+ * RLS Leakage Tests — Phase 6B (Payroll)
+ *
+ * Verifies that tenant isolation holds at both the API level and the database
+ * layer for all P6B payroll entities: staff_compensation, payroll_runs,
+ * payroll_entries, payslips.
+ *
+ * Two test categories:
+ *   1. API-level — authenticate as Cedar (Tenant B), call payroll endpoints,
+ *      assert only Cedar data is returned and Al Noor IDs return 404.
+ *   2. Table-level — open a Prisma transaction as the rls_test_user_p6b role,
+ *      SET LOCAL app.current_tenant_id to Cedar, query each table, and assert
+ *      that no Al Noor rows are returned.
+ */
+
+import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+import {
+  AL_NOOR_DOMAIN,
+  AL_NOOR_OWNER_EMAIL,
+  CEDAR_DOMAIN,
+  CEDAR_OWNER_EMAIL,
+  DEV_PASSWORD,
+  authGet,
+  authPost,
+  closeTestApp,
+  createTestApp,
+  login,
+} from './helpers';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+const RLS_TEST_ROLE = 'rls_test_user_p6b';
+
+/** Unique marker embedded in Al Noor data for leakage detection. */
+const UNIQUE_MARKER = `RlsP6bPayrollLeak`;
+
+// ─── Suite ───────────────────────────────────────────────────────────────────
+
+jest.setTimeout(120_000);
+
+describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
+  let app: INestApplication;
+  let alNoorToken: string;
+  let cedarToken: string;
+  let alNoorUserId: string;
+
+  /** Direct Prisma client for table-level RLS tests and data setup. */
+  let directPrisma: PrismaClient;
+
+  // IDs created as Al Noor
+  let alNoorStaffProfileId: string;
+  let alNoorCompensationId: string;
+  let alNoorPayrollRunId: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+
+    // Authenticate as both tenants
+    const alNoorLogin = await login(
+      app,
+      AL_NOOR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      AL_NOOR_DOMAIN,
+    );
+    alNoorToken = alNoorLogin.accessToken;
+    alNoorUserId = (alNoorLogin.user as Record<string, string>).id;
+
+    const cedarLogin = await login(
+      app,
+      CEDAR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      CEDAR_DOMAIN,
+    );
+    cedarToken = cedarLogin.accessToken;
+
+    // ── Direct Prisma for data setup / table-level tests ──────────────────
+
+    directPrisma = new PrismaClient({
+      datasources: {
+        db: { url: process.env.DATABASE_URL },
+      },
+    });
+    await directPrisma.$connect();
+
+    // ── Find an Al Noor staff profile to attach compensation to ──────────
+    const staffRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      SELECT id::text FROM staff_profiles
+      WHERE tenant_id = $1::uuid
+      LIMIT 1
+    `, AL_NOOR_TENANT_ID);
+
+    if (staffRows.length > 0) {
+      alNoorStaffProfileId = staffRows[0].id;
+    } else {
+      // Create a staff profile directly if none exist
+      const staffInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+        INSERT INTO staff_profiles (tenant_id, user_id, staff_number, department, job_title, employment_status, employment_type)
+        VALUES ($1::uuid, $2::uuid, $3, 'Admin', '${UNIQUE_MARKER} Teacher', 'active', 'full_time')
+        RETURNING id::text
+      `, AL_NOOR_TENANT_ID, alNoorUserId, `P6B-RLS-${Date.now()}`);
+      alNoorStaffProfileId = staffInsert[0].id;
+    }
+
+    // ── Create Al Noor compensation record via direct insert ─────────────
+    const compRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      INSERT INTO staff_compensation (tenant_id, staff_profile_id, compensation_type, base_salary, effective_from, created_by_user_id)
+      VALUES ($1::uuid, $2::uuid, 'salaried', 5000.00, '2025-09-01', $3::uuid)
+      RETURNING id::text
+    `, AL_NOOR_TENANT_ID, alNoorStaffProfileId, alNoorUserId);
+    alNoorCompensationId = compRows[0].id;
+
+    // ── Create Al Noor payroll run via direct insert ─────────────────────
+    const runRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      INSERT INTO payroll_runs (tenant_id, period_label, period_month, period_year, total_working_days, status, created_by_user_id, total_basic_pay, total_bonus_pay, total_pay, headcount)
+      VALUES ($1::uuid, '${UNIQUE_MARKER} March 2026', 3, 2026, 22, 'draft', $2::uuid, 0, 0, 0, 0)
+      RETURNING id::text
+    `, AL_NOOR_TENANT_ID, alNoorUserId);
+    alNoorPayrollRunId = runRows[0].id;
+
+    // ── Create Al Noor payroll entry via direct insert ───────────────────
+    await directPrisma.$queryRawUnsafe(`
+      INSERT INTO payroll_entries (tenant_id, payroll_run_id, staff_profile_id, compensation_type, snapshot_base_salary, basic_pay, bonus_pay, total_pay)
+      VALUES ($1::uuid, $2::uuid, $3::uuid, 'salaried', 5000.00, 5000.00, 0, 5000.00)
+    `, AL_NOOR_TENANT_ID, alNoorPayrollRunId, alNoorStaffProfileId);
+
+    // ── Create Al Noor payslip via direct insert ─────────────────────────
+    await directPrisma.$queryRawUnsafe(`
+      INSERT INTO payslips (tenant_id, payroll_entry_id, payslip_number, template_locale, issued_at, snapshot_payload_json, render_version)
+      VALUES ($1::uuid, (SELECT id FROM payroll_entries WHERE payroll_run_id = $2::uuid AND tenant_id = $1::uuid LIMIT 1), '${UNIQUE_MARKER}-PS-001', 'en', NOW(), '{}'::jsonb, '1.0')
+    `, AL_NOOR_TENANT_ID, alNoorPayrollRunId);
+
+    // ── Table-level RLS setup ───────────────────────────────────────────
+
+    await directPrisma.$executeRawUnsafe(
+      `DO $$ BEGIN
+         CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+  }, 120_000);
+
+  afterAll(async () => {
+    if (directPrisma) {
+      // Clean up test data (best-effort)
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM payslips WHERE payroll_entry_id IN (SELECT id FROM payroll_entries WHERE payroll_run_id = $1::uuid)`,
+          alNoorPayrollRunId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM payroll_entries WHERE payroll_run_id = $1::uuid`,
+          alNoorPayrollRunId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM payroll_runs WHERE id = $1::uuid`,
+          alNoorPayrollRunId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM staff_compensation WHERE id = $1::uuid`,
+          alNoorCompensationId,
+        );
+      } catch {
+        // Cleanup is best-effort.
+      }
+
+      // Clean up RLS test role
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
+        );
+      } catch {
+        // Role cleanup is best-effort.
+      }
+      await directPrisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Runs a raw SELECT against `tableName` inside a transaction that:
+   *   1. Sets app.current_tenant_id to the Cedar tenant ID.
+   *   2. Switches the active role to rls_test_user_p6b (no BYPASSRLS).
+   *
+   * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
+   */
+  async function queryAsCedar(
+    tableName: string,
+  ): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
+      );
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return tx.$queryRawUnsafe(
+        `SELECT tenant_id::text FROM "${tableName}"`,
+      ) as Promise<Array<{ tenant_id: string | null }>>;
+    });
+  }
+
+  /**
+   * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
+   */
+  function assertNoAlNoorRows(
+    rows: Array<{ tenant_id: string | null }>,
+    context: string,
+  ): void {
+    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(
+        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned when querying as Cedar`,
+      );
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 1. API-Level RLS Tests — List Endpoints
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('API-level: Cedar must not see Al Noor payroll data (list endpoints)', () => {
+    it('GET /v1/payroll/compensation as Cedar should not return Al Noor compensation records', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/compensation',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorCompensationId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/payroll/runs as Cedar should not return Al Noor payroll runs', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/runs',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorPayrollRunId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/payroll/payslips as Cedar should not return Al Noor payslips', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/payslips',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const payslipNumbers = Array.isArray(items)
+        ? items.map((i: Record<string, unknown>) => i['payslip_number'])
+        : [];
+
+      expect(payslipNumbers).not.toContain(`${UNIQUE_MARKER}-PS-001`);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/payroll/dashboard as Cedar should not contain Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/payroll/dashboard',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const dashboard = res.body.data ?? res.body;
+
+      expect(JSON.stringify(dashboard)).not.toContain(AL_NOOR_TENANT_ID);
+      expect(JSON.stringify(dashboard)).not.toContain(UNIQUE_MARKER);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 2. API-Level RLS Tests — Detail Endpoints (404 on cross-tenant ID)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('API-level: Cedar must get 404 for Al Noor payroll entity IDs', () => {
+    it('GET /v1/payroll/compensation/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/payroll/compensation/${alNoorCompensationId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /v1/payroll/runs/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/payroll/runs/${alNoorPayrollRunId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 3. Cross-Tenant Mutation Safety
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Cross-tenant mutation safety', () => {
+    it('Cedar cannot finalise Al Noor payroll run', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/payroll/runs/${alNoorPayrollRunId}/finalise`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot cancel Al Noor payroll run', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/payroll/runs/${alNoorPayrollRunId}/cancel`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot refresh entries for Al Noor payroll run', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/payroll/runs/${alNoorPayrollRunId}/refresh-entries`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot mass-export Al Noor payroll run', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/payroll/runs/${alNoorPayrollRunId}/mass-export`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      // The endpoint may return 200 with empty result (RLS hides the run),
+      // or 400/404 if the controller validates the run exists first.
+      // All three are acceptable — the key is no Al Noor data is returned.
+      expect([200, 400, 404]).toContain(res.status);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 4. Table-Level RLS Tests — Direct DB Verification
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Table-level: RLS policy enforcement for P6B payroll tables (direct DB verification)', () => {
+    it('staff_compensation: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('staff_compensation');
+      assertNoAlNoorRows(rows, 'staff_compensation');
+    });
+
+    it('payroll_runs: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('payroll_runs');
+      assertNoAlNoorRows(rows, 'payroll_runs');
+    });
+
+    it('payroll_entries: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('payroll_entries');
+      assertNoAlNoorRows(rows, 'payroll_entries');
+    });
+
+    it('payslips: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('payslips');
+      assertNoAlNoorRows(rows, 'payslips');
+    });
+  });
+});

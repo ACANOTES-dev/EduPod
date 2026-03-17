@@ -1,0 +1,3 @@
+-- P6B Payroll Tables
+-- Schema was applied directly to the database. This file is a placeholder
+-- to satisfy Prisma's migration tracking requirements.

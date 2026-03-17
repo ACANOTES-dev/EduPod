@@ -1,0 +1,568 @@
+/**
+ * RLS Leakage Tests — Phase 7 (Communications & Engagement)
+ *
+ * Verifies that tenant isolation holds at both the API level and the database
+ * layer for all P7 entities: announcements, notifications, parent_inquiries,
+ * parent_inquiry_messages, website_pages, contact_form_submissions.
+ *
+ * Special handling:
+ *   - notification_templates has dual-policy (nullable tenant_id): tenant B
+ *     cannot see tenant A rows but CAN see platform rows (NULL tenant_id).
+ *
+ * Two test categories:
+ *   1. API-level — authenticate as Cedar (Tenant B), call endpoints, assert
+ *      only Cedar data is returned.
+ *   2. Table-level — open a Prisma transaction as the rls_test_user_p7 role,
+ *      SET LOCAL app.current_tenant_id to Cedar, query each table, and assert
+ *      that no Al Noor rows are returned.
+ */
+
+import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+import {
+  AL_NOOR_DOMAIN,
+  AL_NOOR_OWNER_EMAIL,
+  CEDAR_DOMAIN,
+  CEDAR_OWNER_EMAIL,
+  DEV_PASSWORD,
+  authGet,
+  authPost,
+  closeTestApp,
+  createTestApp,
+  login,
+} from './helpers';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+const RLS_TEST_ROLE = 'rls_test_user_p7';
+
+/** Unique marker embedded in Al Noor data for leakage detection. */
+const UNIQUE_MARKER = `RlsP7CommLeak`;
+
+// ─── Suite ───────────────────────────────────────────────────────────────────
+
+jest.setTimeout(120_000);
+
+describe('P7 Communications — RLS Leakage Tests (e2e)', () => {
+  let app: INestApplication;
+  let alNoorToken: string;
+  let cedarToken: string;
+  let alNoorUserId: string;
+
+  /** Direct Prisma client for table-level RLS tests and data setup. */
+  let directPrisma: PrismaClient;
+
+  // IDs created as Al Noor
+  let alNoorAnnouncementId: string;
+  let alNoorInquiryId: string;
+  let alNoorWebsitePageId: string;
+  let alNoorContactSubmissionId: string;
+  let alNoorNotificationId: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+
+    // Authenticate as both tenants
+    const alNoorLogin = await login(
+      app,
+      AL_NOOR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      AL_NOOR_DOMAIN,
+    );
+    alNoorToken = alNoorLogin.accessToken;
+    alNoorUserId = (alNoorLogin.user as Record<string, string>).id;
+
+    const cedarLogin = await login(
+      app,
+      CEDAR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      CEDAR_DOMAIN,
+    );
+    cedarToken = cedarLogin.accessToken;
+
+    // ── Direct Prisma for data setup / table-level tests ──────────────────
+
+    directPrisma = new PrismaClient({
+      datasources: {
+        db: { url: process.env.DATABASE_URL },
+      },
+    });
+    await directPrisma.$connect();
+
+    // ── Create Al Noor announcement via API ──────────────────────────────
+
+    const announcementRes = await authPost(
+      app,
+      '/api/v1/announcements',
+      alNoorToken,
+      {
+        title: `${UNIQUE_MARKER} Test Announcement`,
+        body_html: `<p>${UNIQUE_MARKER} body content for RLS test</p>`,
+        scope: 'school',
+        target_payload: {},
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    const announcementBody = announcementRes.body.data ?? announcementRes.body;
+    alNoorAnnouncementId = announcementBody.id;
+
+    // ── Create Al Noor parent inquiry via direct insert ──────────────────
+
+    // First find or create a parent record for this tenant
+    const parentRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      SELECT id::text FROM parents
+      WHERE tenant_id = $1::uuid
+      LIMIT 1
+    `, AL_NOOR_TENANT_ID);
+
+    let alNoorParentId: string;
+    if (parentRows.length > 0) {
+      alNoorParentId = parentRows[0].id;
+    } else {
+      const parentInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+        INSERT INTO parents (tenant_id, user_id, first_name, last_name, preferred_contact_channels)
+        VALUES ($1::uuid, $2::uuid, 'RLS', 'TestParent', '["email"]'::jsonb)
+        RETURNING id::text
+      `, AL_NOOR_TENANT_ID, alNoorUserId);
+      alNoorParentId = parentInsert[0].id;
+    }
+
+    const inquiryRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      INSERT INTO parent_inquiries (tenant_id, parent_id, subject, status)
+      VALUES ($1::uuid, $2::uuid, '${UNIQUE_MARKER} Inquiry Subject', 'open')
+      RETURNING id::text
+    `, AL_NOOR_TENANT_ID, alNoorParentId);
+    alNoorInquiryId = inquiryRows[0].id;
+
+    // ── Create Al Noor parent inquiry message ───────────────────────────
+
+    await directPrisma.$queryRawUnsafe(`
+      INSERT INTO parent_inquiry_messages (tenant_id, inquiry_id, author_type, author_user_id, message)
+      VALUES ($1::uuid, $2::uuid, 'parent', $3::uuid, '${UNIQUE_MARKER} message body')
+    `, AL_NOOR_TENANT_ID, alNoorInquiryId, alNoorUserId);
+
+    // ── Create Al Noor website page via API ──────────────────────────────
+
+    const pageRes = await authPost(
+      app,
+      '/api/v1/website/pages',
+      alNoorToken,
+      {
+        title: `${UNIQUE_MARKER} About Us`,
+        slug: `rls-p7-test-page-${Date.now()}`,
+        body_html: `<p>${UNIQUE_MARKER} page content</p>`,
+        page_type: 'custom',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    const pageBody = pageRes.body.data ?? pageRes.body;
+    alNoorWebsitePageId = pageBody.id;
+
+    // ── Create Al Noor contact form submission via direct insert ─────────
+
+    const submissionRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      INSERT INTO contact_form_submissions (tenant_id, name, email, message, status)
+      VALUES ($1::uuid, '${UNIQUE_MARKER} Parent Name', 'rlstest@example.com', '${UNIQUE_MARKER} message', 'new')
+      RETURNING id::text
+    `, AL_NOOR_TENANT_ID);
+    alNoorContactSubmissionId = submissionRows[0].id;
+
+    // ── Create Al Noor notification via direct insert ────────────────────
+
+    const notifRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      INSERT INTO notifications (tenant_id, recipient_user_id, channel, locale, status, payload_json)
+      VALUES ($1::uuid, $2::uuid, 'in_app', 'en', 'sent', $3::jsonb)
+      RETURNING id::text
+    `, AL_NOOR_TENANT_ID, alNoorUserId, JSON.stringify({ title: `${UNIQUE_MARKER} Notification Title`, body: `${UNIQUE_MARKER} notification body` }));
+    alNoorNotificationId = notifRows[0].id;
+
+    // ── Table-level RLS setup ───────────────────────────────────────────
+
+    await directPrisma.$executeRawUnsafe(
+      `DO $$ BEGIN
+         CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+  }, 120_000);
+
+  afterAll(async () => {
+    if (directPrisma) {
+      // Clean up test data (best-effort)
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM notifications WHERE id = $1::uuid`,
+          alNoorNotificationId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM contact_form_submissions WHERE id = $1::uuid`,
+          alNoorContactSubmissionId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM parent_inquiry_messages WHERE inquiry_id = $1::uuid`,
+          alNoorInquiryId,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DELETE FROM parent_inquiries WHERE id = $1::uuid`,
+          alNoorInquiryId,
+        );
+      } catch {
+        // Cleanup is best-effort.
+      }
+
+      // Clean up RLS test role
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
+        );
+      } catch {
+        // Role cleanup is best-effort.
+      }
+      await directPrisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Runs a raw SELECT against `tableName` inside a transaction that:
+   *   1. Sets app.current_tenant_id to the Cedar tenant ID.
+   *   2. Switches the active role to rls_test_user_p7 (no BYPASSRLS).
+   *
+   * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
+   */
+  async function queryAsCedar(
+    tableName: string,
+  ): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
+      );
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return tx.$queryRawUnsafe(
+        `SELECT tenant_id::text FROM "${tableName}"`,
+      ) as Promise<Array<{ tenant_id: string | null }>>;
+    });
+  }
+
+  /**
+   * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
+   */
+  function assertNoAlNoorRows(
+    rows: Array<{ tenant_id: string | null }>,
+    context: string,
+  ): void {
+    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(
+        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned when querying as Cedar`,
+      );
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 1. API-Level RLS Tests — List Endpoints
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('API-level: Cedar must not see Al Noor communications data (list endpoints)', () => {
+    it('GET /v1/announcements as Cedar should not return Al Noor announcements', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/announcements',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorAnnouncementId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/announcements/:id with Al Noor ID should return 404 from Cedar', async () => {
+      const res = await authGet(
+        app,
+        `/api/v1/announcements/${alNoorAnnouncementId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      );
+
+      // RLS hides the record — either 404 or empty/forbidden
+      expect([403, 404]).toContain(res.status);
+    });
+
+    it('GET /v1/notifications as Cedar should not return Al Noor notifications', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/notifications',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorNotificationId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/notification-templates as Cedar should not return Al Noor templates', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/notification-templates',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string; tenant_id?: string | null }> = res.body.data ?? [];
+
+      // Every returned template must be either a platform template (tenant_id null)
+      // or scoped to Cedar — never Al Noor
+      for (const item of items) {
+        if (item.tenant_id !== null && item.tenant_id !== undefined) {
+          expect(item.tenant_id).not.toBe(AL_NOOR_TENANT_ID);
+        }
+      }
+
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/inquiries as Cedar should not return Al Noor parent inquiries', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/inquiries',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorInquiryId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/website/pages as Cedar should not return Al Noor website pages', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/website/pages',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorWebsitePageId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+
+    it('GET /v1/contact-submissions as Cedar should not return Al Noor contact submissions', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/contact-submissions',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(alNoorContactSubmissionId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_MARKER);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 2. API-Level RLS Tests — Detail Endpoints (404 on cross-tenant ID)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('API-level: Cedar must get 404 for Al Noor entity IDs', () => {
+    it('GET /v1/announcements/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/announcements/${alNoorAnnouncementId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /v1/announcements/:id/delivery-status with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/announcements/${alNoorAnnouncementId}/delivery-status`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /v1/inquiries/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/inquiries/${alNoorInquiryId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /v1/website/pages/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/website/pages/${alNoorWebsitePageId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 3. Cross-Tenant Mutation Safety
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Cross-tenant mutation safety', () => {
+    it('Cedar cannot publish Al Noor announcement', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/announcements/${alNoorAnnouncementId}/publish`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot archive Al Noor announcement', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/announcements/${alNoorAnnouncementId}/archive`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot add message to Al Noor inquiry', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/inquiries/${alNoorInquiryId}/messages`,
+        cedarToken,
+        { message: 'RLS cross-tenant message attempt' },
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot close Al Noor inquiry', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/inquiries/${alNoorInquiryId}/close`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot publish Al Noor website page', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/website/pages/${alNoorWebsitePageId}/publish`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot unpublish Al Noor website page', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/website/pages/${alNoorWebsitePageId}/unpublish`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 4. Table-Level RLS Tests — Direct DB Verification
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Table-level: RLS policy enforcement for P7 tables (direct DB verification)', () => {
+    it('announcements: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('announcements');
+      assertNoAlNoorRows(rows, 'announcements');
+    });
+
+    it('notifications: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('notifications');
+      assertNoAlNoorRows(rows, 'notifications');
+    });
+
+    /**
+     * notification_templates has dual RLS: platform templates (tenant_id IS NULL)
+     * are visible to all tenants, while tenant-scoped templates are restricted.
+     * Verify:
+     *   a) No Al Noor template rows appear.
+     *   b) Platform templates (tenant_id IS NULL) remain visible to Cedar.
+     */
+    it('notification_templates: querying as Cedar returns no Al Noor rows but does return platform templates', async () => {
+      const rows = await queryAsCedar('notification_templates');
+
+      assertNoAlNoorRows(rows, 'notification_templates');
+
+      // Platform templates (tenant_id IS NULL) must still be visible.
+      const platformTemplates = rows.filter((r) => r.tenant_id === null);
+      expect(platformTemplates.length).toBeGreaterThan(0);
+    });
+
+    it('parent_inquiries: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('parent_inquiries');
+      assertNoAlNoorRows(rows, 'parent_inquiries');
+    });
+
+    it('parent_inquiry_messages: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('parent_inquiry_messages');
+      assertNoAlNoorRows(rows, 'parent_inquiry_messages');
+    });
+
+    it('website_pages: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('website_pages');
+      assertNoAlNoorRows(rows, 'website_pages');
+    });
+
+    it('contact_form_submissions: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('contact_form_submissions');
+      assertNoAlNoorRows(rows, 'contact_form_submissions');
+    });
+  });
+});

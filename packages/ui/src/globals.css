@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Background & Surface — Light */
+    --color-background: #FEFDFB;
+    --color-surface: #FFFFFF;
+    --color-surface-secondary: #F5F5F4;
+    --color-border: #E7E5E4;
+    --color-border-strong: #D6D3D1;
+
+    /* Text — Light */
+    --color-text-primary: #1C1917;
+    --color-text-secondary: #78716C;
+    --color-text-tertiary: #A8A29E;
+
+    /* Primary — Emerald Light */
+    --color-primary-50: #ECFDF5;
+    --color-primary-100: #D1FAE5;
+    --color-primary-500: #10B981;
+    --color-primary-600: #059669;
+    --color-primary-700: #047857;
+    --color-primary-800: #065F46;
+    --color-primary-900: #064E3B;
+
+    /* Semantic — Light */
+    --color-success-fill: #ECFDF5;
+    --color-success-text: #065F46;
+    --color-warning-fill: #FFFBEB;
+    --color-warning-text: #92400E;
+    --color-danger-fill: #FFF1F2;
+    --color-danger-text: #9F1239;
+    --color-info-fill: #EFF6FF;
+    --color-info-text: #1E40AF;
+
+    /* Radius */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+  }
+
+  .dark {
+    /* Background & Surface — Dark */
+    --color-background: #0C0A09;
+    --color-surface: #1C1917;
+    --color-surface-secondary: #292524;
+    --color-border: #44403C;
+    --color-border-strong: #57534E;
+
+    /* Text — Dark */
+    --color-text-primary: #FAFAF9;
+    --color-text-secondary: #A8A29E;
+    --color-text-tertiary: #78716C;
+
+    /* Primary — Emerald Dark */
+    --color-primary-50: #ECFDF5;
+    --color-primary-100: #D1FAE5;
+    --color-primary-500: #10B981;
+    --color-primary-600: #34D399;
+    --color-primary-700: #6EE7B7;
+    --color-primary-800: #A7F3D0;
+    --color-primary-900: #D1FAE5;
+
+    /* Semantic — Dark */
+    --color-success-fill: #064E3B;
+    --color-success-text: #6EE7B7;
+    --color-warning-fill: #78350F;
+    --color-warning-text: #FCD34D;
+    --color-danger-fill: #881337;
+    --color-danger-text: #FDA4AF;
+    --color-info-fill: #1E3A5F;
+    --color-info-text: #93C5FD;
+  }
+}

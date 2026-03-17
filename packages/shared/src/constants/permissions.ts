@@ -1,0 +1,387 @@
+import type { RoleTier } from '../types/rbac';
+
+export const PERMISSIONS = {
+  // Platform tier
+  tenants: {
+    manage: 'tenants.manage',
+    view: 'tenants.view',
+  },
+  platform: {
+    impersonate: 'platform.impersonate',
+    reset_mfa: 'platform.reset_mfa',
+  },
+  // Admin tier
+  users: {
+    manage: 'users.manage',
+    invite: 'users.invite',
+    view: 'users.view',
+  },
+  roles: {
+    manage: 'roles.manage',
+  },
+  settings: {
+    manage: 'settings.manage',
+  },
+  branding: {
+    manage: 'branding.manage',
+  },
+  stripe: {
+    manage: 'stripe.manage',
+  },
+  notifications: {
+    manage: 'notifications.manage',
+  },
+  modules: {
+    manage: 'modules.manage',
+  },
+  domains: {
+    manage: 'domains.manage',
+  },
+  approvals: {
+    manage: 'approvals.manage',
+    view: 'approvals.view',
+  },
+  // Payroll (admin tier)
+  payroll: {
+    view: 'payroll.view',
+    manage_compensation: 'payroll.manage_compensation',
+    create_run: 'payroll.create_run',
+    finalise_run: 'payroll.finalise_run',
+    generate_payslips: 'payroll.generate_payslips',
+    view_bank_details: 'payroll.view_bank_details',
+    view_reports: 'payroll.view_reports',
+  },
+  // Schedule (admin tier)
+  schedule_admin: {
+    manage: 'schedule.manage',
+    override_conflict: 'schedule.override_conflict',
+    manage_closures: 'schedule.manage_closures',
+    configure_period_grid: 'schedule.configure_period_grid',
+    configure_requirements: 'schedule.configure_requirements',
+    configure_availability: 'schedule.configure_availability',
+    manage_preferences: 'schedule.manage_preferences',
+    run_auto: 'schedule.run_auto',
+    apply_auto: 'schedule.apply_auto',
+    pin_entries: 'schedule.pin_entries',
+    view_auto_reports: 'schedule.view_auto_reports',
+  },
+  // Schedule (staff tier)
+  schedule_staff: {
+    view_own: 'schedule.view_own',
+    manage_own_preferences: 'schedule.manage_own_preferences',
+    view_own_satisfaction: 'schedule.view_own_satisfaction',
+  },
+  // Students (admin tier)
+  students: {
+    manage: 'students.manage',
+    view: 'students.view',
+  },
+  // Attendance (admin/staff tier)
+  attendance: {
+    manage: 'attendance.manage',
+    view: 'attendance.view',
+    take: 'attendance.take',
+    amend_historical: 'attendance.amend_historical',
+    override_closure: 'attendance.override_closure',
+  },
+  // Gradebook
+  gradebook: {
+    manage: 'gradebook.manage',
+    view: 'gradebook.view',
+    enter_grades: 'gradebook.enter_grades',
+    override_final_grade: 'gradebook.override_final_grade',
+    publish_report_cards: 'gradebook.publish_report_cards',
+  },
+  // Transcripts
+  transcripts: {
+    generate: 'transcripts.generate',
+  },
+  // Admissions (admin)
+  admissions: {
+    manage: 'admissions.manage',
+    view: 'admissions.view',
+  },
+  // Finance (admin)
+  finance: {
+    manage: 'finance.manage',
+    view: 'finance.view',
+    process_payments: 'finance.process_payments',
+    issue_refunds: 'finance.issue_refunds',
+    write_off: 'finance.write_off',
+    override_refund_guard: 'finance.override_refund_guard',
+  },
+  // Communications (admin)
+  communications: {
+    manage: 'communications.manage',
+    view: 'communications.view',
+    send: 'communications.send',
+  },
+  // Inquiries (admin tier)
+  inquiries: {
+    view: 'inquiries.view',
+    respond: 'inquiries.respond',
+  },
+  // Website (admin)
+  website: {
+    manage: 'website.manage',
+  },
+  // Analytics (admin)
+  analytics: {
+    view: 'analytics.view',
+  },
+  // Compliance (admin)
+  compliance: {
+    manage: 'compliance.manage',
+    view: 'compliance.view',
+  },
+  // Parent tier
+  parent_portal: {
+    view_own_students: 'parent.view_own_students',
+    view_attendance: 'parent.view_attendance',
+    view_grades: 'parent.view_grades',
+    view_invoices: 'parent.view_invoices',
+    make_payments: 'parent.make_payments',
+    submit_inquiry: 'parent.submit_inquiry',
+    view_announcements: 'parent.view_announcements',
+    view_transcripts: 'parent.view_transcripts',
+  },
+} as const;
+
+/** Map every permission key to its role tier */
+export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
+  // Platform tier
+  [PERMISSIONS.tenants.manage]: 'platform',
+  [PERMISSIONS.tenants.view]: 'platform',
+  [PERMISSIONS.platform.impersonate]: 'platform',
+  [PERMISSIONS.platform.reset_mfa]: 'platform',
+
+  // Admin tier
+  [PERMISSIONS.users.manage]: 'admin',
+  [PERMISSIONS.users.invite]: 'admin',
+  [PERMISSIONS.users.view]: 'admin',
+  [PERMISSIONS.roles.manage]: 'admin',
+  [PERMISSIONS.settings.manage]: 'admin',
+  [PERMISSIONS.branding.manage]: 'admin',
+  [PERMISSIONS.stripe.manage]: 'admin',
+  [PERMISSIONS.notifications.manage]: 'admin',
+  [PERMISSIONS.modules.manage]: 'admin',
+  [PERMISSIONS.domains.manage]: 'admin',
+  [PERMISSIONS.approvals.manage]: 'admin',
+  [PERMISSIONS.approvals.view]: 'admin',
+  [PERMISSIONS.payroll.view]: 'admin',
+  [PERMISSIONS.payroll.manage_compensation]: 'admin',
+  [PERMISSIONS.payroll.create_run]: 'admin',
+  [PERMISSIONS.payroll.finalise_run]: 'admin',
+  [PERMISSIONS.payroll.generate_payslips]: 'admin',
+  [PERMISSIONS.payroll.view_bank_details]: 'admin',
+  [PERMISSIONS.payroll.view_reports]: 'admin',
+  [PERMISSIONS.schedule_admin.manage]: 'admin',
+  [PERMISSIONS.schedule_admin.override_conflict]: 'admin',
+  [PERMISSIONS.schedule_admin.manage_closures]: 'admin',
+  [PERMISSIONS.schedule_admin.configure_period_grid]: 'admin',
+  [PERMISSIONS.schedule_admin.configure_requirements]: 'admin',
+  [PERMISSIONS.schedule_admin.configure_availability]: 'admin',
+  [PERMISSIONS.schedule_admin.manage_preferences]: 'admin',
+  [PERMISSIONS.schedule_admin.run_auto]: 'admin',
+  [PERMISSIONS.schedule_admin.apply_auto]: 'admin',
+  [PERMISSIONS.schedule_admin.pin_entries]: 'admin',
+  [PERMISSIONS.schedule_admin.view_auto_reports]: 'admin',
+  [PERMISSIONS.students.manage]: 'admin',
+  [PERMISSIONS.students.view]: 'admin',
+  [PERMISSIONS.attendance.manage]: 'admin',
+  [PERMISSIONS.attendance.view]: 'admin',
+  [PERMISSIONS.attendance.amend_historical]: 'admin',
+  [PERMISSIONS.attendance.override_closure]: 'admin',
+  [PERMISSIONS.gradebook.manage]: 'admin',
+  [PERMISSIONS.gradebook.view]: 'admin',
+  [PERMISSIONS.gradebook.override_final_grade]: 'admin',
+  [PERMISSIONS.gradebook.publish_report_cards]: 'admin',
+  [PERMISSIONS.transcripts.generate]: 'admin',
+  [PERMISSIONS.admissions.manage]: 'admin',
+  [PERMISSIONS.admissions.view]: 'admin',
+  [PERMISSIONS.finance.manage]: 'admin',
+  [PERMISSIONS.finance.view]: 'admin',
+  [PERMISSIONS.finance.process_payments]: 'admin',
+  [PERMISSIONS.finance.issue_refunds]: 'admin',
+  [PERMISSIONS.finance.write_off]: 'admin',
+  [PERMISSIONS.finance.override_refund_guard]: 'admin',
+  [PERMISSIONS.communications.manage]: 'admin',
+  [PERMISSIONS.communications.view]: 'admin',
+  [PERMISSIONS.communications.send]: 'admin',
+  [PERMISSIONS.inquiries.view]: 'admin',
+  [PERMISSIONS.inquiries.respond]: 'admin',
+  [PERMISSIONS.website.manage]: 'admin',
+  [PERMISSIONS.analytics.view]: 'admin',
+  [PERMISSIONS.compliance.manage]: 'admin',
+  [PERMISSIONS.compliance.view]: 'admin',
+
+  // Staff tier
+  [PERMISSIONS.schedule_staff.view_own]: 'staff',
+  [PERMISSIONS.schedule_staff.manage_own_preferences]: 'staff',
+  [PERMISSIONS.schedule_staff.view_own_satisfaction]: 'staff',
+  [PERMISSIONS.attendance.take]: 'staff',
+  [PERMISSIONS.gradebook.enter_grades]: 'staff',
+
+  // Parent tier
+  [PERMISSIONS.parent_portal.view_own_students]: 'parent',
+  [PERMISSIONS.parent_portal.view_attendance]: 'parent',
+  [PERMISSIONS.parent_portal.view_grades]: 'parent',
+  [PERMISSIONS.parent_portal.view_invoices]: 'parent',
+  [PERMISSIONS.parent_portal.make_payments]: 'parent',
+  [PERMISSIONS.parent_portal.submit_inquiry]: 'parent',
+  [PERMISSIONS.parent_portal.view_announcements]: 'parent',
+  [PERMISSIONS.parent_portal.view_transcripts]: 'parent',
+};
+
+/** Default permission assignments for each system role */
+export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
+  platform_owner: [
+    PERMISSIONS.tenants.manage,
+    PERMISSIONS.tenants.view,
+    PERMISSIONS.platform.impersonate,
+    PERMISSIONS.platform.reset_mfa,
+  ],
+
+  school_owner: [
+    // All admin-tier permissions
+    PERMISSIONS.users.manage,
+    PERMISSIONS.users.invite,
+    PERMISSIONS.users.view,
+    PERMISSIONS.roles.manage,
+    PERMISSIONS.settings.manage,
+    PERMISSIONS.branding.manage,
+    PERMISSIONS.stripe.manage,
+    PERMISSIONS.notifications.manage,
+    PERMISSIONS.modules.manage,
+    PERMISSIONS.domains.manage,
+    PERMISSIONS.approvals.manage,
+    PERMISSIONS.approvals.view,
+    PERMISSIONS.payroll.view,
+    PERMISSIONS.payroll.manage_compensation,
+    PERMISSIONS.payroll.create_run,
+    PERMISSIONS.payroll.finalise_run,
+    PERMISSIONS.payroll.generate_payslips,
+    PERMISSIONS.payroll.view_bank_details,
+    PERMISSIONS.payroll.view_reports,
+    PERMISSIONS.schedule_admin.manage,
+    PERMISSIONS.schedule_admin.override_conflict,
+    PERMISSIONS.schedule_admin.manage_closures,
+    PERMISSIONS.schedule_admin.configure_period_grid,
+    PERMISSIONS.schedule_admin.configure_requirements,
+    PERMISSIONS.schedule_admin.configure_availability,
+    PERMISSIONS.schedule_admin.manage_preferences,
+    PERMISSIONS.schedule_admin.run_auto,
+    PERMISSIONS.schedule_admin.apply_auto,
+    PERMISSIONS.schedule_admin.pin_entries,
+    PERMISSIONS.schedule_admin.view_auto_reports,
+    PERMISSIONS.students.manage,
+    PERMISSIONS.students.view,
+    PERMISSIONS.attendance.manage,
+    PERMISSIONS.attendance.view,
+    PERMISSIONS.attendance.amend_historical,
+    PERMISSIONS.attendance.override_closure,
+    PERMISSIONS.gradebook.manage,
+    PERMISSIONS.gradebook.view,
+    PERMISSIONS.gradebook.override_final_grade,
+    PERMISSIONS.gradebook.publish_report_cards,
+    PERMISSIONS.transcripts.generate,
+    PERMISSIONS.admissions.manage,
+    PERMISSIONS.admissions.view,
+    PERMISSIONS.finance.manage,
+    PERMISSIONS.finance.view,
+    PERMISSIONS.finance.process_payments,
+    PERMISSIONS.finance.issue_refunds,
+    PERMISSIONS.finance.write_off,
+    PERMISSIONS.finance.override_refund_guard,
+    PERMISSIONS.communications.manage,
+    PERMISSIONS.communications.view,
+    PERMISSIONS.communications.send,
+    PERMISSIONS.inquiries.view,
+    PERMISSIONS.inquiries.respond,
+    PERMISSIONS.website.manage,
+    PERMISSIONS.analytics.view,
+    PERMISSIONS.compliance.manage,
+    PERMISSIONS.compliance.view,
+  ],
+
+  school_admin: [
+    PERMISSIONS.users.manage,
+    PERMISSIONS.users.invite,
+    PERMISSIONS.users.view,
+    PERMISSIONS.roles.manage,
+    PERMISSIONS.settings.manage,
+    PERMISSIONS.branding.manage,
+    PERMISSIONS.notifications.manage,
+    PERMISSIONS.modules.manage,
+    PERMISSIONS.domains.manage,
+    PERMISSIONS.approvals.manage,
+    PERMISSIONS.approvals.view,
+    PERMISSIONS.schedule_admin.manage,
+    PERMISSIONS.schedule_admin.override_conflict,
+    PERMISSIONS.schedule_admin.manage_closures,
+    PERMISSIONS.schedule_admin.configure_period_grid,
+    PERMISSIONS.schedule_admin.configure_requirements,
+    PERMISSIONS.schedule_admin.configure_availability,
+    PERMISSIONS.schedule_admin.manage_preferences,
+    PERMISSIONS.schedule_admin.run_auto,
+    PERMISSIONS.schedule_admin.apply_auto,
+    PERMISSIONS.schedule_admin.pin_entries,
+    PERMISSIONS.schedule_admin.view_auto_reports,
+    PERMISSIONS.students.manage,
+    PERMISSIONS.students.view,
+    PERMISSIONS.attendance.manage,
+    PERMISSIONS.attendance.view,
+    PERMISSIONS.attendance.amend_historical,
+    PERMISSIONS.attendance.override_closure,
+    PERMISSIONS.gradebook.manage,
+    PERMISSIONS.gradebook.view,
+    PERMISSIONS.gradebook.override_final_grade,
+    PERMISSIONS.gradebook.publish_report_cards,
+    PERMISSIONS.transcripts.generate,
+    PERMISSIONS.admissions.manage,
+    PERMISSIONS.admissions.view,
+    PERMISSIONS.communications.manage,
+    PERMISSIONS.communications.view,
+    PERMISSIONS.communications.send,
+    PERMISSIONS.inquiries.view,
+    PERMISSIONS.inquiries.respond,
+    PERMISSIONS.website.manage,
+    PERMISSIONS.analytics.view,
+    PERMISSIONS.compliance.manage,
+    PERMISSIONS.compliance.view,
+  ],
+
+  teacher: [
+    PERMISSIONS.schedule_staff.view_own,
+    PERMISSIONS.schedule_staff.manage_own_preferences,
+    PERMISSIONS.schedule_staff.view_own_satisfaction,
+    PERMISSIONS.attendance.take,
+    PERMISSIONS.attendance.view,
+    PERMISSIONS.gradebook.enter_grades,
+    PERMISSIONS.gradebook.view,
+    PERMISSIONS.students.view,
+  ],
+
+  finance_staff: [
+    PERMISSIONS.finance.manage,
+    PERMISSIONS.finance.view,
+    PERMISSIONS.finance.process_payments,
+    PERMISSIONS.finance.write_off,
+  ],
+
+  admissions_staff: [
+    PERMISSIONS.admissions.manage,
+    PERMISSIONS.admissions.view,
+  ],
+
+  parent: [
+    PERMISSIONS.parent_portal.view_own_students,
+    PERMISSIONS.parent_portal.view_attendance,
+    PERMISSIONS.parent_portal.view_grades,
+    PERMISSIONS.parent_portal.view_invoices,
+    PERMISSIONS.parent_portal.make_payments,
+    PERMISSIONS.parent_portal.submit_inquiry,
+    PERMISSIONS.parent_portal.view_announcements,
+    PERMISSIONS.parent_portal.view_transcripts,
+  ],
+};

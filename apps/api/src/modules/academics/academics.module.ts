@@ -1,0 +1,40 @@
+import { Module } from '@nestjs/common';
+
+import { AuthModule } from '../auth/auth.module';
+
+import { AcademicPeriodsController } from './academic-periods.controller';
+import { AcademicPeriodsService } from './academic-periods.service';
+import { AcademicYearsController } from './academic-years.controller';
+import { AcademicYearsService } from './academic-years.service';
+import { PromotionController } from './promotion.controller';
+import { PromotionService } from './promotion.service';
+import { SubjectsController } from './subjects.controller';
+import { SubjectsService } from './subjects.service';
+import { YearGroupsController } from './year-groups.controller';
+import { YearGroupsService } from './year-groups.service';
+
+@Module({
+  imports: [AuthModule],
+  controllers: [
+    AcademicYearsController,
+    AcademicPeriodsController,
+    YearGroupsController,
+    SubjectsController,
+    PromotionController,
+  ],
+  providers: [
+    AcademicYearsService,
+    AcademicPeriodsService,
+    YearGroupsService,
+    SubjectsService,
+    PromotionService,
+  ],
+  exports: [
+    AcademicYearsService,
+    AcademicPeriodsService,
+    YearGroupsService,
+    SubjectsService,
+    PromotionService,
+  ],
+})
+export class AcademicsModule {}

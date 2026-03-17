@@ -1,0 +1,541 @@
+/**
+ * RLS Leakage Tests — Phase 5 (Gradebook & Reporting)
+ *
+ * Verifies that tenant isolation holds for all 7 P5 tables:
+ * grading_scales, assessment_categories, class_subject_grade_configs,
+ * assessments, grades, period_grade_snapshots, report_cards.
+ *
+ * Pattern:
+ *   1. Create test data for Al Noor (Tenant A) via API + direct DB inserts
+ *   2. Authenticate as Cedar (Tenant B) -> attempt to read/modify
+ *   3. Assert: Cedar MUST NOT see or modify Al Noor data
+ */
+
+import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+import {
+  createTestApp,
+  closeTestApp,
+  getAuthToken,
+  authGet,
+  authPost,
+  authPut,
+  authPatch,
+  authDelete,
+  AL_NOOR_ADMIN_EMAIL,
+  AL_NOOR_DOMAIN,
+  CEDAR_ADMIN_EMAIL,
+  CEDAR_DOMAIN,
+} from './helpers';
+import { setupP4ATestData, P4ATestData } from './p4a-test-data.helper';
+
+jest.setTimeout(120_000);
+
+const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+const RLS_TEST_ROLE = 'rls_test_user';
+
+describe('P5 RLS Leakage (e2e)', () => {
+  let app: INestApplication;
+  let alNoorAdminToken: string;
+  let cedarAdminToken: string;
+  let directPrisma: PrismaClient;
+  let td: P4ATestData;
+
+  // Al Noor P5 entity IDs
+  let alNoorGradingScaleId: string;
+  let alNoorCategoryId: string;
+  let alNoorSubjectId: string;
+  let alNoorAcademicPeriodId: string;
+  let alNoorAssessmentId: string;
+  let alNoorGradeConfigId: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    alNoorAdminToken = await getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN);
+    cedarAdminToken = await getAuthToken(app, CEDAR_ADMIN_EMAIL, CEDAR_DOMAIN);
+
+    // Set up Al Noor base data (academic year, class, student, teacher)
+    td = await setupP4ATestData(app, alNoorAdminToken);
+
+    // Direct Prisma client for low-level RLS tests
+    directPrisma = new PrismaClient({
+      datasources: { db: { url: process.env.DATABASE_URL } },
+    });
+    await directPrisma.$connect();
+
+    // Create non-BYPASSRLS role (idempotent)
+    await directPrisma.$executeRawUnsafe(
+      `DO $$ BEGIN CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+
+    // ── Create Al Noor subject (academic type) ─────────────────────────────
+    const ts = Date.now();
+
+    const subjectRes = await authPost(
+      app,
+      '/api/v1/subjects',
+      alNoorAdminToken,
+      { name: `P5 RLS Subject ${ts}`, code: `P5RLS${ts}`, subject_type: 'academic' },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    alNoorSubjectId = subjectRes.body.data.id;
+
+    // ── Create Al Noor academic period ────────────────────────────────────
+    const periodRes = await authPost(
+      app,
+      `/api/v1/academic-years/${td.academicYearId}/periods`,
+      alNoorAdminToken,
+      {
+        name: `P5 RLS Period ${ts}`,
+        period_type: 'term',
+        start_date: td.dateInYear(9, 1),
+        end_date: td.dateInYear(12, 15),
+        status: 'active',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    alNoorAcademicPeriodId = periodRes.body.data.id;
+
+    // ── Create Al Noor grading scale via API ──────────────────────────────
+    const scaleRes = await authPost(
+      app,
+      '/api/v1/gradebook/grading-scales',
+      alNoorAdminToken,
+      {
+        name: `P5 RLS Scale ${ts}`,
+        config_json: {
+          type: 'numeric',
+          ranges: [
+            { min: 0, max: 59, label: 'F' },
+            { min: 60, max: 79, label: 'C' },
+            { min: 80, max: 89, label: 'B' },
+            { min: 90, max: 100, label: 'A' },
+          ],
+        },
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    alNoorGradingScaleId = scaleRes.body.data.id;
+
+    // ── Create Al Noor assessment category via API ────────────────────────
+    const catRes = await authPost(
+      app,
+      '/api/v1/gradebook/assessment-categories',
+      alNoorAdminToken,
+      { name: `P5 RLS Category ${ts}`, default_weight: 100 },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    alNoorCategoryId = catRes.body.data.id;
+
+    // ── Create Al Noor grade config via API ───────────────────────────────
+    const gradeConfigRes = await authPut(
+      app,
+      `/api/v1/gradebook/classes/${td.classId}/subjects/${alNoorSubjectId}/grade-config`,
+      alNoorAdminToken,
+      {
+        grading_scale_id: alNoorGradingScaleId,
+        category_weight_json: {
+          weights: [{ category_id: alNoorCategoryId, weight: 100 }],
+        },
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(200);
+    alNoorGradeConfigId = gradeConfigRes.body.data.id;
+
+    // ── Create Al Noor assessment via API ─────────────────────────────────
+    const assessRes = await authPost(
+      app,
+      '/api/v1/gradebook/assessments',
+      alNoorAdminToken,
+      {
+        class_id: td.classId,
+        subject_id: alNoorSubjectId,
+        academic_period_id: alNoorAcademicPeriodId,
+        category_id: alNoorCategoryId,
+        title: `P5 RLS Assessment ${ts}`,
+        max_score: 100,
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    alNoorAssessmentId = assessRes.body.data.id;
+
+    // ── Open the assessment (draft → open) ──────────────────────────────
+    await authPatch(
+      app,
+      `/api/v1/gradebook/assessments/${alNoorAssessmentId}/status`,
+      alNoorAdminToken,
+      { status: 'open' },
+      AL_NOOR_DOMAIN,
+    ).expect(200);
+
+    // ── Enter a grade for the student via API ─────────────────────────────
+    await authPut(
+      app,
+      `/api/v1/gradebook/assessments/${alNoorAssessmentId}/grades`,
+      alNoorAdminToken,
+      {
+        grades: [
+          { student_id: td.studentId, raw_score: 85, is_missing: false },
+        ],
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(200);
+
+    // ── Compute period grades to populate period_grade_snapshots ──────────
+    await authPost(
+      app,
+      '/api/v1/gradebook/period-grades/compute',
+      alNoorAdminToken,
+      {
+        class_id: td.classId,
+        subject_id: alNoorSubjectId,
+        academic_period_id: alNoorAcademicPeriodId,
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+
+    // ── Generate report card to populate report_cards ─────────────────────
+    await authPost(
+      app,
+      '/api/v1/report-cards/generate',
+      alNoorAdminToken,
+      {
+        student_ids: [td.studentId],
+        academic_period_id: alNoorAcademicPeriodId,
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+  });
+
+  afterAll(async () => {
+    if (directPrisma) {
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
+        );
+      } catch {
+        // Best effort
+      }
+      await directPrisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  // ── Helper: query as Cedar via RLS role ─────────────────────────────────
+
+  async function queryAsCedar(
+    tableName: string,
+  ): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
+      );
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+      return tx.$queryRawUnsafe(
+        `SELECT tenant_id::text FROM "${tableName}"`,
+      ) as Promise<Array<{ tenant_id: string | null }>>;
+    });
+  }
+
+  function assertNoAlNoorRows(
+    rows: Array<{ tenant_id: string | null }>,
+    context: string,
+  ): void {
+    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(
+        `RLS LEAKAGE in ${context}: found ${leaks.length} Al Noor row(s) visible to Cedar`,
+      );
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Section 1: Table-level RLS tests
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Table-level RLS isolation', () => {
+    it('grading_scales: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('grading_scales');
+      assertNoAlNoorRows(rows, 'grading_scales');
+    });
+
+    it('assessment_categories: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('assessment_categories');
+      assertNoAlNoorRows(rows, 'assessment_categories');
+    });
+
+    it('class_subject_grade_configs: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('class_subject_grade_configs');
+      assertNoAlNoorRows(rows, 'class_subject_grade_configs');
+    });
+
+    it('assessments: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('assessments');
+      assertNoAlNoorRows(rows, 'assessments');
+    });
+
+    it('grades: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('grades');
+      assertNoAlNoorRows(rows, 'grades');
+    });
+
+    it('period_grade_snapshots: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('period_grade_snapshots');
+      assertNoAlNoorRows(rows, 'period_grade_snapshots');
+    });
+
+    it('report_cards: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('report_cards');
+      assertNoAlNoorRows(rows, 'report_cards');
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Section 2: API-level RLS tests
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('API-level RLS isolation', () => {
+    it('GET /api/v1/gradebook/grading-scales as Cedar returns no Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/gradebook/grading-scales',
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data?.data ?? res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      const ids = items.map((s: Record<string, unknown>) => s['id']);
+      expect(ids).not.toContain(alNoorGradingScaleId);
+    });
+
+    it('GET /api/v1/gradebook/grading-scales/:id as Cedar for Al Noor scale returns 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/gradebook/grading-scales/${alNoorGradingScaleId}`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /api/v1/gradebook/assessment-categories as Cedar returns no Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/gradebook/assessment-categories',
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data?.data ?? res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      const ids = items.map((c: Record<string, unknown>) => c['id']);
+      expect(ids).not.toContain(alNoorCategoryId);
+    });
+
+    it('GET /api/v1/gradebook/assessment-categories/:id as Cedar for Al Noor category returns 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/gradebook/assessment-categories/${alNoorCategoryId}`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /api/v1/gradebook/assessments as Cedar returns no Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/gradebook/assessments',
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data?.data ?? res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      const ids = items.map((a: Record<string, unknown>) => a['id']);
+      expect(ids).not.toContain(alNoorAssessmentId);
+    });
+
+    it('GET /api/v1/gradebook/assessments/:id as Cedar for Al Noor assessment returns 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/gradebook/assessments/${alNoorAssessmentId}`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /api/v1/gradebook/assessments/:id/grades as Cedar for Al Noor assessment returns 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/gradebook/assessments/${alNoorAssessmentId}/grades`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    it('GET /api/v1/report-cards as Cedar returns no Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/report-cards',
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data?.data ?? res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      // Verify none of the returned report cards belong to Al Noor student
+      const studentIds = items.map((r: Record<string, unknown>) => r['student_id']);
+      expect(studentIds).not.toContain(td.studentId);
+    });
+
+    it('GET /api/v1/gradebook/classes/:classId/grade-configs as Cedar for Al Noor class returns empty', async () => {
+      const res = await authGet(
+        app,
+        `/api/v1/gradebook/classes/${td.classId}/grade-configs`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      expect(items).toHaveLength(0);
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Section 3: Cross-tenant operation tests
+  // ══════════════════════════════════════════════════════════════════════════
+
+  describe('Cross-tenant operation isolation', () => {
+    it('Cedar cannot compute period grades for Al Noor class/subject', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/period-grades/compute',
+        cedarAdminToken,
+        {
+          class_id: td.classId,
+          subject_id: alNoorSubjectId,
+          academic_period_id: alNoorAcademicPeriodId,
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // Should get 404 (class not found in Cedar context) or 400
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot generate report cards for Al Noor student IDs', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/report-cards/generate',
+        cedarAdminToken,
+        {
+          student_ids: [td.studentId],
+          academic_period_id: alNoorAcademicPeriodId,
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // Should get 404 (student not found in Cedar context) or 400
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot upsert grade config for Al Noor class/subject', async () => {
+      const res = await authPut(
+        app,
+        `/api/v1/gradebook/classes/${td.classId}/subjects/${alNoorSubjectId}/grade-config`,
+        cedarAdminToken,
+        {
+          grading_scale_id: alNoorGradingScaleId,
+          category_weight_json: {
+            weights: [{ category_id: alNoorCategoryId, weight: 100 }],
+          },
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // Should get 404 (class or grading scale not found) or 400
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot create assessment for Al Noor class', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/gradebook/assessments',
+        cedarAdminToken,
+        {
+          class_id: td.classId,
+          subject_id: alNoorSubjectId,
+          academic_period_id: alNoorAcademicPeriodId,
+          category_id: alNoorCategoryId,
+          title: 'RLS Cross-Tenant Assessment',
+          max_score: 100,
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // Should get 404 (class not found) or 400 (validation)
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot enter grades for Al Noor assessment', async () => {
+      const res = await authPut(
+        app,
+        `/api/v1/gradebook/assessments/${alNoorAssessmentId}/grades`,
+        cedarAdminToken,
+        {
+          grades: [
+            { student_id: td.studentId, raw_score: 99, is_missing: false },
+          ],
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // Should get 404 (assessment not found in Cedar context) or 400
+      expect([400, 404]).toContain(res.status);
+    });
+
+    it('Cedar cannot view period grades for Al Noor class/subject', async () => {
+      const res = await authGet(
+        app,
+        `/api/v1/gradebook/period-grades?class_id=${td.classId}&subject_id=${alNoorSubjectId}&academic_period_id=${alNoorAcademicPeriodId}`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      // Should be empty since the class does not belong to Cedar
+      expect(items).toHaveLength(0);
+    });
+
+    it('Cedar cannot view period grades for Al Noor student', async () => {
+      const res = await authGet(
+        app,
+        `/api/v1/gradebook/students/${td.studentId}/period-grades`,
+        cedarAdminToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const data = res.body.data ?? [];
+      const items = Array.isArray(data) ? data : [];
+      // Should be empty since the student does not belong to Cedar
+      expect(items).toHaveLength(0);
+    });
+  });
+});

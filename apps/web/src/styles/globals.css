@@ -1,0 +1,5 @@
+@import '@school/ui/globals.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

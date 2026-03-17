@@ -1,0 +1,517 @@
+/**
+ * RLS Leakage Tests — Phase 1
+ *
+ * Verifies that tenant isolation holds at both the API level and the database
+ * layer. A user authenticated against Tenant B (Cedar) must never see data
+ * that belongs to Tenant A (Al Noor), regardless of the endpoint called.
+ *
+ * Two test categories:
+ *   1. API-level — authenticate as Cedar, call each endpoint, assert only
+ *      Cedar data is returned.
+ *   2. Table-level — open a Prisma transaction as the rls_test_user role,
+ *      SET LOCAL app.current_tenant_id to Cedar, query each table, and assert
+ *      that no Al Noor rows are returned.
+ */
+
+import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+import {
+  AL_NOOR_DOMAIN,
+  CEDAR_DOMAIN,
+  CEDAR_OWNER_EMAIL,
+  DEV_PASSWORD,
+  authGet,
+  closeTestApp,
+  createTestApp,
+  login,
+} from './helpers';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+/**
+ * Email domains that belong exclusively to the Al Noor tenant.
+ * Any of these appearing in a Cedar-scoped response is a leakage.
+ */
+const AL_NOOR_EMAIL_DOMAINS = ['@alnoor.test'];
+
+/** Al Noor tenant UUID — seeded in packages/prisma/seed.ts */
+const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+
+/** Cedar tenant UUID — seeded in packages/prisma/seed.ts */
+const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+
+/**
+ * Non-superuser role used for table-level RLS tests.
+ *
+ * The application's postgres user has BYPASSRLS=true, which means RLS is
+ * completely bypassed when connecting as postgres. To test the DB-layer
+ * policies, we switch to this role (which has no BYPASSRLS) inside each
+ * transaction using SET LOCAL ROLE.
+ *
+ * The role is created in beforeAll and dropped in afterAll.
+ */
+const RLS_TEST_ROLE = 'rls_test_user';
+
+function containsAlNoorEmail(value: unknown): boolean {
+  const json = JSON.stringify(value);
+  return AL_NOOR_EMAIL_DOMAINS.some((domain) => json.includes(domain));
+}
+
+// ─── Suite ───────────────────────────────────────────────────────────────────
+
+describe('RLS Leakage (e2e)', () => {
+  let app: INestApplication;
+
+  /**
+   * Cedar owner token + host used for every API-level test.
+   * This user has full admin-tier permissions within Cedar and should see
+   * Cedar data only — never Al Noor data.
+   */
+  let cedarToken: string;
+
+  /**
+   * Direct Prisma client for table-level RLS tests.
+   * Uses the same DATABASE_URL as the app (set in setup-env.ts).
+   * Connects as the postgres superuser but switches role inside transactions.
+   */
+  let directPrisma: PrismaClient;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+
+    const cedarLogin = await login(
+      app,
+      CEDAR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      CEDAR_DOMAIN,
+    );
+    cedarToken = cedarLogin.accessToken;
+
+    // ── Table-level RLS setup ──────────────────────────────────────────────
+    // Create a direct DB connection as the postgres superuser.
+    directPrisma = new PrismaClient({
+      datasources: {
+        db: { url: process.env.DATABASE_URL },
+      },
+    });
+    await directPrisma.$connect();
+
+    // Create the non-superuser role for RLS testing (idempotent).
+    // This role has no BYPASSRLS, so PostgreSQL enforces RLS policies against it.
+    await directPrisma.$executeRawUnsafe(
+      `DO $$ BEGIN
+         CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
+    );
+
+    // Grant enough privileges for the role to SELECT from tenant tables.
+    await directPrisma.$executeRawUnsafe(
+      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+  });
+
+  afterAll(async () => {
+    // Revoke grants and drop the test role (best-effort — non-fatal).
+    if (directPrisma) {
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
+        );
+      } catch {
+        // Role cleanup is best-effort; test failures are not reported here.
+      }
+      await directPrisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  // ─── Helper ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Runs a raw SELECT against `tableName` inside a transaction that:
+   *   1. Sets app.current_tenant_id to the Cedar tenant ID.
+   *   2. Switches the active role to rls_test_user (no BYPASSRLS).
+   *
+   * The returned rows are what PostgreSQL's RLS layer allows Cedar to see.
+   * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
+   */
+  async function queryAsCedar(
+    tableName: string,
+  ): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      // set_config with is_local=true scopes the setting to this transaction.
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
+      );
+      // SET LOCAL ROLE switches to the non-superuser role for this transaction only.
+      // RLS policies are now enforced because rls_test_user has no BYPASSRLS.
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return tx.$queryRawUnsafe(
+        `SELECT tenant_id::text FROM "${tableName}"`,
+      ) as Promise<Array<{ tenant_id: string | null }>>;
+    });
+  }
+
+  /**
+   * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
+   */
+  function assertNoAlNoorRows(
+    rows: Array<{ tenant_id: string | null }>,
+    context: string,
+  ): void {
+    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(
+        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned when querying as Cedar`,
+      );
+    }
+  }
+
+  // ── 1. API-Level RLS Tests ──────────────────────────────────────────────────
+
+  describe('API-level: Tenant B (Cedar) must not see Tenant A (Al Noor) data', () => {
+    /**
+     * Test 1 — Roles
+     *
+     * The roles endpoint returns global (platform-defined) roles that are
+     * shared across tenants, plus any custom roles scoped to the requesting
+     * tenant. Al Noor custom roles must never appear in a Cedar response.
+     */
+    it('GET /v1/roles as Tenant B should not return Tenant A custom roles', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/roles',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const roles: Array<{ tenant_id?: string | null; name: string }> =
+        res.body.data ?? [];
+
+      // Every role in the response must be either a global role (tenant_id
+      // is null) or scoped to Cedar (tenant_id matches Cedar's domain context).
+      // The test approach: assert that no role has the Al Noor domain in its
+      // serialised representation.
+      expect(containsAlNoorEmail(roles)).toBe(false);
+
+      // Additionally, every tenant-scoped role must not reference Al Noor.
+      const tenantScopedRoles = roles.filter((r) => r.tenant_id !== null);
+      for (const role of tenantScopedRoles) {
+        // Serialise each role individually for a clear failure message.
+        expect(JSON.stringify(role)).not.toContain(AL_NOOR_DOMAIN);
+      }
+    });
+
+    /**
+     * Test 2 — Users
+     *
+     * The /v1/users endpoint lists memberships for the resolved tenant.
+     * No user whose email belongs to @alnoor.test should appear.
+     */
+    it('GET /v1/users as Tenant B should not return Tenant A users', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/users',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const users: Array<{ email?: string }> = res.body.data ?? [];
+
+      expect(containsAlNoorEmail(users)).toBe(false);
+
+      for (const user of users) {
+        if (user.email) {
+          expect(user.email).not.toMatch(/@alnoor\.test/i);
+        }
+      }
+    });
+
+    /**
+     * Test 3 — Invitations
+     *
+     * Invitations are tenant-scoped. Cedar should not see any invitation
+     * that was created for Al Noor, including those targeting @alnoor.test
+     * email addresses.
+     */
+    it('GET /v1/invitations as Tenant B should not return Tenant A invitations', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/invitations',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const invitations: Array<{ email?: string }> = res.body.data ?? [];
+
+      expect(containsAlNoorEmail(invitations)).toBe(false);
+
+      for (const invitation of invitations) {
+        if (invitation.email) {
+          expect(invitation.email).not.toMatch(/@alnoor\.test/i);
+        }
+      }
+    });
+
+    /**
+     * Test 4 — Branding
+     *
+     * The branding record is unique per tenant. The school_name_display field
+     * must reflect Cedar, not Al Noor.
+     */
+    it('GET /v1/branding as Tenant B returns Tenant B branding only', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/branding',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const branding = res.body.data;
+
+      expect(branding).toBeDefined();
+      expect(branding.school_name_display).toBeDefined();
+
+      // Must not contain any Al Noor identifiers.
+      expect(JSON.stringify(branding)).not.toContain('Al Noor');
+      expect(JSON.stringify(branding)).not.toContain('al-noor');
+      expect(JSON.stringify(branding)).not.toContain(AL_NOOR_DOMAIN);
+    });
+
+    /**
+     * Test 5 — Settings
+     *
+     * The settings record is unique per tenant. A successful response means
+     * the tenant context resolved to Cedar and only Cedar settings are
+     * returned. If Al Noor settings leaked in, identifiers would appear in the
+     * payload.
+     */
+    it('GET /v1/settings as Tenant B returns Tenant B settings only', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/settings',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const settings = res.body.data;
+
+      expect(settings).toBeDefined();
+
+      // Settings object must not embed any Al Noor identifiers.
+      expect(JSON.stringify(settings)).not.toContain(AL_NOOR_DOMAIN);
+      expect(JSON.stringify(settings)).not.toContain('al_noor');
+    });
+
+    /**
+     * Test 6 — Notification settings
+     *
+     * Notification settings are seeded per tenant from the platform templates.
+     * The response is a list; every entry must belong to Cedar.
+     */
+    it('GET /v1/notification-settings as Tenant B returns only B settings', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/notification-settings',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const notificationSettings: unknown[] = res.body.data ?? [];
+
+      // Must be an array (even if empty — no seed data is fine).
+      expect(Array.isArray(notificationSettings)).toBe(true);
+
+      // No Al Noor identifiers in the payload.
+      expect(containsAlNoorEmail(notificationSettings)).toBe(false);
+      expect(JSON.stringify(notificationSettings)).not.toContain(AL_NOOR_DOMAIN);
+    });
+
+    /**
+     * Test 7 — Approval workflows
+     *
+     * Approval workflows are tenant-scoped. Cedar must not receive any
+     * workflow rows created under Al Noor.
+     */
+    it('GET /v1/approval-workflows as Tenant B returns only B workflows', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/approval-workflows',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const workflows: unknown[] = res.body.data ?? [];
+
+      expect(Array.isArray(workflows)).toBe(true);
+      expect(containsAlNoorEmail(workflows)).toBe(false);
+      expect(JSON.stringify(workflows)).not.toContain(AL_NOOR_DOMAIN);
+    });
+
+    /**
+     * Test 8 — Approval requests
+     *
+     * Approval requests are tenant-scoped. The seed data does not include
+     * any pending requests, so the response should be an empty list. The
+     * critical assertion is that Al Noor request data is absent.
+     */
+    it('GET /v1/approval-requests as Tenant B returns only B requests', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/approval-requests',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const requests: unknown[] = res.body.data ?? [];
+
+      expect(Array.isArray(requests)).toBe(true);
+      expect(containsAlNoorEmail(requests)).toBe(false);
+      expect(JSON.stringify(requests)).not.toContain(AL_NOOR_DOMAIN);
+    });
+
+    /**
+     * Test 9 — User UI preferences
+     *
+     * Preferences are scoped to (tenant_id, user_id). The Cedar owner's
+     * preferences must only reflect Cedar context — no Al Noor tenant_id,
+     * user records, or preference data should be present.
+     */
+    it('GET /v1/me/preferences as Tenant B returns only B preferences', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/me/preferences',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const preferences = res.body.data;
+
+      expect(preferences).toBeDefined();
+
+      // Preferences belong to the Cedar owner — must not reference Al Noor.
+      expect(JSON.stringify(preferences)).not.toContain(AL_NOOR_DOMAIN);
+      expect(containsAlNoorEmail(preferences)).toBe(false);
+    });
+  });
+
+  // ── 2. Table-Level RLS Tests ────────────────────────────────────────────────
+  //
+  // Each test opens a Prisma interactive transaction, sets
+  // app.current_tenant_id to Cedar, switches to rls_test_user (which has no
+  // BYPASSRLS), queries the target table with SELECT * and asserts that no
+  // rows with Al Noor's tenant_id appear. This validates the PostgreSQL RLS
+  // policy in isolation from the application layer.
+
+  describe('Table-level: RLS policy enforcement (direct DB verification)', () => {
+    it('tenant_domains: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_domains');
+      assertNoAlNoorRows(rows, 'tenant_domains');
+    });
+
+    it('tenant_modules: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_modules');
+      assertNoAlNoorRows(rows, 'tenant_modules');
+    });
+
+    it('tenant_branding: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_branding');
+      assertNoAlNoorRows(rows, 'tenant_branding');
+    });
+
+    it('tenant_settings: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_settings');
+      assertNoAlNoorRows(rows, 'tenant_settings');
+    });
+
+    it('tenant_notification_settings: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_notification_settings');
+      assertNoAlNoorRows(rows, 'tenant_notification_settings');
+    });
+
+    it('tenant_sequences: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_sequences');
+      assertNoAlNoorRows(rows, 'tenant_sequences');
+    });
+
+    it('tenant_stripe_configs: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_stripe_configs');
+      assertNoAlNoorRows(rows, 'tenant_stripe_configs');
+    });
+
+    it('tenant_memberships: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('tenant_memberships');
+      assertNoAlNoorRows(rows, 'tenant_memberships');
+    });
+
+    /**
+     * Roles has dual RLS: global roles (tenant_id IS NULL) are visible to all
+     * tenants, while custom roles are scoped to their own tenant. Verify:
+     *   a) No Al Noor custom roles appear.
+     *   b) Global roles (tenant_id IS NULL) remain visible to Cedar — the
+     *      policy intentionally allows these.
+     */
+    it('roles: querying as Cedar returns no Al Noor custom roles but does return global roles', async () => {
+      const rows = await queryAsCedar('roles');
+
+      assertNoAlNoorRows(rows, 'roles');
+
+      // Global roles must still be visible — RLS policy allows tenant_id IS NULL.
+      const globalRoles = rows.filter((r) => r.tenant_id === null);
+      expect(globalRoles.length).toBeGreaterThan(0);
+    });
+
+    /**
+     * role_permissions inherits the same dual RLS as roles:
+     * global permission rows (tenant_id IS NULL) are visible, Al Noor rows are not.
+     */
+    it('role_permissions: querying as Cedar returns no Al Noor rows but retains global permission rows', async () => {
+      const rows = await queryAsCedar('role_permissions');
+
+      assertNoAlNoorRows(rows, 'role_permissions');
+
+      // Global permission rows (tenant_id IS NULL) must still be visible.
+      const globalRows = rows.filter((r) => r.tenant_id === null);
+      expect(globalRows.length).toBeGreaterThan(0);
+    });
+
+    it('membership_roles: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('membership_roles');
+      assertNoAlNoorRows(rows, 'membership_roles');
+    });
+
+    it('invitations: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('invitations');
+      assertNoAlNoorRows(rows, 'invitations');
+    });
+
+    it('approval_workflows: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('approval_workflows');
+      assertNoAlNoorRows(rows, 'approval_workflows');
+    });
+
+    it('approval_requests: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('approval_requests');
+      assertNoAlNoorRows(rows, 'approval_requests');
+    });
+
+    it('user_ui_preferences: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('user_ui_preferences');
+      assertNoAlNoorRows(rows, 'user_ui_preferences');
+    });
+  });
+});

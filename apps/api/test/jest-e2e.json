@@ -1,0 +1,15 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": ["ts-jest", {
+      "tsconfig": "<rootDir>/../tsconfig.json"
+    }]
+  },
+  "moduleNameMapper": {
+    "^otplib$": "<rootDir>/__mocks__/otplib.ts"
+  },
+  "setupFiles": ["./setup-env.ts"]
+}

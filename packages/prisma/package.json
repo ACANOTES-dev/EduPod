@@ -1,0 +1,34 @@
+{
+  "name": "@school/prisma",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "seed": "tsx seed.ts",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.1.0",
+    "bcryptjs": "^3.0.3",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@school/eslint-config": "workspace:*",
+    "@school/tsconfig": "workspace:*",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/pg": "^8.11.10",
+    "eslint": "^8.57.0",
+    "prisma": "^6.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

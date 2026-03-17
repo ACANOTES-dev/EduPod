@@ -1,0 +1,24 @@
+{
+  "name": "@school/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./next": "./next.js",
+    "./nest": "./nest.js",
+    "./plugin": "./plugin.js"
+  },
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.31.0"
+  },
+  "peerDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

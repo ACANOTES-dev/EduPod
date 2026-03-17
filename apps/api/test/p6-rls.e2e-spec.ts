@@ -1,0 +1,813 @@
+/**
+ * RLS Leakage Tests — Phase 6 (Finance)
+ *
+ * Verifies that tenant isolation holds at both the API level and the database
+ * layer for all P6 Finance entities: fee_structures, discounts,
+ * household_fee_assignments, invoices, invoice_lines, installments,
+ * payments, payment_allocations, receipts, refunds.
+ *
+ * Two test categories:
+ *   1. API-level — create data as Al Noor (Tenant A), authenticate as Cedar
+ *      (Tenant B), call each endpoint, assert only Cedar data is returned.
+ *   2. Table-level — open a Prisma transaction as the rls_test_user_p6 role,
+ *      SET LOCAL app.current_tenant_id to Cedar, query each table, and assert
+ *      that no Al Noor rows are returned.
+ *
+ * Cross-tenant mutation safety:
+ *   - Cedar tries to issue Al Noor's invoice -> 404
+ *   - Cedar tries to create payment for Al Noor's household -> 400/404
+ *   - Cedar tries to create refund for Al Noor's payment -> 404
+ */
+
+import { INestApplication } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+import {
+  AL_NOOR_DOMAIN,
+  AL_NOOR_OWNER_EMAIL,
+  CEDAR_DOMAIN,
+  CEDAR_OWNER_EMAIL,
+  DEV_PASSWORD,
+  authGet,
+  authPost,
+  closeTestApp,
+  createTestApp,
+  login,
+} from './helpers';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const AL_NOOR_TENANT_ID = 'aa08873c-40a5-4bba-a9e3-8bd0f6d5e696';
+const CEDAR_TENANT_ID = 'a032c7be-a0c3-4375-add7-174afa46e046';
+const RLS_TEST_ROLE = 'rls_test_user_p6';
+
+// ─── Suite ───────────────────────────────────────────────────────────────────
+
+jest.setTimeout(120_000);
+
+describe('P6 Finance — RLS Leakage Tests (e2e)', () => {
+  let app: INestApplication;
+  let alNoorToken: string;
+  let cedarToken: string;
+
+  /** Direct Prisma client for table-level RLS tests. */
+  let directPrisma: PrismaClient;
+
+  // IDs created as Al Noor
+  let householdId: string;
+  let feeStructureId: string;
+  let discountId: string;
+  let feeAssignmentId: string;
+  let invoiceId: string;
+  let paymentId: string;
+  let refundId: string;
+
+  /** Unique search term embedded in Al Noor data for leakage detection. */
+  const UNIQUE_SEARCH_TERM = 'RlsP6FinLeakTest';
+
+  beforeAll(async () => {
+    app = await createTestApp();
+
+    // Authenticate as both tenants
+    const alNoorLogin = await login(
+      app,
+      AL_NOOR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      AL_NOOR_DOMAIN,
+    );
+    alNoorToken = alNoorLogin.accessToken;
+
+    const cedarLogin = await login(
+      app,
+      CEDAR_OWNER_EMAIL,
+      DEV_PASSWORD,
+      CEDAR_DOMAIN,
+    );
+    cedarToken = cedarLogin.accessToken;
+
+    // ── Create Al Noor test data ────────────────────────────────────────────
+
+    const ts = Date.now();
+
+    // 1. Create household
+    const hhRes = await authPost(
+      app,
+      '/api/v1/households',
+      alNoorToken,
+      {
+        household_name: `${UNIQUE_SEARCH_TERM} Finance HH ${ts}`,
+        emergency_contacts: [
+          {
+            contact_name: 'RLS Test Contact',
+            phone: '+971501234999',
+            relationship_label: 'Uncle',
+            display_order: 1,
+          },
+        ],
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    householdId = hhRes.body.data?.id ?? hhRes.body.id;
+
+    // 2. Create fee structure
+    const fsRes = await authPost(
+      app,
+      '/api/v1/finance/fee-structures',
+      alNoorToken,
+      {
+        name: `${UNIQUE_SEARCH_TERM} Fee ${ts}`,
+        amount: 500,
+        billing_frequency: 'term',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    feeStructureId = fsRes.body.data?.id ?? fsRes.body.id;
+
+    // 3. Create discount
+    const dRes = await authPost(
+      app,
+      '/api/v1/finance/discounts',
+      alNoorToken,
+      {
+        name: `${UNIQUE_SEARCH_TERM} Discount ${ts}`,
+        discount_type: 'fixed',
+        value: 50,
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    discountId = dRes.body.data?.id ?? dRes.body.id;
+
+    // 4. Create fee assignment
+    const faRes = await authPost(
+      app,
+      '/api/v1/finance/fee-assignments',
+      alNoorToken,
+      {
+        household_id: householdId,
+        fee_structure_id: feeStructureId,
+        discount_id: discountId,
+        effective_from: '2026-01-01',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    feeAssignmentId = faRes.body.data?.id ?? faRes.body.id;
+
+    // 5. Create invoice
+    const invRes = await authPost(
+      app,
+      '/api/v1/finance/invoices',
+      alNoorToken,
+      {
+        household_id: householdId,
+        due_date: '2026-12-31',
+        lines: [
+          {
+            description: `${UNIQUE_SEARCH_TERM} Fee Line`,
+            quantity: 1,
+            unit_amount: 500,
+          },
+        ],
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    invoiceId = invRes.body.data?.id ?? invRes.body.id;
+
+    // 6. Issue the invoice so it can receive payments
+    await authPost(
+      app,
+      `/api/v1/finance/invoices/${invoiceId}/issue`,
+      alNoorToken,
+      {},
+      AL_NOOR_DOMAIN,
+    ).expect(200);
+
+    // 7. Create payment
+    const payRes = await authPost(
+      app,
+      '/api/v1/finance/payments',
+      alNoorToken,
+      {
+        household_id: householdId,
+        payment_method: 'cash',
+        payment_reference: `${UNIQUE_SEARCH_TERM}-PAY-${ts}`,
+        amount: 500,
+        received_at: '2026-03-16T00:00:00Z',
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    paymentId = payRes.body.data?.id ?? payRes.body.id;
+
+    // 8. Create refund request
+    const refRes = await authPost(
+      app,
+      '/api/v1/finance/refunds',
+      alNoorToken,
+      {
+        payment_id: paymentId,
+        amount: 100,
+        reason: `${UNIQUE_SEARCH_TERM} test refund`,
+      },
+      AL_NOOR_DOMAIN,
+    ).expect(201);
+    refundId = refRes.body.data?.id ?? refRes.body.id;
+
+    // ── Table-level RLS setup ───────────────────────────────────────────────
+
+    directPrisma = new PrismaClient({
+      datasources: {
+        db: { url: process.env.DATABASE_URL },
+      },
+    });
+    await directPrisma.$connect();
+
+    // Create the non-superuser role for RLS testing (idempotent).
+    await directPrisma.$executeRawUnsafe(
+      `DO $$ BEGIN
+         CREATE ROLE ${RLS_TEST_ROLE} NOLOGIN;
+       EXCEPTION WHEN duplicate_object THEN NULL;
+       END $$`,
+    );
+
+    // Grant enough privileges for the role to SELECT from tenant tables.
+    await directPrisma.$executeRawUnsafe(
+      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+    await directPrisma.$executeRawUnsafe(
+      `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
+    );
+  }, 120_000);
+
+  afterAll(async () => {
+    if (directPrisma) {
+      try {
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
+        );
+        await directPrisma.$executeRawUnsafe(
+          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
+        );
+      } catch {
+        // Role cleanup is best-effort.
+      }
+      await directPrisma.$disconnect();
+    }
+    await closeTestApp();
+  });
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * Runs a raw SELECT against `tableName` inside a transaction that:
+   *   1. Sets app.current_tenant_id to the Cedar tenant ID.
+   *   2. Switches the active role to rls_test_user_p6 (no BYPASSRLS).
+   *
+   * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
+   */
+  async function queryAsCedar(
+    tableName: string,
+  ): Promise<Array<{ tenant_id: string | null }>> {
+    return directPrisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
+      );
+      await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return tx.$queryRawUnsafe(
+        `SELECT tenant_id::text FROM "${tableName}"`,
+      ) as Promise<Array<{ tenant_id: string | null }>>;
+    });
+  }
+
+  /**
+   * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
+   */
+  function assertNoAlNoorRows(
+    rows: Array<{ tenant_id: string | null }>,
+    context: string,
+  ): void {
+    const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
+    expect(leaks).toHaveLength(0);
+    if (leaks.length > 0) {
+      throw new Error(
+        `RLS LEAK in ${context}: ${leaks.length} Al Noor row(s) returned when querying as Cedar`,
+      );
+    }
+  }
+
+  // ── 1. API-Level RLS Tests — List Endpoints ────────────────────────────────
+
+  describe('API-level: Cedar must not see Al Noor finance data (list endpoints)', () => {
+    /**
+     * Fee Structures — List
+     */
+    it('GET /v1/finance/fee-structures as Cedar should not return Al Noor fee structures', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/fee-structures',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(feeStructureId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Discounts — List
+     */
+    it('GET /v1/finance/discounts as Cedar should not return Al Noor discounts', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/discounts',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(discountId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Fee Assignments — List
+     */
+    it('GET /v1/finance/fee-assignments as Cedar should not return Al Noor fee assignments', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/fee-assignments',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(feeAssignmentId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Invoices — List
+     */
+    it('GET /v1/finance/invoices as Cedar should not return Al Noor invoices', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/invoices',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(invoiceId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Payments — List
+     */
+    it('GET /v1/finance/payments as Cedar should not return Al Noor payments', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/payments',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(paymentId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Refunds — List
+     */
+    it('GET /v1/finance/refunds as Cedar should not return Al Noor refunds', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/refunds',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const items: Array<{ id: string }> = res.body.data ?? [];
+      const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
+
+      expect(ids).not.toContain(refundId);
+      expect(JSON.stringify(res.body)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+
+    /**
+     * Household Statements — Cedar querying with Al Noor household ID
+     */
+    it('GET /v1/finance/household-statements/:householdId as Cedar with Al Noor household should return 404 or empty', async () => {
+      const res = await authGet(
+        app,
+        `/api/v1/finance/household-statements/${householdId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      );
+
+      // The household does not exist in Cedar's tenant context.
+      // Expected: 404 (household not found) or 200 with empty data.
+      if (res.status === 200) {
+        const data = res.body.data;
+        // If somehow we get a 200, ensure no Al Noor data leaked
+        expect(JSON.stringify(data)).not.toContain(AL_NOOR_TENANT_ID);
+        expect(JSON.stringify(data)).not.toContain(UNIQUE_SEARCH_TERM);
+      } else {
+        expect([400, 404]).toContain(res.status);
+      }
+    });
+
+    /**
+     * Finance Dashboard — Cedar dashboard must not contain Al Noor data
+     */
+    it('GET /v1/finance/dashboard as Cedar should not contain Al Noor data', async () => {
+      const res = await authGet(
+        app,
+        '/api/v1/finance/dashboard',
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(200);
+
+      const dashboard = res.body.data ?? res.body;
+
+      expect(JSON.stringify(dashboard)).not.toContain(AL_NOOR_TENANT_ID);
+      expect(JSON.stringify(dashboard)).not.toContain(UNIQUE_SEARCH_TERM);
+    });
+  });
+
+  // ── 2. API-Level RLS Tests — Detail Endpoints (404 on cross-tenant ID) ────
+
+  describe('API-level: Cedar must get 404 for Al Noor entity IDs', () => {
+    /**
+     * Fee Structures — Detail
+     */
+    it('GET /v1/finance/fee-structures/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/fee-structures/${feeStructureId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Discounts — Detail
+     */
+    it('GET /v1/finance/discounts/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/discounts/${discountId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Fee Assignments — Detail
+     */
+    it('GET /v1/finance/fee-assignments/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/fee-assignments/${feeAssignmentId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Invoices — Detail
+     */
+    it('GET /v1/finance/invoices/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Payments — Detail
+     */
+    it('GET /v1/finance/payments/:id with Al Noor ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/payments/${paymentId}`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Invoice Installments — Cedar querying Al Noor invoice's installments
+     */
+    it('GET /v1/finance/invoices/:id/installments with Al Noor invoice ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/installments`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Invoice Preview — Cedar querying Al Noor invoice preview
+     */
+    it('GET /v1/finance/invoices/:id/preview with Al Noor invoice ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/preview`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Payment Receipt — Cedar querying Al Noor payment's receipt
+     */
+    it('GET /v1/finance/payments/:id/receipt with Al Noor payment ID should return 404', async () => {
+      await authGet(
+        app,
+        `/api/v1/finance/payments/${paymentId}/receipt`,
+        cedarToken,
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+  });
+
+  // ── 3. Cross-Tenant Mutation Safety ────────────────────────────────────────
+
+  describe('Cross-tenant mutation safety', () => {
+    /**
+     * Cedar tries to issue Al Noor's invoice -> 404
+     */
+    it('Cedar issuing Al Noor invoice should return 404', async () => {
+      await authPost(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/issue`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Cedar tries to void Al Noor's invoice -> 404
+     */
+    it('Cedar voiding Al Noor invoice should return 404', async () => {
+      await authPost(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/void`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Cedar tries to cancel Al Noor's invoice -> 404
+     */
+    it('Cedar cancelling Al Noor invoice should return 404', async () => {
+      await authPost(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/cancel`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Cedar tries to write off Al Noor's invoice -> 404
+     */
+    it('Cedar writing off Al Noor invoice should return 404', async () => {
+      await authPost(
+        app,
+        `/api/v1/finance/invoices/${invoiceId}/write-off`,
+        cedarToken,
+        { write_off_reason: 'RLS test write-off attempt' },
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Cedar tries to create payment for Al Noor's household
+     * -> 400 or 404 (household not found in Cedar tenant context)
+     */
+    it('Cedar creating payment for Al Noor household should be rejected', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/finance/payments',
+        cedarToken,
+        {
+          household_id: householdId,
+          payment_method: 'cash',
+          payment_reference: `CEDAR-XTENANTPAY-${Date.now()}`,
+          amount: 100,
+          received_at: '2026-03-16T00:00:00Z',
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // The household does not exist within Cedar's tenant context.
+      // Expected: 400 (validation / household not found) or 404
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to create refund for Al Noor's payment -> 404
+     */
+    it('Cedar creating refund for Al Noor payment should return 404', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/finance/refunds',
+        cedarToken,
+        {
+          payment_id: paymentId,
+          amount: 10,
+          reason: 'RLS test refund attempt',
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // The payment does not exist within Cedar's tenant context.
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to approve Al Noor's refund -> 404
+     */
+    it('Cedar approving Al Noor refund should return 404', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/finance/refunds/${refundId}/approve`,
+        cedarToken,
+        { comment: 'RLS test approval attempt' },
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to execute Al Noor's refund -> 404
+     */
+    it('Cedar executing Al Noor refund should return 404', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/finance/refunds/${refundId}/execute`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to suggest allocations for Al Noor's payment -> 404
+     */
+    it('Cedar suggesting allocations for Al Noor payment should return 404', async () => {
+      await authPost(
+        app,
+        `/api/v1/finance/payments/${paymentId}/allocations/suggest`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      ).expect(404);
+    });
+
+    /**
+     * Cedar tries to create fee assignment referencing Al Noor's household and fee structure
+     * -> 400 or 404
+     */
+    it('Cedar creating fee assignment with Al Noor household/fee-structure should be rejected', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/finance/fee-assignments',
+        cedarToken,
+        {
+          household_id: householdId,
+          fee_structure_id: feeStructureId,
+          effective_from: '2026-06-01',
+        },
+        CEDAR_DOMAIN,
+      );
+
+      // The household and fee structure do not exist in Cedar's tenant context.
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to create invoice referencing Al Noor's household
+     * -> 400 or 404
+     */
+    it('Cedar creating invoice with Al Noor household should be rejected', async () => {
+      const res = await authPost(
+        app,
+        '/api/v1/finance/invoices',
+        cedarToken,
+        {
+          household_id: householdId,
+          due_date: '2026-12-31',
+          lines: [
+            { description: 'Cross-tenant test', quantity: 1, unit_amount: 100 },
+          ],
+        },
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+
+    /**
+     * Cedar tries to end Al Noor's fee assignment -> 404
+     */
+    it('Cedar ending Al Noor fee assignment should return 404', async () => {
+      const res = await authPost(
+        app,
+        `/api/v1/finance/fee-assignments/${feeAssignmentId}/end`,
+        cedarToken,
+        {},
+        CEDAR_DOMAIN,
+      );
+
+      expect([400, 404]).toContain(res.status);
+    });
+  });
+
+  // ── 4. Table-Level RLS Tests ──────────────────────────────────────────────
+  //
+  // Each test opens a Prisma interactive transaction, sets
+  // app.current_tenant_id to Cedar, switches to rls_test_user_p6 (which has
+  // no BYPASSRLS), queries the target table with SELECT and asserts that no
+  // rows with Al Noor's tenant_id appear. This validates the PostgreSQL RLS
+  // policy in isolation from the application layer.
+
+  describe('Table-level: RLS policy enforcement for P6 finance tables (direct DB verification)', () => {
+    it('fee_structures: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('fee_structures');
+      assertNoAlNoorRows(rows, 'fee_structures');
+    });
+
+    it('discounts: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('discounts');
+      assertNoAlNoorRows(rows, 'discounts');
+    });
+
+    it('household_fee_assignments: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('household_fee_assignments');
+      assertNoAlNoorRows(rows, 'household_fee_assignments');
+    });
+
+    it('invoices: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('invoices');
+      assertNoAlNoorRows(rows, 'invoices');
+    });
+
+    it('invoice_lines: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('invoice_lines');
+      assertNoAlNoorRows(rows, 'invoice_lines');
+    });
+
+    it('installments: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('installments');
+      assertNoAlNoorRows(rows, 'installments');
+    });
+
+    it('payments: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('payments');
+      assertNoAlNoorRows(rows, 'payments');
+    });
+
+    it('payment_allocations: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('payment_allocations');
+      assertNoAlNoorRows(rows, 'payment_allocations');
+    });
+
+    it('receipts: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('receipts');
+      assertNoAlNoorRows(rows, 'receipts');
+    });
+
+    it('refunds: querying as Cedar returns no Al Noor rows', async () => {
+      const rows = await queryAsCedar('refunds');
+      assertNoAlNoorRows(rows, 'refunds');
+    });
+  });
+});

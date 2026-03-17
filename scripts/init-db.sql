@@ -1,0 +1,3 @@
+-- Required extensions for the School OS platform
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

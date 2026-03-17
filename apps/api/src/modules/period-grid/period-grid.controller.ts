@@ -1,0 +1,93 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  copyDaySchema,
+  createPeriodTemplateSchema,
+  updatePeriodTemplateSchema,
+} from '@school/shared';
+import type {
+  CopyDayDto,
+  CreatePeriodTemplateDto,
+  UpdatePeriodTemplateDto,
+} from '@school/shared';
+import { z } from 'zod';
+
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+
+import { PeriodGridService } from './period-grid.service';
+
+const listPeriodGridQuerySchema = z.object({
+  academic_year_id: z.string().uuid(),
+});
+
+@Controller('v1/period-grid')
+@UseGuards(AuthGuard, PermissionGuard)
+export class PeriodGridController {
+  constructor(private readonly periodGridService: PeriodGridService) {}
+
+  @Get()
+  @RequiresPermission('schedule.configure_period_grid')
+  async findAll(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listPeriodGridQuerySchema))
+    query: z.infer<typeof listPeriodGridQuerySchema>,
+  ) {
+    return this.periodGridService.findAll(tenant.tenant_id, query.academic_year_id);
+  }
+
+  @Post()
+  @RequiresPermission('schedule.configure_period_grid')
+  @HttpCode(HttpStatus.CREATED)
+  async create(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(createPeriodTemplateSchema)) dto: CreatePeriodTemplateDto,
+  ) {
+    return this.periodGridService.create(tenant.tenant_id, dto);
+  }
+
+  @Patch(':id')
+  @RequiresPermission('schedule.configure_period_grid')
+  async update(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updatePeriodTemplateSchema)) dto: UpdatePeriodTemplateDto,
+  ) {
+    return this.periodGridService.update(tenant.tenant_id, id, dto);
+  }
+
+  @Delete(':id')
+  @RequiresPermission('schedule.configure_period_grid')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.periodGridService.delete(tenant.tenant_id, id);
+  }
+
+  @Post('copy-day')
+  @RequiresPermission('schedule.configure_period_grid')
+  @HttpCode(HttpStatus.OK)
+  async copyDay(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(copyDaySchema)) dto: CopyDayDto,
+  ) {
+    return this.periodGridService.copyDay(tenant.tenant_id, dto);
+  }
+}

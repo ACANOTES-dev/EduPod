@@ -1,0 +1,6 @@
+-- P7 Communications, Notifications, and CMS
+-- Schema was applied directly to the database ahead of migration tracking.
+-- Tables created: announcements, notification_templates, notifications,
+--                 parent_inquiries, parent_inquiry_messages,
+--                 website_pages, contact_form_submissions
+-- RLS policies, triggers, and partial indexes are applied by post_migrate.sql.
