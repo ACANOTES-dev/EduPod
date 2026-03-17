@@ -23,6 +23,10 @@ const envSchema = z.object({
   // Optional -- Encryption
   ENCRYPTION_KEY: z.string().optional(),
 
+  // Optional -- Meilisearch
+  MEILISEARCH_URL: z.string().optional(),
+  MEILISEARCH_API_KEY: z.string().optional(),
+
   // Optional -- Platform
   PLATFORM_DOMAIN: z.string().default('edupod.app'),
   MFA_ISSUER: z.string().default('SchoolOS'),

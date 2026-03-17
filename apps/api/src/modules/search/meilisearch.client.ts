@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MeilisearchClient implements OnModuleInit {
@@ -6,13 +7,15 @@ export class MeilisearchClient implements OnModuleInit {
   private _available = false;
   private readonly logger = new Logger(MeilisearchClient.name);
 
+  constructor(private readonly configService: ConfigService) {}
+
   get available(): boolean {
     return this._available;
   }
 
   async onModuleInit() {
-    const url = process.env.MEILISEARCH_URL;
-    const apiKey = process.env.MEILISEARCH_API_KEY;
+    const url = this.configService.get<string>('MEILISEARCH_URL');
+    const apiKey = this.configService.get<string>('MEILISEARCH_API_KEY');
 
     if (!url) {
       this.logger.warn('MEILISEARCH_URL not set — search will use PostgreSQL fallback');

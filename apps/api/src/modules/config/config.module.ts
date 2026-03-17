@@ -1,5 +1,3 @@
-import { resolve } from 'path';
-
 import { Module } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 
@@ -9,7 +7,6 @@ import { envValidation } from './env.validation';
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', resolve(process.cwd(), '.env')],
       validate: envValidation,
     }),
   ],
