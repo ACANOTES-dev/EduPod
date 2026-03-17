@@ -262,7 +262,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
     // Save config snapshot
     await tx.schedulingRun.update({
       where: { id: run_id },
-      data: { config_snapshot: configSnapshot as unknown as Prisma.InputJsonValue },
+      data: { config_snapshot: JSON.parse(JSON.stringify(configSnapshot)) },
     });
 
     // 4. Build solver input
@@ -307,7 +307,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       where: { id: run_id },
       data: {
         status: 'completed',
-        result_json: resultJson as unknown as Prisma.InputJsonValue,
+        result_json: JSON.parse(JSON.stringify(resultJson)),
         hard_constraint_violations: 0,
         soft_preference_score: result.score,
         soft_preference_max: result.max_score,

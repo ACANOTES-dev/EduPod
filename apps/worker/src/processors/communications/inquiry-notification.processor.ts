@@ -177,6 +177,6 @@ class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> 
       select: { membership: { select: { user_id: true } } },
     });
 
-    return [...new Set(membershipRoles.map((mr: { membership: { user_id: string } }) => mr.membership.user_id))];
+    return Array.from(new Set(membershipRoles.map((mr: { membership: { user_id: string } }) => mr.membership.user_id)));
   }
 }

@@ -151,7 +151,7 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, class_id: { in: classIds }, status: 'active' },
           select: { student_id: true },
         });
-        const studentIds = [...new Set(enrolments.map((e: { student_id: string }) => e.student_id))];
+        const studentIds = Array.from(new Set(enrolments.map((e: { student_id: string }) => e.student_id)));
         return this.getParentUserIds(tx, tenantId, studentIds);
       }
 
@@ -196,6 +196,6 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
       where: { id: { in: parentIds }, tenant_id: tenantId, user_id: { not: null } },
       select: { user_id: true },
     });
-    return [...new Set(parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean))];
+    return Array.from(new Set(parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean)));
   }
 }
