@@ -36,15 +36,16 @@ import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-re
     ConfigModule.forRoot({ isGlobal: true }),
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          host: new URL(config.get<string>('REDIS_URL', 'redis://localhost:5554')).hostname,
-          port: parseInt(
-            new URL(config.get<string>('REDIS_URL', 'redis://localhost:5554')).port || '6379',
-            10,
-          ),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const url = new URL(config.get<string>('REDIS_URL', 'redis://localhost:5554'));
+        return {
+          connection: {
+            host: url.hostname,
+            port: parseInt(url.port || '6379', 10),
+            password: url.password ? decodeURIComponent(url.password) : undefined,
+          },
+        };
+      },
     }),
     // Register all queues
     BullModule.registerQueue(
