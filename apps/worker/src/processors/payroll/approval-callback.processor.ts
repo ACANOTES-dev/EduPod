@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -107,17 +108,17 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
     });
 
     // 3. Recalculate final values for each entry
-    let totalBasicPay = new Prisma.Decimal(0);
-    let totalBonusPay = new Prisma.Decimal(0);
-    let totalPay = new Prisma.Decimal(0);
+    let totalBasicPay = new Decimal(0);
+    let totalBonusPay = new Decimal(0);
+    let totalPay = new Decimal(0);
 
     for (const entry of entries) {
-      let basicPay = new Prisma.Decimal(0);
-      let bonusPay = new Prisma.Decimal(0);
+      let basicPay = new Decimal(0);
+      let bonusPay = new Decimal(0);
 
       if (entry.compensation_type === 'salaried') {
         // Salaried: basic_pay = base_salary * (days_worked / total_working_days)
-        const baseSalary = entry.snapshot_base_salary || new Prisma.Decimal(0);
+        const baseSalary = entry.snapshot_base_salary || new Decimal(0);
         const daysWorked = entry.days_worked ?? payrollRun.total_working_days;
         const workingDays = payrollRun.total_working_days;
 
@@ -133,7 +134,7 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
         }
       } else {
         // Per class: basic_pay = per_class_rate * classes_taught (up to assigned)
-        const perClassRate = entry.snapshot_per_class_rate || new Prisma.Decimal(0);
+        const perClassRate = entry.snapshot_per_class_rate || new Decimal(0);
         const classesTaught = entry.classes_taught ?? 0;
         const assignedClasses = entry.snapshot_assigned_class_count ?? classesTaught;
         const billableClasses = Math.min(classesTaught, assignedClasses);

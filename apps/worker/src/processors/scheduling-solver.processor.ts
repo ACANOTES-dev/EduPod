@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
@@ -90,7 +90,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       orderBy: [{ weekday: 'asc' }, { period_order: 'asc' }],
     });
 
-    const periodGrid: PeriodSlot[] = periodTemplates.map(p => ({
+    const periodGrid: PeriodSlot[] = periodTemplates.map((p: typeof periodTemplates[number]) => ({
       weekday: p.weekday,
       period_order: p.period_order,
       start_time: p.start_time.toISOString().slice(11, 16),
@@ -117,7 +117,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       },
     });
 
-    const classes: ClassRequirement[] = requirements.map(r => ({
+    const classes: ClassRequirement[] = requirements.map((r: typeof requirements[number]) => ({
       class_id: r.class_id,
       periods_per_week: r.periods_per_week,
       required_room_type: r.required_room_type,
@@ -126,7 +126,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       min_consecutive: r.min_consecutive_periods,
       spread_preference: r.spread_preference as ClassRequirement['spread_preference'],
       student_count: r.student_count,
-      teachers: r.class_entity.class_staff.map(cs => ({
+      teachers: r.class_entity.class_staff.map((cs: { staff_profile_id: string; assignment_role: string }) => ({
         staff_profile_id: cs.staff_profile_id,
         assignment_role: cs.assignment_role,
       })),
@@ -149,15 +149,15 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       teacherMap.set(tid, {
         staff_profile_id: tid,
         availability: availabilities
-          .filter(a => a.staff_profile_id === tid)
-          .map(a => ({
+          .filter((a: typeof availabilities[number]) => a.staff_profile_id === tid)
+          .map((a: typeof availabilities[number]) => ({
             weekday: a.weekday,
             from: a.available_from.toISOString().slice(11, 16),
             to: a.available_to.toISOString().slice(11, 16),
           })),
         preferences: preferences
-          .filter(p => p.staff_profile_id === tid)
-          .map(p => ({
+          .filter((p: typeof preferences[number]) => p.staff_profile_id === tid)
+          .map((p: typeof preferences[number]) => ({
             id: p.id,
             preference_type: p.preference_type as TeacherInfo['preferences'][0]['preference_type'],
             preference_payload: p.preference_payload,
@@ -171,7 +171,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       where: { tenant_id, active: true },
     });
 
-    const roomInfos: RoomInfo[] = rooms.map(r => ({
+    const roomInfos: RoomInfo[] = rooms.map((r: typeof rooms[number]) => ({
       room_id: r.id,
       room_type: r.room_type,
       capacity: r.capacity,
@@ -190,7 +190,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
         })
       : [];
 
-    const pinned: PinnedEntry[] = pinnedEntries.map(e => ({
+    const pinned: PinnedEntry[] = pinnedEntries.map((e: typeof pinnedEntries[number]) => ({
       schedule_id: e.id,
       class_id: e.class_id,
       room_id: e.room_id,
@@ -221,7 +221,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
           const key = [arr[i], arr[j]].sort().join(':');
           if (!overlapSet.has(key)) {
             overlapSet.add(key);
-            studentOverlaps.push({ class_id_a: arr[i], class_id_b: arr[j] });
+            studentOverlaps.push({ class_id_a: arr[i]!, class_id_b: arr[j]! });
           }
         }
       }
@@ -262,7 +262,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
     // Save config snapshot
     await tx.schedulingRun.update({
       where: { id: run_id },
-      data: { config_snapshot: configSnapshot as unknown as Record<string, unknown> },
+      data: { config_snapshot: configSnapshot as unknown as Prisma.InputJsonValue },
     });
 
     // 4. Build solver input
@@ -307,7 +307,7 @@ class SchedulingSolverJob extends TenantAwareJob<SchedulingSolverPayload> {
       where: { id: run_id },
       data: {
         status: 'completed',
-        result_json: resultJson as unknown as Record<string, unknown>,
+        result_json: resultJson as unknown as Prisma.InputJsonValue,
         hard_constraint_violations: 0,
         soft_preference_score: result.score,
         soft_preference_max: result.max_score,

@@ -133,7 +133,7 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, user_id: { not: null }, status: 'active' },
           select: { user_id: true },
         });
-        return parents.map((p) => p.user_id!).filter(Boolean);
+        return parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean);
       }
 
       case 'year_group': {
@@ -142,7 +142,7 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, year_group_id: { in: yearGroupIds }, status: 'active' },
           select: { id: true },
         });
-        return this.getParentUserIds(tx, tenantId, students.map((s) => s.id));
+        return this.getParentUserIds(tx, tenantId, students.map((s: { id: string }) => s.id));
       }
 
       case 'class': {
@@ -151,7 +151,7 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, class_id: { in: classIds }, status: 'active' },
           select: { student_id: true },
         });
-        const studentIds = [...new Set(enrolments.map((e) => e.student_id))];
+        const studentIds = [...new Set(enrolments.map((e: { student_id: string }) => e.student_id))];
         return this.getParentUserIds(tx, tenantId, studentIds);
       }
 
@@ -161,12 +161,12 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
           where: { tenant_id: tenantId, household_id: { in: householdIds } },
           select: { parent_id: true },
         });
-        const parentIds = [...new Set(hp.map((h) => h.parent_id))];
+        const parentIds = [...new Set(hp.map((h: { parent_id: string }) => h.parent_id))];
         const parents = await tx.parent.findMany({
           where: { id: { in: parentIds }, tenant_id: tenantId, user_id: { not: null } },
           select: { user_id: true },
         });
-        return parents.map((p) => p.user_id!).filter(Boolean);
+        return parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean);
       }
 
       case 'custom': {
@@ -190,12 +190,12 @@ class PublishAnnouncementJob extends TenantAwareJob<PublishAnnouncementPayload> 
       where: { tenant_id: tenantId, student_id: { in: studentIds } },
       select: { parent_id: true },
     });
-    const parentIds = [...new Set(sp.map((s) => s.parent_id))];
+    const parentIds = [...new Set(sp.map((s: { parent_id: string }) => s.parent_id))];
 
     const parents = await tx.parent.findMany({
       where: { id: { in: parentIds }, tenant_id: tenantId, user_id: { not: null } },
       select: { user_id: true },
     });
-    return [...new Set(parents.map((p) => p.user_id!).filter(Boolean))];
+    return [...new Set(parents.map((p: { user_id: string | null }) => p.user_id!).filter(Boolean))];
   }
 }

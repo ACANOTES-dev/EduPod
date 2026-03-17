@@ -47,9 +47,9 @@ export class SchedulingStaleReaperProcessor extends WorkerHost {
 
     // Process each tenant's stale runs with RLS context
     for (const [tenantId, runs] of staleByTenant.entries()) {
-      await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Set RLS context for this tenant
-        await tx.$executeRaw(Prisma.sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
         for (const run of runs) {
           await tx.schedulingRun.update({

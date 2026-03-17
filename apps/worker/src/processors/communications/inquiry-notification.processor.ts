@@ -165,7 +165,7 @@ class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> 
 
     if (rolePermissions.length === 0) return [];
 
-    const roleIds = rolePermissions.map((rp) => rp.role_id);
+    const roleIds = rolePermissions.map((rp: { role_id: string }) => rp.role_id);
 
     // Find memberships in this tenant that have one of these roles and are active
     const membershipRoles = await tx.membershipRole.findMany({
@@ -177,6 +177,6 @@ class InquiryNotificationJob extends TenantAwareJob<InquiryNotificationPayload> 
       select: { membership: { select: { user_id: true } } },
     });
 
-    return [...new Set(membershipRoles.map((mr) => mr.membership.user_id))];
+    return [...new Set(membershipRoles.map((mr: { membership: { user_id: string } }) => mr.membership.user_id))];
   }
 }

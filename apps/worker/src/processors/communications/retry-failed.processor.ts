@@ -53,7 +53,7 @@ export class RetryFailedNotificationsProcessor extends WorkerHost {
     });
 
     // Filter to respect per-row max_attempts
-    const eligible = failedNotifications.filter((n) => n.attempt_count < n.max_attempts);
+    const eligible = failedNotifications.filter((n: { attempt_count: number; max_attempts: number; id: string; tenant_id: string }) => n.attempt_count < n.max_attempts);
 
     if (eligible.length === 0) {
       this.logger.log('No failed notifications eligible for retry');
@@ -73,10 +73,8 @@ export class RetryFailedNotificationsProcessor extends WorkerHost {
 
     for (const [tenantId, ids] of byTenant.entries()) {
       // Reset status to 'queued' within an RLS-scoped transaction
-      await this.prisma.$transaction(async (tx) => {
-        await tx.$executeRaw(
-          Prisma.sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`,
-        );
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
         await tx.notification.updateMany({
           where: { id: { in: ids }, tenant_id: tenantId },

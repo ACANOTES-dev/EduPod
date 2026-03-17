@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 /**
  * Abstract base class for tenant-aware BullMQ job processors.
@@ -35,9 +35,9 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Set RLS context for this transaction using safe tagged template literal
-      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${data.tenant_id}::text, true)`;
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${data.tenant_id}::text, true)`;
 
       await this.processJob(data, tx as unknown as PrismaClient);
     });
