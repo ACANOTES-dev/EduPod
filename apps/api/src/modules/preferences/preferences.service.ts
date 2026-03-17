@@ -56,7 +56,7 @@ export class PreferencesService {
   ): Promise<Record<string, unknown>> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = await prismaWithRls.$transaction(async (tx) => {
+    const record = (await prismaWithRls.$transaction(async (tx) => {
       return (tx as unknown as PrismaService).userUiPreference.findUnique({
         where: {
           tenant_id_user_id: {
@@ -65,7 +65,7 @@ export class PreferencesService {
           },
         },
       });
-    });
+    })) as { preferences: unknown } | null;
 
     if (!record) {
       return {};
@@ -102,7 +102,7 @@ export class PreferencesService {
     const jsonValue = merged as unknown as Prisma.InputJsonValue;
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = await prismaWithRls.$transaction(async (tx) => {
+    const record = (await prismaWithRls.$transaction(async (tx) => {
       return (tx as unknown as PrismaService).userUiPreference.upsert({
         where: {
           tenant_id_user_id: {
@@ -119,7 +119,7 @@ export class PreferencesService {
           preferences: jsonValue,
         },
       });
-    });
+    })) as { preferences: unknown };
 
     return record.preferences as Record<string, unknown>;
   }

@@ -235,7 +235,7 @@ export class PeriodGradeComputationService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const now = new Date();
 
-    const snapshots = await prismaWithRls.$transaction(async (tx) => {
+    const snapshots = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const results = [];
 
@@ -272,7 +272,7 @@ export class PeriodGradeComputationService {
       }
 
       return results;
-    });
+    })) as { id: string }[];
 
     return {
       data: snapshots,
@@ -318,7 +318,7 @@ export class PeriodGradeComputationService {
 
       // Return the lowest grade if nothing else matches
       if (gradesWithValues.length > 0) {
-        return gradesWithValues[gradesWithValues.length - 1].label;
+        return gradesWithValues[gradesWithValues.length - 1]!.label;
       }
 
       return `${Math.round(percentage * 100) / 100}%`;

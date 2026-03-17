@@ -366,7 +366,8 @@ export class InvitationsService {
    * Assign roles to a membership using a transaction client, clearing any existing roles first.
    */
   private async assignRolesToMembershipTx(
-    tx: Omit<typeof this.prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tx: any,
     membershipId: string,
     tenantId: string,
     roleIds: string[],

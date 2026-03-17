@@ -63,7 +63,7 @@ export class BulkImportService {
     }
 
     // Parse header to validate columns
-    const header = this.parseCsvLine(lines[0]);
+    const header = this.parseCsvLine(lines[0]!);
     const expectedColumns = ['student_identifier', 'subject_code', 'assessment_title', 'score'];
     const normalizedHeader = header.map((h) => h.trim().toLowerCase());
 
@@ -121,7 +121,7 @@ export class BulkImportService {
 
     // Process each data row
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const line = lines[i]!.trim();
       if (line === '') continue;
 
       const cols = this.parseCsvLine(line);
@@ -303,7 +303,7 @@ export class BulkImportService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const now = new Date();
 
-    const results = await prismaWithRls.$transaction(async (tx) => {
+    const results = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const upserted = [];
 
@@ -337,7 +337,7 @@ export class BulkImportService {
       }
 
       return upserted;
-    });
+    })) as { id: string }[];
 
     return {
       data: results,

@@ -993,7 +993,7 @@ export class HouseholdsService {
     // Invalidate preview cache for affected households
     await this.invalidatePreviewCache(dto.source_household_id);
     if (result) {
-      await this.invalidatePreviewCache(result.id);
+      await this.invalidatePreviewCache((result as { id: string }).id);
     }
 
     return result;

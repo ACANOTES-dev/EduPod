@@ -51,7 +51,7 @@ export class SequenceService {
       return doWork(tx);
     }
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-    return rlsClient.$transaction(async (newTx) => doWork(newTx));
+    return rlsClient.$transaction(async (newTx) => doWork(newTx)) as Promise<string>;
   }
 
   private formatNumber(sequenceType: string, value: number, prefix?: string): string {
