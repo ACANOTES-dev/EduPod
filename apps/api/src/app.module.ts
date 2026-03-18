@@ -59,12 +59,12 @@ import { WebsiteModule } from './modules/website/website.module';
     ConfigModule,
     BullModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const redisUrl = configService.get<string>('REDIS_URL');
-        const url = new URL(redisUrl!);
+        const url = new URL(configService.get<string>('REDIS_URL')!);
         return {
           connection: {
             host: url.hostname,
             port: parseInt(url.port, 10) || 6379,
+            password: url.password ? decodeURIComponent(url.password) : undefined,
           },
         };
       },

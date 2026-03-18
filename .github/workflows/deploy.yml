@@ -60,7 +60,7 @@ jobs:
 
             echo "=== Smoke test ==="
             sleep 5
-            curl -sf http://localhost:3000/en/login > /dev/null && echo "WEB OK" || echo "WEB FAILED"
+            curl -sf http://localhost:5551/en/login > /dev/null && echo "WEB OK" || echo "WEB FAILED"
             curl -sf http://localhost:3001/api/v1/health > /dev/null && echo "API OK" || echo "API FAILED"
 
             echo "=== Deploy complete ==="
