@@ -59,6 +59,10 @@ const DEFAULT_SETTINGS = {
 };
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Seed script must not run in production. Set NODE_ENV != production.');
+  }
+
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error('DATABASE_URL environment variable is required');

@@ -217,7 +217,7 @@ export default function RunReviewPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => router.push('/scheduling/auto')}>
-              <ArrowLeft className="h-4 w-4 me-1.5" />
+              <ArrowLeft className="h-4 w-4 me-1.5 rtl:rotate-180" />
               {t('backToSolver')}
             </Button>
             <Button

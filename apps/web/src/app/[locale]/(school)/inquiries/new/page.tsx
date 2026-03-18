@@ -64,7 +64,7 @@ export default function NewInquiryPage() {
         title={t('inquiry.newInquiry')}
         actions={
           <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="me-2 h-4 w-4" />
+            <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
             {tc('back')}
           </Button>
         }

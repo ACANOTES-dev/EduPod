@@ -118,7 +118,10 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
 
       if (entry.compensation_type === 'salaried') {
         // Salaried: basic_pay = base_salary * (days_worked / total_working_days)
-        const baseSalary = entry.snapshot_base_salary || new Decimal(0);
+        if (!entry.snapshot_base_salary) {
+          throw new Error(`Entry ${entry.id} is salaried but has no snapshot_base_salary`);
+        }
+        const baseSalary = entry.snapshot_base_salary;
         const daysWorked = entry.days_worked ?? payrollRun.total_working_days;
         const workingDays = payrollRun.total_working_days;
 
@@ -134,7 +137,10 @@ class PayrollApprovalCallbackJob extends TenantAwareJob<ApprovalCallbackPayload>
         }
       } else {
         // Per class: basic_pay = per_class_rate * classes_taught (up to assigned)
-        const perClassRate = entry.snapshot_per_class_rate || new Decimal(0);
+        if (!entry.snapshot_per_class_rate) {
+          throw new Error(`Entry ${entry.id} is per_class but has no snapshot_per_class_rate`);
+        }
+        const perClassRate = entry.snapshot_per_class_rate;
         const classesTaught = entry.classes_taught ?? 0;
         const assignedClasses = entry.snapshot_assigned_class_count ?? classesTaught;
         const billableClasses = Math.min(classesTaught, assignedClasses);

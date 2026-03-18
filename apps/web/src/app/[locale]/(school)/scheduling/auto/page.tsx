@@ -260,7 +260,7 @@ export default function AutoSchedulerPage() {
                       className="flex items-center gap-1 text-xs text-brand hover:underline shrink-0"
                     >
                       Fix
-                      <ChevronRight className="h-3 w-3" />
+                      <ChevronRight className="h-3 w-3 rtl:rotate-180" />
                     </a>
                   )}
                   <Badge variant={check.passed ? 'default' : 'danger'} className="text-xs shrink-0">
@@ -361,7 +361,7 @@ export default function AutoSchedulerPage() {
                           className="text-xs text-brand hover:underline flex items-center gap-1"
                         >
                           {t('viewReview')}
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronRight className="h-3 w-3 rtl:rotate-180" />
                         </button>
                       )}
                     </td>

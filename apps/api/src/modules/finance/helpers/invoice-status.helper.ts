@@ -13,10 +13,10 @@ export function deriveInvoiceStatus(
   if (['void', 'cancelled', 'pending_approval'].includes(currentStatus)) {
     return currentStatus;
   }
-  if (writeOffAmount && writeOffAmount > 0 && balanceAmount === 0) return 'written_off';
-  if (balanceAmount === 0) return 'paid';
-  if (balanceAmount > 0 && balanceAmount < totalAmount) return 'partially_paid';
-  if (balanceAmount === totalAmount && dueDate < new Date()) return 'overdue';
+  if (writeOffAmount && writeOffAmount > 0 && Math.abs(balanceAmount) < 0.005) return 'written_off';
+  if (Math.abs(balanceAmount) < 0.005) return 'paid';
+  if (balanceAmount > 0.005 && Math.abs(balanceAmount - totalAmount) > 0.005) return 'partially_paid';
+  if (Math.abs(balanceAmount - totalAmount) < 0.005 && dueDate < new Date()) return 'overdue';
   return 'issued';
 }
 

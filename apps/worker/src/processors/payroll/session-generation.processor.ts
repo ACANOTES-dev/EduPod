@@ -159,6 +159,19 @@ class PayrollSessionGenerationJob extends TenantAwareJob<SessionGenerationPayloa
       this.logger.log(
         `Updated ${updatedCount} per-class entries for payroll run ${payroll_run_id}, tenant ${tenant_id}`,
       );
+    } catch (err) {
+      // Update Redis with failed status so the UI knows
+      await this.redis.set(
+        redisKey,
+        JSON.stringify({
+          status: 'failed',
+          error: err instanceof Error ? err.message : 'Unknown error',
+          failed_at: new Date().toISOString(),
+        }),
+        'EX',
+        600,
+      );
+      throw err;
     } finally {
       await this.redis.quit();
     }

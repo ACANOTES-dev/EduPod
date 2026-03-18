@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   HttpCode,
   HttpStatus,
@@ -51,8 +52,11 @@ export class StripeWebhookController {
     }
 
     if (!tenantId) {
-      this.logger.warn('Webhook received without identifiable tenant_id');
-      return { received: true, warning: 'tenant_id not found in metadata' };
+      this.logger.error('Stripe webhook received without tenant_id in metadata — returning 400 for Stripe retry');
+      throw new BadRequestException({
+        code: 'MISSING_TENANT_ID',
+        message: 'Webhook event missing tenant_id in metadata',
+      });
     }
 
     return this.stripeService.handleWebhook(tenantId, rawBody, signature ?? '');

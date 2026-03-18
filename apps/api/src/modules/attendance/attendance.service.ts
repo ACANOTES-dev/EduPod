@@ -800,7 +800,9 @@ export class AttendanceService {
    * For each active schedule on the weekday, create a session if not exists.
    */
   async batchGenerateSessions(tenantId: string, date: Date) {
-    const weekday = date.getDay(); // 0=Sunday ... 6=Saturday
+    // Convert JS weekday (0=Sunday) to schema weekday (0=Monday)
+    const jsDay = date.getDay();
+    const weekday = jsDay === 0 ? 6 : jsDay - 1;
 
     // Find all active schedules for this weekday
     const schedules = await this.prisma.schedule.findMany({
@@ -899,7 +901,10 @@ export class AttendanceService {
 
     const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
     const attendanceSettings = (settings['attendance'] ?? {}) as Record<string, unknown>;
-    const autoLockAfterDays = (attendanceSettings['autoLockAfterDays'] as number) ?? 7;
+    const autoLockAfterDays = attendanceSettings['autoLockAfterDays'] as number | undefined;
+    if (autoLockAfterDays === undefined || autoLockAfterDays === null) {
+      return { locked_count: 0 };
+    }
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - autoLockAfterDays);
@@ -942,7 +947,9 @@ export class AttendanceService {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const weekday = today.getDay();
+    // Convert JS weekday (0=Sunday) to schema weekday (0=Monday)
+    const todayJsDay = today.getDay();
+    const weekday = todayJsDay === 0 ? 6 : todayJsDay - 1;
 
     // Get today's schedules for classes the teacher is assigned to
     const assignments = await this.prisma.classStaff.findMany({

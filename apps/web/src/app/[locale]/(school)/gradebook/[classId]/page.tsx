@@ -404,7 +404,7 @@ export default function ClassGradebookPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/gradebook`)}>
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <PageHeader
           title={t('title')}

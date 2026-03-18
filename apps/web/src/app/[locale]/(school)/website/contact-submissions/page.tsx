@@ -148,7 +148,7 @@ export default function ContactSubmissionsPage() {
           onClick={() => setPage(page - 1)}
           aria-label="Previous page"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <span className="px-2 text-sm text-text-primary">
           {page} / {totalPages}
@@ -160,7 +160,7 @@ export default function ContactSubmissionsPage() {
           onClick={() => setPage(page + 1)}
           aria-label="Next page"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </Button>
       </div>
     </div>

@@ -1,3 +1,10 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Preload .env so process.env is populated before NestJS/Prisma/BullMQ reads it
+config({ path: resolve(__dirname, '../../.env') });
+config({ path: resolve(__dirname, '../../../.env') });
+
 import { NestFactory } from '@nestjs/core';
 
 import { WorkerModule } from './worker.module';
@@ -11,4 +18,7 @@ async function bootstrap() {
   console.warn(`Worker service running on http://localhost:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Worker bootstrap failed:', err);
+  process.exit(1);
+});

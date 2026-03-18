@@ -52,7 +52,7 @@ export default function FeeGenerationReportPage() {
   const totalPages = Math.ceil(total / pageSize);
 
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+    new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });

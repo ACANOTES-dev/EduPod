@@ -46,7 +46,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
       {steps.map(({ step, label }, idx) => (
         <React.Fragment key={step}>
           {idx > 0 && (
-            <ChevronRight className="h-4 w-4 text-text-tertiary" />
+            <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
           )}
           <div
             className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
@@ -341,7 +341,7 @@ export function FeeGenerationWizard() {
             >
               {previewLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
               {t('feeGeneration.previewButton')}
-              <ChevronRight className="ms-2 h-4 w-4" />
+              <ChevronRight className="ms-2 h-4 w-4 rtl:rotate-180" />
             </Button>
           </div>
         </div>

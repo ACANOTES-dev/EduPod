@@ -279,7 +279,7 @@ export function PromotionWizard() {
             : (
               <>
                 {tc('next')}
-                <ChevronRight className="ms-1.5 h-4 w-4" />
+                <ChevronRight className="ms-1.5 h-4 w-4 rtl:rotate-180" />
               </>
             )}
         </Button>

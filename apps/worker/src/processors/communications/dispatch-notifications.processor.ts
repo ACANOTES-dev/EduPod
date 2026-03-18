@@ -9,7 +9,9 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
 export interface DispatchNotificationsPayload extends TenantJobPayload {
-  notification_ids: string[];
+  notification_ids?: string[];
+  announcement_id?: string;
+  batch_index?: number;
 }
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
@@ -37,8 +39,9 @@ export class DispatchNotificationsProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
+    const idCount = job.data.notification_ids?.length ?? 0;
     this.logger.log(
-      `Processing ${DISPATCH_NOTIFICATIONS_JOB} — ${job.data.notification_ids.length} notifications for tenant ${tenant_id}`,
+      `Processing ${DISPATCH_NOTIFICATIONS_JOB} — ${idCount || 'announcement-based'} notifications for tenant ${tenant_id}`,
     );
 
     const dispatchJob = new DispatchNotificationsJob(this.prisma);
@@ -55,16 +58,33 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     data: DispatchNotificationsPayload,
     tx: PrismaClient,
   ): Promise<void> {
-    const { tenant_id, notification_ids } = data;
+    const { tenant_id, notification_ids, announcement_id } = data;
 
-    if (notification_ids.length === 0) {
-      this.logger.log('No notification IDs provided, nothing to dispatch');
+    // Resolve notification IDs: either from explicit list or by querying for announcement
+    let resolvedIds: string[] = notification_ids ?? [];
+
+    if (resolvedIds.length === 0 && announcement_id) {
+      const announcementNotifications = await tx.notification.findMany({
+        where: {
+          tenant_id,
+          source_entity_type: 'announcement',
+          source_entity_id: announcement_id,
+          channel: { not: 'in_app' },
+          status: { in: ['queued', 'failed'] },
+        },
+        select: { id: true },
+      });
+      resolvedIds = announcementNotifications.map((n) => n.id);
+    }
+
+    if (resolvedIds.length === 0) {
+      this.logger.log('No notification IDs resolved, nothing to dispatch');
       return;
     }
 
     const notifications = await tx.notification.findMany({
       where: {
-        id: { in: notification_ids },
+        id: { in: resolvedIds },
         tenant_id,
         status: { in: ['queued', 'failed'] },
       },
@@ -72,7 +92,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     });
 
     if (notifications.length === 0) {
-      this.logger.log(`No dispatchable notifications found for IDs: ${notification_ids.join(', ')}`);
+      this.logger.log(`No dispatchable notifications found for IDs: ${resolvedIds.join(', ')}`);
       return;
     }
 

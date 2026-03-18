@@ -132,10 +132,23 @@ export class PeriodGradeComputationService {
     const weightConfig = config.category_weight_json as unknown as {
       weights: CategoryWeight[];
     };
-    const categoryWeights = weightConfig.weights;
+    const categoryWeights = weightConfig?.weights ?? [];
+
+    if (categoryWeights.length === 0) {
+      throw new BadRequestException({
+        code: 'NO_CATEGORY_WEIGHTS',
+        message: 'Grade configuration has no category weights defined. Configure assessment category weights before computing grades.',
+      });
+    }
 
     // 8. Normalize weights if sum != 100
     const weightSum = categoryWeights.reduce((sum, w) => sum + w.weight, 0);
+    if (weightSum === 0) {
+      throw new BadRequestException({
+        code: 'ZERO_WEIGHT_SUM',
+        message: 'Category weights must not all be zero',
+      });
+    }
     let normalizedWeights: Array<{ category_id: string; weight: number }>;
 
     if (Math.abs(weightSum - 100) > 0.01) {

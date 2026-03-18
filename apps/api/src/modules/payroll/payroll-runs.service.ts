@@ -204,8 +204,12 @@ export class PayrollRunsService {
       try {
         const settings = await this.settingsService.getSettings(tenantId);
         autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
-      } catch {
-        // Default to true if settings not found
+      } catch (err) {
+        if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+          this.logger.warn(`Tenant ${tenantId} has no settings configured, using defaults for payroll`);
+        } else {
+          throw err;
+        }
       }
 
       const firstDayOfMonth = new Date(dto.period_year, dto.period_month - 1, 1);
@@ -295,8 +299,10 @@ export class PayrollRunsService {
       });
     }
 
-    // Optimistic concurrency
-    if (run.updated_at.toISOString() !== dto.expected_updated_at) {
+    // Optimistic concurrency — compare timestamps with tolerance for format differences
+    const expectedTime = new Date(dto.expected_updated_at).getTime();
+    const actualTime = run.updated_at.getTime();
+    if (Math.abs(expectedTime - actualTime) > 1000) {
       throw new ConflictException({
         code: 'CONCURRENT_MODIFICATION',
         message: 'This payroll run has been modified by another user. Please refresh and try again.',
@@ -408,8 +414,12 @@ export class PayrollRunsService {
       try {
         const settings = await this.settingsService.getSettings(tenantId);
         autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
-      } catch {
-        // Default
+      } catch (err) {
+        if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+          this.logger.warn(`Tenant ${tenantId} has no settings configured, using defaults for refresh`);
+        } else {
+          throw err;
+        }
       }
 
       const firstDayOfMonth = new Date(run.period_year, run.period_month - 1, 1);
@@ -419,6 +429,8 @@ export class PayrollRunsService {
       for (const entry of existingEntries) {
         const comp = activeCompensations.find((c) => c.staff_profile_id === entry.staff_profile_id);
         if (!comp) continue;
+        // Skip inactive staff during refresh
+        if (comp.staff_profile.employment_status !== 'active') continue;
 
         let autoPopulatedClassCount: number | null = null;
         if (autoPopulateClassCounts && comp.compensation_type === 'per_class') {
@@ -602,8 +614,10 @@ export class PayrollRunsService {
       });
     }
 
-    // Optimistic concurrency
-    if (run.updated_at.toISOString() !== dto.expected_updated_at) {
+    // Optimistic concurrency — compare timestamps with tolerance for format differences
+    const expectedFinaliseTime = new Date(dto.expected_updated_at).getTime();
+    const actualFinaliseTime = run.updated_at.getTime();
+    if (Math.abs(expectedFinaliseTime - actualFinaliseTime) > 1000) {
       throw new ConflictException({
         code: 'CONCURRENT_MODIFICATION',
         message: 'This payroll run has been modified by another user. Please refresh and try again.',
@@ -631,8 +645,12 @@ export class PayrollRunsService {
     try {
       const settings = await this.settingsService.getSettings(tenantId);
       requireApproval = settings.payroll.requireApprovalForNonPrincipal;
-    } catch {
-      // Default to requiring approval
+    } catch (err) {
+      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+        this.logger.warn(`Tenant ${tenantId} has no settings configured, defaulting to requireApproval=true`);
+      } else {
+        throw err;
+      }
     }
 
     if (run.status === 'draft' && requireApproval && !isSchoolOwner) {

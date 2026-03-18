@@ -401,7 +401,7 @@ export default function NewAdmissionFormPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => router.back()}>
-              <ArrowLeft className="me-2 h-4 w-4" />
+              <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
               {tc('back')}
             </Button>
             <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>

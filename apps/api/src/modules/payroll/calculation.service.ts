@@ -29,7 +29,13 @@ export class CalculationService {
   }
 
   private calculateSalaried(input: CalcInput): CalcResult {
-    const baseSalary = input.snapshot_base_salary ?? 0;
+    if (input.snapshot_base_salary === null || input.snapshot_base_salary === undefined) {
+      throw new Error(
+        'Cannot calculate salaried pay: snapshot_base_salary is missing. ' +
+        'Ensure the staff member has an active compensation record with a base salary.',
+      );
+    }
+    const baseSalary = input.snapshot_base_salary;
     const totalWorkingDays = input.total_working_days;
     const daysWorked = input.days_worked ?? 0;
     const bonusMultiplier = input.snapshot_bonus_day_multiplier ?? 1.0;
@@ -59,7 +65,13 @@ export class CalculationService {
   }
 
   private calculatePerClass(input: CalcInput): CalcResult {
-    const perClassRate = input.snapshot_per_class_rate ?? 0;
+    if (input.snapshot_per_class_rate === null || input.snapshot_per_class_rate === undefined) {
+      throw new Error(
+        'Cannot calculate per-class pay: snapshot_per_class_rate is missing. ' +
+        'Ensure the staff member has an active compensation record with a per-class rate.',
+      );
+    }
+    const perClassRate = input.snapshot_per_class_rate;
     const assignedCount = input.snapshot_assigned_class_count ?? 0;
     const bonusClassRate = input.snapshot_bonus_class_rate ?? 0;
     const classesTaught = input.classes_taught ?? 0;

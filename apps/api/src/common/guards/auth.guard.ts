@@ -28,6 +28,12 @@ export class AuthGuard implements CanActivate {
 
       const payload = jwt.verify(token, secret) as JwtPayload;
 
+      // Token type check: only 'access' tokens are valid for API requests.
+      // Refresh tokens and mfa_pending tokens must not be accepted as Bearer tokens.
+      if (payload.type !== 'access') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
       // Cross-tenant check: if a tenant context was resolved from the hostname,
       // the JWT's tenant_id must match. This prevents using a token issued for
       // Tenant A to access Tenant B's domain.

@@ -378,8 +378,8 @@ export class InvoicesService {
       });
     }
 
-    // Can only void if no payments allocated (balance === total)
-    if (Number(invoice.balance_amount) !== Number(invoice.total_amount)) {
+    // Can only void if no payments allocated (balance ≈ total within epsilon)
+    if (Math.abs(Number(invoice.balance_amount) - Number(invoice.total_amount)) > 0.01) {
       throw new BadRequestException({
         code: 'PAYMENTS_EXIST',
         message: 'Cannot void an invoice that has payments allocated',
@@ -474,7 +474,12 @@ export class InvoicesService {
       where: { id: invoiceId, tenant_id: tenantId },
       include: { payment_allocations: true },
     });
-    if (!invoice) return;
+    if (!invoice) {
+      throw new NotFoundException({
+        code: 'INVOICE_NOT_FOUND',
+        message: `Cannot recalculate balance: invoice ${invoiceId} not found`,
+      });
+    }
 
     const sumAllocated = invoice.payment_allocations.reduce(
       (sum, a) => sum + Number(a.allocated_amount),

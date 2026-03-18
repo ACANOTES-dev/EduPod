@@ -47,17 +47,44 @@ import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-re
         };
       },
     }),
-    // Register all queues
+    // Register all queues with retry/backoff configuration
     BullModule.registerQueue(
-      { name: QUEUE_NAMES.PAYROLL },
-      { name: QUEUE_NAMES.NOTIFICATIONS },
-      { name: QUEUE_NAMES.SEARCH_SYNC },
-      { name: QUEUE_NAMES.REPORTS },
-      { name: QUEUE_NAMES.ATTENDANCE },
-      { name: QUEUE_NAMES.SCHEDULING },
-      { name: QUEUE_NAMES.GRADEBOOK },
-      { name: QUEUE_NAMES.FINANCE },
-      { name: QUEUE_NAMES.IMPORTS },
+      {
+        name: QUEUE_NAMES.PAYROLL,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.NOTIFICATIONS,
+        defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 3000 }, removeOnComplete: 200, removeOnFail: 1000 },
+      },
+      {
+        name: QUEUE_NAMES.SEARCH_SYNC,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.REPORTS,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+      },
+      {
+        name: QUEUE_NAMES.ATTENDANCE,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.SCHEDULING,
+        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 50, removeOnFail: 200 },
+      },
+      {
+        name: QUEUE_NAMES.GRADEBOOK,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.FINANCE,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.IMPORTS,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],

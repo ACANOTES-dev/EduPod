@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main",
-    "start:prod": "node dist/main",
+    "start": "node dist/apps/worker/src/main",
+    "start:prod": "node dist/apps/worker/src/main",
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "jest"
@@ -22,6 +22,7 @@
     "@school/prisma": "workspace:*",
     "@school/shared": "workspace:*",
     "bullmq": "^5.31.0",
+    "dotenv": "^17.3.1",
     "ioredis": "^5.4.2",
     "puppeteer": "^23.11.0",
     "reflect-metadata": "^0.2.2",

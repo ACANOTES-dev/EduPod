@@ -134,7 +134,7 @@ export default function AcademicYearsPage() {
                   {expandedId === year.id ? (
                     <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-text-tertiary" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-text-tertiary rtl:rotate-180" />
                   )}
                   {year.name}
                 </button>

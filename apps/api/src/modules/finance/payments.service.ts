@@ -260,54 +260,64 @@ export class PaymentsService {
       });
     }
 
-    // Calculate existing allocations
-    const existingAllocations = await this.prisma.paymentAllocation.findMany({
-      where: { payment_id: paymentId },
-    });
-    const allocatedTotal = existingAllocations.reduce(
-      (sum, a) => sum + Number(a.allocated_amount),
-      0,
-    );
-
-    // Validate total new allocations don't exceed remaining
     const newTotal = dto.allocations.reduce((sum, a) => sum + a.amount, 0);
-    const remaining = roundMoney(Number(payment.amount) - allocatedTotal);
-    if (roundMoney(newTotal) > remaining + 0.01) {
-      throw new BadRequestException({
-        code: 'ALLOCATION_EXCEEDS_PAYMENT',
-        message: `Total allocations (${roundMoney(newTotal)}) exceed remaining payment amount (${remaining})`,
-      });
-    }
-
-    // Validate each allocation against invoice balance and same household
-    for (const alloc of dto.allocations) {
-      const invoice = await this.prisma.invoice.findFirst({
-        where: { id: alloc.invoice_id, tenant_id: tenantId },
-      });
-      if (!invoice) {
-        throw new BadRequestException({
-          code: 'INVOICE_NOT_FOUND',
-          message: `Invoice "${alloc.invoice_id}" not found`,
-        });
-      }
-      if (invoice.household_id !== payment.household_id) {
-        throw new BadRequestException({
-          code: 'HOUSEHOLD_MISMATCH',
-          message: `Invoice "${alloc.invoice_id}" belongs to a different household`,
-        });
-      }
-      if (roundMoney(alloc.amount) > Number(invoice.balance_amount) + 0.01) {
-        throw new BadRequestException({
-          code: 'ALLOCATION_EXCEEDS_BALANCE',
-          message: `Allocation amount (${alloc.amount}) exceeds invoice balance (${Number(invoice.balance_amount)}) for invoice "${invoice.invoice_number}"`,
-        });
-      }
-    }
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     await rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
+
+      // Re-fetch payment inside transaction to prevent stale amount/status reads
+      const txPayment = await prisma.payment.findFirst({
+        where: { id: paymentId, tenant_id: tenantId },
+      });
+      if (!txPayment || txPayment.status !== 'posted') {
+        throw new BadRequestException({
+          code: 'INVALID_STATUS',
+          message: 'Payment status changed concurrently',
+        });
+      }
+
+      // Re-fetch existing allocations INSIDE the transaction to prevent race conditions
+      const existingAllocations = await prisma.paymentAllocation.findMany({
+        where: { payment_id: paymentId },
+      });
+      const allocatedTotal = existingAllocations.reduce(
+        (sum, a) => sum + Number(a.allocated_amount),
+        0,
+      );
+      const remaining = roundMoney(Number(txPayment.amount) - allocatedTotal);
+      if (roundMoney(newTotal) > remaining + 0.01) {
+        throw new BadRequestException({
+          code: 'ALLOCATION_EXCEEDS_PAYMENT',
+          message: `Total allocations (${roundMoney(newTotal)}) exceed remaining payment amount (${remaining})`,
+        });
+      }
+
+      // Validate each allocation against invoice balance INSIDE the transaction
+      for (const alloc of dto.allocations) {
+        const invoice = await prisma.invoice.findFirst({
+          where: { id: alloc.invoice_id, tenant_id: tenantId },
+        });
+        if (!invoice) {
+          throw new BadRequestException({
+            code: 'INVOICE_NOT_FOUND',
+            message: `Invoice "${alloc.invoice_id}" not found`,
+          });
+        }
+        if (invoice.household_id !== txPayment.household_id) {
+          throw new BadRequestException({
+            code: 'HOUSEHOLD_MISMATCH',
+            message: `Invoice "${alloc.invoice_id}" belongs to a different household`,
+          });
+        }
+        if (roundMoney(alloc.amount) > Number(invoice.balance_amount) + 0.01) {
+          throw new BadRequestException({
+            code: 'ALLOCATION_EXCEEDS_BALANCE',
+            message: `Allocation amount (${alloc.amount}) exceeds invoice balance (${Number(invoice.balance_amount)}) for invoice "${invoice.invoice_number}"`,
+          });
+        }
+      }
 
       // Create allocation records
       for (const alloc of dto.allocations) {

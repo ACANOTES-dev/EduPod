@@ -67,7 +67,7 @@ class AttendanceAutoLockJob extends TenantAwareJob<AttendanceAutoLockPayload> {
     const attendanceSettings = settings?.attendance as Record<string, unknown> | undefined;
     const autoLockAfterDays = attendanceSettings?.autoLockAfterDays as number | undefined;
 
-    if (!autoLockAfterDays) {
+    if (autoLockAfterDays === undefined || autoLockAfterDays === null) {
       this.logger.log(`Auto-lock disabled for tenant ${tenant_id} (no autoLockAfterDays setting)`);
       return;
     }
@@ -79,7 +79,7 @@ class AttendanceAutoLockJob extends TenantAwareJob<AttendanceAutoLockPayload> {
       where: {
         tenant_id,
         status: 'submitted',
-        submitted_at: { lt: cutoffDate },
+        session_date: { lte: cutoffDate },
       },
       data: { status: 'locked' },
     });

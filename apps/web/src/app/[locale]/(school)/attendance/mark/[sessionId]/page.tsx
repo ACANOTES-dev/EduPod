@@ -156,7 +156,7 @@ export default function MarkAttendancePage({ params }: PageProps) {
     return (
       <div className="space-y-4">
         <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="me-2 h-4 w-4" /> {tc('back')}
+          <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> {tc('back')}
         </Button>
         <p className="text-sm text-danger-text">{error || 'Session not found'}</p>
       </div>
@@ -171,7 +171,7 @@ export default function MarkAttendancePage({ params }: PageProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={() => router.back()}>
-            <ArrowLeft className="me-2 h-4 w-4" /> {tc('back')}
+            <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> {tc('back')}
           </Button>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">

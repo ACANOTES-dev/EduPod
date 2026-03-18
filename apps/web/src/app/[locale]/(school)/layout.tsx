@@ -41,6 +41,7 @@ import {
 
 import { GlobalSearch } from '@/components/global-search';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
+import { UserMenu } from '@/components/user-menu';
 
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { RequireAuth } from '@/providers/auth-provider';
@@ -165,6 +166,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
             actions={
               <div className="flex items-center gap-2">
                 <NotificationPanel />
+                <UserMenu />
                 <button
                   className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
                   onClick={() => setMobileSidebarOpen(true)}
@@ -190,10 +192,15 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       </AppShell>
 
       <MobileSidebar open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <div className="p-4 border-b border-border">
+        <div className="shrink-0 p-4 pe-10 border-b border-border">
           <span className="text-sm font-semibold text-text-primary">{t('common.appName')}</span>
         </div>
-        <nav className="p-2">{sidebarContent(false)}</nav>
+        <nav className="flex-1 overflow-y-auto overscroll-contain p-2 touch-pan-y">
+          {sidebarContent(false)}
+        </nav>
+        <div className="shrink-0 border-t border-border p-3">
+          <UserMenu />
+        </div>
       </MobileSidebar>
 
       <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />

@@ -87,16 +87,25 @@ export class StripeService {
 
     const stripe = await this.getStripeClient(tenantId);
 
+    // Charge the outstanding balance, not the original line amounts
+    const balanceAmount = roundMoney(Number(invoice.balance_amount));
+    if (balanceAmount <= 0) {
+      throw new BadRequestException({
+        code: 'INVOICE_ALREADY_PAID',
+        message: 'This invoice has no outstanding balance',
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: invoice.lines.map((line) => ({
+      line_items: [{
         price_data: {
           currency: invoice.currency_code.toLowerCase(),
-          unit_amount: Math.round(Number(line.unit_amount) * 100),
-          product_data: { name: line.description },
+          unit_amount: Math.round(balanceAmount * 100),
+          product_data: { name: `Invoice ${invoice.invoice_number ?? invoiceId}` },
         },
-        quantity: Math.round(Number(line.quantity)),
-      })),
+        quantity: 1,
+      }],
       mode: 'payment',
       success_url: dto.success_url,
       cancel_url: dto.cancel_url,
@@ -136,8 +145,9 @@ export class StripeService {
             stripeConfig.stripe_webhook_secret_encrypted,
             stripeConfig.encryption_key_ref,
           );
-        } catch {
-          this.logger.warn('Failed to decrypt per-tenant webhook secret');
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.error(`Failed to decrypt per-tenant webhook secret for ${tenantId}: ${msg}`);
         }
       }
     }
@@ -163,16 +173,7 @@ export class StripeService {
       });
     }
 
-    // Idempotency: check if event already processed
-    const existingPayment = await this.prisma.payment.findFirst({
-      where: { external_event_id: event.id },
-    });
-    if (existingPayment) {
-      this.logger.log(`Duplicate webhook event ${event.id} — already processed`);
-      return { received: true };
-    }
-
-    // Process event
+    // Process event (idempotency is checked inside each handler, within the transaction)
     switch (event.type) {
       case 'checkout.session.completed':
         await this.handleCheckoutCompleted(tenantId, event.data.object as Stripe.Checkout.Session);
@@ -205,14 +206,34 @@ export class StripeService {
       return;
     }
 
+    // Store the payment_intent ID (not session ID) for refund compatibility
+    const paymentIntentId = typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent?.id ?? session.id;
+
     // Get tenant currency
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return;
+    if (!tenant) {
+      this.logger.error(`checkout.session.completed: tenant ${tenantId} not found — payment will be lost`);
+      throw new NotFoundException({
+        code: 'TENANT_NOT_FOUND',
+        message: `Tenant ${tenantId} not found during Stripe checkout processing`,
+      });
+    }
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     await rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
+
+      // Idempotency check inside transaction (atomic with the insert)
+      const existingPayment = await prisma.payment.findFirst({
+        where: { external_event_id: paymentIntentId, tenant_id: tenantId },
+      });
+      if (existingPayment) {
+        this.logger.log(`Duplicate Stripe payment_intent ${paymentIntentId} — already processed`);
+        return;
+      }
 
       // Create payment record
       const payment = await prisma.payment.create({
@@ -222,7 +243,7 @@ export class StripeService {
           payment_reference: `STRIPE-${session.id}`,
           payment_method: 'stripe',
           external_provider: 'stripe',
-          external_event_id: session.id,
+          external_event_id: paymentIntentId,
           amount: amountTotal,
           currency_code: tenant.currency_code,
           status: 'posted',

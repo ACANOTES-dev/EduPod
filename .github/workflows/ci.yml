@@ -25,7 +25,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm -r run lint 2>&1 || true
+        run: pnpm -r run lint
 
       - name: Type check
         run: pnpm -r run type-check

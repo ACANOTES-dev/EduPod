@@ -15,7 +15,7 @@ interface MobileSidebarProps {
 export function MobileSidebar({ open, onOpenChange, children, className }: MobileSidebarProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="start" className={cn('w-[260px] p-0', className)}>
+      <SheetContent side="start" className={cn('w-[260px] p-0 flex flex-col overflow-hidden', className)}>
         {children}
       </SheetContent>
     </Sheet>

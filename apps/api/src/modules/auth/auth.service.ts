@@ -793,7 +793,22 @@ export class AuthService {
       });
     }
 
-    // 3. Generate new access token
+    // 3. Update ALL Redis sessions for this user with new tenant context
+    const redisClient = this.redis.getClient();
+    const sessionIds = await redisClient.smembers(`user_sessions:${userId}`);
+    for (const sessionId of sessionIds) {
+      const key = `session:${sessionId}`;
+      const raw = await redisClient.get(key);
+      if (!raw) continue;
+      try {
+        const session = JSON.parse(raw);
+        session.tenant_id = targetTenantId;
+        session.membership_id = membership.id;
+        await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
+      } catch { /* skip malformed sessions */ }
+    }
+
+    // 4. Generate new access token
     const accessToken = this.signAccessToken({
       sub: userId,
       email: currentEmail,

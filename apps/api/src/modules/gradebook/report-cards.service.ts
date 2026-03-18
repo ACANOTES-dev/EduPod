@@ -151,7 +151,7 @@ export class ReportCardsService {
           subject_name: snapshot.subject.name,
           subject_code: snapshot.subject.code ?? null,
           computed_value: Number(snapshot.computed_value),
-          display_value: snapshot.display_value,
+          display_value: snapshot.overridden_value ?? snapshot.display_value,
           overridden_value: snapshot.overridden_value ?? null,
           assessments: subjectAssessments.map((a) => {
             const grade = a.grades[0];

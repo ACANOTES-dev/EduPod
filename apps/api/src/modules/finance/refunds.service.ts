@@ -77,94 +77,100 @@ export class RefundsService {
   }
 
   async create(tenantId: string, userId: string, dto: CreateRefundDto) {
-    const payment = await this.prisma.payment.findFirst({
-      where: { id: dto.payment_id, tenant_id: tenantId },
-      include: {
-        refunds: true,
-        allocations: {
-          include: {
-            invoice: { select: { id: true, status: true } },
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return rlsClient.$transaction(async (tx) => {
+      const prisma = tx as unknown as typeof this.prisma;
+
+      const payment = await prisma.payment.findFirst({
+        where: { id: dto.payment_id, tenant_id: tenantId },
+        include: {
+          refunds: true,
+          allocations: {
+            include: {
+              invoice: { select: { id: true, status: true } },
+            },
           },
         },
-      },
-    });
-
-    if (!payment) {
-      throw new NotFoundException({
-        code: 'PAYMENT_NOT_FOUND',
-        message: `Payment with id "${dto.payment_id}" not found`,
       });
-    }
 
-    if (payment.status !== 'posted') {
-      throw new BadRequestException({
-        code: 'INVALID_PAYMENT_STATUS',
-        message: `Cannot refund a payment with status "${payment.status}"`,
-      });
-    }
-
-    // Calculate unrefunded portion
-    const totalRefunded = payment.refunds
-      .filter((r) => r.status !== 'rejected' && r.status !== 'failed')
-      .reduce((sum, r) => sum + Number(r.amount), 0);
-    const unrefunded = roundMoney(Number(payment.amount) - totalRefunded);
-
-    if (dto.amount > unrefunded + 0.01) {
-      throw new BadRequestException({
-        code: 'REFUND_EXCEEDS_AVAILABLE',
-        message: `Refund amount (${dto.amount}) exceeds available amount (${unrefunded})`,
-      });
-    }
-
-    // Check refund guards: cannot refund if invoices are void/written-off
-    for (const alloc of payment.allocations) {
-      if (['void', 'written_off'].includes(alloc.invoice.status)) {
-        throw new BadRequestException({
-          code: 'INVOICE_VOID_OR_WRITTEN_OFF',
-          message: `Cannot refund: payment is allocated to a ${alloc.invoice.status} invoice`,
+      if (!payment) {
+        throw new NotFoundException({
+          code: 'PAYMENT_NOT_FOUND',
+          message: `Payment with id "${dto.payment_id}" not found`,
         });
       }
-    }
 
-    // Generate refund reference
-    const branding = await this.prisma.tenantBranding.findUnique({
-      where: { tenant_id: tenantId },
-    });
-    const prefix = branding?.receipt_prefix ? `REF-${branding.receipt_prefix}` : 'REF';
-    const refundReference = await this.sequenceService.nextNumber(tenantId, 'refund', undefined, prefix);
+      if (!['posted', 'refunded_partial'].includes(payment.status)) {
+        throw new BadRequestException({
+          code: 'INVALID_PAYMENT_STATUS',
+          message: `Cannot refund a payment with status "${payment.status}"`,
+        });
+      }
 
-    const refund = await this.prisma.refund.create({
-      data: {
-        tenant_id: tenantId,
-        payment_id: dto.payment_id,
-        refund_reference: refundReference,
-        amount: dto.amount,
-        status: 'pending_approval',
-        reason: dto.reason,
-        requested_by_user_id: userId,
-      },
-      include: {
-        payment: {
-          select: {
-            id: true,
-            payment_reference: true,
-            amount: true,
+      // Calculate unrefunded portion inside transaction to prevent concurrent over-refund
+      const totalRefunded = payment.refunds
+        .filter((r) => r.status !== 'rejected' && r.status !== 'failed')
+        .reduce((sum, r) => sum + Number(r.amount), 0);
+      const unrefunded = roundMoney(Number(payment.amount) - totalRefunded);
+
+      if (dto.amount > unrefunded + 0.01) {
+        throw new BadRequestException({
+          code: 'REFUND_EXCEEDS_AVAILABLE',
+          message: `Refund amount (${dto.amount}) exceeds available amount (${unrefunded})`,
+        });
+      }
+
+      // Check refund guards: cannot refund if invoices are void/written-off
+      for (const alloc of payment.allocations) {
+        if (['void', 'written_off'].includes(alloc.invoice.status)) {
+          throw new BadRequestException({
+            code: 'INVOICE_VOID_OR_WRITTEN_OFF',
+            message: `Cannot refund: payment is allocated to a ${alloc.invoice.status} invoice`,
+          });
+        }
+      }
+
+      // Generate refund reference inside transaction for atomicity
+      const branding = await prisma.tenantBranding.findUnique({
+        where: { tenant_id: tenantId },
+      });
+      const prefix = branding?.receipt_prefix ? `REF-${branding.receipt_prefix}` : 'REF';
+      const refundReference = await this.sequenceService.nextNumber(tenantId, 'refund', tx, prefix);
+
+      const refund = await prisma.refund.create({
+        data: {
+          tenant_id: tenantId,
+          payment_id: dto.payment_id,
+          refund_reference: refundReference,
+          amount: dto.amount,
+          status: 'pending_approval',
+          reason: dto.reason,
+          requested_by_user_id: userId,
+        },
+        include: {
+          payment: {
+            select: {
+              id: true,
+              payment_reference: true,
+              amount: true,
+            },
+          },
+          requested_by: {
+            select: { id: true, first_name: true, last_name: true },
           },
         },
-        requested_by: {
-          select: { id: true, first_name: true, last_name: true },
-        },
-      },
-    });
+      });
 
-    return {
-      ...refund,
-      amount: Number(refund.amount),
-      payment: {
-        ...refund.payment,
-        amount: Number(refund.payment.amount),
-      },
-    };
+      return {
+        ...refund,
+        amount: Number(refund.amount),
+        payment: {
+          ...refund.payment,
+          amount: Number(refund.payment.amount),
+        },
+      };
+    });
   }
 
   async approve(tenantId: string, refundId: string, approverUserId: string, comment?: string) {
@@ -178,13 +184,6 @@ export class RefundsService {
       });
     }
 
-    if (refund.status !== 'pending_approval') {
-      throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot approve a refund with status "${refund.status}"`,
-      });
-    }
-
     if (refund.requested_by_user_id === approverUserId) {
       throw new BadRequestException({
         code: 'SELF_APPROVAL_BLOCKED',
@@ -192,17 +191,27 @@ export class RefundsService {
       });
     }
 
-    const updated = await this.prisma.refund.update({
-      where: { id: refundId },
+    // Use conditional updateMany to atomically check status + update (prevents TOCTOU race)
+    const result = await this.prisma.refund.updateMany({
+      where: { id: refundId, tenant_id: tenantId, status: 'pending_approval' },
       data: {
         status: 'approved',
         approved_by_user_id: approverUserId,
       },
     });
 
+    if (result.count === 0) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: `Cannot approve a refund with status "${refund.status}" (it may have been updated concurrently)`,
+      });
+    }
+
     return {
-      ...updated,
-      amount: Number(updated.amount),
+      ...refund,
+      status: 'approved',
+      approved_by_user_id: approverUserId,
+      amount: Number(refund.amount),
     };
   }
 
@@ -217,15 +226,9 @@ export class RefundsService {
       });
     }
 
-    if (refund.status !== 'pending_approval') {
-      throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot reject a refund with status "${refund.status}"`,
-      });
-    }
-
-    const updated = await this.prisma.refund.update({
-      where: { id: refundId },
+    // Use conditional updateMany to atomically check status + update (prevents TOCTOU race)
+    const result = await this.prisma.refund.updateMany({
+      where: { id: refundId, tenant_id: tenantId, status: 'pending_approval' },
       data: {
         status: 'rejected',
         approved_by_user_id: approverUserId,
@@ -233,9 +236,17 @@ export class RefundsService {
       },
     });
 
+    if (result.count === 0) {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: `Cannot reject a refund with status "${refund.status}" (it may have been updated concurrently)`,
+      });
+    }
+
     return {
-      ...updated,
-      amount: Number(updated.amount),
+      ...refund,
+      status: 'rejected',
+      amount: Number(refund.amount),
     };
   }
 

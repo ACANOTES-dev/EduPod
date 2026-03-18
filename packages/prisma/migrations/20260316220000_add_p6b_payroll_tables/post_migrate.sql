@@ -6,6 +6,7 @@
 
 -- staff_compensation
 ALTER TABLE staff_compensation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_compensation FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS staff_compensation_tenant_isolation ON staff_compensation;
 CREATE POLICY staff_compensation_tenant_isolation ON staff_compensation
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
@@ -13,6 +14,7 @@ CREATE POLICY staff_compensation_tenant_isolation ON staff_compensation
 
 -- payroll_runs
 ALTER TABLE payroll_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payroll_runs FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS payroll_runs_tenant_isolation ON payroll_runs;
 CREATE POLICY payroll_runs_tenant_isolation ON payroll_runs
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
@@ -20,6 +22,7 @@ CREATE POLICY payroll_runs_tenant_isolation ON payroll_runs
 
 -- payroll_entries
 ALTER TABLE payroll_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payroll_entries FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS payroll_entries_tenant_isolation ON payroll_entries;
 CREATE POLICY payroll_entries_tenant_isolation ON payroll_entries
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
@@ -27,6 +30,7 @@ CREATE POLICY payroll_entries_tenant_isolation ON payroll_entries
 
 -- payslips
 ALTER TABLE payslips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payslips FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS payslips_tenant_isolation ON payslips;
 CREATE POLICY payslips_tenant_isolation ON payslips
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
