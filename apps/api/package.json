@@ -32,6 +32,7 @@
     "bullmq": "^5.31.0",
     "compression": "^1.7.5",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^17.3.1",
     "helmet": "^8.0.0",
     "ioredis": "^5.4.2",
     "jsonwebtoken": "^9.0.2",
