@@ -1,6 +1,8 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { CommonModule } from './common/common.module';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
@@ -46,7 +48,14 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { WebsiteModule } from './modules/website/website.module';
 
 @Module({
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
+  ],
   imports: [
+    SentryModule.forRoot(),
     ConfigModule,
     BullModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
