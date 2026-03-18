@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -228,7 +229,8 @@ export class ApplicationsService {
         });
       }
 
-      // Link to parent user — find parent record for this user
+      // Ownership guard: verify the calling user owns this application
+      // (either they created it or they are a parent linked to it)
       const parent = await db.parent.findFirst({
         where: {
           tenant_id: tenantId,
@@ -237,6 +239,15 @@ export class ApplicationsService {
       });
 
       const parentId = parent?.id ?? null;
+
+      if (application.submitted_by_parent_id && application.submitted_by_parent_id !== parentId) {
+        throw new ForbiddenException({
+          error: {
+            code: 'NOT_APPLICATION_OWNER',
+            message: 'You do not have permission to submit this application',
+          },
+        });
+      }
 
       // Check for potential duplicates (same name + DOB within this tenant)
       if (application.date_of_birth) {
@@ -823,30 +834,27 @@ export class ApplicationsService {
         });
       }
 
-      // Check for double-conversion by looking for an existing conversion note
-      const existingConversionNote = await db.applicationNote.findFirst({
-        where: {
-          application_id: id,
-          tenant_id: tenantId,
-          is_internal: true,
-          note: { startsWith: 'Converted to student:' },
-        },
-      });
-      if (existingConversionNote) {
-        throw new BadRequestException({
-          error: {
-            code: 'ALREADY_CONVERTED',
-            message: 'This application has already been converted',
-          },
-        });
-      }
-
       if (application.status !== 'accepted') {
         throw new BadRequestException({
           error: {
             code: 'NOT_ACCEPTED',
             message:
               'Only accepted applications can be converted to students',
+          },
+        });
+      }
+
+      // Atomic double-conversion guard: atomically set status to 'converting' only if still 'accepted'
+      // This prevents two concurrent conversions from both passing the status check
+      const lockResult = await db.application.updateMany({
+        where: { id, tenant_id: tenantId, status: 'accepted' },
+        data: { status: 'converting' as never },
+      });
+      if (lockResult.count === 0) {
+        throw new BadRequestException({
+          error: {
+            code: 'ALREADY_CONVERTED',
+            message: 'This application is already being converted or has been converted',
           },
         });
       }

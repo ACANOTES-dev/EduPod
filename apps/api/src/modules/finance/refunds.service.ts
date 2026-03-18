@@ -273,16 +273,27 @@ export class RefundsService {
     return rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
 
-      // Perform LIFO allocation reversal
-      await this.reverseAllocationsLifo(tenantId, refund.payment_id, Number(refund.amount), prisma);
-
-      // Update refund status
-      const updated = await prisma.refund.update({
-        where: { id: refundId },
+      // Atomically check status and update to prevent concurrent execution race
+      const lockResult = await prisma.refund.updateMany({
+        where: { id: refundId, tenant_id: tenantId, status: 'approved' },
         data: {
           status: 'executed',
           executed_at: new Date(),
         },
+      });
+      if (lockResult.count === 0) {
+        throw new BadRequestException({
+          code: 'INVALID_STATUS',
+          message: 'Refund status changed concurrently — it may have already been executed',
+        });
+      }
+
+      // Perform LIFO allocation reversal
+      await this.reverseAllocationsLifo(tenantId, refund.payment_id, Number(refund.amount), prisma);
+
+      // Re-read the updated refund
+      const updated = await prisma.refund.findFirst({
+        where: { id: refundId },
       });
 
       // Update payment status
@@ -312,8 +323,8 @@ export class RefundsService {
       }
 
       return {
-        ...updated,
-        amount: Number(updated.amount),
+        ...updated!,
+        amount: Number(updated!.amount),
       };
     });
   }

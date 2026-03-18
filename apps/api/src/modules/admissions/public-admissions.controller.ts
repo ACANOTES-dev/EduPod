@@ -37,7 +37,12 @@ export class PublicAdmissionsController {
   }
 
   private extractClientIp(req: Request): string {
-    // Check x-forwarded-for header first (for reverse proxy setups)
+    // Prefer Cloudflare's verified header (cannot be spoofed when behind Cloudflare proxy)
+    const cfIp = req.headers['cf-connecting-ip'];
+    if (typeof cfIp === 'string' && cfIp.trim()) {
+      return cfIp.trim();
+    }
+    // Fallback to x-forwarded-for (less reliable, can be spoofed without proxy)
     const forwarded = req.headers['x-forwarded-for'];
     if (typeof forwarded === 'string') {
       return forwarded.split(',')[0]?.trim() ?? 'unknown';

@@ -78,13 +78,11 @@ export class NotificationDispatchService {
     }
 
     // TODO: Integrate with Twilio WhatsApp API
-    // For now, mark as sent (placeholder for Twilio integration)
-    this.logger.log(`[PLACEHOLDER] Would send WhatsApp to recipient ${notification.recipient_user_id}`);
+    // Placeholder: log intent but do NOT mark as 'sent' — leave as 'queued' to avoid false delivery confidence
+    this.logger.warn(`[PLACEHOLDER] WhatsApp dispatch not yet integrated — notification ${notification.id} remains queued for recipient ${notification.recipient_user_id}`);
     await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
-        status: 'sent',
-        sent_at: new Date(),
         attempt_count: notification.attempt_count + 1,
       },
     });
@@ -109,13 +107,11 @@ export class NotificationDispatchService {
     }
 
     // TODO: Integrate with Resend API
-    // For now, mark as sent (placeholder for Resend integration)
-    this.logger.log(`[PLACEHOLDER] Would send email to recipient ${notification.recipient_user_id}`);
+    // Placeholder: log intent but do NOT mark as 'sent' — leave as 'queued' to avoid false delivery confidence
+    this.logger.warn(`[PLACEHOLDER] Email dispatch not yet integrated — notification ${notification.id} remains queued for recipient ${notification.recipient_user_id}`);
     await this.prisma.notification.update({
       where: { id: notification.id },
       data: {
-        status: 'sent',
-        sent_at: new Date(),
         attempt_count: notification.attempt_count + 1,
       },
     });

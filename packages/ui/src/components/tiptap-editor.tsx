@@ -122,7 +122,6 @@ export function TipTapEditor({ value, onChange, placeholder, disabled }: TipTapE
         <div
           className="prose prose-sm max-w-none min-h-[200px] p-4 text-text-primary"
           // HTML content is authored by the authenticated user themselves (not untrusted input)
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{ __html: value || '<p class="text-text-tertiary">Nothing to preview</p>' }}
           dir="auto"
         />
