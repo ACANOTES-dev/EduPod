@@ -18,6 +18,10 @@ const envSchema = z.object({
   S3_BUCKET_NAME: z.string().optional(),
   S3_ENDPOINT: z.string().optional(),
 
+  // Optional -- Email (Resend)
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().email().default('noreply@edupod.app'),
+
   // Optional -- Sentry
   SENTRY_DSN_BACKEND: z.string().optional(),
 
