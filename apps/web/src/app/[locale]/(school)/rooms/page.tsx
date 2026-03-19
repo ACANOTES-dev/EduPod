@@ -35,7 +35,7 @@ interface Room {
   room_type: string;
   capacity: number | null;
   is_exclusive: boolean;
-  is_active: boolean;
+  active: boolean;
 }
 
 interface RoomsResponse {
@@ -69,7 +69,7 @@ export default function RoomsPage() {
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
       if (type !== 'all') params.set('room_type', type);
-      if (active !== 'all') params.set('is_active', active);
+      if (active !== 'all') params.set('active', active);
       const res = await apiClient<RoomsResponse>(`/api/v1/rooms?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
@@ -148,7 +148,7 @@ export default function RoomsPage() {
       key: 'is_active',
       header: t('active'),
       render: (row: Room) =>
-        row.is_active ? (
+        row.active ? (
           <StatusBadge status="success" dot>Active</StatusBadge>
         ) : (
           <StatusBadge status="neutral" dot>Inactive</StatusBadge>

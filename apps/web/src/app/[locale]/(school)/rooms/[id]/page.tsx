@@ -19,7 +19,7 @@ interface RoomDetail {
   room_type: string;
   capacity: number | null;
   is_exclusive: boolean;
-  is_active: boolean;
+  active: boolean;
 }
 
 interface TimetableEntry {
@@ -58,7 +58,7 @@ function OverviewTab({ room }: { room: RoomDetail }) {
         </div>
         <div>
           <dt className="text-xs text-text-tertiary">{t('active')}</dt>
-          <dd className="mt-0.5 text-sm text-text-primary">{room.is_active ? 'Active' : 'Inactive'}</dd>
+          <dd className="mt-0.5 text-sm text-text-primary">{room.active ? 'Active' : 'Inactive'}</dd>
         </div>
       </dl>
     </div>
@@ -149,8 +149,8 @@ export default function RoomDetailPage({ params }: PageProps) {
       title={room.name}
       subtitle={room.room_type}
       status={{
-        label: room.is_active ? 'Active' : 'Inactive',
-        variant: room.is_active ? 'success' : 'neutral',
+        label: room.active ? 'Active' : 'Inactive',
+        variant: room.active ? 'success' : 'neutral',
       }}
       actions={
         <div className="flex items-center gap-2">
