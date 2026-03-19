@@ -64,7 +64,7 @@ export default function StaffPaymentHistoryPage() {
 
   const handlePrintPayslip = (runId: string) => {
     window.open(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552'}/api/v1/payroll/runs/${runId}/entries/staff/${staffProfileId}/payslip`,
+      `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/payroll/runs/${runId}/entries/staff/${staffProfileId}/payslip`,
       '_blank'
     );
   };

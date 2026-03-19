@@ -77,7 +77,7 @@ export default function BrandingPage() {
       formData.append('file', file);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5552'}/api/v1/branding/logo`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/branding/logo`,
         {
           method: 'POST',
           body: formData,

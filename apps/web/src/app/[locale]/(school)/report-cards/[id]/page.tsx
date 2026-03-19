@@ -121,12 +121,12 @@ export default function ReportCardDetailPage() {
   };
 
   const handlePreview = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     setPreviewUrl(`${baseUrl}/api/v1/report-cards/${id}/pdf`);
   };
 
   const handleDownload = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     window.open(`${baseUrl}/api/v1/report-cards/${id}/pdf?download=true`, '_blank');
   };
 

@@ -109,7 +109,7 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
   };
 
   const handlePrintPdf = () => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552'}/api/v1/finance/invoices/${invoice.id}/pdf`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/finance/invoices/${invoice.id}/pdf`;
     window.open(url, '_blank');
   };
 

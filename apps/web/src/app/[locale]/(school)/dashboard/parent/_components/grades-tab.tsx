@@ -101,13 +101,13 @@ export function GradesTab({ children }: GradesTabProps) {
   }, [selectedChild, selectedPeriod, fetchGrades]);
 
   const handleViewPdf = (reportCardId: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     window.open(`${baseUrl}/api/v1/report-cards/${reportCardId}/pdf`, '_blank');
   };
 
   const handleDownloadTranscript = () => {
     if (!selectedChild) return;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552';
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     window.open(`${baseUrl}/api/v1/transcripts/${selectedChild}/pdf`, '_blank');
   };
 

@@ -33,7 +33,10 @@ jobs:
             rm -f packages/shared/tsconfig.tsbuildinfo
 
             echo "=== Building all packages ==="
-            pnpm build --force
+            # NEXT_PUBLIC_API_URL must be empty so client-side API calls use relative
+            # paths (via Next.js rewrites). This ensures requests go to the current
+            # tenant subdomain, not a hardcoded domain that fails tenant resolution.
+            NEXT_PUBLIC_API_URL= pnpm build --force
 
             echo "=== Running database migrations ==="
             set -a && source .env && set +a

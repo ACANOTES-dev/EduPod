@@ -14,7 +14,7 @@ interface PublicPage {
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
 async function fetchPage(slug: string): Promise<PublicPage | null> {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5552';
+  const API_URL = process.env.API_URL || 'http://localhost:5552';
   try {
     const res = await fetch(`${API_URL}/api/v1/public/pages/${encodeURIComponent(slug)}`, {
       next: { revalidate: 60 },

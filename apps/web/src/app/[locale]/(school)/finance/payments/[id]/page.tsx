@@ -111,7 +111,7 @@ export default function PaymentDetailPage() {
   }, [fetchPayment]);
 
   const handleReceiptPdf = () => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552'}/api/v1/finance/payments/${id}/receipt-pdf`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/finance/payments/${id}/receipt-pdf`;
     window.open(url, '_blank');
   };
 

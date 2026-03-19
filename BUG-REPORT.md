@@ -83,13 +83,24 @@
 - `/api/v1/dashboard/parent`
 - `/api/v1/schedules`
 
-**Root cause hypothesis**: The NestJS API either:
-1. Is not running / not deployed with the latest code
-2. Has a routing prefix mismatch (modules not registered under `/api/v1/`)
-3. The reverse proxy / Caddy config is not forwarding `/api/v1/*` to the NestJS backend (except `/api/v1/auth/*` which has a separate rule)
-4. NestJS modules are not imported into the AppModule
+**ROOT CAUSE IDENTIFIED**:
 
-**Action**: Check the deployed API server logs and NestJS module registration.
+The issue is a combination of two factors:
+
+**Factor 1: `NEXT_PUBLIC_API_URL` is set to `https://edupod.app/api` in the production build.**
+This is baked into the Next.js client bundle at compile time (see `Manuals/DEPLOYMENT-STATUS.md` line 239). Every API call from the frontend goes to `https://edupod.app/api/v1/*` regardless of which subdomain the user is on.
+
+**Factor 2: `edupod.app` is not registered as a tenant domain in the database.**
+The `TenantResolutionMiddleware` (`apps/api/src/common/middleware/tenant-resolution.middleware.ts`, lines 107-144) looks up `req.hostname` in the `tenant_domains` table. When hostname is `edupod.app`, no record is found, so it returns 404. The registered domain for Nurul Huda School is `nhqs.edupod.app` (see `packages/prisma/seed/dev-data.ts` line 61).
+
+Auth routes work because the middleware has a special bypass for `/api/v1/auth` (lines 43-98) — it attempts tenant resolution but doesn't block if no domain is found.
+
+**Proof**: When API calls are made directly from `nhqs.edupod.app` (the correct tenant domain), endpoints return **401 Unauthorized** (correct — auth guard working) instead of 404.
+
+**Fix (choose one)**:
+1. **Recommended**: Rebuild the frontend with `NEXT_PUBLIC_API_URL=''` (empty string). This makes API calls use relative paths, so they go to the current origin's subdomain. The Next.js rewrite proxy in `next.config.mjs` then forwards to the backend, preserving the correct `Host` header.
+2. **Alternative**: Add `edupod.app` as a verified domain for a default tenant, and use the `select-school` flow to choose the correct tenant after login. But this breaks the multi-tenant isolation model.
+3. **Quick workaround**: Tell users to access `nhqs.edupod.app` instead of `edupod.app`. But this doesn't fix the root cause since all API calls still go to `edupod.app`.
 
 ---
 

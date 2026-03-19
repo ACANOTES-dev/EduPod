@@ -73,7 +73,7 @@ export default function GradebookImportPage() {
       formData.append('file', file);
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552'}/api/v1/gradebook/import/validate`,
+        `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/gradebook/import/validate`,
         {
           method: 'POST',
           body: formData,
@@ -116,7 +116,7 @@ export default function GradebookImportPage() {
 
   const handleDownloadTemplate = () => {
     window.open(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552'}/api/v1/gradebook/import/template`,
+      `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/gradebook/import/template`,
       '_blank',
     );
   };

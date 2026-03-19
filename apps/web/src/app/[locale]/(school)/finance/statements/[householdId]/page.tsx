@@ -128,7 +128,7 @@ export default function HouseholdStatementPage() {
     if (fromDate) params.set('from', fromDate);
     if (toDate) params.set('to', toDate);
     const qs = params.toString();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5552';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
     const url = `${apiUrl}/api/v1/finance/household-statements/${householdId}/pdf${qs ? `?${qs}` : ''}`;
     window.open(url, '_blank');
   }
