@@ -3,6 +3,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+/** Global error listener — set by the app to show toasts on API failures. */
+let onApiError: ((message: string) => void) | null = null;
+
+export function setApiErrorHandler(handler: (message: string) => void) {
+  onApiError = handler;
+}
+
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
@@ -13,10 +20,12 @@ export function getAccessToken(): string | null {
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean;
+  /** If true, suppress the global error toast. Callers handle the error themselves. */
+  silent?: boolean;
 }
 
 export async function apiClient<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const { skipAuth = false, headers: customHeaders, ...rest } = options;
+  const { skipAuth = false, silent = false, headers: customHeaders, ...rest } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -54,6 +63,10 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
     const error = await response
       .json()
       .catch(() => ({ error: { code: 'UNKNOWN', message: 'Unknown error' } }));
+    if (!silent && onApiError && response.status !== 401) {
+      const msg = error?.error?.message ?? `Request failed (${response.status})`;
+      onApiError(msg);
+    }
     throw error;
   }
 

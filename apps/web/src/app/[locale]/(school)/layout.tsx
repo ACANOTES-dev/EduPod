@@ -41,9 +41,11 @@ import {
 } from '@school/ui';
 
 import { usePathname } from 'next/navigation';
+import { toast } from '@school/ui';
 import { GlobalSearch } from '@/components/global-search';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { UserMenu } from '@/components/user-menu';
+import { setApiErrorHandler } from '@/lib/api-client';
 
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
@@ -151,6 +153,11 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+
+  // Wire global API error toast
+  React.useEffect(() => {
+    setApiErrorHandler((msg) => toast.error(msg));
+  }, []);
 
   useShortcuts([
     {

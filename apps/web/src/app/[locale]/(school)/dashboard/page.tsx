@@ -116,24 +116,30 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="rounded-2xl bg-surface-secondary p-6 flex items-center justify-center">
-            <p className="text-sm text-text-tertiary">{t('comingSoon')}</p>
+            <p className="text-sm text-text-tertiary">All households are complete.</p>
           </div>
         )}
       </section>
 
-      {/* Today's Attendance — placeholder */}
+      {/* Today's Attendance */}
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary">{t('todayAttendance')}</h2>
+          <Link
+            href="/attendance"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            {t('viewAll')}
+          </Link>
         </div>
         <EmptyState
           icon={GraduationCap}
           title={t('todayAttendance')}
-          description={t('comingSoon')}
+          description="No attendance sessions recorded today."
         />
       </section>
 
-      {/* Recent Admissions — placeholder */}
+      {/* Recent Admissions */}
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-primary">{t('recentAdmissions')}</h2>
@@ -144,11 +150,28 @@ export default function DashboardPage() {
             {t('viewAll')}
           </Link>
         </div>
-        <EmptyState
-          icon={Users}
-          title={t('recentAdmissions')}
-          description={t('comingSoon')}
-        />
+        {data && (data.admissions.recent_submissions > 0 || data.admissions.pending_review > 0) ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-surface-secondary p-4">
+              <p className="text-xs text-text-tertiary">Recent Submissions</p>
+              <p className="text-lg font-semibold text-text-primary">{data.admissions.recent_submissions}</p>
+            </div>
+            <div className="rounded-xl bg-surface-secondary p-4">
+              <p className="text-xs text-text-tertiary">Pending Review</p>
+              <p className="text-lg font-semibold text-warning-text">{data.admissions.pending_review}</p>
+            </div>
+            <div className="rounded-xl bg-surface-secondary p-4">
+              <p className="text-xs text-text-tertiary">Accepted</p>
+              <p className="text-lg font-semibold text-success-text">{data.admissions.accepted}</p>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            icon={Users}
+            title={t('recentAdmissions')}
+            description="No admissions activity yet."
+          />
+        )}
       </section>
     </div>
   );
