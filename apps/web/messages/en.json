@@ -171,7 +171,16 @@
       "recentAnnouncements": "Recent Announcements",
       "noInvoices": "No outstanding invoices",
       "noAnnouncements": "No recent announcements"
-    }
+    },
+    "teacherSummary": "Here's your day at a glance.",
+    "todaysLessons": "Today's Lessons",
+    "attendanceSessions": "Attendance Sessions",
+    "pendingSubmissions": "Pending Submissions",
+    "todaysSchedule": "Today's Schedule",
+    "noLessonsToday": "No lessons today",
+    "noLessonsTodayDesc": "You have no scheduled lessons for today.",
+    "noSessionsToday": "No attendance sessions",
+    "noSessionsTodayDesc": "No attendance sessions have been created for today."
   },
   "theme": {
     "light": "Light",

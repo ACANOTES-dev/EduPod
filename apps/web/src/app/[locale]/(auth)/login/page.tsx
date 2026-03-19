@@ -50,8 +50,12 @@ export default function LoginPage() {
 
     // Check the first (or only) membership's role
     const roles = activeMemberships[0]?.roles ?? [];
-    const isParent = roles.some((r) => r.role_key === 'parent');
-    return isParent ? `/${locale}/dashboard/parent` : `/${locale}/dashboard`;
+    const roleKeys = roles.map((r) => r.role_key);
+    if (roleKeys.includes('parent')) return `/${locale}/dashboard/parent`;
+    if (roleKeys.includes('teacher') && !roleKeys.includes('school_owner') && !roleKeys.includes('school_admin')) {
+      return `/${locale}/dashboard/teacher`;
+    }
+    return `/${locale}/dashboard`;
   }, [locale]);
 
   // If already logged in, redirect based on role

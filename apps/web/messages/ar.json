@@ -171,7 +171,16 @@
       "recentAnnouncements": "الإعلانات الأخيرة",
       "noInvoices": "لا توجد فواتير مستحقة",
       "noAnnouncements": "لا توجد إعلانات حديثة"
-    }
+    },
+    "teacherSummary": "إليك نظرة سريعة على يومك.",
+    "todaysLessons": "حصص اليوم",
+    "attendanceSessions": "جلسات الحضور",
+    "pendingSubmissions": "تسجيلات معلقة",
+    "todaysSchedule": "جدول اليوم",
+    "noLessonsToday": "لا توجد حصص اليوم",
+    "noLessonsTodayDesc": "ليس لديك حصص مجدولة اليوم.",
+    "noSessionsToday": "لا توجد جلسات حضور",
+    "noSessionsTodayDesc": "لم يتم إنشاء جلسات حضور اليوم."
   },
   "theme": {
     "light": "فاتح",
