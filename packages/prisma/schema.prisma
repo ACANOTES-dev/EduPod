@@ -271,6 +271,13 @@ enum SchedulingRunStatus {
   discarded
 }
 
+enum SupervisionMode {
+  none
+  yard
+  classroom_previous
+  classroom_next
+}
+
 // ─── P3 Enums ──────────────────────────────────────────────────────────────
 
 enum FormDefinitionStatus {
@@ -435,6 +442,14 @@ model Tenant {
   staff_availability            StaffAvailability[]
   staff_scheduling_preferences  StaffSchedulingPreference[]
   scheduling_runs               SchedulingRun[]
+
+  // P4B-v2 Relations
+  curriculum_requirements    CurriculumRequirement[]
+  teacher_competencies       TeacherCompetency[]
+  break_groups               BreakGroup[]
+  break_group_year_groups    BreakGroupYearGroup[]
+  room_closures              RoomClosure[]
+  teacher_scheduling_configs TeacherSchedulingConfig[]
 
   // P5 Relations
   grading_scales              GradingScale[]
@@ -672,6 +687,9 @@ model User {
   audit_logs_authored      AuditLog[]          @relation("audit_log_actor")
   compliance_requests_made ComplianceRequest[] @relation("compliance_requested_by")
   import_jobs_created      ImportJob[]         @relation("import_created_by")
+
+  // P4B-v2 Relations
+  room_closures_created RoomClosure[] @relation("room_closure_creator")
 
   @@map("users")
 }
@@ -1088,6 +1106,10 @@ model StaffProfile {
   compensations   StaffCompensation[]
   payroll_entries PayrollEntry[]
 
+  // P4B-v2 Relations
+  teacher_competencies       TeacherCompetency[]
+  teacher_scheduling_configs TeacherSchedulingConfig[]
+
   @@unique([tenant_id, user_id], name: "idx_staff_profiles_tenant_user")
   @@index([tenant_id], name: "idx_staff_profiles_tenant")
   @@index([user_id], name: "idx_staff_profiles_user")
@@ -1118,6 +1140,12 @@ model AcademicYear {
   staff_availability            StaffAvailability[]
   staff_scheduling_preferences  StaffSchedulingPreference[]
   scheduling_runs               SchedulingRun[]
+
+  // P4B-v2 Relations
+  curriculum_requirements    CurriculumRequirement[]
+  teacher_competencies       TeacherCompetency[]
+  break_groups               BreakGroup[]
+  teacher_scheduling_configs TeacherSchedulingConfig[]
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1169,6 +1197,12 @@ model YearGroup {
   // P6 Relations
   fee_structures FeeStructure[]
 
+  // P4B-v2 Relations
+  curriculum_requirements   CurriculumRequirement[]
+  teacher_competencies      TeacherCompetency[]
+  break_group_year_groups   BreakGroupYearGroup[]
+  schedule_period_templates SchedulePeriodTemplate[]
+
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
   @@map("year_groups")
@@ -1192,6 +1226,10 @@ model Subject {
   class_subject_grade_configs ClassSubjectGradeConfig[]
   assessments                 Assessment[]
   period_grade_snapshots      PeriodGradeSnapshot[]
+
+  // P4B-v2 Relations
+  curriculum_requirements CurriculumRequirement[]
+  teacher_competencies    TeacherCompetency[]
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -1395,6 +1433,9 @@ model Room {
   // P4B Relations
   class_scheduling_requirements ClassSchedulingRequirement[] @relation("class_req_preferred_room")
 
+  // P4B-v2 Relations
+  room_closures RoomClosure[]
+
   @@unique([tenant_id, name], name: "idx_rooms_tenant_name")
   @@index([tenant_id], name: "idx_rooms_tenant")
   @@map("rooms")
@@ -1545,12 +1586,17 @@ model SchedulePeriodTemplate {
   start_time           DateTime           @db.Time
   end_time             DateTime           @db.Time
   schedule_period_type SchedulePeriodType @default(teaching)
+  year_group_id        String?            @db.Uuid
+  supervision_mode     SupervisionMode    @default(none)
+  break_group_id       String?            @db.Uuid
   created_at           DateTime           @default(now()) @db.Timestamptz()
   updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup?   @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
+  break_group   BreakGroup?  @relation(fields: [break_group_id], references: [id], onDelete: SetNull)
   schedules     Schedule[]
 
   @@unique([tenant_id, academic_year_id, weekday, period_order], name: "idx_schedule_period_templates_order", map: "idx_schedule_period_templates_order")
@@ -1660,6 +1706,137 @@ model SchedulingRun {
 
   @@index([tenant_id, academic_year_id, status], name: "idx_scheduling_runs_tenant_year")
   @@map("scheduling_runs")
+}
+
+// ─── P4B-v2: Auto-Scheduler Redesign ──────────────────────────────────────
+
+model CurriculumRequirement {
+  id                         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                  String   @db.Uuid
+  academic_year_id           String   @db.Uuid
+  year_group_id              String   @db.Uuid
+  subject_id                 String   @db.Uuid
+  min_periods_per_week       Int      @db.SmallInt
+  max_periods_per_day        Int      @default(1) @db.SmallInt
+  preferred_periods_per_week Int?     @db.SmallInt
+  requires_double_period     Boolean  @default(false)
+  double_period_count        Int?     @db.SmallInt
+  created_at                 DateTime @default(now()) @db.Timestamptz()
+  updated_at                 DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, academic_year_id, year_group_id, subject_id], name: "idx_curriculum_req_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_curriculum_req_tenant_year")
+  @@index([tenant_id, academic_year_id, year_group_id], name: "idx_curriculum_req_year_group")
+  @@map("curriculum_requirements")
+}
+
+model TeacherCompetency {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  academic_year_id String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  subject_id       String   @db.Uuid
+  year_group_id    String   @db.Uuid
+  is_primary       Boolean  @default(false)
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  subject       Subject      @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup    @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, academic_year_id, staff_profile_id, subject_id, year_group_id], name: "idx_teacher_competency_unique")
+  @@index([tenant_id, academic_year_id, staff_profile_id], name: "idx_teacher_competency_staff")
+  @@index([tenant_id, academic_year_id, subject_id, year_group_id], name: "idx_teacher_competency_subject_year")
+  @@map("teacher_competencies")
+}
+
+model BreakGroup {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  academic_year_id          String   @db.Uuid
+  name                      String   @db.VarChar(100)
+  name_ar                   String?  @db.VarChar(100)
+  location                  String?  @db.VarChar(100)
+  required_supervisor_count Int      @default(1) @db.SmallInt
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                    Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year             AcademicYear             @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  year_groups               BreakGroupYearGroup[]
+  schedule_period_templates SchedulePeriodTemplate[]
+
+  @@unique([tenant_id, academic_year_id, name], name: "idx_break_groups_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_break_groups_tenant_year")
+  @@map("break_groups")
+}
+
+model BreakGroupYearGroup {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  break_group_id String   @db.Uuid
+  year_group_id  String   @db.Uuid
+  created_at     DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  break_group BreakGroup @relation(fields: [break_group_id], references: [id], onDelete: Cascade)
+  year_group  YearGroup  @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, break_group_id, year_group_id], name: "idx_break_group_year_groups_unique")
+  @@map("break_group_year_groups")
+}
+
+model RoomClosure {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  room_id            String   @db.Uuid
+  date_from          DateTime @db.Date
+  date_to            DateTime @db.Date
+  reason             String   @db.VarChar(255)
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  room       Room   @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("room_closure_creator", fields: [created_by_user_id], references: [id])
+
+  @@index([tenant_id, room_id], name: "idx_room_closures_tenant_room")
+  @@index([tenant_id, date_from, date_to], name: "idx_room_closures_dates")
+  @@map("room_closures")
+}
+
+model TeacherSchedulingConfig {
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                       String   @db.Uuid
+  staff_profile_id                String   @db.Uuid
+  academic_year_id                String   @db.Uuid
+  max_periods_per_week            Int?     @db.SmallInt
+  max_periods_per_day             Int?     @db.SmallInt
+  max_supervision_duties_per_week Int?     @db.SmallInt
+  created_at                      DateTime @default(now()) @db.Timestamptz()
+  updated_at                      DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, staff_profile_id, academic_year_id], name: "idx_teacher_sched_config_unique")
+  @@index([tenant_id, academic_year_id], name: "idx_teacher_sched_config_tenant_year")
+  @@map("teacher_scheduling_configs")
 }
 
 // ─── P5 Enums ──────────────────────────────────────────────────────────────
