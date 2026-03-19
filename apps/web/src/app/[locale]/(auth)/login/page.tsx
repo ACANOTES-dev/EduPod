@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   // Extract locale from pathname (e.g. /en/login -> en)
   const locale = React.useMemo(() => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     return segments[0] ?? 'en';
   }, [pathname]);
 
