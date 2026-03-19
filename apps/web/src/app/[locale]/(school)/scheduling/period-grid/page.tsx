@@ -155,7 +155,7 @@ export default function PeriodGridPage() {
         academic_year_id: selectedYear,
         year_group_id: selectedYearGroup,
       });
-      const res = await apiClient<{ data: PeriodSlot[] }>(`/api/v1/scheduling/period-grid?${params.toString()}`);
+      const res = await apiClient<{ data: PeriodSlot[] }>(`/api/v1/period-grid?${params.toString()}`);
       setPeriods(res.data);
     } catch {
       setPeriods([]);
@@ -213,13 +213,13 @@ export default function PeriodGridPage() {
       };
 
       if (editState.id) {
-        await apiClient(`/api/v1/scheduling/period-grid/${editState.id}`, {
+        await apiClient(`/api/v1/period-grid/${editState.id}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
         });
       } else {
         const dayPeriods = periodsForDay(editState.weekday);
-        await apiClient('/api/v1/scheduling/period-grid', {
+        await apiClient('/api/v1/period-grid', {
           method: 'POST',
           body: JSON.stringify({
             ...body,
@@ -242,7 +242,7 @@ export default function PeriodGridPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await apiClient(`/api/v1/scheduling/period-grid/${id}`, { method: 'DELETE' });
+      await apiClient(`/api/v1/period-grid/${id}`, { method: 'DELETE' });
       setPeriods((prev) => prev.filter((p) => p.id !== id));
       toast.success(tc('delete'));
     } catch {
@@ -252,7 +252,7 @@ export default function PeriodGridPage() {
 
   const handleCopyMondayToAll = async () => {
     try {
-      await apiClient('/api/v1/scheduling/period-grid/copy-day', {
+      await apiClient('/api/v1/period-grid/copy-day', {
         method: 'POST',
         body: JSON.stringify({
           academic_year_id: selectedYear,
@@ -271,7 +271,7 @@ export default function PeriodGridPage() {
   const handleCopyFromYearGroup = async () => {
     if (!copySourceYg) return;
     try {
-      await apiClient('/api/v1/scheduling/period-grid/copy-year-group', {
+      await apiClient('/api/v1/period-grid/copy-year-group', {
         method: 'POST',
         body: JSON.stringify({
           academic_year_id: selectedYear,

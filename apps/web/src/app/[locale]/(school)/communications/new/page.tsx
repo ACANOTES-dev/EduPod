@@ -24,15 +24,14 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AnnouncementScope = 'school_wide' | 'year_group' | 'class' | 'household' | 'custom';
+type AnnouncementScope = 'school' | 'year_group' | 'class' | 'household' | 'custom';
 
 interface CreateAnnouncementPayload {
   title: string;
-  body: string;
+  body_html: string;
   scope: AnnouncementScope;
-  target_ids?: string[];
-  scheduled_at?: string | null;
-  status: 'draft' | 'published';
+  target_payload: Record<string, unknown>;
+  scheduled_publish_at?: string | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -44,27 +43,34 @@ export default function NewAnnouncementPage() {
 
   const [title, setTitle] = React.useState('');
   const [body, setBody] = React.useState('');
-  const [scope, setScope] = React.useState<AnnouncementScope>('school_wide');
+  const [scope, setScope] = React.useState<AnnouncementScope>('school');
   const [targetIds, setTargetIds] = React.useState('');
   const [scheduleEnabled, setScheduleEnabled] = React.useState(false);
   const [scheduledAt, setScheduledAt] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [isPublishing, setIsPublishing] = React.useState(false);
 
-  const needsTarget = scope !== 'school_wide';
+  const needsTarget = scope !== 'school';
 
-  const buildPayload = (status: 'draft' | 'published'): CreateAnnouncementPayload => {
+  const buildTargetPayload = (): Record<string, unknown> => {
+    if (scope === 'school') return {};
+    const ids = targetIds.split(',').map((s) => s.trim()).filter(Boolean);
+    if (scope === 'year_group') return { year_group_ids: ids };
+    if (scope === 'class') return { class_ids: ids };
+    if (scope === 'household') return { household_ids: ids };
+    if (scope === 'custom') return { user_ids: ids };
+    return {};
+  };
+
+  const buildPayload = (): CreateAnnouncementPayload => {
     const payload: CreateAnnouncementPayload = {
       title: title.trim(),
-      body: body.trim(),
+      body_html: body.trim(),
       scope,
-      status,
+      target_payload: buildTargetPayload(),
     };
-    if (needsTarget && targetIds.trim()) {
-      payload.target_ids = targetIds.split(',').map((s) => s.trim()).filter(Boolean);
-    }
     if (scheduleEnabled && scheduledAt) {
-      payload.scheduled_at = new Date(scheduledAt).toISOString();
+      payload.scheduled_publish_at = new Date(scheduledAt).toISOString();
     }
     return payload;
   };
@@ -78,7 +84,7 @@ export default function NewAnnouncementPage() {
     try {
       await apiClient<{ id: string }>('/api/v1/announcements', {
         method: 'POST',
-        body: JSON.stringify(buildPayload('draft')),
+        body: JSON.stringify(buildPayload()),
       });
       toast.success(t('form.saveDraftSuccess'));
       router.push('/communications');
@@ -98,7 +104,7 @@ export default function NewAnnouncementPage() {
     try {
       const res = await apiClient<{ id: string }>('/api/v1/announcements', {
         method: 'POST',
-        body: JSON.stringify(buildPayload('published')),
+        body: JSON.stringify(buildPayload()),
       });
       // If we got an ID back, trigger publish endpoint
       if (res.id) {
@@ -162,7 +168,7 @@ export default function NewAnnouncementPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="school_wide">{t('scope.school_wide')}</SelectItem>
+              <SelectItem value="school">{t('scope.school')}</SelectItem>
               <SelectItem value="year_group">{t('scope.year_group')}</SelectItem>
               <SelectItem value="class">{t('scope.class')}</SelectItem>
               <SelectItem value="household">{t('scope.household')}</SelectItem>
@@ -171,7 +177,7 @@ export default function NewAnnouncementPage() {
           </Select>
         </div>
 
-        {/* Target IDs — shown when scope is not school_wide */}
+        {/* Target IDs — shown when scope is not school */}
         {needsTarget && (
           <div className="space-y-2">
             <Label htmlFor="target-ids">{t('form.targetLabel')}</Label>

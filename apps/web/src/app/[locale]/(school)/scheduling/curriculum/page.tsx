@@ -109,7 +109,7 @@ export default function CurriculumPage() {
       });
       const [currRes, gridRes] = await Promise.all([
         apiClient<{ data: CurriculumRow[] }>(`/api/v1/scheduling/curriculum-requirements?${params.toString()}`),
-        apiClient<{ total_teaching_periods: number }>(`/api/v1/scheduling/period-grid/teaching-count?${params.toString()}`).catch(() => ({ total_teaching_periods: 0 })),
+        apiClient<{ total_teaching_periods: number }>(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch(() => ({ total_teaching_periods: 0 })),
       ]);
       setRows(currRes.data);
       setTotalTeachingPeriods(gridRes.total_teaching_periods);

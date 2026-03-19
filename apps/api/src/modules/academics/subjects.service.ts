@@ -17,6 +17,8 @@ type SubjectType = 'academic' | 'supervision' | 'duty' | 'other';
 interface ListSubjectsFilters {
   subject_type?: SubjectType;
   active?: boolean;
+  page?: number;
+  pageSize?: number;
 }
 
 @Injectable()
@@ -51,6 +53,8 @@ export class SubjectsService {
 
   async findAll(tenantId: string, filters: ListSubjectsFilters) {
     const where: Prisma.SubjectWhereInput = { tenant_id: tenantId };
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 100;
 
     if (filters.subject_type !== undefined) {
       where.subject_type = filters.subject_type;
@@ -59,10 +63,17 @@ export class SubjectsService {
       where.active = filters.active;
     }
 
-    return this.prisma.subject.findMany({
-      where,
-      orderBy: { name: 'asc' },
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.subject.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.subject.count({ where }),
+    ]);
+
+    return { data, meta: { page, pageSize, total } };
   }
 
   async update(tenantId: string, id: string, dto: UpdateSubjectDto) {

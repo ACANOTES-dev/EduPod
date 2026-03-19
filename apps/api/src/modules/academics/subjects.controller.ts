@@ -53,6 +53,8 @@ export class SubjectsController {
     return this.subjectsService.findAll(tenantContext.tenant_id, {
       subject_type: query.subject_type,
       active: query.active,
+      page: query.page,
+      pageSize: query.pageSize,
     });
   }
 
