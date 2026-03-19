@@ -86,7 +86,8 @@ function groupEntries(entries: ReviewEntry[]) {
 
 export default function RunReviewPage() {
   const t = useTranslations('scheduling.auto');
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
   const router = useRouter();
 
   const [data, setData] = React.useState<RunReview | null>(null);

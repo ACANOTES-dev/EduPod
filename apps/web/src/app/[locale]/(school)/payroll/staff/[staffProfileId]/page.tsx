@@ -30,7 +30,7 @@ interface PaymentEntry {
 export default function StaffPaymentHistoryPage() {
   const t = useTranslations('payroll');
   const params = useParams();
-  const staffProfileId = params.staffProfileId as string;
+  const staffProfileId = params?.staffProfileId as string;
 
   const [data, setData] = React.useState<PaymentEntry[]>([]);
   const [total, setTotal] = React.useState(0);

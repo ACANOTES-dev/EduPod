@@ -24,7 +24,8 @@
       "dom.iterable",
       "esnext"
     ],
-    "noEmit": true
+    "noEmit": true,
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",

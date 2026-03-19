@@ -57,7 +57,8 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WebsitePageEditorPage() {
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';

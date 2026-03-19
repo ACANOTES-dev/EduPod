@@ -49,8 +49,8 @@ export default function ComparePage() {
   const searchParams = useSearchParams();
 
   const [runs, setRuns] = React.useState<SchedulingRun[]>([]);
-  const [runAId, setRunAId] = React.useState(searchParams.get('run_a') ?? '');
-  const [runBId, setRunBId] = React.useState(searchParams.get('run_b') ?? '');
+  const [runAId, setRunAId] = React.useState(searchParams?.get('run_a') ?? '');
+  const [runBId, setRunBId] = React.useState(searchParams?.get('run_b') ?? '');
   const [dataA, setDataA] = React.useState<RunCompareData | null>(null);
   const [dataB, setDataB] = React.useState<RunCompareData | null>(null);
   const [loading, setLoading] = React.useState(false);

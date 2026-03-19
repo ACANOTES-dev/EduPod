@@ -58,8 +58,8 @@ export default function GradeEntryPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const params = useParams();
-  const classId = params.classId as string;
-  const assessmentId = params.assessmentId as string;
+  const classId = params?.classId as string;
+  const assessmentId = params?.assessmentId as string;
 
   const [assessment, setAssessment] = React.useState<AssessmentDetail | null>(null);
   const [grades, setGrades] = React.useState<StudentGrade[]>([]);

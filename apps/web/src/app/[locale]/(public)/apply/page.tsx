@@ -83,7 +83,7 @@ export default function PublicAdmissionsPage() {
     if (!token) {
       // Redirect to login with return URL
       toast.info(t('loginToSubmit'));
-      router.push(`/${locale}/login?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/${locale}/login?returnTo=${encodeURIComponent(pathname ?? '')}`);
       return;
     }
 

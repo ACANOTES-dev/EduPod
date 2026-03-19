@@ -178,7 +178,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const pageTitle = React.useMemo(() => {
     // Strip locale prefix (e.g., /en/students → /students)
-    const path = pathname.replace(/^\/[a-z]{2}(?=\/)/, '');
+    const path = (pathname ?? '').replace(/^\/[a-z]{2}(?=\/)/, '');
     for (const section of navSections) {
       for (const item of section.items) {
         if (path === item.href || path.startsWith(item.href + '/')) {

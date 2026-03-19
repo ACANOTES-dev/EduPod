@@ -73,7 +73,8 @@ interface RunDetailData {
 export default function RunDetailPage() {
   const t = useTranslations('scheduling');
   const tc = useTranslations('common');
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';

@@ -104,7 +104,8 @@ const invoiceStatusLabelMap: Record<InvoiceStatus, string> = {
 };
 
 export default function InvoiceDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
 
   const [invoice, setInvoice] = React.useState<InvoiceDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);

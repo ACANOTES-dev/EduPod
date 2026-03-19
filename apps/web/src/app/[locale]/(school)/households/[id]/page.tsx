@@ -80,7 +80,8 @@ interface ContactFormState {
 }
 
 export default function HouseholdHubPage() {
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
   const router = useRouter();
 
   const [household, setHousehold] = React.useState<Household | null>(null);

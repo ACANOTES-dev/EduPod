@@ -59,7 +59,7 @@ export function UserMenu() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const locale = extractLocale(pathname);
+  const locale = extractLocale(pathname ?? '');
   const otherLocale = locale === 'ar' ? 'en' : 'ar';
 
   if (!user) return null;
@@ -81,7 +81,7 @@ export function UserMenu() {
   }
 
   function handleSwitchLocale() {
-    const newPath = buildLocaleSwitchedPath(pathname, otherLocale);
+    const newPath = buildLocaleSwitchedPath(pathname ?? '', otherLocale);
     router.push(newPath);
   }
 

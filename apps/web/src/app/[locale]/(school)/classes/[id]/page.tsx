@@ -59,7 +59,8 @@ function OverviewTab({ cls }: { cls: ClassDetail }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ClassDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('classes');
   const tc = useTranslations('common');
   const router = useRouter();

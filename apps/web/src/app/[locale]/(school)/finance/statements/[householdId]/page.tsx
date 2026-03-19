@@ -91,7 +91,7 @@ function formatAmount(value: number | null, currencyCode: string): string {
 export default function HouseholdStatementPage() {
   const t = useTranslations('finance');
   const params = useParams();
-  const householdId = params.householdId as string;
+  const householdId = params?.householdId as string;
 
   const [data, setData] = React.useState<HouseholdStatementData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);

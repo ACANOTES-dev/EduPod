@@ -254,7 +254,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   React.useEffect(() => {
-    if (!isLoading && !isAuthenticated && !isPublicPath(pathname)) {
+    if (!isLoading && !isAuthenticated && !isPublicPath(pathname ?? '')) {
       // Extract locale from pathname (e.g., /en/dashboard -> en)
       const segments = (pathname ?? '').split('/').filter(Boolean);
       const locale = segments[0] ?? 'en';
@@ -270,7 +270,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated && !isPublicPath(pathname)) {
+  if (!isAuthenticated && !isPublicPath(pathname ?? '')) {
     return null;
   }
 

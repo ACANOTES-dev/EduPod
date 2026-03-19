@@ -87,7 +87,8 @@ const methodLabelMap: Record<PaymentMethod, string> = {
 };
 
 export default function PaymentDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
 
   const [payment, setPayment] = React.useState<PaymentDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);

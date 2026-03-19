@@ -74,7 +74,8 @@ const nextStatuses: Record<Student['status'], string[]> = {
 };
 
 export default function StudentHubPage() {
-  const { id } = useParams<{ id: string }>();
+  const _params = useParams<{ id: string }>();
+  const id = _params?.id ?? '';
   const router = useRouter();
 
   const [student, setStudent] = React.useState<Student | null>(null);

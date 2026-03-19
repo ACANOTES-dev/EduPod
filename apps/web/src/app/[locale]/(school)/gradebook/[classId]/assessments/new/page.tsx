@@ -51,7 +51,7 @@ export default function NewAssessmentPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const params = useParams();
-  const classId = params.classId as string;
+  const classId = params?.classId as string;
 
   const [subjects, setSubjects] = React.useState<Subject[]>([]);
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
