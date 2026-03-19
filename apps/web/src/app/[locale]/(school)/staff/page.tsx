@@ -49,7 +49,7 @@ export default function StaffPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [data, setData] = React.useState<StaffProfile[]>([]);
   const [total, setTotal] = React.useState(0);

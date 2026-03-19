@@ -36,14 +36,14 @@ const tabs = [
 export default function SchedulingLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('scheduling');
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   return (
     <div className="space-y-6">
       <nav className="flex gap-1 overflow-x-auto border-b border-border pb-px">
         {tabs.map((tab) => {
           const fullHref = `/${locale}${tab.href}`;
-          const isActive = pathname.startsWith(fullHref);
+          const isActive = (pathname ?? '').startsWith(fullHref);
           return (
             <Link
               key={tab.key}

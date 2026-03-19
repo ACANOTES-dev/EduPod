@@ -82,7 +82,7 @@ export default function RoleDetailPage({ params }: PageProps) {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const localePrefix = '/' + (pathname.split('/').filter(Boolean)[0] ?? 'en');
+  const localePrefix = '/' + ((pathname ?? '').split('/').filter(Boolean)[0] ?? 'en');
   const { id } = params;
 
   const [role, setRole] = React.useState<RoleDetail | null>(null);

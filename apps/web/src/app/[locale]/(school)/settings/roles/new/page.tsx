@@ -57,7 +57,7 @@ export default function NewRolePage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const localePrefix = '/' + (pathname.split('/').filter(Boolean)[0] ?? 'en');
+  const localePrefix = '/' + ((pathname ?? '').split('/').filter(Boolean)[0] ?? 'en');
 
   // Form state
   const [roleKey, setRoleKey] = React.useState('');

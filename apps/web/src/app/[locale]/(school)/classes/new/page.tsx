@@ -16,7 +16,7 @@ export default function NewClassPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const handleSubmit = async (values: ClassFormValues) => {
     await apiClient('/api/v1/classes', {

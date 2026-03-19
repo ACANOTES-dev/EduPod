@@ -323,7 +323,7 @@ export default function NewAdmissionFormPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [formName, setFormName] = React.useState('');
   const [fields, setFields] = React.useState<FormField[]>([]);

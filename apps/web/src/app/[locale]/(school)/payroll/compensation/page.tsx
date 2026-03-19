@@ -45,7 +45,7 @@ interface CompensationRecord {
 export default function CompensationListPage() {
   const t = useTranslations('payroll');
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [data, setData] = React.useState<CompensationRecord[]>([]);
   const [total, setTotal] = React.useState(0);

@@ -49,7 +49,7 @@ export default function PayrollRunsPage() {
   const t = useTranslations('payroll');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [data, setData] = React.useState<PayrollRun[]>([]);
   const [total, setTotal] = React.useState(0);

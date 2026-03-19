@@ -60,7 +60,7 @@ export default function WebsitePageEditorPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [page, setPage] = React.useState<WebsitePage | null>(null);
   const [loading, setLoading] = React.useState(true);

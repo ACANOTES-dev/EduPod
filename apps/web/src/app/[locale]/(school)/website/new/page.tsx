@@ -24,7 +24,7 @@ function slugify(text: string): string {
 export default function NewWebsitePagePage() {
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [saving, setSaving] = React.useState(false);
 

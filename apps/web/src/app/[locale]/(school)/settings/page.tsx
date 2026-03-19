@@ -6,5 +6,5 @@ export default function SettingsPage({
 }: {
   params: { locale: string };
 }) {
-  redirect(`/${params.locale}/settings/branding`);
+  redirect(`/${params?.locale}/settings/branding`);
 }

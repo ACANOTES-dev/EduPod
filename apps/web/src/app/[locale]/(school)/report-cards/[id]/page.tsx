@@ -52,9 +52,9 @@ export default function ReportCardDetailPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const params = useParams();
-  const id = params.id as string;
+  const id = params?.id as string;
 
   const [reportCard, setReportCard] = React.useState<ReportCardDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);

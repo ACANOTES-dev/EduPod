@@ -80,7 +80,7 @@ const statusLabelMap: Record<TenantDetail['status'], string> = {
 export default function TenantDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const tenantId = params.id as string;
+  const tenantId = params?.id as string;
 
   const [tenant, setTenant] = React.useState<TenantDetail | null>(null);
   const [loading, setLoading] = React.useState(true);

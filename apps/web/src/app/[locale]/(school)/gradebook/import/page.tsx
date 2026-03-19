@@ -43,7 +43,7 @@ export default function GradebookImportPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [step, setStep] = React.useState<Step>(1);
   const [file, setFile] = React.useState<File | null>(null);

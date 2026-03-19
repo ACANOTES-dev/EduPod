@@ -36,7 +36,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   // Extract locale from pathname (e.g., /en/settings/branding -> en)
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = (pathname ?? '').split('/').filter(Boolean);
   const locale = segments[0] ?? 'en';
 
   function getActiveTab(): string {

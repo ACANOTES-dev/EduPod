@@ -43,7 +43,7 @@ function SubmissionStatusBadge({ status }: { status: string }) {
 export default function ContactSubmissionsPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [submissions, setSubmissions] = React.useState<ContactSubmission[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

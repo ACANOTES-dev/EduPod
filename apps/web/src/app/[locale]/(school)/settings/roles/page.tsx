@@ -100,7 +100,7 @@ export default function RolesPage() {
   const router = useRouter();
   const pathname = usePathname();
   // Extract locale prefix from pathname: /en/settings/roles → /en
-  const localePrefix = '/' + (pathname.split('/').filter(Boolean)[0] ?? 'en');
+  const localePrefix = '/' + ((pathname ?? '').split('/').filter(Boolean)[0] ?? 'en');
 
   const [data, setData] = React.useState<RoleRow[]>([]);
   const [total, setTotal] = React.useState(0);

@@ -79,7 +79,7 @@ export function FeeGenerationWizard() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [step, setStep] = React.useState<WizardStep>(1);
 

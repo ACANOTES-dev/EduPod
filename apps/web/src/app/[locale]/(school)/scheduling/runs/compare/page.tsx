@@ -45,7 +45,7 @@ export default function ComparePage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const searchParams = useSearchParams();
 
   const [runs, setRuns] = React.useState<SchedulingRun[]>([]);

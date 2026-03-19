@@ -40,7 +40,7 @@ export default function PublicAdmissionsPage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [form, setForm] = React.useState<PublicForm | null>(null);
   const [loading, setLoading] = React.useState(true);

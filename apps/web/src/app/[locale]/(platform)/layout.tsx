@@ -26,7 +26,7 @@ interface NavItem {
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useParams();
-  const locale = (params.locale as string) ?? 'en';
+  const locale = (params?.locale as string) ?? 'en';
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const navItems: NavItem[] = [
@@ -40,7 +40,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     if (href === `/${locale}/admin`) {
       return pathname === `/${locale}/admin`;
     }
-    return pathname.startsWith(href);
+    return (pathname ?? '').startsWith(href);
   };
 
   const sidebarNav = (

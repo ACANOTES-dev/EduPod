@@ -61,7 +61,7 @@ export default function ClassesPage() {
   const t = useTranslations('classes');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [data, setData] = React.useState<ClassRow[]>([]);
   const [total, setTotal] = React.useState(0);

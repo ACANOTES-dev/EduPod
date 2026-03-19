@@ -30,7 +30,7 @@ export default function EditDiscountPage({ params }: PageProps) {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { id } = params;
 
   const [discount, setDiscount] = React.useState<DiscountDetail | null>(null);

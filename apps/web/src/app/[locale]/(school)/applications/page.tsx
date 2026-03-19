@@ -29,7 +29,7 @@ export default function ParentApplicationsPage() {
   const t = useTranslations('admissions');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [applications, setApplications] = React.useState<MyApplication[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

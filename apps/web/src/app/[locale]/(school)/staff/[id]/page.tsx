@@ -152,7 +152,7 @@ function ClassesTab({ assignments }: { assignments: ClassStaffAssignment[] }) {
   const t = useTranslations('staff');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const columns = [
     {
@@ -203,7 +203,7 @@ export default function StaffDetailPage({ params }: PageProps) {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { id } = params;
 
   const [staff, setStaff] = React.useState<StaffDetail | null>(null);

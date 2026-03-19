@@ -31,7 +31,7 @@ const tabs = [
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('finance');
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   return (
     <div className="space-y-6">
@@ -40,7 +40,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
           const fullHref = `/${locale}${tab.href}`;
           const isActive = tab.exact
             ? pathname === fullHref
-            : pathname.startsWith(fullHref);
+            : (pathname ?? '').startsWith(fullHref);
           return (
             <Link
               key={tab.key}

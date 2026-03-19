@@ -51,8 +51,8 @@ export default function RunDetailPage() {
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
-  const runId = params.id as string;
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const runId = params?.id as string;
 
   const [run, setRun] = React.useState<PayrollRun | null>(null);
   const [entries, setEntries] = React.useState<PayrollEntry[]>([]);

@@ -38,7 +38,7 @@ export default function AdmissionFormsPage() {
   const t = useTranslations('admissions');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [forms, setForms] = React.useState<AdmissionForm[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

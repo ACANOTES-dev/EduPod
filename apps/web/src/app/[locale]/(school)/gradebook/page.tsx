@@ -64,7 +64,7 @@ export default function GradebookPage() {
   const t = useTranslations('gradebook');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
   const [academicPeriods, setAcademicPeriods] = React.useState<AcademicPeriod[]>([]);

@@ -27,7 +27,7 @@ export default function StatementsIndexPage() {
   const tCommon = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [households, setHouseholds] = React.useState<Household[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

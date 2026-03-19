@@ -44,7 +44,7 @@ const statusLabelMap: Record<Tenant['status'], string> = {
 export default function TenantListPage() {
   const router = useRouter();
   const params = useParams();
-  const locale = (params.locale as string) ?? 'en';
+  const locale = (params?.locale as string) ?? 'en';
   const [tenants, setTenants] = React.useState<Tenant[]>([]);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);

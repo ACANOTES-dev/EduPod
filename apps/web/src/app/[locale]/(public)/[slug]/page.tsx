@@ -31,7 +31,7 @@ async function fetchPage(slug: string): Promise<PublicPage | null> {
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({ params }: { params: { slug: string; locale: string } }) {
-  const page = await fetchPage(params.slug);
+  const page = await fetchPage(params?.slug);
   if (!page) return {};
   return {
     title: page.meta_title ?? page.title,
@@ -46,7 +46,7 @@ export default async function PublicSlugPage({
 }: {
   params: { slug: string; locale: string };
 }) {
-  const page = await fetchPage(params.slug);
+  const page = await fetchPage(params?.slug);
 
   if (!page) {
     notFound();

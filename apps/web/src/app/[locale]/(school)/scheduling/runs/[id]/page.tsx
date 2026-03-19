@@ -76,7 +76,7 @@ export default function RunDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   // State
   const [data, setData] = React.useState<RunDetailData | null>(null);

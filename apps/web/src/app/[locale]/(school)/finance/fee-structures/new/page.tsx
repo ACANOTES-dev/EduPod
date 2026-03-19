@@ -19,7 +19,7 @@ export default function NewFeeStructurePage() {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const handleSubmit = async (values: FeeStructureFormValues) => {
     const payload = {

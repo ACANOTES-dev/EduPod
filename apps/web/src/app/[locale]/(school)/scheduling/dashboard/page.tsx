@@ -115,7 +115,7 @@ export default function SchedulingDashboardPage() {
   const ts = useTranslations('scheduling');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [overview, setOverview] = React.useState<DashboardOverview | null>(null);
   const [latestRun, setLatestRun] = React.useState<SchedulingRun | null>(null);

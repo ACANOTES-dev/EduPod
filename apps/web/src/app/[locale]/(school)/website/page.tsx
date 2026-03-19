@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function WebsitePagesPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [pages, setPages] = React.useState<WebsitePage[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

@@ -242,7 +242,7 @@ export function useAuth(): AuthContextType {
 const PUBLIC_PATHS = ['/login', '/register', '/reset-password', '/mfa-verify'];
 
 function isPublicPath(pathname: string): boolean {
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = (pathname ?? '').split('/').filter(Boolean);
   // Remove locale segment
   const pathWithoutLocale = '/' + segments.slice(1).join('/');
   return PUBLIC_PATHS.some((p) => pathWithoutLocale === p || pathWithoutLocale.startsWith(p + '/'));
@@ -256,7 +256,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated && !isPublicPath(pathname)) {
       // Extract locale from pathname (e.g., /en/dashboard -> en)
-      const segments = pathname.split('/').filter(Boolean);
+      const segments = (pathname ?? '').split('/').filter(Boolean);
       const locale = segments[0] ?? 'en';
       router.replace(`/${locale}/login`);
     }

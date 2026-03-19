@@ -37,12 +37,12 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 function extractLocale(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = (pathname ?? '').split('/').filter(Boolean);
   return segments[0] ?? 'en';
 }
 
 function buildLocaleSwitchedPath(pathname: string, newLocale: string): string {
-  const segments = pathname.split('/').filter(Boolean);
+  const segments = (pathname ?? '').split('/').filter(Boolean);
   // Replace the first segment (locale) with the new locale
   segments[0] = newLocale;
   return '/' + segments.join('/');

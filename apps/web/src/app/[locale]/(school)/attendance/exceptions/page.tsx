@@ -37,7 +37,7 @@ export default function ExceptionsPage() {
   const t = useTranslations('attendance');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [pendingSessions, setPendingSessions] = React.useState<PendingSession[]>([]);
   const [excessiveAbsences, setExcessiveAbsences] = React.useState<ExcessiveAbsence[]>([]);

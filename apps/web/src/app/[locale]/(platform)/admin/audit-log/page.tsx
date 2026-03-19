@@ -68,7 +68,7 @@ const ENTITY_TYPES = [
 
 export default function PlatformAuditLogPage() {
   const params = useParams();
-  const locale = (params.locale as string) ?? 'en';
+  const locale = (params?.locale as string) ?? 'en';
   void locale; // platform admin is English-only; locale extracted for consistency
 
   const [data, setData] = React.useState<AuditLogEntry[]>([]);

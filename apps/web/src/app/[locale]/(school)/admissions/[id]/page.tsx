@@ -209,7 +209,7 @@ export default function ApplicationDetailPage({ params }: PageProps) {
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
-  const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const { id } = params;
 
   const [application, setApplication] = React.useState<ApplicationDetail | null>(null);
