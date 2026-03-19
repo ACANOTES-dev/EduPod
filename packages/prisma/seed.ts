@@ -354,11 +354,11 @@ async function main() {
     for (const [slug, tenantId] of tenantMap.entries()) {
       // Create rooms
       const roomDefs = [
-        { name: 'Room 101', room_type: 'classroom' as const, capacity: 30, is_exclusive: true },
-        { name: 'Room 102', room_type: 'classroom' as const, capacity: 30, is_exclusive: true },
-        { name: 'Science Lab', room_type: 'lab' as const, capacity: 25, is_exclusive: true },
-        { name: 'Gymnasium', room_type: 'gym' as const, capacity: 100, is_exclusive: false },
-        { name: 'Library', room_type: 'library' as const, capacity: 50, is_exclusive: false },
+        { name: 'Room 101', room_type: 'classroom' as const, capacity: 30, is_exclusive: true, active: true },
+        { name: 'Room 102', room_type: 'classroom' as const, capacity: 30, is_exclusive: true, active: true },
+        { name: 'Science Lab', room_type: 'lab' as const, capacity: 25, is_exclusive: true, active: true },
+        { name: 'Gymnasium', room_type: 'gym' as const, capacity: 100, is_exclusive: false, active: true },
+        { name: 'Library', room_type: 'library' as const, capacity: 50, is_exclusive: false, active: true },
       ];
 
       for (const rd of roomDefs) {
@@ -368,6 +368,11 @@ async function main() {
         if (!existing) {
           await prisma.room.create({
             data: { tenant_id: tenantId, ...rd },
+          });
+        } else if (!existing.active) {
+          await prisma.room.update({
+            where: { id: existing.id },
+            data: { active: true },
           });
         }
       }

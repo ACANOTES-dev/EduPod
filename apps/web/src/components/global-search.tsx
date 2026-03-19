@@ -126,6 +126,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       placeholder={t('placeholder')}
       emptyMessage={emptyMessage}
       groups={groups}
+      onQueryChange={setQuery}
     />
   );
 }

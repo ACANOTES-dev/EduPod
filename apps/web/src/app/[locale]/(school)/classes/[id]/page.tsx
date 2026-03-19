@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Edit } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -58,17 +58,13 @@ function OverviewTab({ cls }: { cls: ClassDetail }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function ClassDetailPage({ params }: PageProps) {
+export default function ClassDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const t = useTranslations('classes');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = pathname.split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [cls, setCls] = React.useState<ClassDetail | null>(null);
   const [loading, setLoading] = React.useState(true);

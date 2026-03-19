@@ -101,7 +101,7 @@ export default function StudentHubPage() {
     if (!student) return;
     setIsChangingStatus(true);
     try {
-      const res = await apiClient<{ data: Student }>(`/api/v1/students/${id}`, {
+      const res = await apiClient<{ data: Student }>(`/api/v1/students/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status: newStatus }),
       });

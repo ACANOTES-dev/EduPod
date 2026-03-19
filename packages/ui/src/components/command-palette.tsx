@@ -34,6 +34,7 @@ interface CommandPaletteProps {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
+  onQueryChange?: (query: string) => void;
 }
 
 export function CommandPalette({
@@ -43,13 +44,14 @@ export function CommandPalette({
   placeholder = 'Search...',
   emptyMessage = 'No results found.',
   className,
+  onQueryChange,
 }: CommandPaletteProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn('overflow-hidden p-0 max-w-lg', className)}>
         <DialogTitle className="sr-only">Search</DialogTitle>
-        <Command className="rounded-xl">
-          <CommandInput placeholder={placeholder} />
+        <Command className="rounded-xl" shouldFilter={!onQueryChange}>
+          <CommandInput placeholder={placeholder} onValueChange={onQueryChange} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             {groups.map((group) => (

@@ -18,6 +18,17 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface MembershipResponse {
+  id: string;
+  user_id: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
 interface UserOption {
   id: string;
   first_name: string;
@@ -80,8 +91,16 @@ export function StaffForm({
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<{ data: UserOption[] }>('/api/v1/users?pageSize=100')
-      .then((res) => setUsers(res.data))
+    apiClient<{ data: MembershipResponse[] }>('/api/v1/users?pageSize=100')
+      .then((res) => {
+        const mapped = res.data.map((m) => ({
+          id: m.user?.id ?? m.user_id ?? m.id,
+          first_name: m.user?.first_name ?? '',
+          last_name: m.user?.last_name ?? '',
+          email: m.user?.email ?? '',
+        }));
+        setUsers(mapped);
+      })
       .catch(() => setUsers([]));
   }, []);
 

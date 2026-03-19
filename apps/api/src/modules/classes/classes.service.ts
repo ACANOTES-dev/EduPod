@@ -169,6 +169,7 @@ export class ClassesService {
             class_enrolments: {
               where: { status: 'active' },
             },
+            class_staff: true,
           },
         },
       },
