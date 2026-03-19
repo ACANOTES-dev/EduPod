@@ -113,12 +113,10 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
         });
         inAppCount++;
       } else {
-        // email / whatsapp — mark as sent (actual provider integration deferred)
+        // email / whatsapp — provider integration not yet complete, leave as queued
         await tx.notification.update({
           where: { id: notification.id },
           data: {
-            status: 'sent',
-            sent_at: now,
             attempt_count: { increment: 1 },
           },
         });
