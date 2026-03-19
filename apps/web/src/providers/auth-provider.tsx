@@ -58,18 +58,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = user !== null;
 
+  /* ---- Fetch full user profile with memberships ---- */
+  const fetchMe = React.useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const me = await apiClient<{ data: { user: AuthUser; memberships: Array<{
+        id: string;
+        tenant_id: string;
+        tenant_name: string;
+        tenant_slug: string;
+        membership_status: string;
+        roles: Array<{ role_id: string; role_key: string; display_name: string }>;
+      }> } }>('/api/v1/auth/me');
+      if (me?.data) {
+        const fullUser: AuthUser = {
+          ...me.data.user,
+          memberships: me.data.memberships.map((m) => ({
+            id: m.id,
+            tenant_id: m.tenant_id,
+            membership_status: m.membership_status,
+            tenant: { id: m.tenant_id, name: m.tenant_name, slug: m.tenant_slug },
+            roles: m.roles.map((r) => ({ id: r.role_id, role_key: r.role_key, display_name: r.display_name })),
+          })),
+        };
+        return fullUser;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   /* ---- Bootstrap: try to restore session on mount ---- */
   React.useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
       try {
-        const data = await apiClient<{ data: { access_token: string; user: AuthUser } }>(
+        const data = await apiClient<{ data: { access_token: string } }>(
           '/api/v1/auth/refresh',
           { method: 'POST', skipAuth: true },
         );
         if (!cancelled && data?.data?.access_token) {
           setAccessToken(data.data.access_token);
-          setUser(data.data.user);
+          const fullUser = await fetchMe();
+          if (!cancelled) setUser(fullUser);
         }
       } catch {
         // No valid refresh token — user is not logged in
@@ -83,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchMe]);
 
   /* ---- Login ---- */
   const login = React.useCallback(
@@ -114,7 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (data?.data?.access_token) {
           setAccessToken(data.data.access_token);
-          setUser(data.data.user ?? null);
+          // Fetch full user profile with memberships
+          const fullUser = await fetchMe();
+          setUser(fullUser);
           return { success: true };
         }
 
@@ -126,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
     },
-    [],
+    [fetchMe],
   );
 
   /* ---- Logout ---- */
@@ -144,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /* ---- Switch tenant ---- */
   const switchTenant = React.useCallback(async (tenantId: string) => {
     try {
-      const data = await apiClient<{ data: { access_token: string; user: AuthUser } }>(
+      const data = await apiClient<{ data: { access_token: string } }>(
         '/api/v1/auth/switch-tenant',
         {
           method: 'POST',
@@ -153,14 +186,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       if (data?.data?.access_token) {
         setAccessToken(data.data.access_token);
-        setUser(data.data.user);
+        const fullUser = await fetchMe();
+        setUser(fullUser);
       }
     } catch (err: unknown) {
-      const errorObj = err as { error?: { message?: string } };
       console.error('Failed to switch tenant:', err);
-      void errorObj; // referenced to avoid unused variable
     }
-  }, []);
+  }, [fetchMe]);
 
   /* ---- Refresh user ---- */
   const refreshUser = React.useCallback(async () => {

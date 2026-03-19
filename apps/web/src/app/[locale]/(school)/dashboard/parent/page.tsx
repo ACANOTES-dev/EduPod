@@ -10,23 +10,18 @@ import { EmptyState, StatusBadge } from '@school/ui';
 import { apiClient } from '@/lib/api-client';
 
 interface LinkedStudent {
-  id: string;
+  student_id: string;
   first_name: string;
   last_name: string;
-  year_group_name: string;
+  student_number: string | null;
+  year_group_name: string | null;
+  class_homeroom_name: string | null;
   status: 'applicant' | 'active' | 'withdrawn' | 'graduated' | 'archived';
 }
 
 interface ParentDashboardData {
-  user_name: string;
-  linked_students: LinkedStudent[];
-}
-
-function getGreeting(name: string): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return `Good morning, ${name}`;
-  if (hour < 17) return `Good afternoon, ${name}`;
-  return `Good evening, ${name}`;
+  greeting: string;
+  students: LinkedStudent[];
 }
 
 function studentStatusVariant(
@@ -74,7 +69,7 @@ export default function ParentDashboardPage() {
       {/* Greeting header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {loading ? t('welcome') : data ? getGreeting(data.user_name) : t('welcome')}
+          {loading ? t('welcome') : data ? data.greeting : t('welcome')}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">{t('summaryLine')}</p>
       </div>
@@ -91,11 +86,11 @@ export default function ParentDashboardPage() {
               <div key={i} className="h-24 rounded-2xl bg-surface-secondary animate-pulse" />
             ))}
           </div>
-        ) : data && data.linked_students.length > 0 ? (
+        ) : data && data.students.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.linked_students.map((student) => (
+            {data.students.map((student) => (
               <div
-                key={student.id}
+                key={student.student_id}
                 className="rounded-2xl bg-surface-secondary p-4 space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -107,7 +102,7 @@ export default function ParentDashboardPage() {
                       <p className="text-sm font-semibold text-text-primary">
                         {student.first_name} {student.last_name}
                       </p>
-                      <p className="text-xs text-text-secondary">{student.year_group_name}</p>
+                      <p className="text-xs text-text-secondary">{student.year_group_name ?? ''}</p>
                     </div>
                   </div>
                   <StatusBadge status={studentStatusVariant(student.status)} dot>

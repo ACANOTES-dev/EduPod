@@ -10,10 +10,16 @@ import { PageHeader } from '@/components/page-header';
 
 interface DashboardData {
   data: {
-    active_tenants: number;
-    total_users: number;
-    suspended_tenants: number;
-    system_health: string;
+    tenants: {
+      active: number;
+      suspended: number;
+      archived: number;
+      total: number;
+    };
+    users: {
+      total: number;
+      active_memberships: number;
+    };
   };
 }
 
@@ -79,20 +85,20 @@ export default function PlatformDashboardPage() {
           <>
             <StatCard
               label="Active Tenants"
-              value={data.active_tenants}
+              value={data.tenants?.active ?? 0}
               className="relative"
             />
             <StatCard
               label="Total Users"
-              value={data.total_users}
+              value={data.users?.total ?? 0}
             />
             <StatCard
               label="Suspended Tenants"
-              value={data.suspended_tenants}
+              value={data.tenants?.suspended ?? 0}
             />
             <StatCard
-              label="System Health"
-              value={data.system_health}
+              label="Total Tenants"
+              value={data.tenants?.total ?? 0}
             />
           </>
         ) : null}

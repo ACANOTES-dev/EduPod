@@ -12,23 +12,28 @@ import { apiClient } from '@/lib/api-client';
 
 interface HouseholdNeedingCompletion {
   id: string;
-  name: string;
+  household_name: string;
 }
 
 interface DashboardData {
-  user_name: string;
-  total_students: number;
-  total_staff: number;
-  active_classes: number;
+  greeting: string;
+  summary: string;
+  stats: {
+    total_students: number;
+    active_students: number;
+    applicants: number;
+    total_staff: number;
+    active_staff: number;
+    total_classes: number;
+    active_academic_year_name: string | null;
+  };
   pending_approvals: number;
-  households_needing_completion: HouseholdNeedingCompletion[];
-}
-
-function getGreeting(name: string): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return `Good morning, ${name}`;
-  if (hour < 17) return `Good afternoon, ${name}`;
-  return `Good evening, ${name}`;
+  incomplete_households: HouseholdNeedingCompletion[];
+  admissions: {
+    recent_submissions: number;
+    pending_review: number;
+    accepted: number;
+  };
 }
 
 export default function DashboardPage() {
@@ -52,9 +57,9 @@ export default function DashboardPage() {
   }, [fetchDashboard]);
 
   const stats = {
-    total_students: data?.total_students ?? 0,
-    total_staff: data?.total_staff ?? 0,
-    active_classes: data?.active_classes ?? 0,
+    total_students: data?.stats?.total_students ?? 0,
+    total_staff: data?.stats?.total_staff ?? 0,
+    active_classes: data?.stats?.total_classes ?? 0,
     pending_approvals: data?.pending_approvals ?? 0,
   };
 
@@ -63,7 +68,7 @@ export default function DashboardPage() {
       {/* Greeting header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {loading ? t('welcome') : data ? getGreeting(data.user_name) : t('welcome')}
+          {loading ? t('welcome') : data ? data.greeting : t('welcome')}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">{t('summaryLine')}</p>
       </div>
@@ -94,16 +99,16 @@ export default function DashboardPage() {
               <div key={i} className="h-9 rounded-lg bg-surface animate-pulse" />
             ))}
           </div>
-        ) : data && data.households_needing_completion.length > 0 ? (
+        ) : data && data.incomplete_households.length > 0 ? (
           <div className="rounded-2xl bg-surface-secondary p-4 space-y-1">
-            {data.households_needing_completion.map((household) => (
+            {data.incomplete_households.map((household) => (
               <Link
                 key={household.id}
                 href={`/households/${household.id}`}
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-surface transition-colors group"
               >
                 <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
-                  {household.name}
+                  {household.household_name}
                 </span>
                 <span className="text-xs text-warning-text">Incomplete</span>
               </Link>

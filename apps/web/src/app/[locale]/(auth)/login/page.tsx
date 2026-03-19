@@ -7,14 +7,14 @@ import * as React from 'react';
 
 import { Button, Input, Label } from '@school/ui';
 
-import { useAuth } from '@/providers/auth-provider';
+import { useAuth, type AuthUser } from '@/providers/auth-provider';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { login, user } = useAuth();
+  const { login, user, switchTenant } = useAuth();
 
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [, setMfaSessionToken] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const isRedirecting = React.useRef(false);
 
   // Sanitise redirect: only allow relative paths to prevent open-redirect attacks
   const rawRedirect = searchParams.get('redirect') ?? null;
@@ -35,23 +36,53 @@ export default function LoginPage() {
     return segments[0] ?? 'en';
   }, [pathname]);
 
-  // If already logged in, redirect
-  React.useEffect(() => {
-    if (user) {
-      const memberships = user.memberships ?? [];
-      const activeMemberships = memberships.filter(
-        (m) => m.membership_status === 'active',
-      );
+  // Determine the correct dashboard path based on user roles
+  const getDashboardPath = React.useCallback((u: AuthUser) => {
+    const memberships = u.memberships ?? [];
+    const activeMemberships = memberships.filter(
+      (m) => m.membership_status === 'active',
+    );
 
-      if (redirectTo) {
-        router.replace(redirectTo);
-      } else if (activeMemberships.length > 1) {
-        router.replace(`/${locale}/select-school`);
-      } else {
-        router.replace(`/${locale}/dashboard`);
-      }
+    // No memberships = platform admin
+    if (activeMemberships.length === 0) {
+      return `/${locale}/admin`;
     }
-  }, [user, router, redirectTo, locale]);
+
+    // Check the first (or only) membership's role
+    const roles = activeMemberships[0]?.roles ?? [];
+    const isParent = roles.some((r) => r.role_key === 'parent');
+    return isParent ? `/${locale}/dashboard/parent` : `/${locale}/dashboard`;
+  }, [locale]);
+
+  // If already logged in, redirect based on role
+  React.useEffect(() => {
+    if (!user || isRedirecting.current) return;
+    isRedirecting.current = true;
+
+    if (redirectTo) {
+      router.replace(redirectTo);
+      return;
+    }
+
+    const memberships = user.memberships ?? [];
+    const activeMemberships = memberships.filter(
+      (m) => m.membership_status === 'active',
+    );
+
+    // No memberships = platform admin
+    if (activeMemberships.length === 0) {
+      router.replace(`/${locale}/admin`);
+      return;
+    }
+
+    // Pick the first tenant, switch to it, then route to the right dashboard
+    const tenantId = activeMemberships[0]?.tenant_id;
+    if (tenantId) {
+      switchTenant(tenantId).then(() => {
+        router.replace(getDashboardPath(user));
+      });
+    }
+  }, [user, router, redirectTo, locale, switchTenant, getDashboardPath]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
