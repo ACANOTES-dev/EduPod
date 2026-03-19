@@ -17,10 +17,10 @@ export default function MfaVerifyPage() {
   const { refreshUser } = useAuth();
   const pathname = usePathname();
 
-  const sessionToken = searchParams.get('session') ?? '';
+  const sessionToken = searchParams?.get('session') ?? '';
 
   const locale = React.useMemo(() => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     return segments[0] ?? 'en';
   }, [pathname]);
 

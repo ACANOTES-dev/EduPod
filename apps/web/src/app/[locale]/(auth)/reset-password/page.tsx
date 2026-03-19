@@ -15,7 +15,7 @@ export default function ResetPasswordPage() {
   const t = useTranslations('auth');
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const tokenFromUrl = searchParams.get('token');
+  const tokenFromUrl = searchParams?.get('token') ?? null;
 
   const [step, setStep] = React.useState<Step>(tokenFromUrl ? 'confirm' : 'request');
   const [email, setEmail] = React.useState('');
@@ -80,7 +80,7 @@ export default function ResetPasswordPage() {
   }
 
   const locale = React.useMemo(() => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     return segments[0] ?? 'en';
   }, [pathname]);
 

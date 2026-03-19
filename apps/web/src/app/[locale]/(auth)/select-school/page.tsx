@@ -16,7 +16,7 @@ export default function SelectSchoolPage() {
   const pathname = usePathname();
 
   const locale = React.useMemo(() => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     return segments[0] ?? 'en';
   }, [pathname]);
 

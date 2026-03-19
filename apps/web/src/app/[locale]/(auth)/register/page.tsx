@@ -15,7 +15,7 @@ export default function RegisterPage() {
   const t = useTranslations('auth');
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const invitationToken = searchParams.get('token') ?? '';
+  const invitationToken = searchParams?.get('token') ?? '';
 
   const [step, setStep] = React.useState<Step>('details');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -37,7 +37,7 @@ export default function RegisterPage() {
   const [sameAsPhone, setSameAsPhone] = React.useState(true);
 
   const locale = React.useMemo(() => {
-    const segments = pathname.split('/').filter(Boolean);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
     return segments[0] ?? 'en';
   }, [pathname]);
 
