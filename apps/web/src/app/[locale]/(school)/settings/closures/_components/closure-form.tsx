@@ -58,7 +58,7 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
     if (!open) return;
     Promise.all([
       apiClient<{ data: SelectOption[] }>('/api/v1/year-groups?pageSize=100'),
-      apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=200'),
+      apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=100'),
     ])
       .then(([ygRes, classRes]) => {
         setYearGroups(ygRes.data);

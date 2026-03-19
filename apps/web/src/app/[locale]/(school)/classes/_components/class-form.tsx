@@ -72,8 +72,8 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
       apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
-      apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=200'),
-      apiClient<ListResponse<StaffProfile>>('/api/v1/staff-profiles?pageSize=200'),
+      apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=100'),
+      apiClient<ListResponse<StaffProfile>>('/api/v1/staff-profiles?pageSize=100'),
     ])
       .then(([years, groups, subs, staff]) => {
         setAcademicYears(years.data);
@@ -149,14 +149,14 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
           <div className="space-y-1.5">
             <Label htmlFor="subject_id">{t('colSubject')}</Label>
             <Select
-              value={values.subject_id}
-              onValueChange={(v) => setValues((p) => ({ ...p, subject_id: v }))}
+              value={values.subject_id || '__none__'}
+              onValueChange={(v) => setValues((p) => ({ ...p, subject_id: v === '__none__' ? '' : v }))}
             >
               <SelectTrigger id="subject_id">
                 <SelectValue placeholder={t('selectSubject')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t('noSubject')}</SelectItem>
+                <SelectItem value="__none__">{t('noSubject')}</SelectItem>
                 {subjects.map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
@@ -167,14 +167,14 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
           <div className="space-y-1.5">
             <Label htmlFor="homeroom_teacher_staff_id">{t('fieldHomeroomTeacher')}</Label>
             <Select
-              value={values.homeroom_teacher_staff_id}
-              onValueChange={(v) => setValues((p) => ({ ...p, homeroom_teacher_staff_id: v }))}
+              value={values.homeroom_teacher_staff_id || '__none__'}
+              onValueChange={(v) => setValues((p) => ({ ...p, homeroom_teacher_staff_id: v === '__none__' ? '' : v }))}
             >
               <SelectTrigger id="homeroom_teacher_staff_id">
                 <SelectValue placeholder={t('selectHomeroomTeacher')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t('noTeacher')}</SelectItem>
+                <SelectItem value="__none__">{t('noTeacher')}</SelectItem>
                 {staffProfiles.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.user.first_name} {s.user.last_name}

@@ -80,7 +80,7 @@ export function StaffForm({
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<{ data: UserOption[] }>('/api/v1/users?pageSize=200')
+    apiClient<{ data: UserOption[] }>('/api/v1/users?pageSize=100')
       .then((res) => setUsers(res.data))
       .catch(() => setUsers([]));
   }, []);

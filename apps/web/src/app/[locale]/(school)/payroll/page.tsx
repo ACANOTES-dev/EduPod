@@ -119,9 +119,9 @@ export default function PayrollDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label={t('totalPayThisMonth')} value={formatCurrency(data?.stats.total_pay_this_month ?? 0)} />
-        <StatCard label={t('headcount')} value={String(data?.stats.headcount ?? 0)} />
-        <StatCard label={t('totalBonus')} value={formatCurrency(data?.stats.total_bonus ?? 0)} />
+        <StatCard label={t('totalPayThisMonth')} value={formatCurrency(data?.stats?.total_pay_this_month ?? 0)} />
+        <StatCard label={t('headcount')} value={String(data?.stats?.headcount ?? 0)} />
+        <StatCard label={t('totalBonus')} value={formatCurrency(data?.stats?.total_bonus ?? 0)} />
       </div>
 
       {/* Current Run */}

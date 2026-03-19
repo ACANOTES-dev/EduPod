@@ -74,7 +74,7 @@ export default function RoomClosuresPage() {
 
   // Load rooms
   React.useEffect(() => {
-    apiClient<{ data: Room[] }>('/api/v1/rooms?pageSize=200')
+    apiClient<{ data: Room[] }>('/api/v1/rooms?pageSize=100')
       .then((res) => setRooms(res.data))
       .catch(() => {});
   }, []);

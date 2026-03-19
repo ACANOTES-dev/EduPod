@@ -118,14 +118,14 @@ export function YearGroupForm({
           <div className="space-y-1.5">
             <Label htmlFor="yg-next">{t('fieldNextYearGroup')}</Label>
             <Select
-              value={values.next_year_group_id}
-              onValueChange={(v) => setValues((p) => ({ ...p, next_year_group_id: v }))}
+              value={values.next_year_group_id || '__none__'}
+              onValueChange={(v) => setValues((p) => ({ ...p, next_year_group_id: v === '__none__' ? '' : v }))}
             >
               <SelectTrigger id="yg-next">
                 <SelectValue placeholder={t('noNextGroup')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">{t('noNextGroup')}</SelectItem>
+                <SelectItem value="__none__">{t('noNextGroup')}</SelectItem>
                 {availableGroups.map((g) => (
                   <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                 ))}

@@ -60,7 +60,7 @@ function AssignDialog({ classId, open, onOpenChange, onSuccess }: AssignDialogPr
 
   React.useEffect(() => {
     if (!open) return;
-    apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=200&employment_status=active')
+    apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=100&employment_status=active')
       .then((res) => setStaffProfiles(res.data))
       .catch(() => setStaffProfiles([]));
   }, [open]);

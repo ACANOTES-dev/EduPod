@@ -88,7 +88,7 @@ export default function CurriculumPage() {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
-      apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=200'),
+      apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
     ]).then(([yearsRes, ygRes, subRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);

@@ -90,9 +90,9 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
   React.useEffect(() => {
     if (!open) return;
     Promise.all([
-      apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=200'),
-      apiClient<{ data: SelectOption[] }>('/api/v1/staff-profiles?pageSize=200'),
-      apiClient<{ data: SelectOption[] }>('/api/v1/rooms?pageSize=200'),
+      apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=100'),
+      apiClient<{ data: SelectOption[] }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: SelectOption[] }>('/api/v1/rooms?pageSize=100'),
     ])
       .then(([classesRes, teachersRes, roomsRes]) => {
         setClasses(classesRes.data);

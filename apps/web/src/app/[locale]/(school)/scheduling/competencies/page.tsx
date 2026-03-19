@@ -61,8 +61,8 @@ export default function CompetenciesPage() {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
-      apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=200'),
-      apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=200&fields=id,full_name'),
+      apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
+      apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=100&fields=id,full_name'),
     ]).then(([yearsRes, ygRes, subRes, staffRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);

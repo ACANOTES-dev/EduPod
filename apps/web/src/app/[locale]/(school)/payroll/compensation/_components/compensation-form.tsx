@@ -65,7 +65,7 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
 
   React.useEffect(() => {
     if (open) {
-      void apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=200&fields=id,full_name')
+      void apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=100&fields=id,full_name')
         .then((res) => setStaffOptions(res.data))
         .catch(() => {});
     }

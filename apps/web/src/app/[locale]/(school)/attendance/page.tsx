@@ -67,7 +67,7 @@ export default function AttendancePage() {
   const [dateTo, setDateTo] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=200')
+    apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
       .catch(() => undefined);
   }, []);

@@ -64,9 +64,9 @@ export default function TimetablesPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
-      apiClient<ListResponse<SelectOption>>('/api/v1/staff-profiles?pageSize=200'),
-      apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=200'),
-      apiClient<ListResponse<SelectOption>>('/api/v1/students?pageSize=200'),
+      apiClient<ListResponse<SelectOption>>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=100'),
+      apiClient<ListResponse<SelectOption>>('/api/v1/students?pageSize=100'),
     ])
       .then(([yearsRes, teachersRes, roomsRes, studentsRes]) => {
         setAcademicYears(yearsRes.data);

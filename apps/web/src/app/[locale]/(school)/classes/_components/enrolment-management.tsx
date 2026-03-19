@@ -68,7 +68,7 @@ function EnrolDialog({ classId, open, onOpenChange, onSuccess }: EnrolDialogProp
 
   React.useEffect(() => {
     if (!open) return;
-    apiClient<{ data: Student[] }>('/api/v1/students?pageSize=200&status=active')
+    apiClient<{ data: Student[] }>('/api/v1/students?pageSize=100&status=active')
       .then((res) => setStudents(res.data))
       .catch(() => setStudents([]));
   }, [open]);
@@ -162,7 +162,7 @@ function BulkEnrolDialog({ classId, open, onOpenChange, onSuccess }: BulkEnrolDi
 
   React.useEffect(() => {
     if (!open) return;
-    apiClient<{ data: Student[] }>('/api/v1/students?pageSize=200&status=active')
+    apiClient<{ data: Student[] }>('/api/v1/students?pageSize=100&status=active')
       .then((res) => setStudents(res.data))
       .catch(() => setStudents([]));
   }, [open]);

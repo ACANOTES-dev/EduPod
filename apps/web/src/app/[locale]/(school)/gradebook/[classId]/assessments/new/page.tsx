@@ -68,7 +68,7 @@ export default function NewAssessmentPage() {
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=200&subject_type=academic')
+    apiClient<ListResponse<Subject>>('/api/v1/subjects?pageSize=100&subject_type=academic')
       .then((res) => setSubjects(res.data))
       .catch(() => undefined);
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')

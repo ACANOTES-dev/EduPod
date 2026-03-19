@@ -116,7 +116,7 @@ export function FeeGenerationWizard() {
       .catch(() => setYearGroups([]));
 
     apiClient<{ data: FeeStructureOption[] }>(
-      '/api/v1/finance/fee-structures?pageSize=200&active=true',
+      '/api/v1/finance/fee-structures?pageSize=100&active=true',
     )
       .then((res) => setFeeStructures(res.data))
       .catch(() => setFeeStructures([]));

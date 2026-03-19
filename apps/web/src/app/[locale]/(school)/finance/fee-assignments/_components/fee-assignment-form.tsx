@@ -80,11 +80,11 @@ export function FeeAssignmentForm({
 
   // Fetch fee structures and discounts on mount
   React.useEffect(() => {
-    apiClient<{ data: FeeStructure[] }>('/api/v1/finance/fee-structures?pageSize=200&active=true')
+    apiClient<{ data: FeeStructure[] }>('/api/v1/finance/fee-structures?pageSize=100&active=true')
       .then((res) => setFeeStructures(res.data))
       .catch(() => setFeeStructures([]));
 
-    apiClient<{ data: Discount[] }>('/api/v1/finance/discounts?pageSize=200&active=true')
+    apiClient<{ data: Discount[] }>('/api/v1/finance/discounts?pageSize=100&active=true')
       .then((res) => setDiscounts(res.data))
       .catch(() => setDiscounts([]));
   }, []);
@@ -93,7 +93,7 @@ export function FeeAssignmentForm({
   React.useEffect(() => {
     if (values.household_id) {
       apiClient<{ data: Student[] }>(
-        `/api/v1/students?pageSize=200&household_id=${values.household_id}`,
+        `/api/v1/students?pageSize=100&household_id=${values.household_id}`,
       )
         .then((res) => setStudents(res.data))
         .catch(() => setStudents([]));

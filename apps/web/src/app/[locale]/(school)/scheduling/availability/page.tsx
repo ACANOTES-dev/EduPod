@@ -135,7 +135,7 @@ export default function AvailabilityPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
-      apiClient<{ data: StaffMember[] }>('/api/v1/staff-profiles?pageSize=200'),
+      apiClient<{ data: StaffMember[] }>('/api/v1/staff-profiles?pageSize=100'),
     ])
       .then(([yearsRes, staffRes]) => {
         setAcademicYears(yearsRes.data);
