@@ -12,7 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from './command';
-import { Dialog, DialogContent } from './dialog';
+import { Dialog, DialogContent, DialogTitle } from './dialog';
 
 export interface CommandPaletteGroup {
   heading: string;
@@ -47,6 +47,7 @@ export function CommandPalette({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn('overflow-hidden p-0 max-w-lg', className)}>
+        <DialogTitle className="sr-only">Search</DialogTitle>
         <Command className="rounded-xl">
           <CommandInput placeholder={placeholder} />
           <CommandList>

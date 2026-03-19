@@ -55,12 +55,10 @@ function NotificationRow({
   updating: boolean;
 }) {
   const t = useTranslations('settings');
-  const labelKey = TYPE_LABEL_KEYS[setting.notification_type] ?? setting.notification_type;
-  const hasLabel = labelKey in TYPE_LABEL_KEYS || labelKey === setting.notification_type;
-
-  const displayLabel = hasLabel
+  const labelKey = TYPE_LABEL_KEYS[setting.notification_type];
+  const displayLabel = labelKey
     ? t(labelKey as Parameters<typeof t>[0])
-    : setting.notification_type;
+    : setting.notification_type.replaceAll('.', ' ').replaceAll('_', ' ');
 
   return (
     <tr className="border-b border-border last:border-0">

@@ -182,6 +182,11 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     return t('dashboard.title');
   }, [pathname, t]);
 
+  // Update browser tab title
+  React.useEffect(() => {
+    document.title = `${pageTitle} — School OS`;
+  }, [pageTitle]);
+
   const sidebarContent = (collapsed: boolean) => (
     <>
       {filteredSections.map((section) => (
