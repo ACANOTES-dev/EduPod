@@ -112,7 +112,7 @@ export function ScheduleGrid({
   violations,
   onEntryMove,
   onEntryAdd,
-  onEntryRemove,
+  onEntryRemove: _onEntryRemove,
   onEntryContextMenu,
   highlightTeacherId,
   readOnly = false,
@@ -130,9 +130,6 @@ export function ScheduleGrid({
   const weekdayLabels = locale === 'ar' ? WEEKDAY_LABELS_AR : WEEKDAY_LABELS_EN;
 
   // Determine weekdays from the period grid or prop
-  const weekdays = weekdaysProp ?? Array.from(
-    new Set(periodGrid.map(() => null).length ? [0, 1, 2, 3, 4] : [0, 1, 2, 3, 4])
-  );
   const activeWeekdays = weekdaysProp ?? [0, 1, 2, 3, 4];
 
   // Sort period grid by order
@@ -188,8 +185,6 @@ export function ScheduleGrid({
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
-
-  const gridCols = activeWeekdays.length + 1; // +1 for period labels column
 
   return (
     <TooltipProvider>

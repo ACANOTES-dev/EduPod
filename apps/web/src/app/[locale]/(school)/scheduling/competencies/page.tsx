@@ -6,7 +6,6 @@ import * as React from 'react';
 
 import {
   Badge,
-  Button,
   Checkbox,
   Select,
   SelectContent,

@@ -11,7 +11,6 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  X,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
@@ -37,7 +36,7 @@ import { apiClient } from '@/lib/api-client';
 
 import { CoverTeacherDialog } from './_components/cover-teacher-dialog';
 import { HealthScore, type ValidationResult } from './_components/health-score';
-import { ScheduleGrid, type CellViolation, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';
+import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';
 import { ValidateResults } from './_components/validate-results';
 import { WorkloadSidebar } from './_components/workload-sidebar';
 
@@ -121,7 +120,6 @@ export default function RunDetailPage() {
   const isApplied = data?.status === 'applied';
   const readOnly = !isProposed;
 
-  const activeYearGroup = data?.year_groups.find((yg) => yg.year_group_id === activeTab);
   const activeEntries = React.useMemo(
     () => (data?.entries ?? []).filter((e) => e.year_group_id === activeTab),
     [data?.entries, activeTab],
@@ -194,12 +192,12 @@ export default function RunDetailPage() {
     }
   }
 
-  function handleEntryAdd(weekday: number, periodOrder: number) {
+  function handleEntryAdd(_weekday: number, _periodOrder: number) {
     // For now, show a toast — full "add entry" dialog would be an extension
     toast.info(t('runs.addEntryHint'));
   }
 
-  function handleEntryContextMenu(entry: ScheduleEntry, event: React.MouseEvent) {
+  function handleEntryContextMenu(entry: ScheduleEntry, _event: React.MouseEvent) {
     // Find the period slot for this entry
     const periodGrid = data?.period_grids[entry.year_group_id] ?? [];
     const period = periodGrid.find((p) => p.period_order === entry.period_order);

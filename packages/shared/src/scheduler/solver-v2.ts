@@ -226,7 +226,7 @@ function scoreValueV2(
   );
   if (!teacher) return score;
 
-  // ── Primary teacher bonus ──
+  // ── Primary teacher bonus (strong) ──
   if (variable.subject_id !== null) {
     const isPrimary = teacher.competencies.some(
       (c) =>
@@ -234,14 +234,39 @@ function scoreValueV2(
         c.year_group_id === variable.year_group_id &&
         c.is_primary,
     );
-    if (isPrimary) score += 20;
+    if (isPrimary) {
+      score += 50; // Strong preference for primary teacher
+    } else {
+      // Penalty for using backup teachers — prefer primary where possible
+      score -= 15;
+    }
   }
 
-  // ── Fewer existing assignments → higher score (load balancing) ──
-  const existingCount = assignments.filter(
-    (a) => a.teacher_staff_id === value.teacher_staff_id,
+  // ── Load balancing: strongly penalize overloaded teachers ──
+  const existingTeachingCount = assignments.filter(
+    (a) => a.teacher_staff_id === value.teacher_staff_id && !a.is_supervision,
   ).length;
-  score -= existingCount * 2;
+
+  // Linear penalty scales with load
+  score -= existingTeachingCount * 2;
+
+  // Capacity-based penalty: as teacher approaches their limit, heavily penalize
+  if (teacher.max_periods_per_week !== null) {
+    const utilization = existingTeachingCount / teacher.max_periods_per_week;
+    if (utilization > 0.8) score -= 30;
+    else if (utilization > 0.6) score -= 15;
+  }
+
+  // Day load penalty: prefer teachers with fewer assignments on this day
+  const dayTeachingCount = assignments.filter(
+    (a) => a.teacher_staff_id === value.teacher_staff_id && a.weekday === value.weekday && !a.is_supervision,
+  ).length;
+  score -= dayTeachingCount * 3;
+
+  if (teacher.max_periods_per_day !== null) {
+    const dayUtil = dayTeachingCount / teacher.max_periods_per_day;
+    if (dayUtil > 0.8) score -= 20;
+  }
 
   // ── Preferred room bonus ──
   if (value.room_id !== null && variable.subject_id !== null) {
@@ -774,9 +799,16 @@ function buildConstraintSummary(
 /**
  * Main v2 solver entry point.
  *
- * CSP with constraint propagation (forward checking) + backtracking.
- * Handles teacher selection from competency pool, yard break supervision,
- * classroom break adjacency, and double-period enforcement.
+ * Two-phase approach for scalability:
+ *   Phase 1 — Greedy sweep: iterate variables in MRV order, pick the
+ *             highest-scored valid domain value. No backtracking. O(V*D).
+ *             This places the majority of variables quickly.
+ *   Phase 2 — Repair pass: for each variable that failed in Phase 1,
+ *             re-generate its domain against the current state and try again.
+ *             Repeat up to `maxRepairRounds` times or until no progress.
+ *
+ * For small inputs (< BACKTRACK_THRESHOLD variables), the original full
+ * backtracking + forward-checking search is used for optimality.
  */
 export function solveV2(
   input: SolverInputV2,
@@ -831,136 +863,51 @@ export function solveV2(
     pinnedAssignments,
   );
 
-  let iterationCount = 0;
-  let assignmentCount = 0;
-  let timedOut = false;
-  let cancelled = false;
+  // ── Decide strategy ──
+  // For small inputs, use full backtracking for optimal results.
+  // For large inputs, use greedy + repair for scalability.
+  const BACKTRACK_THRESHOLD = 80;
+  const useGreedy = variables.length > BACKTRACK_THRESHOLD;
 
-  // Track the best partial solution found
-  let bestPartialAssignments: SolverAssignmentV2[] = [...pinnedAssignments];
+  let finalAssignments: SolverAssignmentV2[];
+  let fullyAssigned: boolean;
 
-  /**
-   * Recursive backtracking search.
-   * Returns the full list of assignments if a complete solution is found, null otherwise.
-   */
-  function backtrack(
-    assignments: SolverAssignmentV2[],
-    domains: Map<string, DomainValueV2[]>,
-    remaining: CSPVariableV2[],
-  ): SolverAssignmentV2[] | null {
-    // Check termination conditions
-    iterationCount++;
-
-    if (iterationCount % 50 === 0) {
-      if (Date.now() - startTime > maxDuration) {
-        timedOut = true;
-        return null;
-      }
-    }
-
-    if (iterationCount % 500 === 0 && shouldCancel?.()) {
-      cancelled = true;
-      return null;
-    }
-
-    // Update best partial solution
-    if (assignments.length > bestPartialAssignments.length) {
-      bestPartialAssignments = [...assignments];
-    }
-
-    // Base case: all variables assigned
-    if (remaining.length === 0) {
-      return assignments;
-    }
-
-    // Select the variable with the smallest domain (MRV)
-    const variable = selectVariableV2(domains, remaining);
-    if (!variable) return null;
-
-    const key = variableKeyV2(variable);
-    const domain = domains.get(key) ?? [];
-
-    // Order values by preference score
-    const orderedValues = orderValuesV2(
-      variable,
-      domain,
+  if (useGreedy) {
+    const result = solveGreedyWithRepair(
       input,
-      assignments,
+      variables,
+      initialDomains,
+      pinnedAssignments,
       rng,
+      startTime,
+      maxDuration,
+      onProgress,
+      shouldCancel,
     );
-
-    // Track new remaining variables (excluding selected)
-    const newRemaining = remaining.filter((v) => v.id !== variable.id);
-
-    for (const value of orderedValues) {
-      if (timedOut || cancelled) return null;
-
-      // Check hard constraints
-      const violation = checkHardConstraintsV2(
-        input,
-        assignments,
-        variable,
-        value,
-      );
-      if (violation !== null) continue;
-
-      // Build the new assignment
-      const newAssignment = buildAssignment(variable, value, input);
-
-      // Clone domains for forward checking
-      const newDomains = cloneDomainsV2(domains);
-      newDomains.delete(key); // Remove assigned variable's domain
-
-      // Forward checking: prune domains of remaining variables
-      const fcOk = forwardCheckV2(
-        input,
-        [...assignments, newAssignment],
-        newDomains,
-        newRemaining,
-      );
-
-      if (!fcOk) continue; // Domain wipeout — try next value
-
-      assignmentCount++;
-      if (assignmentCount % 100 === 0 && onProgress) {
-        onProgress(
-          assignmentCount,
-          variables.length,
-          variable.type === 'supervision' ? 'supervision' : 'teaching',
-        );
-      }
-
-      // Recurse
-      const result = backtrack(
-        [...assignments, newAssignment],
-        newDomains,
-        newRemaining,
-      );
-
-      if (result !== null) return result;
-
-      // Backtrack
-      assignmentCount--;
-    }
-
-    return null; // No value worked for this variable
+    finalAssignments = result.assignments;
+    fullyAssigned = result.fullyAssigned;
+  } else {
+    const result = solveBacktracking(
+      input,
+      variables,
+      initialDomains,
+      pinnedAssignments,
+      rng,
+      startTime,
+      maxDuration,
+      onProgress,
+      shouldCancel,
+    );
+    finalAssignments = result.assignments;
+    fullyAssigned = result.fullyAssigned;
   }
-
-  // Run the search
-  const solution = backtrack(
-    [...pinnedAssignments],
-    initialDomains,
-    variables,
-  );
-
-  const finalAssignments = solution ?? bestPartialAssignments;
 
   // Build unassigned list
   const unassigned = buildUnassignedList(
     input,
     variables,
     finalAssignments,
-    solution !== null,
+    fullyAssigned,
   );
 
   // Score the final solution
@@ -988,6 +935,379 @@ export function solveV2(
     max_score: prefScore.max_score,
     duration_ms: Date.now() - startTime,
     constraint_summary: buildConstraintSummary(input, entries),
+  };
+}
+
+// ─── Greedy + Repair Solver ────────────────────────────────────────────────
+
+interface SolveResult {
+  assignments: SolverAssignmentV2[];
+  fullyAssigned: boolean;
+}
+
+/**
+ * Greedy solver with iterative repair.
+ *
+ * Phase 1: Greedy sweep — for each variable (MRV order), try domain values
+ *          in scored order. Pick the first that satisfies all hard constraints.
+ * Phase 2: Repair — re-attempt unassigned variables with updated domains.
+ *          Repeat until convergence or timeout.
+ */
+function solveGreedyWithRepair(
+  input: SolverInputV2,
+  variables: CSPVariableV2[],
+  domains: Map<string, DomainValueV2[]>,
+  pinnedAssignments: SolverAssignmentV2[],
+  rng: () => number,
+  startTime: number,
+  maxDuration: number,
+  onProgress?: ProgressCallbackV2,
+  shouldCancel?: CancelCheckV2,
+): SolveResult {
+  const assignments: SolverAssignmentV2[] = [...pinnedAssignments];
+  let remaining = [...variables];
+  let assignedThisRound = 0;
+
+  // Pre-compute resource scarcity scores for smarter ordering.
+  // Subjects that require scarce resources (few eligible teachers, limited room types)
+  // should be assigned first.
+  const scarcityScore = new Map<string, number>();
+
+  for (const variable of variables) {
+    const key = variableKeyV2(variable);
+    const domain = domains.get(key) ?? [];
+    let score = 0;
+
+    // Priority: supervision (300) > double-period (200) > single (100)
+    if (variable.type === 'supervision') {
+      score += 300;
+    } else if (variable.is_double_period_start) {
+      score += 200;
+    } else {
+      score += 100;
+    }
+
+    // Subjects with fewer eligible teachers get higher scarcity
+    if (variable.subject_id !== null) {
+      const eligibleTeachers = input.teachers.filter((t) =>
+        t.competencies.some(
+          (c) => c.subject_id === variable.subject_id && c.year_group_id === variable.year_group_id,
+        ),
+      );
+      // Fewer teachers = higher scarcity
+      score += Math.max(0, 50 - eligibleTeachers.length * 10);
+    }
+
+    // Subjects requiring specific room types with limited availability
+    if (variable.subject_id !== null) {
+      const curriculum = input.curriculum.find(
+        (c) => c.year_group_id === variable.year_group_id && c.subject_id === variable.subject_id,
+      );
+      if (curriculum?.required_room_type) {
+        const roomCount = input.rooms.filter(
+          (r) => r.room_type === curriculum.required_room_type,
+        ).length;
+        // Fewer rooms = higher scarcity
+        score += Math.max(0, 40 - roomCount * 10);
+      }
+    }
+
+    // Smaller domain = more constrained = higher priority
+    score += Math.max(0, 30 - Math.floor(domain.length / 5));
+
+    scarcityScore.set(key, score);
+  }
+
+  // Sort variables: highest scarcity first, then smallest domain
+  function sortByScarcity(vars: CSPVariableV2[]): CSPVariableV2[] {
+    return [...vars].sort((a, b) => {
+      const aKey = variableKeyV2(a);
+      const bKey = variableKeyV2(b);
+      const aScore = scarcityScore.get(aKey) ?? 0;
+      const bScore = scarcityScore.get(bKey) ?? 0;
+
+      if (aScore !== bScore) return bScore - aScore;
+
+      // Tie-break: smaller domain first
+      const aDomain = domains.get(aKey) ?? [];
+      const bDomain = domains.get(bKey) ?? [];
+      return aDomain.length - bDomain.length;
+    });
+  }
+
+  // Helper to attempt assignment of a single variable
+  function tryAssign(variable: CSPVariableV2): boolean {
+    const key = variableKeyV2(variable);
+    const domain = domains.get(key) ?? [];
+
+    const validValues = domain.filter(
+      (value) => checkHardConstraintsV2(input, assignments, variable, value) === null,
+    );
+
+    if (validValues.length === 0) return false;
+
+    const ordered = orderValuesV2(variable, validValues, input, assignments, rng);
+    const bestValue = ordered[0]!;
+
+    const assignment = buildAssignment(variable, bestValue, input);
+    assignments.push(assignment);
+    assignedThisRound++;
+
+    if (assignedThisRound % 50 === 0 && onProgress) {
+      onProgress(assignedThisRound, variables.length, 'greedy');
+    }
+
+    return true;
+  }
+
+  // Phase 1: Assign supervision variables first (they're most constrained)
+  const supervisionVars = remaining.filter((v) => v.type === 'supervision');
+  const teachingVars = remaining.filter((v) => v.type === 'teaching');
+
+  const sortedSupervision = sortByScarcity(supervisionVars);
+  const failedSupervision: CSPVariableV2[] = [];
+
+  for (const variable of sortedSupervision) {
+    if (Date.now() - startTime > maxDuration) break;
+    if (!tryAssign(variable)) {
+      failedSupervision.push(variable);
+    }
+  }
+
+  // Phase 2: Assign teaching variables round-robin by class section.
+  // Group variables by class_id, then process one variable from each class
+  // per round. Within each class, process by scarcity (double-period first,
+  // then scarce subjects).
+  const byClass = new Map<string, CSPVariableV2[]>();
+  for (const v of teachingVars) {
+    const cid = v.class_id ?? '__no_class__';
+    const existing = byClass.get(cid) ?? [];
+    existing.push(v);
+    byClass.set(cid, existing);
+  }
+
+  // Sort each class's variables by scarcity
+  for (const [cid, vars] of byClass) {
+    byClass.set(cid, sortByScarcity(vars));
+  }
+
+  // Get list of class IDs in a deterministic order
+  const classIds = [...byClass.keys()].sort();
+
+  // Round-robin assignment: pick one variable from each class per round
+  const failedTeaching: CSPVariableV2[] = [];
+  let madeProgress = true;
+
+  while (madeProgress) {
+    madeProgress = false;
+    if (Date.now() - startTime > maxDuration) break;
+    if (shouldCancel?.()) break;
+
+    for (const cid of classIds) {
+      const vars = byClass.get(cid);
+      if (!vars || vars.length === 0) continue;
+
+      if (Date.now() - startTime > maxDuration) break;
+
+      // Take the first (highest priority) variable for this class
+      const variable = vars.shift()!;
+      if (tryAssign(variable)) {
+        madeProgress = true;
+      } else {
+        failedTeaching.push(variable);
+      }
+    }
+
+    // Remove empty class lists
+    for (const cid of classIds) {
+      const vars = byClass.get(cid);
+      if (!vars || vars.length === 0) {
+        byClass.delete(cid);
+      }
+    }
+
+    // If all classes are empty, we're done
+    if (byClass.size === 0) break;
+  }
+
+  // Collect any remaining unprocessed variables
+  for (const [, vars] of byClass) {
+    failedTeaching.push(...vars);
+  }
+
+  // Phase 3: Repair pass — retry all failed variables against final state.
+  // As the round-robin may have created new openings.
+  let unassigned = [...failedSupervision, ...failedTeaching];
+  const maxRepairRounds = 5;
+
+  for (let round = 0; round < maxRepairRounds; round++) {
+    if (unassigned.length === 0) break;
+    if (Date.now() - startTime > maxDuration) break;
+    if (shouldCancel?.()) break;
+
+    const stillFailed: CSPVariableV2[] = [];
+    let progressThisRound = false;
+
+    for (const variable of unassigned) {
+      if (Date.now() - startTime > maxDuration) {
+        stillFailed.push(variable);
+        continue;
+      }
+
+      const key = variableKeyV2(variable);
+      const domain = domains.get(key) ?? [];
+
+      const validValues = domain.filter(
+        (value) => checkHardConstraintsV2(input, assignments, variable, value) === null,
+      );
+
+      if (validValues.length === 0) {
+        stillFailed.push(variable);
+        continue;
+      }
+
+      const ordered = orderValuesV2(variable, validValues, input, assignments, rng);
+      const bestValue = ordered[0]!;
+
+      const assignment = buildAssignment(variable, bestValue, input);
+      assignments.push(assignment);
+      assignedThisRound++;
+      progressThisRound = true;
+
+      if (assignedThisRound % 50 === 0 && onProgress) {
+        onProgress(assignedThisRound, variables.length, `repair-${round + 1}`);
+      }
+    }
+
+    unassigned = stillFailed;
+    if (!progressThisRound) break;
+  }
+
+  return {
+    assignments,
+    fullyAssigned: unassigned.length === 0,
+  };
+}
+
+// ─── Backtracking Solver (for small inputs) ────────────────────────────────
+
+function solveBacktracking(
+  input: SolverInputV2,
+  variables: CSPVariableV2[],
+  initialDomains: Map<string, DomainValueV2[]>,
+  pinnedAssignments: SolverAssignmentV2[],
+  rng: () => number,
+  startTime: number,
+  maxDuration: number,
+  onProgress?: ProgressCallbackV2,
+  shouldCancel?: CancelCheckV2,
+): SolveResult {
+  let iterationCount = 0;
+  let assignmentCount = 0;
+  let timedOut = false;
+  let cancelled = false;
+
+  // Track the best partial solution found
+  let bestPartialAssignments: SolverAssignmentV2[] = [...pinnedAssignments];
+
+  function backtrack(
+    assignments: SolverAssignmentV2[],
+    domains: Map<string, DomainValueV2[]>,
+    remaining: CSPVariableV2[],
+  ): SolverAssignmentV2[] | null {
+    iterationCount++;
+
+    if (iterationCount % 50 === 0) {
+      if (Date.now() - startTime > maxDuration) {
+        timedOut = true;
+        return null;
+      }
+    }
+
+    if (iterationCount % 500 === 0 && shouldCancel?.()) {
+      cancelled = true;
+      return null;
+    }
+
+    if (assignments.length > bestPartialAssignments.length) {
+      bestPartialAssignments = [...assignments];
+    }
+
+    if (remaining.length === 0) {
+      return assignments;
+    }
+
+    const variable = selectVariableV2(domains, remaining);
+    if (!variable) return null;
+
+    const key = variableKeyV2(variable);
+    const domain = domains.get(key) ?? [];
+
+    const orderedValues = orderValuesV2(
+      variable,
+      domain,
+      input,
+      assignments,
+      rng,
+    );
+
+    const newRemaining = remaining.filter((v) => v.id !== variable.id);
+
+    for (const value of orderedValues) {
+      if (timedOut || cancelled) return null;
+
+      const violation = checkHardConstraintsV2(
+        input,
+        assignments,
+        variable,
+        value,
+      );
+      if (violation !== null) continue;
+
+      const newAssignment = buildAssignment(variable, value, input);
+      const newDomains = cloneDomainsV2(domains);
+      newDomains.delete(key);
+
+      const fcOk = forwardCheckV2(
+        input,
+        [...assignments, newAssignment],
+        newDomains,
+        newRemaining,
+      );
+
+      if (!fcOk) continue;
+
+      assignmentCount++;
+      if (assignmentCount % 100 === 0 && onProgress) {
+        onProgress(
+          assignmentCount,
+          variables.length,
+          variable.type === 'supervision' ? 'supervision' : 'teaching',
+        );
+      }
+
+      const result = backtrack(
+        [...assignments, newAssignment],
+        newDomains,
+        newRemaining,
+      );
+
+      if (result !== null) return result;
+      assignmentCount--;
+    }
+
+    return null;
+  }
+
+  const solution = backtrack(
+    [...pinnedAssignments],
+    initialDomains,
+    variables,
+  );
+
+  return {
+    assignments: solution ?? bestPartialAssignments,
+    fullyAssigned: solution !== null,
   };
 }
 

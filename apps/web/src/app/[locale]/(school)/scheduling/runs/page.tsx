@@ -1,12 +1,10 @@
 'use client';
 
 import {
-  CheckCircle2,
   ChevronRight,
   Clock,
   Loader2,
   Sparkles,
-  XCircle,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';

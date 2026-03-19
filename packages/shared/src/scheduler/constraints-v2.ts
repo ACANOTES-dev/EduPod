@@ -243,8 +243,52 @@ export function checkTeacherAvailabilityV2(
 }
 
 /**
- * Check that a subject does not exceed max_periods_per_day for a given year group
+ * Check that a class section does not already have an assignment at the same
+ * weekday + period_order. A class can only have one subject assigned per slot.
+ */
+export function checkClassSlotConflictV2(
+  input: SolverInputV2,
+  assignments: SolverAssignmentV2[],
+  classId: string | null,
+  weekday: number,
+  periodOrder: number,
+  yearGroupId: string,
+): string | null {
+  if (classId === null) return null;
+
+  // Find the time range for the proposed slot
+  const grid = getYearGroupGrid(input, yearGroupId);
+  const proposedSlot = grid.find(
+    (p) => p.weekday === weekday && p.period_order === periodOrder,
+  );
+  if (!proposedSlot) return null;
+
+  for (const a of assignments) {
+    if (a.class_id !== classId) continue;
+    if (a.weekday !== weekday) continue;
+    if (a.is_supervision) continue;
+
+    // Get the time range for the existing assignment
+    const aGrid = getYearGroupGrid(input, a.year_group_id);
+    const aSlot = aGrid.find(
+      (p) => p.weekday === weekday && p.period_order === a.period_order,
+    );
+    if (!aSlot) continue;
+
+    // Time overlap check
+    if (aSlot.start_time < proposedSlot.end_time && proposedSlot.start_time < aSlot.end_time) {
+      return `Class ${classId} already has an assignment at weekday=${weekday}, period=${a.period_order} (${aSlot.start_time}-${aSlot.end_time}) which overlaps with proposed period=${periodOrder}`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check that a subject does not exceed max_periods_per_day for a given class section
  * on a single weekday.
+ *
+ * Note: max_periods_per_day is per class section, not per year group.
  */
 export function checkSubjectMaxPerDay(
   input: SolverInputV2,
@@ -252,8 +296,10 @@ export function checkSubjectMaxPerDay(
   subjectId: string | null,
   yearGroupId: string,
   weekday: number,
+  classId: string | null,
 ): string | null {
   if (subjectId === null) return null;
+  if (classId === null) return null;
 
   const curriculum = input.curriculum.find(
     (c) => c.year_group_id === yearGroupId && c.subject_id === subjectId,
@@ -262,24 +308,19 @@ export function checkSubjectMaxPerDay(
 
   const maxPerDay = curriculum.max_periods_per_day;
 
-  // Count existing assignments for this subject+year_group on this weekday
-  // across all sections of the year group
-  const yg = input.year_groups.find((y) => y.year_group_id === yearGroupId);
-  const sectionClassIds = new Set(yg?.sections.map((s) => s.class_id) ?? []);
-
+  // Count existing assignments for this subject + class section on this weekday
   const existingCount = assignments.filter(
     (a) =>
       a.subject_id === subjectId &&
       a.weekday === weekday &&
-      a.class_id !== null &&
-      sectionClassIds.has(a.class_id),
+      a.class_id === classId,
   ).length;
 
   // The proposed assignment adds 1 more
   const newCount = existingCount + 1;
 
   if (newCount > maxPerDay) {
-    return `Subject ${subjectId} would have ${newCount} periods on weekday ${weekday} for year_group=${yearGroupId}, exceeding max of ${maxPerDay}`;
+    return `Subject ${subjectId} would have ${newCount} periods on weekday ${weekday} for class=${classId}, exceeding max of ${maxPerDay}`;
   }
 
   return null;
@@ -789,6 +830,18 @@ export function checkHardConstraintsV2(
 
   // ── Teaching-specific constraints ──
   if (variableType === 'teaching') {
+    // 2b. Class section slot conflict — a class can't have two assignments
+    //     at the same time (same weekday + overlapping period)
+    const classConflict = checkClassSlotConflictV2(
+      input,
+      currentAssignments,
+      class_id,
+      weekday,
+      period_order,
+      year_group_id,
+    );
+    if (classConflict) return classConflict;
+
     // 3. Teacher competency
     const competency = checkTeacherCompetency(
       input,
@@ -798,13 +851,14 @@ export function checkHardConstraintsV2(
     );
     if (competency) return competency;
 
-    // 4. Subject max per day
+    // 4. Subject max per day (per class section)
     const subjectMax = checkSubjectMaxPerDay(
       input,
       currentAssignments,
       subject_id,
       year_group_id,
       weekday,
+      class_id,
     );
     if (subjectMax) return subjectMax;
 
