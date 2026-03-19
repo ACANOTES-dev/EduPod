@@ -27,7 +27,7 @@ export default function LoginPage() {
   const isRedirecting = React.useRef(false);
 
   // Sanitise redirect: only allow relative paths to prevent open-redirect attacks
-  const rawRedirect = searchParams.get('redirect') ?? null;
+  const rawRedirect = searchParams?.get('redirect') ?? null;
   const redirectTo = rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : null;
 
   // Extract locale from pathname (e.g. /en/login -> en)
