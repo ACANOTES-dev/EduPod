@@ -124,11 +124,11 @@ export class PeriodGridService {
   }
 
   async getTeachingCount(tenantId: string, academicYearId: string): Promise<number> {
-    return this.prisma.periodTemplate.count({
+    return this.prisma.schedulePeriodTemplate.count({
       where: {
         tenant_id: tenantId,
         academic_year_id: academicYearId,
-        period_type: 'teaching',
+        schedule_period_type: 'teaching',
       },
     });
   }
