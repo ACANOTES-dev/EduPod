@@ -118,9 +118,9 @@ export default function AutoSchedulerPage() {
 
   // Load run history
   React.useEffect(() => {
+    if (!selectedYear) { setRuns([]); return; }
     setRunsLoading(true);
-    const qs = selectedYear ? `?academic_year_id=${selectedYear}` : '';
-    apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs${qs}`)
+    apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
       .catch(() => setRuns([]))
       .finally(() => setRunsLoading(false));

@@ -90,6 +90,16 @@ export class AcademicPeriodsService {
     }
   }
 
+  async findAll(tenantId: string, pageSize = 50) {
+    const data = await this.prisma.academicPeriod.findMany({
+      where: { tenant_id: tenantId },
+      orderBy: { start_date: 'asc' },
+      take: pageSize,
+      include: { academic_year: { select: { name: true } } },
+    });
+    return { data, meta: { total: data.length, page: 1, pageSize } };
+  }
+
   async findAllForYear(tenantId: string, yearId: string) {
     // Verify academic year exists and belongs to this tenant
     const year = await this.prisma.academicYear.findFirst({

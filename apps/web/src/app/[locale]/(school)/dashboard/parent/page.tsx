@@ -116,12 +116,12 @@ export default function ParentDashboardPage() {
           <EmptyState
             icon={GraduationCap}
             title={t('parentDashboard.linkedStudents')}
-            description={t('comingSoon')}
+            description="No students are linked to your account yet."
           />
         )}
       </section>
 
-      {/* Outstanding Invoices — placeholder */}
+      {/* Outstanding Invoices */}
       <section>
         <h2 className="mb-3 text-base font-semibold text-text-primary">
           {t('parentDashboard.outstandingInvoices')}
@@ -129,11 +129,11 @@ export default function ParentDashboardPage() {
         <EmptyState
           icon={FileText}
           title={t('parentDashboard.noInvoices')}
-          description={t('comingSoon')}
+          description="You have no outstanding invoices."
         />
       </section>
 
-      {/* Recent Announcements — placeholder */}
+      {/* Recent Announcements */}
       <section>
         <h2 className="mb-3 text-base font-semibold text-text-primary">
           {t('parentDashboard.recentAnnouncements')}
@@ -141,7 +141,7 @@ export default function ParentDashboardPage() {
         <EmptyState
           icon={Bell}
           title={t('parentDashboard.noAnnouncements')}
-          description={t('comingSoon')}
+          description="No announcements have been published recently."
         />
       </section>
     </div>

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -52,6 +53,16 @@ const copyBodySchema = z.object({
 @UseGuards(AuthGuard, PermissionGuard)
 export class TeacherCompetenciesController {
   constructor(private readonly service: TeacherCompetenciesService) {}
+
+  @Get()
+  @RequiresPermission('schedule.configure_requirements')
+  async listAll(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listByTeacherQuerySchema))
+    query: z.infer<typeof listByTeacherQuerySchema>,
+  ) {
+    return this.service.listAll(tenant.tenant_id, query.academic_year_id);
+  }
 
   @Get('by-teacher/:staffProfileId')
   @RequiresPermission('schedule.configure_requirements')
@@ -103,6 +114,16 @@ export class TeacherCompetenciesController {
     dto: BulkCreateTeacherCompetenciesDto,
   ) {
     return this.service.bulkCreate(tenant.tenant_id, dto);
+  }
+
+  @Patch(':id')
+  @RequiresPermission('schedule.configure_requirements')
+  async update(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { is_primary?: boolean },
+  ) {
+    return this.service.update(tenant.tenant_id, id, dto);
   }
 
   @Delete(':id')

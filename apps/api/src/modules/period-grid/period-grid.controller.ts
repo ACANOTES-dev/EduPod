@@ -81,6 +81,20 @@ export class PeriodGridController {
     return this.periodGridService.delete(tenant.tenant_id, id);
   }
 
+  @Get('teaching-count')
+  @RequiresPermission('schedule.configure_period_grid')
+  async getTeachingCount(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listPeriodGridQuerySchema))
+    query: z.infer<typeof listPeriodGridQuerySchema>,
+  ) {
+    const count = await this.periodGridService.getTeachingCount(
+      tenant.tenant_id,
+      query.academic_year_id,
+    );
+    return { total_teaching_periods: count };
+  }
+
   @Post('copy-day')
   @RequiresPermission('schedule.configure_period_grid')
   @HttpCode(HttpStatus.OK)

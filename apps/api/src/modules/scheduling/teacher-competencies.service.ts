@@ -26,6 +26,33 @@ const INCLUDE_RELATIONS = {
 export class TeacherCompetenciesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ─── List All ──────────────────────────────────────────────────────────────
+
+  async listAll(tenantId: string, academicYearId: string) {
+    const data = await this.prisma.teacherCompetency.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      include: INCLUDE_RELATIONS,
+      orderBy: [{ staff_profile_id: 'asc' }, { subject_id: 'asc' }],
+    });
+    return { data };
+  }
+
+  // ─── Update ───────────────────────────────────────────────────────────────
+
+  async update(tenantId: string, id: string, dto: { is_primary?: boolean }) {
+    const existing = await this.prisma.teacherCompetency.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Teacher competency not found' });
+    }
+    return this.prisma.teacherCompetency.update({
+      where: { id },
+      data: { is_primary: dto.is_primary },
+      include: INCLUDE_RELATIONS,
+    });
+  }
+
   // ─── List by Teacher ───────────────────────────────────────────────────────
 
   async listByTeacher(

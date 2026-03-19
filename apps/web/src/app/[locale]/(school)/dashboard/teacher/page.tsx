@@ -46,7 +46,7 @@ export default function TeacherDashboardPage() {
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const result = await apiClient<{ data: TeacherDashboardData }>('/api/v1/dashboard/teacher');
+      const result = await apiClient<{ data: TeacherDashboardData }>('/api/v1/dashboard/teacher', { silent: true });
       setData(result.data);
     } catch {
       // Fall back to empty state

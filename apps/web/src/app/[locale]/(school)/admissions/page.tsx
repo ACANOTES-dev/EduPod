@@ -79,7 +79,7 @@ export default function AdmissionsPage() {
 
   const fetchFunnel = React.useCallback(async () => {
     try {
-      const res = await apiClient<{ data: FunnelData }>('/api/v1/applications/funnel');
+      const res = await apiClient<{ data: FunnelData }>('/api/v1/applications/analytics');
       setFunnel(res.data);
     } catch {
       // ignore

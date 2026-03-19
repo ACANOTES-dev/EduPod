@@ -123,6 +123,16 @@ export class PeriodGridService {
     }
   }
 
+  async getTeachingCount(tenantId: string, academicYearId: string): Promise<number> {
+    return this.prisma.periodTemplate.count({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        period_type: 'teaching',
+      },
+    });
+  }
+
   async delete(tenantId: string, id: string) {
     await this.assertExists(tenantId, id);
 

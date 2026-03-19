@@ -8,13 +8,16 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   createAcademicPeriodSchema,
+  paginationQuerySchema,
   updateAcademicPeriodSchema,
   updateAcademicPeriodStatusSchema,
 } from '@school/shared';
+import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -33,6 +36,17 @@ import type {
 @UseGuards(AuthGuard, PermissionGuard)
 export class AcademicPeriodsController {
   constructor(private readonly academicPeriodsService: AcademicPeriodsService) {}
+
+  /** List all academic periods across all years for the tenant (used by dropdowns). */
+  @Get('academic-periods')
+  @RequiresPermission('students.view')
+  async findAll(
+    @CurrentTenant() tenantContext: { tenant_id: string },
+    @Query(new ZodValidationPipe(paginationQuerySchema))
+    query: z.infer<typeof paginationQuerySchema>,
+  ) {
+    return this.academicPeriodsService.findAll(tenantContext.tenant_id, query.pageSize);
+  }
 
   @Post('academic-years/:yearId/periods')
   @RequiresPermission('students.manage')
