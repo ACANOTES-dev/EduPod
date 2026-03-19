@@ -13,6 +13,7 @@ import {
   DollarSign,
   GraduationCap,
   Grid3X3,
+  History,
   Home,
   LayoutDashboard,
   Mail,
@@ -84,6 +85,10 @@ const navSections: { labelKey: string; items: NavItem[] }[] = [
       { icon: Clock, labelKey: 'nav.schedules', href: '/schedules' },
       { icon: Grid3X3, labelKey: 'nav.timetables', href: '/timetables' },
       { icon: Sparkles, labelKey: 'nav.autoScheduling', href: '/scheduling/auto' },
+      { icon: CalendarDays, labelKey: 'nav.periodGrid', href: '/scheduling/period-grid' },
+      { icon: BookOpen, labelKey: 'nav.curriculum', href: '/scheduling/curriculum' },
+      { icon: Users, labelKey: 'nav.competencies', href: '/scheduling/competencies' },
+      { icon: History, labelKey: 'nav.schedulingRuns', href: '/scheduling/runs' },
     ],
   },
   {

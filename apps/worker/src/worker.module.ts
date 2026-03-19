@@ -29,6 +29,7 @@ import { PayrollApprovalCallbackProcessor } from './processors/payroll/approval-
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 import { SchedulingSolverProcessor } from './processors/scheduling-solver.processor';
+import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
 
 @Module({
@@ -107,6 +108,7 @@ import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-re
     AttendanceAutoLockProcessor,
     // Scheduling queue processors
     SchedulingSolverProcessor,
+    SchedulingSolverV2Processor,
     SchedulingStaleReaperProcessor,
     // Gradebook queue processors
     MassReportCardPdfProcessor,

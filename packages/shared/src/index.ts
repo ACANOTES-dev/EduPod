@@ -118,3 +118,12 @@ export * from './schemas/audit-log.schema';
 export * from './schemas/compliance.schema';
 export * from './schemas/import.schema';
 export * from './schemas/report.schema';
+
+// Scheduling v2 Schemas
+export * from './schemas/scheduling.schema';
+
+// Scheduling v2 Solver Types & Functions
+export * from './scheduler/types-v2';
+export { validateSchedule } from './scheduler/validation';
+export { solveV2 } from './scheduler/solver-v2';
+export { checkHardConstraintsV2 } from './scheduler/constraints-v2';

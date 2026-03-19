@@ -45,6 +45,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { ImportsModule } from './modules/imports/imports.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { WebsiteModule } from './modules/website/website.module';
 
 @Module({
@@ -110,6 +111,7 @@ import { WebsiteModule } from './modules/website/website.module';
     ComplianceModule,
     ImportsModule,
     ReportsModule,
+    SchedulingModule,
   ],
 })
 export class AppModule implements NestModule {

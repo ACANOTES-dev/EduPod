@@ -1,18 +1,36 @@
 'use client';
 
-import { BarChart3, Calendar, ClipboardList, Clock, Heart, Sparkles } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpen,
+  Calendar,
+  ClipboardList,
+  Clock,
+  DoorClosed,
+  Heart,
+  History,
+  Sparkles,
+  UserCog,
+  Users,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
 const tabs = [
-  { key: 'periodGrid', href: '/scheduling/period-grid', icon: Calendar },
-  { key: 'requirements', href: '/scheduling/requirements', icon: ClipboardList },
-  { key: 'availability', href: '/scheduling/availability', icon: Clock },
-  { key: 'preferences', href: '/scheduling/preferences', icon: Heart },
-  { key: 'autoScheduler', href: '/scheduling/auto', icon: Sparkles },
-  { key: 'dashboard', href: '/scheduling/dashboard', icon: BarChart3 },
+  { key: 'dashboard', href: '/scheduling/dashboard', icon: BarChart3, tKey: 'auto.dashboard' },
+  { key: 'periodGrid', href: '/scheduling/period-grid', icon: Calendar, tKey: 'auto.periodGrid' },
+  { key: 'curriculum', href: '/scheduling/curriculum', icon: BookOpen, tKey: 'v2.curriculum' },
+  { key: 'competencies', href: '/scheduling/competencies', icon: Users, tKey: 'v2.competencies' },
+  { key: 'breakGroups', href: '/scheduling/break-groups', icon: Clock, tKey: 'v2.breakGroups' },
+  { key: 'teacherConfig', href: '/scheduling/teacher-config', icon: UserCog, tKey: 'v2.teacherConfig' },
+  { key: 'roomClosures', href: '/scheduling/room-closures', icon: DoorClosed, tKey: 'v2.roomClosures' },
+  { key: 'availability', href: '/scheduling/availability', icon: Clock, tKey: 'auto.availability' },
+  { key: 'preferences', href: '/scheduling/preferences', icon: Heart, tKey: 'auto.preferences' },
+  { key: 'requirements', href: '/scheduling/requirements', icon: ClipboardList, tKey: 'auto.requirements' },
+  { key: 'autoScheduler', href: '/scheduling/auto', icon: Sparkles, tKey: 'auto.autoScheduler' },
+  { key: 'runs', href: '/scheduling/runs', icon: History, tKey: 'runs.title' },
 ];
 
 export default function SchedulingLayout({ children }: { children: React.ReactNode }) {
@@ -37,7 +55,7 @@ export default function SchedulingLayout({ children }: { children: React.ReactNo
               }`}
             >
               <tab.icon className="h-4 w-4" />
-              {t(`auto.${tab.key}`)}
+              {t(tab.tKey)}
             </Link>
           );
         })}

@@ -157,6 +157,12 @@ These are features that have placeholder code or are explicitly deferred. They n
 - [ ] **Verify `STRIPE_WEBHOOK_SECRET` is in production .env** — Same for Stripe.
 - [ ] **Verify `NODE_ENV=production` in production .env** — Critical: controls Swagger visibility, webhook enforcement, and other production guards.
 
+### CI/CD Hardening:
+
+- [ ] Install a self-hosted GitHub Actions runner on `edupod-prod-1` — the runner pulls jobs from GitHub over HTTPS (outbound), eliminating the need for inbound SSH from GitHub Actions
+- [ ] Update `deploy.yml` to use `runs-on: self-hosted` instead of `ubuntu-latest` + SSH action
+- [ ] Re-lock the Hetzner firewall SSH rule back to operator IP only (currently open to `0.0.0.0/0` as a temporary workaround)
+
 ### After deploying:
 
 - [ ] Run `pm2 restart api web worker` and verify all three processes are `online`
