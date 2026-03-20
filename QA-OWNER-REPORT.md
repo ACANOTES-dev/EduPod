@@ -919,4 +919,9 @@ cd /opt/edupod/app && git pull origin main && pnpm install && pnpm --filter @sch
 *End of QA Owner Testing Report — Deep Testing + Bug Fixing In Progress*
 *Report file: QA-OWNER-REPORT.md*
 *Testing scope: 61 page loads + 95 interactive flows + 25 deferred tests = 181 total test items*
-*Fixes: 14 commits, ~33 bugs fixed, ~18 bugs remaining*
+*Fixes: 19 commits, ~45 bugs fixed, ~6 remaining (configuration/complex investigation needed)*
+
+### Deployment Command (run on server):
+```bash
+cd /opt/edupod/app && git pull origin main && pnpm install && pnpm --filter @school/prisma generate && pnpm build && pm2 restart all
+```
