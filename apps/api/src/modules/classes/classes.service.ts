@@ -281,6 +281,34 @@ export class ClassesService {
     return updated;
   }
 
+  async findStaff(tenantId: string, classId: string) {
+    await this.assertExists(tenantId, classId);
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const staff = await prismaWithRls.$transaction(async (tx) => {
+      return tx.classStaff.findMany({
+        where: { class_id: classId, tenant_id: tenantId },
+        include: {
+          staff_profile: {
+            select: {
+              id: true,
+              user: { select: { first_name: true, last_name: true } },
+            },
+          },
+        },
+      });
+    });
+
+    return {
+      data: staff.map((s) => ({
+        id: `${s.class_id}_${s.staff_profile_id}_${s.assignment_role}`,
+        role: s.assignment_role,
+        staff_profile: s.staff_profile,
+      })),
+    };
+  }
+
   async assignStaff(tenantId: string, classId: string, dto: AssignClassStaffDto) {
     await this.assertExists(tenantId, classId);
 

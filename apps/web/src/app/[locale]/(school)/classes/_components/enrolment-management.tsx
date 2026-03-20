@@ -263,11 +263,12 @@ export function EnrolmentManagement({ classId }: EnrolmentManagementProps) {
   const fetchEnrolments = React.useCallback(async (p: number) => {
     setIsLoading(true);
     try {
-      const res = await apiClient<{ data: Enrolment[]; meta: { total: number } }>(
+      const res = await apiClient<{ data: Enrolment[]; meta?: { total: number } }>(
         `/api/v1/classes/${classId}/enrolments?page=${p}&pageSize=${PAGE_SIZE}`,
       );
-      setEnrolments(res.data);
-      setTotal(res.meta.total);
+      const data = res.data ?? [];
+      setEnrolments(data);
+      setTotal(res.meta?.total ?? data.length);
     } catch {
       setEnrolments([]);
     } finally {

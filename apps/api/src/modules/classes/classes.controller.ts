@@ -102,6 +102,15 @@ export class ClassesController {
     return this.classesService.updateStatus(tenant.tenant_id, id, dto);
   }
 
+  @Get(':id/staff')
+  @RequiresPermission('students.view')
+  async findStaff(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.classesService.findStaff(tenant.tenant_id, id);
+  }
+
   @Post(':id/staff')
   @RequiresPermission('students.manage')
   @HttpCode(HttpStatus.CREATED)
