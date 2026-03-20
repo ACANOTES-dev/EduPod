@@ -1068,7 +1068,10 @@
     "noSessions": "No active sessions found",
     "lastActive": "Last active",
     "device": "Device",
-    "ipAddress": "IP address"
+    "ipAddress": "IP address",
+    "communicationPrefsSection": "Communication Preferences",
+    "communicationPrefsDescription": "Manage how you receive notifications — choose your preferred channels and language for communications.",
+    "communicationPrefsLink": "Manage preferences"
   },
   "communication": {
     "title": "Communication preferences",

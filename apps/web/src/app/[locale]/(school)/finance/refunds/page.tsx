@@ -93,7 +93,7 @@ export default function RefundsPage() {
   async function handleApprove(refundId: string) {
     setActionLoading(refundId);
     try {
-      await apiClient(`/api/v1/finance/refunds/${refundId}/approve`, { method: 'PATCH' });
+      await apiClient(`/api/v1/finance/refunds/${refundId}/approve`, { method: 'POST' });
       void fetchRefunds();
     } catch {
       // error handled by apiClient
@@ -105,7 +105,7 @@ export default function RefundsPage() {
   async function handleReject(refundId: string) {
     setActionLoading(refundId);
     try {
-      await apiClient(`/api/v1/finance/refunds/${refundId}/reject`, { method: 'PATCH' });
+      await apiClient(`/api/v1/finance/refunds/${refundId}/reject`, { method: 'POST' });
       void fetchRefunds();
     } catch {
       // error handled by apiClient
@@ -117,7 +117,7 @@ export default function RefundsPage() {
   async function handleExecute(refundId: string) {
     setActionLoading(refundId);
     try {
-      await apiClient(`/api/v1/finance/refunds/${refundId}/execute`, { method: 'PATCH' });
+      await apiClient(`/api/v1/finance/refunds/${refundId}/execute`, { method: 'POST' });
       void fetchRefunds();
     } catch {
       // error handled by apiClient

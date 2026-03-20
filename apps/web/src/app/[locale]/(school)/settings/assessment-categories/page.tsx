@@ -60,7 +60,7 @@ export default function AssessmentCategoriesPage() {
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
       const res = await apiClient<CategoriesResponse>(`/api/v1/gradebook/assessment-categories?${params.toString()}`);
-      const items = res.data ?? [];
+      const items = Array.isArray(res.data) ? res.data : [];
       setData(items);
       setTotal(res.meta?.total ?? items.length);
     } catch {

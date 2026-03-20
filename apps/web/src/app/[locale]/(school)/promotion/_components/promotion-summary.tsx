@@ -16,6 +16,10 @@ interface PromotionSummaryProps {
 export function PromotionSummary({ students, overrides }: PromotionSummaryProps) {
   const t = useTranslations('promotion');
 
+  if (!students || students.length === 0) {
+    return <p className="py-8 text-center text-sm text-text-tertiary">{t('noStudentsToPreview')}</p>;
+  }
+
   const counts: Record<string, number> = {};
   for (const student of students) {
     const action = overrides[student.student_id] ?? student.proposed_action;

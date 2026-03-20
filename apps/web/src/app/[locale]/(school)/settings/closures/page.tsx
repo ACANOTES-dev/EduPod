@@ -20,6 +20,7 @@ interface ClosureRow {
   reason: string;
   affects_scope: string;
   scope_entity_id?: string | null;
+  scope_entity_name?: string | null;
   created_by?: { first_name: string; last_name: string } | null;
 }
 
@@ -94,7 +95,7 @@ export default function ClosuresPage() {
       key: 'scope',
       header: t('scope'),
       render: (row: ClosureRow) => (
-        <Badge variant="secondary" className="capitalize">{scopeLabel(row.affects_scope, row.scope_entity_id ?? undefined)}</Badge>
+        <Badge variant="secondary" className="capitalize">{scopeLabel(row.affects_scope, row.scope_entity_name ?? row.scope_entity_id ?? undefined)}</Badge>
       ),
     },
     {

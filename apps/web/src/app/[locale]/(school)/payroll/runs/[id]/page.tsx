@@ -196,11 +196,13 @@ export default function RunDetailPage() {
             {run.status === 'finalised' && (
               <Button
                 variant="outline"
-                onClick={() => {
-                  window.open(
-                    `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/payroll/runs/${runId}/payslips`,
-                    '_blank'
-                  );
+                onClick={async () => {
+                  try {
+                    const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
+                    await downloadAuthenticatedPdf(`/api/v1/payroll/runs/${runId}/payslips`);
+                  } catch {
+                    // error handled
+                  }
                 }}
               >
                 {t('exportPayslips')}

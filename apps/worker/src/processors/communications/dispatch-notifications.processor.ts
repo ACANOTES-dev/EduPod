@@ -74,7 +74,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
         },
         select: { id: true },
       });
-      resolvedIds = announcementNotifications.map((n) => n.id);
+      resolvedIds = announcementNotifications.map((n: { id: string }) => n.id);
     }
 
     if (resolvedIds.length === 0) {

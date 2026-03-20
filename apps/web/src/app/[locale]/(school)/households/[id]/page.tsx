@@ -1,7 +1,7 @@
 'use client';
 
-import { Edit, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
+import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -17,11 +17,25 @@ import {
   DialogFooter,
   toast,
 } from '@school/ui';
+import type { InvoiceStatus } from '@school/shared';
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
+import { CurrencyDisplay } from '../../finance/_components/currency-display';
+import { InvoiceStatusBadge } from '../../finance/_components/invoice-status-badge';
 import { MergeDialog } from '../_components/merge-dialog';
 import { SplitDialog } from '../_components/split-dialog';
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  status: InvoiceStatus;
+  total_amount: number;
+  balance_amount: number;
+  due_date: string;
+  currency_code: string;
+}
 
 interface EmergencyContact {
   id: string;
@@ -91,11 +105,14 @@ export default function HouseholdHubPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [household, setHousehold] = React.useState<Household | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [mergeOpen, setMergeOpen] = React.useState(false);
   const [splitOpen, setSplitOpen] = React.useState(false);
+  const [invoices, setInvoices] = React.useState<Invoice[]>([]);
 
   // Emergency contact editing
   const [contactDialogOpen, setContactDialogOpen] = React.useState(false);
@@ -122,6 +139,13 @@ export default function HouseholdHubPage() {
   React.useEffect(() => {
     void fetchHousehold();
   }, [fetchHousehold]);
+
+  React.useEffect(() => {
+    if (!id) return;
+    apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
+      .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setInvoices([]));
+  }, [id]);
 
   const openAddContact = () => {
     setEditingContact(null);
@@ -408,6 +432,79 @@ export default function HouseholdHubPage() {
     </div>
   );
 
+  const financeTab = (
+    <div className="space-y-4">
+      {/* View Statement link */}
+      <div className="flex justify-end">
+        <EntityLink
+          entityType="household"
+          entityId={id}
+          label="View Statement"
+          href={`/${locale}/finance/statements/${id}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:underline"
+        />
+      </div>
+
+      {invoices.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border py-12 text-center">
+          <FileText className="h-8 w-8 text-text-tertiary" />
+          <p className="text-sm text-text-tertiary">No invoices for this household.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface-secondary">
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Invoice #</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Status</th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">Total Amount</th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">Balance</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Due Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {invoices.map((invoice) => (
+                <tr
+                  key={invoice.id}
+                  className="cursor-pointer transition-colors hover:bg-surface-secondary"
+                  onClick={() => router.push(`/${locale}/finance/invoices/${invoice.id}`)}
+                >
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-text-secondary">
+                      {invoice.invoice_number}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <InvoiceStatusBadge status={invoice.status} />
+                  </td>
+                  <td className="px-4 py-3 text-end">
+                    <CurrencyDisplay
+                      amount={invoice.total_amount}
+                      currency_code={invoice.currency_code}
+                      className="font-medium"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-end">
+                    <CurrencyDisplay
+                      amount={invoice.balance_amount}
+                      currency_code={invoice.currency_code}
+                      className={
+                        invoice.balance_amount > 0 ? 'font-medium text-danger-text' : 'text-text-secondary'
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary">
+                    {formatDate(invoice.due_date)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       <RecordHub
@@ -423,6 +520,7 @@ export default function HouseholdHubPage() {
           { key: 'students', label: `Students (${students.length})`, content: studentsTab },
           { key: 'parents', label: `Parents (${parents.length})`, content: parentsTab },
           { key: 'contacts', label: 'Emergency Contacts', content: contactsTab },
+          { key: 'finance', label: `Finance (${invoices.length})`, content: financeTab },
         ]}
       >
         {/* Needs completion warning */}

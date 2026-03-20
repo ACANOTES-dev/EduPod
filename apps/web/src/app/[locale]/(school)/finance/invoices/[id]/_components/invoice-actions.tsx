@@ -11,6 +11,7 @@ import {
 } from '@school/ui';
 import type { InvoiceStatus } from '@school/shared';
 import { apiClient } from '@/lib/api-client';
+import { downloadAuthenticatedPdf } from '@/lib/download-pdf';
 
 interface InvoiceForActions {
   id: string;
@@ -108,9 +109,12 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
     }
   };
 
-  const handlePrintPdf = () => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/finance/invoices/${invoice.id}/pdf`;
-    window.open(url, '_blank');
+  const handlePrintPdf = async () => {
+    try {
+      await downloadAuthenticatedPdf(`/api/v1/finance/invoices/${invoice.id}/pdf`);
+    } catch {
+      toast.error('Failed to download PDF');
+    }
   };
 
   return (

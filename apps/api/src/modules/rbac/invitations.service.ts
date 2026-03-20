@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 import { hash } from 'bcryptjs';
+import { Queue } from 'bullmq';
 import { createHash, randomBytes } from 'crypto';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,7 +20,10 @@ interface RegistrationData {
 
 @Injectable()
 export class InvitationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+  ) {}
 
   /**
    * Create an invitation to join a tenant.
@@ -117,9 +122,21 @@ export class InvitationsService {
       },
     });
 
-    // TODO: In production, send invitation email with token here
-    // token is the plaintext token for the email link - not returned in the API response
-    void token;
+    // Enqueue invitation email (non-blocking — creation succeeds even if queue fails)
+    try {
+      await this.notificationsQueue.add(
+        'communications:send-invitation',
+        {
+          tenant_id: tenantId,
+          invitation_id: invitation.id,
+          token,
+          email: data.email,
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
+      );
+    } catch {
+      // Queue failure should not block invitation creation
+    }
 
     return invitation;
   }

@@ -23,7 +23,8 @@ interface YearGroup {
 
 interface Household {
   id: string;
-  household_name: string;
+  household_name?: string;
+  name?: string;
 }
 
 export interface StudentFormData {
@@ -209,7 +210,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             <SelectContent>
               {households.map((hh) => (
                 <SelectItem key={hh.id} value={hh.id}>
-                  {hh.household_name}
+                  {hh.household_name ?? hh.name ?? 'Unnamed'}
                 </SelectItem>
               ))}
             </SelectContent>

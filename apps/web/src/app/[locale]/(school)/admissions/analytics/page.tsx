@@ -109,11 +109,11 @@ export default function AdmissionsAnalyticsPage() {
       {/* Funnel chart */}
       {analytics?.funnel && analytics.funnel.length > 0 ? (
         <FunnelChart data={analytics.funnel} />
-      ) : (
+      ) : analytics?.total_applications === 0 ? (
         <div className="rounded-xl border border-border bg-surface p-12 text-center shadow-sm">
           <p className="text-sm text-text-tertiary">{t('noApplicationsYet')}</p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

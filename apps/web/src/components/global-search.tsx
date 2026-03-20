@@ -55,7 +55,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
       const response = await apiClient<SearchResponse>(
         `/api/v1/search?q=${encodeURIComponent(q)}&types=students,parents,staff,households`,
       );
-      setResults(response.data ?? []);
+      setResults(Array.isArray(response.data) ? response.data : []);
     } catch {
       setResults([]);
     } finally {
@@ -88,16 +88,17 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   }, [open]);
 
   // Group results by entity_type
-  const grouped = results.reduce<Record<SearchResult['entity_type'], SearchResult[]>>(
-    (acc, result) => {
-      if (!acc[result.entity_type]) {
-        acc[result.entity_type] = [];
-      }
-      acc[result.entity_type].push(result);
-      return acc;
-    },
-    {} as Record<SearchResult['entity_type'], SearchResult[]>,
-  );
+  const grouped: Record<SearchResult['entity_type'], SearchResult[]> = {
+    students: [],
+    parents: [],
+    staff: [],
+    households: [],
+  };
+  for (const result of results) {
+    if (result?.entity_type && grouped[result.entity_type]) {
+      grouped[result.entity_type].push(result);
+    }
+  }
 
   const entityTypes: SearchResult['entity_type'][] = ['students', 'parents', 'staff', 'households'];
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { Skeleton } from '@school/ui';
@@ -105,6 +105,8 @@ const invoiceStatusLabelMap: Record<InvoiceStatus, string> = {
 export default function InvoiceDetailPage() {
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [invoice, setInvoice] = React.useState<InvoiceDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -214,7 +216,7 @@ export default function InvoiceDetailPage() {
           entityType="household"
           entityId={invoice.household.id}
           label={invoice.household.household_name}
-          href={`/households/${invoice.household.id}`}
+          href={`/${locale}/households/${invoice.household.id}`}
         />
       ),
     },

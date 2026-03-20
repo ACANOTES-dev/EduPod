@@ -244,7 +244,7 @@ export default function AutoSchedulerPage() {
             </div>
           ) : prerequisites ? (
             <>
-              {prerequisites.checks.map((check) => (
+              {(prerequisites.checks ?? []).map((check) => (
                 <div key={check.key} className="flex items-start gap-3">
                   {check.passed ? (
                     <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500 shrink-0" />

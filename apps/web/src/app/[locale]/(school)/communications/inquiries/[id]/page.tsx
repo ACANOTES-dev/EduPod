@@ -52,7 +52,7 @@ function MessageBubble({ message }: { message: Message }) {
         {message.body}
       </div>
       <div className="flex items-center gap-1.5 px-1 text-xs text-text-tertiary">
-        <span>{message.sender_name}</span>
+        <span>{message.sender_name || 'Unknown'}</span>
         <span>&middot;</span>
         <span>{new Date(message.created_at).toLocaleString()}</span>
       </div>

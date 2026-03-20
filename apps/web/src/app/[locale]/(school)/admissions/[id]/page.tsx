@@ -350,8 +350,8 @@ export default function ApplicationDetailPage() {
       label: t('application'),
       content: (
         <ApplicationTab
-          fields={application.form.fields}
-          payload={application.payload}
+          fields={application.form?.fields ?? []}
+          payload={application.payload ?? {}}
         />
       ),
     },
@@ -360,7 +360,7 @@ export default function ApplicationDetailPage() {
       label: t('notes'),
       content: (
         <NotesTab
-          notes={application.notes}
+          notes={application.notes ?? []}
           applicationId={id}
           onNoteAdded={() => void fetchApplication()}
         />
@@ -369,7 +369,7 @@ export default function ApplicationDetailPage() {
     {
       key: 'timeline',
       label: t('timeline'),
-      content: <TimelineTab events={application.timeline} />,
+      content: <TimelineTab events={application.timeline ?? []} />,
     },
   ];
 

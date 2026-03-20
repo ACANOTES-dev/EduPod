@@ -132,7 +132,7 @@ export default function AuditLogPage() {
       key: 'actor_name',
       header: t('actor'),
       render: (row: AuditLogEntry) => (
-        <span className="font-medium text-text-primary">{row.actor_name}</span>
+        <span className="font-medium text-text-primary">{row.actor_name ?? 'System'}</span>
       ),
     },
     {

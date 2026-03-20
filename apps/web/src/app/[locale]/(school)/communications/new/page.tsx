@@ -108,11 +108,10 @@ export default function NewAnnouncementPage() {
       });
       // If we got an ID back, trigger publish endpoint
       if (res.id) {
-        try {
-          await apiClient(`/api/v1/announcements/${res.id}/publish`, { method: 'POST' });
-        } catch {
-          // publish may be handled inline by status field — ignore
-        }
+        await apiClient(`/api/v1/announcements/${res.id}/publish`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        });
       }
       toast.success(t('form.publishSuccess'));
       router.push('/communications');

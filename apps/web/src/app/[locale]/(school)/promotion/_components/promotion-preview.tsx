@@ -34,6 +34,10 @@ interface PromotionPreviewProps {
 export function PromotionPreview({ students, overrides, onOverride }: PromotionPreviewProps) {
   const t = useTranslations('promotion');
 
+  if (!students || students.length === 0) {
+    return <p className="py-8 text-center text-sm text-text-tertiary">{t('noStudentsToPreview')}</p>;
+  }
+
   // Group by year group
   const byGroup = students.reduce<Record<string, PreviewStudent[]>>((acc, s) => {
     if (!acc[s.year_group_id]) acc[s.year_group_id] = [];

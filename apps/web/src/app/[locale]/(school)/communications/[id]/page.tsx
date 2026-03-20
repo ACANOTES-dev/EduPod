@@ -39,7 +39,8 @@ interface AnnouncementDetail {
   status: AnnouncementStatus;
   published_at: string | null;
   scheduled_at: string | null;
-  author_name: string;
+  author_name?: string;
+  author?: { first_name: string; last_name: string };
   created_at: string;
   delivery_stats: DeliveryStats | null;
 }
@@ -179,12 +180,16 @@ export default function AnnouncementDetailPage() {
   const isDraft = announcement.status === 'draft';
   const isPublished = announcement.status === 'published';
   const isArchived = announcement.status === 'archived';
+  const authorName = announcement.author_name ??
+    (announcement.author
+      ? `${announcement.author.first_name} ${announcement.author.last_name}`.trim()
+      : 'Unknown');
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={announcement.title}
-        description={`By ${announcement.author_name} · ${new Date(announcement.created_at).toLocaleDateString()}`}
+        description={`By ${authorName} · ${new Date(announcement.created_at).toLocaleDateString()}`}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={() => router.back()}>

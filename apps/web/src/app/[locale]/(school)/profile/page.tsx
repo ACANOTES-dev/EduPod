@@ -2,8 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import * as React from 'react';
-import { ShieldCheck, Monitor, Sun, Moon, RefreshCw, Trash2 } from 'lucide-react';
+import { ShieldCheck, Monitor, Sun, Moon, RefreshCw, Trash2, Bell, ChevronRight } from 'lucide-react';
 
 import {
   Button,
@@ -55,6 +57,8 @@ export default function ProfilePage() {
   const t = useTranslations();
   const { user, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/')[1] ?? 'en';
 
   /* ---- Profile form state ---- */
   const [firstName, setFirstName] = React.useState(user?.first_name ?? '');
@@ -423,6 +427,27 @@ export default function ProfilePage() {
             {sessionMessage.text}
           </p>
         )}
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Communication Preferences                                           */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="rounded-2xl border border-border bg-surface p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-text-secondary" />
+          <h2 className="text-base font-semibold text-text-primary">
+            {t('profile.communicationPrefsSection')}
+          </h2>
+        </div>
+        <p className="text-sm text-text-secondary">{t('profile.communicationPrefsDescription')}</p>
+        <div className="pt-1">
+          <Button variant="outline" asChild>
+            <Link href={`/${locale}/profile/communication`}>
+              {t('profile.communicationPrefsLink')}
+              <ChevronRight className="ms-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </section>
     </div>
   );

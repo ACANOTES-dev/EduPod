@@ -175,7 +175,7 @@ export class SchoolClosuresService {
       where.affects_scope = affects_scope;
     }
 
-    const [data, total] = await Promise.all([
+    const [closures, total] = await Promise.all([
       this.prisma.schoolClosure.findMany({
         where,
         skip,
@@ -189,6 +189,43 @@ export class SchoolClosuresService {
       }),
       this.prisma.schoolClosure.count({ where }),
     ]);
+
+    // Resolve scope entity names for non-'all' scopes
+    const yearGroupIds = closures
+      .filter((c) => c.affects_scope === 'year_group' && c.scope_entity_id)
+      .map((c) => c.scope_entity_id as string);
+
+    const classIds = closures
+      .filter((c) => c.affects_scope === 'class' && c.scope_entity_id)
+      .map((c) => c.scope_entity_id as string);
+
+    const [yearGroups, classes] = await Promise.all([
+      yearGroupIds.length > 0
+        ? this.prisma.yearGroup.findMany({
+            where: { id: { in: yearGroupIds }, tenant_id: tenantId },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+      classIds.length > 0
+        ? this.prisma.class.findMany({
+            where: { id: { in: classIds }, tenant_id: tenantId },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const yearGroupMap = new Map(yearGroups.map((yg) => [yg.id, yg.name]));
+    const classMap = new Map(classes.map((c) => [c.id, c.name]));
+
+    const data = closures.map((c) => {
+      let scope_entity_name: string | null = null;
+      if (c.affects_scope === 'year_group' && c.scope_entity_id) {
+        scope_entity_name = yearGroupMap.get(c.scope_entity_id) ?? null;
+      } else if (c.affects_scope === 'class' && c.scope_entity_id) {
+        scope_entity_name = classMap.get(c.scope_entity_id) ?? null;
+      }
+      return { ...c, scope_entity_name };
+    });
 
     return {
       data,

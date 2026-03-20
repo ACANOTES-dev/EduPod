@@ -116,7 +116,7 @@ export function PromotionWizard() {
         const res = await apiClient<{ data: PreviewStudent[] }>(
           `/api/v1/promotion/preview?academic_year_id=${selectedYearId}`,
         );
-        setPreviewData(res.data);
+        setPreviewData(Array.isArray(res.data) ? res.data : []);
         setOverrides({});
         setStep(2);
       } catch (err: unknown) {

@@ -119,9 +119,13 @@ export default function PaymentDetailPage() {
     void fetchPayment();
   }, [fetchPayment]);
 
-  const handleReceiptPdf = () => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/finance/payments/${id}/receipt-pdf`;
-    window.open(url, '_blank');
+  const handleReceiptPdf = async () => {
+    try {
+      const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
+      await downloadAuthenticatedPdf(`/api/v1/finance/payments/${id}/receipt/pdf`);
+    } catch {
+      // error handled by apiClient
+    }
   };
 
   if (isLoading) {

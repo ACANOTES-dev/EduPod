@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -16,6 +17,8 @@ interface ListInquiriesFilters {
 
 @Injectable()
 export class ParentInquiriesService {
+  private readonly logger = new Logger(ParentInquiriesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -179,16 +182,20 @@ export class ParentInquiriesService {
     });
 
     // Notify admins with inquiries.view permission
-    await this.notificationsQueue.add(
-      'communications:inquiry-notification',
-      {
-        tenant_id: tenantId,
-        inquiry_id: inquiry.id,
-        message_id: inquiry.id,
-        notify_type: 'admin_notify',
-      },
-      { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
-    );
+    try {
+      await this.notificationsQueue.add(
+        'communications:inquiry-notification',
+        {
+          tenant_id: tenantId,
+          inquiry_id: inquiry.id,
+          message_id: inquiry.id,
+          notify_type: 'admin_notify',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to enqueue inquiry notification: ${error}`);
+    }
 
     return inquiry;
   }
@@ -236,16 +243,20 @@ export class ParentInquiriesService {
     }
 
     // Notify parent
-    await this.notificationsQueue.add(
-      'communications:inquiry-notification',
-      {
-        tenant_id: tenantId,
-        inquiry_id: inquiryId,
-        message_id: message.id,
-        notify_type: 'parent_notify',
-      },
-      { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
-    );
+    try {
+      await this.notificationsQueue.add(
+        'communications:inquiry-notification',
+        {
+          tenant_id: tenantId,
+          inquiry_id: inquiryId,
+          message_id: message.id,
+          notify_type: 'parent_notify',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to enqueue inquiry notification: ${error}`);
+    }
 
     return message;
   }
@@ -287,16 +298,20 @@ export class ParentInquiriesService {
     });
 
     // Notify admins
-    await this.notificationsQueue.add(
-      'communications:inquiry-notification',
-      {
-        tenant_id: tenantId,
-        inquiry_id: inquiryId,
-        message_id: message.id,
-        notify_type: 'admin_notify',
-      },
-      { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
-    );
+    try {
+      await this.notificationsQueue.add(
+        'communications:inquiry-notification',
+        {
+          tenant_id: tenantId,
+          inquiry_id: inquiryId,
+          message_id: message.id,
+          notify_type: 'admin_notify',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to enqueue inquiry notification: ${error}`);
+    }
 
     return message;
   }

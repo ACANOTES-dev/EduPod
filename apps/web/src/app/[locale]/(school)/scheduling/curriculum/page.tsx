@@ -112,7 +112,7 @@ export default function CurriculumPage() {
         apiClient<{ total_teaching_periods: number }>(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch(() => ({ total_teaching_periods: 0 })),
       ]);
       setRows(currRes.data);
-      setTotalTeachingPeriods(gridRes.total_teaching_periods);
+      setTotalTeachingPeriods(gridRes.total_teaching_periods ?? 0);
     } catch {
       setRows([]);
     } finally {
@@ -297,7 +297,7 @@ export default function CurriculumPage() {
                     rows.map((row) => (
                       <tr key={row.id} className="border-t border-border hover:bg-surface-secondary/50">
                         <td className="px-4 py-3 font-medium text-text-primary">
-                          {row.subject_name}
+                          {row.subject_name ?? '—'}
                           <span className="ms-2 text-xs text-text-tertiary font-mono">{row.subject_code}</span>
                         </td>
                         <td className="px-4 py-3 text-text-secondary">{row.min_periods_per_week}</td>

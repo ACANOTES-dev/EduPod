@@ -203,11 +203,11 @@ export default function AdmissionsPage() {
       {/* Funnel summary */}
       {funnel && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label={t('totalApplications')} value={funnel.total} />
-          <StatCard label={t('submitted')} value={funnel.submitted} />
-          <StatCard label={t('underReview')} value={funnel.under_review} />
-          <StatCard label={t('accepted')} value={funnel.accepted} />
-          <StatCard label={t('rejected')} value={funnel.rejected} />
+          <StatCard label={t('totalApplications')} value={funnel.total ?? 0} />
+          <StatCard label={t('submitted')} value={funnel.submitted ?? 0} />
+          <StatCard label={t('underReview')} value={funnel.under_review ?? 0} />
+          <StatCard label={t('accepted')} value={funnel.accepted ?? 0} />
+          <StatCard label={t('rejected')} value={funnel.rejected ?? 0} />
         </div>
       )}
 

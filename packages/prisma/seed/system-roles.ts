@@ -46,7 +46,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_auto_reports',
       // Students, Attendance, Gradebook
       'students.manage', 'students.view',
-      'attendance.manage', 'attendance.view',
+      'attendance.manage', 'attendance.view', 'attendance.take',
       'gradebook.manage', 'gradebook.view', 'gradebook.enter_grades',
       'gradebook.override_final_grade', 'gradebook.publish_report_cards',
       'transcripts.generate',
@@ -75,7 +75,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.pin_entries', 'schedule.view_auto_reports',
       // Students, Attendance, Gradebook
       'students.manage', 'students.view',
-      'attendance.manage', 'attendance.view',
+      'attendance.manage', 'attendance.view', 'attendance.take',
       'gradebook.manage', 'gradebook.view', 'gradebook.enter_grades',
       'gradebook.override_final_grade', 'gradebook.publish_report_cards',
       'transcripts.generate',

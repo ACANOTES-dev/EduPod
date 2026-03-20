@@ -1,7 +1,7 @@
 'use client';
 
 import { Banknote, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -50,6 +50,8 @@ const methodLabelMap: Record<PaymentMethod, string> = {
 
 export default function PaymentsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [payments, setPayments] = React.useState<Payment[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -114,7 +116,7 @@ export default function PaymentsPage() {
             entityType="household"
             entityId={row.household.id}
             label={row.household.household_name}
-            href={`/households/${row.household.id}`}
+            href={`/${locale}/households/${row.household.id}`}
           />
         ) : (
           <span className="text-text-tertiary">--</span>
@@ -160,13 +162,13 @@ export default function PaymentsPage() {
       render: (row: Payment) => (
         <div className="flex flex-col items-end gap-0.5">
           <CurrencyDisplay
-            amount={row.allocated_amount}
+            amount={row.allocated_amount ?? 0}
             currency_code={row.currency_code}
             className="text-xs text-success-text"
           />
-          {row.unallocated_amount > 0 && (
+          {(row.unallocated_amount ?? 0) > 0 && (
             <CurrencyDisplay
-              amount={row.unallocated_amount}
+              amount={row.unallocated_amount ?? 0}
               currency_code={row.currency_code}
               className="text-xs text-warning-text"
             />

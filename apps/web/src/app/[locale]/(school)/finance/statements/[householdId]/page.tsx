@@ -123,14 +123,19 @@ export default function HouseholdStatementPage() {
     void fetchStatement();
   }, [fetchStatement]);
 
-  function handlePrintPdf() {
+  async function handlePrintPdf() {
     const params = new URLSearchParams();
     if (fromDate) params.set('from', fromDate);
     if (toDate) params.set('to', toDate);
     const qs = params.toString();
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-    const url = `${apiUrl}/api/v1/finance/household-statements/${householdId}/pdf${qs ? `?${qs}` : ''}`;
-    window.open(url, '_blank');
+    try {
+      const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
+      await downloadAuthenticatedPdf(
+        `/api/v1/finance/household-statements/${householdId}/pdf${qs ? `?${qs}` : ''}`,
+      );
+    } catch {
+      // error handled
+    }
   }
 
   if (isLoading) {

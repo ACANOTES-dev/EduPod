@@ -18,6 +18,7 @@ import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ export default function AttendancePage() {
       key: 'session_date',
       header: t('sessionDate'),
       render: (row: SessionRow) => (
-        <span className="font-medium font-mono text-text-primary text-xs">{row.session_date}</span>
+        <span className="font-medium font-mono text-text-primary text-xs">{formatDate(row.session_date)}</span>
       ),
     },
     {

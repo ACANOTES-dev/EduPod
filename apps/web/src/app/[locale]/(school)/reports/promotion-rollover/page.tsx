@@ -57,8 +57,9 @@ export default function PromotionRolloverPage() {
   React.useEffect(() => {
     apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=100')
       .then((res) => {
-        setAcademicYears(res.data);
-        const first = res.data[0];
+        const years = Array.isArray(res.data) ? res.data : [];
+        setAcademicYears(years);
+        const first = years[0];
         if (first) {
           setYearFilter(first.id);
         }
@@ -119,10 +120,10 @@ export default function PromotionRolloverPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label={t('promoted')} value={report.summary.promoted} />
-            <StatCard label={t('heldBack')} value={report.summary.held_back} />
-            <StatCard label={t('graduated')} value={report.summary.graduated} />
-            <StatCard label={t('withdrawn')} value={report.summary.withdrawn} />
+            <StatCard label={t('promoted')} value={report.summary?.promoted ?? 0} />
+            <StatCard label={t('heldBack')} value={report.summary?.held_back ?? 0} />
+            <StatCard label={t('graduated')} value={report.summary?.graduated ?? 0} />
+            <StatCard label={t('withdrawn')} value={report.summary?.withdrawn ?? 0} />
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
@@ -144,14 +145,14 @@ export default function PromotionRolloverPage() {
                 </tr>
               </thead>
               <tbody>
-                {report.details.length === 0 ? (
+                {(report.details ?? []).length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-12 text-center text-sm text-text-tertiary">
                       {t('noData')}
                     </td>
                   </tr>
                 ) : (
-                  report.details.map((row) => (
+                  (report.details ?? []).map((row) => (
                     <tr key={row.student_id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
                       <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.student_name}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{row.from_grade}</td>

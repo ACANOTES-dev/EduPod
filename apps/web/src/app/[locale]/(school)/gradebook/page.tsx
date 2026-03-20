@@ -100,7 +100,9 @@ export default function GradebookPage() {
 
         // Group by class_id
         const grouped = new Map<string, ClassGroup>();
-        for (const a of res.data) {
+        const assessments = Array.isArray(res.data) ? res.data : [];
+        for (const a of assessments) {
+          if (!a.class_id) continue;
           const existing = grouped.get(a.class_id);
           if (existing) {
             existing.assessment_count += 1;
@@ -175,7 +177,7 @@ export default function GradebookPage() {
           {classGroups.map((cg) => (
             <button
               key={cg.class_id}
-              onClick={() => router.push(`/${locale}/gradebook/${cg.class_id}`)}
+              onClick={() => { if (cg.class_id) router.push(`/${locale}/gradebook/${cg.class_id}`); }}
               className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5 text-start transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <h3 className="text-sm font-semibold text-text-primary">
