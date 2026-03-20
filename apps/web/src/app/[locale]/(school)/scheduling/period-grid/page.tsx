@@ -48,14 +48,14 @@ type SupervisionMode = 'none' | 'yard' | 'classroom_previous' | 'classroom_next'
 interface PeriodSlot {
   id: string;
   academic_year_id: string;
-  year_group_id: string;
+  year_group_id: string | null;
   weekday: number;
   period_order: number;
-  name: string;
-  name_ar: string | null;
+  period_name: string;
+  period_name_ar: string | null;
   start_time: string;
   end_time: string;
-  period_type: PeriodType;
+  schedule_period_type: PeriodType;
   supervision_mode: SupervisionMode;
   break_group_id: string | null;
 }
@@ -155,8 +155,8 @@ export default function PeriodGridPage() {
         academic_year_id: selectedYear,
         year_group_id: selectedYearGroup,
       });
-      const res = await apiClient<{ data: PeriodSlot[] }>(`/api/v1/period-grid?${params.toString()}`);
-      setPeriods(res.data);
+      const res = await apiClient<PeriodSlot[] | { data: PeriodSlot[] }>(`/api/v1/period-grid?${params.toString()}`);
+      setPeriods(Array.isArray(res) ? res : (res.data ?? []));
     } catch {
       setPeriods([]);
     } finally {
@@ -173,8 +173,8 @@ export default function PeriodGridPage() {
       .filter((p) => p.weekday === weekday)
       .sort((a, b) => a.period_order - b.period_order);
 
-  const teachingCount = periods.filter((p) => p.period_type === 'teaching').length;
-  const breakCount = periods.filter((p) => p.period_type === 'break_supervision' || p.period_type === 'lunch_duty').length;
+  const teachingCount = periods.filter((p) => p.schedule_period_type === 'teaching').length;
+  const breakCount = periods.filter((p) => p.schedule_period_type === 'break_supervision' || p.schedule_period_type === 'lunch_duty').length;
 
   const openAdd = (weekday: number) => {
     setEditState({ ...EMPTY_EDIT, weekday });
@@ -185,11 +185,11 @@ export default function PeriodGridPage() {
     setEditState({
       id: period.id,
       weekday: period.weekday,
-      name: period.name,
-      name_ar: period.name_ar ?? '',
+      name: period.period_name,
+      name_ar: period.period_name_ar ?? '',
       start_time: period.start_time,
       end_time: period.end_time,
-      period_type: period.period_type,
+      period_type: period.schedule_period_type,
       supervision_mode: period.supervision_mode,
       break_group_id: period.break_group_id ?? '',
     });
@@ -203,11 +203,11 @@ export default function PeriodGridPage() {
     setIsSaving(true);
     try {
       const body: Record<string, unknown> = {
-        name: editState.name,
-        name_ar: editState.name_ar || null,
+        period_name: editState.name,
+        period_name_ar: editState.name_ar || null,
         start_time: editState.start_time,
         end_time: editState.end_time,
-        period_type: editState.period_type,
+        schedule_period_type: editState.period_type,
         supervision_mode: isBreakType ? editState.supervision_mode : 'none',
         break_group_id: editState.supervision_mode === 'yard' ? editState.break_group_id || null : null,
       };
@@ -371,15 +371,15 @@ export default function PeriodGridPage() {
                       {dayPeriods.map((period) => (
                         <div
                           key={period.id}
-                          className={`group relative cursor-pointer rounded-md border p-2 text-xs transition-all hover:shadow-sm ${TYPE_STYLES[period.period_type]}`}
+                          className={`group relative cursor-pointer rounded-md border p-2 text-xs transition-all hover:shadow-sm ${TYPE_STYLES[period.schedule_period_type]}`}
                           onClick={() => openEdit(period)}
                         >
-                          <div className="font-medium">{period.name}</div>
+                          <div className="font-medium">{period.period_name}</div>
                           <div className="mt-0.5 font-mono text-[10px] opacity-70">
                             {period.start_time} - {period.end_time}
                           </div>
                           <Badge variant="secondary" className="mt-1 text-[10px] capitalize">
-                            {period.period_type.replace('_', ' ')}
+                            {period.schedule_period_type.replace('_', ' ')}
                           </Badge>
                           {period.supervision_mode !== 'none' && (
                             <div className="mt-0.5 text-[10px] opacity-80">

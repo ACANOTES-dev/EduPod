@@ -28,12 +28,11 @@ interface SelectOption {
 
 interface SessionRow {
   id: string;
-  date: string;
+  session_date: string;
   status: string;
-  class: { id: string; name: string };
-  teacher: { id: string; name: string } | null;
-  marked_count: number;
-  enrolled_count: number;
+  class_entity: { id: string; name: string } | null;
+  submitted_by_user_id: string | null;
+  _count?: { records: number };
 }
 
 interface SessionsResponse {
@@ -82,8 +81,8 @@ export default function AttendancePage() {
         if (from) params.set('date_from', from);
         if (to) params.set('date_to', to);
         const res = await apiClient<SessionsResponse>(`/api/v1/attendance-sessions?${params.toString()}`);
-        setData(res.data);
-        setTotal(res.meta.total);
+        setData(res.data ?? []);
+        setTotal(res.meta?.total ?? 0);
       } catch {
         setData([]);
         setTotal(0);
@@ -112,17 +111,17 @@ export default function AttendancePage() {
 
   const columns = [
     {
-      key: 'date',
+      key: 'session_date',
       header: t('sessionDate'),
       render: (row: SessionRow) => (
-        <span className="font-medium font-mono text-text-primary text-xs">{row.date}</span>
+        <span className="font-medium font-mono text-text-primary text-xs">{row.session_date}</span>
       ),
     },
     {
-      key: 'class',
+      key: 'class_entity',
       header: 'Class',
       render: (row: SessionRow) => (
-        <span className="font-medium text-text-primary">{row.class.name}</span>
+        <span className="font-medium text-text-primary">{row.class_entity?.name ?? '—'}</span>
       ),
     },
     {
@@ -131,18 +130,11 @@ export default function AttendancePage() {
       render: (row: SessionRow) => <AttendanceStatusBadge status={row.status} type="session" />,
     },
     {
-      key: 'teacher',
-      header: 'Teacher',
-      render: (row: SessionRow) => (
-        <span className="text-text-secondary">{row.teacher?.name ?? '—'}</span>
-      ),
-    },
-    {
       key: 'count',
-      header: `${t('markedCount')} / ${t('enrolledCount')}`,
+      header: t('markedCount'),
       render: (row: SessionRow) => (
         <span className="text-text-secondary">
-          {row.marked_count} / {row.enrolled_count}
+          {row._count?.records ?? 0}
         </span>
       ),
     },

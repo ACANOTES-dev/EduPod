@@ -28,7 +28,7 @@ interface AcademicYear {
 
 interface StaffMember {
   id: string;
-  name: string;
+  name: string; // derived from user.first_name + user.last_name
 }
 
 interface DayEntry {
@@ -135,11 +135,14 @@ export default function AvailabilityPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
-      apiClient<{ data: StaffMember[] }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
     ])
       .then(([yearsRes, staffRes]) => {
         setAcademicYears(yearsRes.data);
-        setStaff(staffRes.data);
+        setStaff((staffRes.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        })));
         if (yearsRes.data.length > 0 && yearsRes.data[0]) {
           setSelectedYear(yearsRes.data[0].id);
         }
@@ -151,12 +154,17 @@ export default function AvailabilityPage() {
   React.useEffect(() => {
     if (!selectedStaff || !selectedYear) return;
     setIsLoading(true);
-    apiClient<AvailabilityRecord>(
-      `/api/v1/staff-availability/${selectedStaff}?academic_year_id=${selectedYear}`,
+    apiClient<Array<{ id: string; weekday: number; available_from: string; available_to: string }> | { data: Array<{ id: string; weekday: number; available_from: string; available_to: string }> }>(
+      `/api/v1/staff-availability?staff_profile_id=${selectedStaff}&academic_year_id=${selectedYear}`,
     )
       .then((res) => {
-        setEntries(res.entries ?? []);
-        setRecordId(res.id);
+        const records = Array.isArray(res) ? res : (res.data ?? []);
+        setEntries(records.map((r) => ({
+          weekday: r.weekday,
+          from_time: r.available_from,
+          to_time: r.available_to,
+        })));
+        setRecordId(records[0]?.id ?? null);
       })
       .catch(() => {
         setEntries([]);
@@ -184,12 +192,14 @@ export default function AvailabilityPage() {
     if (!selectedStaff || !selectedYear) return;
     setIsSaving(true);
     try {
-      await apiClient(`/api/v1/staff-availability`, {
+      await apiClient(`/api/v1/staff-availability/staff/${selectedStaff}/year/${selectedYear}`, {
         method: 'PUT',
         body: JSON.stringify({
-          staff_profile_id: selectedStaff,
-          academic_year_id: selectedYear,
-          entries,
+          entries: entries.map((e) => ({
+            weekday: e.weekday,
+            available_from: e.from_time,
+            available_to: e.to_time,
+          })),
         }),
       });
       toast.success('Availability saved');
