@@ -34,10 +34,13 @@ interface Assessment {
   id: string;
   title: string;
   class_id: string;
-  class_name: string;
-  subject_name: string;
+  class_name?: string;
+  subject_name?: string;
+  class_entity?: { id: string; name: string };
+  subject?: { id: string; name: string; code?: string };
+  category?: { id: string; name: string };
   status: string;
-  category_name: string;
+  category_name?: string;
   max_score: number;
   due_date: string | null;
 }
@@ -88,7 +91,7 @@ export default function GradebookPage() {
     async (year: string, period: string) => {
       setIsLoading(true);
       try {
-        const params = new URLSearchParams({ pageSize: '500' });
+        const params = new URLSearchParams({ pageSize: '100' });
         if (year !== 'all') params.set('academic_year_id', year);
         if (period !== 'all') params.set('academic_period_id', period);
         const res = await apiClient<AssessmentsResponse>(
@@ -104,8 +107,8 @@ export default function GradebookPage() {
           } else {
             grouped.set(a.class_id, {
               class_id: a.class_id,
-              class_name: a.class_name,
-              subject_name: a.subject_name,
+              class_name: a.class_name ?? a.class_entity?.name ?? '—',
+              subject_name: a.subject_name ?? a.subject?.name ?? '—',
               assessment_count: 1,
             });
           }
