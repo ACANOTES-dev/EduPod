@@ -30,7 +30,12 @@ function formatCurrency(value: number): string {
 interface CompensationRecord {
   id: string;
   staff_profile_id: string;
-  staff_name: string;
+  staff_name?: string;
+  staff_profile?: {
+    id: string;
+    staff_number: string;
+    user: { first_name: string; last_name: string };
+  };
   compensation_type: 'salaried' | 'per_class';
   base_salary: number | null;
   per_class_rate: number | null;
@@ -98,7 +103,7 @@ export default function CompensationListPage() {
       key: 'staff_name',
       header: t('staffName'),
       render: (row: CompensationRecord) => (
-        <span className="font-medium text-text-primary">{row.staff_name}</span>
+        <span className="font-medium text-text-primary">{row.staff_name ?? (row.staff_profile?.user ? `${row.staff_profile.user.first_name} ${row.staff_profile.user.last_name}` : '—')}</span>
       ),
     },
     {

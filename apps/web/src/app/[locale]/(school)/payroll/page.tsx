@@ -16,18 +16,23 @@ function formatCurrency(value: number): string {
 }
 
 interface DashboardData {
-  current_run: {
+  latest_run: {
     id: string;
     period_label: string;
     status: string;
     headcount: number;
     total_pay: number;
+    total_basic_pay: number;
+    total_bonus_pay: number;
   } | null;
-  stats: {
-    total_pay_this_month: number;
+  latest_finalised: {
+    id: string;
+    period_label: string;
+    total_pay: number;
+    total_basic_pay: number;
+    total_bonus_pay: number;
     headcount: number;
-    total_bonus: number;
-  };
+  } | null;
   cost_trend: {
     period_month: number;
     period_year: number;
@@ -42,6 +47,7 @@ interface DashboardData {
     compensation_type: string;
     missing_field: string;
   }[];
+  current_draft_id: string | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -104,8 +110,8 @@ export default function PayrollDashboardPage() {
         title={t('dashboard')}
         actions={
           <div className="flex items-center gap-2">
-            {data?.current_run?.status === 'draft' ? (
-              <Button onClick={() => router.push(`/${locale}/payroll/runs/${data.current_run!.id}`)}>
+            {data?.latest_run?.status === 'draft' ? (
+              <Button onClick={() => router.push(`/${locale}/payroll/runs/${data.latest_run!.id}`)}>
                 {t('continueDraft')}
               </Button>
             ) : (
@@ -119,24 +125,24 @@ export default function PayrollDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label={t('totalPayThisMonth')} value={formatCurrency(data?.stats?.total_pay_this_month ?? 0)} />
-        <StatCard label={t('headcount')} value={String(data?.stats?.headcount ?? 0)} />
-        <StatCard label={t('totalBonus')} value={formatCurrency(data?.stats?.total_bonus ?? 0)} />
+        <StatCard label={t('totalPayThisMonth')} value={formatCurrency(data?.latest_finalised?.total_pay ?? data?.latest_run?.total_pay ?? 0)} />
+        <StatCard label={t('headcount')} value={String(data?.latest_finalised?.headcount ?? data?.latest_run?.headcount ?? 0)} />
+        <StatCard label={t('totalBonus')} value={formatCurrency(data?.latest_finalised?.total_bonus_pay ?? data?.latest_run?.total_bonus_pay ?? 0)} />
       </div>
 
       {/* Current Run */}
-      {data?.current_run && (
+      {data?.latest_run && (
         <div className="rounded-2xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-text-primary">{t('currentRun')}</h3>
-              <p className="mt-1 text-lg font-medium text-text-primary">{data.current_run.period_label}</p>
+              <p className="mt-1 text-lg font-medium text-text-primary">{data.latest_run.period_label}</p>
             </div>
-            <StatusBadge status={data.current_run.status} />
+            <StatusBadge status={data.latest_run.status} />
           </div>
           <div className="mt-3 flex items-center gap-4 text-sm text-text-secondary">
-            <span>{t('headcount')}: {data.current_run.headcount}</span>
-            <span>{t('totalPay')}: {formatCurrency(data.current_run.total_pay)}</span>
+            <span>{t('headcount')}: {data.latest_run.headcount}</span>
+            <span>{t('totalPay')}: {formatCurrency(data.latest_run.total_pay)}</span>
           </div>
         </div>
       )}
