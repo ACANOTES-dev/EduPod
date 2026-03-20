@@ -95,6 +95,34 @@ export class PayrollRunsService {
     };
   }
 
+  async listEntries(tenantId: string, runId: string) {
+    const entries = await this.prisma.payrollEntry.findMany({
+      where: { payroll_run_id: runId, tenant_id: tenantId },
+      include: {
+        staff_profile: {
+          select: {
+            id: true,
+            staff_number: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+      orderBy: { created_at: 'asc' },
+    });
+
+    return {
+      data: entries.map((e) => ({
+        ...e,
+        staff_name: `${e.staff_profile.user.first_name} ${e.staff_profile.user.last_name}`,
+        basic_pay: Number(e.basic_pay),
+        bonus_pay: Number(e.bonus_pay),
+        total_pay: Number(e.total_pay),
+        snapshot_base_salary: e.snapshot_base_salary != null ? Number(e.snapshot_base_salary) : null,
+        snapshot_per_class_rate: e.snapshot_per_class_rate != null ? Number(e.snapshot_per_class_rate) : null,
+      })),
+    };
+  }
+
   async getRun(tenantId: string, runId: string) {
     const run = await this.prisma.payrollRun.findFirst({
       where: { id: runId, tenant_id: tenantId },

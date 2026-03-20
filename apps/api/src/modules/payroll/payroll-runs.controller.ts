@@ -86,6 +86,15 @@ export class PayrollRunsController {
     return this.payrollRunsService.updateRun(tenant.tenant_id, id, dto);
   }
 
+  @Get(':id/entries')
+  @RequiresPermission('payroll.view')
+  async listEntries(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.payrollRunsService.listEntries(tenant.tenant_id, id);
+  }
+
   @Post(':id/refresh-entries')
   @RequiresPermission('payroll.create_run')
   @HttpCode(HttpStatus.OK)
