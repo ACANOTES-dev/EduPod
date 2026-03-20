@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, CheckCircle, Clock, UserPlus, XCircle } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -200,26 +200,25 @@ function TimelineTab({ events }: { events: TimelineEvent[] }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function ApplicationDetailPage({ params }: PageProps) {
+export default function ApplicationDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [application, setApplication] = React.useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [actionLoading, setActionLoading] = React.useState(false);
 
   const fetchApplication = React.useCallback(async () => {
+    if (!id) return;
     try {
-      const res = await apiClient<ApplicationDetail>(`/api/v1/applications/${id}`);
-      setApplication(res);
+      const res = await apiClient<{ data: ApplicationDetail } | ApplicationDetail>(`/api/v1/applications/${id}`);
+      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: ApplicationDetail }).data : res as ApplicationDetail;
+      setApplication(data);
     } catch {
       toast.error('Failed to load application');
     } finally {

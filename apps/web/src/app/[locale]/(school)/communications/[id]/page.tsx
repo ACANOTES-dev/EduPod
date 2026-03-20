@@ -1,7 +1,7 @@
 'use client';
 
 import { Archive, ArrowLeft, Send } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -80,15 +80,12 @@ function DeliveryPanel({ stats }: { stats: DeliveryStats }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function AnnouncementDetailPage({ params }: PageProps) {
+export default function AnnouncementDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('communications');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { id } = params;
 
   const [announcement, setAnnouncement] = React.useState<AnnouncementDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -99,11 +96,13 @@ export default function AnnouncementDetailPage({ params }: PageProps) {
   const [body, setBody] = React.useState('');
 
   const fetchAnnouncement = React.useCallback(async () => {
+    if (!id) return;
     try {
-      const res = await apiClient<AnnouncementDetail>(`/api/v1/announcements/${id}`);
-      setAnnouncement(res);
-      setTitle(res.title);
-      setBody(res.body);
+      const res = await apiClient<{ data: AnnouncementDetail } | AnnouncementDetail>(`/api/v1/announcements/${id}`);
+      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: AnnouncementDetail }).data : res as AnnouncementDetail;
+      setAnnouncement(data);
+      setTitle(data.title);
+      setBody(data.body ?? '');
     } catch {
       toast.error('Failed to load announcement');
     } finally {

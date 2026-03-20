@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, Send, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -62,15 +62,12 @@ function MessageBubble({ message }: { message: Message }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function InquiryAdminDetailPage({ params }: PageProps) {
+export default function InquiryAdminDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('communications');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { id } = params;
 
   const [inquiry, setInquiry] = React.useState<InquiryDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -80,9 +77,11 @@ export default function InquiryAdminDetailPage({ params }: PageProps) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const fetchInquiry = React.useCallback(async () => {
+    if (!id) return;
     try {
-      const res = await apiClient<InquiryDetail>(`/api/v1/inquiries/${id}`);
-      setInquiry(res);
+      const res = await apiClient<{ data: InquiryDetail } | InquiryDetail>(`/api/v1/inquiries/${id}`);
+      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: InquiryDetail }).data : res as InquiryDetail;
+      setInquiry(data);
     } catch {
       toast.error('Failed to load inquiry');
     } finally {
