@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useParams, useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -22,25 +22,23 @@ interface ClassDetail {
   homeroom_teacher_staff_id: string | null;
 }
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function EditClassPage({ params }: PageProps) {
+export default function EditClassPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('classes');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [cls, setCls] = React.useState<ClassDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<ClassDetail>(`/api/v1/classes/${id}`)
-      .then((res) => setCls(res))
+    if (!id) return;
+    apiClient<{ data: ClassDetail }>(`/api/v1/classes/${id}`)
+      .then((res) => setCls(res.data))
       .catch(() => setError(t('loadError')))
       .finally(() => setLoading(false));
   }, [id, t]);
