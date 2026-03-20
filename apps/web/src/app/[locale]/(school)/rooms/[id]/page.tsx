@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Edit } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -87,25 +87,23 @@ function TimetableTab({ roomId }: { roomId: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function RoomDetailPage({ params }: PageProps) {
+export default function RoomDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('scheduling');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [room, setRoom] = React.useState<RoomDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<RoomDetail>(`/api/v1/rooms/${id}`)
-      .then((res) => setRoom(res))
+    if (!id) return;
+    apiClient<{ data: RoomDetail }>(`/api/v1/rooms/${id}`)
+      .then((res) => setRoom(res.data))
       .catch(() => setError('Failed to load room'))
       .finally(() => setLoading(false));
   }, [id]);

@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Lock, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -73,17 +73,14 @@ function DeleteDialog({ open, loading, onConfirm, onCancel }: DeleteDialogProps)
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function RoleDetailPage({ params }: PageProps) {
+export default function RoleDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('roles');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const localePrefix = '/' + ((pathname ?? '').split('/').filter(Boolean)[0] ?? 'en');
-  const { id } = params;
 
   const [role, setRole] = React.useState<RoleDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -108,12 +105,14 @@ export default function RoleDetailPage({ params }: PageProps) {
   // ─── Load role + all permissions ───────────────────────────────────────────
 
   React.useEffect(() => {
+    if (!id) return;
     async function load() {
       setLoading(true);
       setLoadError('');
       try {
         // Load target role
-        const roleDetail = await apiClient<RoleDetail>(`/api/v1/roles/${id}`);
+        const roleRes = await apiClient<{ data: RoleDetail }>(`/api/v1/roles/${id}`);
+        const roleDetail = roleRes.data;
         setRole(roleDetail);
         setDisplayName(roleDetail.display_name);
         setSelectedPermIds(roleDetail.role_permissions.map((rp) => rp.permission.id));
@@ -125,9 +124,10 @@ export default function RoleDetailPage({ params }: PageProps) {
           rolesRes.data.find((r) => r.is_system_role);
 
         if (systemRole && systemRole.id !== id) {
-          const ownerDetail = await apiClient<{
+          const ownerRes = await apiClient<{ data: {
             role_permissions: { permission: PermissionFromApi }[];
-          }>(`/api/v1/roles/${systemRole.id}`);
+          } }>(`/api/v1/roles/${systemRole.id}`);
+          const ownerDetail = ownerRes.data;
           setAvailablePermissions(
             ownerDetail.role_permissions.map((rp) => ({
               id: rp.permission.id,

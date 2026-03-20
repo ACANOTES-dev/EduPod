@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -51,17 +51,14 @@ interface ConversionPreview {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function ConversionPage({ params }: PageProps) {
+export default function ConversionPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [preview, setPreview] = React.useState<ConversionPreview | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -79,15 +76,17 @@ export default function ConversionPage({ params }: PageProps) {
   >([]);
 
   React.useEffect(() => {
-    apiClient<ConversionPreview>(`/api/v1/applications/${id}/conversion-preview`)
+    if (!id) return;
+    apiClient<{ data: ConversionPreview }>(`/api/v1/applications/${id}/conversion-preview`)
       .then((res) => {
-        setPreview(res);
-        setStudentFirstName(res.student.first_name);
-        setStudentLastName(res.student.last_name);
-        setStudentDob(res.student.date_of_birth ?? '');
-        setStudentGender(res.student.gender ?? '');
-        setHouseholdName(res.household.household_name);
-        setParentSelections(res.parents.map(() => ({ link_existing_id: null })));
+        const d = res.data;
+        setPreview(d);
+        setStudentFirstName(d.student.first_name);
+        setStudentLastName(d.student.last_name);
+        setStudentDob(d.student.date_of_birth ?? '');
+        setStudentGender(d.student.gender ?? '');
+        setHouseholdName(d.household.household_name);
+        setParentSelections(d.parents.map(() => ({ link_existing_id: null })));
       })
       .catch(() => toast.error('Failed to load conversion preview'))
       .finally(() => setLoading(false));

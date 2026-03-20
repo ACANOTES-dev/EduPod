@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -22,25 +22,23 @@ interface StaffDetail {
   user: { id: string; first_name: string; last_name: string };
 }
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function EditStaffPage({ params }: PageProps) {
+export default function EditStaffPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('staff');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [staff, setStaff] = React.useState<StaffDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<StaffDetail>(`/api/v1/staff-profiles/${id}`)
-      .then((res) => setStaff(res))
+    if (!id) return;
+    apiClient<{ data: StaffDetail }>(`/api/v1/staff-profiles/${id}`)
+      .then((res) => setStaff(res.data))
       .catch(() => setError(t('loadError')))
       .finally(() => setLoading(false));
   }, [id, t]);

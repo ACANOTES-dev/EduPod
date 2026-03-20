@@ -9,7 +9,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -321,17 +321,14 @@ function FieldCard({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function EditAdmissionFormPage({ params }: PageProps) {
+export default function EditAdmissionFormPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('admissions');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [formName, setFormName] = React.useState('');
   const [formStatus, setFormStatus] = React.useState<'draft' | 'published' | 'archived'>('draft');
@@ -341,13 +338,15 @@ export default function EditAdmissionFormPage({ params }: PageProps) {
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<AdmissionFormDetail>(`/api/v1/admission-forms/${id}`)
+    if (!id) return;
+    apiClient<{ data: AdmissionFormDetail }>(`/api/v1/admission-forms/${id}`)
       .then((res) => {
-        setFormName(res.name);
-        setFormStatus(res.status);
-        setFormVersion(res.version);
+        const d = res.data;
+        setFormName(d.name);
+        setFormStatus(d.status);
+        setFormVersion(d.version);
         setFields(
-          (res.fields ?? [])
+          (d.fields ?? [])
             .sort((a, b) => a.display_order - b.display_order)
             .map((f) => ({
               ...f,

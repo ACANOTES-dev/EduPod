@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Button } from '@school/ui';
@@ -25,25 +25,23 @@ interface FeeStructureDetail {
   year_group_id: string | null;
 }
 
-interface PageProps {
-  params: { id: string };
-}
-
-export default function EditFeeStructurePage({ params }: PageProps) {
+export default function EditFeeStructurePage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const t = useTranslations('finance');
   const tc = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const { id } = params;
 
   const [feeStructure, setFeeStructure] = React.useState<FeeStructureDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<FeeStructureDetail>(`/api/v1/finance/fee-structures/${id}`)
-      .then((res) => setFeeStructure(res))
+    if (!id) return;
+    apiClient<{ data: FeeStructureDetail }>(`/api/v1/finance/fee-structures/${id}`)
+      .then((res) => setFeeStructure(res.data))
       .catch(() => setError(t('feeStructures.loadError')))
       .finally(() => setLoading(false));
   }, [id, t]);

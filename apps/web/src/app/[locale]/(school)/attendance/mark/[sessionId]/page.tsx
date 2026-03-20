@@ -2,7 +2,7 @@
 
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import * as React from 'react';
 
 import {
@@ -49,15 +49,12 @@ const ATTENDANCE_STATUSES = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface PageProps {
-  params: { sessionId: string };
-}
-
-export default function MarkAttendancePage({ params }: PageProps) {
+export default function MarkAttendancePage() {
+  const params = useParams<{ sessionId: string }>();
+  const sessionId = params?.sessionId ?? '';
   const t = useTranslations('attendance');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { sessionId } = params;
 
   const [session, setSession] = React.useState<SessionDetail | null>(null);
   const [records, setRecords] = React.useState<StudentRecord[]>([]);
@@ -67,10 +64,11 @@ export default function MarkAttendancePage({ params }: PageProps) {
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<SessionResponse>(`/api/v1/attendance-sessions/${sessionId}`)
+    if (!sessionId) return;
+    apiClient<{ data: SessionResponse }>(`/api/v1/attendance-sessions/${sessionId}`)
       .then((res) => {
-        setSession(res.data);
-        setRecords(res.records ?? []);
+        setSession(res.data.data);
+        setRecords(res.data.records ?? []);
       })
       .catch(() => setError('Failed to load session'))
       .finally(() => setLoading(false));
