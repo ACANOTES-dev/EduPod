@@ -37,12 +37,7 @@ interface DayEntry {
   to_time: string;
 }
 
-interface AvailabilityRecord {
-  id: string;
-  staff_profile_id: string;
-  academic_year_id: string;
-  entries: DayEntry[];
-}
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
