@@ -855,10 +855,8 @@ export async function seedPeople(
     student_number: string;
     first_name: string;
     last_name: string;
-    full_name: string;
     first_name_ar: string;
     last_name_ar: string;
-    full_name_ar: string;
     date_of_birth: Date;
     gender: never;
     status: never;
@@ -958,10 +956,8 @@ export async function seedPeople(
           student_number: studentNumber,
           first_name: firstName,
           last_name: lastName,
-          full_name: fullName,
           first_name_ar: firstName,
           last_name_ar: lastName,
-          full_name_ar: fullName,
           date_of_birth: dob,
           gender: (isMale ? 'male' : 'female') as never,
           status: status as never,
