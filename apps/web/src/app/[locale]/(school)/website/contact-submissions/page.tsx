@@ -17,8 +17,8 @@ interface ContactSubmission {
   email: string;
   phone: string | null;
   message: string;
-  status: 'new' | 'reviewed' | 'closed' | 'spam';
-  submitted_at: string;
+  status: 'new_submission' | 'reviewed' | 'closed' | 'spam';
+  created_at: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ interface ContactSubmission {
 function SubmissionStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; variant: 'default' | 'secondary' | 'danger' }> = {
     new: { label: 'New', variant: 'default' },
+    new_submission: { label: 'New', variant: 'default' },
     reviewed: { label: 'Reviewed', variant: 'secondary' },
     closed: { label: 'Closed', variant: 'secondary' },
     spam: { label: 'Spam', variant: 'danger' },
@@ -106,7 +107,7 @@ export default function ContactSubmissionsPage() {
   };
 
   const statusTabs = [
-    { key: 'new', label: 'New' },
+    { key: 'new_submission', label: 'New' },
     { key: 'reviewed', label: 'Reviewed' },
     { key: 'closed', label: 'Closed' },
     { key: 'spam', label: 'Spam' },
@@ -260,7 +261,7 @@ export default function ContactSubmissionsPage() {
                           <SubmissionStatusBadge status={row.status} />
                         </td>
                         <td className="px-4 py-3 text-sm text-text-secondary">
-                          {new Date(row.submitted_at).toLocaleDateString()}
+                          {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
                         </td>
                       </tr>
 
