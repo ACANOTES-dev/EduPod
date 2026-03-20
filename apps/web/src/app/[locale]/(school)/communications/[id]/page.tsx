@@ -98,11 +98,10 @@ export default function AnnouncementDetailPage() {
   const fetchAnnouncement = React.useCallback(async () => {
     if (!id) return;
     try {
-      const res = await apiClient<{ data: AnnouncementDetail } | AnnouncementDetail>(`/api/v1/announcements/${id}`);
-      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: AnnouncementDetail }).data : res as AnnouncementDetail;
-      setAnnouncement(data);
-      setTitle(data.title);
-      setBody(data.body ?? '');
+      const res = await apiClient<{ data: AnnouncementDetail }>(`/api/v1/announcements/${id}`);
+      setAnnouncement(res.data);
+      setTitle(res.data.title);
+      setBody(res.data.body ?? '');
     } catch {
       toast.error('Failed to load announcement');
     } finally {

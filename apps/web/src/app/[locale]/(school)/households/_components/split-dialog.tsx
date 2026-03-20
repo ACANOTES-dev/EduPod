@@ -20,7 +20,9 @@ import { apiClient } from '@/lib/api-client';
 
 interface Student {
   id: string;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   status: string;
 }
 
@@ -199,7 +201,7 @@ export function SplitDialog({
                     onCheckedChange={() => toggleStudent(student.id)}
                   />
                   <Label htmlFor={`split_student_${student.id}`} className="cursor-pointer">
-                    {student.full_name}
+                    {student.full_name || `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim()}
                   </Label>
                 </div>
               ))}

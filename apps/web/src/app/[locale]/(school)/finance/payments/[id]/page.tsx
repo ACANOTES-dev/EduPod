@@ -19,12 +19,13 @@ import { AllocationPanel } from '../_components/allocation-panel';
 
 interface Allocation {
   id: string;
-  amount: number;
+  amount?: number;
+  allocated_amount?: number;
   created_at: string;
   invoice: {
     id: string;
     invoice_number: string;
-    due_date: string;
+    due_date?: string;
     total_amount: number;
     balance_amount: number;
   };
@@ -255,7 +256,7 @@ export default function PaymentDetailPage() {
                   </td>
                   <td className="px-4 py-3 text-end text-sm font-medium text-text-primary">
                     <CurrencyDisplay
-                      amount={alloc.amount}
+                      amount={alloc.allocated_amount ?? alloc.amount ?? 0}
                       currency_code={payment.currency_code}
                     />
                   </td>

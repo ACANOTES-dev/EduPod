@@ -79,9 +79,8 @@ export default function InquiryAdminDetailPage() {
   const fetchInquiry = React.useCallback(async () => {
     if (!id) return;
     try {
-      const res = await apiClient<{ data: InquiryDetail } | InquiryDetail>(`/api/v1/inquiries/${id}`);
-      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: InquiryDetail }).data : res as InquiryDetail;
-      setInquiry(data);
+      const res = await apiClient<{ data: InquiryDetail }>(`/api/v1/inquiries/${id}`);
+      setInquiry(res.data);
     } catch {
       toast.error('Failed to load inquiry');
     } finally {

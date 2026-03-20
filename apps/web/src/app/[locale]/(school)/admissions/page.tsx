@@ -113,7 +113,7 @@ export default function AdmissionsPage() {
       key: 'student_name',
       header: t('studentName'),
       render: (row: Application) => (
-        <span className="font-medium text-text-primary">{row.student_name ?? `${row.student_first_name ?? ''} ${row.student_last_name ?? ''}`.trim() || '—'}</span>
+        <span className="font-medium text-text-primary">{row.student_name ?? (`${row.student_first_name ?? ''} ${row.student_last_name ?? ''}`.trim() || '—')}</span>
       ),
     },
     {

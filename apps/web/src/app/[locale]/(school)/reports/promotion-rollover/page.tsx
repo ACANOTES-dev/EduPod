@@ -69,13 +69,10 @@ export default function PromotionRolloverPage() {
   React.useEffect(() => {
     if (!yearFilter) return;
     setIsLoading(true);
-    apiClient<{ data: PromotionReport } | PromotionReport>(
+    apiClient<{ data: PromotionReport }>(
       `/api/v1/reports/promotion-rollover?academic_year_id=${yearFilter}`,
     )
-      .then((res) => {
-        const data = 'data' in res && res.data && typeof res.data === 'object' && 'summary' in (res.data as Record<string, unknown>) ? (res as { data: PromotionReport }).data : res as PromotionReport;
-        setReport(data);
-      })
+      .then((res) => setReport(res.data))
       .catch(() => setReport(null))
       .finally(() => setIsLoading(false));
   }, [yearFilter]);

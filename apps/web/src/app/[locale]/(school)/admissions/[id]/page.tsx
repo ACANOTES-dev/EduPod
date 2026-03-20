@@ -216,9 +216,8 @@ export default function ApplicationDetailPage() {
   const fetchApplication = React.useCallback(async () => {
     if (!id) return;
     try {
-      const res = await apiClient<{ data: ApplicationDetail } | ApplicationDetail>(`/api/v1/applications/${id}`);
-      const data = 'data' in res && res.data && typeof res.data === 'object' && 'id' in (res.data as Record<string, unknown>) ? (res as { data: ApplicationDetail }).data : res as ApplicationDetail;
-      setApplication(data);
+      const res = await apiClient<{ data: ApplicationDetail }>(`/api/v1/applications/${id}`);
+      setApplication(res.data);
     } catch {
       toast.error('Failed to load application');
     } finally {
