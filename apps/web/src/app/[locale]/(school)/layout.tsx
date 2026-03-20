@@ -238,6 +238,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
                 <button
                   className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
                   onClick={() => setMobileSidebarOpen(true)}
+                  aria-label="Open menu"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
