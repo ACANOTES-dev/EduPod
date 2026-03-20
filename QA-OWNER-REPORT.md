@@ -852,6 +852,71 @@ These 25 tests + the 51 bugs found = the complete QA backlog for the owner role.
 
 ---
 
-*End of QA Owner Testing Report — Deep Testing Complete*
+---
+
+## Part 13: Bug Fix Progress Log
+
+**14 commits pushed fixing bugs. Server rebuild required before verification.**
+
+### Bugs Fixed (code committed + pushed, needs deployment):
+
+| Bug | Status | Fix Description |
+|-----|--------|----------------|
+| BUG-C01 | FIXED | Attendance: aligned SessionRow with API (class_entity, session_date, _count) |
+| BUG-C02 | FIXED | Period Grid: handle raw array response, use period_name/schedule_period_type |
+| BUG-C03 | FIXED | Availability: map staff names, fix API URL, map field names |
+| BUG-C05 | FIXED | Finance NaN: use subtotal_amount, compute paid from total-balance, compute allocated from allocations array |
+| BUG-C06 | FIXED | Class enrolments: guard meta.total; added GET /classes/:id/staff endpoint |
+| BUG-C07 | FIXED | Announcement detail: useParams() + unwrap res.data |
+| BUG-C08 | FIXED | Inquiry detail: useParams() + unwrap res.data |
+| BUG-C09 | FIXED | Admission form: was same params pattern (fixed via bulk fix) |
+| BUG-H05 | FIXED | Admissions: read student_first_name/student_last_name + form_definition.name |
+| BUG-H06 | FIXED | Application detail: useParams() + unwrap res.data |
+| BUG-H07 | FIXED | Staff detail: useParams() + unwrap res.data |
+| BUG-H08 | FIXED | Payroll entries: added GET /payroll/runs/:id/entries endpoint |
+| BUG-H09 | FIXED | Payroll dashboard: use latest_run/latest_finalised fields |
+| BUG-H10 | FIXED | Compensation: read staff name from nested staff_profile.user |
+| BUG-H13 | FALSE POSITIVE | Mobile menu button exists (had lg:hidden), added aria-label |
+| BUG-H14 | FIXED | Class edit: useParams() + unwrap res.data |
+| BUG-M01 | FIXED | Household parents: read from household_parents join table |
+| BUG-M02 | FIXED | Student enrolments: read class_entity.name |
+| BUG-M03 | FIXED | Household students: show first_name + last_name |
+| BUG-M04 | FIXED | Inquiries: read parent/student from nested objects + _count.messages |
+| BUG-M05 | FIXED | Refunds: read from nested payment/requested_by objects |
+| BUG-M06 | FIXED | Academic years: added _count.periods include to findAll, fixed frontend field name |
+| BUG-M07 | FIXED | Assessment categories: guard meta.total |
+| BUG-M08 | FIXED | Closures: use closure_date, fix scope/created_by fields |
+| BUG-M12 | FIXED | Contact submissions: use created_at instead of submitted_at, fix status enum |
+| + 9 pages | FIXED | Bulk fix of params pattern across rooms, staff/edit, fee-structures, discounts, admissions/convert, admissions/forms, roles, inquiries, attendance/mark |
+
+### Bugs Still Open:
+
+| Bug | Status | Blocker |
+|-----|--------|---------|
+| BUG-C04 | OPEN | Gradebook API error — needs backend investigation |
+| BUG-H01-H04 | OPEN | Finance i18n ~80 missing keys — agent collecting list |
+| BUG-H11 | OPEN | Promotion Rollover report blank — needs investigation |
+| BUG-M09 | OPEN | Arabic locale gaps |
+| BUG-M11 | OPEN | Command palette search returns 0 |
+| BUG-M13 | OPEN | Curriculum NaN |
+| BUG-M14 | OPEN | Admissions analytics contradictory text |
+| BUG-M15 | OPEN | Household → Finance cross-reference (UX enhancement) |
+| BUG-M16 | OPEN | Promotion wizard steps 2-5 blank |
+| BUG-M17 | OPEN | Auto-scheduler blank after year selection |
+| BUG-M18 | OPEN | Execute refund API error |
+| BUG-M19 | OPEN | Student Change Status dropdown |
+| BUG-M20 | OPEN | New Student form validation |
+| BUG-H12 | OPEN | Student creation (may be test artifact) |
+| BUG-L01 | OPEN | Wrong page titles |
+| BUG-L06 | OPEN | Announcement scope i18n |
+| BUG-L07 | OPEN | Alt+T shortcut |
+
+**To deploy:** On the server, run:
+```bash
+cd /opt/edupod/app && git pull origin main && pnpm install && pnpm --filter @school/prisma generate && pnpm build && pm2 restart all
+```
+
+*End of QA Owner Testing Report — Deep Testing + Bug Fixing In Progress*
 *Report file: QA-OWNER-REPORT.md*
 *Testing scope: 61 page loads + 95 interactive flows + 25 deferred tests = 181 total test items*
+*Fixes: 14 commits, ~33 bugs fixed, ~18 bugs remaining*
