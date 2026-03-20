@@ -16,11 +16,11 @@ import { ClosureForm } from './_components/closure-form';
 
 interface ClosureRow {
   id: string;
-  date: string;
+  closure_date: string;
   reason: string;
-  scope: string;
-  entity_name?: string;
-  created_by_name?: string;
+  affects_scope: string;
+  scope_entity_id?: string | null;
+  created_by?: { first_name: string; last_name: string } | null;
 }
 
 interface ClosuresResponse {
@@ -80,7 +80,7 @@ export default function ClosuresPage() {
       key: 'date',
       header: t('closureDate'),
       render: (row: ClosureRow) => (
-        <span className="font-medium font-mono text-text-primary text-xs">{row.date}</span>
+        <span className="font-medium font-mono text-text-primary text-xs">{row.closure_date ? new Date(row.closure_date).toLocaleDateString('en-GB') : '—'}</span>
       ),
     },
     {
@@ -94,14 +94,14 @@ export default function ClosuresPage() {
       key: 'scope',
       header: t('scope'),
       render: (row: ClosureRow) => (
-        <Badge variant="secondary" className="capitalize">{scopeLabel(row.scope, row.entity_name)}</Badge>
+        <Badge variant="secondary" className="capitalize">{scopeLabel(row.affects_scope, row.scope_entity_id ?? undefined)}</Badge>
       ),
     },
     {
       key: 'created_by',
       header: 'Created By',
       render: (row: ClosureRow) => (
-        <span className="text-text-tertiary text-xs">{row.created_by_name ?? '—'}</span>
+        <span className="text-text-tertiary text-xs">{row.created_by ? `${row.created_by.first_name} ${row.created_by.last_name}` : '—'}</span>
       ),
     },
     {

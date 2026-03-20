@@ -22,9 +22,15 @@ import { formatDate } from '@/lib/format-date';
 interface ClassEnrolment {
   id: string;
   class_id: string;
-  class_name: string;
+  class_name?: string;
   subject_name?: string;
   status: string;
+  class_entity?: {
+    id: string;
+    name: string;
+    subject?: { name: string } | null;
+    academic_year?: { name: string } | null;
+  };
 }
 
 interface Parent {
@@ -260,9 +266,9 @@ export default function StudentHubPage() {
               className="flex items-center justify-between px-4 py-3"
             >
               <div>
-                <p className="text-sm font-medium text-text-primary">{enrolment.class_name}</p>
-                {enrolment.subject_name && (
-                  <p className="text-xs text-text-tertiary">{enrolment.subject_name}</p>
+                <p className="text-sm font-medium text-text-primary">{enrolment.class_entity?.name ?? enrolment.class_name ?? '—'}</p>
+                {(enrolment.class_entity?.subject?.name ?? enrolment.subject_name) && (
+                  <p className="text-xs text-text-tertiary">{enrolment.class_entity?.subject?.name ?? enrolment.subject_name}</p>
                 )}
               </div>
               <StatusBadge

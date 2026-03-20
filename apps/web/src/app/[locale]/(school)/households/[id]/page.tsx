@@ -33,7 +33,9 @@ interface EmergencyContact {
 
 interface Student {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
   status: string;
   year_group?: { name: string } | null;
 }
@@ -45,7 +47,12 @@ interface Parent {
   relationship_label?: string | null;
   is_primary_contact: boolean;
   is_billing_contact: boolean;
-  status: string;
+  status?: string;
+}
+
+interface HouseholdParentJoin {
+  parent: Parent;
+  role_label?: string;
 }
 
 interface Household {
@@ -61,6 +68,7 @@ interface Household {
   primary_billing_parent_id?: string | null;
   students?: Student[];
   parents?: Parent[];
+  household_parents?: HouseholdParentJoin[];
   emergency_contacts?: EmergencyContact[];
 }
 
@@ -201,7 +209,13 @@ export default function HouseholdHubPage() {
   }
 
   const students = household.students ?? [];
-  const parents = household.parents ?? [];
+  // Backend may return parents via household_parents join table or flat parents array
+  const parents: Parent[] = household.parents?.length
+    ? household.parents
+    : (household.household_parents ?? []).map((hp) => ({
+        ...hp.parent,
+        relationship_label: hp.role_label ?? hp.parent.relationship_label ?? null,
+      }));
   const contacts = household.emergency_contacts ?? [];
 
   const actions = (
@@ -276,7 +290,7 @@ export default function HouseholdHubPage() {
               <EntityLink
                 entityType="student"
                 entityId={student.id}
-                label={student.full_name}
+                label={student.full_name || `${student.first_name} ${student.last_name}`}
                 href={`/students/${student.id}`}
               />
               <div className="flex items-center gap-2">
