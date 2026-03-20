@@ -287,7 +287,8 @@ export class ClassesService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const staff = await prismaWithRls.$transaction(async (tx) => {
-      return tx.classStaff.findMany({
+      const db = tx as unknown as typeof this.prisma;
+      return db.classStaff.findMany({
         where: { class_id: classId, tenant_id: tenantId },
         include: {
           staff_profile: {
@@ -300,8 +301,15 @@ export class ClassesService {
       });
     });
 
+    const results = staff as Array<{
+      class_id: string;
+      staff_profile_id: string;
+      assignment_role: string;
+      staff_profile: { id: string; user: { first_name: string; last_name: string } };
+    }>;
+
     return {
-      data: staff.map((s) => ({
+      data: results.map((s) => ({
         id: `${s.class_id}_${s.staff_profile_id}_${s.assignment_role}`,
         role: s.assignment_role,
         staff_profile: s.staff_profile,
