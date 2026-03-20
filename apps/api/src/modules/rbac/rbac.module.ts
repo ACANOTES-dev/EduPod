@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { InvitationsController } from './invitations.controller';
@@ -8,6 +9,7 @@ import { RolesController } from './roles.controller';
 import { RolesService } from './roles.service';
 
 @Module({
+  imports: [BullModule.registerQueue({ name: 'notifications' })],
   controllers: [RolesController, MembershipsController, InvitationsController],
   providers: [RolesService, MembershipsService, InvitationsService],
   exports: [RolesService, MembershipsService, InvitationsService],
