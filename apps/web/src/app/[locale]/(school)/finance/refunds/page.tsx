@@ -25,14 +25,20 @@ import { apiClient } from '@/lib/api-client';
 interface Refund {
   id: string;
   refund_reference: string;
-  payment_reference: string;
-  household_name: string;
+  payment_reference?: string;
+  household_name?: string;
   amount: number;
-  currency_code: string;
+  currency_code?: string;
   status: RefundStatus;
-  requested_by_name: string;
+  requested_by_name?: string;
   reason: string;
   created_at: string;
+  payment?: {
+    id: string;
+    payment_reference: string;
+    household?: { id: string; household_name: string };
+  };
+  requested_by?: { id: string; first_name: string; last_name: string } | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -134,14 +140,14 @@ export default function RefundsPage() {
       key: 'payment_reference',
       header: t('paymentReference'),
       render: (row: Refund) => (
-        <span className="font-mono text-xs text-text-secondary">{row.payment_reference}</span>
+        <span className="font-mono text-xs text-text-secondary">{row.payment_reference ?? row.payment?.payment_reference ?? '—'}</span>
       ),
     },
     {
       key: 'household_name',
       header: t('household'),
       render: (row: Refund) => (
-        <span className="font-medium text-text-primary">{row.household_name}</span>
+        <span className="font-medium text-text-primary">{row.household_name ?? row.payment?.household?.household_name ?? '—'}</span>
       ),
     },
     {
@@ -162,7 +168,7 @@ export default function RefundsPage() {
       key: 'requested_by_name',
       header: t('requestedBy'),
       render: (row: Refund) => (
-        <span className="text-sm text-text-secondary">{row.requested_by_name}</span>
+        <span className="text-sm text-text-secondary">{row.requested_by_name ?? (row.requested_by ? `${row.requested_by.first_name} ${row.requested_by.last_name}` : '—')}</span>
       ),
     },
     {

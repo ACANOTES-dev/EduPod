@@ -18,11 +18,14 @@ type InquiryStatus = 'open' | 'in_progress' | 'closed';
 interface Inquiry {
   id: string;
   subject: string;
-  parent_name: string;
-  student_name: string | null;
+  parent_name?: string;
+  student_name?: string | null;
+  parent?: { id: string; first_name: string; last_name: string } | null;
+  student?: { id: string; first_name: string; last_name: string } | null;
+  _count?: { messages: number };
   status: InquiryStatus;
-  message_count: number;
-  last_message_at: string | null;
+  message_count?: number;
+  last_message_at?: string | null;
   created_at: string;
 }
 
@@ -90,14 +93,14 @@ export default function CommunicationsInquiriesPage() {
       key: 'parent_name',
       header: t('columns.parent'),
       render: (row: Inquiry) => (
-        <span className="text-text-secondary">{row.parent_name}</span>
+        <span className="text-text-secondary">{row.parent_name ?? (row.parent ? `${row.parent.first_name} ${row.parent.last_name}` : '—')}</span>
       ),
     },
     {
       key: 'student_name',
       header: t('columns.student'),
       render: (row: Inquiry) => (
-        <span className="text-text-secondary">{row.student_name ?? '—'}</span>
+        <span className="text-text-secondary">{row.student_name ?? (row.student ? `${row.student.first_name} ${row.student.last_name}` : '—')}</span>
       ),
     },
     {
@@ -113,7 +116,7 @@ export default function CommunicationsInquiriesPage() {
       key: 'message_count',
       header: t('columns.messages'),
       render: (row: Inquiry) => (
-        <span className="text-sm text-text-secondary">{row.message_count}</span>
+        <span className="text-sm text-text-secondary">{row.message_count ?? row._count?.messages ?? 0}</span>
       ),
     },
     {
