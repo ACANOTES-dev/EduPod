@@ -1969,6 +1969,7 @@
       "closed": "Closed"
     },
     "scope": {
+      "school": "School-wide",
       "school_wide": "School-wide",
       "year_group": "Year Group",
       "class": "Class",
