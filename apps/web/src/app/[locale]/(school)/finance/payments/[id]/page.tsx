@@ -42,8 +42,6 @@ interface PaymentDetail {
   id: string;
   payment_reference: string;
   amount: number;
-  allocated_amount: number;
-  unallocated_amount: number;
   payment_method: PaymentMethod;
   status: PaymentStatus;
   received_at: string;
@@ -56,6 +54,9 @@ interface PaymentDetail {
   };
   allocations: Allocation[];
   refunds: Refund[];
+  // Computed on frontend
+  allocated_amount: number;
+  unallocated_amount: number;
 }
 
 const paymentStatusVariantMap: Record<
@@ -99,7 +100,13 @@ export default function PaymentDetailPage() {
       const res = await apiClient<{ data: PaymentDetail }>(
         `/api/v1/finance/payments/${id}`,
       );
-      setPayment(res.data);
+      const p = res.data;
+      const allocatedAmt = (p.allocations ?? []).reduce((sum: number, a: Allocation) => sum + (a.allocated_amount ?? a.amount ?? 0), 0);
+      setPayment({
+        ...p,
+        allocated_amount: allocatedAmt,
+        unallocated_amount: (p.amount ?? 0) - allocatedAmt,
+      });
     } catch {
       // handled by empty state
     } finally {

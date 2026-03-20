@@ -50,11 +50,10 @@ interface InvoiceDetail {
   id: string;
   invoice_number: string;
   status: InvoiceStatus;
-  subtotal: number;
+  subtotal_amount: number;
   discount_amount: number;
   tax_amount: number;
   total_amount: number;
-  paid_amount: number;
   balance_amount: number;
   due_date: string;
   issue_date: string | null;
@@ -151,7 +150,7 @@ export default function InvoiceDetailPage() {
       label: 'Subtotal',
       value: (
         <CurrencyDisplay
-          amount={invoice.subtotal}
+          amount={invoice.subtotal_amount}
           currency_code={invoice.currency_code}
         />
       ),
@@ -189,7 +188,7 @@ export default function InvoiceDetailPage() {
       label: 'Paid',
       value: (
         <CurrencyDisplay
-          amount={invoice.paid_amount}
+          amount={invoice.total_amount - invoice.balance_amount}
           currency_code={invoice.currency_code}
           className="text-success-text"
         />
