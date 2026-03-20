@@ -78,6 +78,9 @@ export class AcademicYearsService {
         skip,
         take: pageSize,
         orderBy: { start_date: 'desc' },
+        include: {
+          _count: { select: { periods: true } },
+        },
       }),
       this.prisma.academicYear.count({ where }),
     ]);

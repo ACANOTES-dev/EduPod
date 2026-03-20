@@ -32,7 +32,7 @@ interface AcademicYear {
   start_date: string;
   end_date: string;
   status: string;
-  _count?: { academic_periods: number };
+  _count?: { periods: number; academic_periods?: number };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ export default function AcademicYearsPage() {
                 </span>
                 {statusBadge(year.status)}
                 <span className="text-xs text-text-tertiary">
-                  {year._count?.academic_periods ?? 0} {t('periods')}
+                  {year._count?.periods ?? year._count?.academic_periods ?? 0} {t('periods')}
                 </span>
                 <div className="ms-auto flex items-center gap-2">
                   {/* Status transition */}

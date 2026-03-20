@@ -21,8 +21,11 @@ import { apiClient } from '@/lib/api-client';
 interface Application {
   id: string;
   application_number: string;
-  student_name: string;
-  form_name: string;
+  student_name?: string;
+  student_first_name?: string;
+  student_last_name?: string;
+  form_name?: string;
+  form_definition?: { id: string; name: string };
   status: string;
   submitted_at: string | null;
 }
@@ -110,14 +113,14 @@ export default function AdmissionsPage() {
       key: 'student_name',
       header: t('studentName'),
       render: (row: Application) => (
-        <span className="font-medium text-text-primary">{row.student_name}</span>
+        <span className="font-medium text-text-primary">{row.student_name ?? `${row.student_first_name ?? ''} ${row.student_last_name ?? ''}`.trim() || '—'}</span>
       ),
     },
     {
       key: 'form_name',
       header: t('forms'),
       render: (row: Application) => (
-        <span className="text-sm text-text-secondary">{row.form_name}</span>
+        <span className="text-sm text-text-secondary">{row.form_name ?? row.form_definition?.name ?? '—'}</span>
       ),
     },
     {
