@@ -17,15 +17,15 @@ import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
 const tabs = [
-  { key: 'dashboard', href: '/finance', icon: LayoutDashboard, exact: true },
-  { key: 'feeStructures', href: '/finance/fee-structures', icon: Calculator },
-  { key: 'discounts', href: '/finance/discounts', icon: Percent },
-  { key: 'feeAssignments', href: '/finance/fee-assignments', icon: FileText },
-  { key: 'feeGeneration', href: '/finance/fee-generation', icon: Zap },
-  { key: 'invoices', href: '/finance/invoices', icon: Receipt },
-  { key: 'payments', href: '/finance/payments', icon: CreditCard },
-  { key: 'refunds', href: '/finance/refunds', icon: RotateCcw },
-  { key: 'statements', href: '/finance/statements', icon: ScrollText },
+  { key: 'dashboard', label: 'navDashboard', href: '/finance', icon: LayoutDashboard, exact: true },
+  { key: 'feeStructures', label: 'navFeeStructures', href: '/finance/fee-structures', icon: Calculator },
+  { key: 'discounts', label: 'navDiscounts', href: '/finance/discounts', icon: Percent },
+  { key: 'feeAssignments', label: 'navFeeAssignments', href: '/finance/fee-assignments', icon: FileText },
+  { key: 'feeGeneration', label: 'navFeeGeneration', href: '/finance/fee-generation', icon: Zap },
+  { key: 'invoices', label: 'navInvoices', href: '/finance/invoices', icon: Receipt },
+  { key: 'payments', label: 'navPayments', href: '/finance/payments', icon: CreditCard },
+  { key: 'refunds', label: 'navRefunds', href: '/finance/refunds', icon: RotateCcw },
+  { key: 'statements', label: 'navStatements', href: '/finance/statements', icon: ScrollText },
 ];
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {
@@ -52,7 +52,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
               }`}
             >
               <tab.icon className="h-4 w-4" />
-              {t(tab.key)}
+              {t(tab.label)}
             </Link>
           );
         })}
