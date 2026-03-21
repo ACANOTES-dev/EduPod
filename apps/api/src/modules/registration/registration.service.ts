@@ -11,6 +11,19 @@ import { InvoicesService } from '../finance/invoices.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
+export interface RegistrationResult {
+  household_id: string;
+  household_number: string;
+  primary_parent_id: string;
+  secondary_parent_id: string | null;
+  students: Array<{ id: string; index: number }>;
+  invoice_id: string;
+  invoice_number: string;
+  invoice_status: string;
+  invoice_total: number;
+  invoice_due_date: string | undefined;
+}
+
 @Injectable()
 export class RegistrationService {
   constructor(
@@ -119,19 +132,6 @@ export class RegistrationService {
 
   async registerFamily(tenantId: string, userId: string, dto: FamilyRegistrationDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    interface RegistrationResult {
-      household_id: string;
-      household_number: string;
-      primary_parent_id: string;
-      secondary_parent_id: string | null;
-      students: Array<{ id: string; index: number }>;
-      invoice_id: string;
-      invoice_number: string;
-      invoice_status: string;
-      invoice_total: number;
-      invoice_due_date: string | undefined;
-    }
 
     const result = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
