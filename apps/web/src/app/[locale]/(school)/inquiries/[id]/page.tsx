@@ -104,7 +104,7 @@ export default function ParentInquiryDetailPage() {
     try {
       await apiClient(`/api/v1/inquiries/${id}/messages/parent`, {
         method: 'POST',
-        body: JSON.stringify({ body: reply.trim() }),
+        body: JSON.stringify({ message: reply.trim() }),
       });
       setReply('');
       toast.success(t('inquiry.replySuccess'));
