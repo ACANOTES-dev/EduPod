@@ -12,8 +12,13 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildGreeting(firstName: string): string {
+function buildGreeting(firstName: string, locale?: string | null): string {
   const hour = new Date().getHours();
+  if (locale === 'ar') {
+    if (hour < 12) return `صباح الخير، ${firstName}`;
+    if (hour < 17) return `مساء الخير، ${firstName}`;
+    return `مساء الخير، ${firstName}`;
+  }
   if (hour < 12) return `Good morning, ${firstName}`;
   if (hour < 17) return `Good afternoon, ${firstName}`;
   return `Good evening, ${firstName}`;
@@ -145,7 +150,7 @@ export class DashboardService {
     // Load the user from the platform users table (no RLS)
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { first_name: true },
+      select: { first_name: true, preferred_locale: true },
     });
 
     if (!user) {
@@ -196,7 +201,7 @@ export class DashboardService {
       return { students };
     }) as { students: ParentDashboardStudent[] };
 
-    const greeting = buildGreeting(user.first_name);
+    const greeting = buildGreeting(user.first_name, user.preferred_locale);
 
     return {
       greeting,

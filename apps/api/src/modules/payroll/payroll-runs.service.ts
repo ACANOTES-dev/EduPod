@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ConflictException,
@@ -5,19 +6,18 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import type { Queue } from 'bullmq';
 import type {
   CreatePayrollRunDto,
   UpdatePayrollRunDto,
   FinaliseRunDto,
 } from '@school/shared';
+import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
-import { RedisService } from '../redis/redis.service';
 import { SettingsService } from '../configuration/settings.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 import { CalculationService } from './calculation.service';
 import type { CalcInput } from './calculation.service';

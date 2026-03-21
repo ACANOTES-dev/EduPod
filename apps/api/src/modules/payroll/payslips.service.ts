@@ -1,18 +1,18 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import type { Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
 import type { PayslipSnapshotPayload } from '@school/shared';
+import type { Queue } from 'bullmq';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { EncryptionService } from '../configuration/encryption.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import type { PdfBranding } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { EncryptionService } from '../configuration/encryption.service';
 
 interface PayslipFilters {
   page: number;

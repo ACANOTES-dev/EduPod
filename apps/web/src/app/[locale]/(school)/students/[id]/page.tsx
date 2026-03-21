@@ -1,9 +1,5 @@
 'use client';
 
-import { Edit, ChevronDown } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   DropdownMenu,
@@ -14,6 +10,10 @@ import {
   Skeleton,
   toast,
 } from '@school/ui';
+import { Edit, ChevronDown } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';

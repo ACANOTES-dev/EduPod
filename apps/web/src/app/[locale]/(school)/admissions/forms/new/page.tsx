@@ -1,18 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  GripVertical,
-  Plus,
-  Trash2,
-} from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-import {
   Button,
   Input,
   Label,
@@ -24,6 +12,18 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 

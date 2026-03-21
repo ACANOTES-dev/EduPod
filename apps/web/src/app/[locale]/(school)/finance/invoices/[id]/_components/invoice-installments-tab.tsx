@@ -1,12 +1,15 @@
 'use client';
 
+import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
+import { Button, StatusBadge } from '@school/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 
-import { Button, StatusBadge } from '@school/ui';
-import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
+
 import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../../_components/currency-display';
+
 import { InstallmentForm } from './installment-form';
 
 interface Installment {

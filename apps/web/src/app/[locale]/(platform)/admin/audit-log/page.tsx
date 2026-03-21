@@ -1,9 +1,5 @@
 'use client';
 
-import { Search, Filter } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -13,6 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { Search, Filter } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import * as React from 'react';
+
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

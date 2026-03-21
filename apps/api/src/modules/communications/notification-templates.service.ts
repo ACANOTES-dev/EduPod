@@ -70,6 +70,7 @@ export class NotificationTemplatesService {
       return await this.prisma.notificationTemplate.create({
         data: {
           tenant_id: tenantId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           channel: dto.channel as any,
           template_key: dto.template_key,
           locale: dto.locale,
@@ -133,6 +134,7 @@ export class NotificationTemplatesService {
       where: {
         tenant_id: tenantId,
         template_key: templateKey,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         channel: channel as any,
         locale,
       },
@@ -145,6 +147,7 @@ export class NotificationTemplatesService {
       where: {
         tenant_id: null,
         template_key: templateKey,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         channel: channel as any,
         locale,
       },

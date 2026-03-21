@@ -9,8 +9,8 @@ import type {
   StaffPaymentHistoryItem,
 } from '@school/shared';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class PayrollReportsService {

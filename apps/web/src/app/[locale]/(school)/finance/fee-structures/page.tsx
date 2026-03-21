@@ -1,10 +1,6 @@
 'use client';
 
-import { DollarSign, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
+import type { BillingFrequency } from '@school/shared';
 import {
   Button,
   Input,
@@ -16,11 +12,17 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import type { BillingFrequency } from '@school/shared';
+import { DollarSign, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 import { useRoleCheck } from '@/hooks/use-role-check';
+import { apiClient } from '@/lib/api-client';
+
 import { CurrencyDisplay } from '../_components/currency-display';
 
 interface YearGroup {

@@ -1,11 +1,11 @@
 'use client';
 
+import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useParams, useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

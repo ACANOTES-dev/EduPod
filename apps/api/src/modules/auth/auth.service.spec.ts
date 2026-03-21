@@ -15,8 +15,7 @@ jest.mock('qrcode', () => ({
   toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,test'),
 }));
 
-import { generateSecret as otpGenerateSecret, verify as otpVerify } from 'otplib';
-import * as QRCode from 'qrcode';
+import { verify as otpVerify } from 'otplib';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';

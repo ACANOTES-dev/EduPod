@@ -8,9 +8,8 @@ import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
-export interface SearchFullReindexPayload extends TenantJobPayload {
-  // Only tenant_id is required — reindexes all entity types for the tenant.
-}
+// Only tenant_id is required — reindexes all entity types for the tenant.
+export type SearchFullReindexPayload = TenantJobPayload;
 
 // ─── Job name ─────────────────────────────────────────────────────────────────
 

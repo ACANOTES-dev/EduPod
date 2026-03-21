@@ -1,9 +1,5 @@
 'use client';
 
-import { Download, FileText } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Select,
@@ -13,6 +9,10 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
+import { Download, FileText } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 
@@ -68,7 +68,7 @@ export function GradesTab({ students: children }: GradesTabProps) {
   const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
-    apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
+    apiClient<ListResponse<AcademicPeriod>>('/api/v1/parent/academic-periods')
       .then((res) => {
         setPeriods(res.data);
         if (res.data.length > 0) {

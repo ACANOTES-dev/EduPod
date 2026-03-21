@@ -173,7 +173,7 @@ export class RefundsService {
     });
   }
 
-  async approve(tenantId: string, refundId: string, approverUserId: string, comment?: string) {
+  async approve(tenantId: string, refundId: string, approverUserId: string, _comment?: string) {
     const refund = await this.prisma.refund.findFirst({
       where: { id: refundId, tenant_id: tenantId },
     });

@@ -1,7 +1,7 @@
 'use client';
 
-import * as React from 'react';
 import { StatusBadge } from '@school/ui';
+import * as React from 'react';
 
 type StatusVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 

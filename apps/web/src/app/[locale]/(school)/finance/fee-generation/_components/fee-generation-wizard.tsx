@@ -1,20 +1,22 @@
 'use client';
 
-import { Check, ChevronRight, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
-import * as React from 'react';
-
+import type { FeeGenerationPreview as PreviewData } from '@school/shared';
 import {
   Button,
   Checkbox,
   Input,
   Label,
 } from '@school/ui';
-import type { FeeGenerationPreview as PreviewData } from '@school/shared';
+import { Check, ChevronRight, Loader2 } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
+
 import { CurrencyDisplay } from '../../_components/currency-display';
+
 import { FeeGenerationPreview } from './fee-generation-preview';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -1,8 +1,9 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
+
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
 

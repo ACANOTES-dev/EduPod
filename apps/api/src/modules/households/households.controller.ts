@@ -12,7 +12,6 @@ import {
   Put,
   Query,
   UseGuards,
-  UsePipes,
 } from '@nestjs/common';
 import {
   createHouseholdSchema,

@@ -3,10 +3,10 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../../base/queue.constants';
-import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 import { solveV2 } from '../../../../../packages/shared/src/scheduler';
 import type { SolverInputV2 } from '../../../../../packages/shared/src/scheduler';
+import { QUEUE_NAMES } from '../../base/queue.constants';
+import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
 
 export interface SchedulingSolverV2Payload extends TenantJobPayload {
   tenant_id: string;

@@ -1,14 +1,14 @@
 'use client';
 
+import { Button, Textarea, toast } from '@school/ui';
 import { ArrowLeft, CheckCircle, Clock, UserPlus, XCircle } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Textarea, toast } from '@school/ui';
 
-import { RecordHub } from '@/components/record-hub';
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
+import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

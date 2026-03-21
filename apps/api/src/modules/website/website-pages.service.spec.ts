@@ -1,8 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+
+import { PrismaService } from '../prisma/prisma.service';
 
 import { WebsitePagesService } from './website-pages.service';
-import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_ID = 'tenant-aaa-111';
 const USER_ID = 'user-bbb-222';
@@ -179,8 +180,8 @@ describe('WebsitePagesService', () => {
 
       try {
         await service.delete(TENANT_ID, PAGE_ID);
-      } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'CANNOT_DELETE_PUBLISHED' });
+      } catch (err: unknown) {
+        expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'CANNOT_DELETE_PUBLISHED' });
       }
     });
   });

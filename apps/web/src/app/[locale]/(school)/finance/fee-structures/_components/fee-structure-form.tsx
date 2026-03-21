@@ -1,8 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
+import type { BillingFrequency } from '@school/shared';
 import {
   Button,
   Input,
@@ -14,7 +12,9 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import type { BillingFrequency } from '@school/shared';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

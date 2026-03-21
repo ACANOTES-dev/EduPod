@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -20,6 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
 
 interface StaffOption {

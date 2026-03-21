@@ -1,9 +1,5 @@
 'use client';
 
-import { Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Command,
   CommandEmpty,
@@ -16,6 +12,10 @@ import {
   PopoverTrigger,
   Button,
 } from '@school/ui';
+import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

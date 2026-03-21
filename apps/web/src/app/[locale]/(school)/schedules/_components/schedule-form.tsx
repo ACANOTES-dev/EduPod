@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -19,6 +16,9 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { ConflictAlert } from '@/components/conflict-alert';
 import { apiClient } from '@/lib/api-client';

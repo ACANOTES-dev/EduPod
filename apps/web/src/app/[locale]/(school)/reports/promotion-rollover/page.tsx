@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Select,
   SelectContent,
@@ -13,6 +10,9 @@ import {
   EmptyState,
 } from '@school/ui';
 import { TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

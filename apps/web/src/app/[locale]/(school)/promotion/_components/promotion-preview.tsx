@@ -1,7 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-
 import {
   Select,
   SelectContent,
@@ -9,6 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

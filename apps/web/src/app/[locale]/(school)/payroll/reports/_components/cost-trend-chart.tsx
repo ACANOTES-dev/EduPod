@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   Legend,
 } from 'recharts';
 
-import { Button } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

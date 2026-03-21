@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, Badge } from '@school/ui';
 import { Building2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Badge } from '@school/ui';
 
 import { useAuth } from '@/providers/auth-provider';
 

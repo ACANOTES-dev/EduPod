@@ -1,9 +1,5 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Select,
@@ -13,6 +9,10 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
+import { ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

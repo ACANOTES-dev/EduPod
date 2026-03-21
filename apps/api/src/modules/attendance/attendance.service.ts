@@ -10,8 +10,8 @@ import { Prisma, $Enums } from '@prisma/client';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
-import { DailySummaryService } from './daily-summary.service';
 
+import { DailySummaryService } from './daily-summary.service';
 import type { CreateAttendanceSessionDto, SaveAttendanceRecordsDto, AmendAttendanceRecordDto } from './dto/attendance.dto';
 
 interface ListSessionsParams {

@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
-import { AudienceResolutionService, AudienceTarget } from './audience-resolution.service';
+
+import { AudienceResolutionService } from './audience-resolution.service';
 
 const TENANT_ID = 'tenant-uuid-1';
 

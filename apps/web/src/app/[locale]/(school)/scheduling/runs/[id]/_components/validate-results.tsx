@@ -1,9 +1,5 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Checkbox,
@@ -13,6 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
+import { AlertTriangle, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import type { ValidationResult, ViolationDetail } from './health-score';
 

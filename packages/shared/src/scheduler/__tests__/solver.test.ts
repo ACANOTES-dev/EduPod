@@ -1,5 +1,6 @@
 import { solve } from '../solver';
 import type { SolverInput, SolverAssignment } from '../types';
+
 import {
   buildSmallSchoolInput,
   buildMinimalInput,

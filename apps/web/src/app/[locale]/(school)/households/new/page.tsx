@@ -1,11 +1,12 @@
 'use client';
 
+import { toast } from '@school/ui';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 import { HouseholdForm, type HouseholdFormData } from '../_components/household-form';
 
 export default function NewHouseholdPage() {

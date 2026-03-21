@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, Input, Label } from '@school/ui';
 import { Loader2, CheckCircle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useSearchParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

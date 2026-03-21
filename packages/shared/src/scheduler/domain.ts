@@ -1,3 +1,4 @@
+import { checkHardConstraints } from './constraints';
 import type {
   SolverInput,
   SolverAssignment,
@@ -5,7 +6,6 @@ import type {
   DomainValue,
   PeriodSlot,
 } from './types';
-import { checkHardConstraints } from './constraints';
 
 /**
  * Generate CSP variables for all non-pinned classes.
@@ -13,10 +13,8 @@ import { checkHardConstraints } from './constraints';
  */
 export function generateVariables(
   input: SolverInput,
-  pinnedClassIds?: Set<string>,
 ): CSPVariable[] {
   const variables: CSPVariable[] = [];
-  const pinned = pinnedClassIds ?? buildPinnedClassIds(input);
 
   for (const classReq of input.classes) {
     // Count how many periods are already pinned for this class
@@ -38,20 +36,6 @@ export function generateVariables(
   return variables;
 }
 
-/** Build the set of class IDs that are fully covered by pinned entries */
-function buildPinnedClassIds(input: SolverInput): Set<string> {
-  const pinned = new Set<string>();
-  for (const classReq of input.classes) {
-    const pinnedCount = input.pinned_entries.filter(
-      (p) => p.class_id === classReq.class_id,
-    ).length;
-    if (pinnedCount >= classReq.periods_per_week) {
-      pinned.add(classReq.class_id);
-    }
-  }
-  return pinned;
-}
-
 /**
  * Generate initial domains for all variables.
  * Each domain = all valid (weekday, period_order, room) tuples passing basic filters.
@@ -60,7 +44,7 @@ function buildPinnedClassIds(input: SolverInput): Set<string> {
 export function generateInitialDomains(
   input: SolverInput,
   variables: CSPVariable[],
-  pinnedAssignments: SolverAssignment[],
+  _pinnedAssignments: SolverAssignment[],
 ): Map<string, DomainValue[]> {
   const domains = new Map<string, DomainValue[]>();
 

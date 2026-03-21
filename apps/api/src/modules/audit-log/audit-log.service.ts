@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { AuditLogFilterDto, PlatformAuditLogFilterDto, AuditLogEntry } from '@school/shared';
 import type { Prisma } from '@prisma/client';
+import type { AuditLogFilterDto, PlatformAuditLogFilterDto, AuditLogEntry } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 

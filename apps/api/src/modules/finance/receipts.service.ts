@@ -3,8 +3,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 @Injectable()

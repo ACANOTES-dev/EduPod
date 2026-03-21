@@ -36,9 +36,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
-import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AssessmentsService } from './assessments.service';

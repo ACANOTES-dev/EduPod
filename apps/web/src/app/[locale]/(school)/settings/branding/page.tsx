@@ -1,8 +1,8 @@
 'use client';
 
+import { Button, Input, Label, toast } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import { Button, Input, Label, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

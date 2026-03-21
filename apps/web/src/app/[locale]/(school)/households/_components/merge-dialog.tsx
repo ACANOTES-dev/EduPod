@@ -1,7 +1,5 @@
 'use client';
 
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -17,6 +15,8 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
 
 interface Household {

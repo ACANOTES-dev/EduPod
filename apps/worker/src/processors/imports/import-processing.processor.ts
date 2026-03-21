@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
+
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { downloadFromS3, deleteFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

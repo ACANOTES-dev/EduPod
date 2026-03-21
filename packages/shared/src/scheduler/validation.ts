@@ -1,3 +1,4 @@
+import { findAdjacentBreaks } from './constraints-v2';
 import type {
   SolverInputV2,
   SolverAssignmentV2,
@@ -6,7 +7,6 @@ import type {
   ConstraintTier,
   PeriodSlotV2,
 } from './types-v2';
-import { findAdjacentBreaks } from './constraints-v2';
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 

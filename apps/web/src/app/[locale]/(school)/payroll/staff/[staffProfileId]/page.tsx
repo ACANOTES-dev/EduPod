@@ -1,12 +1,12 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { Button } from '@school/ui';
 import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
-import { PageHeader } from '@/components/page-header';
 import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {

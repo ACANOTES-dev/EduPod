@@ -1,10 +1,6 @@
 'use client';
 
-import { Percent, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
+import type { DiscountType } from '@school/shared';
 import {
   Button,
   Input,
@@ -16,7 +12,12 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import type { DiscountType } from '@school/shared';
+import { Percent, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';

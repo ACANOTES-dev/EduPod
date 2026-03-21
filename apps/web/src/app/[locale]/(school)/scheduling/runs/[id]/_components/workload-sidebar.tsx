@@ -1,10 +1,10 @@
 'use client';
 
+import { Badge, Button } from '@school/ui';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button } from '@school/ui';
 
 import type { ScheduleEntry } from './schedule-grid';
 

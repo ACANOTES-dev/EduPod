@@ -1,9 +1,5 @@
 'use client';
 
-import { CheckCircle2, Loader2, Star, User } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -13,6 +9,10 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
+import { CheckCircle2, Loader2, Star, User } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

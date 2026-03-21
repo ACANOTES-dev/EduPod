@@ -1,10 +1,10 @@
 'use client';
 
+import { Badge } from '@school/ui';
 import { BarChart3, CheckCircle2, Loader2, Star } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

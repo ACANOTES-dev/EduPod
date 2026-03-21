@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 

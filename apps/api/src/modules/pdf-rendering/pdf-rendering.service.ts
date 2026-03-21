@@ -6,18 +6,18 @@ import {
 } from '@nestjs/common';
 import type { Browser } from 'puppeteer';
 
-import { renderReportCardEn } from './templates/report-card-en.template';
-import { renderReportCardAr } from './templates/report-card-ar.template';
-import { renderTranscriptEn } from './templates/transcript-en.template';
-import { renderTranscriptAr } from './templates/transcript-ar.template';
-import { renderInvoiceEn } from './templates/invoice-en.template';
-import { renderInvoiceAr } from './templates/invoice-ar.template';
-import { renderReceiptEn } from './templates/receipt-en.template';
-import { renderReceiptAr } from './templates/receipt-ar.template';
-import { renderHouseholdStatementEn } from './templates/household-statement-en.template';
 import { renderHouseholdStatementAr } from './templates/household-statement-ar.template';
-import { renderPayslipEn } from './templates/payslip-en.template';
+import { renderHouseholdStatementEn } from './templates/household-statement-en.template';
+import { renderInvoiceAr } from './templates/invoice-ar.template';
+import { renderInvoiceEn } from './templates/invoice-en.template';
 import { renderPayslipAr } from './templates/payslip-ar.template';
+import { renderPayslipEn } from './templates/payslip-en.template';
+import { renderReceiptAr } from './templates/receipt-ar.template';
+import { renderReceiptEn } from './templates/receipt-en.template';
+import { renderReportCardAr } from './templates/report-card-ar.template';
+import { renderReportCardEn } from './templates/report-card-en.template';
+import { renderTranscriptAr } from './templates/transcript-ar.template';
+import { renderTranscriptEn } from './templates/transcript-en.template';
 
 export interface PdfBranding {
   school_name: string;
@@ -98,7 +98,7 @@ export class PdfRenderingService implements OnModuleDestroy {
       });
 
       return Buffer.from(pdfBuffer);
-    } catch (err) {
+    } catch (_err) {
       // Retry once on timeout
       try {
         await page.setContent(html, { waitUntil: 'networkidle0', timeout: 5000 });

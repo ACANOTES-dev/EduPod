@@ -17,9 +17,7 @@ import {
 } from '@school/shared';
 import type {
   ApprovalCommentDto,
-  ApprovalRequestFilterDto,
   JwtPayload,
-  PaginationQuery,
   TenantContext,
 } from '@school/shared';
 import { z } from 'zod';

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+
 import { SchoolClosuresService } from './school-closures.service';
 
 // Mock the RLS middleware (needed by create/remove/bulkCreate, but not isClosureDate)

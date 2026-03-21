@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -27,8 +26,8 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { ReportCardsService } from './report-cards.service';
 

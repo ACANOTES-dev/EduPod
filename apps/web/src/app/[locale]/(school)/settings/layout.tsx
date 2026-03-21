@@ -1,11 +1,11 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { cn } from '@school/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { cn } from '@school/ui';
 import { useAuth } from '@/providers/auth-provider';
 
 type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent';

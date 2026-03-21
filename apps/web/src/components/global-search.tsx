@@ -1,12 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-
+import { CommandPalette, type CommandPaletteGroup } from '@school/ui';
 import { GraduationCap, Home, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-
-import { CommandPalette, type CommandPaletteGroup } from '@school/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 

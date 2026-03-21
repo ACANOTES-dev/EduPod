@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+
 import { resolve } from 'path';
 
 // Preload .env so process.env is populated before NestJS/Prisma/BullMQ reads it

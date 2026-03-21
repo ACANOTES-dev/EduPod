@@ -151,6 +151,7 @@ export class NotificationsService {
     const data = notifications.map((n) => ({
       tenant_id: tenantId,
       recipient_user_id: n.recipient_user_id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       channel: n.channel as any,
       template_key: n.template_key,
       locale: n.locale,

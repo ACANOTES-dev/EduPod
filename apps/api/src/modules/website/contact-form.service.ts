@@ -119,6 +119,7 @@ export class ContactFormService {
 
     return this.prisma.contactFormSubmission.update({
       where: { id },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data: { status: newStatus as any },
     });
   }

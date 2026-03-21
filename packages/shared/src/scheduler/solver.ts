@@ -1,3 +1,13 @@
+import { checkHardConstraints } from './constraints';
+import {
+  generateVariables,
+  generateInitialDomains,
+  forwardCheck,
+  variableKey,
+  cloneDomains,
+} from './domain';
+import { selectVariable, orderValues } from './heuristics';
+import { scorePreferences } from './preferences';
 import type {
   SolverInput,
   SolverOutput,
@@ -8,35 +18,10 @@ import type {
   ProgressCallback,
   CancelCheck,
 } from './types';
-import {
-  generateVariables,
-  generateInitialDomains,
-  forwardCheck,
-  variableKey,
-  cloneDomains,
-} from './domain';
-import { checkHardConstraints } from './constraints';
-import { scorePreferences } from './preferences';
-import { selectVariable, orderValues } from './heuristics';
 
 export interface SolverOptions {
   onProgress?: ProgressCallback;
   shouldCancel?: CancelCheck;
-}
-
-/**
- * Simple seeded PRNG — mulberry32 algorithm.
- * Returns a function that yields pseudo-random floats in [0, 1).
- */
-function mulberry32(seed: number): () => number {
-  let s = seed >>> 0;
-  return function () {
-    s += 0x6d2b79f5;
-    let z = s;
-    z = Math.imul(z ^ (z >>> 15), z | 1);
-    z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
-    return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /**
@@ -110,7 +95,7 @@ function buildAssignment(
 function diagnoseUnassigned(
   variable: CSPVariable,
   input: SolverInput,
-  assignments: SolverAssignment[],
+  _assignments: SolverAssignment[],
 ): string {
   const classReq = input.classes.find(
     (c) => c.class_id === variable.class_id,
@@ -196,10 +181,7 @@ export function solve(input: SolverInput, options: SolverOptions = {}): SolverOu
     };
   }
 
-  // 1. Seeded RNG
-  const _rng = mulberry32(input.settings.solver_seed ?? Date.now());
-
-  // 2. Convert pinned entries to SolverAssignment[]
+  // 1. Convert pinned entries to SolverAssignment[]
   const pinnedAssignments = pinnedEntriesToAssignments(input);
 
   // 3. Generate variables for non-pinned classes

@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Input,
   Textarea,
@@ -16,6 +13,9 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -11,7 +11,6 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import {
   confirmAllocationsSchema,
   createPaymentSchema,
@@ -23,6 +22,7 @@ import type {
   JwtPayload,
   TenantContext,
 } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';

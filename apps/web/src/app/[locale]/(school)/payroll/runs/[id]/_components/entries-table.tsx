@@ -1,9 +1,9 @@
 'use client';
 
+import { Badge, Button, Input, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button, Input, TableWrapper } from '@school/ui';
 import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {

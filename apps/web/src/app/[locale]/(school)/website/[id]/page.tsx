@@ -1,9 +1,5 @@
 'use client';
 
-import { Eye, Trash2 } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -19,6 +15,10 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
+import { Eye, Trash2 } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

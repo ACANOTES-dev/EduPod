@@ -1,10 +1,5 @@
 'use client';
 
-import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -16,6 +11,11 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
+import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 

@@ -15,7 +15,6 @@ import {
 import {
   createCurriculumRequirementSchema,
   updateCurriculumRequirementSchema,
-  copyTemplateSchema,
 } from '@school/shared';
 import type { CreateCurriculumRequirementDto } from '@school/shared';
 import { z } from 'zod';

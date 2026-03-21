@@ -4,6 +4,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+
 import { DISPATCH_NOTIFICATIONS_JOB } from './dispatch-notifications.processor';
 
 // ─── Job name ─────────────────────────────────────────────────────────────────

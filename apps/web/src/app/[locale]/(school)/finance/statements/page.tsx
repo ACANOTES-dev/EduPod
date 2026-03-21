@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, EmptyState, Input } from '@school/ui';
 import { ScrollText, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, EmptyState, Input } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

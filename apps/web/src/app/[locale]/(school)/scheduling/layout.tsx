@@ -13,9 +13,9 @@ import {
   UserCog,
   Users,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 const tabs = [

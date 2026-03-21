@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,12 +28,6 @@ export interface CsvValidationResult {
     valid_rows: number;
     error_rows: number;
   };
-}
-
-interface MatchedRow {
-  student_id: string;
-  assessment_id: string;
-  score: number;
 }
 
 @Injectable()

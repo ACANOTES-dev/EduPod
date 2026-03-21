@@ -1,13 +1,15 @@
+import { createHash, randomBytes } from 'crypto';
+
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 import { hash } from 'bcryptjs';
 import { Queue } from 'bullmq';
-import { createHash, randomBytes } from 'crypto';
+
 
 import { PrismaService } from '../prisma/prisma.service';
 

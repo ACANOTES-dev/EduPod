@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ConflictException,
@@ -5,8 +6,6 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
 import type {
   TriggerSolverRunDto,
@@ -22,9 +21,9 @@ import type {
   PeriodSlotV2,
   SolverSettingsV2,
   SolverAssignmentV2,
-  ValidationResult,
 } from '@school/shared';
 import { validateSchedule } from '@school/shared';
+import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

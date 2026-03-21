@@ -1,18 +1,20 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bullmq';
 
-import { PayrollRunsService } from './payroll-runs.service';
-import { CalculationService } from './calculation.service';
-import { PayslipsService } from './payslips.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
-import { RedisService } from '../redis/redis.service';
 import { SettingsService } from '../configuration/settings.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
+
+import { CalculationService } from './calculation.service';
+import { PayrollRunsService } from './payroll-runs.service';
+import { PayslipsService } from './payslips.service';
+
 
 // Mock createRlsClient
 const mockTx: Record<string, unknown> = {};

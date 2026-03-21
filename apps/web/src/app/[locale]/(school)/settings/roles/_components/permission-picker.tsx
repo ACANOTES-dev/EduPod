@@ -1,10 +1,10 @@
 'use client';
 
 import { PERMISSIONS, PERMISSION_TIER_MAP } from '@school/shared';
+import { Checkbox, Label } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Checkbox, Label } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -2,8 +2,8 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import type { ImportType } from '@school/shared';
 import type { Prisma } from '@prisma/client';
+import type { ImportType } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

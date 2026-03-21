@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
+
 import { AnnouncementsController } from './announcements.controller';
 import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';

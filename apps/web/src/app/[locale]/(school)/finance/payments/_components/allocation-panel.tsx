@@ -1,16 +1,18 @@
 'use client';
 
-import { Sparkles, Check } from 'lucide-react';
-import * as React from 'react';
-
+import type { AllocationSuggestion } from '@school/shared';
 import {
   Button,
   Input,
   toast,
 } from '@school/ui';
-import type { AllocationSuggestion } from '@school/shared';
+import { Sparkles, Check } from 'lucide-react';
+import * as React from 'react';
+
+
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 interface AllocationRow {

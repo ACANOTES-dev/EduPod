@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { MessageCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

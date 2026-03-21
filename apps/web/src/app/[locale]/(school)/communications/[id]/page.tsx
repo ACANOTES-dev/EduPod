@@ -1,11 +1,11 @@
 'use client';
 
+import { Button, Input, Label, StatusBadge, Textarea, toast } from '@school/ui';
 import { Archive, ArrowLeft, Send } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

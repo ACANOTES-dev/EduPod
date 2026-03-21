@@ -15,6 +15,7 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+
 import { SchedulingPrerequisitesService } from './scheduling-prerequisites.service';
 
 interface PaginationParams {

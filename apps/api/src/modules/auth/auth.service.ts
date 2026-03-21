@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -15,7 +17,6 @@ import {
   type SessionMetadata,
 } from '@school/shared';
 import * as bcrypt from 'bcryptjs';
-import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';

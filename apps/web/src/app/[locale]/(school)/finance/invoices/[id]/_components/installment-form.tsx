@@ -1,8 +1,5 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -15,7 +12,11 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
+
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 interface InstallmentRow {

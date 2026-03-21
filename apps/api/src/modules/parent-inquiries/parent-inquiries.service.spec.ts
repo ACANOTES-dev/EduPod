@@ -1,9 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+
+import { PrismaService } from '../prisma/prisma.service';
 
 import { ParentInquiriesService } from './parent-inquiries.service';
-import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_ID = 'tenant-aaa-111';
 const USER_ID = 'user-bbb-222';
@@ -106,6 +107,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.create(TENANT_ID, USER_ID, { subject: 'Test', message: 'Hello', student_id: STUDENT_ID });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'STUDENT_NOT_LINKED' });
       }
@@ -120,6 +122,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.create(TENANT_ID, USER_ID, { subject: 'Test', message: 'Hello' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'PARENT_NOT_FOUND' });
       }
@@ -169,6 +172,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.addAdminMessage(TENANT_ID, USER_ID, INQUIRY_ID, { message: 'Late reply' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'INQUIRY_CLOSED' });
       }
@@ -229,6 +233,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.addParentMessage(TENANT_ID, USER_ID, INQUIRY_ID, { message: 'Reopen?' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'INQUIRY_CLOSED' });
       }
@@ -244,6 +249,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.addParentMessage(TENANT_ID, USER_ID, INQUIRY_ID, { message: 'Sneaky' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'INQUIRY_NOT_FOUND' });
       }
@@ -296,6 +302,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.close(TENANT_ID, INQUIRY_ID);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'ALREADY_CLOSED' });
       }
@@ -331,6 +338,7 @@ describe('ParentInquiriesService', () => {
 
       const result = await service.getByIdForParent(TENANT_ID, USER_ID, INQUIRY_ID);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const adminMsg = result.messages.find((m: any) => m.id === 'msg-1');
       expect(adminMsg.author).toEqual({ id: 'admin-user-1', first_name: 'School', last_name: 'Administration' });
     });
@@ -354,6 +362,7 @@ describe('ParentInquiriesService', () => {
 
       const result = await service.getByIdForParent(TENANT_ID, USER_ID, INQUIRY_ID);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parentMsg = result.messages.find((m: any) => m.id === 'msg-2');
       expect(parentMsg.author).toEqual({ id: USER_ID, first_name: 'Jane', last_name: 'Doe' });
     });
@@ -368,6 +377,7 @@ describe('ParentInquiriesService', () => {
 
       try {
         await service.getByIdForParent(TENANT_ID, USER_ID, INQUIRY_ID);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         expect(err.getResponse()).toMatchObject({ code: 'INQUIRY_NOT_FOUND' });
       }

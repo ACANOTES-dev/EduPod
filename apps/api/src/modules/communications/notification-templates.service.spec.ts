@@ -1,7 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
+
 import { NotificationTemplatesService } from './notification-templates.service';
 
 describe('NotificationTemplatesService', () => {

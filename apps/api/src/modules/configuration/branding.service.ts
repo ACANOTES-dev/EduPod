@@ -1,10 +1,11 @@
+import { extname } from 'path';
+
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { UpdateBrandingDto } from '@school/shared';
-import { extname } from 'path';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';

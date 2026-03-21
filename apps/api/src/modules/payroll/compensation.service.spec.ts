@@ -1,8 +1,9 @@
 import { BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import { CompensationService } from './compensation.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { CompensationService } from './compensation.service';
 
 // Mock createRlsClient
 const mockTx: Record<string, unknown> = {};

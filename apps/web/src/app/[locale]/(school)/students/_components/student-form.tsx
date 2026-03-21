@@ -1,7 +1,5 @@
 'use client';
 
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -14,6 +12,8 @@ import {
   Textarea,
   Checkbox,
 } from '@school/ui';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
 
 interface YearGroup {

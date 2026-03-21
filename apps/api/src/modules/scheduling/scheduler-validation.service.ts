@@ -11,6 +11,7 @@ import type {
 import { validateSchedule } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
+
 import { SchedulerOrchestrationService } from './scheduler-orchestration.service';
 
 @Injectable()

@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge, Button } from '@school/ui';
 import {
   AlertTriangle,
   BarChart3,
@@ -15,12 +16,11 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

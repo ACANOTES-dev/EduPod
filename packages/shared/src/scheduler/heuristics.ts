@@ -1,10 +1,10 @@
+import { variableKey } from './domain';
 import type {
   SolverInput,
   SolverAssignment,
   CSPVariable,
   DomainValue,
 } from './types';
-import { variableKey } from './domain';
 
 /**
  * MRV (Most Restricted Variable) heuristic.

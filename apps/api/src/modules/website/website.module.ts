@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
+
 import { ContactFormService } from './contact-form.service';
 import { ContactSubmissionsController } from './contact-submissions.controller';
 import { PublicContactController } from './public-contact.controller';

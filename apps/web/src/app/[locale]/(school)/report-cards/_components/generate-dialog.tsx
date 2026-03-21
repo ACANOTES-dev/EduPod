@@ -1,9 +1,5 @@
 'use client';
 
-import { AlertTriangle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Checkbox,
@@ -20,6 +16,10 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
+import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

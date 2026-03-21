@@ -1,17 +1,19 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { sanitiseHtml } from '../../common/utils/sanitise-html';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
+import { PrismaService } from '../prisma/prisma.service';
+
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationsService } from './notifications.service';
-import { sanitiseHtml } from '../../common/utils/sanitise-html';
+
 
 interface ListAnnouncementsFilters {
   page: number;
@@ -92,7 +94,8 @@ export class AnnouncementsService {
         title: dto.title,
         body_html: cleanHtml,
         status: 'draft',
-        scope: dto.scope as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        scope: dto.scope as any, // Prisma enum cast
         target_payload: dto.target_payload as Prisma.InputJsonValue,
         scheduled_publish_at: dto.scheduled_publish_at ? new Date(dto.scheduled_publish_at) : null,
         author_user_id: userId,
@@ -162,6 +165,7 @@ export class AnnouncementsService {
     const settings = await this.prisma.tenantSetting.findFirst({
       where: { tenant_id: tenantId },
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const settingsJson = (settings?.settings as Record<string, any>) ?? {};
     const requireApproval =
       settingsJson?.communications?.requireApprovalForAnnouncements ?? true;

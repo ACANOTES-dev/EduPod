@@ -6,9 +6,9 @@ import * as React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { BonusAnalysisTable } from './_components/bonus-analysis-table';
 import { CostTrendChart } from './_components/cost-trend-chart';
 import { YtdSummaryTable } from './_components/ytd-summary-table';
-import { BonusAnalysisTable } from './_components/bonus-analysis-table';
 
 type TabKey = 'costTrend' | 'ytdSummary' | 'bonusAnalysis';
 

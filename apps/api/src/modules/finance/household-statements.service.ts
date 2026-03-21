@@ -4,8 +4,8 @@ import {
 } from '@nestjs/common';
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 

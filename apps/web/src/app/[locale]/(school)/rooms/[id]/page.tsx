@@ -1,11 +1,11 @@
 'use client';
 
+import { Button } from '@school/ui';
 import { ArrowLeft, Edit } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
 import { TimetableGrid } from '@/components/timetable-grid';

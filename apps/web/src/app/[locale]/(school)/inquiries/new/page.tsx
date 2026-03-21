@@ -1,12 +1,22 @@
 'use client';
 
+import {
+  Button,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  toast,
+} from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label, Textarea, toast } from '@school/ui';
-
+import { Input } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -16,6 +26,16 @@ interface CreateInquiryPayload {
   subject: string;
   message: string;
   student_id?: string;
+}
+
+interface LinkedStudent {
+  student_id: string;
+  first_name: string;
+  last_name: string;
+}
+
+interface ParentDashboardData {
+  students: LinkedStudent[];
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -29,6 +49,17 @@ export default function NewInquiryPage() {
   const [message, setMessage] = React.useState('');
   const [studentId, setStudentId] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [linkedStudents, setLinkedStudents] = React.useState<LinkedStudent[]>([]);
+
+  React.useEffect(() => {
+    apiClient<{ data: ParentDashboardData }>('/api/v1/dashboard/parent')
+      .then((res) => {
+        if (res.data?.students) {
+          setLinkedStudents(res.data.students);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +73,8 @@ export default function NewInquiryPage() {
         subject: subject.trim(),
         message: message.trim(),
       };
-      if (studentId.trim()) {
-        payload.student_id = studentId.trim();
+      if (studentId) {
+        payload.student_id = studentId;
       }
       const res = await apiClient<{ id: string }>('/api/v1/inquiries', {
         method: 'POST',
@@ -98,18 +129,26 @@ export default function NewInquiryPage() {
             />
           </div>
 
-          {/* Optional student */}
+          {/* Optional student — dropdown of linked children */}
           <div className="space-y-2">
-            <Label htmlFor="student-id">{t('inquiry.studentLabel')}</Label>
-            <Input
-              id="student-id"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              placeholder={t('inquiry.studentPlaceholder')}
-            />
-            <p className="text-xs text-text-tertiary">
-              If this inquiry is about a specific student, enter their ID here.
-            </p>
+            <Label htmlFor="student-select">{t('inquiry.studentLabel')}</Label>
+            {linkedStudents.length > 0 ? (
+              <Select value={studentId} onValueChange={setStudentId}>
+                <SelectTrigger id="student-select" className="w-full">
+                  <SelectValue placeholder={t('inquiry.studentPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('inquiry.noStudent')}</SelectItem>
+                  {linkedStudents.map((s) => (
+                    <SelectItem key={s.student_id} value={s.student_id}>
+                      {s.first_name} {s.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-text-tertiary">{tc('loading')}</p>
+            )}
           </div>
 
           {/* Actions */}
@@ -121,7 +160,7 @@ export default function NewInquiryPage() {
               type="submit"
               disabled={isSubmitting || !subject.trim() || !message.trim()}
             >
-              {isSubmitting ? 'Submitting...' : tc('submit')}
+              {isSubmitting ? tc('loading') : tc('submit')}
             </Button>
           </div>
         </div>

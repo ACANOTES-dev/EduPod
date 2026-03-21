@@ -1,6 +1,7 @@
+import { createHash } from 'crypto';
+
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { createHash } from 'crypto';
 
 import { PrismaService } from '../prisma/prisma.service';
 

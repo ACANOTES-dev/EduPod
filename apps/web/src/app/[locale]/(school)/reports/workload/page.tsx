@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Select,
   SelectContent,
@@ -10,6 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

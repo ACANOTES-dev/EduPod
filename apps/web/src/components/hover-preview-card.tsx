@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
-import * as React from 'react';
 import { Skeleton } from '@school/ui';
 import { StatusBadge } from '@school/ui';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
 
 interface PreviewData {

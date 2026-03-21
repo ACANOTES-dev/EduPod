@@ -7,10 +7,10 @@ import {
 import type { CreateInvoiceDto, UpdateInvoiceDto, WriteOffDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
-import { SequenceService } from '../tenants/sequence.service';
 import { SettingsService } from '../configuration/settings.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 import { deriveInvoiceStatus, roundMoney } from './helpers/invoice-status.helper';
 

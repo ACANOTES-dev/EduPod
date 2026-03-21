@@ -1,10 +1,10 @@
 'use client';
 
+import { Badge, Button, EmptyState, TableWrapper, toast } from '@school/ui';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MessageSquare } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { Badge, Button, EmptyState, TableWrapper, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-
+import { EmptyState, StatCard } from '@school/ui';
 import { GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-
-import { EmptyState, StatCard } from '@school/ui';
+import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';

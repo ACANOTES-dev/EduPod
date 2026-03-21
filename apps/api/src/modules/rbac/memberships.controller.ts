@@ -16,14 +16,12 @@ import {
   updateMembershipRolesSchema,
 } from '@school/shared';
 import type {
-  JwtPayload,
   PaginationQuery,
   TenantContext,
   UpdateMembershipRolesDto,
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';

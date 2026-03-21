@@ -1,22 +1,6 @@
 'use client';
 
 import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  ChevronDown,
-  Download,
-  GitCompare,
-  Loader2,
-  Search,
-  ShieldCheck,
-  Trash2,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
-import {
   Badge,
   Button,
   Dialog,
@@ -30,6 +14,22 @@ import {
   DropdownMenuTrigger,
   toast,
 } from '@school/ui';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  GitCompare,
+  Loader2,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

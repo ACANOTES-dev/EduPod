@@ -1,9 +1,5 @@
 'use client';
 
-import { GraduationCap, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -15,6 +11,10 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
+import { GraduationCap, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';

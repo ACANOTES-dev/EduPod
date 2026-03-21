@@ -1,8 +1,5 @@
 'use client';
 
-import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-
 import {
   Button,
   Checkbox,
@@ -16,6 +13,10 @@ import {
   Label,
   toast,
 } from '@school/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import * as React from 'react';
+
+
 import { apiClient } from '@/lib/api-client';
 
 interface Student {

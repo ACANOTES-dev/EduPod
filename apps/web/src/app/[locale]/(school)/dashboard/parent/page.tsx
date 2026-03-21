@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-
+import { EmptyState, StatusBadge } from '@school/ui';
 import { Bell, FileText, GraduationCap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useCallback, useEffect, useState } from 'react';
 
-import { EmptyState, StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

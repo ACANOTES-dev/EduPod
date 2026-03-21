@@ -2,9 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
-import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { SearchService } from './search.service';

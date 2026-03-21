@@ -1,9 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { usePathname } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Badge,
@@ -13,12 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { PageHeader } from '@/components/page-header';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { CompensationForm } from './_components/compensation-form';
 import { BulkImportDialog } from './_components/bulk-import-dialog';
+import { CompensationForm } from './_components/compensation-form';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

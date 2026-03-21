@@ -1,15 +1,15 @@
 'use client';
 
-import { GripVertical, Pin, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@school/ui';
+import { GripVertical, Pin, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

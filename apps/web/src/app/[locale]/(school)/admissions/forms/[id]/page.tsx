@@ -1,6 +1,18 @@
 'use client';
 
 import {
+  Button,
+  Input,
+  Label,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@school/ui';
+import {
   AlertTriangle,
   ArrowLeft,
   ChevronDown,
@@ -13,18 +25,6 @@ import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import {
-  Button,
-  Input,
-  Label,
-  Checkbox,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 

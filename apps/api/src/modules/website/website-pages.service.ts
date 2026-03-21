@@ -4,8 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface ListPagesFilters {
   page: number;
@@ -73,6 +73,7 @@ export class WebsitePagesService {
       data: {
         tenant_id: tenantId,
         locale: dto.locale ?? 'en',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         page_type: dto.page_type as any,
         slug: dto.slug,
         title: dto.title,

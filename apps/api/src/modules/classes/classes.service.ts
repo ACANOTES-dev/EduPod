@@ -9,8 +9,8 @@ import type { PreviewResponse } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-
 import type { SchedulesService as SchedulesServiceType } from '../schedules/schedules.service';
+
 import type { AssignClassStaffDto } from './dto/assign-class-staff.dto';
 import type { CreateClassDto } from './dto/create-class.dto';
 import type { UpdateClassDto, UpdateClassStatusDto } from './dto/update-class.dto';

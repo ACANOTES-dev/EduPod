@@ -1,15 +1,15 @@
 'use client';
 
+import { Button, Input, StatusBadge } from '@school/ui';
 import { Building2, Plus, Search } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import * as React from 'react';
 
-import { Button, Input, StatusBadge } from '@school/ui';
 
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 interface Tenant {
   id: string;

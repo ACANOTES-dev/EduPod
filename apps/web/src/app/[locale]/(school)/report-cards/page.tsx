@@ -1,10 +1,5 @@
 'use client';
 
-import { Eye, FileText, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -16,6 +11,11 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
+import { Eye, FileText, Plus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

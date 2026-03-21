@@ -11,8 +11,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
 import type { CreateStudentDto } from './dto/create-student.dto';
-import type { UpdateStudentDto } from './dto/update-student.dto';
 import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
+import type { UpdateStudentDto } from './dto/update-student.dto';
 
 // ─── Status transition map ────────────────────────────────────────────────────
 

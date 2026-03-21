@@ -1,10 +1,11 @@
 'use client';
 
+import type { FeeGenerationPreviewLine } from '@school/shared';
+import { Checkbox, StatusBadge, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Checkbox, StatusBadge, TableWrapper } from '@school/ui';
-import type { FeeGenerationPreviewLine } from '@school/shared';
+
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 interface FeeGenerationPreviewProps {

@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { EntityLink } from '@/components/entity-link';
 import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 interface PaymentAllocation {

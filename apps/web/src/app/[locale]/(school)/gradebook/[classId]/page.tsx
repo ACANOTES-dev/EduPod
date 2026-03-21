@@ -1,10 +1,5 @@
 'use client';
 
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -23,6 +18,11 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
+import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

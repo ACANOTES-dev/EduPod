@@ -1,13 +1,13 @@
 'use client';
 
-import * as React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-
 import {
   Button,
   Input,
   Label,
 } from '@school/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import * as React from 'react';
+
 
 export interface EmergencyContactData {
   id?: string;

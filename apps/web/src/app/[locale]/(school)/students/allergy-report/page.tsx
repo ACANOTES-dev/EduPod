@@ -1,8 +1,5 @@
 'use client';
 
-import * as React from 'react';
-import { AlertTriangle } from 'lucide-react';
-
 import {
   Select,
   SelectContent,
@@ -11,9 +8,13 @@ import {
   SelectValue,
   EmptyState,
 } from '@school/ui';
+import { AlertTriangle } from 'lucide-react';
+import * as React from 'react';
+
+
 import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
 import { EntityLink } from '@/components/entity-link';
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 interface AllergyRecord {

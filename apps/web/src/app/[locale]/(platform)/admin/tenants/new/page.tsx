@@ -1,10 +1,5 @@
 'use client';
 
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -15,9 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+
 import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 function slugify(text: string): string {
   return text

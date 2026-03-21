@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+
 import { NotificationsService } from './notifications.service';
 
 const TENANT_ID = 'tenant-uuid-1';

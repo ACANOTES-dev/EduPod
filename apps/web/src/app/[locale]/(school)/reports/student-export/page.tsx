@@ -1,10 +1,10 @@
 'use client';
 
+import { Button, EmptyState, Input, Label } from '@school/ui';
+import { Download, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, EmptyState, Input, Label } from '@school/ui';
-import { Download, Search } from 'lucide-react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

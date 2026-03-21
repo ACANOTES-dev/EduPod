@@ -1,10 +1,10 @@
 'use client';
 
+import { Button, Input, Label, toast } from '@school/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, Input, Label, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { apiClient } from '@/lib/api-client';

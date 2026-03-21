@@ -1,18 +1,20 @@
 'use client';
 
-import { FileDown } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import * as React from 'react';
-
+import type { PaymentStatus, PaymentMethod, RefundStatus } from '@school/shared';
 import {
   Button,
   Skeleton,
 } from '@school/ui';
-import type { PaymentStatus, PaymentMethod, RefundStatus } from '@school/shared';
-import { RecordHub } from '@/components/record-hub';
+import { FileDown } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import * as React from 'react';
+
+
 import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { RefundStatusBadge } from '../../_components/refund-status-badge';
 import { AllocationPanel } from '../_components/allocation-panel';

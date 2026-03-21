@@ -965,7 +965,7 @@ function solveGreedyWithRepair(
   shouldCancel?: CancelCheckV2,
 ): SolveResult {
   const assignments: SolverAssignmentV2[] = [...pinnedAssignments];
-  let remaining = [...variables];
+  const remaining = [...variables];
   let assignedThisRound = 0;
 
   // Pre-compute resource scarcity scores for smarter ordering.

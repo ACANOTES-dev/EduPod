@@ -1,9 +1,5 @@
 'use client';
 
-import { Plus, Trash2, UserCheck } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -19,6 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { Plus, Trash2, UserCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

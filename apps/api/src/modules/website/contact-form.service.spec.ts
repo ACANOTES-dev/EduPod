@@ -1,9 +1,10 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 
-import { ContactFormService } from './contact-form.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+
+import { ContactFormService } from './contact-form.service';
 
 const TENANT_ID = 'tenant-aaa-111';
 const SUBMISSION_ID = 'sub-bbb-222';
@@ -90,7 +91,7 @@ describe('ContactFormService', () => {
       const created = makeSubmission({ status: 'spam' });
       mockPrisma.contactFormSubmission.create.mockResolvedValue(created);
 
-      const result = await service.submit(
+      await service.submit(
         TENANT_ID,
         { name: 'Bot', email: 'bot@spam.com', message: 'Buy stuff', _honeypot: 'bot@spam.com' },
         SOURCE_IP,
@@ -113,8 +114,8 @@ describe('ContactFormService', () => {
       try {
         mockRedisClient.incr.mockResolvedValue(6);
         await service.submit(TENANT_ID, { name: 'Spammer', email: 's@s.com', message: 'Spam' }, SOURCE_IP);
-      } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'RATE_LIMIT_EXCEEDED' });
+      } catch (err: unknown) {
+        expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'RATE_LIMIT_EXCEEDED' });
       }
     });
 
@@ -232,8 +233,8 @@ describe('ContactFormService', () => {
 
       try {
         await service.updateStatus(TENANT_ID, SUBMISSION_ID, 'reviewed');
-      } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
+      } catch (err: unknown) {
+        expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
       }
     });
 
@@ -247,8 +248,8 @@ describe('ContactFormService', () => {
 
       try {
         await service.updateStatus(TENANT_ID, SUBMISSION_ID, 'reviewed');
-      } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
+      } catch (err: unknown) {
+        expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
       }
     });
 
@@ -262,8 +263,8 @@ describe('ContactFormService', () => {
 
       try {
         await service.updateStatus(TENANT_ID, SUBMISSION_ID, 'new_submission');
-      } catch (err: any) {
-        expect(err.getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
+      } catch (err: unknown) {
+        expect((err as BadRequestException).getResponse()).toMatchObject({ code: 'INVALID_STATUS_TRANSITION' });
       }
     });
   });

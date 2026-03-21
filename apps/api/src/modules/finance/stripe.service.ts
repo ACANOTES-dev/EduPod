@@ -6,16 +6,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
 import type { CheckoutSessionDto } from '@school/shared';
+import Stripe from 'stripe';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../configuration/encryption.service';
+import { PrismaService } from '../prisma/prisma.service';
 
+import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
 import { ReceiptsService } from './receipts.service';
-import { roundMoney } from './helpers/invoice-status.helper';
 
 interface StripeCheckoutResult {
   session_id: string;

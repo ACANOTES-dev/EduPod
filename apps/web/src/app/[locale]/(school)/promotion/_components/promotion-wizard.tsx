@@ -1,9 +1,5 @@
 'use client';
 
-import { CheckCircle2, ChevronRight } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Label,
@@ -13,6 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { CheckCircle2, ChevronRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { apiClient } from '@/lib/api-client';
 

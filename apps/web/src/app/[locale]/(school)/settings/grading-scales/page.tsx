@@ -1,9 +1,5 @@
 'use client';
 
-import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -24,6 +20,10 @@ import {
   TooltipTrigger,
   toast,
 } from '@school/ui';
+import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

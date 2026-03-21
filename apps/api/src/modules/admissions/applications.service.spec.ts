@@ -1,9 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Prisma } from '@prisma/client';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../tenants/sequence.service';
 
@@ -300,7 +299,7 @@ describe('ApplicationsService', () => {
       });
       mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
 
-      const result = await service.submit(TENANT_ID, 'app-1', USER_ID);
+      await service.submit(TENANT_ID, 'app-1', USER_ID);
 
       expect(mockPrisma.application.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -617,7 +616,7 @@ describe('ApplicationsService', () => {
       mockPrisma.applicationNote.create.mockResolvedValue({});
       mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
 
-      const result = await service.convert(TENANT_ID, 'app-1', convertDto, USER_ID);
+      await service.convert(TENANT_ID, 'app-1', convertDto, USER_ID);
 
       expect(mockPrisma.parent.create).toHaveBeenCalledWith(
         expect.objectContaining({

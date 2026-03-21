@@ -1,10 +1,5 @@
 'use client';
 
-import { BookOpen } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   EmptyState,
   Select,
@@ -14,6 +9,11 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
+import { BookOpen } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

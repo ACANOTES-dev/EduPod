@@ -1,7 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import {
   BarChart3,
   TrendingUp,
@@ -16,6 +14,8 @@ import {
   Download,
   type LucideIcon,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 import { PageHeader } from '@/components/page-header';
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { StatusBadge } from '@school/ui';
+import { useTranslations } from 'next-intl';
 
 type ApplicationStatus =
   | 'draft'

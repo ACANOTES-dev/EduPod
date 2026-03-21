@@ -1,6 +1,16 @@
 'use client';
 
 import {
+  AppShell,
+  Sidebar,
+  TopBar,
+  SidebarItem,
+  SidebarSection,
+  MobileSidebar,
+  ToastProvider,
+} from '@school/ui';
+import { toast } from '@school/ui';
+import {
   Ban,
   BarChart3,
   BookOpen,
@@ -29,28 +39,19 @@ import {
   MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import {
-  AppShell,
-  Sidebar,
-  TopBar,
-  SidebarItem,
-  SidebarSection,
-  MobileSidebar,
-  ToastProvider,
-} from '@school/ui';
 
-import { usePathname } from 'next/navigation';
-import { toast } from '@school/ui';
+
 import { GlobalSearch } from '@/components/global-search';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { UserMenu } from '@/components/user-menu';
-import { setApiErrorHandler } from '@/lib/api-client';
-
 import { useShortcuts } from '@/hooks/use-shortcuts';
+import { setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
+import { RequireRole } from '@/components/require-role';
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
@@ -279,7 +280,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           </TopBar>
         }
       >
-        {children}
+        <RequireRole>{children}</RequireRole>
       </AppShell>
 
       <MobileSidebar open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>

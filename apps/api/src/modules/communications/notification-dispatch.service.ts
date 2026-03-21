@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
+
 import { NotificationTemplatesService } from './notification-templates.service';
 
 @Injectable()
@@ -60,6 +61,7 @@ export class NotificationDispatchService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async dispatchWhatsApp(notification: any): Promise<void> {
     const template = await this.templateService.resolveTemplate(
       notification.tenant_id,
@@ -88,6 +90,7 @@ export class NotificationDispatchService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async dispatchEmail(notification: any): Promise<void> {
     const template = await this.templateService.resolveTemplate(
       notification.tenant_id,
@@ -117,11 +120,13 @@ export class NotificationDispatchService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async createFallbackNotification(original: any, fallbackChannel: string): Promise<void> {
     await this.prisma.notification.create({
       data: {
         tenant_id: original.tenant_id,
         recipient_user_id: original.recipient_user_id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         channel: fallbackChannel as any,
         template_key: original.template_key,
         locale: original.locale,
@@ -134,6 +139,7 @@ export class NotificationDispatchService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async handleFailure(notification: any, reason: string): Promise<void> {
     const newAttemptCount = notification.attempt_count + 1;
     const maxAttempts = notification.max_attempts;
@@ -166,6 +172,7 @@ export class NotificationDispatchService {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async markFailed(notification: any, reason: string): Promise<void> {
     await this.prisma.notification.update({
       where: { id: notification.id },

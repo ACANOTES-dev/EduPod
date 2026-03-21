@@ -1,9 +1,9 @@
 'use client';
 
+import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea, toast } from '@school/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

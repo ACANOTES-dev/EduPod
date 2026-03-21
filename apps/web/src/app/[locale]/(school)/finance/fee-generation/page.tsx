@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 
 import { PageHeader } from '@/components/page-header';
+
 import { FeeGenerationWizard } from './_components/fee-generation-wizard';
 
 export default function FeeGenerationPage() {

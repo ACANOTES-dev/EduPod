@@ -5,9 +5,10 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 
-import { PayrollEntriesService } from './payroll-entries.service';
-import { CalculationService } from './calculation.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { CalculationService } from './calculation.service';
+import { PayrollEntriesService } from './payroll-entries.service';
 
 describe('PayrollEntriesService', () => {
   let service: PayrollEntriesService;

@@ -1,10 +1,10 @@
 'use client';
 
+import { Badge, Button, EmptyState } from '@school/ui';
 import { Globe, Plus } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { Badge, Button, EmptyState } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

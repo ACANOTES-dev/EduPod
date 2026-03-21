@@ -1,10 +1,5 @@
 'use client';
 
-import { ClipboardCheck, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Select,
@@ -13,6 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { ClipboardCheck, Plus } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { DataTable } from '@/components/data-table';

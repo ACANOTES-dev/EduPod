@@ -8,8 +8,8 @@ import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
-import { ClassGradeConfigsService } from './class-grade-configs.service';
 
+import { ClassGradeConfigsService } from './class-grade-configs.service';
 import type { CreateAssessmentDto, UpdateAssessmentDto, TransitionAssessmentStatusDto } from './dto/gradebook.dto';
 
 interface ListAssessmentsParams {

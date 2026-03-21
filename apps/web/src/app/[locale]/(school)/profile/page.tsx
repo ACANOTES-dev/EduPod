@@ -1,12 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import * as React from 'react';
-import { ShieldCheck, Monitor, Sun, Moon, RefreshCw, Trash2, Bell, ChevronRight } from 'lucide-react';
-
 import {
   Button,
   Input,
@@ -19,9 +12,16 @@ import {
   Badge,
   Separator,
 } from '@school/ui';
-import { useAuth } from '@/providers/auth-provider';
+import { ShieldCheck, Monitor, Sun, Moon, RefreshCw, Trash2, Bell, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useTheme } from 'next-themes';
+import * as React from 'react';
+
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
+import { useAuth } from '@/providers/auth-provider';
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */

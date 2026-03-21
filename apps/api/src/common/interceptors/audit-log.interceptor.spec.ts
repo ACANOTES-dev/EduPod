@@ -2,6 +2,7 @@ import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 
 import { AuditLogService } from '../../modules/audit-log/audit-log.service';
+
 import { AuditLogInterceptor } from './audit-log.interceptor';
 
 const TENANT_ID = 'tenant-uuid-1';

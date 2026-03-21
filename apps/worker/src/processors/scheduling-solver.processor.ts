@@ -1,10 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
-import { QUEUE_NAMES } from '../base/queue.constants';
-import { TenantAwareJob, type TenantJobPayload } from '../base/tenant-aware-job';
 import { solve } from '../../../../packages/shared/src/scheduler';
 import type {
   SolverInput,
@@ -15,6 +13,8 @@ import type {
   PinnedEntry,
   StudentOverlap,
 } from '../../../../packages/shared/src/scheduler';
+import { QUEUE_NAMES } from '../base/queue.constants';
+import { TenantAwareJob, type TenantJobPayload } from '../base/tenant-aware-job';
 
 export interface SchedulingSolverPayload extends TenantJobPayload {
   tenant_id: string;

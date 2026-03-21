@@ -1,18 +1,6 @@
 'use client';
 
 import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Pin,
-  Trash2,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
-
-import {
   Badge,
   Button,
   Dialog,
@@ -22,6 +10,18 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Pin,
+  Trash2,
+} from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { PinToggle } from '@/components/scheduling/pin-toggle';

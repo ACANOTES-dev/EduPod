@@ -1,9 +1,6 @@
 'use client';
 
-import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText } from 'lucide-react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
-import * as React from 'react';
-
+import type { InvoiceStatus } from '@school/shared';
 import {
   Button,
   Input,
@@ -17,11 +14,16 @@ import {
   DialogFooter,
   toast,
 } from '@school/ui';
-import type { InvoiceStatus } from '@school/shared';
+import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { useParams, useRouter, usePathname } from 'next/navigation';
+import * as React from 'react';
+
+
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+
 import { CurrencyDisplay } from '../../finance/_components/currency-display';
 import { InvoiceStatusBadge } from '../../finance/_components/invoice-status-badge';
 import { MergeDialog } from '../_components/merge-dialog';

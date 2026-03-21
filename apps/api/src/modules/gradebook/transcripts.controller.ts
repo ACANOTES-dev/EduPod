@@ -12,8 +12,8 @@ import { CurrentTenant } from '../../common/decorators/current-tenant.decorator'
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 import { TranscriptsService } from './transcripts.service';
 

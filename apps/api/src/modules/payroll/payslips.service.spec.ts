@@ -1,12 +1,13 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bullmq';
+
+import { EncryptionService } from '../configuration/encryption.service';
+import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 import { PayslipsService } from './payslips.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
-import { RedisService } from '../redis/redis.service';
-import { EncryptionService } from '../configuration/encryption.service';
 
 describe('PayslipsService', () => {
   let service: PayslipsService;

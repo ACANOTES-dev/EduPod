@@ -1,4 +1,3 @@
-import type { z } from 'zod';
 import type {
   createGradingScaleSchema,
   updateGradingScaleSchema,
@@ -15,6 +14,7 @@ import type {
   updateReportCardSchema,
   importProcessSchema,
 } from '@school/shared';
+import type { z } from 'zod';
 
 export type CreateGradingScaleDto = z.infer<typeof createGradingScaleSchema>;
 export type UpdateGradingScaleDto = z.infer<typeof updateGradingScaleSchema>;

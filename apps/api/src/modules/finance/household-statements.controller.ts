@@ -7,12 +7,12 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import {
   statementPdfQuerySchema,
   statementQuerySchema,
 } from '@school/shared';
 import type { TenantContext } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';

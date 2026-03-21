@@ -1,8 +1,9 @@
+import { randomUUID } from 'crypto';
+
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
-import { randomUUID } from 'crypto';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { uploadToS3 } from '../../base/s3.helpers';

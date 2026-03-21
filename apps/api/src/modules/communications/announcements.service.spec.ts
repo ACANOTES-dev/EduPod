@@ -1,12 +1,13 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { getQueueToken } from '@nestjs/bullmq';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
+import { PrismaService } from '../prisma/prisma.service';
+
+import { AnnouncementsService } from './announcements.service';
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationsService } from './notifications.service';
-import { AnnouncementsService } from './announcements.service';
 
 // Mock sanitise-html module
 jest.mock('../../common/utils/sanitise-html', () => ({

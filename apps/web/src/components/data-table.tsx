@@ -1,9 +1,9 @@
 'use client';
 
+import { Button, TableWrapper } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
-import { Button, TableWrapper } from '@school/ui';
 
 interface Column<T> {
   key: string;

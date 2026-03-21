@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -11,6 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

@@ -1,8 +1,5 @@
 'use client';
 
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 import {
   Button,
   Input,
@@ -15,6 +12,9 @@ import {
   Switch,
   toast,
 } from '@school/ui';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 

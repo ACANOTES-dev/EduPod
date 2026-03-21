@@ -1,5 +1,6 @@
 import { solveV2 } from '../solver-v2';
 import type { SolverInputV2, SolverAssignmentV2, SolverOutputV2 } from '../types-v2';
+
 import {
   buildMultiYearSchoolInput,
   buildMinimalV2Input,

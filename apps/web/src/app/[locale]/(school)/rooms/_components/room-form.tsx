@@ -1,8 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Button,
   Dialog,
@@ -19,6 +16,9 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

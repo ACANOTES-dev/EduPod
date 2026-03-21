@@ -1,10 +1,5 @@
 'use client';
 
-import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -14,6 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

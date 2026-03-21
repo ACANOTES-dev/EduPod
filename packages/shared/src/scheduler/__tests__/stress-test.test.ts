@@ -8,8 +8,8 @@
  * Run: npx jest --testPathPattern stress-test --no-coverage
  */
 
+/* eslint-disable no-console */
 import { solveV2 } from '../solver-v2';
-import { validateSchedule } from '../validation';
 import type {
   SolverInputV2,
   SolverOutputV2,
@@ -24,6 +24,7 @@ import type {
   SolverAssignmentV2,
   ValidationResult,
 } from '../types-v2';
+import { validateSchedule } from '../validation';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -55,8 +56,8 @@ const SUBJECT_NAMES: Record<string, string> = {
   [SUBJECTS.music]: 'Music',
 };
 
-// Period times
-const PERIOD_TIMES = [
+// Period times (reference constants for documentation)
+const _PERIOD_TIMES = [
   { start: '07:30', end: '08:15' }, // P1 = order 0
   { start: '08:20', end: '09:05' }, // P2 = order 1
   // Break                            // order 2
@@ -68,8 +69,9 @@ const PERIOD_TIMES = [
   { start: '13:20', end: '14:05' }, // P7 = order 8
 ];
 
-const BREAK_TIME = { start: '09:05', end: '09:20' }; // order 2
-const LUNCH_TIME = { start: '11:45', end: '12:30' }; // order 6
+const _BREAK_TIME = { start: '09:05', end: '09:20' }; // order 2
+const _LUNCH_TIME = { start: '11:45', end: '12:30' }; // order 6
+void _PERIOD_TIMES; void _BREAK_TIME; void _LUNCH_TIME;
 
 // Days: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4
 

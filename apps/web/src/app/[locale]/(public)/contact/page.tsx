@@ -1,8 +1,8 @@
 'use client';
 
+import { Button, Input, Label, Textarea } from '@school/ui';
 import * as React from 'react';
 
-import { Button, Input, Label, Textarea } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

@@ -26,8 +26,8 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import type { CreateStudentDto } from './dto/create-student.dto';
-import type { UpdateStudentDto } from './dto/update-student.dto';
 import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
+import type { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsService } from './students.service';
 
 // ─── Query schemas ────────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 import { Test } from '@nestjs/testing';
 
-import { AnonymisationService } from './anonymisation.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { AnonymisationService } from './anonymisation.service';
 
 // Mock createRlsClient
 const mockTx: Record<string, unknown> = {};

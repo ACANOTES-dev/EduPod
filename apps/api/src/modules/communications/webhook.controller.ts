@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from 'crypto';
+
 import {
   Body,
   Controller,
@@ -11,7 +13,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { Request } from 'express';
 
 import { WebhookService } from './webhook.service';

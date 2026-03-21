@@ -1,12 +1,12 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import type { Queue } from 'bullmq';
 import type { ImportFilterDto, ImportType } from '@school/shared';
+import type { Queue } from 'bullmq';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';

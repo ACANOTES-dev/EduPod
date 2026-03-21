@@ -1,11 +1,12 @@
 'use client';
 
+import { Skeleton, toast } from '@school/ui';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
-import { Skeleton, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 import { StudentForm, type StudentFormData } from '../../_components/student-form';
 
 interface StudentDetail {

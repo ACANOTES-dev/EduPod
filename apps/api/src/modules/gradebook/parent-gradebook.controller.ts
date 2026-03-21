@@ -19,9 +19,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { PrismaService } from '../prisma/prisma.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
 
+import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { GradesService } from './grades.service';
 import { ReportCardsService } from './report-cards.service';
 import { TranscriptsService } from './transcripts.service';
@@ -47,7 +48,16 @@ export class ParentGradebookController {
     private readonly transcriptsService: TranscriptsService,
     private readonly pdfRenderingService: PdfRenderingService,
     private readonly prisma: PrismaService,
+    private readonly academicPeriodsService: AcademicPeriodsService,
   ) {}
+
+  @Get('parent/academic-periods')
+  @RequiresPermission('parent.view_grades')
+  async getAcademicPeriods(
+    @CurrentTenant() tenant: { tenant_id: string },
+  ) {
+    return this.academicPeriodsService.findAll(tenant.tenant_id, 50);
+  }
 
   @Get('parent/students/:studentId/grades')
   @RequiresPermission('parent.view_grades')

@@ -1,9 +1,5 @@
 'use client';
 
-import { Home, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   Input,
@@ -15,9 +11,13 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
+import { Home, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
 import { EntityLink } from '@/components/entity-link';
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 interface Household {

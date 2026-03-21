@@ -4,6 +4,7 @@ import { tenantSettingsSchema } from '@school/shared';
 import type { TenantSettingsDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
+
 import { SettingsService } from './settings.service';
 
 // Minimal valid settings object — Zod will fill any missing fields with defaults

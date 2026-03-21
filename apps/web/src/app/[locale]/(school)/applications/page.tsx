@@ -1,14 +1,14 @@
 'use client';
 
+import { EmptyState } from '@school/ui';
 import { ClipboardList } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState } from '@school/ui';
+import { ApplicationStatusBadge } from '@/components/admissions/application-status-badge';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
-import { ApplicationStatusBadge } from '@/components/admissions/application-status-badge';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

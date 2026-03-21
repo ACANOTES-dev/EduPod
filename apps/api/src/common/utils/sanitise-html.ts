@@ -6,7 +6,7 @@
 let sanitize: (dirty: string) => string;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const createDOMPurify = require('isomorphic-dompurify');
   const DOMPurify = createDOMPurify.default || createDOMPurify;
 

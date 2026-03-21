@@ -1,10 +1,5 @@
 'use client';
 
-import { ArrowLeft, CheckCircle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import { useRouter, useParams } from 'next/navigation';
-import * as React from 'react';
-
 import {
   Button,
   RadioGroup,
@@ -13,6 +8,11 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { apiClient } from '@/lib/api-client';

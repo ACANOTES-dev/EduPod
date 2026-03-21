@@ -1,9 +1,14 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import { useRouter, usePathname } from 'next/navigation';
-import * as React from 'react';
+import {
+  Avatar,
+  AvatarFallback,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@school/ui';
 import {
   User,
   MessageSquare,
@@ -14,16 +19,11 @@ import {
   ChevronDown,
   Globe,
 } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useTheme } from 'next-themes';
+import * as React from 'react';
 
-import {
-  Avatar,
-  AvatarFallback,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@school/ui';
 import { useAuth } from '@/providers/auth-provider';
 
 /* -------------------------------------------------------------------------- */

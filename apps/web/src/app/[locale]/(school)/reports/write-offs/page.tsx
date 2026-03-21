@@ -1,10 +1,10 @@
 'use client';
 
+import { EmptyState, Input, Label, StatCard } from '@school/ui';
+import { DollarSign } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState, Input, Label, StatCard } from '@school/ui';
-import { DollarSign } from 'lucide-react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

@@ -1,9 +1,5 @@
 'use client';
 
-import { Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -13,6 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
+import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

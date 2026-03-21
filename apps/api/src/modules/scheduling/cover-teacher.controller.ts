@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { findCoverTeacherQuerySchema } from '@school/shared';
 import type { FindCoverTeacherQuery } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

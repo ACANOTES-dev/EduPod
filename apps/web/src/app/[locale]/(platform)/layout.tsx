@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@school/ui';
 import {
   Activity,
   Building2,
@@ -13,7 +14,6 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
-import { cn } from '@school/ui';
 
 import { RequireAuth } from '@/providers/auth-provider';
 

@@ -1,19 +1,6 @@
 'use client';
 
 import {
-  ArrowLeft,
-  Globe,
-  Loader2,
-  Pencil,
-  Plus,
-  Settings,
-  Trash2,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
-
-import {
   Button,
   Input,
   Label,
@@ -26,10 +13,23 @@ import {
   StatusBadge,
   Switch,
 } from '@school/ui';
+import {
+  ArrowLeft,
+  Globe,
+  Loader2,
+  Pencil,
+  Plus,
+  Settings,
+  Trash2,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
 
+
+import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-import { PageHeader } from '@/components/page-header';
 
 // ---------- Types ----------
 

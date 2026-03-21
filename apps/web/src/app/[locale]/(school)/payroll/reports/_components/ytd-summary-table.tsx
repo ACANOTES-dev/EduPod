@@ -1,9 +1,9 @@
 'use client';
 
+import { Button, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Button, TableWrapper } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {

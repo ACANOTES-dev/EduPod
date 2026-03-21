@@ -1,11 +1,11 @@
 'use client';
 
+import { EmptyState, StatusBadge } from '@school/ui';
 import { ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

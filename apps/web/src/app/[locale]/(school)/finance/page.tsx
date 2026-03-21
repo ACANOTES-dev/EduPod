@@ -1,18 +1,20 @@
 'use client';
 
+import type { FinanceDashboardData } from '@school/shared';
+import { StatCard } from '@school/ui';
 import {
   AlertTriangle,
   RotateCcw,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { StatCard } from '@school/ui';
-import type { FinanceDashboardData } from '@school/shared';
+
 import { PageHeader } from '@/components/page-header';
-import { PaymentStatusBadge } from './_components/payment-status-badge';
 import { apiClient } from '@/lib/api-client';
+
+import { PaymentStatusBadge } from './_components/payment-status-badge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

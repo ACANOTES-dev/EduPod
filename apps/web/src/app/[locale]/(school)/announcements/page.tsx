@@ -1,10 +1,10 @@
 'use client';
 
+import { EmptyState } from '@school/ui';
 import { Megaphone } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EmptyState } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
