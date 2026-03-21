@@ -89,7 +89,12 @@ export default function DashboardPage() {
       {/* Greeting header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {loading ? t('welcome') : data ? data.greeting : t('welcome')}
+          {(() => {
+            if (loading || !user) return t('welcome');
+            const hour = new Date().getHours();
+            const key = hour < 12 ? 'goodMorning' : hour < 17 ? 'goodAfternoon' : 'goodEvening';
+            return t(key, { name: user.first_name });
+          })()}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">{t('summaryLine')}</p>
       </div>
