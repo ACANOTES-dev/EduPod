@@ -197,11 +197,15 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         }
       }
     }
-    // Fallback for sub-routes not in nav (e.g. scheduling sub-tabs, profile, inquiries)
+    // Fallback for sub-routes not in nav
     if (path.startsWith('/scheduling')) return t('nav.autoScheduling');
     if (path.startsWith('/profile')) return t('userMenu.profile');
     if (path.startsWith('/inquiries')) return t('nav.communications');
     if (path.startsWith('/applications')) return t('nav.admissions');
+    if (path.startsWith('/students/allergy-report')) return t('nav.students');
+    if (path.startsWith('/admissions/analytics')) return t('nav.admissions');
+    if (path.startsWith('/finance/')) return t('nav.finance');
+    if (path.startsWith('/payroll/')) return t('nav.payroll');
     return t('dashboard.title');
   }, [pathname, t]);
 
@@ -235,6 +239,8 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            collapseLabel={t('sidebar.collapse')}
+            expandLabel={t('sidebar.expand')}
             header={
               !sidebarCollapsed ? (
                 <span className="text-sm font-semibold text-text-primary">{t('common.appName')}</span>
@@ -254,7 +260,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
                 <button
                   className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
                   onClick={() => setMobileSidebarOpen(true)}
-                  aria-label="Open menu"
+                  aria-label={t('sidebar.openMenu')}
                 >
                   <Menu className="h-5 w-5" />
                 </button>

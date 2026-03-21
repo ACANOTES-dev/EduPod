@@ -1009,6 +1009,12 @@
   },
   "roles": {
     "title": "الأدوار",
+    "schoolOwner": "مالك المدرسة",
+    "schoolAdmin": "مدير المدرسة",
+    "teacher": "معلم",
+    "financeStaff": "موظف مالية",
+    "admissionsStaff": "موظف قبول",
+    "parent": "ولي أمر",
     "name": "اسم الدور",
     "key": "مفتاح الدور",
     "keyPlaceholder": "مثال: finance_manager",
@@ -1109,6 +1115,16 @@
     "themeDark": "داكن",
     "themeSystem": "النظام",
     "theme": "المظهر"
+  },
+  "sidebar": {
+    "collapse": "طي الشريط الجانبي",
+    "expand": "توسيع الشريط الجانبي",
+    "openMenu": "فتح القائمة"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "markAllRead": "تحديد الكل كمقروء",
+    "empty": "لا توجد إشعارات"
   },
   "platform": {
     "admin": {

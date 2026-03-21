@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Bell } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -86,6 +87,7 @@ function getNotificationTitle(n: NotificationItem): string {
 /* -------------------------------------------------------------------------- */
 
 export function NotificationPanel() {
+  const nt = useTranslations('notifications');
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -185,7 +187,7 @@ export function NotificationPanel() {
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         className="relative rounded-full p-2 text-text-secondary transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-        aria-label="Notifications"
+        aria-label={nt('title')}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
       >
@@ -204,19 +206,19 @@ export function NotificationPanel() {
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Notifications"
+          aria-label={nt('title')}
           className="absolute end-0 top-full z-50 mt-2 w-80 max-h-[480px] overflow-y-auto rounded-2xl border border-border bg-surface shadow-lg"
         >
           {/* Sticky header */}
           <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-2xl border-b border-border bg-surface px-4 py-3">
-            <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
+            <h3 className="text-sm font-semibold text-text-primary">{nt('title')}</h3>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => void handleMarkAllRead()}
                 className="text-xs font-medium text-primary-600 transition-colors hover:text-primary-700"
               >
-                Mark all read
+                {nt('markAllRead')}
               </button>
             )}
           </div>
@@ -230,7 +232,7 @@ export function NotificationPanel() {
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex items-center justify-center p-8">
-              <p className="text-sm text-text-tertiary">No notifications</p>
+              <p className="text-sm text-text-tertiary">{nt('empty')}</p>
             </div>
           ) : (
             <div className="py-2">

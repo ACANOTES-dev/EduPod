@@ -50,12 +50,12 @@ interface ListResponse<T> {
 }
 
 interface GradesTabProps {
-  children: Child[];
+  students: Child[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function GradesTab({ children }: GradesTabProps) {
+export function GradesTab({ students: children }: GradesTabProps) {
   const t = useTranslations('gradebook');
   const tr = useTranslations('reportCards');
   const tt = useTranslations('transcripts');

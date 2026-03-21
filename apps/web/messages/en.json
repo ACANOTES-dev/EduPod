@@ -1009,6 +1009,12 @@
   },
   "roles": {
     "title": "Roles",
+    "schoolOwner": "School Owner",
+    "schoolAdmin": "School Admin",
+    "teacher": "Teacher",
+    "financeStaff": "Finance Staff",
+    "admissionsStaff": "Admissions Staff",
+    "parent": "Parent",
     "name": "Role name",
     "key": "Role key",
     "keyPlaceholder": "e.g. finance_manager",
@@ -1109,6 +1115,16 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "theme": "Theme"
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "openMenu": "Open menu"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications"
   },
   "platform": {
     "admin": {

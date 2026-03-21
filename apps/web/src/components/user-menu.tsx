@@ -67,8 +67,19 @@ export function UserMenu() {
   const initials = getInitials(user.first_name, user.last_name);
   const displayName = `${user.first_name} ${user.last_name}`.trim();
 
-  /* ---- Primary role label ---- */
-  const primaryRole = user.memberships?.[0]?.roles?.[0]?.display_name ?? null;
+  /* ---- Primary role label (localised) ---- */
+  const primaryRoleKey = user.memberships?.[0]?.roles?.[0]?.role_key ?? null;
+  const roleTranslationMap: Record<string, string> = {
+    school_owner: t('roles.schoolOwner'),
+    school_admin: t('roles.schoolAdmin'),
+    teacher: t('roles.teacher'),
+    finance_staff: t('roles.financeStaff'),
+    admissions_staff: t('roles.admissionsStaff'),
+    parent: t('roles.parent'),
+  };
+  const primaryRole = primaryRoleKey
+    ? (roleTranslationMap[primaryRoleKey] ?? user.memberships?.[0]?.roles?.[0]?.display_name ?? null)
+    : null;
 
   /* ---- Handlers ---- */
   function handleNavigate(path: string) {

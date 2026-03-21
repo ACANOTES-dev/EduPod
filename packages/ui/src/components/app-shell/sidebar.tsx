@@ -13,9 +13,11 @@ interface SidebarProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  collapseLabel?: string;
+  expandLabel?: string;
 }
 
-export function Sidebar({ collapsed, onToggle, header, footer, children, className }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, header, footer, children, className, collapseLabel, expandLabel }: SidebarProps) {
   return (
     <aside
       className={cn(
@@ -40,7 +42,7 @@ export function Sidebar({ collapsed, onToggle, header, footer, children, classNa
       <button
         onClick={onToggle}
         className="flex items-center justify-center border-t border-border p-2 text-text-tertiary hover:text-text-primary hover:bg-surface-secondary transition-colors"
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? (expandLabel ?? 'Expand sidebar') : (collapseLabel ?? 'Collapse sidebar')}
       >
         {collapsed ? <ChevronRight className="h-4 w-4 rtl:rotate-180" /> : <ChevronLeft className="h-4 w-4 rtl:rotate-180" />}
       </button>

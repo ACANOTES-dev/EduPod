@@ -133,7 +133,7 @@ export default function ParentDashboardPage() {
       {/* Grades & Report Cards */}
       {!loading && children.length > 0 && (
         <section>
-          <GradesTab children={children} />
+          <GradesTab students={children} />
         </section>
       )}
 
