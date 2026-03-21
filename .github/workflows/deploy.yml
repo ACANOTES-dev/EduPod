@@ -32,6 +32,11 @@ jobs:
             echo "=== Cleaning stale build caches ==="
             rm -f packages/shared/tsconfig.tsbuildinfo
 
+            echo "=== Regenerating Prisma client ==="
+            cd packages/prisma
+            npx --no-install prisma generate
+            cd /opt/edupod/app
+
             echo "=== Building all packages ==="
             # NEXT_PUBLIC_API_URL must be empty so client-side API calls use relative
             # paths (via Next.js rewrites). This ensures requests go to the current

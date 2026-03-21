@@ -2,6 +2,7 @@
 
 import {
   AppShell,
+  Button,
   Sidebar,
   TopBar,
   SidebarItem,
@@ -28,6 +29,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  Plus,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -52,6 +54,7 @@ import { useShortcuts } from '@/hooks/use-shortcuts';
 import { setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 import { RequireRole } from '@/components/require-role';
+import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
@@ -165,6 +168,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  const [wizardOpen, setWizardOpen] = React.useState(false);
 
   // Wire global API error toast
   React.useEffect(() => {
@@ -217,6 +221,19 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
 
   const sidebarContent = (collapsed: boolean) => (
     <>
+      {!collapsed &&
+        userRoleKeys.some((r) => ADMIN_ROLES.includes(r as RoleKey)) && (
+          <div className="px-3 mb-4">
+            <Button
+              onClick={() => setWizardOpen(true)}
+              className="w-full justify-start gap-2"
+              size="sm"
+            >
+              <Plus className="h-4 w-4" />
+              {t('registration.registerFamily')}
+            </Button>
+          </div>
+        )}
       {filteredSections.map((section) => (
         <SidebarSection key={section.labelKey} label={t(section.labelKey)} collapsed={collapsed}>
           {section.items.map((item) => (
@@ -298,6 +315,8 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       <GlobalSearch open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
 
       <ToastProvider />
+
+      <RegistrationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </RequireAuth>
   );
 }

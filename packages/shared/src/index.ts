@@ -46,6 +46,7 @@ export * from './schemas/search.schema';
 export * from './schemas/promotion.schema';
 export * from './schemas/admission-form.schema';
 export * from './schemas/application.schema';
+export * from './schemas/registration.schema';
 
 // P4A Types
 export * from './types/room';

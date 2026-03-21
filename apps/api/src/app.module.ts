@@ -33,6 +33,7 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { RegistrationModule } from './modules/registration/registration.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { S3Module } from './modules/s3/s3.module';
@@ -111,6 +112,7 @@ import { WebsiteModule } from './modules/website/website.module';
     ComplianceModule,
     ImportsModule,
     ReportsModule,
+    RegistrationModule,
     SchedulingModule,
   ],
 })
