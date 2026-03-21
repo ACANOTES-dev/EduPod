@@ -34,11 +34,10 @@ interface MfaSetupData {
 }
 
 interface SessionData {
-  id: string;
+  session_id: string;
   user_agent: string | null;
   ip_address: string | null;
   last_active_at: string | null;
-  is_current: boolean;
 }
 
 type ThemeOption = 'light' | 'dark' | 'system';
@@ -182,7 +181,7 @@ export default function ProfilePage() {
     setSessionMessage(null);
     try {
       await apiClient(`/api/v1/auth/sessions/${sessionId}`, { method: 'DELETE' });
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
       setSessionMessage({ type: 'success', text: t('profile.revokeSuccess') });
     } catch {
       setSessionMessage({ type: 'error', text: t('profile.revokeError') });
@@ -375,7 +374,7 @@ export default function ProfilePage() {
         ) : (
           <ul className="space-y-0">
             {sessions.map((session, idx) => (
-              <React.Fragment key={session.id}>
+              <React.Fragment key={session.session_id}>
                 {idx > 0 && <Separator />}
                 <li className="flex items-start justify-between gap-4 py-3">
                   <div className="space-y-0.5 min-w-0">
@@ -383,11 +382,6 @@ export default function ProfilePage() {
                       <span className="text-sm font-medium text-text-primary truncate">
                         {session.user_agent ?? t('profile.device')}
                       </span>
-                      {session.is_current && (
-                        <Badge variant="secondary" className="text-xs">
-                          {t('profile.sessionCurrent')}
-                        </Badge>
-                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-tertiary flex-wrap">
                       {session.ip_address && (
@@ -398,18 +392,16 @@ export default function ProfilePage() {
                       </span>
                     </div>
                   </div>
-                  {!session.is_current && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRevokeSession(session.id)}
-                      disabled={revokingId === session.id}
-                      className="shrink-0 text-danger-text hover:text-danger-text hover:bg-danger-fill"
-                    >
-                      <Trash2 className="me-1 h-3.5 w-3.5" />
-                      {t('profile.revokeSession')}
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevokeSession(session.session_id)}
+                    disabled={revokingId === session.session_id}
+                    className="shrink-0 text-danger-text hover:text-danger-text hover:bg-danger-fill"
+                  >
+                    <Trash2 className="me-1 h-3.5 w-3.5" />
+                    {t('profile.revokeSession')}
+                  </Button>
                 </li>
               </React.Fragment>
             ))}

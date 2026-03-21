@@ -18,6 +18,7 @@ import type { PaymentStatus, PaymentMethod } from '@school/shared';
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 import { PaymentStatusBadge } from '../_components/payment-status-badge';
@@ -51,6 +52,8 @@ const methodLabelMap: Record<PaymentMethod, string> = {
 export default function PaymentsPage() {
   const router = useRouter();
   const pathname = usePathname();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'finance_staff');
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [payments, setPayments] = React.useState<Payment[]>([]);
@@ -244,10 +247,12 @@ export default function PaymentsPage() {
         title="Payments"
         description="View and manage incoming payments"
         actions={
-          <Button onClick={() => router.push('/finance/payments/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            Record Payment
-          </Button>
+          canManage ? (
+            <Button onClick={() => router.push('/finance/payments/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          ) : undefined
         }
       />
 
@@ -256,7 +261,7 @@ export default function PaymentsPage() {
           icon={Banknote}
           title="No payments yet"
           description="Record your first payment to get started."
-          action={{ label: 'Record Payment', onClick: () => router.push('/finance/payments/new') }}
+          action={canManage ? { label: 'Record Payment', onClick: () => router.push('/finance/payments/new') } : undefined}
         />
       ) : (
         <DataTable

@@ -58,7 +58,11 @@
     "periodGrid": "Period Grid",
     "curriculum": "Curriculum",
     "competencies": "Competencies",
-    "schedulingRuns": "Runs"
+    "schedulingRuns": "Runs",
+    "parentPortal": "My School",
+    "announcements": "Announcements",
+    "inquiries": "Inquiries",
+    "applications": "Applications"
   },
   "auth": {
     "login": "Log in",
@@ -165,6 +169,13 @@
     "comingSoon": "Coming soon",
     "summaryLine": "Here's what's happening at your school today.",
     "viewAll": "View All",
+    "allHouseholdsComplete": "All households are complete.",
+    "noAttendanceToday": "No attendance sessions recorded today.",
+    "noAdmissionsActivity": "No admissions activity yet.",
+    "incomplete": "Incomplete",
+    "recentSubmissions": "Recent Submissions",
+    "pendingReview": "Pending Review",
+    "accepted": "Accepted",
     "parentDashboard": {
       "linkedStudents": "Your Students",
       "outstandingInvoices": "Outstanding Invoices",

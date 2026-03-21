@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { EmptyState, StatCard } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
 interface HouseholdNeedingCompletion {
   id: string;
@@ -38,8 +40,29 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const t = useTranslations('dashboard');
+  const { user } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Redirect non-admin roles to their specific dashboards
+  useEffect(() => {
+    if (!user?.memberships) return;
+    const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
+    const isAdmin = roleKeys.some((r) => r === 'school_owner' || r === 'school_admin');
+    const isTeacher = roleKeys.includes('teacher');
+    const isParent = roleKeys.includes('parent');
+
+    if (!isAdmin) {
+      if (isTeacher) {
+        router.replace(`/${locale}/dashboard/teacher`);
+      } else if (isParent) {
+        router.replace(`/${locale}/dashboard/parent`);
+      }
+    }
+  }, [user, router, locale]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -110,13 +133,13 @@ export default function DashboardPage() {
                 <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                   {household.household_name}
                 </span>
-                <span className="text-xs text-warning-text">Incomplete</span>
+                <span className="text-xs text-warning-text">{t('incomplete')}</span>
               </Link>
             ))}
           </div>
         ) : (
           <div className="rounded-2xl bg-surface-secondary p-6 flex items-center justify-center">
-            <p className="text-sm text-text-tertiary">All households are complete.</p>
+            <p className="text-sm text-text-tertiary">{t('allHouseholdsComplete')}</p>
           </div>
         )}
       </section>
@@ -135,7 +158,7 @@ export default function DashboardPage() {
         <EmptyState
           icon={GraduationCap}
           title={t('todayAttendance')}
-          description="No attendance sessions recorded today."
+          description={t('noAttendanceToday')}
         />
       </section>
 
@@ -153,15 +176,15 @@ export default function DashboardPage() {
         {data && (data.admissions.recent_submissions > 0 || data.admissions.pending_review > 0) ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-surface-secondary p-4">
-              <p className="text-xs text-text-tertiary">Recent Submissions</p>
+              <p className="text-xs text-text-tertiary">{t('recentSubmissions')}</p>
               <p className="text-lg font-semibold text-text-primary">{data.admissions.recent_submissions}</p>
             </div>
             <div className="rounded-xl bg-surface-secondary p-4">
-              <p className="text-xs text-text-tertiary">Pending Review</p>
+              <p className="text-xs text-text-tertiary">{t('pendingReview')}</p>
               <p className="text-lg font-semibold text-warning-text">{data.admissions.pending_review}</p>
             </div>
             <div className="rounded-xl bg-surface-secondary p-4">
-              <p className="text-xs text-text-tertiary">Accepted</p>
+              <p className="text-xs text-text-tertiary">{t('accepted')}</p>
               <p className="text-lg font-semibold text-success-text">{data.admissions.accepted}</p>
             </div>
           </div>
@@ -169,7 +192,7 @@ export default function DashboardPage() {
           <EmptyState
             icon={Users}
             title={t('recentAdmissions')}
-            description="No admissions activity yet."
+            description={t('noAdmissionsActivity')}
           />
         )}
       </section>

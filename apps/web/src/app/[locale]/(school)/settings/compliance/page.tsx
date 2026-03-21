@@ -26,6 +26,7 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
+import { useRoleCheck } from '@/hooks/use-role-check';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,6 +292,7 @@ function DetailDialog({ request, onClose, onAction }: DetailDialogProps) {
 
 export default function CompliancePage() {
   const t = useTranslations('compliance');
+  const { isOwner } = useRoleCheck();
 
   const [data, setData] = React.useState<ComplianceRequest[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -416,10 +418,12 @@ export default function CompliancePage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button onClick={() => setNewDialogOpen(true)}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('newRequest')}
-          </Button>
+          isOwner ? (
+            <Button onClick={() => setNewDialogOpen(true)}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('newRequest')}
+            </Button>
+          ) : undefined
         }
       />
 

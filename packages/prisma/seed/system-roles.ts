@@ -96,7 +96,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'Teacher',
     role_tier: 'staff',
     default_permissions: [
-      'attendance.take',
+      'students.view',
+      'attendance.take', 'attendance.view',
       'gradebook.enter_grades', 'gradebook.view',
       'schedule.view_own',
       'schedule.manage_own_preferences',

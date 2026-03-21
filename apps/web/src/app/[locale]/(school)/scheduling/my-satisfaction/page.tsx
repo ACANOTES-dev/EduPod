@@ -37,8 +37,19 @@ export default function MySatisfactionPage() {
 
   React.useEffect(() => {
     setLoading(true);
-    apiClient<MySatisfaction>('/api/v1/scheduling-dashboard/my-satisfaction')
-      .then((res) => setData(res))
+    // First get the active academic year, then fetch satisfaction data
+    apiClient<{ data: Array<{ id: string }> }>('/api/v1/academic-years?pageSize=1&status=active')
+      .then((yearsRes) => {
+        const yearId = yearsRes.data?.[0]?.id;
+        if (!yearId) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+        return apiClient<MySatisfaction>(`/api/v1/scheduling-dashboard/preferences?academic_year_id=${yearId}`)
+          .then((res) => setData(res))
+          .catch(() => setError(true));
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);

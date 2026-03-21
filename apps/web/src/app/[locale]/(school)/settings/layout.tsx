@@ -6,18 +6,23 @@ import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { cn } from '@school/ui';
+import { useAuth } from '@/providers/auth-provider';
+
+type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent';
 
 interface SettingsTab {
   key: string;
   labelKey: string;
   href: string;
+  /** If set, tab only visible to users with one of these role_keys */
+  roles?: RoleKey[];
 }
 
 const TABS: SettingsTab[] = [
   { key: 'branding', labelKey: 'branding', href: 'branding' },
   { key: 'general', labelKey: 'general', href: 'general' },
   { key: 'notifications', labelKey: 'notifications', href: 'notifications' },
-  { key: 'stripe', labelKey: 'stripe', href: 'stripe' },
+  { key: 'stripe', labelKey: 'stripe', href: 'stripe', roles: ['school_owner'] },
   { key: 'users', labelKey: 'users', href: 'users' },
   { key: 'invitations', labelKey: 'invitations', href: 'invitations' },
   { key: 'roles', labelKey: 'roles', href: 'roles' },
@@ -34,6 +39,7 @@ const TABS: SettingsTab[] = [
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('settings');
   const pathname = usePathname();
+  const { user } = useAuth();
 
   // Extract locale from pathname (e.g., /en/settings/branding -> en)
   const segments = (pathname ?? '').split('/').filter(Boolean);
@@ -46,6 +52,16 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   const activeTab = getActiveTab();
 
+  const userRoleKeys = React.useMemo(() => {
+    if (!user?.memberships) return [];
+    return user.memberships.flatMap((m) => m.roles?.map((r: { role_key: string }) => r.role_key) ?? []);
+  }, [user]);
+
+  const visibleTabs = React.useMemo(
+    () => TABS.filter((tab) => !tab.roles || tab.roles.some((r) => userRoleKeys.includes(r))),
+    [userRoleKeys],
+  );
+
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
@@ -57,7 +73,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         className="mt-6 flex gap-1 border-b border-border"
         aria-label={t('title')}
       >
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
             <Link

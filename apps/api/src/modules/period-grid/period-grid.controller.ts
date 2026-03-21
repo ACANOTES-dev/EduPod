@@ -42,7 +42,7 @@ export class PeriodGridController {
   constructor(private readonly periodGridService: PeriodGridService) {}
 
   @Get()
-  @RequiresPermission('schedule.configure_period_grid')
+  @RequiresPermission('schedule.configure_period_grid', 'schedule.view_own')
   async findAll(
     @CurrentTenant() tenant: { tenant_id: string },
     @Query(new ZodValidationPipe(listPeriodGridQuerySchema))

@@ -45,7 +45,7 @@ export default function ParentApplicationsPage() {
         pageSize: String(pageSize),
       });
       const res = await apiClient<{ data: MyApplication[]; meta: { total: number } }>(
-        `/api/v1/applications/mine?${params.toString()}`,
+        `/api/v1/parent/applications?${params.toString()}`,
       );
       setApplications(res.data);
       setTotal(res.meta.total);

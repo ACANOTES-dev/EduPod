@@ -19,6 +19,7 @@ import {
 import type { DiscountType } from '@school/shared';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
 interface Discount {
@@ -32,6 +33,8 @@ interface Discount {
 export default function DiscountsPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'finance_staff');
 
   const [discounts, setDiscounts] = React.useState<Discount[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -139,10 +142,12 @@ export default function DiscountsPage() {
         title={t('discounts.title')}
         description={t('discounts.description')}
         actions={
-          <Button onClick={() => router.push('discounts/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('discounts.newButton')}
-          </Button>
+          canManage ? (
+            <Button onClick={() => router.push('discounts/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('discounts.newButton')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -151,10 +156,10 @@ export default function DiscountsPage() {
           icon={Percent}
           title={t('discounts.emptyTitle')}
           description={t('discounts.emptyDescription')}
-          action={{
+          action={canManage ? {
             label: t('discounts.newButton'),
             onClick: () => router.push('discounts/new'),
-          }}
+          } : undefined}
         />
       ) : (
         <DataTable

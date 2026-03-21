@@ -247,20 +247,6 @@ export class AttendanceController {
     );
   }
 
-  // ─── Teacher Dashboard ──────────────────────────────────────────────────
-
-  @Get('dashboard/teacher')
-  @RequiresPermission('attendance.take')
-  async getTeacherDashboard(
-    @CurrentTenant() tenant: { tenant_id: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.attendanceService.getTeacherDashboard(
-      tenant.tenant_id,
-      user.sub,
-    );
-  }
-
   // ─── Private Helpers ────────────────────────────────────────────────────
 
   /**

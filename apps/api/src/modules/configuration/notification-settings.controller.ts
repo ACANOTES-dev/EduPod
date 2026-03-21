@@ -25,6 +25,7 @@ export class NotificationSettingsController {
   ) {}
 
   @Get()
+  @RequiresPermission('notifications.manage')
   async listSettings(@CurrentTenant() tenant: TenantContext) {
     return this.notificationSettingsService.listSettings(tenant.tenant_id);
   }

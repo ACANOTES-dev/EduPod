@@ -58,7 +58,11 @@
     "periodGrid": "شبكة الحصص",
     "curriculum": "المنهج",
     "competencies": "الكفاءات",
-    "schedulingRuns": "التشغيلات"
+    "schedulingRuns": "التشغيلات",
+    "parentPortal": "بوابة ولي الأمر",
+    "announcements": "الإعلانات",
+    "inquiries": "الاستفسارات",
+    "applications": "الطلبات"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -165,6 +169,13 @@
     "comingSoon": "قريباً",
     "summaryLine": "إليك ما يحدث في مدرستك اليوم.",
     "viewAll": "عرض الكل",
+    "allHouseholdsComplete": "جميع الأسر مكتملة.",
+    "noAttendanceToday": "لم يتم تسجيل جلسات حضور اليوم.",
+    "noAdmissionsActivity": "لا يوجد نشاط قبول حتى الآن.",
+    "incomplete": "غير مكتمل",
+    "recentSubmissions": "الطلبات الأخيرة",
+    "pendingReview": "قيد المراجعة",
+    "accepted": "مقبول",
     "parentDashboard": {
       "linkedStudents": "أبناؤك",
       "outstandingInvoices": "الفواتير المستحقة",

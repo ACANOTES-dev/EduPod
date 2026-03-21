@@ -25,6 +25,7 @@ export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get()
+  @RequiresPermission('settings.manage')
   async getSettings(@CurrentTenant() tenant: TenantContext) {
     return this.settingsService.getSettings(tenant.tenant_id);
   }

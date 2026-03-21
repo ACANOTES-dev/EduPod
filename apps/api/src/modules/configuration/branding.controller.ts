@@ -34,6 +34,7 @@ export class BrandingController {
   constructor(private readonly brandingService: BrandingService) {}
 
   @Get()
+  @RequiresPermission('branding.manage')
   async getBranding(@CurrentTenant() tenant: TenantContext) {
     return this.brandingService.getBranding(tenant.tenant_id);
   }

@@ -32,7 +32,7 @@ export class PermissionGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermission = this.reflector.getAllAndOverride<string>(
+    const requiredPermission = this.reflector.getAllAndOverride<string | string[]>(
       REQUIRES_PERMISSION_KEY,
       [context.getHandler(), context.getClass()],
     );
@@ -79,11 +79,17 @@ export class PermissionGuard implements CanActivate {
       user.membership_id,
     );
 
-    if (!permissions.includes(requiredPermission)) {
+    // Support single permission (string) or multiple (OR logic — any one grants access)
+    const requiredPerms = Array.isArray(requiredPermission)
+      ? requiredPermission
+      : [requiredPermission];
+
+    const hasPermission = requiredPerms.some((perm) => permissions.includes(perm));
+    if (!hasPermission) {
       throw new ForbiddenException({
         error: {
           code: 'PERMISSION_DENIED',
-          message: `Missing required permission: ${requiredPermission}`,
+          message: `Missing required permission: ${requiredPerms.join(' | ')}`,
         },
       });
     }

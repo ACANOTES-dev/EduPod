@@ -16,8 +16,8 @@ type InquiryStatus = 'open' | 'in_progress' | 'closed';
 
 interface Message {
   id: string;
-  body: string;
-  sender_type: 'parent' | 'admin';
+  message: string;
+  author_type: 'parent' | 'admin';
   created_at: string;
 }
 
@@ -44,7 +44,7 @@ const STATUS_LABEL: Record<InquiryStatus, string> = {
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 
 function MessageBubble({ message, adminLabel }: { message: Message; adminLabel: string }) {
-  const isParent = message.sender_type === 'parent';
+  const isParent = message.author_type === 'parent';
   return (
     <div className={`flex flex-col gap-1 ${isParent ? 'items-start' : 'items-end'}`}>
       <div className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
@@ -52,7 +52,7 @@ function MessageBubble({ message, adminLabel }: { message: Message; adminLabel: 
           ? 'rounded-ss-sm bg-surface-secondary text-text-primary'
           : 'rounded-se-sm bg-primary-600 text-white'
       }`}>
-        {message.body}
+        {message.message}
       </div>
       <div className="flex items-center gap-1.5 px-1 text-xs text-text-tertiary">
         <span>{isParent ? 'You' : adminLabel}</span>
@@ -102,7 +102,7 @@ export default function ParentInquiryDetailPage() {
     if (!reply.trim()) return;
     setIsSending(true);
     try {
-      await apiClient(`/api/v1/inquiries/${id}/messages`, {
+      await apiClient(`/api/v1/inquiries/${id}/messages/parent`, {
         method: 'POST',
         body: JSON.stringify({ body: reply.trim() }),
       });

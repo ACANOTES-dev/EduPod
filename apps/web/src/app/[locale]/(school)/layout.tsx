@@ -25,6 +25,8 @@ import {
   UserPlus,
   Users,
   Globe,
+  Megaphone,
+  MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -75,6 +77,15 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     ],
   },
   {
+    labelKey: 'nav.parentPortal',
+    roles: ['parent'],
+    items: [
+      { icon: Megaphone, labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
+      { icon: MessageCircle, labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
+      { icon: ClipboardList, labelKey: 'nav.applications', href: '/applications', roles: ['parent'] },
+    ],
+  },
+  {
     labelKey: 'nav.people',
     roles: STAFF_ROLES,
     items: [
@@ -113,7 +124,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: UserPlus, labelKey: 'nav.admissions', href: '/admissions', roles: [...ADMIN_ROLES, 'admissions_staff'] },
       { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'finance_staff'] },
-      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ADMIN_ROLES },
+      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner'] },
       { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
       { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
     ],
@@ -186,6 +197,11 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         }
       }
     }
+    // Fallback for sub-routes not in nav (e.g. scheduling sub-tabs, profile, inquiries)
+    if (path.startsWith('/scheduling')) return t('nav.autoScheduling');
+    if (path.startsWith('/profile')) return t('userMenu.profile');
+    if (path.startsWith('/inquiries')) return t('nav.communications');
+    if (path.startsWith('/applications')) return t('nav.admissions');
     return t('dashboard.title');
   }, [pathname, t]);
 

@@ -9,6 +9,8 @@ import { EmptyState, StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
+import { GradesTab } from './_components/grades-tab';
+
 interface LinkedStudent {
   student_id: string;
   first_name: string;
@@ -46,6 +48,7 @@ function studentStatusVariant(
 export default function ParentDashboardPage() {
   const t = useTranslations('dashboard');
   const tStudents = useTranslations('students');
+  const tCommon = useTranslations('common');
   const [data, setData] = useState<ParentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +66,12 @@ export default function ParentDashboardPage() {
   useEffect(() => {
     void fetchDashboard();
   }, [fetchDashboard]);
+
+  const children =
+    data?.students.map((s) => ({
+      id: s.student_id,
+      name: `${s.first_name} ${s.last_name}`,
+    })) ?? [];
 
   return (
     <div className="space-y-8">
@@ -116,10 +125,17 @@ export default function ParentDashboardPage() {
           <EmptyState
             icon={GraduationCap}
             title={t('parentDashboard.linkedStudents')}
-            description="No students are linked to your account yet."
+            description={tCommon('noResults')}
           />
         )}
       </section>
+
+      {/* Grades & Report Cards */}
+      {!loading && children.length > 0 && (
+        <section>
+          <GradesTab children={children} />
+        </section>
+      )}
 
       {/* Outstanding Invoices */}
       <section>
@@ -129,7 +145,7 @@ export default function ParentDashboardPage() {
         <EmptyState
           icon={FileText}
           title={t('parentDashboard.noInvoices')}
-          description="You have no outstanding invoices."
+          description={t('parentDashboard.noInvoices')}
         />
       </section>
 
@@ -141,7 +157,7 @@ export default function ParentDashboardPage() {
         <EmptyState
           icon={Bell}
           title={t('parentDashboard.noAnnouncements')}
-          description="No announcements have been published recently."
+          description={t('parentDashboard.noAnnouncements')}
         />
       </section>
     </div>

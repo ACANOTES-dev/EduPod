@@ -1,6 +1,8 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { TenantContext } from '@school/shared';
 import { NextFunction, Request, Response } from 'express';
+import * as jwt from 'jsonwebtoken';
 
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
@@ -26,10 +28,15 @@ import { RedisService } from '../../modules/redis/redis.service';
 export class TenantResolutionMiddleware implements NestMiddleware {
   private readonly logger = new Logger(TenantResolutionMiddleware.name);
 
+  private readonly platformDomain: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.platformDomain = this.configService.get<string>('PLATFORM_DOMAIN', 'edupod.app');
+  }
 
   async use(req: Request, res: Response, next: NextFunction) {
     // Skip tenant resolution for platform admin routes
@@ -138,6 +145,24 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       });
 
       if (!domainRecord) {
+        // When accessed via the platform domain or localhost, resolve tenant
+        // from the JWT token instead of from the hostname. This supports the
+        // Next.js rewrite proxy pattern where all /api/* requests are forwarded
+        // from the frontend server, losing the original tenant subdomain.
+        const isPlatformDomain =
+          hostname === this.platformDomain ||
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1';
+
+        if (isPlatformDomain) {
+          const tenantFromToken = await this.resolveTenantFromToken(req);
+          if (tenantFromToken) {
+            const mutableReq = req as unknown as { tenantContext: TenantContext };
+            mutableReq.tenantContext = tenantFromToken;
+            return next();
+          }
+        }
+
         return res.status(404).json({
           error: { code: 'NOT_FOUND', message: 'Not found' },
         });
@@ -183,6 +208,66 @@ export class TenantResolutionMiddleware implements NestMiddleware {
       return res.status(500).json({
         error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
       });
+    }
+  }
+
+  /**
+   * Attempt to resolve tenant context from the JWT bearer token.
+   * Used as a fallback when the request arrives via the platform domain
+   * (Next.js rewrite proxy) rather than a tenant subdomain.
+   */
+  private async resolveTenantFromToken(req: Request): Promise<TenantContext | null> {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) return null;
+
+      const token = authHeader.substring(7);
+      const secret = this.configService.get<string>('JWT_SECRET');
+      if (!secret) return null;
+
+      const decoded = jwt.verify(token, secret) as {
+        tenant_id?: string;
+        type?: string;
+      };
+
+      if (!decoded.tenant_id || decoded.type !== 'access') return null;
+
+      // Check Redis cache for this tenant
+      const client = this.redis.getClient();
+      const tenantCacheKey = `tenant:${decoded.tenant_id}`;
+      const cachedTenant = await client.get(tenantCacheKey);
+
+      if (cachedTenant) {
+        return JSON.parse(cachedTenant) as TenantContext;
+      }
+
+      // Query the tenant directly
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: decoded.tenant_id },
+      });
+
+      if (!tenant || tenant.status === 'archived') return null;
+
+      if (tenant.status === 'suspended') {
+        await client.set(`tenant:${tenant.id}:suspended`, 'true');
+        return null;
+      }
+
+      const tenantContext: TenantContext = {
+        tenant_id: tenant.id,
+        slug: tenant.slug,
+        name: tenant.name,
+        status: tenant.status,
+        default_locale: tenant.default_locale,
+        timezone: tenant.timezone,
+      };
+
+      // Cache for 60 seconds
+      await client.setex(tenantCacheKey, 60, JSON.stringify(tenantContext));
+
+      return tenantContext;
+    } catch {
+      return null;
     }
   }
 }

@@ -203,7 +203,10 @@ export class AssessmentsService {
     ]);
 
     return {
-      data,
+      data: data.map((a) => ({
+        ...a,
+        max_score: a.max_score != null ? Number(a.max_score) : null,
+      })),
       meta: { page, pageSize, total },
     };
   }
@@ -257,6 +260,7 @@ export class AssessmentsService {
 
     return {
       ...assessment,
+      max_score: assessment.max_score != null ? Number(assessment.max_score) : null,
       grade_count: gradeCount,
       student_count: studentCount,
     };

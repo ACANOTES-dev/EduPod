@@ -20,6 +20,7 @@ import type { BillingFrequency } from '@school/shared';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { CurrencyDisplay } from '../_components/currency-display';
 
 interface YearGroup {
@@ -47,6 +48,8 @@ const frequencyLabels: Record<BillingFrequency, string> = {
 export default function FeeStructuresPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'finance_staff');
 
   const [feeStructures, setFeeStructures] = React.useState<FeeStructure[]>([]);
   const [, setYearGroups] = React.useState<YearGroup[]>([]);
@@ -116,7 +119,7 @@ export default function FeeStructuresPage() {
       render: (row: FeeStructure) => (
         <CurrencyDisplay
           amount={row.amount}
-          currency_code={row.currency_code ?? 'SAR'}
+          currency_code={row.currency_code ?? 'AED'}
           className="font-mono text-sm text-text-primary"
         />
       ),
@@ -179,10 +182,12 @@ export default function FeeStructuresPage() {
         title={t('feeStructures.title')}
         description={t('feeStructures.description')}
         actions={
-          <Button onClick={() => router.push('fee-structures/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('feeStructures.newButton')}
-          </Button>
+          canManage ? (
+            <Button onClick={() => router.push('fee-structures/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('feeStructures.newButton')}
+            </Button>
+          ) : undefined
         }
       />
 

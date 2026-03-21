@@ -130,7 +130,7 @@ export default function MyPreferencesPage() {
     if (!selectedYear) return;
     setIsLoading(true);
     apiClient<PreferencesResponse>(
-      `/api/v1/staff-preferences/own?academic_year_id=${selectedYear}&pageSize=100`,
+      `/api/v1/staff-scheduling-preferences/own?academic_year_id=${selectedYear}&pageSize=100`,
     )
       .then((res) => setPreferences(res.data))
       .catch(() => {
@@ -184,7 +184,7 @@ export default function MyPreferencesPage() {
     if (activeTab === 'time_slot') payload['period_slot_id'] = newEntityId;
 
     try {
-      const created = await apiClient<Preference>('/api/v1/staff-preferences/own', {
+      const created = await apiClient<Preference>('/api/v1/staff-scheduling-preferences/own', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -197,7 +197,7 @@ export default function MyPreferencesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await apiClient(`/api/v1/staff-preferences/own/${id}`, { method: 'DELETE' });
+      await apiClient(`/api/v1/staff-scheduling-preferences/own/${id}`, { method: 'DELETE' });
       setPreferences((prev) => prev.filter((p) => p.id !== id));
     } catch {
       toast.error('Failed to delete preference');
@@ -207,7 +207,7 @@ export default function MyPreferencesPage() {
   const handleToggleSentiment = async (id: string, current: PreferenceSentiment) => {
     const next = current === 'prefer' ? 'avoid' : 'prefer';
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-preferences/own/${id}`, {
+      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/own/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ sentiment: next }),
       });
@@ -219,7 +219,7 @@ export default function MyPreferencesPage() {
 
   const handleChangePriority = async (id: string, priority: number) => {
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-preferences/own/${id}`, {
+      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/own/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ priority }),
       });

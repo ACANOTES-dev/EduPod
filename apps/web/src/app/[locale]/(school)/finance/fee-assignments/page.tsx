@@ -8,6 +8,7 @@ import * as React from 'react';
 import { Button, EmptyState } from '@school/ui';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { HouseholdSelector } from '../_components/household-selector';
 
@@ -24,6 +25,8 @@ interface FeeAssignment {
 export default function FeeAssignmentsPage() {
   const t = useTranslations('finance');
   const router = useRouter();
+  const { hasAnyRole } = useRoleCheck();
+  const canManage = hasAnyRole('school_owner', 'finance_staff');
 
   const [assignments, setAssignments] = React.useState<FeeAssignment[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -147,10 +150,12 @@ export default function FeeAssignmentsPage() {
         title={t('feeAssignments.title')}
         description={t('feeAssignments.description')}
         actions={
-          <Button onClick={() => router.push('fee-assignments/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('feeAssignments.newButton')}
-          </Button>
+          canManage ? (
+            <Button onClick={() => router.push('fee-assignments/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('feeAssignments.newButton')}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -159,10 +164,10 @@ export default function FeeAssignmentsPage() {
           icon={FileText}
           title={t('feeAssignments.emptyTitle')}
           description={t('feeAssignments.emptyDescription')}
-          action={{
+          action={canManage ? {
             label: t('feeAssignments.newButton'),
             onClick: () => router.push('fee-assignments/new'),
-          }}
+          } : undefined}
         />
       ) : (
         <DataTable
