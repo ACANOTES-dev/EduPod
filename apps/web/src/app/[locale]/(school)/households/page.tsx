@@ -25,6 +25,7 @@ interface Household {
   household_name: string;
   status: 'active' | 'inactive' | 'archived';
   needs_completion: boolean;
+  completion_issues?: string[];
   student_count?: number;
   primary_billing_parent?: {
     id: string;
@@ -89,19 +90,33 @@ export default function HouseholdsPage() {
     {
       key: 'household_name',
       header: 'Household Name',
-      render: (row: Household) => (
-        <div className="flex items-center gap-2">
-          <EntityLink
-            entityType="household"
-            entityId={row.id}
-            label={row.household_name}
-            href={`/households/${row.id}`}
-          />
-          {row.needs_completion && (
-            <StatusBadge status="warning">Incomplete</StatusBadge>
-          )}
-        </div>
-      ),
+      render: (row: Household) => {
+        const issueLabels: Record<string, string> = {
+          missing_emergency_contact: 'No emergency contact',
+          missing_billing_parent: 'No billing parent',
+        };
+        const issues = row.completion_issues ?? [];
+        return (
+          <div className="flex items-center gap-2">
+            <EntityLink
+              entityType="household"
+              entityId={row.id}
+              label={row.household_name}
+              href={`/households/${row.id}`}
+            />
+            {row.needs_completion && (
+              <StatusBadge
+                status="warning"
+                title={issues.map((i) => issueLabels[i] ?? i).join(', ')}
+              >
+                {issues.length > 0
+                  ? issues.map((i) => issueLabels[i] ?? i).join(' · ')
+                  : 'Incomplete'}
+              </StatusBadge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'status',

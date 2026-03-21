@@ -13,6 +13,7 @@ import { useAuth } from '@/providers/auth-provider';
 interface HouseholdNeedingCompletion {
   id: string;
   household_name: string;
+  completion_issues: string[];
 }
 
 interface DashboardData {
@@ -127,18 +128,28 @@ export default function DashboardPage() {
           </div>
         ) : data && data.incomplete_households.length > 0 ? (
           <div className="rounded-2xl bg-surface-secondary p-4 space-y-1">
-            {data.incomplete_households.map((household) => (
-              <Link
-                key={household.id}
-                href={`/households/${household.id}`}
-                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-surface transition-colors group"
-              >
-                <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
-                  {household.household_name}
-                </span>
-                <span className="text-xs text-warning-text">{t('incomplete')}</span>
-              </Link>
-            ))}
+            {data.incomplete_households.map((household) => {
+              const issueLabels: Record<string, string> = {
+                missing_emergency_contact: t('missingEmergencyContact'),
+                missing_billing_parent: t('missingBillingParent'),
+              };
+              return (
+                <Link
+                  key={household.id}
+                  href={`/households/${household.id}`}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-surface transition-colors group"
+                >
+                  <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
+                    {household.household_name}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-warning-text">
+                    {household.completion_issues.length > 0
+                      ? household.completion_issues.map((issue) => issueLabels[issue] ?? issue).join(' · ')
+                      : t('incomplete')}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-2xl bg-surface-secondary p-6 flex items-center justify-center">

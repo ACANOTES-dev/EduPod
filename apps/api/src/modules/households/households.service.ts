@@ -212,14 +212,40 @@ export class HouseholdsService {
           take: pageSize,
           orderBy: { created_at: 'desc' },
           include: {
-            _count: { select: { students: true } },
+            _count: { select: { students: true, emergency_contacts: true } },
+            billing_parent: {
+              select: { id: true, first_name: true, last_name: true },
+            },
           },
         }),
         db.household.count({ where }),
       ]);
-    })) as [HouseholdListItem[], number];
+    })) as [
+      (HouseholdListItem & {
+        _count: { students: number; emergency_contacts: number };
+        billing_parent: { id: string; first_name: string; last_name: string } | null;
+      })[],
+      number,
+    ];
 
-    const [data, total] = result;
+    const [raw, total] = result;
+
+    const data = raw.map((hh) => {
+      const completion_issues: string[] = [];
+      if (hh.needs_completion) {
+        if (hh._count.emergency_contacts < 1) completion_issues.push('missing_emergency_contact');
+        if (hh.primary_billing_parent_id === null) completion_issues.push('missing_billing_parent');
+      }
+      return {
+        id: hh.id,
+        household_name: hh.household_name,
+        status: hh.status,
+        needs_completion: hh.needs_completion,
+        completion_issues,
+        student_count: hh._count.students,
+        primary_billing_parent: hh.billing_parent,
+      };
+    });
 
     return {
       data,
@@ -289,7 +315,13 @@ export class HouseholdsService {
       });
     }
 
-    return household;
+    const completion_issues: string[] = [];
+    if (household.needs_completion) {
+      if (household.emergency_contacts.length < 1) completion_issues.push('missing_emergency_contact');
+      if (household.primary_billing_parent_id === null) completion_issues.push('missing_billing_parent');
+    }
+
+    return { ...household, completion_issues };
   }
 
   // ─── Update ───────────────────────────────────────────────────────────────

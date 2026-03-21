@@ -78,7 +78,12 @@ export class DashboardService {
         txClient.household.findMany({
           where: { tenant_id: tenantId, needs_completion: true },
           take: 10,
-          select: { id: true, household_name: true },
+          select: {
+            id: true,
+            household_name: true,
+            primary_billing_parent_id: true,
+            _count: { select: { emergency_contacts: true } },
+          },
         }),
         txClient.application.count({ where: { tenant_id: tenantId, status: 'submitted' } }),
         txClient.application.count({ where: { tenant_id: tenantId, status: { in: ['submitted', 'under_review', 'pending_acceptance_approval'] } } }),
@@ -108,7 +113,12 @@ export class DashboardService {
       activeClasses: number;
       pendingApprovals: number;
       activeAcademicYear: { name: string } | null;
-      incompleteHouseholds: { id: string; household_name: string }[];
+      incompleteHouseholds: {
+        id: string;
+        household_name: string;
+        primary_billing_parent_id: string | null;
+        _count: { emergency_contacts: number };
+      }[];
       recentApplications: number;
       pendingApplications: number;
       acceptedApplications: number;
@@ -130,7 +140,12 @@ export class DashboardService {
         active_academic_year_name: stats.activeAcademicYear?.name ?? null,
       },
       pending_approvals: stats.pendingApprovals,
-      incomplete_households: stats.incompleteHouseholds,
+      incomplete_households: stats.incompleteHouseholds.map((hh) => {
+        const issues: string[] = [];
+        if (hh._count.emergency_contacts < 1) issues.push('missing_emergency_contact');
+        if (hh.primary_billing_parent_id === null) issues.push('missing_billing_parent');
+        return { id: hh.id, household_name: hh.household_name, completion_issues: issues };
+      }),
       admissions: {
         recent_submissions: stats.recentApplications,
         pending_review: stats.pendingApplications,
@@ -141,7 +156,7 @@ export class DashboardService {
       greeting: string;
       summary: string;
       pending_approvals: number;
-      incomplete_households: { id: string; household_name: string }[];
+      incomplete_households: { id: string; household_name: string; completion_issues: string[] }[];
       admissions: { recent_submissions: number; pending_review: number; accepted: number };
     };
   }

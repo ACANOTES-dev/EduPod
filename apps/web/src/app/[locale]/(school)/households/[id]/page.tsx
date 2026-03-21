@@ -76,6 +76,7 @@ interface Household {
   household_name: string;
   status: 'active' | 'inactive' | 'archived';
   needs_completion: boolean;
+  completion_issues?: string[];
   address_line_1?: string | null;
   address_line_2?: string | null;
   city?: string | null;
@@ -527,11 +528,22 @@ export default function HouseholdHubPage() {
       >
         {/* Needs completion warning */}
         {household.needs_completion && (
-          <div className="flex items-center gap-2 rounded-xl border border-warning-border bg-warning-surface px-4 py-3">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text" />
-            <p className="text-sm text-warning-text">
-              This household record is incomplete. Please add missing information.
-            </p>
+          <div className="flex items-start gap-2 rounded-xl border border-warning-border bg-warning-surface px-4 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text mt-0.5" />
+            <div className="text-sm text-warning-text">
+              <p className="font-medium">This household is incomplete:</p>
+              <ul className="mt-1 list-disc ps-4 space-y-0.5">
+                {(household.completion_issues ?? []).includes('missing_emergency_contact') && (
+                  <li>No emergency contact on file</li>
+                )}
+                {(household.completion_issues ?? []).includes('missing_billing_parent') && (
+                  <li>No billing parent assigned</li>
+                )}
+                {(household.completion_issues ?? []).length === 0 && (
+                  <li>Please add missing information</li>
+                )}
+              </ul>
+            </div>
           </div>
         )}
       </RecordHub>
