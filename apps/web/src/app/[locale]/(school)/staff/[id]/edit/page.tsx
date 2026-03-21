@@ -47,7 +47,6 @@ export default function EditStaffPage() {
     await apiClient(`/api/v1/staff-profiles/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        staff_number: values.staff_number || undefined,
         job_title: values.job_title || undefined,
         employment_status: values.employment_status,
         department: values.department || undefined,
@@ -91,7 +90,6 @@ export default function EditStaffPage() {
       <StaffForm
         initialValues={{
           user_id: staff.user.id,
-          staff_number: staff.staff_number ?? '',
           job_title: staff.job_title ?? '',
           employment_status: staff.employment_status,
           department: staff.department ?? '',

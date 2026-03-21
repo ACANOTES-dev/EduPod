@@ -11,7 +11,7 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { GraduationCap, Plus, Search } from 'lucide-react';
+import { Download, GraduationCap, Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -60,6 +60,52 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [yearGroupFilter, setYearGroupFilter] = React.useState('all');
   const [allergyFilter, setAllergyFilter] = React.useState('all');
+
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
+    try {
+      // Fetch ALL matching students (same filters, no pagination)
+      const params = new URLSearchParams({ page: '1', pageSize: '10000' });
+      if (search) params.set('search', search);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
+      if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
+
+      const res = await apiClient<{ data: Student[] }>(`/api/v1/students?${params.toString()}`);
+
+      const exportColumns = [
+        { header: 'Name', key: 'full_name' },
+        { header: 'Student #', key: 'student_number' },
+        { header: 'Year Group', key: 'year_group' },
+        { header: 'Status', key: 'status' },
+        { header: 'Household', key: 'household' },
+      ];
+
+      const exportRows = res.data.map((s) => ({
+        full_name: s.full_name,
+        student_number: s.student_number,
+        year_group: s.year_group?.name ?? '',
+        status: s.status.charAt(0).toUpperCase() + s.status.slice(1),
+        household: s.household?.household_name ?? '',
+      }));
+
+      const options = {
+        fileName: 'students',
+        title: 'Students List',
+        columns: exportColumns,
+        rows: exportRows,
+      };
+
+      if (format === 'xlsx') {
+        const { exportToExcel } = await import('@/lib/export-utils');
+        exportToExcel(options);
+      } else {
+        const { exportToPdf } = await import('@/lib/export-utils');
+        exportToPdf(options);
+      }
+    } catch {
+      // silently fail
+    }
+  };
 
   const fetchStudents = React.useCallback(async () => {
     setIsLoading(true);
@@ -220,10 +266,24 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student records and enrolments"
         actions={
-          <Button onClick={() => router.push('/students/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            New Student
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
+              <SelectTrigger className="w-[130px]">
+                <div className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  <span>Export</span>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+                <SelectItem value="pdf">PDF</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => router.push('/students/new')}>
+              <Plus className="me-2 h-4 w-4" />
+              New Student
+            </Button>
+          </div>
         }
       />
 

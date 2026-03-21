@@ -38,7 +38,6 @@ interface UserOption {
 
 export interface StaffFormValues {
   user_id: string;
-  staff_number: string;
   job_title: string;
   employment_status: string;
   department: string;
@@ -59,7 +58,6 @@ interface StaffFormProps {
 
 const DEFAULT_VALUES: StaffFormValues = {
   user_id: '',
-  staff_number: '',
   job_title: '',
   employment_status: 'active',
   department: '',
@@ -149,11 +147,6 @@ export function StaffForm({
               </Select>
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="staff_number">{t('fieldStaffNumber')}</Label>
-            <Input id="staff_number" value={values.staff_number} onChange={set('staff_number')} dir="ltr" />
-          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="job_title">{t('fieldJobTitle')}</Label>

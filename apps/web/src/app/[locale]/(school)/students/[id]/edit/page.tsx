@@ -13,14 +13,12 @@ interface StudentDetail {
   id: string;
   first_name: string;
   last_name: string;
-  first_name_ar?: string | null;
-  last_name_ar?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
   household_id?: string | null;
   year_group_id?: string | null;
   status: string;
-  student_number: string;
+  national_id?: string | null;
   medical_notes?: string | null;
   has_allergy: boolean;
   allergy_details?: string | null;
@@ -78,15 +76,13 @@ export default function EditStudentPage() {
   const initialData: Partial<StudentFormData> = {
     first_name: student.first_name,
     last_name: student.last_name,
-    first_name_ar: student.first_name_ar ?? '',
-    last_name_ar: student.last_name_ar ?? '',
     date_of_birth: student.date_of_birth
       ? new Date(student.date_of_birth).toISOString().split('T')[0]
       : '',
     gender: student.gender ?? '',
     household_id: student.household_id ?? '',
     year_group_id: student.year_group_id ?? '',
-    student_number: student.student_number,
+    national_id: student.national_id ?? '',
     medical_notes: student.medical_notes ?? '',
     has_allergy: student.has_allergy,
     allergy_details: student.allergy_details ?? '',

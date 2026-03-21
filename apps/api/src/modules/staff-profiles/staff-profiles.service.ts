@@ -15,6 +15,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 // ─── Local types for include results ─────────────────────────────────────────
 
@@ -69,6 +70,7 @@ export class StaffProfilesService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly encryptionService: EncryptionService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   /**
@@ -111,11 +113,15 @@ export class StaffProfilesService {
     try {
       const profile = (await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
+
+        // Auto-generate staff number
+        const staffNumber = await this.sequenceService.nextNumber(tenantId, 'staff', tx, 'STF');
+
         return db.staffProfile.create({
           data: {
             tenant_id: tenantId,
             user_id: dto.user_id,
-            staff_number: dto.staff_number ?? null,
+            staff_number: staffNumber,
             job_title: dto.job_title ?? null,
             employment_status: dto.employment_status ?? 'active',
             department: dto.department ?? null,

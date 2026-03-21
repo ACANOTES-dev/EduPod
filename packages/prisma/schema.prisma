@@ -907,6 +907,7 @@ model Household {
   id                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id                 String          @db.Uuid
   household_name            String          @db.VarChar(255)
+  household_number          String?         @db.VarChar(50)
   primary_billing_parent_id String?         @db.Uuid
   address_line_1            String?         @db.VarChar(255)
   address_line_2            String?         @db.VarChar(255)
@@ -1009,6 +1010,7 @@ model Student {
   tenant_id         String        @db.Uuid
   household_id      String        @db.Uuid
   student_number    String?       @db.VarChar(50)
+  national_id       String?       @db.VarChar(50)
   first_name        String        @db.VarChar(100)
   last_name         String        @db.VarChar(100)
   full_name         String?       @db.VarChar(255)

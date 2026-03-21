@@ -21,7 +21,6 @@ export default function NewStaffPage() {
   const handleSubmit = async (values: StaffFormValues) => {
     const payload = {
       user_id: values.user_id,
-      staff_number: values.staff_number || undefined,
       job_title: values.job_title || undefined,
       employment_status: values.employment_status,
       department: values.department || undefined,

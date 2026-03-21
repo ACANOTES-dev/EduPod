@@ -12,6 +12,7 @@ export const createStudentSchema = z
     last_name: z.string().min(1).max(100),
     first_name_ar: z.string().max(100).optional(),
     last_name_ar: z.string().max(100).optional(),
+    national_id: z.string().min(1, 'National ID is required').max(50),
     date_of_birth: z.string().min(1, 'date_of_birth is required'),
     gender: z
       .enum(['male', 'female', 'other', 'prefer_not_to_say'])
@@ -48,6 +49,7 @@ export const updateStudentSchema = z
     last_name: z.string().min(1).max(100).optional(),
     first_name_ar: z.string().max(100).nullable().optional(),
     last_name_ar: z.string().max(100).nullable().optional(),
+    national_id: z.string().max(50).nullable().optional(),
     date_of_birth: z.string().optional(),
     gender: z
       .enum(['male', 'female', 'other', 'prefer_not_to_say'])

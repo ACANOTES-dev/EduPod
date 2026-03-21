@@ -10,7 +10,7 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Plus, Search } from 'lucide-react';
+import { Download, Plus, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -60,6 +60,51 @@ export default function StaffPage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [search, setSearch] = React.useState('');
   const [searchInput, setSearchInput] = React.useState('');
+
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
+    try {
+      const params = new URLSearchParams({ page: '1', pageSize: '10000' });
+      if (statusFilter !== 'all') params.set('employment_status', statusFilter);
+      if (search.trim()) params.set('search', search.trim());
+
+      const res = await apiClient<StaffResponse>(`/api/v1/staff-profiles?${params.toString()}`);
+
+      const exportColumns = [
+        { header: 'Name', key: 'name' },
+        { header: 'Email', key: 'email' },
+        { header: 'Job Title', key: 'job_title' },
+        { header: 'Department', key: 'department' },
+        { header: 'Status', key: 'employment_status' },
+        { header: 'Type', key: 'employment_type' },
+      ];
+
+      const exportRows = res.data.map((s) => ({
+        name: `${s.user.first_name} ${s.user.last_name}`,
+        email: s.user.email,
+        job_title: s.job_title ?? '',
+        department: s.department ?? '',
+        employment_status: s.employment_status.charAt(0).toUpperCase() + s.employment_status.slice(1),
+        employment_type: s.employment_type.replace('_', ' '),
+      }));
+
+      const options = {
+        fileName: 'staff',
+        title: 'Staff List',
+        columns: exportColumns,
+        rows: exportRows,
+      };
+
+      if (format === 'xlsx') {
+        const { exportToExcel } = await import('@/lib/export-utils');
+        exportToExcel(options);
+      } else {
+        const { exportToPdf } = await import('@/lib/export-utils');
+        exportToPdf(options);
+      }
+    } catch {
+      // silently fail
+    }
+  };
 
   const fetchStaff = React.useCallback(async (p: number, status: string, q: string) => {
     setIsLoading(true);
@@ -163,10 +208,24 @@ export default function StaffPage() {
       <PageHeader
         title={t('title')}
         actions={
-          <Button onClick={() => router.push(`/${locale}/staff/new`)}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('newStaff')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
+              <SelectTrigger className="w-[130px]">
+                <div className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  <span>{tc('export') ?? 'Export'}</span>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="xlsx">{tc('excelFormat') ?? 'Excel (.xlsx)'}</SelectItem>
+                <SelectItem value="pdf">{tc('pdfFormat') ?? 'PDF'}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => router.push(`/${locale}/staff/new`)}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('newStaff')}
+            </Button>
+          </div>
         }
       />
       <DataTable

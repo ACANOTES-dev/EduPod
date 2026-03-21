@@ -15,6 +15,7 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 // ─── Query filter type ────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ export interface HouseholdListItem {
   id: string;
   tenant_id: string;
   household_name: string;
+  household_number: string | null;
   primary_billing_parent_id: string | null;
   address_line_1: string | null;
   address_line_2: string | null;
@@ -80,6 +82,7 @@ export interface HouseholdDetail {
   id: string;
   tenant_id: string;
   household_name: string;
+  household_number: string | null;
   primary_billing_parent_id: string | null;
   address_line_1: string | null;
   address_line_2: string | null;
@@ -103,6 +106,7 @@ export class HouseholdsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   // ─── Create ──────────────────────────────────────────────────────────────
@@ -113,10 +117,14 @@ export class HouseholdsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      // Auto-generate household number
+      const householdNumber = await this.sequenceService.nextNumber(tenantId, 'household', tx, 'HH');
+
       const household = await db.household.create({
         data: {
           tenant_id: tenantId,
           household_name: dto.household_name,
+          household_number: householdNumber,
           address_line_1: dto.address_line1 ?? null,
           address_line_2: dto.address_line2 ?? null,
           city: dto.city ?? null,
@@ -239,6 +247,7 @@ export class HouseholdsService {
       return {
         id: hh.id,
         household_name: hh.household_name,
+        household_number: hh.household_number ?? null,
         status: hh.status,
         needs_completion: hh.needs_completion,
         completion_issues,

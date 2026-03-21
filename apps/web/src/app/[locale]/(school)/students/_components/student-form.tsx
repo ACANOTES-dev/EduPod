@@ -11,7 +11,17 @@ import {
   SelectValue,
   Textarea,
   Checkbox,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
 } from '@school/ui';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
@@ -25,19 +35,23 @@ interface Household {
   id: string;
   household_name?: string;
   name?: string;
+  household_number?: string | null;
+  primary_billing_parent?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 export interface StudentFormData {
   first_name: string;
   last_name: string;
-  first_name_ar?: string;
-  last_name_ar?: string;
   date_of_birth: string;
   gender: string;
   household_id: string;
   year_group_id: string;
   status?: string;
-  student_number: string;
+  national_id: string;
   medical_notes?: string;
   has_allergy: boolean;
   allergy_details?: string;
@@ -55,17 +69,17 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
+  const [householdOpen, setHouseholdOpen] = React.useState(false);
+
   const [formData, setFormData] = React.useState<StudentFormData>({
     first_name: initialData?.first_name ?? '',
     last_name: initialData?.last_name ?? '',
-    first_name_ar: initialData?.first_name_ar ?? '',
-    last_name_ar: initialData?.last_name_ar ?? '',
     date_of_birth: initialData?.date_of_birth ?? '',
     gender: initialData?.gender ?? '',
     household_id: initialData?.household_id ?? '',
     year_group_id: initialData?.year_group_id ?? '',
     status: initialData?.status ?? 'applicant',
-    student_number: initialData?.student_number ?? '',
+    national_id: initialData?.national_id ?? '',
     medical_notes: initialData?.medical_notes ?? '',
     has_allergy: initialData?.has_allergy ?? false,
     allergy_details: initialData?.allergy_details ?? '',
@@ -100,7 +114,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
     if (!formData.gender) newErrors.gender = 'Gender is required';
     if (!formData.household_id) newErrors.household_id = 'Household is required';
     if (!formData.year_group_id) newErrors.year_group_id = 'Year group is required';
-    if (!formData.student_number.trim()) newErrors.student_number = 'Student number is required';
+    if (!formData.national_id.trim()) newErrors.national_id = 'National ID is required';
     if (formData.has_allergy && !formData.allergy_details?.trim()) {
       newErrors.allergy_details = 'Allergy details are required when has_allergy is checked';
     }
@@ -145,30 +159,6 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         </div>
       </div>
 
-      {/* Arabic name */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="first_name_ar">First Name (Arabic)</Label>
-          <Input
-            id="first_name_ar"
-            dir="rtl"
-            value={formData.first_name_ar}
-            onChange={(e) => set('first_name_ar', e.target.value)}
-            placeholder="الاسم الأول"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="last_name_ar">Last Name (Arabic)</Label>
-          <Input
-            id="last_name_ar"
-            dir="rtl"
-            value={formData.last_name_ar}
-            onChange={(e) => set('last_name_ar', e.target.value)}
-            placeholder="اسم العائلة"
-          />
-        </div>
-      </div>
-
       {/* DOB + Gender */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
@@ -203,18 +193,60 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="household_id">Household *</Label>
-          <Select value={formData.household_id} onValueChange={(v) => set('household_id', v)}>
-            <SelectTrigger id="household_id">
-              <SelectValue placeholder="Select household" />
-            </SelectTrigger>
-            <SelectContent>
-              {households.map((hh) => (
-                <SelectItem key={hh.id} value={hh.id}>
-                  {hh.household_name ?? hh.name ?? 'Unnamed'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={householdOpen} onOpenChange={setHouseholdOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={householdOpen}
+                className="w-full justify-between font-normal"
+              >
+                {formData.household_id
+                  ? households.find((h) => h.id === formData.household_id)?.household_name ??
+                    households.find((h) => h.id === formData.household_id)?.name ??
+                    'Select household'
+                  : 'Select household'}
+                <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search households..." />
+                <CommandList>
+                  <CommandEmpty>No household found.</CommandEmpty>
+                  <CommandGroup>
+                    {households.map((hh) => (
+                      <CommandItem
+                        key={hh.id}
+                        value={`${hh.household_name ?? hh.name ?? ''} ${hh.household_number ?? ''} ${hh.primary_billing_parent ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}` : ''}`}
+                        onSelect={() => {
+                          set('household_id', hh.id);
+                          setHouseholdOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={`me-2 h-4 w-4 ${formData.household_id === hh.id ? 'opacity-100' : 'opacity-0'}`}
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{hh.household_name ?? hh.name ?? 'Unnamed'}</p>
+                          <p className="text-xs text-text-tertiary">
+                            {[
+                              hh.household_number,
+                              hh.primary_billing_parent
+                                ? `${hh.primary_billing_parent.first_name} ${hh.primary_billing_parent.last_name}`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || 'No details'}
+                          </p>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           {errors.household_id && <p className="text-xs text-danger-text">{errors.household_id}</p>}
         </div>
         <div className="space-y-1.5">
@@ -235,19 +267,19 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         </div>
       </div>
 
-      {/* Student Number + Status */}
+      {/* National ID + Status */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="student_number">Student Number *</Label>
+          <Label htmlFor="national_id">National ID *</Label>
           <Input
-            id="student_number"
+            id="national_id"
             dir="ltr"
-            value={formData.student_number}
-            onChange={(e) => set('student_number', e.target.value)}
-            placeholder="e.g. STU-2026-001"
+            value={formData.national_id}
+            onChange={(e) => set('national_id', e.target.value)}
+            placeholder="e.g. 1234567890"
           />
-          {errors.student_number && (
-            <p className="text-xs text-danger-text">{errors.student_number}</p>
+          {errors.national_id && (
+            <p className="text-xs text-danger-text">{errors.national_id}</p>
           )}
         </div>
         {!isEditMode && (

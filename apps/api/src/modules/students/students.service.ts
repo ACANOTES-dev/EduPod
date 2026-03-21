@@ -9,6 +9,7 @@ import type { PreviewResponse } from '@school/shared';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 import type { CreateStudentDto } from './dto/create-student.dto';
 import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
@@ -142,6 +143,7 @@ export class StudentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   /**
@@ -211,6 +213,9 @@ export class StudentsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
+      // Auto-generate student number
+      const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
+
       const student = await db.student.create({
         data: {
           tenant_id: tenantId,
@@ -219,13 +224,14 @@ export class StudentsService {
           last_name: dto.last_name,
           first_name_ar: dto.first_name_ar ?? null,
           last_name_ar: dto.last_name_ar ?? null,
+          national_id: dto.national_id ?? null,
           date_of_birth: new Date(dto.date_of_birth),
           gender: dto.gender ?? null,
           status: dto.status,
-          entry_date: dto.entry_date ? new Date(dto.entry_date) : null,
+          entry_date: dto.entry_date ? new Date(dto.entry_date) : new Date(),
           year_group_id: dto.year_group_id ?? null,
           class_homeroom_id: dto.class_homeroom_id ?? null,
-          student_number: dto.student_number ?? null,
+          student_number: studentNumber,
           medical_notes: dto.medical_notes ?? null,
           has_allergy: dto.has_allergy ?? false,
           allergy_details: dto.allergy_details ?? null,

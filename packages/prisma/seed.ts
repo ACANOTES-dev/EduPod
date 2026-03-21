@@ -38,7 +38,7 @@ const NOTIFICATION_TYPES = [
   'inquiry.new_message', 'payroll.finalised', 'payslip.generated',
 ];
 
-const SEQUENCE_TYPES = ['receipt', 'invoice', 'application', 'payslip'];
+const SEQUENCE_TYPES = ['receipt', 'invoice', 'application', 'payslip', 'student', 'staff', 'household'];
 
 const DEFAULT_SETTINGS = {
   attendance: { allowTeacherAmendment: false, autoLockAfterDays: null, pendingAlertTimeHour: 14 },
