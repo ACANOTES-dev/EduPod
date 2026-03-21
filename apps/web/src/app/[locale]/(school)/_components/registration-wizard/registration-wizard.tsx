@@ -4,13 +4,13 @@ import { Button, Dialog, DialogContent } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import { useCallback, useReducer } from 'react';
 
+import { StepComplete } from './step-complete';
+import { StepFeeSummary } from './step-fee-summary';
+import { StepParentHousehold, validateStep1 } from './step-parent-household';
+import { StepPayment } from './step-payment';
+import { StepStudents, validateStep2 } from './step-students';
 import type { WizardAction, WizardState } from './types';
 import { EMPTY_PARENT, EMPTY_STUDENT } from './types';
-import { StepParentHousehold, validateStep1 } from './step-parent-household';
-import { StepStudents, validateStep2 } from './step-students';
-import { StepFeeSummary } from './step-fee-summary';
-import { StepPayment } from './step-payment';
-import { StepComplete } from './step-complete';
 
 // ─── Initial state ───────────────────────────────────────────────────────────
 

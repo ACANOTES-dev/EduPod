@@ -11,7 +11,7 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
