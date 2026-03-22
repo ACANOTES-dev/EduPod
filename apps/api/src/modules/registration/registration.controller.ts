@@ -2,7 +2,9 @@ import {
   Body,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
+  Logger,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -29,6 +31,8 @@ import { RegistrationService } from './registration.service';
 @Controller('v1/registration')
 @UseGuards(AuthGuard, PermissionGuard)
 export class RegistrationController {
+  private readonly logger = new Logger(RegistrationController.name);
+
   constructor(private readonly registrationService: RegistrationService) {}
 
   @Post('family/preview-fees')
@@ -49,6 +53,17 @@ export class RegistrationController {
     @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(familyRegistrationSchema)) dto: FamilyRegistrationDto,
   ) {
-    return this.registrationService.registerFamily(tenant.tenant_id, user.sub, dto);
+    try {
+      return await this.registrationService.registerFamily(tenant.tenant_id, user.sub, dto);
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Registration failed: ${message}`, stack);
+      throw new HttpException(
+        { error: { code: 'REGISTRATION_ERROR', message, details: { stack: stack?.split('\n').slice(0, 5) } } },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
