@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ApplicationFieldType, Prisma } from '@prisma/client';
 import type {
   CreateFormDefinitionDto,
   FormFieldInput,
@@ -618,7 +618,7 @@ export class AdmissionFormsService {
     field_key: string;
     label: string;
     help_text?: string;
-    field_type: string;
+    field_type: ApplicationFieldType;
     required: boolean;
     searchable?: boolean;
     reportable?: boolean;
