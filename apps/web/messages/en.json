@@ -1697,7 +1697,9 @@
       "failed": "Failed",
       "noRuns": "No scheduling runs yet",
       "viewReview": "View / Review",
-      "backToSolver": "Back to Solver"
+      "backToSolver": "Back to Solver",
+      "schedulingStatus": "Status",
+      "configured": "Configured"
     },
     "runs": {
       "title": "Scheduling Runs",

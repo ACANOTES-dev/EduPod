@@ -49,8 +49,7 @@ interface PrerequisiteCheck {
 
 interface PrerequisitesResponse {
   checks: PrerequisiteCheck[];
-  all_passed: boolean;
-  pinned_count: number;
+  ready: boolean;
 }
 
 interface SchedulingRun {
@@ -187,10 +186,8 @@ export default function AutoSchedulerPage() {
     setProgress(null);
   }
 
-  const allPassed = prerequisites?.all_passed ?? false;
-  const pinnedCount = prerequisites?.pinned_count ?? 0;
-  const modeLabel =
-    pinnedCount > 0 ? t('modeHybrid', { count: pinnedCount }) : t('modeAuto');
+  const allPassed = prerequisites?.ready ?? false;
+  const modeLabel = t('modeAuto');
 
   function formatDuration(run: SchedulingRun): string {
     if (!run.completed_at) return '—';

@@ -99,7 +99,7 @@ export default function RunDetailPage() {
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<RunDetailData>(`/api/v1/scheduling-runs/${id}/detail`);
+      const res = await apiClient<RunDetailData>(`/api/v1/scheduling-runs/${id}`);
       setData(res);
       if (res.year_groups.length > 0 && !activeTab) {
         setActiveTab(res.year_groups[0]!.year_group_id);
@@ -184,7 +184,7 @@ export default function RunDetailPage() {
         }),
       });
       // Re-fetch to get updated state
-      const res = await apiClient<RunDetailData>(`/api/v1/scheduling-runs/${id}/detail`);
+      const res = await apiClient<RunDetailData>(`/api/v1/scheduling-runs/${id}`);
       setData(res);
       // Clear validation (user should re-validate after changes)
       setValidationResult(null);

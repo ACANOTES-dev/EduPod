@@ -1701,7 +1701,9 @@
       "failed": "فشل",
       "noRuns": "لا توجد تشغيلات جدولة بعد",
       "viewReview": "عرض / مراجعة",
-      "backToSolver": "العودة للحلال"
+      "backToSolver": "العودة للحلال",
+      "schedulingStatus": "الحالة",
+      "configured": "مهيأ"
     },
     "runs": {
       "title": "تشغيلات الجدولة",

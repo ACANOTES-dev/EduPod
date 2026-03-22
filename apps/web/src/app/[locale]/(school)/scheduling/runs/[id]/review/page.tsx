@@ -99,7 +99,7 @@ export default function RunReviewPage() {
 
   React.useEffect(() => {
     setLoading(true);
-    apiClient<RunReview>(`/api/v1/scheduling-runs/${id}/review`)
+    apiClient<RunReview>(`/api/v1/scheduling-runs/${id}`)
       .then((res) => setData(res))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -152,7 +152,7 @@ export default function RunReviewPage() {
         }),
       });
       toast.success('Swap applied');
-      const updated = await apiClient<RunReview>(`/api/v1/scheduling-runs/${id}/review`);
+      const updated = await apiClient<RunReview>(`/api/v1/scheduling-runs/${id}`);
       setData(updated);
     } catch {
       toast.error('Swap failed');
