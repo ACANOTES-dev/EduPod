@@ -19,10 +19,10 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { AcademicPeriodsService } from '../academics/academic-periods.service';
 import { GradesService } from './grades.service';
 import { ReportCardsService } from './report-cards.service';
 import { TranscriptsService } from './transcripts.service';

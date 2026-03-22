@@ -134,7 +134,7 @@ describe('AudienceResolutionService', () => {
 
       // Only 1 parent has user_id in the resolve step
       expect(result).toHaveLength(1);
-      expect(result[0].user_id).toBe('user-1');
+      expect(result[0]!.user_id).toBe('user-1');
     });
   });
 
@@ -281,7 +281,7 @@ describe('AudienceResolutionService', () => {
 
       // De-duplicated to 1 target
       expect(result).toHaveLength(1);
-      expect(result[0].user_id).toBe('user-1');
+      expect(result[0]!.user_id).toBe('user-1');
     });
 
     it('edge: parent linked across multiple year groups returns 1 target', async () => {
@@ -333,7 +333,7 @@ describe('AudienceResolutionService', () => {
       const result = await service.resolve(TENANT_ID, 'school', {});
 
       expect(result).toHaveLength(1);
-      expect(result[0].channels).toContain('in_app');
+      expect(result[0]!.channels).toContain('in_app');
     });
 
     it('should intersect parent preferences with tenant notification settings', async () => {
@@ -351,10 +351,10 @@ describe('AudienceResolutionService', () => {
 
       const result = await service.resolve(TENANT_ID, 'school', {});
 
-      expect(result[0].channels).toContain('email');
-      expect(result[0].channels).toContain('whatsapp');
-      expect(result[0].channels).toContain('in_app');
-      expect(result[0].channels).not.toContain('sms');
+      expect(result[0]!.channels).toContain('email');
+      expect(result[0]!.channels).toContain('whatsapp');
+      expect(result[0]!.channels).toContain('in_app');
+      expect(result[0]!.channels).not.toContain('sms');
     });
 
     it('should exclude channel if disabled at tenant level', async () => {
@@ -373,9 +373,9 @@ describe('AudienceResolutionService', () => {
       const result = await service.resolve(TENANT_ID, 'school', {});
 
       // sms is excluded because tenant does not enable it
-      expect(result[0].channels).not.toContain('sms');
+      expect(result[0]!.channels).not.toContain('sms');
       // in_app is always included
-      expect(result[0].channels).toContain('in_app');
+      expect(result[0]!.channels).toContain('in_app');
     });
   });
 });

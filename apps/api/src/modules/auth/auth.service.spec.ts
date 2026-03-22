@@ -1,3 +1,4 @@
+/* eslint-disable import/order -- jest.mock must precede mocked imports */
 import * as crypto from 'crypto';
 
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';

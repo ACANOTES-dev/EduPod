@@ -26,6 +26,7 @@ interface AttendanceSettings {
   allowTeacherAmendment: boolean;
   autoLockAfterDays: number | null;
   pendingAlertTimeHour: number;
+  workDays: number[];
 }
 
 interface GradebookSettings {
@@ -127,6 +128,7 @@ const DEFAULT_SETTINGS: TenantSettings = {
     allowTeacherAmendment: false,
     autoLockAfterDays: null,
     pendingAlertTimeHour: 14,
+    workDays: [1, 2, 3, 4, 5],
   },
   gradebook: {
     defaultMissingGradePolicy: 'exclude',
@@ -485,6 +487,44 @@ export default function GeneralSettingsPage() {
             min={0}
             max={23}
           />
+          <div className="space-y-2">
+            <div className="space-y-0.5">
+              <Label className="text-sm text-text-primary">{t('workDays')}</Label>
+              <p className="text-xs text-text-tertiary">{t('workDaysDesc')}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: 0, label: t('sunday') },
+                { value: 1, label: t('monday') },
+                { value: 2, label: t('tuesday') },
+                { value: 3, label: t('wednesday') },
+                { value: 4, label: t('thursday') },
+                { value: 5, label: t('friday') },
+                { value: 6, label: t('saturday') },
+              ] as const).map((day) => {
+                const isActive = settings.attendance.workDays.includes(day.value);
+                return (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() => {
+                      const next = isActive
+                        ? settings.attendance.workDays.filter((d) => d !== day.value)
+                        : [...settings.attendance.workDays, day.value].sort();
+                      updateSection('attendance', { workDays: next });
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      isActive
+                        ? 'border-primary-700 bg-primary-700 text-white'
+                        : 'border-border bg-surface text-text-secondary hover:bg-surface-secondary'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </SectionCard>
 
         {/* Gradebook */}

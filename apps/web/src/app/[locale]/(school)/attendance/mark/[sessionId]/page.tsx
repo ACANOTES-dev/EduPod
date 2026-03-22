@@ -13,7 +13,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { apiClient } from '@/lib/api-client';
 

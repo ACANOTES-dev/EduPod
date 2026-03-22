@@ -27,7 +27,32 @@ function sha256(token: string): string {
 
 // ─── Mock infrastructure ─────────────────────────────────────────────────────
 
-const mockPrisma = {
+const mockPrisma: {
+  invitation: {
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    findMany: jest.Mock;
+    count: jest.Mock;
+  };
+  user: {
+    findUnique: jest.Mock;
+    create: jest.Mock;
+  };
+  tenantMembership: {
+    findFirst: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
+  membershipRole: {
+    deleteMany: jest.Mock;
+    createMany: jest.Mock;
+  };
+  role: {
+    findMany: jest.Mock;
+  };
+  $transaction: jest.Mock;
+} = {
   invitation: {
     findFirst: jest.fn(),
     create: jest.fn(),

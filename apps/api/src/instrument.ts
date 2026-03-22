@@ -1,6 +1,6 @@
-import { config } from 'dotenv';
-
+/* eslint-disable import/order -- dotenv must load before Sentry/NestJS reads process.env */
 import { resolve } from 'path';
+import { config } from 'dotenv';
 
 // Load .env into process.env BEFORE anything else.
 // NestJS ConfigModule uses dotenv.parse() which does NOT set process.env.

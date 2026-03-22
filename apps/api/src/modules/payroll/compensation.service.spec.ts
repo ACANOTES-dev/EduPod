@@ -96,7 +96,7 @@ describe('CompensationService', () => {
       };
       mockPrisma.staffCompensation.create.mockResolvedValue(createdRecord);
 
-      const result = await service.createCompensation(TENANT_ID, USER_ID, baseSalariedDto);
+      const result = await service.createCompensation(TENANT_ID, USER_ID, baseSalariedDto) as Record<string, unknown>;
 
       expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith({
         where: { id: STAFF_PROFILE_ID, tenant_id: TENANT_ID },
@@ -127,7 +127,7 @@ describe('CompensationService', () => {
         per_class_rate: 200,
         assigned_class_count: 20,
         bonus_class_rate: 250,
-        bonus_day_multiplier: null,
+        bonus_day_multiplier: 0,
         effective_from: '2026-04-01',
       };
 
@@ -160,7 +160,7 @@ describe('CompensationService', () => {
       };
       mockPrisma.staffCompensation.create.mockResolvedValue(createdRecord);
 
-      const result = await service.createCompensation(TENANT_ID, USER_ID, perClassDto);
+      const result = await service.createCompensation(TENANT_ID, USER_ID, perClassDto) as Record<string, unknown>;
 
       expect(mockPrisma.staffCompensation.create).toHaveBeenCalledWith(
         expect.objectContaining({

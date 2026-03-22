@@ -46,15 +46,14 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
-
 import { GlobalSearch } from '@/components/global-search';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
+import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
-import { RequireRole } from '@/components/require-role';
+
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
@@ -97,6 +96,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: GraduationCap, labelKey: 'nav.students', href: '/students' },
       { icon: Users, labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
       { icon: Home, labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
+      { icon: UserPlus, labelKey: 'nav.classAssignments', href: '/class-assignments', roles: ADMIN_ROLES },
     ],
   },
   {

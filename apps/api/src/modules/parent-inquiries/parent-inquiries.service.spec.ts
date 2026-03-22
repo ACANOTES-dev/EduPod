@@ -340,7 +340,7 @@ describe('ParentInquiriesService', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const adminMsg = result.messages.find((m: any) => m.id === 'msg-1');
-      expect(adminMsg.author).toEqual({ id: 'admin-user-1', first_name: 'School', last_name: 'Administration' });
+      expect(adminMsg!.author).toEqual({ id: 'admin-user-1', first_name: 'School', last_name: 'Administration' });
     });
 
     it('should show actual author details for parent messages', async () => {
@@ -364,7 +364,7 @@ describe('ParentInquiriesService', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const parentMsg = result.messages.find((m: any) => m.id === 'msg-2');
-      expect(parentMsg.author).toEqual({ id: USER_ID, first_name: 'Jane', last_name: 'Doe' });
+      expect(parentMsg!.author).toEqual({ id: USER_ID, first_name: 'Jane', last_name: 'Doe' });
     });
 
     it('should throw when parent tries to access another parent\'s inquiry', async () => {

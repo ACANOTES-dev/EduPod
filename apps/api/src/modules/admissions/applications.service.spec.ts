@@ -17,7 +17,25 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    admissionFormDefinition: { findFirst: jest.Mock };
+    application: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      update: jest.Mock;
+      count: jest.Mock;
+    };
+    applicationNote: { create: jest.Mock; findFirst: jest.Mock };
+    parent: { create: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+    yearGroup: { findFirst: jest.Mock; findMany: jest.Mock };
+    household: { create: jest.Mock };
+    householdParent: { create: jest.Mock };
+    student: { create: jest.Mock };
+    studentParent: { create: jest.Mock };
+    $queryRaw: jest.Mock;
+  };
   let mockSequenceService: { nextNumber: jest.Mock };
   let mockRateLimitService: { checkAndIncrement: jest.Mock };
   let mockApprovalRequestsService: { checkAndCreateIfNeeded: jest.Mock };
@@ -148,7 +166,7 @@ describe('ApplicationsService', () => {
         student_last_name: 'Doe',
         date_of_birth: '2018-05-15',
         payload_json: { first_name: 'John' },
-      }, IP);
+      }, IP) as Record<string, unknown>;
 
       expect(result.id).toBe('app-1');
       expect(result.application_number).toBe('APP-202603-000001');
@@ -162,7 +180,7 @@ describe('ApplicationsService', () => {
         student_last_name: 'User',
         payload_json: {},
         website_url: 'http://spam.com', // honeypot filled
-      }, IP);
+      }, IP) as Record<string, unknown>;
 
       expect(result.id).toBe('ignored');
       expect(result.status).toBe('draft');
@@ -328,7 +346,7 @@ describe('ApplicationsService', () => {
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'under_review',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID);
+      }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('under_review');
     });
@@ -347,7 +365,7 @@ describe('ApplicationsService', () => {
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'rejected',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID);
+      }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
     });
@@ -373,7 +391,7 @@ describe('ApplicationsService', () => {
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'pending_acceptance_approval',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID);
+      }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('pending_acceptance_approval');
       expect(result.approval_required).toBe(true);
@@ -396,7 +414,7 @@ describe('ApplicationsService', () => {
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'pending_acceptance_approval',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID);
+      }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('accepted');
     });
@@ -415,7 +433,7 @@ describe('ApplicationsService', () => {
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'rejected',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID);
+      }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
     });
@@ -474,7 +492,7 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
       mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
 
-      const result = await service.withdraw(TENANT_ID, 'app-1', USER_ID, false);
+      const result = await service.withdraw(TENANT_ID, 'app-1', USER_ID, false) as Record<string, unknown>;
 
       expect(result.status).toBe('withdrawn');
     });
@@ -759,7 +777,12 @@ describe('ApplicationsService', () => {
         .mockResolvedValueOnce(0); // withdrawn
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: 5.2 }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {});
+      const result = await service.getAnalytics(TENANT_ID, {}) as {
+        funnel: Record<string, number>;
+        total: number;
+        conversion_rate: number;
+        avg_days_to_decision: number | null;
+      };
 
       expect(result.funnel.draft).toBe(2);
       expect(result.funnel.submitted).toBe(5);
@@ -778,7 +801,7 @@ describe('ApplicationsService', () => {
         .mockResolvedValueOnce(0); // withdrawn
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: 3.0 }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {});
+      const result = await service.getAnalytics(TENANT_ID, {}) as Record<string, unknown>;
 
       expect(result.conversion_rate).toBe(30);
     });
@@ -787,7 +810,7 @@ describe('ApplicationsService', () => {
       mockPrisma.application.count.mockResolvedValue(0);
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {});
+      const result = await service.getAnalytics(TENANT_ID, {}) as Record<string, unknown>;
 
       expect(result.avg_days_to_decision).toBeNull();
     });

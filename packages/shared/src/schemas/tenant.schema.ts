@@ -33,6 +33,8 @@ export const tenantSettingsSchema = z.object({
       allowTeacherAmendment: z.boolean().default(false),
       autoLockAfterDays: z.number().int().nullable().default(null),
       pendingAlertTimeHour: z.number().int().min(0).max(23).default(14),
+      /** Days of the week when school is in session. 0=Sunday, 1=Monday, ..., 6=Saturday. */
+      workDays: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
     })
     .default({}),
   gradebook: z

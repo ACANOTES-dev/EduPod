@@ -19,7 +19,6 @@ import {
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 export interface SubjectFormValues {
   name: string;
   code: string;

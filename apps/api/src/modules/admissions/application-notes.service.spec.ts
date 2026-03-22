@@ -13,7 +13,15 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('ApplicationNotesService', () => {
   let service: ApplicationNotesService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    application: {
+      findFirst: jest.Mock;
+    };
+    applicationNote: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+    };
+  };
 
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
   const APP_ID = 'app-1';
@@ -58,7 +66,7 @@ describe('ApplicationNotesService', () => {
       const result = await service.create(TENANT_ID, APP_ID, USER_ID, {
         note: 'This is a test note',
         is_internal: true,
-      });
+      }) as Record<string, unknown>;
 
       expect(result).toBeDefined();
       expect(result.note).toBe('This is a test note');

@@ -320,7 +320,7 @@ describe('ComplianceService', () => {
 
       const result = await service.list(TENANT_ID, { page: 1, pageSize: 20 });
 
-      expect(result.data[0].requested_by).toEqual(REQUESTED_BY_SELECT);
+      expect(result.data[0]!.requested_by).toEqual(REQUESTED_BY_SELECT);
       expect(mockPrisma.complianceRequest.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           include: expect.objectContaining({
@@ -425,7 +425,7 @@ describe('ComplianceService', () => {
 
       await expect(
         service.classify(TENANT_ID, REQUEST_ID, {
-          classification: 'retain',
+          classification: 'retain_legal_basis',
         }),
       ).rejects.toThrow(BadRequestException);
 
@@ -450,7 +450,7 @@ describe('ComplianceService', () => {
       const submitted = buildMockRequest({ status: 'submitted' });
       const classified = buildMockRequest({
         status: 'classified',
-        classification: 'retain',
+        classification: 'retain_legal_basis',
         decision_notes: null,
       });
 
@@ -458,7 +458,7 @@ describe('ComplianceService', () => {
       mockPrisma.complianceRequest.update.mockResolvedValue(classified);
 
       await service.classify(TENANT_ID, REQUEST_ID, {
-        classification: 'retain',
+        classification: 'retain_legal_basis',
       });
 
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(

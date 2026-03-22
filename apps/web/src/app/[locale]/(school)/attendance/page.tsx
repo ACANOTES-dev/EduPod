@@ -20,7 +20,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

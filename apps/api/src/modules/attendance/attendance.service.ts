@@ -8,6 +8,7 @@ import {
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
 
@@ -41,6 +42,7 @@ export class AttendanceService {
     private readonly prisma: PrismaService,
     private readonly closuresService: SchoolClosuresService,
     private readonly dailySummaryService: DailySummaryService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   // ─── Session Management ─────────────────────────────────────────────────
@@ -95,8 +97,18 @@ export class AttendanceService {
       }
     }
 
-    // 3. Validate session_date is within the academic year range
+    // 2.5 Validate session_date falls on a configured work day
     const sessionDate = new Date(dto.session_date);
+    const tenantSettings = await this.settingsService.getSettings(tenantId);
+    const dayOfWeek = sessionDate.getUTCDay(); // 0=Sun, 6=Sat
+    if (!tenantSettings.attendance.workDays.includes(dayOfWeek)) {
+      throw new BadRequestException({
+        code: 'SESSION_DATE_NOT_WORK_DAY',
+        message: 'The selected date is not a configured work day',
+      });
+    }
+
+    // 3. Validate session_date is within the academic year range
     const yearStart = classEntity.academic_year.start_date;
     const yearEnd = classEntity.academic_year.end_date;
 

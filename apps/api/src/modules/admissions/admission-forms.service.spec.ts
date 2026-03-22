@@ -14,7 +14,20 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 describe('AdmissionFormsService', () => {
   let service: AdmissionFormsService;
-  let mockPrisma: Record<string, Record<string, jest.Mock>>;
+  let mockPrisma: {
+    admissionFormDefinition: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      findMany: jest.Mock;
+      update: jest.Mock;
+      updateMany: jest.Mock;
+      count: jest.Mock;
+    };
+    admissionFormField: {
+      create: jest.Mock;
+      deleteMany: jest.Mock;
+    };
+  };
 
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -22,7 +35,7 @@ describe('AdmissionFormsService', () => {
     return {
       field_key: 'first_name',
       label: 'First Name',
-      field_type: 'short_text',
+      field_type: 'short_text' as const,
       required: true,
       visible_to_parent: true,
       visible_to_staff: true,
@@ -134,7 +147,7 @@ describe('AdmissionFormsService', () => {
       } catch (e) {
         const err = e as BadRequestException;
         const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error.code).toBe('DUPLICATE_FIELD_KEYS');
+        expect(response.error!.code).toBe('DUPLICATE_FIELD_KEYS');
       }
     });
 
@@ -159,7 +172,7 @@ describe('AdmissionFormsService', () => {
       } catch (e) {
         const err = e as BadRequestException;
         const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error.code).toBe('INVALID_CONDITIONAL_REFERENCE');
+        expect(response.error!.code).toBe('INVALID_CONDITIONAL_REFERENCE');
       }
     });
 
@@ -182,7 +195,7 @@ describe('AdmissionFormsService', () => {
       } catch (e) {
         const err = e as BadRequestException;
         const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error.code).toBe('SELECT_REQUIRES_OPTIONS');
+        expect(response.error!.code).toBe('SELECT_REQUIRES_OPTIONS');
       }
     });
   });
@@ -284,7 +297,7 @@ describe('AdmissionFormsService', () => {
       } catch (e) {
         const err = e as BadRequestException;
         const response = err.getResponse() as Record<string, Record<string, string>>;
-        expect(response.error.code).toBe('CONCURRENT_MODIFICATION');
+        expect(response.error!.code).toBe('CONCURRENT_MODIFICATION');
       }
     });
   });

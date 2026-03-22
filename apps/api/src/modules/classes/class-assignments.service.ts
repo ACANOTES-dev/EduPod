@@ -1,0 +1,290 @@
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+
+import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { PrismaService } from '../prisma/prisma.service';
+
+import type { BulkClassAssignmentDto } from './dto/bulk-class-assignment.dto';
+
+@Injectable()
+export class ClassAssignmentService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getAssignments(tenantId: string) {
+    // Find the current (active) academic year for this tenant
+    const activeAcademicYear = await this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, status: 'active' },
+      select: { id: true },
+    });
+
+    if (!activeAcademicYear) {
+      throw new NotFoundException({
+        code: 'NO_ACTIVE_ACADEMIC_YEAR',
+        message: 'No active academic year found',
+      });
+    }
+
+    // Fetch all active students with a year_group assigned
+    const students = await this.prisma.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        year_group_id: { not: null },
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        student_number: true,
+        year_group_id: true,
+        class_homeroom_id: true,
+        homeroom_class: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
+    });
+
+    // Fetch all active homeroom classes for the current academic year
+    const homeroomClasses = await this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        subject_id: null,
+        status: 'active',
+        academic_year_id: activeAcademicYear.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        year_group_id: true,
+        _count: {
+          select: {
+            class_enrolments: {
+              where: { status: 'active' },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Fetch all year groups for this tenant
+    const yearGroups = await this.prisma.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        display_order: true,
+      },
+      orderBy: { display_order: 'asc' },
+    });
+
+    // Group students by year_group
+    const studentsByYearGroup = new Map<string, typeof students>();
+    for (const student of students) {
+      const ygId = student.year_group_id as string;
+      if (!studentsByYearGroup.has(ygId)) {
+        studentsByYearGroup.set(ygId, []);
+      }
+      studentsByYearGroup.get(ygId)!.push(student);
+    }
+
+    // Group homeroom classes by year_group
+    const classesByYearGroup = new Map<string, typeof homeroomClasses>();
+    for (const cls of homeroomClasses) {
+      const ygId = cls.year_group_id;
+      if (ygId) {
+        if (!classesByYearGroup.has(ygId)) {
+          classesByYearGroup.set(ygId, []);
+        }
+        classesByYearGroup.get(ygId)!.push(cls);
+      }
+    }
+
+    let unassignedCount = 0;
+
+    const yearGroupResults = yearGroups
+      .filter((yg) => studentsByYearGroup.has(yg.id) || classesByYearGroup.has(yg.id))
+      .map((yg) => {
+        const ygStudents = studentsByYearGroup.get(yg.id) ?? [];
+        const ygClasses = classesByYearGroup.get(yg.id) ?? [];
+
+        const mappedStudents = ygStudents.map((s) => {
+          if (!s.class_homeroom_id) {
+            unassignedCount++;
+          }
+          return {
+            id: s.id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            student_number: s.student_number,
+            current_homeroom_class_id: s.class_homeroom_id,
+            current_homeroom_class_name: s.homeroom_class?.name ?? null,
+          };
+        });
+
+        const mappedClasses = ygClasses.map((c) => ({
+          id: c.id,
+          name: c.name,
+          enrolled_count: c._count.class_enrolments,
+        }));
+
+        return {
+          id: yg.id,
+          name: yg.name,
+          display_order: yg.display_order,
+          homeroom_classes: mappedClasses,
+          students: mappedStudents,
+        };
+      });
+
+    return {
+      year_groups: yearGroupResults,
+      unassigned_count: unassignedCount,
+    };
+  }
+
+  async bulkAssign(
+    tenantId: string,
+    dto: BulkClassAssignmentDto,
+  ): Promise<{
+    assigned: number;
+    skipped: number;
+    errors: Array<{ student_id: string; reason: string }>;
+  }> {
+    let assigned = 0;
+    let skipped = 0;
+    const errors: Array<{ student_id: string; reason: string }> = [];
+
+    const startDate = new Date(dto.start_date);
+    const today = new Date();
+
+    const studentIds = [...new Set(dto.assignments.map((a) => a.student_id))];
+    const classIds = [...new Set(dto.assignments.map((a) => a.class_id))];
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    await prismaWithRls.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Fetch all referenced students and classes inside the transaction for RLS + consistency
+      const [studentRows, classRows] = await Promise.all([
+        tx.student.findMany({
+          where: { id: { in: studentIds }, tenant_id: tenantId },
+          select: { id: true, status: true, year_group_id: true, class_homeroom_id: true },
+        }),
+        tx.class.findMany({
+          where: { id: { in: classIds }, tenant_id: tenantId },
+          select: { id: true, status: true, subject_id: true, year_group_id: true },
+        }),
+      ]);
+
+      const studentsMap = new Map(studentRows.map((r) => [r.id, r]));
+      const classesMap = new Map(classRows.map((r) => [r.id, r]));
+
+      for (const assignment of dto.assignments) {
+        const { student_id, class_id } = assignment;
+
+        // 1. Validate student
+        const student = studentsMap.get(student_id);
+        if (!student) {
+          errors.push({ student_id, reason: 'Student not found' });
+          continue;
+        }
+        if (student.status !== 'active') {
+          errors.push({ student_id, reason: 'Student is not active' });
+          continue;
+        }
+
+        // 2. Validate class
+        const classEntity = classesMap.get(class_id);
+        if (!classEntity) {
+          errors.push({ student_id, reason: `Class "${class_id}" not found` });
+          continue;
+        }
+        if (classEntity.status !== 'active') {
+          errors.push({ student_id, reason: `Class "${class_id}" is not active` });
+          continue;
+        }
+        if (classEntity.subject_id !== null) {
+          errors.push({ student_id, reason: `Class "${class_id}" is not a homeroom class` });
+          continue;
+        }
+
+        // 3. Validate year group match
+        if (student.year_group_id !== classEntity.year_group_id) {
+          errors.push({
+            student_id,
+            reason: 'Student year group does not match class year group',
+          });
+          continue;
+        }
+
+        // 4. Check if already enrolled in this same class
+        if (student.class_homeroom_id === class_id) {
+          skipped++;
+          continue;
+        }
+
+        // 5. Drop existing active homeroom enrolment (different class)
+        if (student.class_homeroom_id && student.class_homeroom_id !== class_id) {
+          await tx.classEnrolment.updateMany({
+            where: {
+              tenant_id: tenantId,
+              student_id,
+              class_id: student.class_homeroom_id,
+              status: 'active',
+            },
+            data: {
+              status: 'dropped',
+              end_date: today,
+            },
+          });
+        }
+
+        // 6. Check for existing active enrolment in the target class
+        const existingEnrolment = await tx.classEnrolment.findFirst({
+          where: {
+            tenant_id: tenantId,
+            student_id,
+            class_id,
+            status: 'active',
+          },
+          select: { id: true },
+        });
+
+        if (existingEnrolment) {
+          // Already has an active enrolment — just update homeroom pointer
+          await tx.student.update({
+            where: { id: student_id },
+            data: { class_homeroom_id: class_id },
+          });
+          assigned++;
+          continue;
+        }
+
+        // 7. Create new enrolment
+        await tx.classEnrolment.create({
+          data: {
+            tenant_id: tenantId,
+            class_id,
+            student_id,
+            status: 'active',
+            start_date: startDate,
+          },
+        });
+
+        // 8. Update student homeroom pointer
+        await tx.student.update({
+          where: { id: student_id },
+          data: { class_homeroom_id: class_id },
+        });
+
+        assigned++;
+      }
+    });
+
+    return { assigned, skipped, errors };
+  }
+}

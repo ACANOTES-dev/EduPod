@@ -327,7 +327,7 @@ describe('AuditLogService', () => {
 
       const result = await service.list(TENANT_ID, baseFilters);
 
-      expect(result.data[0].actor_name).toBe('John Doe');
+      expect(result.data[0]!.actor_name).toBe('John Doe');
     });
 
     it('should return actor_name as undefined when actor is null', async () => {
@@ -337,7 +337,7 @@ describe('AuditLogService', () => {
 
       const result = await service.list(TENANT_ID, baseFilters);
 
-      expect(result.data[0].actor_name).toBeUndefined();
+      expect(result.data[0]!.actor_name).toBeUndefined();
     });
 
     it('should format created_at as ISO string', async () => {
@@ -349,7 +349,7 @@ describe('AuditLogService', () => {
 
       const result = await service.list(TENANT_ID, baseFilters);
 
-      expect(result.data[0].created_at).toBe('2026-03-15T10:00:00.000Z');
+      expect(result.data[0]!.created_at).toBe('2026-03-15T10:00:00.000Z');
     });
   });
 
@@ -426,7 +426,7 @@ describe('AuditLogService', () => {
 
       const result = await service.listPlatform(baseFilters);
 
-      expect(result.data[0].tenant_name).toBe('Al Noor School');
+      expect(result.data[0]!.tenant_name).toBe('Al Noor School');
     });
 
     it('should return tenant_name as undefined when tenant is null', async () => {
@@ -436,7 +436,7 @@ describe('AuditLogService', () => {
 
       const result = await service.listPlatform(baseFilters);
 
-      expect(result.data[0].tenant_name).toBeUndefined();
+      expect(result.data[0]!.tenant_name).toBeUndefined();
     });
 
     it('should apply all filter combinations', async () => {

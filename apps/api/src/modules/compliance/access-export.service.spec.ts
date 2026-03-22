@@ -14,6 +14,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   })),
 }));
 
+// eslint-disable-next-line import/order -- must come after jest.mock
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
 describe('AccessExportService', () => {

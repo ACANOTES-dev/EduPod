@@ -10,13 +10,13 @@ import {
   SelectValue,
   Textarea,
   toast,
+  Input,
 } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { Input } from '@school/ui';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 

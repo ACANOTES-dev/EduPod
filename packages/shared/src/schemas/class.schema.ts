@@ -54,3 +54,13 @@ export const updateEnrolmentStatusSchema = z.object({
 });
 
 export type UpdateEnrolmentStatusDto = z.infer<typeof updateEnrolmentStatusSchema>;
+
+export const bulkClassAssignmentSchema = z.object({
+  assignments: z.array(z.object({
+    student_id: z.string().uuid(),
+    class_id: z.string().uuid(),
+  })).min(1, 'At least one assignment is required'),
+  start_date: z.string().min(1, 'start_date is required'),
+});
+
+export type BulkClassAssignmentDto = z.infer<typeof bulkClassAssignmentSchema>;

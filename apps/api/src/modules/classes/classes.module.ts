@@ -5,6 +5,8 @@ import { AuthModule } from '../auth/auth.module';
 import { SchedulesModule } from '../schedules/schedules.module';
 import { SchedulesService } from '../schedules/schedules.service';
 
+import { ClassAssignmentsController } from './class-assignments.controller';
+import { ClassAssignmentService } from './class-assignments.service';
 import { ClassEnrolmentsController } from './class-enrolments.controller';
 import { ClassEnrolmentsService } from './class-enrolments.service';
 import { ClassesController } from './classes.controller';
@@ -12,8 +14,8 @@ import { ClassesService } from './classes.service';
 
 @Module({
   imports: [AuthModule, SchedulesModule],
-  controllers: [ClassesController, ClassEnrolmentsController],
-  providers: [ClassesService, ClassEnrolmentsService],
+  controllers: [ClassesController, ClassEnrolmentsController, ClassAssignmentsController],
+  providers: [ClassesService, ClassEnrolmentsService, ClassAssignmentService],
   exports: [ClassesService, ClassEnrolmentsService],
 })
 export class ClassesModule implements OnModuleInit {
