@@ -9,6 +9,7 @@ export const createStudentSchema = z
   .object({
     household_id: z.string().uuid(),
     first_name: z.string().min(1).max(100),
+    middle_name: z.string().max(100).optional(),
     last_name: z.string().min(1).max(100),
     first_name_ar: z.string().max(100).optional(),
     last_name_ar: z.string().max(100).optional(),
@@ -46,6 +47,7 @@ export const updateStudentSchema = z
   .object({
     household_id: z.string().uuid().optional(),
     first_name: z.string().min(1).max(100).optional(),
+    middle_name: z.string().max(100).nullable().optional(),
     last_name: z.string().min(1).max(100).optional(),
     first_name_ar: z.string().max(100).nullable().optional(),
     last_name_ar: z.string().max(100).nullable().optional(),

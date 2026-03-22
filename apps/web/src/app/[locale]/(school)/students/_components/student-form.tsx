@@ -45,6 +45,7 @@ interface Household {
 
 export interface StudentFormData {
   first_name: string;
+  middle_name: string;
   last_name: string;
   date_of_birth: string;
   gender: string;
@@ -73,6 +74,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
 
   const [formData, setFormData] = React.useState<StudentFormData>({
     first_name: initialData?.first_name ?? '',
+    middle_name: initialData?.middle_name ?? '',
     last_name: initialData?.last_name ?? '',
     date_of_birth: initialData?.date_of_birth ?? '',
     gender: initialData?.gender ?? '',
@@ -136,7 +138,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6 max-w-2xl">
       {/* Name */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="first_name">First Name *</Label>
           <Input
@@ -146,6 +148,15 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             placeholder="First name"
           />
           {errors.first_name && <p className="text-xs text-danger-text">{errors.first_name}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="middle_name">Middle Name</Label>
+          <Input
+            id="middle_name"
+            value={formData.middle_name}
+            onChange={(e) => set('middle_name', e.target.value)}
+            placeholder="Middle name"
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="last_name">Last Name *</Label>

@@ -26,10 +26,10 @@ function formatCurrency(value: number): string {
 }
 
 const PAYMENT_METHODS = [
-  { value: 'cash', labelKey: 'paymentCash' },
-  { value: 'bank_transfer', labelKey: 'paymentBankTransfer' },
-  { value: 'card_manual', labelKey: 'paymentCardManual' },
-  { value: 'stripe', labelKey: 'paymentStripe' },
+  { value: 'cash', labelKey: 'cash' },
+  { value: 'bank_transfer', labelKey: 'bankTransfer' },
+  { value: 'card_manual', labelKey: 'cardManual' },
+  { value: 'stripe', labelKey: 'stripe' },
 ] as const;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -129,11 +129,11 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-success-text" />
           <div>
             <h3 className="text-base font-semibold text-success-text">
-              {t('familyRegisteredSuccess')}
+              {t('familyRegistered')}
             </h3>
             <p className="mt-1 text-sm text-success-text">
-              {t('registrationSummary', {
-                studentCount: reg.students.length,
+              {t('registeredSummary', {
+                count: reg.students.length,
                 total: formatCurrency(invoiceTotal),
               })}
             </p>
@@ -146,7 +146,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
         <div className="rounded-lg bg-info-fill px-5 py-4">
           <div className="flex items-start gap-3">
             <Info className="mt-0.5 h-5 w-5 shrink-0 text-info-text" />
-            <p className="text-sm text-info-text">{t('invoicePendingApproval')}</p>
+            <p className="text-sm text-info-text">{t('pendingApproval')}</p>
           </div>
         </div>
       )}
@@ -193,7 +193,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
             {/* Row 2: Reference + Date */}
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="payment-reference">{t('paymentReference')}</Label>
+                <Label htmlFor="payment-reference">{t('reference')}</Label>
                 <Input
                   id="payment-reference"
                   dir="ltr"
@@ -261,7 +261,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
             onClick={handleRecordPayment}
           >
             {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-            {t('recordPaymentBtn')}
+            {t('recordPayment')}
           </Button>
         )}
       </div>

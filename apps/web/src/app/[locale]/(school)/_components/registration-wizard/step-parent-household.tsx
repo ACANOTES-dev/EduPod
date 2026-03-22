@@ -163,7 +163,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor={`${prefix}-first-name`}>
-              {t('parentFirstName')} *
+              {t('firstName')} *
             </Label>
             <Input
               id={`${prefix}-first-name`}
@@ -176,7 +176,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${prefix}-last-name`}>
-              {t('parentLastName')} *
+              {t('lastName')} *
             </Label>
             <Input
               id={`${prefix}-last-name`}
@@ -193,7 +193,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor={`${prefix}-email`}>
-              {t('parentEmail')}
+              {t('email')}
             </Label>
             <Input
               id={`${prefix}-email`}
@@ -205,7 +205,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${prefix}-phone`}>
-              {t('parentPhone')} *
+              {t('phone')} *
             </Label>
             <Input
               id={`${prefix}-phone`}
@@ -222,18 +222,18 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
 
         {/* Row 3: Relationship */}
         <div className="space-y-1.5">
-          <Label>{t('parentRelationship')} *</Label>
+          <Label>{t('relationship')} *</Label>
           <Select
             value={parent.relationship_label}
             onValueChange={(val) => onChange('relationship_label', val)}
           >
             <SelectTrigger>
-              <SelectValue placeholder={t('selectRelationship')} />
+              <SelectValue placeholder={t('relationship')} />
             </SelectTrigger>
             <SelectContent>
               {RELATIONSHIP_OPTIONS.map((rel) => (
                 <SelectItem key={rel} value={rel}>
-                  {t(`relationship.${rel}`)}
+                  {t(rel)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -251,7 +251,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
       {/* ── Section 1: Primary Parent / Guardian ────────────────────────── */}
       <section className="space-y-4">
         <h3 className="text-base font-semibold text-text-primary">
-          {t('primaryParentTitle')}
+          {t('primaryParent')}
         </h3>
         {renderParentFields(state.primaryParent, 'primary', handlePrimaryChange)}
       </section>
@@ -259,7 +259,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
       {/* ── Section 2: Second Parent (Optional) ─────────────────────────── */}
       <section className="space-y-4">
         <h3 className="text-base font-semibold text-text-primary">
-          {t('secondaryParentTitle')}
+          {t('secondParent')}
         </h3>
 
         {!state.showSecondaryParent ? (
@@ -269,7 +269,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
             className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border-primary px-4 py-6 text-sm font-medium text-text-secondary transition-colors hover:border-primary-300 hover:text-primary-600"
           >
             <Plus className="h-4 w-4" />
-            {t('addSecondaryParent')}
+            {t('addSecondParent')}
           </button>
         ) : (
           <div className="space-y-4">
@@ -281,7 +281,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
               className="inline-flex items-center gap-1 text-sm text-danger-text hover:underline"
             >
               <X className="h-3.5 w-3.5" />
-              {t('removeSecondaryParent')}
+              {t('removeParent')}
             </button>
           </div>
         )}
@@ -290,7 +290,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
       {/* ── Section 3: Household ─────────────────────────────────────────── */}
       <section className="space-y-4">
         <h3 className="text-base font-semibold text-text-primary">
-          {t('householdTitle')}
+          {t('household')}
         </h3>
 
         <div className="space-y-4">
@@ -367,7 +367,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
       {/* ── Section 4: Emergency Contacts ─────────────────────────────── */}
       <section className="space-y-4">
         <h3 className="text-base font-semibold text-text-primary">
-          {t('emergencyContactsTitle')}
+          {t('emergencyContact')}
         </h3>
 
         <div className="space-y-3">
@@ -390,7 +390,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`ec-phone-${index}`}>{t('contactPhone')} *</Label>
+                  <Label htmlFor={`ec-phone-${index}`}>{t('phone')} *</Label>
                   <Input
                     id={`ec-phone-${index}`}
                     type="tel"
@@ -407,7 +407,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`ec-rel-${index}`}>{t('contactRelationship')} *</Label>
+                  <Label htmlFor={`ec-rel-${index}`}>{t('relationship')} *</Label>
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
                       <Input

@@ -23,6 +23,7 @@ export interface EmergencyContactData {
 
 export interface StudentFormData {
   first_name: string;
+  middle_name: string;
   last_name: string;
   date_of_birth: string;
   gender: string;
@@ -135,6 +136,7 @@ export const EMPTY_PARENT: ParentFormData = {
 
 export const EMPTY_STUDENT: StudentFormData = {
   first_name: '',
+  middle_name: '',
   last_name: '',
   date_of_birth: '',
   gender: '',

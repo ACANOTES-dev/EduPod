@@ -23,7 +23,10 @@
     "upload": "Upload",
     "previous": "Previous",
     "all": "All",
-    "view": "View"
+    "view": "View",
+    "export": "Export",
+    "excelFormat": "Excel (.xlsx)",
+    "pdfFormat": "PDF"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -2176,6 +2179,7 @@
     "emergencyContact": "Emergency Contact",
     "addEmergencyContact": "+ Add Emergency Contact",
     "firstName": "First Name",
+    "middleName": "Middle Name",
     "lastName": "Last Name",
     "email": "Email",
     "phone": "Phone",
@@ -2248,6 +2252,15 @@
     "doneCloseWizard": "Done — Close Wizard",
     "loadingFees": "Loading fee preview...",
     "errorLoadingFees": "Failed to load fee preview",
-    "remove": "Remove"
+    "remove": "Remove",
+    "retry": "Retry",
+    "registrationFailed": "Registration failed. Please try again.",
+    "noFeesAssigned": "No fees assigned",
+    "applyDiscount": "Apply Discount",
+    "adjustmentLabel": "Adjustment Label",
+    "adjustmentLabelPlaceholder": "e.g. Sibling discount",
+    "inDiscounts": "in discounts",
+    "paymentFailed": "Payment failed. Please try again.",
+    "invalidPaymentAmount": "Please enter a valid payment amount."
   }
 }

@@ -221,7 +221,11 @@ export class StudentsService {
           tenant_id: tenantId,
           household_id: dto.household_id,
           first_name: dto.first_name,
+          middle_name: dto.middle_name ?? null,
           last_name: dto.last_name,
+          full_name: dto.middle_name
+            ? `${dto.first_name} ${dto.middle_name} ${dto.last_name}`.trim()
+            : `${dto.first_name} ${dto.last_name}`.trim(),
           first_name_ar: dto.first_name_ar ?? null,
           last_name_ar: dto.last_name_ar ?? null,
           national_id: dto.national_id ?? null,
@@ -459,6 +463,7 @@ export class StudentsService {
 
       if (dto.household_id !== undefined) updateData.household_id = dto.household_id;
       if (dto.first_name !== undefined) updateData.first_name = dto.first_name;
+      if ('middle_name' in dto) updateData.middle_name = dto.middle_name ?? null;
       if (dto.last_name !== undefined) updateData.last_name = dto.last_name;
       if ('first_name_ar' in dto) updateData.first_name_ar = dto.first_name_ar ?? null;
       if ('last_name_ar' in dto) updateData.last_name_ar = dto.last_name_ar ?? null;

@@ -34,11 +34,10 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
 
   const paymentMethodLabel = (method: string) => {
     const labels: Record<string, string> = {
-      cash: t('paymentMethodCash'),
-      cheque: t('paymentMethodCheque'),
-      bank_transfer: t('paymentMethodBankTransfer'),
-      card: t('paymentMethodCard'),
-      online: t('paymentMethodOnline'),
+      cash: t('cash'),
+      bank_transfer: t('bankTransfer'),
+      card_manual: t('cardManual'),
+      stripe: t('stripe'),
     };
     return labels[method] ?? method;
   };
@@ -71,21 +70,23 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
           <CheckCircle className="h-8 w-8" />
         </div>
         <h3 className="text-xl font-semibold text-text-primary">
-          {t('completeTitle')}
+          {t('registrationComplete')}
         </h3>
         <p className="text-sm text-text-secondary">
-          {familyName} &middot; {studentCount}{' '}
-          {studentCount === 1
-            ? t('studentSingular')
-            : t('studentPlural')}{' '}
-          {t('registered')} &middot;{' '}
           {payment
-            ? `${formatCurrency(paymentAmount!)} ${t('paymentRecorded')}`
-            : t('noPayment')}
+            ? t('completeSummary', {
+                name: familyName,
+                count: studentCount,
+                payment: formatCurrency(paymentAmount!),
+              })
+            : t('completeSummaryNoPayment', {
+                name: familyName,
+                count: studentCount,
+              })}
         </p>
         {billingParentEmail && payment && (
           <p className="text-xs text-text-tertiary">
-            {t('receiptSentTo', { email: billingParentEmail })}
+            {t('receiptSent', { email: billingParentEmail })}
           </p>
         )}
       </div>
@@ -95,7 +96,7 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
         {/* Household */}
         <div className="flex justify-between px-4 py-3">
           <span className="text-sm font-medium text-text-secondary">
-            {t('summaryHousehold')}
+            {t('householdLabel')}
           </span>
           <span className="text-sm text-text-primary">
             {reg.household.household_name} ({reg.household.household_number})
@@ -105,7 +106,7 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
         {/* Students */}
         <div className="px-4 py-3">
           <span className="text-sm font-medium text-text-secondary">
-            {t('summaryStudents')}
+            {t('studentsLabel')}
           </span>
           <ul className="mt-1 space-y-1">
             {reg.students.map((s) => (
@@ -125,7 +126,7 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
         {/* Annual Fees */}
         <div className="flex justify-between px-4 py-3">
           <span className="text-sm font-medium text-text-secondary">
-            {t('summaryAnnualFees')}
+            {t('annualFees')}
           </span>
           <span className="text-sm text-text-primary">
             {formatCurrency(reg.invoice.total_amount)}
@@ -135,7 +136,7 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
         {/* Payment Recorded */}
         <div className="flex justify-between px-4 py-3">
           <span className="text-sm font-medium text-text-secondary">
-            {t('summaryPaymentRecorded')}
+            {t('paymentRecorded')}
           </span>
           <span className="text-sm text-text-primary">
             {payment
@@ -147,7 +148,7 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
         {/* Outstanding Balance */}
         <div className="flex justify-between px-4 py-3">
           <span className="text-sm font-medium text-text-secondary">
-            {t('summaryOutstandingBalance')}
+            {t('outstandingBalance')}
           </span>
           <span
             className={`text-sm font-semibold ${

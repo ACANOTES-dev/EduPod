@@ -24,6 +24,7 @@ const emergencyContactSchema = z.object({
 
 const studentSchema = z.object({
   first_name: z.string().min(1).max(100),
+  middle_name: z.string().max(100).optional(),
   last_name: z.string().min(1).max(100),
   date_of_birth: z.string().min(1),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']),

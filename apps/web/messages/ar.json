@@ -23,7 +23,10 @@
     "upload": "رفع",
     "previous": "السابق",
     "all": "الكل",
-    "view": "عرض"
+    "view": "عرض",
+    "export": "تصدير",
+    "excelFormat": "Excel (.xlsx)",
+    "pdfFormat": "PDF"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -2180,6 +2183,7 @@
     "emergencyContact": "جهة اتصال الطوارئ",
     "addEmergencyContact": "+ إضافة جهة اتصال طوارئ",
     "firstName": "الاسم الأول",
+    "middleName": "الاسم الأوسط",
     "lastName": "اسم العائلة",
     "email": "البريد الإلكتروني",
     "phone": "الهاتف",
@@ -2252,6 +2256,15 @@
     "doneCloseWizard": "تم — إغلاق المعالج",
     "loadingFees": "جاري تحميل معاينة الرسوم...",
     "errorLoadingFees": "فشل تحميل معاينة الرسوم",
-    "remove": "إزالة"
+    "remove": "إزالة",
+    "retry": "إعادة المحاولة",
+    "registrationFailed": "فشل التسجيل. يرجى المحاولة مرة أخرى.",
+    "noFeesAssigned": "لا توجد رسوم مخصصة",
+    "applyDiscount": "تطبيق خصم",
+    "adjustmentLabel": "وصف التعديل",
+    "adjustmentLabelPlaceholder": "مثال: خصم أخوة",
+    "inDiscounts": "في الخصومات",
+    "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
+    "invalidPaymentAmount": "يرجى إدخال مبلغ دفع صالح."
   }
 }

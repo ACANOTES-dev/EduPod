@@ -147,6 +147,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         emergency_contacts: state.emergencyContacts,
         students: state.students.map((s) => ({
           first_name: s.first_name,
+          middle_name: s.middle_name || undefined,
           last_name: s.last_name,
           date_of_birth: s.date_of_birth,
           gender: s.gender,
@@ -217,7 +218,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         const studentName =
           student?.first_name && student?.last_name
             ? `${student.first_name} ${student.last_name}`
-            : `${t('studentLabel')} ${sp.student_index + 1}`;
+            : t('student', { number: sp.student_index + 1 });
         const subtotal = sp.fees.reduce((sum, f) => sum + f.annual_amount, 0);
 
         return (
@@ -257,7 +258,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
                         })
                       }
                       className="rounded p-0.5 text-danger-text hover:bg-danger-fill"
-                      title={t('removeFee')}
+                      title={t('remove')}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -291,7 +292,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
       <div className="rounded-lg border border-border-primary bg-surface-primary">
         <div className="border-b border-border-primary px-4 py-3">
           <h3 className="text-sm font-semibold text-text-primary">
-            {t('discountsAndAdjustments')}
+            {t('discounts')}
           </h3>
         </div>
 
@@ -443,7 +444,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         onClick={handleConfirmRegister}
       >
         {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-        {t('confirmAndRegister')}
+        {t('confirmRegister')}
       </Button>
     </div>
   );

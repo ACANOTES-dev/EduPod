@@ -63,14 +63,22 @@ export default function StudentsPage() {
 
   const handleExport = async (format: 'xlsx' | 'pdf') => {
     try {
-      // Fetch ALL matching students (same filters, no pagination)
-      const params = new URLSearchParams({ page: '1', pageSize: '10000' });
-      if (search) params.set('search', search);
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
-      if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
+      // Fetch ALL matching students (paginated, respecting backend max of 100)
+      let allData: Student[] = [];
+      let currentPage = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: '100' });
+        if (search) params.set('search', search);
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
+        if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
 
-      const res = await apiClient<{ data: Student[] }>(`/api/v1/students?${params.toString()}`);
+        const res = await apiClient<{ data: Student[]; meta: { total: number } }>(`/api/v1/students?${params.toString()}`);
+        allData = [...allData, ...res.data];
+        hasMore = allData.length < res.meta.total;
+        currentPage++;
+      }
 
       const exportColumns = [
         { header: 'Name', key: 'full_name' },
@@ -80,7 +88,7 @@ export default function StudentsPage() {
         { header: 'Household', key: 'household' },
       ];
 
-      const exportRows = res.data.map((s) => ({
+      const exportRows = allData.map((s) => ({
         full_name: s.full_name,
         student_number: s.student_number,
         year_group: s.year_group?.name ?? '',

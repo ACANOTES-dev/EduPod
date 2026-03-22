@@ -69,6 +69,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
       if (!current) return;
       const merged: StudentFormData = {
         first_name: current.first_name,
+        middle_name: current.middle_name,
         last_name: current.last_name,
         date_of_birth: current.date_of_birth,
         gender: current.gender,
@@ -136,13 +137,13 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                 <span className="text-sm font-medium text-text-primary">
                   {student.first_name && student.last_name
                     ? `${student.first_name} ${student.last_name}`
-                    : `${t('studentLabel')} ${index + 1}`}
+                    : t('student', { number: index + 1 })}
                 </span>
                 {!isExpanded && (student.year_group_id || student.gender || student.date_of_birth) && (
                   <span className="text-xs text-text-tertiary">
                     {[
                       getYearGroupName(student.year_group_id),
-                      student.gender ? t(`gender.${student.gender}`) : '',
+                      student.gender ? t(student.gender === 'prefer_not_to_say' ? 'preferNotToSay' : student.gender) : '',
                       student.date_of_birth,
                     ]
                       .filter(Boolean)
@@ -183,11 +184,12 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
             {/* ── Expanded form ──────────────────────────────────────── */}
             {isExpanded && (
               <div className="border-t border-border-primary px-4 pb-4 pt-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Name row: 3-column grid */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
                   {/* First Name */}
                   <div className="space-y-1.5">
                     <Label htmlFor={`student-${index}-first-name`}>
-                      {t('studentFirstName')} *
+                      {t('firstName')} *
                     </Label>
                     <Input
                       id={`student-${index}-first-name`}
@@ -196,10 +198,22 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                     />
                   </div>
 
+                  {/* Middle Name */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`student-${index}-middle-name`}>
+                      {t('middleName')}
+                    </Label>
+                    <Input
+                      id={`student-${index}-middle-name`}
+                      value={student.middle_name}
+                      onChange={(e) => handleFieldChange(index, 'middle_name', e.target.value)}
+                    />
+                  </div>
+
                   {/* Last Name */}
                   <div className="space-y-1.5">
                     <Label htmlFor={`student-${index}-last-name`}>
-                      {t('studentLastName')} *
+                      {t('lastName')} *
                     </Label>
                     <Input
                       id={`student-${index}-last-name`}
@@ -207,11 +221,13 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                       onChange={(e) => handleFieldChange(index, 'last_name', e.target.value)}
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Date of Birth */}
                   <div className="space-y-1.5">
                     <Label htmlFor={`student-${index}-dob`}>
-                      {t('studentDOB')} *
+                      {t('dateOfBirth')} *
                     </Label>
                     <Input
                       id={`student-${index}-dob`}
@@ -224,18 +240,18 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* Gender */}
                   <div className="space-y-1.5">
-                    <Label>{t('studentGender')} *</Label>
+                    <Label>{t('gender')} *</Label>
                     <Select
                       value={student.gender}
                       onValueChange={(val) => handleFieldChange(index, 'gender', val)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={t('selectGender')} />
+                        <SelectValue placeholder={t('gender')} />
                       </SelectTrigger>
                       <SelectContent>
                         {GENDER_OPTIONS.map((g) => (
                           <SelectItem key={g} value={g}>
-                            {t(`gender.${g}`)}
+                            {t(g === 'prefer_not_to_say' ? 'preferNotToSay' : g)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -244,13 +260,13 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* Year Group */}
                   <div className="space-y-1.5">
-                    <Label>{t('studentYearGroup')} *</Label>
+                    <Label>{t('yearGroup')} *</Label>
                     <Select
                       value={student.year_group_id}
                       onValueChange={(val) => handleFieldChange(index, 'year_group_id', val)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={t('selectYearGroup')} />
+                        <SelectValue placeholder={t('yearGroup')} />
                       </SelectTrigger>
                       <SelectContent>
                         {yearGroups.map((yg) => (
@@ -265,7 +281,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                   {/* National ID */}
                   <div className="space-y-1.5">
                     <Label htmlFor={`student-${index}-national-id`}>
-                      {t('studentNationalId')} *
+                      {t('nationalId')} *
                     </Label>
                     <Input
                       id={`student-${index}-national-id`}
@@ -289,7 +305,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
         className="gap-1.5"
       >
         <Plus className="h-4 w-4" />
-        {t('addAnotherStudent')}
+        {t('addStudent')}
       </Button>
     </div>
   );

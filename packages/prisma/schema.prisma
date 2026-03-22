@@ -1012,6 +1012,7 @@ model Student {
   student_number    String?       @db.VarChar(50)
   national_id       String?       @db.VarChar(50)
   first_name        String        @db.VarChar(100)
+  middle_name       String?       @db.VarChar(100)
   last_name         String        @db.VarChar(100)
   full_name         String?       @db.VarChar(255)
   first_name_ar     String?       @db.VarChar(100)

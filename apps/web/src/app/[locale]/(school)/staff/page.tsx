@@ -63,11 +63,20 @@ export default function StaffPage() {
 
   const handleExport = async (format: 'xlsx' | 'pdf') => {
     try {
-      const params = new URLSearchParams({ page: '1', pageSize: '10000' });
-      if (statusFilter !== 'all') params.set('employment_status', statusFilter);
-      if (search.trim()) params.set('search', search.trim());
+      // Fetch ALL matching staff (paginated, respecting backend max of 100)
+      let allData: StaffProfile[] = [];
+      let currentPage = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: '100' });
+        if (statusFilter !== 'all') params.set('employment_status', statusFilter);
+        if (search.trim()) params.set('search', search.trim());
 
-      const res = await apiClient<StaffResponse>(`/api/v1/staff-profiles?${params.toString()}`);
+        const res = await apiClient<StaffResponse>(`/api/v1/staff-profiles?${params.toString()}`);
+        allData = [...allData, ...res.data];
+        hasMore = allData.length < res.meta.total;
+        currentPage++;
+      }
 
       const exportColumns = [
         { header: 'Name', key: 'name' },
@@ -78,7 +87,7 @@ export default function StaffPage() {
         { header: 'Type', key: 'employment_type' },
       ];
 
-      const exportRows = res.data.map((s) => ({
+      const exportRows = allData.map((s) => ({
         name: `${s.user.first_name} ${s.user.last_name}`,
         email: s.user.email,
         job_title: s.job_title ?? '',
