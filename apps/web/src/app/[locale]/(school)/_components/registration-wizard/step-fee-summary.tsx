@@ -166,7 +166,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         adhoc_adjustments: state.adhocAdjustments,
       };
 
-      const result = await apiClient<RegistrationResult>(
+      const res = await apiClient<{ data: RegistrationResult }>(
         '/api/v1/registration/family',
         {
           method: 'POST',
@@ -174,7 +174,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         },
       );
 
-      dispatch({ type: 'SET_REGISTRATION_RESULT', result });
+      dispatch({ type: 'SET_REGISTRATION_RESULT', result: res.data });
       dispatch({ type: 'SET_STEP', step: 4 });
     } catch {
       toast.error(t('registrationFailed'));
