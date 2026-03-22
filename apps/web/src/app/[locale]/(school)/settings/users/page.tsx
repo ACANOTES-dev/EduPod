@@ -17,7 +17,7 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { UserX, UserCheck, UserPlus } from 'lucide-react';
+import { Search, UserX, UserCheck, UserPlus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -213,6 +213,13 @@ export default function UsersPage() {
   const PAGE_SIZE = 20;
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Filter state
+  const [searchValue, setSearchValue] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+  const [roleFilter, setRoleFilter] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('');
+  const [roles, setRoles] = React.useState<RoleRef[]>([]);
+
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [inviteSuccess, setInviteSuccess] = React.useState(false);
 
@@ -223,10 +230,32 @@ export default function UsersPage() {
   }>(null);
   const [actionLoading, setActionLoading] = React.useState(false);
 
-  const fetchUsers = React.useCallback(async (p: number) => {
+  // Load roles for filter dropdown
+  React.useEffect(() => {
+    apiClient<RolesResponse>('/api/v1/roles')
+      .then((res) => setRoles(res.data))
+      .catch(() => setRoles([]));
+  }, []);
+
+  // Debounce search input
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchValue), 300);
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, roleFilter, statusFilter]);
+
+  const fetchUsers = React.useCallback(async (p: number, search: string, roleId: string, status: string) => {
     setIsLoading(true);
     try {
-      const res = await apiClient<UsersResponse>(`/api/v1/users?page=${p}&pageSize=${PAGE_SIZE}`);
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (search) params.set('search', search);
+      if (roleId) params.set('role_id', roleId);
+      if (status) params.set('status', status);
+      const res = await apiClient<UsersResponse>(`/api/v1/users?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
     } catch {
@@ -237,8 +266,8 @@ export default function UsersPage() {
   }, []);
 
   React.useEffect(() => {
-    void fetchUsers(page);
-  }, [page, fetchUsers]);
+    void fetchUsers(page, debouncedSearch, roleFilter, statusFilter);
+  }, [page, debouncedSearch, roleFilter, statusFilter, fetchUsers]);
 
   // Dismiss invite-success banner after 4 s
   React.useEffect(() => {
@@ -257,7 +286,7 @@ export default function UsersPage() {
           : `/api/v1/users/${confirmAction.userId}/reactivate`;
       await apiClient(path, { method: 'POST' });
       setConfirmAction(null);
-      void fetchUsers(page);
+      void fetchUsers(page, debouncedSearch, roleFilter, statusFilter);
     } catch {
       // keep dialog open on error
     } finally {
@@ -355,6 +384,46 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+          <Input
+            placeholder={t('searchPlaceholder')}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            className="ps-9"
+          />
+        </div>
+
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder={t('allRoles')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allRoles')}</SelectItem>
+            {roles
+              .filter((r) => r.role_tier !== 'platform')
+              .map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.display_name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder={t('allStatuses')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('allStatuses')}</SelectItem>
+            <SelectItem value="active">{t('active')}</SelectItem>
+            <SelectItem value="suspended">{t('suspended')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <DataTable
         columns={columns}
         data={data}
@@ -371,7 +440,7 @@ export default function UsersPage() {
         onOpenChange={setInviteOpen}
         onSuccess={() => {
           setInviteSuccess(true);
-          void fetchUsers(page);
+          void fetchUsers(page, debouncedSearch, roleFilter, statusFilter);
         }}
       />
 

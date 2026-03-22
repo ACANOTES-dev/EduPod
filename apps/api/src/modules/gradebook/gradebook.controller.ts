@@ -20,12 +20,15 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   upsertGradeConfigSchema,
+  upsertYearGroupGradeWeightSchema,
+  copyYearGroupGradeWeightsSchema,
   createAssessmentSchema,
   updateAssessmentSchema,
   transitionAssessmentStatusSchema,
   bulkUpsertGradesSchema,
   computePeriodGradesSchema,
   overridePeriodGradeSchema,
+  saveResultsMatrixSchema,
   importProcessSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
@@ -46,6 +49,8 @@ import { BulkImportService } from './bulk-import.service';
 import { ClassGradeConfigsService } from './class-grade-configs.service';
 import { GradesService } from './grades.service';
 import { PeriodGradeComputationService } from './period-grade-computation.service';
+import { ResultsMatrixService } from './results-matrix.service';
+import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -82,7 +87,9 @@ export class GradebookController {
     private readonly assessmentsService: AssessmentsService,
     private readonly gradesService: GradesService,
     private readonly periodGradeComputationService: PeriodGradeComputationService,
+    private readonly resultsMatrixService: ResultsMatrixService,
     private readonly bulkImportService: BulkImportService,
+    private readonly yearGroupGradeWeightsService: YearGroupGradeWeightsService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly prisma: PrismaService,
   ) {}
@@ -373,7 +380,92 @@ export class GradebookController {
     });
   }
 
+  // ─── Results Matrix ────────────────────────────────────────────────────
+
+  @Get('gradebook/classes/:classId/results-matrix')
+  @RequiresPermission('gradebook.view')
+  async getResultsMatrix(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Query('academic_period_id', ParseUUIDPipe) academicPeriodId: string,
+  ) {
+    return this.resultsMatrixService.getMatrix(
+      tenant.tenant_id,
+      classId,
+      academicPeriodId,
+    );
+  }
+
+  @Put('gradebook/classes/:classId/results-matrix')
+  @RequiresPermission('gradebook.enter_grades')
+  async saveResultsMatrix(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('classId', ParseUUIDPipe) classId: string,
+    @Body(new ZodValidationPipe(saveResultsMatrixSchema))
+    dto: z.infer<typeof saveResultsMatrixSchema>,
+  ) {
+    return this.resultsMatrixService.saveMatrix(
+      tenant.tenant_id,
+      classId,
+      user.sub,
+      dto.grades,
+    );
+  }
+
+  // ─── Year Group Grade Weights ───────────────────────────────────────────
+
+  @Put('gradebook/year-group-weights')
+  @RequiresPermission('gradebook.manage')
+  async upsertYearGroupGradeWeight(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(upsertYearGroupGradeWeightSchema))
+    dto: z.infer<typeof upsertYearGroupGradeWeightSchema>,
+  ) {
+    return this.yearGroupGradeWeightsService.upsert(tenant.tenant_id, dto);
+  }
+
+  @Get('gradebook/year-group-weights/:yearGroupId')
+  @RequiresPermission('gradebook.view')
+  async findYearGroupGradeWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('yearGroupId', ParseUUIDPipe) yearGroupId: string,
+  ) {
+    return this.yearGroupGradeWeightsService.findByYearGroup(
+      tenant.tenant_id,
+      yearGroupId,
+    );
+  }
+
+  @Post('gradebook/year-group-weights/copy')
+  @RequiresPermission('gradebook.manage')
+  @HttpCode(HttpStatus.OK)
+  async copyYearGroupGradeWeights(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(copyYearGroupGradeWeightsSchema))
+    dto: z.infer<typeof copyYearGroupGradeWeightsSchema>,
+  ) {
+    return this.yearGroupGradeWeightsService.copyFromYearGroup(
+      tenant.tenant_id,
+      dto,
+    );
+  }
+
   // ─── Import ─────────────────────────────────────────────────────────────
+
+  @Get('gradebook/import/template')
+  @RequiresPermission('gradebook.manage')
+  async downloadImportTemplate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query('class_id') classId?: string,
+    @Query('academic_period_id') periodId?: string,
+  ) {
+    return this.bulkImportService.generateTemplate(
+      tenant.tenant_id,
+      classId,
+      periodId,
+    );
+  }
 
   @Post('gradebook/import/validate')
   @RequiresPermission('gradebook.manage')
@@ -387,6 +479,12 @@ export class GradebookController {
         code: 'EMPTY_FILE',
         message: 'No file uploaded',
       });
+    }
+
+    // Support both CSV and XLSX
+    const ext = (file.originalname ?? '').split('.').pop()?.toLowerCase();
+    if (ext === 'xlsx' || ext === 'xls') {
+      return this.bulkImportService.validateXlsx(tenant.tenant_id, file.buffer);
     }
     return this.bulkImportService.validateCsv(tenant.tenant_id, file.buffer);
   }

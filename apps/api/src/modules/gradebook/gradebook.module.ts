@@ -18,8 +18,10 @@ import { ParentGradebookController } from './parent-gradebook.controller';
 import { PeriodGradeComputationService } from './period-grade-computation.service';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
+import { ResultsMatrixService } from './results-matrix.service';
 import { TranscriptsController } from './transcripts.controller';
 import { TranscriptsService } from './transcripts.service';
+import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
 @Module({
   imports: [AcademicsModule, AuthModule, PdfRenderingModule, RedisModule],
@@ -38,9 +40,11 @@ import { TranscriptsService } from './transcripts.service';
     AssessmentsService,
     GradesService,
     PeriodGradeComputationService,
+    ResultsMatrixService,
     ReportCardsService,
     TranscriptsService,
     BulkImportService,
+    YearGroupGradeWeightsService,
   ],
   exports: [ReportCardsService, TranscriptsService],
 })

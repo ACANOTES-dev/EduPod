@@ -16,6 +16,8 @@ import { renderReceiptAr } from './templates/receipt-ar.template';
 import { renderReceiptEn } from './templates/receipt-en.template';
 import { renderReportCardAr } from './templates/report-card-ar.template';
 import { renderReportCardEn } from './templates/report-card-en.template';
+import { renderReportCardModernAr } from './templates/report-card-modern-ar.template';
+import { renderReportCardModernEn } from './templates/report-card-modern-en.template';
 import { renderTranscriptAr } from './templates/transcript-ar.template';
 import { renderTranscriptEn } from './templates/transcript-en.template';
 
@@ -53,6 +55,10 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
   'payslip': {
     en: renderPayslipEn as TemplateFn,
     ar: renderPayslipAr as TemplateFn,
+  },
+  'report-card-modern': {
+    en: renderReportCardModernEn as TemplateFn,
+    ar: renderReportCardModernAr as TemplateFn,
   },
 };
 
@@ -102,6 +108,57 @@ export class PdfRenderingService implements OnModuleDestroy {
       // Retry once on timeout
       try {
         await page.setContent(html, { waitUntil: 'networkidle0', timeout: 5000 });
+        const pdfBuffer = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+        });
+        return Buffer.from(pdfBuffer);
+      } catch {
+        throw new ServiceUnavailableException({
+          code: 'RENDER_TIMEOUT',
+          message: 'PDF rendering timed out. Please try again.',
+        });
+      }
+    } finally {
+      await page.close();
+    }
+  }
+
+  /**
+   * Render HTML string from a registered template without creating a PDF.
+   * Used for batch PDF generation where multiple pages are combined.
+   */
+  renderHtml(
+    templateKey: string,
+    locale: string,
+    data: unknown,
+    branding: PdfBranding,
+  ): string {
+    const templateFn = this.getTemplate(templateKey, locale);
+    return templateFn(data, branding);
+  }
+
+  /**
+   * Render a PDF from raw HTML content. Used for combined multi-page rendering.
+   */
+  async renderFromHtml(html: string): Promise<Buffer> {
+    const browser = await this.getBrowser();
+    const page = await browser.newPage();
+
+    try {
+      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 });
+
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+      });
+
+      return Buffer.from(pdfBuffer);
+    } catch (_err) {
+      try {
+        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 });
         const pdfBuffer = await page.pdf({
           format: 'A4',
           printBackground: true,

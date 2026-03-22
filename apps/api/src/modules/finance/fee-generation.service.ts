@@ -241,7 +241,6 @@ export class FeeGenerationService {
             due_date: new Date(dto.due_date),
             subtotal_amount: roundMoney(lines.reduce((sum, l) => sum + l.base_amount, 0)),
             discount_amount: discountAmount,
-            tax_amount: 0,
             total_amount: subtotal,
             balance_amount: subtotal,
             currency_code: tenant.currency_code,
@@ -262,6 +261,7 @@ export class FeeGenerationService {
 
       return {
         invoices_created: createdInvoices.length,
+        total_amount: roundMoney(createdInvoices.reduce((sum, inv) => sum + inv.total_amount, 0)),
         invoices: createdInvoices,
       };
     });

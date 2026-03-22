@@ -123,14 +123,16 @@ export class PeriodGridService {
     }
   }
 
-  async getTeachingCount(tenantId: string, academicYearId: string): Promise<number> {
-    return this.prisma.schedulePeriodTemplate.count({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        schedule_period_type: 'teaching',
-      },
-    });
+  async getTeachingCount(tenantId: string, academicYearId: string, yearGroupId?: string): Promise<number> {
+    const where: Record<string, unknown> = {
+      tenant_id: tenantId,
+      academic_year_id: academicYearId,
+      schedule_period_type: 'teaching',
+    };
+    if (yearGroupId) {
+      where['year_group_id'] = yearGroupId;
+    }
+    return this.prisma.schedulePeriodTemplate.count({ where });
   }
 
   async delete(tenantId: string, id: string) {

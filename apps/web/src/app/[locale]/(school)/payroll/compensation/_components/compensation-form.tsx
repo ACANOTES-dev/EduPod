@@ -47,20 +47,22 @@ interface CompensationFormProps {
   onSuccess: () => void;
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function CompensationForm({ open, onOpenChange, record, onSuccess }: CompensationFormProps) {
   const t = useTranslations('payroll');
-  const isEdit = !!record;
+  const isRevision = !!record;
 
   const [staffOptions, setStaffOptions] = React.useState<StaffOption[]>([]);
   const [staffProfileId, setStaffProfileId] = React.useState('');
   const [compensationType, setCompensationType] = React.useState<'salaried' | 'per_class'>('salaried');
   const [baseSalary, setBaseSalary] = React.useState('');
   const [perClassRate, setPerClassRate] = React.useState('');
-  const [assignedClasses, setAssignedClasses] = React.useState('');
   const [bonusClassRate, setBonusClassRate] = React.useState('');
   const [bonusDayMultiplier, setBonusDayMultiplier] = React.useState('');
   const [effectiveFrom, setEffectiveFrom] = React.useState('');
-  const [effectiveTo, setEffectiveTo] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -77,21 +79,18 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
       setCompensationType(record.compensation_type);
       setBaseSalary(record.base_salary != null ? String(record.base_salary) : '');
       setPerClassRate(record.per_class_rate != null ? String(record.per_class_rate) : '');
-      setAssignedClasses(record.assigned_classes != null ? String(record.assigned_classes) : '');
       setBonusClassRate(record.bonus_class_rate != null ? String(record.bonus_class_rate) : '');
       setBonusDayMultiplier(record.bonus_day_multiplier != null ? String(record.bonus_day_multiplier) : '');
-      setEffectiveFrom(record.effective_from.slice(0, 10));
-      setEffectiveTo(record.effective_to ? record.effective_to.slice(0, 10) : '');
+      // For revisions, default effective_from to today
+      setEffectiveFrom(todayISO());
     } else {
       setStaffProfileId('');
       setCompensationType('salaried');
       setBaseSalary('');
       setPerClassRate('');
-      setAssignedClasses('');
       setBonusClassRate('');
       setBonusDayMultiplier('');
       setEffectiveFrom('');
-      setEffectiveTo('');
     }
   }, [record, open]);
 
@@ -104,28 +103,20 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
         compensation_type: compensationType,
         effective_from: effectiveFrom,
       };
-      if (effectiveTo) body.effective_to = effectiveTo;
 
       if (compensationType === 'salaried') {
         body.base_salary = Number(baseSalary);
         if (bonusDayMultiplier) body.bonus_day_multiplier = Number(bonusDayMultiplier);
       } else {
         body.per_class_rate = Number(perClassRate);
-        if (assignedClasses) body.assigned_classes = Number(assignedClasses);
         if (bonusClassRate) body.bonus_class_rate = Number(bonusClassRate);
       }
 
-      if (isEdit) {
-        await apiClient(`/api/v1/payroll/compensation/${record.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
-        });
-      } else {
-        await apiClient('/api/v1/payroll/compensation', {
-          method: 'POST',
-          body: JSON.stringify(body),
-        });
-      }
+      // Always POST — revisions create a new record, the backend auto-closes the old one
+      await apiClient('/api/v1/payroll/compensation', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       onSuccess();
     } catch {
       // handled by apiClient
@@ -138,13 +129,18 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? t('editCompensation') : t('addCompensation')}</DialogTitle>
+          <DialogTitle>{isRevision ? t('reviseCompensation') : t('addCompensation')}</DialogTitle>
         </DialogHeader>
+        {isRevision && (
+          <p className="text-xs text-text-secondary">
+            {t('reviseCompensationNote')}
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Staff selector */}
           <div className="space-y-2">
             <Label>{t('selectStaff')}</Label>
-            <Select value={staffProfileId} onValueChange={setStaffProfileId} disabled={isEdit}>
+            <Select value={staffProfileId} onValueChange={setStaffProfileId} disabled={isRevision}>
               <SelectTrigger>
                 <SelectValue placeholder={t('selectStaff')} />
               </SelectTrigger>
@@ -217,16 +213,6 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('assignedClasses')}</Label>
-                <Input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={assignedClasses}
-                  onChange={(e) => setAssignedClasses(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label>{t('bonusClassRate')}</Label>
                 <Input
                   type="number"
@@ -240,25 +226,15 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
             </>
           )}
 
-          {/* Effective dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>{t('effectiveFrom')}</Label>
-              <Input
-                type="date"
-                value={effectiveFrom}
-                onChange={(e) => setEffectiveFrom(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{t('effectiveTo')}</Label>
-              <Input
-                type="date"
-                value={effectiveTo}
-                onChange={(e) => setEffectiveTo(e.target.value)}
-              />
-            </div>
+          {/* Effective from date */}
+          <div className="space-y-2">
+            <Label>{t('effectiveFrom')}</Label>
+            <Input
+              type="date"
+              value={effectiveFrom}
+              onChange={(e) => setEffectiveFrom(e.target.value)}
+              required
+            />
           </div>
 
           <DialogFooter>

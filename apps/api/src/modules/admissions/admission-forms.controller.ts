@@ -36,6 +36,12 @@ export class AdmissionFormsController {
     private readonly admissionFormsService: AdmissionFormsService,
   ) {}
 
+  @Post('system')
+  @RequiresPermission('admissions.manage')
+  async createSystemForm(@CurrentTenant() tenant: TenantContext) {
+    return this.admissionFormsService.createSystemForm(tenant.tenant_id);
+  }
+
   @Post()
   @RequiresPermission('admissions.manage')
   async create(

@@ -34,8 +34,8 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   return (
-    <div className="space-y-6">
-      <nav className="flex gap-1 overflow-x-auto border-b border-border pb-px">
+    <div>
+      <nav className="sticky top-0 z-10 bg-surface flex gap-1 overflow-x-auto border-b border-border pb-px">
         {tabs.map((tab) => {
           const fullHref = `/${locale}${tab.href}`;
           const isActive = tab.exact
@@ -57,7 +57,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
           );
         })}
       </nav>
-      {children}
+      <div className="pt-6">{children}</div>
     </div>
   );
 }

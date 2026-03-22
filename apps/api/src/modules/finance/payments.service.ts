@@ -11,6 +11,7 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
@@ -25,6 +26,7 @@ interface PaymentFilters {
   date_from?: string;
   date_to?: string;
   search?: string;
+  accepted_by_user_id?: string;
 }
 
 @Injectable()
@@ -33,10 +35,11 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly invoicesService: InvoicesService,
     private readonly receiptsService: ReceiptsService,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   async findAll(tenantId: string, filters: PaymentFilters) {
-    const { page, pageSize, household_id, status, payment_method, date_from, date_to, search } = filters;
+    const { page, pageSize, household_id, status, payment_method, date_from, date_to, search, accepted_by_user_id } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -44,6 +47,7 @@ export class PaymentsService {
     if (status) where.status = status;
     if (payment_method) where.payment_method = payment_method;
     if (search) where.payment_reference = { contains: search, mode: 'insensitive' };
+    if (accepted_by_user_id) where.posted_by_user_id = accepted_by_user_id;
     if (date_from || date_to) {
       const dateFilter: Record<string, unknown> = {};
       if (date_from) dateFilter.gte = new Date(date_from);
@@ -60,6 +64,9 @@ export class PaymentsService {
         include: {
           household: {
             select: { id: true, household_name: true },
+          },
+          posted_by: {
+            select: { id: true, first_name: true, last_name: true },
           },
           receipt: {
             select: { id: true, receipt_number: true },
@@ -87,6 +94,9 @@ export class PaymentsService {
       include: {
         household: {
           select: { id: true, household_name: true },
+        },
+        posted_by: {
+          select: { id: true, first_name: true, last_name: true },
         },
         allocations: {
           include: {
@@ -158,11 +168,19 @@ export class PaymentsService {
       });
     }
 
+    // Auto-generate payment reference
+    const paymentReference = await this.sequenceService.nextNumber(
+      tenantId,
+      'payment',
+      undefined,
+      'PAY',
+    );
+
     const payment = await this.prisma.payment.create({
       data: {
         tenant_id: tenantId,
         household_id: dto.household_id,
-        payment_reference: dto.payment_reference,
+        payment_reference: paymentReference,
         payment_method: dto.payment_method,
         amount: dto.amount,
         currency_code: tenant.currency_code,
@@ -347,5 +365,27 @@ export class PaymentsService {
 
     // Read after commit so allocations are visible
     return this.findOne(tenantId, paymentId);
+  }
+
+  async getAcceptingStaff(tenantId: string) {
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        tenant_id: tenantId,
+        posted_by_user_id: { not: null },
+      },
+      distinct: ['posted_by_user_id'],
+      select: {
+        posted_by: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
+    });
+
+    return payments
+      .filter((p) => p.posted_by !== null)
+      .map((p) => ({
+        id: p.posted_by!.id,
+        name: `${p.posted_by!.first_name} ${p.posted_by!.last_name}`,
+      }));
   }
 }

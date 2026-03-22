@@ -558,6 +558,43 @@ export class ApplicationsService {
         });
       }
 
+      // Rejection requires a mandatory note
+      if (dto.status === 'rejected') {
+        if (!dto.rejection_reason?.trim()) {
+          throw new BadRequestException({
+            error: {
+              code: 'REJECTION_REASON_REQUIRED',
+              message: 'A rejection reason is required when rejecting an application',
+            },
+          });
+        }
+
+        // Store rejection reason on the application and as an internal note
+        await db.application.update({
+          where: { id },
+          data: {
+            rejection_reason: dto.rejection_reason,
+            status: 'rejected',
+            reviewed_at: new Date(),
+            reviewed_by_user_id: userId,
+          },
+        });
+
+        await db.applicationNote.create({
+          data: {
+            tenant_id: tenantId,
+            application_id: id,
+            author_user_id: userId,
+            note: `Application rejected. Reason: ${dto.rejection_reason}`,
+            is_internal: true,
+          },
+        });
+
+        return db.application.findFirst({
+          where: { id, tenant_id: tenantId },
+        });
+      }
+
       // For acceptance flow, check if approval is required
       if (dto.status === 'pending_acceptance_approval') {
         // Read tenant settings to check approval requirement
@@ -800,6 +837,7 @@ export class ApplicationsService {
           student_last_name: application.student_last_name,
           date_of_birth: application.date_of_birth,
           payload_json: application.payload_json,
+          updated_at: application.updated_at,
         },
         submitted_by_parent: application.submitted_by,
         matching_parents: matchingParents,
@@ -959,10 +997,13 @@ export class ApplicationsService {
         dto.household_name ??
         `${dto.student_last_name} Family`;
 
+      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
+
       const household = await db.household.create({
         data: {
           tenant_id: tenantId,
           household_name: householdName,
+          household_number: householdNumber,
           primary_billing_parent_id: parent1Id,
           status: 'active',
           needs_completion: true,

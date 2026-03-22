@@ -46,6 +46,12 @@ export const tenantSettingsSchema = z.object({
   admissions: z
     .object({
       requireApprovalForAcceptance: z.boolean().default(true),
+      earlyBirdDiscounts: z.array(z.object({
+        deadline: z.string(), // ISO date, e.g. "2025-08-01"
+        discount_percent: z.number().min(0).max(100),
+        label: z.string(),
+      })).default([]),
+      cashPaymentDeadlineDays: z.number().int().min(1).default(14),
     })
     .default({}),
   finance: z

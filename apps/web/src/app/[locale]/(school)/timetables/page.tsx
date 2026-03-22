@@ -64,13 +64,16 @@ export default function TimetablesPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
-      apiClient<ListResponse<SelectOption>>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
       apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=100'),
       apiClient<ListResponse<SelectOption>>('/api/v1/students?pageSize=100'),
     ])
       .then(([yearsRes, teachersRes, roomsRes, studentsRes]) => {
         setAcademicYears(yearsRes.data);
-        setTeachers(teachersRes.data);
+        setTeachers((teachersRes.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        })));
         setRooms(roomsRes.data);
         setStudents(studentsRes.data);
       })

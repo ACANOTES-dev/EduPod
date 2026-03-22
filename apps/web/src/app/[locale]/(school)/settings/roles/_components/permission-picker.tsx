@@ -17,6 +17,7 @@ interface PermissionEntry {
 
 interface PermissionWithId extends PermissionEntry {
   id: string;
+  description?: string;
 }
 
 interface PermissionPickerProps {
@@ -64,13 +65,15 @@ export function PermissionPicker({
   const t = useTranslations('roles');
   const roleRank = TIER_RANK[roleTier];
 
-  // Build a map from permission_key → id for quick lookup
-  const keyToId = React.useMemo(() => {
-    const m: Record<string, string> = {};
+  // Build maps from permission_key → id and key → description
+  const { keyToId, keyToDesc } = React.useMemo(() => {
+    const ids: Record<string, string> = {};
+    const descs: Record<string, string> = {};
     for (const p of availablePermissions) {
-      m[p.key] = p.id;
+      ids[p.key] = p.id;
+      if (p.description) descs[p.key] = p.description;
     }
-    return m;
+    return { keyToId: ids, keyToDesc: descs };
   }, [availablePermissions]);
 
   // Filter to only permission keys within tier
@@ -146,20 +149,24 @@ export function PermissionPicker({
               {keys.map((key) => {
                 const id = keyToId[key];
                 if (!id) return null;
-                const action = key.split('.')[1] ?? key;
+                const desc = keyToDesc[key];
                 return (
-                  <div key={key} className="flex items-center gap-2">
+                  <div key={key} className="flex items-start gap-2">
                     <Checkbox
                       id={`perm-${id}`}
                       checked={selectedSet.has(id)}
                       onCheckedChange={() => !disabled && toggle(id)}
                       disabled={disabled}
+                      className="mt-0.5"
                     />
                     <Label
                       htmlFor={`perm-${id}`}
-                      className="cursor-pointer text-sm text-text-secondary"
+                      className="cursor-pointer text-sm leading-snug text-text-secondary"
                     >
-                      <code className="text-xs">{action.replace(/_/g, ' ')}</code>
+                      <code className="text-xs text-text-primary">{key}</code>
+                      {desc && (
+                        <span className="block text-xs text-text-tertiary">{desc}</span>
+                      )}
                     </Label>
                   </div>
                 );

@@ -5,18 +5,12 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
-  Calendar,
   CheckCircle2,
-  Clock,
-  DoorClosed,
   Loader2,
   Pin,
   Sparkles,
-  UserCog,
-  Users,
   XCircle,
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -79,40 +73,10 @@ function KpiCard({ label, value, icon, highlight }: KpiCardProps) {
   );
 }
 
-// ─── Config Nav Card ──────────────────────────────────────────────────────────
-
-interface NavCardProps {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}
-
-function NavCard({ href, icon, title, description }: NavCardProps) {
-  return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-border bg-surface p-5 transition-all hover:border-primary/40 hover:shadow-sm group"
-    >
-      <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-surface-secondary p-2 text-text-tertiary group-hover:text-primary transition-colors">
-          {icon}
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-text-primary group-hover:text-primary transition-colors">{title}</h3>
-          <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function SchedulingDashboardPage() {
   const t = useTranslations('scheduling.auto');
-  const tv = useTranslations('scheduling.v2');
-  const ts = useTranslations('scheduling');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -123,15 +87,26 @@ export default function SchedulingDashboardPage() {
 
   React.useEffect(() => {
     setLoading(true);
-    Promise.allSettled([
-      apiClient<DashboardOverview>('/api/v1/scheduling-dashboard/overview'),
-      apiClient<{ data: SchedulingRun[] }>('/api/v1/scheduling-runs?page=1&pageSize=1'),
-    ]).then(([ov, runsRes]) => {
-      if (ov.status === 'fulfilled') setOverview(ov.value);
-      if (runsRes.status === 'fulfilled' && runsRes.value.data?.[0]) {
-        setLatestRun(runsRes.value.data[0]);
-      }
-    }).finally(() => setLoading(false));
+    // Load academic years first, then use the first one for dashboard queries
+    apiClient<{ data: Array<{ id: string; name: string }> }>('/api/v1/academic-years?pageSize=20')
+      .then((yearsRes) => {
+        const yearId = yearsRes.data?.[0]?.id;
+        if (!yearId) {
+          setLoading(false);
+          return;
+        }
+        return Promise.allSettled([
+          apiClient<DashboardOverview>(`/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`, { silent: true }),
+          apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${yearId}&page=1&pageSize=1`, { silent: true }),
+        ]).then(([ov, runsRes]) => {
+          if (ov.status === 'fulfilled') setOverview(ov.value);
+          if (runsRes.status === 'fulfilled' && runsRes.value.data?.[0]) {
+            setLatestRun(runsRes.value.data[0]);
+          }
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
   }, []);
 
   function statusBadgeVariant(status: string): 'default' | 'secondary' | 'danger' {
@@ -139,15 +114,6 @@ export default function SchedulingDashboardPage() {
     if (status === 'failed') return 'danger';
     return 'secondary';
   }
-
-  const configCards = [
-    { key: 'periodGrid', href: `/${locale}/scheduling/period-grid`, icon: <Calendar className="h-5 w-5" />, title: ts('auto.periodGrid'), desc: tv('periodGridDescV2') },
-    { key: 'curriculum', href: `/${locale}/scheduling/curriculum`, icon: <BookOpen className="h-5 w-5" />, title: tv('curriculum'), desc: tv('curriculumDesc') },
-    { key: 'competencies', href: `/${locale}/scheduling/competencies`, icon: <Users className="h-5 w-5" />, title: tv('competencies'), desc: tv('competenciesDesc') },
-    { key: 'breakGroups', href: `/${locale}/scheduling/break-groups`, icon: <Clock className="h-5 w-5" />, title: tv('breakGroups'), desc: tv('breakGroupsDesc') },
-    { key: 'teacherConfig', href: `/${locale}/scheduling/teacher-config`, icon: <UserCog className="h-5 w-5" />, title: tv('teacherConfig'), desc: tv('teacherConfigDesc') },
-    { key: 'roomClosures', href: `/${locale}/scheduling/room-closures`, icon: <DoorClosed className="h-5 w-5" />, title: tv('roomClosures'), desc: tv('roomClosuresDesc') },
-  ];
 
   return (
     <div className="space-y-6">
@@ -215,21 +181,16 @@ export default function SchedulingDashboardPage() {
         </div>
       )}
 
-      {/* Configuration cards grid */}
-      <div>
-        <h2 className="text-base font-semibold text-text-primary mb-3">Configuration</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {configCards.map((card) => (
-            <NavCard
-              key={card.key}
-              href={card.href}
-              icon={card.icon}
-              title={card.title}
-              description={card.desc}
-            />
-          ))}
+      {/* Quick status info */}
+      {overview && (
+        <div className="rounded-2xl border border-border bg-surface p-5 space-y-2">
+          <h2 className="text-base font-semibold text-text-primary">{t('status')}</h2>
+          <p className="text-sm text-text-secondary">
+            Use the sidebar to configure scheduling: set up the period grid, curriculum requirements,
+            teacher competencies, and more. Once all prerequisites are met, use the Auto Scheduler to generate timetables.
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

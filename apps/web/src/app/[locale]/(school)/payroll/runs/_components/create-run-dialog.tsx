@@ -33,7 +33,6 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
   const [periodLabel, setPeriodLabel] = React.useState('');
   const [periodMonth, setPeriodMonth] = React.useState(String(currentDate.getMonth() + 1));
   const [periodYear, setPeriodYear] = React.useState(String(currentDate.getFullYear()));
-  const [totalWorkingDays, setTotalWorkingDays] = React.useState('22');
   const [isSaving, setIsSaving] = React.useState(false);
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -61,7 +60,7 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
           period_label: periodLabel,
           period_month: Number(periodMonth),
           period_year: Number(periodYear),
-          total_working_days: Number(totalWorkingDays),
+          total_working_days: 22,
         }),
       });
       onSuccess(res.data.id);
@@ -115,18 +114,6 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>{t('totalWorkingDays')}</Label>
-            <Input
-              type="number"
-              min="1"
-              max="31"
-              value={totalWorkingDays}
-              onChange={(e) => setTotalWorkingDays(e.target.value)}
-              required
-            />
           </div>
 
           <DialogFooter>

@@ -12,12 +12,16 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface HouseholdApiItem {
+  id: string;
+  household_name: string;
+  primary_billing_parent?: { id: string; first_name: string; last_name: string } | null;
+}
+
 interface Household {
   id: string;
   household_name: string;
   billing_parent_name: string | null;
-  outstanding_balance: number;
-  currency_code: string;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -46,10 +50,18 @@ export default function StatementsIndexPage() {
       });
       if (search) params.set('search', search);
 
-      const res = await apiClient<{ data: Household[]; meta: { total: number } }>(
+      const res = await apiClient<{ data: HouseholdApiItem[]; meta: { total: number } }>(
         `/api/v1/households?${params.toString()}`,
       );
-      setHouseholds(res.data);
+      setHouseholds(
+        res.data.map((h) => ({
+          id: h.id,
+          household_name: h.household_name,
+          billing_parent_name: h.primary_billing_parent
+            ? `${h.primary_billing_parent.first_name} ${h.primary_billing_parent.last_name}`
+            : null,
+        })),
+      );
       setTotal(res.meta.total);
     } catch {
       setHouseholds([]);

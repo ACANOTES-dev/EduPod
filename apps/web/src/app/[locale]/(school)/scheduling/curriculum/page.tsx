@@ -35,8 +35,7 @@ interface Subject { id: string; name: string; code: string }
 interface CurriculumRow {
   id: string;
   subject_id: string;
-  subject_name: string;
-  subject_code: string;
+  subject?: { id: string; name: string };
   min_periods_per_week: number;
   max_periods_per_day: number;
   preferred_periods_per_week: number | null;
@@ -297,8 +296,7 @@ export default function CurriculumPage() {
                     rows.map((row) => (
                       <tr key={row.id} className="border-t border-border hover:bg-surface-secondary/50">
                         <td className="px-4 py-3 font-medium text-text-primary">
-                          {row.subject_name ?? '—'}
-                          <span className="ms-2 text-xs text-text-tertiary font-mono">{row.subject_code}</span>
+                          {row.subject?.name ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-text-secondary">{row.min_periods_per_week}</td>
                         <td className="px-4 py-3 text-text-secondary">{row.max_periods_per_day}</td>

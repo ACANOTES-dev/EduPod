@@ -59,36 +59,24 @@ export interface HouseholdStatementData {
 }
 
 export interface FinanceDashboardData {
-  overdue_summary: {
-    total_overdue_amount: number;
-    overdue_count: number;
-    ageing: {
-      days_1_30: { count: number; amount: number };
-      days_31_60: { count: number; amount: number };
-      days_61_90: { count: number; amount: number };
-      days_90_plus: { count: number; amount: number };
-    };
+  expected_revenue: number;
+  received_payments: number;
+  outstanding: number;
+  collection_rate: number;
+  household_debt_breakdown: {
+    pct_0_10: number;
+    pct_10_30: number;
+    pct_30_50: number;
+    pct_50_plus: number;
   };
-  invoice_pipeline: {
-    draft: { count: number; amount: number };
-    pending_approval: { count: number; amount: number };
-    issued: { count: number; amount: number };
-    overdue: { count: number; amount: number };
-    paid: { count: number; amount: number };
-  };
-  unallocated_payments: { count: number; total_amount: number };
   pending_refund_approvals: number;
   recent_payments: Array<{
     id: string;
     payment_reference: string;
     amount: number;
+    household_id: string;
     household_name: string;
     received_at: string;
     status: PaymentStatus;
   }>;
-  revenue_summary: {
-    current_month_collected: number;
-    previous_month_collected: number;
-    current_month_invoiced: number;
-  };
 }

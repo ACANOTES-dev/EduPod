@@ -85,16 +85,31 @@ export class PayrollEntriesService {
 
     const result = this.calculationService.calculate(calcInput);
 
+    // Handle override
+    const updateData: Record<string, unknown> = {
+      days_worked: daysWorked,
+      classes_taught: classesTaught,
+      notes,
+      basic_pay: result.basic_pay,
+      bonus_pay: result.bonus_pay,
+      total_pay: result.total_pay,
+    };
+
+    if (dto.override_total_pay !== undefined) {
+      if (dto.override_total_pay !== null && (!dto.override_note || dto.override_note.trim().length === 0)) {
+        throw new BadRequestException({
+          code: 'OVERRIDE_NOTE_REQUIRED',
+          message: 'A note explaining the override is required when overriding total pay',
+        });
+      }
+      updateData.override_total_pay = dto.override_total_pay;
+      updateData.override_note = dto.override_note ?? null;
+      updateData.override_at = dto.override_total_pay !== null ? new Date() : null;
+    }
+
     const updated = await this.prisma.payrollEntry.update({
       where: { id: entryId },
-      data: {
-        days_worked: daysWorked,
-        classes_taught: classesTaught,
-        notes,
-        basic_pay: result.basic_pay,
-        bonus_pay: result.bonus_pay,
-        total_pay: result.total_pay,
-      },
+      data: updateData,
       include: {
         staff_profile: {
           select: {
@@ -162,6 +177,7 @@ export class PayrollEntriesService {
       'basic_pay',
       'bonus_pay',
       'total_pay',
+      'override_total_pay',
     ];
 
     for (const field of decimalFields) {

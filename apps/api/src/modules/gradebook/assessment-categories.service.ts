@@ -48,12 +48,21 @@ export class AssessmentCategoriesService {
 
   /**
    * List all assessment categories (no pagination — typically < 20).
+   * Includes `in_use` flag indicating whether any assessments reference the category.
    */
   async findAll(tenantId: string) {
-    const data = await this.prisma.assessmentCategory.findMany({
+    const categories = await this.prisma.assessmentCategory.findMany({
       where: { tenant_id: tenantId },
       orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { assessments: true } },
+      },
     });
+
+    const data = categories.map(({ _count, ...cat }) => ({
+      ...cat,
+      in_use: _count.assessments > 0,
+    }));
 
     return { data };
   }

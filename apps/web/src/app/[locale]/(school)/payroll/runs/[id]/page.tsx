@@ -31,6 +31,7 @@ interface PayrollRun {
   total_bonus_pay: number;
   total_working_days: number;
   created_at: string;
+  updated_at: string;
 }
 
 export interface PayrollEntry {
@@ -43,7 +44,15 @@ export interface PayrollEntry {
   basic_pay: number;
   bonus_pay: number;
   total_pay: number;
+  override_total_pay: number | null;
+  override_note: string | null;
   notes: string | null;
+  updated_at: string;
+  snapshot_base_salary: number | null;
+  snapshot_bonus_day_multiplier: number | null;
+  snapshot_per_class_rate: number | null;
+  snapshot_assigned_class_count: number | null;
+  snapshot_bonus_class_rate: number | null;
 }
 
 export default function RunDetailPage() {
@@ -102,8 +111,12 @@ export default function RunDetailPage() {
   };
 
   const handleFinalise = async () => {
+    if (!run) return;
     try {
-      await apiClient(`/api/v1/payroll/runs/${runId}/finalise`, { method: 'POST' });
+      await apiClient(`/api/v1/payroll/runs/${runId}/finalise`, {
+        method: 'POST',
+        body: JSON.stringify({ expected_updated_at: run.updated_at }),
+      });
       setFinaliseOpen(false);
       void fetchRun();
     } catch {
@@ -122,10 +135,14 @@ export default function RunDetailPage() {
   };
 
   const handleUpdateWorkingDays = async (days: number) => {
+    if (!run) return;
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ total_working_days: days }),
+        body: JSON.stringify({
+          total_working_days: days,
+          expected_updated_at: run.updated_at,
+        }),
       });
       void fetchRun();
     } catch {
@@ -137,13 +154,12 @@ export default function RunDetailPage() {
     setEntries((prev) =>
       prev.map((e) => (e.id === updatedEntry.id ? updatedEntry : e))
     );
-    // Recalculate run totals locally
     setRun((prev) => {
       if (!prev) return prev;
       const newEntries = entries.map((e) => (e.id === updatedEntry.id ? updatedEntry : e));
       return {
         ...prev,
-        total_pay: newEntries.reduce((sum, e) => sum + e.total_pay, 0),
+        total_pay: newEntries.reduce((sum, e) => sum + (e.override_total_pay ?? e.total_pay), 0),
         total_basic_pay: newEntries.reduce((sum, e) => sum + e.basic_pay, 0),
         total_bonus_pay: newEntries.reduce((sum, e) => sum + e.bonus_pay, 0),
       };
@@ -170,47 +186,52 @@ export default function RunDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={run.period_label}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => router.push(`/${locale}/payroll/runs`)}>
-              {t('cancel')}
-            </Button>
-            {isDraft && (
-              <>
-                <Button variant="outline" onClick={handleRefreshEntries}>
-                  {t('refreshEntries')}
+      <div>
+        <button
+          onClick={() => router.push(`/${locale}/payroll/runs`)}
+          className="mb-2 inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
+        >
+          &larr; {t('backToRuns')}
+        </button>
+        <PageHeader
+          title={run.period_label}
+          actions={
+            <div className="flex items-center gap-2">
+              {isDraft && (
+                <>
+                  <Button variant="outline" onClick={handleRefreshEntries}>
+                    {t('refreshEntries')}
+                  </Button>
+                  <Button variant="outline" onClick={handleAutoPopulate} disabled={isPopulating}>
+                    {isPopulating ? t('generatingSessions') : t('autoPopulateClasses')}
+                  </Button>
+                  <Button variant="outline" onClick={handleCancelRun}>
+                    {t('cancelRun')}
+                  </Button>
+                  <Button onClick={() => setFinaliseOpen(true)}>
+                    {t('finalise')}
+                  </Button>
+                </>
+              )}
+              {run.status === 'finalised' && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
+                      await downloadAuthenticatedPdf(`/api/v1/payroll/runs/${runId}/payslips`);
+                    } catch {
+                      // error handled
+                    }
+                  }}
+                >
+                  {t('exportPayslips')}
                 </Button>
-                <Button variant="outline" onClick={handleAutoPopulate} disabled={isPopulating}>
-                  {isPopulating ? t('generatingSessions') : t('autoPopulateClasses')}
-                </Button>
-                <Button variant="outline" onClick={handleCancelRun}>
-                  {t('cancelRun')}
-                </Button>
-                <Button onClick={() => setFinaliseOpen(true)}>
-                  {t('finalise')}
-                </Button>
-              </>
-            )}
-            {run.status === 'finalised' && (
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  try {
-                    const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
-                    await downloadAuthenticatedPdf(`/api/v1/payroll/runs/${runId}/payslips`);
-                  } catch {
-                    // error handled
-                  }
-                }}
-              >
-                {t('exportPayslips')}
-              </Button>
-            )}
-          </div>
-        }
-      />
+              )}
+            </div>
+          }
+        />
+      </div>
 
       <RunMetadataCard
         run={run}
@@ -221,7 +242,7 @@ export default function RunDetailPage() {
       <EntriesTable
         entries={entries}
         isDraft={isDraft}
-        runId={runId}
+        totalWorkingDays={run.total_working_days}
         onEntryUpdated={handleEntryUpdated}
       />
 
@@ -231,7 +252,7 @@ export default function RunDetailPage() {
         <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <p className="text-xs text-text-tertiary">{t('headcount')}</p>
-            <p className="text-lg font-semibold text-text-primary">{run.headcount}</p>
+            <p className="text-lg font-semibold text-text-primary">{entries.length}</p>
           </div>
           <div>
             <p className="text-xs text-text-tertiary">{t('basicPay')}</p>

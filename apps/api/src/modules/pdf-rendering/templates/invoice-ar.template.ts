@@ -31,7 +31,6 @@ interface InvoiceData {
   lines: InvoiceLineData[];
   subtotal_amount: number;
   discount_amount: number;
-  tax_amount: number;
   total_amount: number;
   amount_paid: number;
   balance_amount: number;
@@ -212,7 +211,6 @@ export function renderInvoiceAr(data: unknown, branding: PdfBranding): string {
           <td style="padding: 6px 0; text-align: left;" dir="ltr">${formatCurrency(inv.subtotal_amount, inv.currency_code)}</td>
         </tr>
         ${inv.discount_amount > 0 ? `<tr><td style="padding: 6px 0 6px 16px; color: #6b7280;">\u0627\u0644\u062E\u0635\u0645:</td><td style="padding: 6px 0; text-align: left; color: #16a34a;" dir="ltr">-${formatCurrency(inv.discount_amount, inv.currency_code)}</td></tr>` : ''}
-        ${inv.tax_amount > 0 ? `<tr><td style="padding: 6px 0 6px 16px; color: #6b7280;">\u0627\u0644\u0636\u0631\u064A\u0628\u0629:</td><td style="padding: 6px 0; text-align: left;" dir="ltr">${formatCurrency(inv.tax_amount, inv.currency_code)}</td></tr>` : ''}
         <tr style="border-top: 2px solid ${primaryColor};">
           <td style="padding: 10px 0 6px 16px; font-weight: 700; font-size: 15px;">\u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A:</td>
           <td style="padding: 10px 0 6px 0; text-align: left; font-weight: 700; font-size: 15px;" dir="ltr">${formatCurrency(inv.total_amount, inv.currency_code)}</td>

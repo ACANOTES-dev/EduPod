@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import type { UserListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -19,13 +21,43 @@ export class MembershipsService {
 
   /**
    * List users in a tenant with their memberships and roles, paginated.
+   * Supports search by name/email, filter by role, and filter by status.
    */
-  async listUsers(tenantId: string, page: number, pageSize: number) {
+  async listUsers(tenantId: string, query: UserListQuery) {
+    const { page, pageSize, search, role_id, status } = query;
     const skip = (page - 1) * pageSize;
+
+    const where: Prisma.TenantMembershipWhereInput = {
+      tenant_id: tenantId,
+    };
+
+    // Status filter
+    if (status) {
+      where.membership_status = status;
+    }
+
+    // Name/email search
+    if (search && search.trim()) {
+      const term = search.trim();
+      where.user = {
+        OR: [
+          { first_name: { contains: term, mode: 'insensitive' } },
+          { last_name: { contains: term, mode: 'insensitive' } },
+          { email: { contains: term, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    // Role filter
+    if (role_id) {
+      where.membership_roles = {
+        some: { role_id },
+      };
+    }
 
     const [memberships, total] = await Promise.all([
       this.prisma.tenantMembership.findMany({
-        where: { tenant_id: tenantId },
+        where,
         skip,
         take: pageSize,
         orderBy: { created_at: 'desc' },
@@ -56,9 +88,7 @@ export class MembershipsService {
           },
         },
       }),
-      this.prisma.tenantMembership.count({
-        where: { tenant_id: tenantId },
-      }),
+      this.prisma.tenantMembership.count({ where }),
     ]);
 
     return {

@@ -12,6 +12,7 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
@@ -23,9 +24,9 @@ interface PaymentFormProps {
 }
 
 export function PaymentForm({ onSuccess }: PaymentFormProps) {
+  const t = useTranslations('finance');
   const [householdId, setHouseholdId] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState('');
-  const [paymentReference, setPaymentReference] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [receivedAt, setReceivedAt] = React.useState(() => {
     const now = new Date();
@@ -39,7 +40,6 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
     const newErrors: Record<string, string> = {};
     if (!householdId) newErrors.householdId = 'Household is required';
     if (!paymentMethod) newErrors.paymentMethod = 'Payment method is required';
-    if (!paymentReference.trim()) newErrors.paymentReference = 'Reference is required';
     const numAmount = parseFloat(amount);
     if (!amount || isNaN(numAmount) || numAmount <= 0) {
       newErrors.amount = 'Amount must be a positive number';
@@ -58,7 +58,6 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
       const payload = {
         household_id: householdId,
         payment_method: paymentMethod,
-        payment_reference: paymentReference.trim(),
         amount: parseFloat(amount),
         received_at: new Date(receivedAt).toISOString(),
         ...(reason.trim() ? { reason: reason.trim() } : {}),
@@ -72,10 +71,10 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
         },
       );
 
-      toast.success('Payment recorded successfully');
+      toast.success(t('paymentRecorded'));
       onSuccess(res.data.id);
     } catch {
-      toast.error('Failed to record payment');
+      toast.error(t('paymentRecordFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -83,6 +82,8 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
 
   return (
     <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+      <p className="text-sm text-text-secondary">{t('paymentRefAutoNote')}</p>
+
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Household */}
         <div className="sm:col-span-2 space-y-2">
@@ -112,19 +113,6 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
           </Select>
           {errors.paymentMethod && (
             <p className="text-xs text-danger-text">{errors.paymentMethod}</p>
-          )}
-        </div>
-
-        {/* Payment Reference */}
-        <div className="space-y-2">
-          <Label>Payment Reference *</Label>
-          <Input
-            placeholder="e.g. Receipt #123"
-            value={paymentReference}
-            onChange={(e) => setPaymentReference(e.target.value)}
-          />
-          {errors.paymentReference && (
-            <p className="text-xs text-danger-text">{errors.paymentReference}</p>
           )}
         </div>
 

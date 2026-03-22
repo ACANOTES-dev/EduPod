@@ -117,8 +117,8 @@ export class HouseholdsService {
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      // Auto-generate household number
-      const householdNumber = await this.sequenceService.nextNumber(tenantId, 'household', tx, 'HH');
+      // Auto-generate randomised household reference (doubles as parent initial password)
+      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, tx);
 
       const household = await db.household.create({
         data: {

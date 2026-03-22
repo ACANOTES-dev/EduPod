@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -49,6 +49,7 @@ interface CompensationRecord {
 
 export default function CompensationListPage() {
   const t = useTranslations('payroll');
+  const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -60,6 +61,9 @@ export default function CompensationListPage() {
   const [formOpen, setFormOpen] = React.useState(false);
   const [editRecord, setEditRecord] = React.useState<CompensationRecord | null>(null);
   const [bulkOpen, setBulkOpen] = React.useState(false);
+  const [historyStaffId, setHistoryStaffId] = React.useState<string | null>(null);
+  const [historyRecords, setHistoryRecords] = React.useState<CompensationRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = React.useState(false);
 
   const pageSize = 20;
 
@@ -68,7 +72,7 @@ export default function CompensationListPage() {
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (typeFilter !== 'all') {
-        params.set('type', typeFilter);
+        params.set('compensation_type', typeFilter);
       }
       const res = await apiClient<{
         data: CompensationRecord[];
@@ -93,17 +97,45 @@ export default function CompensationListPage() {
     void fetchData();
   };
 
-  const handleEdit = (record: CompensationRecord) => {
+  const handleRevise = (record: CompensationRecord) => {
     setEditRecord(record);
     setFormOpen(true);
   };
+
+  const handleViewHistory = async (staffProfileId: string) => {
+    if (historyStaffId === staffProfileId) {
+      setHistoryStaffId(null);
+      return;
+    }
+    setHistoryStaffId(staffProfileId);
+    setHistoryLoading(true);
+    try {
+      const params = new URLSearchParams({
+        staff_profile_id: staffProfileId,
+        active_only: 'false',
+        pageSize: '50',
+      });
+      const res = await apiClient<{
+        data: CompensationRecord[];
+        meta: { total: number };
+      }>(`/api/v1/payroll/compensation?${params.toString()}`);
+      setHistoryRecords(res.data);
+    } catch {
+      // silent
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const getStaffName = (row: CompensationRecord): string =>
+    row.staff_name ?? (row.staff_profile?.user ? `${row.staff_profile.user.first_name} ${row.staff_profile.user.last_name}` : '—');
 
   const columns = [
     {
       key: 'staff_name',
       header: t('staffName'),
       render: (row: CompensationRecord) => (
-        <span className="font-medium text-text-primary">{row.staff_name ?? (row.staff_profile?.user ? `${row.staff_profile.user.first_name} ${row.staff_profile.user.last_name}` : '—')}</span>
+        <span className="font-medium text-text-primary">{getStaffName(row)}</span>
       ),
     },
     {
@@ -145,28 +177,45 @@ export default function CompensationListPage() {
       key: 'actions',
       header: t('actions'),
       render: (row: CompensationRecord) => (
-        <Button variant="ghost" size="sm" onClick={() => handleEdit(row)}>
-          {t('editCompensation')}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => handleRevise(row)}>
+            {t('revise')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleViewHistory(row.staff_profile_id)}
+          >
+            {t('history')}
+          </Button>
+        </div>
       ),
     },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('compensation')}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setBulkOpen(true)}>
-              {t('bulkImport')}
-            </Button>
-            <Button onClick={() => { setEditRecord(null); setFormOpen(true); }}>
-              {t('addCompensation')}
-            </Button>
-          </div>
-        }
-      />
+      <div>
+        <button
+          onClick={() => router.push(`/${locale}/payroll`)}
+          className="mb-2 inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
+        >
+          &larr; {t('backToPayroll')}
+        </button>
+        <PageHeader
+          title={t('compensation')}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setBulkOpen(true)}>
+                {t('bulkImport')}
+              </Button>
+              <Button onClick={() => { setEditRecord(null); setFormOpen(true); }}>
+                {t('addCompensation')}
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
       <DataTable
         columns={columns}
@@ -192,6 +241,70 @@ export default function CompensationListPage() {
           </div>
         }
       />
+
+      {/* Compensation History Timeline */}
+      {historyStaffId && (
+        <div className="rounded-2xl border border-border bg-surface p-5">
+          <h3 className="text-sm font-semibold text-text-primary mb-4">{t('compensationHistory')}</h3>
+          {historyLoading ? (
+            <div className="h-16 animate-pulse rounded-xl bg-surface-secondary" />
+          ) : historyRecords.length === 0 ? (
+            <p className="text-sm text-text-tertiary">{t('noData')}</p>
+          ) : (
+            <div className="relative space-y-0">
+              {historyRecords.map((rec, i) => {
+                const isActive = rec.effective_to === null;
+                const staffName = getStaffName(rec);
+                return (
+                  <div
+                    key={rec.id}
+                    className="relative flex items-start gap-4 pb-4"
+                  >
+                    {/* Timeline line */}
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`h-3 w-3 rounded-full ${isActive ? 'bg-success-500' : 'bg-border'}`}
+                      />
+                      {i < historyRecords.length - 1 && (
+                        <div className="w-px flex-1 bg-border" />
+                      )}
+                    </div>
+                    {/* Content */}
+                    <div className="flex-1 -mt-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text-primary">
+                          {rec.compensation_type === 'salaried'
+                            ? `${t('baseSalary')}: ${formatCurrency(rec.base_salary ?? 0)}`
+                            : `${t('perClassRate')}: ${formatCurrency(rec.per_class_rate ?? 0)}`}
+                        </span>
+                        {isActive && (
+                          <Badge variant="default">{t('active')}</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        {staffName} &middot; {new Date(rec.effective_from).toLocaleDateString(locale)}
+                        {rec.effective_to
+                          ? ` — ${new Date(rec.effective_to).toLocaleDateString(locale)}`
+                          : ` — ${t('present')}`}
+                      </p>
+                      {rec.bonus_day_multiplier && rec.compensation_type === 'salaried' && (
+                        <p className="text-xs text-text-tertiary mt-0.5">
+                          {t('bonusDayMultiplier')}: {rec.bonus_day_multiplier}x
+                        </p>
+                      )}
+                      {rec.bonus_class_rate != null && rec.compensation_type === 'per_class' && (
+                        <p className="text-xs text-text-tertiary mt-0.5">
+                          {t('bonusClassRate')}: {formatCurrency(rec.bonus_class_rate)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <CompensationForm
         open={formOpen}

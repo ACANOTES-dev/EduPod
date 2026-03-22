@@ -5,10 +5,10 @@ import {
   Button,
   Skeleton,
 } from '@school/ui';
-import { FileDown } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
-
 
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
@@ -16,6 +16,7 @@ import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
+import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 import { RefundStatusBadge } from '../../_components/refund-status-badge';
 import { AllocationPanel } from '../_components/allocation-panel';
 
@@ -55,6 +56,11 @@ interface PaymentDetail {
     id: string;
     household_name: string;
   };
+  posted_by: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
   allocations: Allocation[];
   refunds: Refund[];
   // Computed on frontend
@@ -91,11 +97,13 @@ const methodLabelMap: Record<PaymentMethod, string> = {
 };
 
 export default function PaymentDetailPage() {
+  const t = useTranslations('finance');
   const _params = useParams<{ id: string }>();
   const id = _params?.id ?? '';
 
   const [payment, setPayment] = React.useState<PaymentDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [showReceiptPdf, setShowReceiptPdf] = React.useState(false);
 
   const fetchPayment = React.useCallback(async () => {
     setIsLoading(true);
@@ -121,14 +129,7 @@ export default function PaymentDetailPage() {
     void fetchPayment();
   }, [fetchPayment]);
 
-  const handleReceiptPdf = async () => {
-    try {
-      const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
-      await downloadAuthenticatedPdf(`/api/v1/finance/payments/${id}/receipt/pdf`);
-    } catch {
-      // error handled by apiClient
-    }
-  };
+  // Receipt PDF is now handled by PdfPreviewModal
 
   if (isLoading) {
     return (
@@ -203,13 +204,27 @@ export default function PaymentDetailPage() {
         />
       ),
     },
+    {
+      label: t('acceptedBy'),
+      value: payment.posted_by
+        ? `${payment.posted_by.first_name} ${payment.posted_by.last_name}`
+        : '—',
+    },
   ];
 
   const actions = (
-    <Button variant="outline" onClick={handleReceiptPdf}>
-      <FileDown className="me-2 h-4 w-4" />
-      Receipt PDF
-    </Button>
+    <>
+      <Button variant="outline" onClick={() => setShowReceiptPdf(true)}>
+        <FileText className="me-2 h-4 w-4" />
+        {t('receiptPdf')}
+      </Button>
+      <PdfPreviewModal
+        open={showReceiptPdf}
+        onOpenChange={setShowReceiptPdf}
+        title={t('receiptPdf')}
+        pdfUrl={`/api/v1/finance/payments/${id}/receipt/pdf`}
+      />
+    </>
   );
 
   // Allocations tab content

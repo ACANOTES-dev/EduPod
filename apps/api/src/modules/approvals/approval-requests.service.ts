@@ -100,6 +100,15 @@ export class ApprovalRequestsService {
             email: true,
           },
         },
+        announcements: {
+          select: {
+            id: true,
+            title: true,
+            body_html: true,
+            scope: true,
+            status: true,
+          },
+        },
       },
     });
 

@@ -132,11 +132,9 @@ export default function PeriodGridPage() {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
-      apiClient<{ data: BreakGroup[] }>('/api/v1/scheduling/break-groups?pageSize=100').catch(() => ({ data: [] as BreakGroup[] })),
-    ]).then(([yearsRes, ygRes, bgRes]) => {
+    ]).then(([yearsRes, ygRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);
-      setBreakGroups(bgRes.data);
       if (yearsRes.data.length > 0 && yearsRes.data[0]) {
         setSelectedYear(yearsRes.data[0].id);
       }
@@ -145,6 +143,14 @@ export default function PeriodGridPage() {
       }
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
+
+  // Load break groups when academic year is selected
+  React.useEffect(() => {
+    if (!selectedYear) return;
+    apiClient<{ data: BreakGroup[] }>(`/api/v1/scheduling/break-groups?academic_year_id=${selectedYear}`, { silent: true })
+      .then((res) => setBreakGroups(res.data))
+      .catch(() => setBreakGroups([]));
+  }, [selectedYear]);
 
   // Load period grid when year or year group changes
   const fetchGrid = React.useCallback(async () => {

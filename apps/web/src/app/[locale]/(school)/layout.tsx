@@ -23,8 +23,6 @@ import {
   FileText,
   DollarSign,
   GraduationCap,
-  Grid3X3,
-  History,
   Home,
   LayoutGrid,
   LayoutDashboard,
@@ -33,7 +31,6 @@ import {
   Plus,
   Settings,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   UserPlus,
   Users,
@@ -122,23 +119,22 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     roles: STAFF_ROLES,
     items: [
       { icon: CalendarDays, labelKey: 'nav.rooms', href: '/rooms', roles: ADMIN_ROLES },
-      { icon: Clock, labelKey: 'nav.schedules', href: '/schedules', roles: ADMIN_ROLES },
-      { icon: Grid3X3, labelKey: 'nav.timetables', href: '/timetables' },
-      { icon: Sparkles, labelKey: 'nav.autoScheduling', href: '/scheduling/auto', roles: ADMIN_ROLES },
-      { icon: CalendarDays, labelKey: 'nav.periodGrid', href: '/scheduling/period-grid', roles: ADMIN_ROLES },
-      { icon: BookOpen, labelKey: 'nav.curriculum', href: '/scheduling/curriculum', roles: ADMIN_ROLES },
-      { icon: Users, labelKey: 'nav.competencies', href: '/scheduling/competencies', roles: ADMIN_ROLES },
-      { icon: History, labelKey: 'nav.schedulingRuns', href: '/scheduling/runs', roles: ADMIN_ROLES },
+      { icon: Clock, labelKey: 'nav.scheduling', href: '/scheduling', roles: ADMIN_ROLES },
     ],
   },
   {
     labelKey: 'nav.operations',
     items: [
       { icon: UserPlus, labelKey: 'nav.admissions', href: '/admissions', roles: [...ADMIN_ROLES, 'admissions_staff'] },
-      { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'finance_staff'] },
-      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner'] },
       { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
       { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
+    ],
+  },
+  {
+    labelKey: 'nav.financials',
+    items: [
+      { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'finance_staff'] },
+      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner'] },
     ],
   },
   {

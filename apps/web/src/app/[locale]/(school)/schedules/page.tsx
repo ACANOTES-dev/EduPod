@@ -104,13 +104,16 @@ export default function SchedulesPage() {
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
       apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100'),
-      apiClient<ListResponse<SelectOption>>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
       apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=100'),
     ])
       .then(([yearsRes, classesRes, teachersRes, roomsRes]) => {
         setAcademicYears(yearsRes.data);
         setClasses(classesRes.data);
-        setTeachers(teachersRes.data);
+        setTeachers((teachersRes.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        })));
         setRooms(roomsRes.data);
       })
       .catch(() => undefined);

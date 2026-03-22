@@ -19,33 +19,34 @@ import * as React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (matching backend conversion-preview response) ────────────────────
 
-interface ParentMatch {
+interface MatchingParent {
   id: string;
-  name: string;
-  email: string;
-  match_type: 'exact' | 'fuzzy';
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
 }
 
-interface ConversionPreview {
-  application_id: string;
-  student: {
+interface ConversionPreviewResponse {
+  application: {
+    id: string;
+    application_number: string;
+    student_first_name: string;
+    student_last_name: string;
+    date_of_birth: string | null;
+    payload_json: Record<string, unknown>;
+    updated_at: string;
+  };
+  submitted_by_parent: {
+    id: string;
     first_name: string;
     last_name: string;
-    date_of_birth: string;
-    gender: string;
-  };
-  parents: Array<{
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    matches: ParentMatch[];
-  }>;
-  household: {
-    household_name: string;
-  };
+    email: string | null;
+    phone: string | null;
+  } | null;
+  matching_parents: MatchingParent[];
   year_groups: Array<{ id: string; name: string }>;
 }
 
@@ -60,56 +61,76 @@ export default function ConversionPage() {
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
-  const [preview, setPreview] = React.useState<ConversionPreview | null>(null);
+  const [preview, setPreview] = React.useState<ConversionPreviewResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
 
-  // Editable state
+  // Student fields
   const [studentFirstName, setStudentFirstName] = React.useState('');
   const [studentLastName, setStudentLastName] = React.useState('');
   const [studentDob, setStudentDob] = React.useState('');
-  const [studentGender, setStudentGender] = React.useState('');
   const [yearGroupId, setYearGroupId] = React.useState('');
+
+  // Parent 1 fields
+  const [parent1FirstName, setParent1FirstName] = React.useState('');
+  const [parent1LastName, setParent1LastName] = React.useState('');
+  const [parent1Email, setParent1Email] = React.useState('');
+  const [parent1Phone, setParent1Phone] = React.useState('');
+  const [parent1LinkId, setParent1LinkId] = React.useState<string | null>(null);
+
+  // Household
   const [householdName, setHouseholdName] = React.useState('');
-  const [parentSelections, setParentSelections] = React.useState<
-    Array<{ link_existing_id: string | null }>
-  >([]);
 
   React.useEffect(() => {
     if (!id) return;
-    apiClient<{ data: ConversionPreview }>(`/api/v1/applications/${id}/conversion-preview`)
+    apiClient<{ data: ConversionPreviewResponse }>(`/api/v1/applications/${id}/conversion-preview`)
       .then((res) => {
         const d = res.data;
         setPreview(d);
-        setStudentFirstName(d.student.first_name);
-        setStudentLastName(d.student.last_name);
-        setStudentDob(d.student.date_of_birth ?? '');
-        setStudentGender(d.student.gender ?? '');
-        setHouseholdName(d.household.household_name);
-        setParentSelections(d.parents.map(() => ({ link_existing_id: null })));
+
+        // Populate student from application
+        setStudentFirstName(d.application.student_first_name);
+        setStudentLastName(d.application.student_last_name);
+        setStudentDob(d.application.date_of_birth?.split('T')[0] ?? '');
+        setHouseholdName(`${d.application.student_last_name} Family`);
+
+        // Populate parent 1 from submitted_by_parent or payload
+        const payload = d.application.payload_json ?? {};
+        if (d.submitted_by_parent) {
+          setParent1FirstName(d.submitted_by_parent.first_name);
+          setParent1LastName(d.submitted_by_parent.last_name);
+          setParent1Email(d.submitted_by_parent.email ?? '');
+          setParent1Phone(d.submitted_by_parent.phone ?? '');
+        } else {
+          // Fallback to payload fields
+          setParent1FirstName((payload.parent1_first_name as string) ?? (payload.parent_first_name as string) ?? '');
+          setParent1LastName((payload.parent1_last_name as string) ?? (payload.parent_last_name as string) ?? '');
+          setParent1Email((payload.parent1_email as string) ?? (payload.parent_email as string) ?? '');
+          setParent1Phone((payload.parent1_phone as string) ?? (payload.parent_phone as string) ?? '');
+        }
       })
       .catch(() => toast.error('Failed to load conversion preview'))
       .finally(() => setLoading(false));
   }, [id]);
 
   const handleSubmit = async () => {
+    if (!preview) return;
     setSubmitting(true);
     try {
       await apiClient(`/api/v1/applications/${id}/convert`, {
         method: 'POST',
         body: JSON.stringify({
-          student: {
-            first_name: studentFirstName,
-            last_name: studentLastName,
-            date_of_birth: studentDob || undefined,
-            gender: studentGender || undefined,
-            year_group_id: yearGroupId || undefined,
-          },
-          household_name: householdName,
-          parent_mappings: preview?.parents.map((_, idx) => ({
-            index: idx,
-            link_existing_id: parentSelections[idx]?.link_existing_id || null,
-          })),
+          student_first_name: studentFirstName,
+          student_last_name: studentLastName,
+          date_of_birth: studentDob,
+          year_group_id: yearGroupId,
+          parent1_first_name: parent1FirstName,
+          parent1_last_name: parent1LastName,
+          parent1_email: parent1Email || null,
+          parent1_phone: parent1Phone || null,
+          parent1_link_existing_id: parent1LinkId,
+          household_name: householdName || undefined,
+          expected_updated_at: preview.application.updated_at,
         }),
       });
       toast.success(t('conversionSuccess'));
@@ -140,6 +161,9 @@ export default function ConversionPage() {
       </div>
     );
   }
+
+  const canSubmit =
+    studentFirstName && studentLastName && studentDob && yearGroupId && parent1FirstName && parent1LastName;
 
   return (
     <div className="space-y-6">
@@ -173,7 +197,7 @@ export default function ConversionPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t('dateOfBirth')}</Label>
+            <Label>{t('dateOfBirth')} <span className="text-emerald-600">*</span></Label>
             <Input
               type="date"
               dir="ltr"
@@ -188,7 +212,7 @@ export default function ConversionPage() {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label>{t('yearGroup')}</Label>
+            <Label>{t('yearGroup')} <span className="text-emerald-600">*</span></Label>
             <Select value={yearGroupId} onValueChange={setYearGroupId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select year group" />
@@ -211,7 +235,7 @@ export default function ConversionPage() {
           {t('household')}
         </h3>
         <div className="space-y-1.5">
-          <Label>Household Name <span className="text-emerald-600">*</span></Label>
+          <Label>Household Name</Label>
           <Input
             value={householdName}
             onChange={(e) => setHouseholdName(e.target.value)}
@@ -219,94 +243,103 @@ export default function ConversionPage() {
         </div>
       </div>
 
-      {/* Parents section */}
-      {preview.parents.map((parent, idx) => (
-        <div key={idx} className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-semibold text-text-primary">
-            {t('parent')} {idx + 1}
-          </h3>
+      {/* Parent 1 section */}
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <h3 className="mb-4 text-base font-semibold text-text-primary">
+          {t('parent')} 1
+        </h3>
 
-          <dl className="mb-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs text-text-tertiary">Name</dt>
-              <dd className="mt-0.5 text-sm text-text-primary">
-                {parent.first_name} {parent.last_name}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-text-tertiary">Email</dt>
-              <dd className="mt-0.5 text-sm text-text-primary" dir="ltr">
-                {parent.email}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-text-tertiary">Phone</dt>
-              <dd className="mt-0.5 text-sm text-text-primary" dir="ltr">
-                {parent.phone || '—'}
-              </dd>
-            </div>
-          </dl>
-
-          {/* Parent matching */}
-          {parent.matches.length > 0 && (
-            <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-warning-text">
-                <AlertTriangle className="h-4 w-4" />
-                {t('duplicateWarning')}
-              </p>
-              <div className="space-y-2 ms-5">
-                <div className="flex items-center gap-2">
+        {/* Parent matching */}
+        {preview.matching_parents.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-warning-text">
+              <AlertTriangle className="h-4 w-4" />
+              {t('duplicateWarning')}
+            </p>
+            <div className="space-y-2 ms-5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  id="parent1-new"
+                  name="parent1-link"
+                  checked={parent1LinkId === null}
+                  onChange={() => setParent1LinkId(null)}
+                />
+                <label htmlFor="parent1-new" className="text-sm text-text-secondary">
+                  Create new parent record
+                </label>
+              </div>
+              {preview.matching_parents.map((match) => (
+                <div key={match.id} className="flex items-center gap-2">
                   <input
                     type="radio"
-                    id={`parent-${idx}-new`}
-                    name={`parent-${idx}`}
-                    checked={parentSelections[idx]?.link_existing_id === null}
-                    onChange={() => {
-                      const updated = [...parentSelections];
-                      updated[idx] = { link_existing_id: null };
-                      setParentSelections(updated);
-                    }}
+                    id={`parent1-${match.id}`}
+                    name="parent1-link"
+                    checked={parent1LinkId === match.id}
+                    onChange={() => setParent1LinkId(match.id)}
                   />
-                  <label htmlFor={`parent-${idx}-new`} className="text-sm text-text-secondary">
-                    Create new parent record
+                  <label
+                    htmlFor={`parent1-${match.id}`}
+                    className="text-sm text-text-secondary"
+                  >
+                    Link to {match.first_name} {match.last_name}
+                    {match.email && (
+                      <span className="ms-1 text-xs text-text-tertiary" dir="ltr">
+                        ({match.email})
+                      </span>
+                    )}
                   </label>
                 </div>
-                {parent.matches.map((match) => (
-                  <div key={match.id} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      id={`parent-${idx}-${match.id}`}
-                      name={`parent-${idx}`}
-                      checked={parentSelections[idx]?.link_existing_id === match.id}
-                      onChange={() => {
-                        const updated = [...parentSelections];
-                        updated[idx] = { link_existing_id: match.id };
-                        setParentSelections(updated);
-                      }}
-                    />
-                    <label
-                      htmlFor={`parent-${idx}-${match.id}`}
-                      className="text-sm text-text-secondary"
-                    >
-                      Link to {match.name} ({match.email})
-                      <span className="ms-1 text-xs text-text-tertiary">
-                        ({match.match_type} match)
-                      </span>
-                    </label>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
-          )}
-        </div>
-      ))}
+          </div>
+        )}
+
+        {/* Only show editable fields when creating new parent */}
+        {parent1LinkId === null && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>First Name <span className="text-emerald-600">*</span></Label>
+              <Input
+                value={parent1FirstName}
+                onChange={(e) => setParent1FirstName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Last Name <span className="text-emerald-600">*</span></Label>
+              <Input
+                value={parent1LastName}
+                onChange={(e) => setParent1LastName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input
+                type="email"
+                dir="ltr"
+                value={parent1Email}
+                onChange={(e) => setParent1Email(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input
+                type="tel"
+                dir="ltr"
+                value={parent1Phone}
+                onChange={(e) => setParent1Phone(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Submit */}
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => router.back()}>
           {tc('cancel')}
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting || !studentFirstName || !studentLastName}>
+        <Button onClick={handleSubmit} disabled={submitting || !canSubmit}>
           <CheckCircle className="me-2 h-4 w-4" />
           {t('convertToStudent')}
         </Button>

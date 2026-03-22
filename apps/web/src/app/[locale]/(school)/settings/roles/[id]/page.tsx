@@ -31,6 +31,17 @@ interface PermissionFromApi {
   permission_tier: string;
 }
 
+interface PermissionItem {
+  id: string;
+  key: string;
+  description: string;
+  tier: string;
+}
+
+interface PermissionsResponse {
+  data: PermissionItem[];
+}
+
 interface RoleDetail {
   id: string;
   role_key: string;
@@ -86,9 +97,9 @@ export default function RoleDetailPage() {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState('');
 
-  // All available permissions for the picker (derived from a system role)
+  // All available permissions for the picker
   const [availablePermissions, setAvailablePermissions] = React.useState<
-    { id: string; key: string; tier: RoleTier }[]
+    { id: string; key: string; tier: RoleTier; description?: string }[]
   >([]);
 
   // Edit state
@@ -110,41 +121,24 @@ export default function RoleDetailPage() {
       setLoading(true);
       setLoadError('');
       try {
-        // Load target role
-        const roleRes = await apiClient<{ data: RoleDetail }>(`/api/v1/roles/${id}`);
-        const roleDetail = roleRes.data;
-        setRole(roleDetail);
-        setDisplayName(roleDetail.display_name);
-        setSelectedPermIds(roleDetail.role_permissions.map((rp) => rp.permission.id));
+        // Load target role and all permissions in parallel
+        const [roleRes, permsRes] = await Promise.all([
+          apiClient<RoleDetail>(`/api/v1/roles/${id}`),
+          apiClient<PermissionsResponse>('/api/v1/permissions'),
+        ]);
 
-        // Load all permissions from the school_owner role (most complete system role)
-        const rolesRes = await apiClient<{ data: { id: string; is_system_role: boolean; role_key: string }[] }>('/api/v1/roles');
-        const systemRole =
-          rolesRes.data.find((r) => r.is_system_role && r.role_key === 'school_owner') ??
-          rolesRes.data.find((r) => r.is_system_role);
+        setRole(roleRes);
+        setDisplayName(roleRes.display_name);
+        setSelectedPermIds(roleRes.role_permissions.map((rp) => rp.permission.id));
 
-        if (systemRole && systemRole.id !== id) {
-          const ownerRes = await apiClient<{ data: {
-            role_permissions: { permission: PermissionFromApi }[];
-          } }>(`/api/v1/roles/${systemRole.id}`);
-          const ownerDetail = ownerRes.data;
-          setAvailablePermissions(
-            ownerDetail.role_permissions.map((rp) => ({
-              id: rp.permission.id,
-              key: rp.permission.permission_key,
-              tier: rp.permission.permission_tier as RoleTier,
-            })),
-          );
-        } else {
-          // Fallback: use the permissions from the current role itself
-          setAvailablePermissions(
-            roleDetail.role_permissions.map((rp) => ({
-              id: rp.permission.id,
-              key: rp.permission.permission_key,
-              tier: rp.permission.permission_tier as RoleTier,
-            })),
-          );
-        }
+        setAvailablePermissions(
+          permsRes.data.map((p) => ({
+            id: p.id,
+            key: p.key,
+            tier: p.tier as RoleTier,
+            description: p.description,
+          })),
+        );
       } catch {
         setLoadError('Failed to load role.');
       } finally {

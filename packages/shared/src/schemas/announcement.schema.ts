@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+export const deliveryChannelEnum = z.enum(['in_app', 'email', 'whatsapp', 'sms']);
+
+export type DeliveryChannel = z.infer<typeof deliveryChannelEnum>;
+
 const targetPayloadByScope = {
   school: z.object({}).strict(),
   year_group: z.object({ year_group_ids: z.array(z.string().uuid()).min(1) }),
@@ -15,6 +19,7 @@ export const createAnnouncementSchema = z
     scope: z.enum(['school', 'year_group', 'class', 'household', 'custom']),
     target_payload: z.record(z.unknown()),
     scheduled_publish_at: z.string().datetime().nullable().optional(),
+    delivery_channels: z.array(deliveryChannelEnum).min(1).default(['in_app']),
   })
   .superRefine((data, ctx) => {
     const validator = targetPayloadByScope[data.scope];
@@ -37,6 +42,7 @@ export const updateAnnouncementSchema = z.object({
   scope: z.enum(['school', 'year_group', 'class', 'household', 'custom']).optional(),
   target_payload: z.record(z.unknown()).optional(),
   scheduled_publish_at: z.string().datetime().nullable().optional(),
+  delivery_channels: z.array(deliveryChannelEnum).min(1).optional(),
 });
 
 export type UpdateAnnouncementDto = z.infer<typeof updateAnnouncementSchema>;

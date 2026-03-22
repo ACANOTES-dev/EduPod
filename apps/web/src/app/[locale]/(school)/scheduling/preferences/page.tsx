@@ -241,13 +241,16 @@ export default function PreferencesPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
-      apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
       apiClient<{ data: SubjectOption[] }>('/api/v1/subjects?pageSize=100'),
       apiClient<{ data: ClassOption[] }>('/api/v1/classes?pageSize=100'),
     ])
       .then(([yearsRes, staffRes, subjectsRes, classesRes]) => {
         setAcademicYears(yearsRes.data);
-        setStaff(staffRes.data);
+        setStaff((staffRes.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        })));
         setSubjects(subjectsRes.data);
         setClasses(classesRes.data);
         if (yearsRes.data.length > 0 && yearsRes.data[0]) {

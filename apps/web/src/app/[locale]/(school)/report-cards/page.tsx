@@ -2,7 +2,7 @@
 
 import {
   Button,
-  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -11,18 +11,13 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Eye, FileText, Plus } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
-import { GenerateDialog } from './_components/generate-dialog';
-import { PdfPreviewModal } from './_components/pdf-preview-modal';
+import { apiClient, getAccessToken } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,18 +26,26 @@ interface AcademicPeriod {
   name: string;
 }
 
-interface ReportCard {
+interface SchoolClass {
   id: string;
-  student_name: string;
-  academic_period_name: string;
-  status: string;
-  locale: string;
-  published_at: string | null;
-  created_at: string;
+  name: string;
 }
 
-interface ReportCardsResponse {
-  data: ReportCard[];
+interface OverviewRow {
+  id: string;
+  student_name: string;
+  student_number: string | null;
+  subject_name: string;
+  class_name: string;
+  period_name: string;
+  academic_period_id: string;
+  final_grade: string;
+  computed_value: number;
+  has_override: boolean;
+}
+
+interface OverviewResponse {
+  data: OverviewRow[];
   meta: { page: number; pageSize: number; total: number };
 }
 
@@ -50,50 +53,97 @@ interface ListResponse<T> {
   data: T[];
 }
 
-const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'neutral'> = {
-  draft: 'warning',
-  published: 'success',
-  revised: 'neutral',
-};
+const TEMPLATES = [
+  { id: 'classic', name: 'Classic' },
+  { id: 'modern', name: 'Modern' },
+] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportCardsPage() {
   const t = useTranslations('reportCards');
   const tc = useTranslations('common');
-  const router = useRouter();
-  const pathname = usePathname();
-  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
-  const [data, setData] = React.useState<ReportCard[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [page, setPage] = React.useState(1);
-  const PAGE_SIZE = 20;
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'generate'>('overview');
 
+  // Shared dropdown data
   const [periods, setPeriods] = React.useState<AcademicPeriod[]>([]);
-  const [periodFilter, setPeriodFilter] = React.useState('all');
-  const [statusFilter, setStatusFilter] = React.useState('all');
-  const [searchQuery, setSearchQuery] = React.useState('');
-
-  const [generateOpen, setGenerateOpen] = React.useState(false);
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [classes, setClasses] = React.useState<SchoolClass[]>([]);
 
   React.useEffect(() => {
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
       .catch(() => undefined);
+    apiClient<ListResponse<SchoolClass>>('/api/v1/classes?pageSize=100')
+      .then((res) => setClasses(res.data))
+      .catch(() => undefined);
   }, []);
 
-  const fetchReportCards = React.useCallback(
-    async (p: number, period: string, status: string, search: string) => {
+  const tabs = [
+    { key: 'overview' as const, label: t('overviewTab') },
+    { key: 'generate' as const, label: t('generateTab') },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title={t('title')} />
+
+      {/* Tabs */}
+      <nav className="flex gap-1 border-b border-border" aria-label="Report cards tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`relative px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+              activeTab === tab.key
+                ? 'text-primary-700 bg-surface-secondary border-b-2 border-primary-700'
+                : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
+            }`}
+            aria-current={activeTab === tab.key ? 'page' : undefined}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === 'overview' && (
+        <OverviewTab periods={periods} classes={classes} t={t} tc={tc} />
+      )}
+
+      {activeTab === 'generate' && (
+        <GenerateTab periods={periods} classes={classes} t={t} tc={tc} />
+      )}
+    </div>
+  );
+}
+
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+
+interface TabProps {
+  periods: AcademicPeriod[];
+  classes: SchoolClass[];
+  t: ReturnType<typeof useTranslations<'reportCards'>>;
+  tc: ReturnType<typeof useTranslations<'common'>>;
+}
+
+function OverviewTab({ periods, classes, t, tc }: TabProps) {
+  const [data, setData] = React.useState<OverviewRow[]>([]);
+  const [total, setTotal] = React.useState(0);
+  const [page, setPage] = React.useState(1);
+  const PAGE_SIZE = 20;
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const [classFilter, setClassFilter] = React.useState('all');
+  const [periodFilter, setPeriodFilter] = React.useState('all');
+
+  const fetchOverview = React.useCallback(
+    async (p: number, classId: string, periodId: string) => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (period !== 'all') params.set('academic_period_id', period);
-        if (status !== 'all') params.set('status', status);
-        if (search) params.set('search', search);
-        const res = await apiClient<ReportCardsResponse>(`/api/v1/report-cards?${params.toString()}`);
+        if (classId !== 'all') params.set('class_id', classId);
+        if (periodId !== 'all') params.set('academic_period_id', periodId);
+        const res = await apiClient<OverviewResponse>(`/api/v1/report-cards/overview?${params.toString()}`);
         setData(res.data);
         setTotal(res.meta.total);
       } catch {
@@ -107,195 +157,292 @@ export default function ReportCardsPage() {
   );
 
   React.useEffect(() => {
-    void fetchReportCards(page, periodFilter, statusFilter, searchQuery);
-  }, [page, periodFilter, statusFilter, searchQuery, fetchReportCards]);
+    void fetchOverview(page, classFilter, periodFilter);
+  }, [page, classFilter, periodFilter, fetchOverview]);
 
-  const handlePublish = async (id: string) => {
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
     try {
-      await apiClient(`/api/v1/report-cards/${id}/publish`, { method: 'POST' });
-      void fetchReportCards(page, periodFilter, statusFilter, searchQuery);
+      // Fetch all matching data (paginated)
+      let allData: OverviewRow[] = [];
+      let currentPage = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: '100' });
+        if (classFilter !== 'all') params.set('class_id', classFilter);
+        if (periodFilter !== 'all') params.set('academic_period_id', periodFilter);
+        const res = await apiClient<OverviewResponse>(`/api/v1/report-cards/overview?${params.toString()}`);
+        allData = [...allData, ...res.data];
+        hasMore = allData.length < res.meta.total;
+        currentPage++;
+      }
+
+      const exportColumns = [
+        { header: t('student'), key: 'student_name' },
+        { header: t('subject'), key: 'subject_name' },
+        { header: t('className'), key: 'class_name' },
+        { header: t('period'), key: 'period_name' },
+        { header: t('finalGrade'), key: 'final_grade' },
+        { header: t('score'), key: 'computed_value' },
+      ];
+
+      const exportRows = allData.map((row) => ({
+        student_name: row.student_name,
+        subject_name: row.subject_name,
+        class_name: row.class_name,
+        period_name: row.period_name,
+        final_grade: row.final_grade,
+        computed_value: row.computed_value,
+      }));
+
+      const options = {
+        fileName: 'report-cards-overview',
+        title: t('title'),
+        columns: exportColumns,
+        rows: exportRows,
+      };
+
+      if (format === 'xlsx') {
+        const { exportToExcel } = await import('@/lib/export-utils');
+        exportToExcel(options);
+      } else {
+        const { exportToPdf } = await import('@/lib/export-utils');
+        exportToPdf(options);
+      }
     } catch {
       toast.error(tc('errorGeneric'));
     }
-  };
-
-  const handleRevise = async (id: string) => {
-    try {
-      await apiClient(`/api/v1/report-cards/${id}/revise`, { method: 'POST' });
-      void fetchReportCards(page, periodFilter, statusFilter, searchQuery);
-    } catch {
-      toast.error(tc('errorGeneric'));
-    }
-  };
-
-  const handlePreview = (id: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
-    setPreviewUrl(`${baseUrl}/api/v1/report-cards/${id}/pdf`);
   };
 
   const columns = [
     {
       key: 'student',
-      header: 'Student',
-      render: (row: ReportCard) => (
-        <span className="font-medium text-text-primary">{row.student_name}</span>
+      header: t('student'),
+      render: (row: OverviewRow) => (
+        <div>
+          <span className="font-medium text-text-primary">{row.student_name}</span>
+          {row.student_number && (
+            <span className="ms-2 text-xs text-text-tertiary font-mono" dir="ltr">{row.student_number}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'subject',
+      header: t('subject'),
+      render: (row: OverviewRow) => (
+        <span className="text-text-secondary">{row.subject_name}</span>
       ),
     },
     {
       key: 'period',
-      header: 'Period',
-      render: (row: ReportCard) => (
-        <span className="text-text-secondary">{row.academic_period_name}</span>
+      header: t('period'),
+      render: (row: OverviewRow) => (
+        <span className="text-text-secondary">{row.period_name}</span>
       ),
     },
     {
-      key: 'status',
-      header: 'Status',
-      render: (row: ReportCard) => (
-        <StatusBadge status={STATUS_VARIANT[row.status] ?? 'neutral'} dot>
-          {t(`status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as 'statusDraft' | 'statusPublished' | 'statusRevised')}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'locale',
-      header: 'Locale',
-      render: (row: ReportCard) => (
-        <span className="text-text-secondary uppercase text-xs font-mono" dir="ltr">{row.locale}</span>
-      ),
-    },
-    {
-      key: 'published_at',
-      header: 'Published',
-      render: (row: ReportCard) => (
-        <span className="text-text-secondary text-xs font-mono" dir="ltr">
-          {row.published_at ? new Date(row.published_at).toLocaleDateString() : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: tc('actions'),
-      render: (row: ReportCard) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/${locale}/report-cards/${row.id}`);
-            }}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePreview(row.id);
-            }}
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
-          {row.status === 'draft' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handlePublish(row.id);
-              }}
-            >
-              {t('publish')}
-            </Button>
-          )}
-          {row.status === 'published' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handleRevise(row.id);
-              }}
-            >
-              {t('revise')}
-            </Button>
+      key: 'finalGrade',
+      header: t('finalGrade'),
+      render: (row: OverviewRow) => (
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-text-primary">{row.final_grade}</span>
+          {row.has_override && (
+            <StatusBadge status="warning" dot>
+              {t('overridden')}
+            </StatusBadge>
           )}
         </div>
+      ),
+    },
+    {
+      key: 'score',
+      header: t('score'),
+      render: (row: OverviewRow) => (
+        <span className="text-text-secondary font-mono text-sm" dir="ltr">
+          {row.computed_value.toFixed(1)}%
+        </span>
       ),
     },
   ];
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Input
-        value={searchQuery}
-        onChange={(e) => {
-          setSearchQuery(e.target.value);
-          setPage(1);
-        }}
-        placeholder={tc('search')}
-        className="w-48"
-      />
+      <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder={t('selectClass')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{t('allClasses')}</SelectItem>
+          {classes.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v); setPage(1); }}>
         <SelectTrigger className="w-48">
           <SelectValue placeholder={t('selectPeriod')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Periods</SelectItem>
+          <SelectItem value="all">{t('allPeriods')}</SelectItem>
           {periods.map((p) => (
             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
-          <SelectValue placeholder="Status" />
+      <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
+        <SelectTrigger className="w-[130px]">
+          <div className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            <span>{tc('export')}</span>
+          </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="draft">{t('statusDraft')}</SelectItem>
-          <SelectItem value="published">{t('statusPublished')}</SelectItem>
-          <SelectItem value="revised">{t('statusRevised')}</SelectItem>
+          <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+          <SelectItem value="pdf">PDF</SelectItem>
         </SelectContent>
       </Select>
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        actions={
-          <Button onClick={() => setGenerateOpen(true)}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('generate')}
-          </Button>
-        }
-      />
-      <DataTable
-        columns={columns}
-        data={data}
-        toolbar={toolbar}
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={total}
-        onPageChange={setPage}
-        keyExtractor={(row) => row.id}
-        isLoading={isLoading}
-      />
+    <DataTable
+      columns={columns}
+      data={data}
+      toolbar={toolbar}
+      page={page}
+      pageSize={PAGE_SIZE}
+      total={total}
+      onPageChange={setPage}
+      keyExtractor={(row) => row.id}
+      isLoading={isLoading}
+    />
+  );
+}
 
-      <GenerateDialog
-        open={generateOpen}
-        onOpenChange={setGenerateOpen}
-        onGenerated={() => void fetchReportCards(page, periodFilter, statusFilter, searchQuery)}
-      />
+// ─── Generate Tab ─────────────────────────────────────────────────────────────
 
-      <PdfPreviewModal
-        url={previewUrl}
-        onClose={() => setPreviewUrl(null)}
-      />
+function GenerateTab({ periods, classes, t, tc }: TabProps) {
+  const [selectedClass, setSelectedClass] = React.useState('');
+  const [selectedPeriod, setSelectedPeriod] = React.useState('');
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string>(TEMPLATES[0].id);
+  const [generating, setGenerating] = React.useState(false);
+
+  const canGenerate = selectedClass && selectedPeriod;
+
+  const handleGenerate = async () => {
+    if (!canGenerate) return;
+    setGenerating(true);
+    try {
+      const token = getAccessToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await fetch(`${API_URL}/api/v1/report-cards/generate-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          class_id: selectedClass,
+          academic_period_id: selectedPeriod,
+          template_id: selectedTemplate,
+        }),
+      });
+
+      if (response.status === 204) {
+        toast.error(t('noStudents'));
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+
+      toast.success(t('generated'));
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div className="rounded-xl border border-border bg-surface p-6 space-y-5">
+        <div className="space-y-1.5">
+          <h3 className="text-base font-semibold text-text-primary">{t('generateTab')}</h3>
+          <p className="text-sm text-text-secondary">{t('generateDescription')}</p>
+        </div>
+
+        {/* Class filter */}
+        <div className="space-y-1.5">
+          <Label>{t('selectClass')}</Label>
+          <Select value={selectedClass} onValueChange={setSelectedClass}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('selectClass')} />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Term filter */}
+        <div className="space-y-1.5">
+          <Label>{t('selectPeriod')}</Label>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('selectPeriod')} />
+            </SelectTrigger>
+            <SelectContent>
+              {periods.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Template selector */}
+        <div className="space-y-1.5">
+          <Label>{t('selectTemplate')}</Label>
+          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+            <SelectTrigger>
+              <SelectValue placeholder={t('selectTemplate')} />
+            </SelectTrigger>
+            <SelectContent>
+              {TEMPLATES.map((tmpl) => (
+                <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Generate button */}
+        <Button
+          onClick={handleGenerate}
+          disabled={generating || !canGenerate}
+          className="w-full"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
+              {t('generating')}
+            </>
+          ) : (
+            <>
+              <FileText className="me-2 h-4 w-4" />
+              {t('generateBatch')}
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

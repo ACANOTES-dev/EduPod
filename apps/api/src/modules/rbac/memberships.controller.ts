@@ -12,13 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
-  paginationQuerySchema,
   updateMembershipRolesSchema,
+  userListQuerySchema,
 } from '@school/shared';
 import type {
-  PaginationQuery,
   TenantContext,
   UpdateMembershipRolesDto,
+  UserListQuery,
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -38,14 +38,10 @@ export class MembershipsController {
   @RequiresPermission('users.view')
   async listUsers(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(paginationQuerySchema))
-    query: PaginationQuery,
+    @Query(new ZodValidationPipe(userListQuerySchema))
+    query: UserListQuery,
   ) {
-    return this.membershipsService.listUsers(
-      tenant.tenant_id,
-      query.page,
-      query.pageSize,
-    );
+    return this.membershipsService.listUsers(tenant.tenant_id, query);
   }
 
   @Get(':id')

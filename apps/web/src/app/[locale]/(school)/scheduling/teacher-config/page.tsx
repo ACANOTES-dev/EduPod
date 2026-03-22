@@ -22,16 +22,30 @@ import { apiClient } from '@/lib/api-client';
 
 interface AcademicYear { id: string; name: string }
 
-interface TeacherConfigRow {
+interface StaffMember {
   id: string;
+  name: string;
+}
+
+interface ApiConfigRow {
+  id: string;
+  staff_profile_id: string;
+  max_periods_per_week: number | null;
+  max_periods_per_day: number | null;
+  max_supervision_duties_per_week: number | null;
+  staff_profile?: {
+    id: string;
+    user?: { first_name: string; last_name: string };
+  };
+}
+
+interface EditableRow {
+  config_id: string | null; // null if no config exists yet for this teacher
   staff_profile_id: string;
   teacher_name: string;
   max_periods_per_week: number | null;
   max_periods_per_day: number | null;
   max_supervision_duties_per_week: number | null;
-}
-
-interface EditableRow extends TeacherConfigRow {
   dirty: boolean;
 }
 
@@ -57,14 +71,56 @@ export default function TeacherConfigPage() {
       .catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
-  // Fetch teacher configs
+  // Fetch teacher configs merged with all staff profiles
   const fetchData = React.useCallback(async () => {
     if (!selectedYear) return;
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({ academic_year_id: selectedYear });
-      const res = await apiClient<{ data: TeacherConfigRow[] }>(`/api/v1/scheduling/teacher-config?${params.toString()}`);
-      setRows(res.data.map((r) => ({ ...r, dirty: false })));
+      const [configRes, staffRes] = await Promise.all([
+        apiClient<{ data: ApiConfigRow[] }>(`/api/v1/scheduling/teacher-config?academic_year_id=${selectedYear}`),
+        apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=200'),
+      ]);
+
+      // Build a map of existing configs by staff_profile_id
+      const configMap = new Map<string, ApiConfigRow>();
+      for (const cfg of configRes.data) {
+        configMap.set(cfg.staff_profile_id, cfg);
+      }
+
+      // Create rows for all staff, merging with existing configs
+      const staffMembers: StaffMember[] = (staffRes.data ?? []).map((s) => ({
+        id: s.id,
+        name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+      }));
+
+      const merged: EditableRow[] = staffMembers.map((staff) => {
+        const cfg = configMap.get(staff.id);
+        if (cfg) {
+          const name = cfg.staff_profile?.user
+            ? `${cfg.staff_profile.user.first_name} ${cfg.staff_profile.user.last_name}`
+            : staff.name;
+          return {
+            config_id: cfg.id,
+            staff_profile_id: staff.id,
+            teacher_name: name,
+            max_periods_per_week: cfg.max_periods_per_week,
+            max_periods_per_day: cfg.max_periods_per_day,
+            max_supervision_duties_per_week: cfg.max_supervision_duties_per_week,
+            dirty: false,
+          };
+        }
+        return {
+          config_id: null,
+          staff_profile_id: staff.id,
+          teacher_name: staff.name,
+          max_periods_per_week: null,
+          max_periods_per_day: null,
+          max_supervision_duties_per_week: null,
+          dirty: false,
+        };
+      });
+
+      setRows(merged);
     } catch {
       setRows([]);
     } finally {
@@ -76,7 +132,7 @@ export default function TeacherConfigPage() {
     void fetchData();
   }, [fetchData]);
 
-  const updateField = (index: number, field: keyof TeacherConfigRow, value: string) => {
+  const updateField = (index: number, field: string, value: string) => {
     setRows((prev) =>
       prev.map((r, i) => {
         if (i !== index) return r;
@@ -93,9 +149,11 @@ export default function TeacherConfigPage() {
     try {
       await Promise.all(
         dirtyRows.map((row) =>
-          apiClient(`/api/v1/scheduling/teacher-config/${row.id}`, {
-            method: 'PATCH',
+          apiClient('/api/v1/scheduling/teacher-config', {
+            method: 'PUT',
             body: JSON.stringify({
+              academic_year_id: selectedYear,
+              staff_profile_id: row.staff_profile_id,
               max_periods_per_week: row.max_periods_per_week,
               max_periods_per_day: row.max_periods_per_day,
               max_supervision_duties_per_week: row.max_supervision_duties_per_week,
@@ -105,6 +163,8 @@ export default function TeacherConfigPage() {
       );
       setRows((prev) => prev.map((r) => ({ ...r, dirty: false })));
       toast.success(tc('save'));
+      // Refetch to get the new config IDs for newly created rows
+      void fetchData();
     } catch {
       toast.error(tc('errorGeneric'));
     } finally {
@@ -187,7 +247,7 @@ export default function TeacherConfigPage() {
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">{tv('noTeacherConfig')}</td></tr>
               ) : (
                 rows.map((row, idx) => (
-                  <tr key={row.id} className={`border-t border-border ${row.dirty ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-surface-secondary/50'}`}>
+                  <tr key={row.staff_profile_id} className={`border-t border-border ${row.dirty ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-surface-secondary/50'}`}>
                     <td className="px-4 py-3 font-medium text-text-primary">{row.teacher_name}</td>
                     <td className="px-4 py-2">
                       <Input

@@ -32,6 +32,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { AdmissionsPaymentService } from './admissions-payment.service';
 import { ApplicationNotesService } from './application-notes.service';
 import { ApplicationsService } from './applications.service';
 
@@ -41,6 +42,7 @@ export class ApplicationsController {
   constructor(
     private readonly applicationsService: ApplicationsService,
     private readonly applicationNotesService: ApplicationNotesService,
+    private readonly admissionsPaymentService: AdmissionsPaymentService,
   ) {}
 
   @Get()
@@ -169,6 +171,50 @@ export class ApplicationsController {
       applicationId,
       user.sub,
       dto,
+    );
+  }
+
+  // ─── Admin Payment Endpoints ─────────────────────────────────────────────
+
+  @Post(':id/mark-payment-received')
+  @RequiresPermission('admissions.manage')
+  async markPaymentReceived(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admissionsPaymentService.markPaymentReceived(
+      tenant.tenant_id,
+      id,
+      user.sub,
+    );
+  }
+
+  @Post(':id/setup-payment-plan')
+  @RequiresPermission('admissions.manage')
+  async setupPaymentPlan(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admissionsPaymentService.setupPaymentPlan(
+      tenant.tenant_id,
+      id,
+      user.sub,
+    );
+  }
+
+  @Post(':id/waive-fees')
+  @RequiresPermission('admissions.manage')
+  async waiveFees(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.admissionsPaymentService.waiveFees(
+      tenant.tenant_id,
+      id,
+      user.sub,
     );
   }
 }

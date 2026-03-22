@@ -31,7 +31,6 @@ interface InvoiceData {
   lines: InvoiceLineData[];
   subtotal_amount: number;
   discount_amount: number;
-  tax_amount: number;
   total_amount: number;
   amount_paid: number;
   balance_amount: number;
@@ -203,7 +202,6 @@ export function renderInvoiceEn(data: unknown, branding: PdfBranding): string {
           <td style="padding: 6px 0; text-align: right;">${formatCurrency(inv.subtotal_amount, inv.currency_code)}</td>
         </tr>
         ${inv.discount_amount > 0 ? `<tr><td style="padding: 6px 16px 6px 0; color: #6b7280;">Discount:</td><td style="padding: 6px 0; text-align: right; color: #16a34a;">-${formatCurrency(inv.discount_amount, inv.currency_code)}</td></tr>` : ''}
-        ${inv.tax_amount > 0 ? `<tr><td style="padding: 6px 16px 6px 0; color: #6b7280;">Tax:</td><td style="padding: 6px 0; text-align: right;">${formatCurrency(inv.tax_amount, inv.currency_code)}</td></tr>` : ''}
         <tr style="border-top: 2px solid ${primaryColor};">
           <td style="padding: 10px 16px 6px 0; font-weight: 700; font-size: 15px;">Total:</td>
           <td style="padding: 10px 0 6px 0; text-align: right; font-weight: 700; font-size: 15px;">${formatCurrency(inv.total_amount, inv.currency_code)}</td>

@@ -21,6 +21,7 @@ export const submitApplicationSchema = z.object({
 export const reviewApplicationSchema = z.object({
   status: z.enum(['under_review', 'pending_acceptance_approval', 'rejected']),
   expected_updated_at: z.string().datetime(),
+  rejection_reason: z.string().min(1).max(5000).optional(),
 });
 
 // Convert application to student

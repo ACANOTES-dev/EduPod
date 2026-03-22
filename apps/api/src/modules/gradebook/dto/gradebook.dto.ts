@@ -4,6 +4,8 @@ import type {
   createAssessmentCategorySchema,
   updateAssessmentCategorySchema,
   upsertGradeConfigSchema,
+  upsertYearGroupGradeWeightSchema,
+  copyYearGroupGradeWeightsSchema,
   createAssessmentSchema,
   updateAssessmentSchema,
   transitionAssessmentStatusSchema,
@@ -21,6 +23,8 @@ export type UpdateGradingScaleDto = z.infer<typeof updateGradingScaleSchema>;
 export type CreateAssessmentCategoryDto = z.infer<typeof createAssessmentCategorySchema>;
 export type UpdateAssessmentCategoryDto = z.infer<typeof updateAssessmentCategorySchema>;
 export type UpsertGradeConfigDto = z.infer<typeof upsertGradeConfigSchema>;
+export type UpsertYearGroupGradeWeightDto = z.infer<typeof upsertYearGroupGradeWeightSchema>;
+export type CopyYearGroupGradeWeightsDto = z.infer<typeof copyYearGroupGradeWeightsSchema>;
 export type CreateAssessmentDto = z.infer<typeof createAssessmentSchema>;
 export type UpdateAssessmentDto = z.infer<typeof updateAssessmentSchema>;
 export type TransitionAssessmentStatusDto = z.infer<typeof transitionAssessmentStatusSchema>;

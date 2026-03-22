@@ -54,6 +54,59 @@ export class SequenceService {
     return rlsClient.$transaction(async (newTx) => doWork(newTx)) as Promise<string>;
   }
 
+  /**
+   * Generate a randomised household reference in XXX999-9 format.
+   * Includes collision check — retries on duplicate within tenant.
+   * This reference doubles as the parent's initial portal password.
+   */
+  async generateHouseholdReference(
+    tenantId: string,
+    tx?: unknown,
+  ): Promise<string> {
+    const doWork = async (db: unknown): Promise<string> => {
+      const rawTx = db as unknown as {
+        $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
+      };
+
+      const maxAttempts = 10;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const ref = this.randomHouseholdRef();
+
+        // Check uniqueness within tenant
+        const existing = (await rawTx.$queryRaw(
+          Prisma.sql`SELECT 1 FROM households WHERE tenant_id = ${tenantId}::uuid AND household_number = ${ref} LIMIT 1`,
+        )) as unknown[];
+
+        if (existing.length === 0) {
+          return ref;
+        }
+      }
+
+      throw new Error(
+        'Failed to generate unique household reference after 10 attempts',
+      );
+    };
+
+    if (tx) {
+      return doWork(tx);
+    }
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (newTx) => doWork(newTx)) as Promise<string>;
+  }
+
+  /** Generate a random reference in XXX999-9 format (e.g., SJF558-5). */
+  private randomHouseholdRef(): string {
+    const letters = 'ABCDEFGHJKMNPQRSTUVWXYZ'; // Exclude I, L, O to avoid confusion
+    const l1 = letters[Math.floor(Math.random() * letters.length)];
+    const l2 = letters[Math.floor(Math.random() * letters.length)];
+    const l3 = letters[Math.floor(Math.random() * letters.length)];
+    const d1 = Math.floor(Math.random() * 10);
+    const d2 = Math.floor(Math.random() * 10);
+    const d3 = Math.floor(Math.random() * 10);
+    const d4 = Math.floor(Math.random() * 10);
+    return `${l1}${l2}${l3}${d1}${d2}${d3}-${d4}`;
+  }
+
   private formatNumber(sequenceType: string, value: number, prefix?: string): string {
     const now = new Date();
     const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;

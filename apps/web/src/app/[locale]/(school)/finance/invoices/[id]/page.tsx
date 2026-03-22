@@ -55,7 +55,6 @@ interface InvoiceDetail {
   status: InvoiceStatus;
   subtotal_amount: number;
   discount_amount: number;
-  tax_amount: number;
   total_amount: number;
   balance_amount: number;
   due_date: string;
@@ -167,15 +166,6 @@ export default function InvoiceDetailPage() {
           amount={invoice.discount_amount}
           currency_code={invoice.currency_code}
           className="text-success-text"
-        />
-      ),
-    },
-    {
-      label: 'Tax',
-      value: (
-        <CurrencyDisplay
-          amount={invoice.tax_amount}
-          currency_code={invoice.currency_code}
         />
       ),
     },

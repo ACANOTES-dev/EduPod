@@ -91,12 +91,15 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
     if (!open) return;
     Promise.all([
       apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=100'),
-      apiClient<{ data: SelectOption[] }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
       apiClient<{ data: SelectOption[] }>('/api/v1/rooms?pageSize=100'),
     ])
       .then(([classesRes, teachersRes, roomsRes]) => {
         setClasses(classesRes.data);
-        setTeachers(teachersRes.data);
+        setTeachers((teachersRes.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        })));
         setRooms(roomsRes.data);
       })
       .catch(() => undefined);

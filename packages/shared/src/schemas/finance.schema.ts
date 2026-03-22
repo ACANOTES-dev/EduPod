@@ -166,7 +166,6 @@ export type CreateInstallmentsDto = z.infer<typeof createInstallmentsSchema>;
 export const createPaymentSchema = z.object({
   household_id: z.string().uuid(),
   payment_method: z.enum(['cash', 'bank_transfer', 'card_manual']),
-  payment_reference: z.string().min(1).max(100),
   amount: z.number().positive(),
   received_at: z.string().datetime(),
   reason: z.string().max(1000).optional(),
@@ -182,6 +181,7 @@ export const paymentQuerySchema = z.object({
   date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   search: z.string().optional(),
+  accepted_by_user_id: z.string().uuid().optional(),
 });
 
 const allocationItemSchema = z.object({

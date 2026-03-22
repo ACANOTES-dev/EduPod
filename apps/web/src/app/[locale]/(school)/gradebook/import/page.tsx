@@ -2,6 +2,11 @@
 
 import {
   Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   StatusBadge,
   toast,
 } from '@school/ui';
@@ -9,7 +14,6 @@ import { ArrowLeft, CheckCircle, Download, Upload } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -50,6 +54,29 @@ export default function GradebookImportPage() {
   const [validation, setValidation] = React.useState<ValidationResult | null>(null);
   const [isValidating, setIsValidating] = React.useState(false);
   const [isProcessing, setIsProcessing] = React.useState(false);
+
+  // Template filters
+  const [classes, setClasses] = React.useState<{ id: string; name: string }[]>([]);
+  const [periods, setPeriods] = React.useState<{ id: string; name: string }[]>([]);
+  const [templateClassId, setTemplateClassId] = React.useState('all');
+  const [templatePeriodId, setTemplatePeriodId] = React.useState('all');
+
+  React.useEffect(() => {
+    apiClient<{ data: { id: string; name: string }[] }>('/api/v1/classes?pageSize=100')
+      .then((res) => setClasses(res.data))
+      .catch(() => undefined);
+    apiClient<{ data: { id: string; name: string }[] }>('/api/v1/academic-periods?pageSize=50')
+      .then((res) => setPeriods(res.data))
+      .catch(() => undefined);
+  }, []);
+
+  const templateUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    if (templateClassId !== 'all') params.set('class_id', templateClassId);
+    if (templatePeriodId !== 'all') params.set('academic_period_id', templatePeriodId);
+    const qs = params.toString();
+    return `/api/v1/gradebook/import/template${qs ? `?${qs}` : ''}`;
+  }, [templateClassId, templatePeriodId]);
 
   const steps: { key: Step; label: string }[] = [
     { key: 1, label: t('step1') },
@@ -116,7 +143,7 @@ export default function GradebookImportPage() {
 
   const handleDownloadTemplate = () => {
     window.open(
-      `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/gradebook/import/template`,
+      `${process.env.NEXT_PUBLIC_API_URL || ''}${templateUrl}`,
       '_blank',
     );
   };
@@ -160,6 +187,32 @@ export default function GradebookImportPage() {
       {/* Step content */}
       {step === 1 && (
         <div className="space-y-4">
+          {/* Template filters */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={templateClassId} onValueChange={setTemplateClassId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {classes.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={templatePeriodId} onValueChange={setTemplatePeriodId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={tg('period')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Periods</SelectItem>
+                {periods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="rounded-xl border-2 border-dashed border-border p-8 text-center">
             <Upload className="mx-auto h-10 w-10 text-text-tertiary" />
             <p className="mt-3 text-sm text-text-secondary">{t('uploadCsv')}</p>

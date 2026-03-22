@@ -65,7 +65,6 @@ const INVOICE_DATA = {
   ],
   subtotal_amount: 17000.0,
   discount_amount: 500.0,
-  tax_amount: 0.0,
   total_amount: 16500.0,
   amount_paid: 0.0,
   balance_amount: 16500.0,

@@ -169,14 +169,14 @@ export function FeeGenerationWizard() {
         billing_period_end: billingPeriodEnd,
         due_date: dueDate,
       };
-      const res = await apiClient<PreviewData>(
+      const res = await apiClient<{ data: PreviewData }>(
         '/api/v1/finance/fee-generation/preview',
         {
           method: 'POST',
           body: JSON.stringify(payload),
         },
       );
-      setPreview(res);
+      setPreview(res.data);
       setExcludedHouseholds(new Set());
       setStep(2);
     } catch (err: unknown) {
@@ -199,14 +199,14 @@ export function FeeGenerationWizard() {
         due_date: dueDate,
         excluded_household_ids: Array.from(excludedHouseholds),
       };
-      const res = await apiClient<{ invoices_created: number; total_amount: number }>(
+      const res = await apiClient<{ data: { invoices_created: number; total_amount: number } }>(
         '/api/v1/finance/fee-generation/confirm',
         {
           method: 'POST',
           body: JSON.stringify(payload),
         },
       );
-      setConfirmResult(res);
+      setConfirmResult(res.data);
       setStep(3);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };

@@ -30,6 +30,7 @@ const TABS: SettingsTab[] = [
   { key: 'year-groups', labelKey: 'yearGroups', href: 'year-groups' },
 { key: 'grading-scales', labelKey: 'gradingScales', href: 'grading-scales' },
   { key: 'assessment-categories', labelKey: 'assessmentCategories', href: 'assessment-categories' },
+  { key: 'grading-weights', labelKey: 'gradingWeights', href: 'grading-weights' },
   { key: 'audit-log', labelKey: 'auditLog', href: 'audit-log' },
   { key: 'compliance', labelKey: 'compliance', href: 'compliance' },
   { key: 'imports', labelKey: 'imports', href: 'imports' },

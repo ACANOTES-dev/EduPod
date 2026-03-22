@@ -7,12 +7,13 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Send, XCircle, Ban, FileX, FileDown } from 'lucide-react';
+import { Send, XCircle, Ban, FileX, FileText } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { apiClient } from '@/lib/api-client';
-import { downloadAuthenticatedPdf } from '@/lib/download-pdf';
+
+import { PdfPreviewModal } from '../../../_components/pdf-preview-modal';
 
 interface InvoiceForActions {
   id: string;
@@ -27,11 +28,13 @@ interface InvoiceActionsProps {
 }
 
 export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProps) {
+  const t = useTranslations('finance');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showWriteOff, setShowWriteOff] = React.useState(false);
   const [writeOffReason, setWriteOffReason] = React.useState('');
   const [showVoidConfirm, setShowVoidConfirm] = React.useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
+  const [showPdf, setShowPdf] = React.useState(false);
 
   const canIssue = invoice.status === 'draft';
   const canVoid =
@@ -110,14 +113,6 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
     }
   };
 
-  const handlePrintPdf = async () => {
-    try {
-      await downloadAuthenticatedPdf(`/api/v1/finance/invoices/${invoice.id}/pdf`);
-    } catch {
-      toast.error('Failed to download PDF');
-    }
-  };
-
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -150,12 +145,20 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
         )}
 
         {canPrint && (
-          <Button variant="outline" onClick={handlePrintPdf}>
-            <FileDown className="me-2 h-4 w-4" />
-            Print PDF
+          <Button variant="outline" onClick={() => setShowPdf(true)}>
+            <FileText className="me-2 h-4 w-4" />
+            {t('previewPdf')}
           </Button>
         )}
       </div>
+
+      {/* PDF Preview Modal */}
+      <PdfPreviewModal
+        open={showPdf}
+        onOpenChange={setShowPdf}
+        title={t('invoicePdf')}
+        pdfUrl={`/api/v1/finance/invoices/${invoice.id}/pdf`}
+      />
 
       {/* Void confirmation */}
       <Modal

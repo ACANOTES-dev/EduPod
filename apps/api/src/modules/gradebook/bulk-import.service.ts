@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as XLSX from 'xlsx';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -229,6 +230,91 @@ export class BulkImportService {
         error_rows: errorRows.length,
       },
     };
+  }
+
+  /**
+   * Generate a CSV template with student names and assessment columns pre-filled.
+   */
+  async generateTemplate(
+    tenantId: string,
+    classId?: string,
+    periodId?: string,
+  ) {
+    // Get students — optionally filtered by class
+    const studentWhere: Record<string, unknown> = { tenant_id: tenantId };
+    let studentIds: string[] | undefined;
+
+    if (classId) {
+      const enrolments = await this.prisma.classEnrolment.findMany({
+        where: { tenant_id: tenantId, class_id: classId, status: 'active' },
+        select: { student_id: true },
+      });
+      studentIds = enrolments.map((e) => e.student_id);
+      studentWhere['id'] = { in: studentIds };
+    }
+
+    const students = await this.prisma.student.findMany({
+      where: studentWhere,
+      select: { student_number: true, first_name: true, last_name: true },
+      orderBy: { last_name: 'asc' },
+    });
+
+    // Get assessments — optionally filtered by class and period
+    const assessmentWhere: Record<string, unknown> = {
+      tenant_id: tenantId,
+      status: { in: ['draft', 'open'] },
+    };
+    if (classId) assessmentWhere['class_id'] = classId;
+    if (periodId) assessmentWhere['academic_period_id'] = periodId;
+
+    const assessments = await this.prisma.assessment.findMany({
+      where: assessmentWhere,
+      include: {
+        subject: { select: { code: true, name: true } },
+      },
+      orderBy: [{ subject: { name: 'asc' } }, { title: 'asc' }],
+    });
+
+    // Build template rows: one row per student × assessment combination
+    const rows: string[][] = [
+      ['student_identifier', 'subject_code', 'assessment_title', 'score'],
+    ];
+
+    for (const student of students) {
+      const identifier = student.student_number ?? `${student.first_name} ${student.last_name}`;
+      for (const assessment of assessments) {
+        const subjectCode = assessment.subject.code ?? assessment.subject.name;
+        rows.push([identifier, subjectCode, assessment.title, '']);
+      }
+    }
+
+    return {
+      data: {
+        headers: rows[0],
+        rows: rows.slice(1),
+        csv: rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n'),
+      },
+    };
+  }
+
+  /**
+   * Validate an XLSX buffer by converting it to CSV format and running the CSV validator.
+   */
+  async validateXlsx(
+    tenantId: string,
+    xlsxBuffer: Buffer,
+  ): Promise<CsvValidationResult> {
+    const workbook = XLSX.read(xlsxBuffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) {
+      throw new BadRequestException({
+        code: 'XLSX_EMPTY',
+        message: 'Excel file contains no sheets',
+      });
+    }
+    const sheet = workbook.Sheets[sheetName]!;
+    const csvContent = XLSX.utils.sheet_to_csv(sheet);
+    return this.validateCsv(tenantId, Buffer.from(csvContent, 'utf-8'));
   }
 
   /**

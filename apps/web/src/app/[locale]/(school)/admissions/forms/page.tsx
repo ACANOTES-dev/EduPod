@@ -6,7 +6,8 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { ClipboardList, Plus, Search } from 'lucide-react';
+import { toast } from '@school/ui';
+import { ClipboardList, Plus, Search, Wand2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -166,10 +167,27 @@ export default function AdmissionFormsPage() {
         title={t('forms')}
         description="Manage admission forms and their fields"
         actions={
-          <Button onClick={() => router.push(`/${locale}/admissions/forms/new`)}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('createForm')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await apiClient('/api/v1/admission-forms/system', { method: 'POST' });
+                  toast.success(t('systemFormCreated'));
+                  void fetchForms();
+                } catch {
+                  toast.error('Failed to create system form');
+                }
+              }}
+            >
+              <Wand2 className="me-2 h-4 w-4" />
+              {t('generateSystemForm')}
+            </Button>
+            <Button onClick={() => router.push(`/${locale}/admissions/forms/new`)}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('createForm')}
+            </Button>
+          </div>
         }
       />
 

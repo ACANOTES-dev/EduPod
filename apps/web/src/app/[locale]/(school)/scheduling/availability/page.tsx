@@ -70,12 +70,12 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
   return (
     <div
       className={`flex items-center gap-4 rounded-lg border p-3 transition-colors ${
-        isEnabled ? 'border-green-200 bg-green-50' : 'border-border bg-surface-secondary'
+        isEnabled ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-border bg-surface-secondary'
       }`}
     >
       <button
         className={`h-5 w-5 rounded border-2 transition-colors ${
-          isEnabled ? 'border-green-500 bg-green-500' : 'border-border bg-canvas'
+          isEnabled ? 'border-green-500 bg-green-500 dark:border-green-400 dark:bg-green-400' : 'border-border bg-canvas'
         }`}
         onClick={() => onToggle(weekday, !isEnabled)}
         aria-label={isEnabled ? 'Disable' : 'Enable'}

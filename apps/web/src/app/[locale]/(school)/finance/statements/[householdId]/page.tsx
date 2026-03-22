@@ -2,14 +2,15 @@
 
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 import { Button, EmptyState, StatusBadge } from '@school/ui';
-import { Calendar, FileText, Printer } from 'lucide-react';
+import { Calendar, FileText } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 
 // ─── Date Filter (client) ─────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ export default function HouseholdStatementPage() {
 
   const [data, setData] = React.useState<HouseholdStatementData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [showPdf, setShowPdf] = React.useState(false);
 
   // Default date range: last 12 months
   const today = new Date();
@@ -103,12 +105,20 @@ export default function HouseholdStatementPage() {
   const [fromDate, setFromDate] = React.useState(twelveMonthsAgo.toISOString().slice(0, 10));
   const [toDate, setToDate] = React.useState(today.toISOString().slice(0, 10));
 
+  const pdfUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    if (fromDate) params.set('date_from', fromDate);
+    if (toDate) params.set('date_to', toDate);
+    const qs = params.toString();
+    return `/api/v1/finance/household-statements/${householdId}/pdf${qs ? `?${qs}` : ''}`;
+  }, [householdId, fromDate, toDate]);
+
   const fetchStatement = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (fromDate) params.set('from', fromDate);
-      if (toDate) params.set('to', toDate);
+      if (fromDate) params.set('date_from', fromDate);
+      if (toDate) params.set('date_to', toDate);
       const qs = params.toString();
       const url = `/api/v1/finance/household-statements/${householdId}${qs ? `?${qs}` : ''}`;
       const res = await apiClient<{ data: HouseholdStatementData }>(url);
@@ -123,21 +133,6 @@ export default function HouseholdStatementPage() {
   React.useEffect(() => {
     void fetchStatement();
   }, [fetchStatement]);
-
-  async function handlePrintPdf() {
-    const params = new URLSearchParams();
-    if (fromDate) params.set('from', fromDate);
-    if (toDate) params.set('to', toDate);
-    const qs = params.toString();
-    try {
-      const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
-      await downloadAuthenticatedPdf(
-        `/api/v1/finance/household-statements/${householdId}/pdf${qs ? `?${qs}` : ''}`,
-      );
-    } catch {
-      // error handled
-    }
-  }
 
   if (isLoading) {
     return (
@@ -172,9 +167,9 @@ export default function HouseholdStatementPage() {
         title={t('householdStatement')}
         description={data.household.household_name}
         actions={
-          <Button variant="outline" onClick={handlePrintPdf}>
-            <Printer className="me-2 h-4 w-4" />
-            {t('printPdf')}
+          <Button variant="outline" onClick={() => setShowPdf(true)}>
+            <FileText className="me-2 h-4 w-4" />
+            {t('previewPdf')}
           </Button>
         }
       />
@@ -287,6 +282,13 @@ export default function HouseholdStatementPage() {
           <p className="text-sm text-text-tertiary">{t('noTransactions')}</p>
         </div>
       )}
+
+      <PdfPreviewModal
+        open={showPdf}
+        onOpenChange={setShowPdf}
+        title={t('statementPdf')}
+        pdfUrl={pdfUrl}
+      />
     </div>
   );
 }

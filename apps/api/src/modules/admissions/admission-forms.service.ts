@@ -518,6 +518,167 @@ export class AdmissionFormsService {
     return form;
   }
 
+  // ─── Create System Form ─────────────────────────────────────────────────
+
+  /**
+   * Creates and publishes a system admission form with fields matching the
+   * Registration Wizard exactly. If a published system form already exists,
+   * returns it without creating a duplicate.
+   */
+  async createSystemForm(tenantId: string) {
+    const prismaWithRls = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+    });
+
+    return prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // Check if a system form already exists
+      const existing = await db.admissionFormDefinition.findFirst({
+        where: {
+          tenant_id: tenantId,
+          name: 'System Application Form',
+          status: { in: ['draft', 'published'] },
+        },
+        include: {
+          fields: { orderBy: { display_order: 'asc' } },
+          _count: { select: { applications: true } },
+        },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      // Define canonical fields matching the Registration Wizard
+      const systemFields = this.getSystemFormFields();
+
+      const form = await db.admissionFormDefinition.create({
+        data: {
+          tenant_id: tenantId,
+          name: 'System Application Form',
+          version_number: 1,
+          status: 'published',
+        },
+      });
+
+      await db.admissionFormDefinition.update({
+        where: { id: form.id },
+        data: { base_form_id: form.id },
+      });
+
+      for (const field of systemFields) {
+        await db.admissionFormField.create({
+          data: {
+            tenant_id: tenantId,
+            form_definition_id: form.id,
+            field_key: field.field_key,
+            label: field.label,
+            help_text: field.help_text ?? null,
+            field_type: field.field_type,
+            required: field.required,
+            visible_to_parent: true,
+            visible_to_staff: true,
+            searchable: field.searchable ?? false,
+            reportable: field.reportable ?? false,
+            options_json: field.options_json ?? Prisma.JsonNull,
+            validation_rules_json: Prisma.JsonNull,
+            conditional_visibility_json: Prisma.JsonNull,
+            display_order: field.display_order,
+            active: true,
+          },
+        });
+      }
+
+      // Archive any previously published forms
+      await db.admissionFormDefinition.updateMany({
+        where: {
+          tenant_id: tenantId,
+          status: 'published',
+          id: { not: form.id },
+        },
+        data: { status: 'archived' },
+      });
+
+      return db.admissionFormDefinition.findFirst({
+        where: { id: form.id, tenant_id: tenantId },
+        include: {
+          fields: { orderBy: { display_order: 'asc' } },
+          _count: { select: { applications: true } },
+        },
+      });
+    });
+  }
+
+  /**
+   * Returns the canonical field definitions matching the Registration Wizard.
+   * Email is mandatory for online applications.
+   */
+  private getSystemFormFields(): Array<{
+    field_key: string;
+    label: string;
+    help_text?: string;
+    field_type: string;
+    required: boolean;
+    searchable?: boolean;
+    reportable?: boolean;
+    options_json?: Array<{ value: string; label: string }>;
+    display_order: number;
+  }> {
+    let order = 0;
+    return [
+      // ── Parent/Guardian 1 ──
+      { field_key: 'parent1_first_name', label: 'Parent/Guardian First Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
+      { field_key: 'parent1_last_name', label: 'Parent/Guardian Last Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
+      { field_key: 'parent1_email', label: 'Parent/Guardian Email', field_type: 'email', required: true, searchable: true, help_text: 'Required for online applications', display_order: order++ },
+      { field_key: 'parent1_phone', label: 'Parent/Guardian Phone', field_type: 'phone', required: true, display_order: order++ },
+      { field_key: 'parent1_relationship', label: 'Relationship to Student', field_type: 'single_select', required: true, options_json: [
+        { value: 'father', label: 'Father' },
+        { value: 'mother', label: 'Mother' },
+        { value: 'guardian', label: 'Guardian' },
+        { value: 'other', label: 'Other' },
+      ], display_order: order++ },
+
+      // ── Parent/Guardian 2 (optional) ──
+      { field_key: 'parent2_first_name', label: 'Second Parent First Name', field_type: 'short_text', required: false, display_order: order++ },
+      { field_key: 'parent2_last_name', label: 'Second Parent Last Name', field_type: 'short_text', required: false, display_order: order++ },
+      { field_key: 'parent2_email', label: 'Second Parent Email', field_type: 'email', required: false, display_order: order++ },
+      { field_key: 'parent2_phone', label: 'Second Parent Phone', field_type: 'phone', required: false, display_order: order++ },
+      { field_key: 'parent2_relationship', label: 'Second Parent Relationship', field_type: 'single_select', required: false, options_json: [
+        { value: 'father', label: 'Father' },
+        { value: 'mother', label: 'Mother' },
+        { value: 'guardian', label: 'Guardian' },
+        { value: 'other', label: 'Other' },
+      ], display_order: order++ },
+
+      // ── Household / Address ──
+      { field_key: 'address_line_1', label: 'Address Line 1', field_type: 'short_text', required: true, display_order: order++ },
+      { field_key: 'address_line_2', label: 'Address Line 2', field_type: 'short_text', required: false, display_order: order++ },
+      { field_key: 'city', label: 'City', field_type: 'short_text', required: true, display_order: order++ },
+      { field_key: 'country', label: 'Country', field_type: 'country', required: true, display_order: order++ },
+      { field_key: 'postal_code', label: 'Postal Code', field_type: 'short_text', required: false, display_order: order++ },
+
+      // ── Emergency Contact ──
+      { field_key: 'emergency_name', label: 'Emergency Contact Name', field_type: 'short_text', required: false, display_order: order++ },
+      { field_key: 'emergency_phone', label: 'Emergency Contact Phone', field_type: 'phone', required: false, display_order: order++ },
+      { field_key: 'emergency_relationship', label: 'Emergency Contact Relationship', field_type: 'short_text', required: false, display_order: order++ },
+
+      // ── Student ──
+      { field_key: 'student_first_name', label: 'Student First Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
+      { field_key: 'student_middle_name', label: 'Student Middle Name', field_type: 'short_text', required: false, display_order: order++ },
+      { field_key: 'student_last_name', label: 'Student Last Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
+      { field_key: 'student_dob', label: 'Date of Birth', field_type: 'date', required: true, display_order: order++ },
+      { field_key: 'student_gender', label: 'Gender', field_type: 'single_select', required: true, options_json: [
+        { value: 'male', label: 'Male' },
+        { value: 'female', label: 'Female' },
+      ], reportable: true, display_order: order++ },
+      { field_key: 'student_year_group', label: 'Year Group', field_type: 'short_text', required: true, help_text: 'The year/grade the student is applying for', reportable: true, display_order: order++ },
+      { field_key: 'student_national_id', label: 'National ID', field_type: 'short_text', required: true, display_order: order++ },
+      { field_key: 'student_medical_notes', label: 'Medical Notes', field_type: 'long_text', required: false, display_order: order++ },
+      { field_key: 'student_allergies', label: 'Has Allergies', field_type: 'yes_no', required: false, display_order: order++ },
+    ];
+  }
+
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   private validateFields(fields: FormFieldInput[]): void {

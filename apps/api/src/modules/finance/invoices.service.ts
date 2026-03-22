@@ -199,7 +199,7 @@ export class InvoicesService {
         };
       });
       subtotal = roundMoney(subtotal);
-      const totalAmount = subtotal; // No tax/discount at invoice level for now
+      const totalAmount = subtotal;
       const balanceAmount = totalAmount;
 
       const invoice = await (tx as unknown as typeof this.prisma).invoice.create({
@@ -211,7 +211,6 @@ export class InvoicesService {
           due_date: new Date(dto.due_date),
           subtotal_amount: subtotal,
           discount_amount: 0,
-          tax_amount: 0,
           total_amount: totalAmount,
           balance_amount: balanceAmount,
           currency_code: tenant.currency_code,
@@ -639,12 +638,11 @@ export class InvoicesService {
 
   /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma models use Decimal; we convert to number for the API */
 
-  private serializeInvoice(invoice: { subtotal_amount?: unknown; discount_amount?: unknown; tax_amount?: unknown; total_amount?: unknown; balance_amount?: unknown; write_off_amount?: unknown; lines?: Array<{ quantity: unknown; unit_amount: unknown; line_total: unknown; [key: string]: unknown }>; [key: string]: unknown }) {
+  private serializeInvoice(invoice: { subtotal_amount?: unknown; discount_amount?: unknown; total_amount?: unknown; balance_amount?: unknown; write_off_amount?: unknown; lines?: Array<{ quantity: unknown; unit_amount: unknown; line_total: unknown; [key: string]: unknown }>; [key: string]: unknown }) {
     return {
       ...invoice,
       subtotal_amount: invoice.subtotal_amount !== undefined ? Number(invoice.subtotal_amount) : undefined,
       discount_amount: invoice.discount_amount !== undefined ? Number(invoice.discount_amount) : undefined,
-      tax_amount: invoice.tax_amount !== undefined ? Number(invoice.tax_amount) : undefined,
       total_amount: invoice.total_amount !== undefined ? Number(invoice.total_amount) : undefined,
       balance_amount: invoice.balance_amount !== undefined ? Number(invoice.balance_amount) : undefined,
       write_off_amount: invoice.write_off_amount != null ? Number(invoice.write_off_amount) : null,

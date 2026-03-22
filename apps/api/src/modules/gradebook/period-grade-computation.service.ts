@@ -51,7 +51,31 @@ export class PeriodGradeComputationService {
   ) {
     const warnings: ComputationWarning[] = [];
 
-    // 1. Load class_subject_grade_config
+    // 1. Look up class to get year_group_id
+    const classEntity = await this.prisma.class.findFirst({
+      where: { id: classId, tenant_id: tenantId },
+      select: { year_group_id: true },
+    });
+
+    // 2. Try year-group weights first, fall back to class-subject config
+    let categoryWeightsRaw: CategoryWeight[] = [];
+    let scaleConfig: GradingScaleConfig | null = null;
+
+    if (classEntity?.year_group_id) {
+      const ygWeight = await this.prisma.yearGroupGradeWeight.findFirst({
+        where: {
+          tenant_id: tenantId,
+          year_group_id: classEntity.year_group_id,
+          academic_period_id: periodId,
+        },
+      });
+      if (ygWeight) {
+        const parsed = ygWeight.category_weights_json as unknown as { weights: CategoryWeight[] };
+        categoryWeightsRaw = parsed?.weights ?? [];
+      }
+    }
+
+    // Load class-subject config for grading scale (and as weight fallback)
     const config = await this.prisma.classSubjectGradeConfig.findFirst({
       where: {
         tenant_id: tenantId,
@@ -63,15 +87,21 @@ export class PeriodGradeComputationService {
       },
     });
 
-    if (!config) {
-      throw new NotFoundException({
-        code: 'GRADE_CONFIG_NOT_FOUND',
-        message: `Grade configuration for class "${classId}" and subject "${subjectId}" not found`,
-      });
+    if (config) {
+      scaleConfig = config.grading_scale.config_json as unknown as GradingScaleConfig;
+      // Use class-subject weights as fallback if no year-group weights found
+      if (categoryWeightsRaw.length === 0) {
+        const fallbackConfig = config.category_weight_json as unknown as { weights: CategoryWeight[] };
+        categoryWeightsRaw = fallbackConfig?.weights ?? [];
+      }
     }
 
-    // 2. Parse grading scale config
-    const scaleConfig = config.grading_scale.config_json as unknown as GradingScaleConfig;
+    if (categoryWeightsRaw.length === 0) {
+      throw new NotFoundException({
+        code: 'GRADE_CONFIG_NOT_FOUND',
+        message: `No grading weight configuration found for this class/year group and period. Configure weights in Settings > Grading Weights.`,
+      });
+    }
 
     // 3. Load all assessments for (class, subject, period) where status NOT 'draft'
     const assessments = await this.prisma.assessment.findMany({
@@ -127,18 +157,8 @@ export class PeriodGradeComputationService {
     const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
     const missingGradePolicy = (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
 
-    // 7. Parse category_weight_json
-    const weightConfig = config.category_weight_json as unknown as {
-      weights: CategoryWeight[];
-    };
-    const categoryWeights = weightConfig?.weights ?? [];
-
-    if (categoryWeights.length === 0) {
-      throw new BadRequestException({
-        code: 'NO_CATEGORY_WEIGHTS',
-        message: 'Grade configuration has no category weights defined. Configure assessment category weights before computing grades.',
-      });
-    }
+    // 7. Use resolved category weights (from year-group or class-subject config)
+    const categoryWeights = categoryWeightsRaw;
 
     // 8. Normalize weights if sum != 100
     const weightSum = categoryWeights.reduce((sum, w) => sum + w.weight, 0);
@@ -233,8 +253,10 @@ export class PeriodGradeComputationService {
         ? totalWeightedScore / totalUsedWeight
         : 0;
 
-      // Apply grading scale for display_value
-      const displayValue = this.applyGradingScale(computedValue, scaleConfig);
+      // Apply grading scale for display_value (if available)
+      const displayValue = scaleConfig
+        ? this.applyGradingScale(computedValue, scaleConfig)
+        : `${Math.round(computedValue * 100) / 100}%`;
 
       snapshotData.push({
         student_id: studentId,

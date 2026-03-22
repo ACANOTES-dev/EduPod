@@ -30,13 +30,19 @@ interface Application {
   submitted_at: string | null;
 }
 
-interface FunnelData {
+interface AnalyticsResponse {
+  funnel: {
+    draft: number;
+    submitted: number;
+    under_review: number;
+    pending_acceptance_approval: number;
+    accepted: number;
+    rejected: number;
+    withdrawn: number;
+  };
   total: number;
-  submitted: number;
-  under_review: number;
-  accepted: number;
-  rejected: number;
-  converted: number;
+  conversion_rate: number;
+  avg_days_to_decision: number | null;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -48,7 +54,7 @@ export default function AdmissionsPage() {
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [applications, setApplications] = React.useState<Application[]>([]);
-  const [funnel, setFunnel] = React.useState<FunnelData | null>(null);
+  const [analytics, setAnalytics] = React.useState<AnalyticsResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
   const [total, setTotal] = React.useState(0);
@@ -80,10 +86,10 @@ export default function AdmissionsPage() {
     }
   }, [page, search, statusFilter]);
 
-  const fetchFunnel = React.useCallback(async () => {
+  const fetchAnalytics = React.useCallback(async () => {
     try {
-      const res = await apiClient<{ data: FunnelData }>('/api/v1/applications/analytics');
-      setFunnel(res.data);
+      const res = await apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics');
+      setAnalytics(res.data);
     } catch {
       // ignore
     }
@@ -94,8 +100,8 @@ export default function AdmissionsPage() {
   }, [fetchApplications]);
 
   React.useEffect(() => {
-    void fetchFunnel();
-  }, [fetchFunnel]);
+    void fetchAnalytics();
+  }, [fetchAnalytics]);
 
   React.useEffect(() => {
     setPage(1);
@@ -201,13 +207,13 @@ export default function AdmissionsPage() {
       />
 
       {/* Funnel summary */}
-      {funnel && (
+      {analytics && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label={t('totalApplications')} value={funnel.total ?? 0} />
-          <StatCard label={t('submitted')} value={funnel.submitted ?? 0} />
-          <StatCard label={t('underReview')} value={funnel.under_review ?? 0} />
-          <StatCard label={t('accepted')} value={funnel.accepted ?? 0} />
-          <StatCard label={t('rejected')} value={funnel.rejected ?? 0} />
+          <StatCard label={t('totalApplications')} value={analytics.total ?? 0} />
+          <StatCard label={t('submitted')} value={analytics.funnel.submitted ?? 0} />
+          <StatCard label={t('underReview')} value={analytics.funnel.under_review ?? 0} />
+          <StatCard label={t('accepted')} value={analytics.funnel.accepted ?? 0} />
+          <StatCard label={t('rejected')} value={analytics.funnel.rejected ?? 0} />
         </div>
       )}
 

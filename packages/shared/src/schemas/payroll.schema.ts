@@ -28,27 +28,25 @@ export const createCompensationSchema = z
         return (
           data.per_class_rate !== null &&
           data.per_class_rate > 0 &&
-          data.assigned_class_count !== null &&
-          data.assigned_class_count >= 0 &&
           data.bonus_class_rate !== null
         );
       }
       return true;
     },
     {
-      message: 'per_class_rate, assigned_class_count, and bonus_class_rate are required for per_class compensation',
+      message: 'per_class_rate and bonus_class_rate are required for per_class compensation',
       path: ['per_class_rate'],
     },
   )
   .refine(
     (data) => {
       if (data.compensation_type === 'salaried') {
-        return data.per_class_rate === null && data.assigned_class_count === null && data.bonus_class_rate === null;
+        return data.per_class_rate === null && data.bonus_class_rate === null;
       }
       return true;
     },
     {
-      message: 'per_class_rate, assigned_class_count, bonus_class_rate must be null for salaried compensation',
+      message: 'per_class_rate and bonus_class_rate must be null for salaried compensation',
       path: ['per_class_rate'],
     },
   )
@@ -103,6 +101,8 @@ export const updatePayrollEntrySchema = z.object({
   days_worked: z.number().int().min(0).max(60).nullable().optional(),
   classes_taught: z.number().int().min(0).max(500).nullable().optional(),
   notes: z.string().max(1000).nullable().optional(),
+  override_total_pay: z.number().nonnegative().multipleOf(0.01).nullable().optional(),
+  override_note: z.string().min(1).max(1000).nullable().optional(),
   expected_updated_at: z.string().datetime(),
 });
 

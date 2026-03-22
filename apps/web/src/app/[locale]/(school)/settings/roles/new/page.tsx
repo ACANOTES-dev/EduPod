@@ -23,30 +23,16 @@ import { PermissionPicker, type RoleTier } from '../_components/permission-picke
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface PermissionFromApi {
+interface PermissionItem {
   id: string;
-  permission_key: string;
-  permission_tier: string;
+  key: string;
+  description: string;
+  tier: string;
 }
 
-// ─── Role with permissions response ──────────────────────────────────────────
-
-// Roles list endpoint returns permissions via role_permissions on role detail
-// We derive available permissions from the role detail endpoint after creation,
-// but to populate the picker we need all permissions. We fetch from a dedicated
-// endpoint or fall back to the role detail. Here we use the list endpoint which
-// returns roles with _count; we need individual permissions for the picker.
-// The API has no dedicated GET /api/v1/permissions endpoint, so we call
-// GET /api/v1/roles and aggregate from an existing system role's permissions.
-// Actually the cleanest approach: fetch GET /api/v1/roles/:id for the school_owner
-// role which has all permissions — but we don't know its ID upfront.
-// Instead: we derive permission metadata directly from the shared constants and
-// match IDs by querying a known system role once we have IDs from the create response.
-//
-// Simpler: Just POST the role, then use the returned role_permissions to build
-// the picker on Edit page. For New, we hit a workaround:
-// We do a one-time fetch of all roles and pick the first system role's permissions
-// list to get the ID-to-key mapping.
+interface PermissionsResponse {
+  data: PermissionItem[];
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -65,9 +51,9 @@ export default function NewRolePage() {
   const [roleTier, setRoleTier] = React.useState<RoleTier>('admin');
   const [selectedPermIds, setSelectedPermIds] = React.useState<string[]>([]);
 
-  // Available permissions (id + key mapping from API)
+  // Available permissions (id + key + description mapping from API)
   const [availablePermissions, setAvailablePermissions] = React.useState<
-    { id: string; key: string; tier: RoleTier }[]
+    { id: string; key: string; tier: RoleTier; description?: string }[]
   >([]);
   const [permLoading, setPermLoading] = React.useState(true);
 
@@ -76,32 +62,16 @@ export default function NewRolePage() {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState('');
 
-  // Load permission IDs by fetching the system role that has all permissions.
-  // We list all roles and pick the first system role, then fetch its detail.
+  // Load all permissions from the dedicated endpoint
   React.useEffect(() => {
     async function loadPermissions() {
       try {
-        // Fetch the full list of roles
-        const rolesRes = await apiClient<{ data: { id: string; is_system_role: boolean; role_key: string }[] }>('/api/v1/roles');
-        // Prefer school_owner which has the most permissions
-        const systemRole =
-          rolesRes.data.find((r) => r.is_system_role && r.role_key === 'school_owner') ??
-          rolesRes.data.find((r) => r.is_system_role);
-
-        if (!systemRole) {
-          setPermLoading(false);
-          return;
-        }
-
-        // Fetch the role detail which includes role_permissions with permission details
-        const roleDetail = await apiClient<{
-          role_permissions: { permission: PermissionFromApi }[];
-        }>(`/api/v1/roles/${systemRole.id}`);
-
-        const perms = roleDetail.role_permissions.map((rp) => ({
-          id: rp.permission.id,
-          key: rp.permission.permission_key,
-          tier: rp.permission.permission_tier as RoleTier,
+        const res = await apiClient<PermissionsResponse>('/api/v1/permissions');
+        const perms = res.data.map((p) => ({
+          id: p.id,
+          key: p.key,
+          tier: p.tier as RoleTier,
+          description: p.description,
         }));
         setAvailablePermissions(perms);
       } catch {

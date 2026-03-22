@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   Select,
@@ -18,13 +19,13 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AnnouncementScope = 'school' | 'year_group' | 'class' | 'household' | 'custom';
+type DeliveryChannel = 'in_app' | 'email' | 'whatsapp' | 'sms';
 
 interface CreateAnnouncementPayload {
   title: string;
@@ -32,6 +33,7 @@ interface CreateAnnouncementPayload {
   scope: AnnouncementScope;
   target_payload: Record<string, unknown>;
   scheduled_publish_at?: string | null;
+  delivery_channels: DeliveryChannel[];
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -45,10 +47,18 @@ export default function NewAnnouncementPage() {
   const [body, setBody] = React.useState('');
   const [scope, setScope] = React.useState<AnnouncementScope>('school');
   const [targetIds, setTargetIds] = React.useState('');
+  const [channels, setChannels] = React.useState<DeliveryChannel[]>(['in_app']);
   const [scheduleEnabled, setScheduleEnabled] = React.useState(false);
   const [scheduledAt, setScheduledAt] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [isPublishing, setIsPublishing] = React.useState(false);
+
+  const toggleChannel = (ch: DeliveryChannel) => {
+    if (ch === 'in_app') return; // Always on
+    setChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
+    );
+  };
 
   const needsTarget = scope !== 'school';
 
@@ -68,6 +78,7 @@ export default function NewAnnouncementPage() {
       body_html: body.trim(),
       scope,
       target_payload: buildTargetPayload(),
+      delivery_channels: channels,
     };
     if (scheduleEnabled && scheduledAt) {
       payload.scheduled_publish_at = new Date(scheduledAt).toISOString();
@@ -191,6 +202,32 @@ export default function NewAnnouncementPage() {
             </p>
           </div>
         )}
+
+        {/* Delivery channels */}
+        <div className="space-y-3">
+          <Label>{t('form.channelsLabel')}</Label>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox id="ch-in_app" checked disabled />
+              <Label htmlFor="ch-in_app" className="text-sm font-normal text-text-secondary">
+                {t('form.channelInApp')}
+              </Label>
+            </div>
+            {(['email', 'whatsapp', 'sms'] as const).map((ch) => (
+              <div key={ch} className="flex items-center gap-2">
+                <Checkbox
+                  id={`ch-${ch}`}
+                  checked={channels.includes(ch)}
+                  onCheckedChange={() => toggleChannel(ch)}
+                />
+                <Label htmlFor={`ch-${ch}`} className="text-sm font-normal cursor-pointer">
+                  {t(`form.channel${ch.charAt(0).toUpperCase()}${ch.slice(1)}`)}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-text-tertiary">{t('form.channelsHint')}</p>
+        </div>
 
         {/* Schedule toggle */}
         <div className="flex items-center gap-3">

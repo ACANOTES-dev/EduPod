@@ -23,7 +23,7 @@ import { apiClient } from '@/lib/api-client';
 interface AcademicYear { id: string; name: string }
 interface YearGroup { id: string; name: string }
 interface Subject { id: string; name: string }
-interface StaffProfile { id: string; full_name: string }
+interface StaffProfile { id: string; name: string }
 
 interface Competency {
   id: string;
@@ -62,32 +62,33 @@ export default function CompetenciesPage() {
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
       apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
-      apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=100&fields=id,full_name'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
     ]).then(([yearsRes, ygRes, subRes, staffRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);
       setSubjects(subRes.data);
-      setTeachers(staffRes.data);
+      setTeachers((staffRes.data ?? []).map((s) => ({
+        id: s.id,
+        name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+      })));
       if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
-  // Fetch competencies
+  // Fetch competencies using the correct endpoint for each view
   const fetchCompetencies = React.useCallback(async () => {
     if (!selectedYear) return;
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({ academic_year_id: selectedYear, pageSize: '2000' });
+      let url: string;
       if (activeTab === 'byTeacher' && selectedTeacher) {
-        params.set('staff_profile_id', selectedTeacher);
+        url = `/api/v1/scheduling/teacher-competencies/by-teacher/${selectedTeacher}?academic_year_id=${selectedYear}`;
+      } else if (activeTab === 'bySubject' && selectedSubject && selectedYearGroup) {
+        url = `/api/v1/scheduling/teacher-competencies/by-subject?academic_year_id=${selectedYear}&subject_id=${selectedSubject}&year_group_id=${selectedYearGroup}`;
+      } else {
+        url = `/api/v1/scheduling/teacher-competencies?academic_year_id=${selectedYear}`;
       }
-      if (activeTab === 'bySubject' && selectedSubject) {
-        params.set('subject_id', selectedSubject);
-      }
-      if (activeTab === 'bySubject' && selectedYearGroup) {
-        params.set('year_group_id', selectedYearGroup);
-      }
-      const res = await apiClient<{ data: Competency[] }>(`/api/v1/scheduling/teacher-competencies?${params.toString()}`);
+      const res = await apiClient<{ data: Competency[] }>(url);
       setCompetencies(res.data);
     } catch {
       setCompetencies([]);
@@ -102,7 +103,10 @@ export default function CompetenciesPage() {
 
   const hasCompetency = (subjectId: string, yearGroupId: string): Competency | undefined => {
     return competencies.find(
-      (c) => c.subject_id === subjectId && c.year_group_id === yearGroupId
+      (c) =>
+        c.subject_id === subjectId &&
+        c.year_group_id === yearGroupId &&
+        (!selectedTeacher || c.staff_profile_id === selectedTeacher)
     );
   };
 
@@ -229,7 +233,7 @@ export default function CompetenciesPage() {
             </SelectTrigger>
             <SelectContent>
               {teachers.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -365,7 +369,7 @@ export default function CompetenciesPage() {
                             const teacher = teachers.find((t) => t.id === comp.staff_profile_id);
                             return (
                               <tr key={comp.id} className="border-t border-border hover:bg-surface-secondary/50">
-                                <td className="px-4 py-3 font-medium text-text-primary">{teacher?.full_name ?? '—'}</td>
+                                <td className="px-4 py-3 font-medium text-text-primary">{teacher?.name ?? '—'}</td>
                                 <td className="px-4 py-3">
                                   {comp.is_primary ? (
                                     <Star className="h-4 w-4 text-amber-500 fill-current" />

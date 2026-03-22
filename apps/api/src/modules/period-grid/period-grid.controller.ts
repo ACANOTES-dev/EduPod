@@ -34,6 +34,7 @@ import { PeriodGridService } from './period-grid.service';
 
 const listPeriodGridQuerySchema = z.object({
   academic_year_id: z.string().uuid(),
+  year_group_id: z.string().uuid().optional(),
 });
 
 @Controller('v1/period-grid')
@@ -91,6 +92,7 @@ export class PeriodGridController {
     const count = await this.periodGridService.getTeachingCount(
       tenant.tenant_id,
       query.academic_year_id,
+      query.year_group_id,
     );
     return { total_teaching_periods: count };
   }

@@ -521,6 +521,227 @@ export class ReportCardsService {
   }
 
   /**
+   * Build snapshot payloads for all active students in a class for the given period.
+   * Returns an array of { student, snapshotPayload } objects, one per student.
+   */
+  async buildBatchSnapshots(
+    tenantId: string,
+    classId: string,
+    periodId: string,
+  ) {
+    // 1. Validate period
+    const period = await this.prisma.academicPeriod.findFirst({
+      where: { id: periodId, tenant_id: tenantId },
+      include: {
+        academic_year: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!period) {
+      throw new NotFoundException({
+        code: 'PERIOD_NOT_FOUND',
+        message: `Academic period with id "${periodId}" not found`,
+      });
+    }
+
+    // 2. Get active students enrolled in this class
+    const enrolments = await this.prisma.classEnrolment.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        status: 'active',
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            student_number: true,
+            year_group: { select: { name: true } },
+            homeroom_class: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (enrolments.length === 0) {
+      return [];
+    }
+
+    const students = enrolments.map((e) => e.student);
+    const studentIds = students.map((s) => s.id);
+
+    // 3. Load all period grade snapshots for these students + period
+    const allSnapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        academic_period_id: periodId,
+      },
+      include: {
+        subject: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    // Group snapshots by student_id
+    const snapshotsByStudent = new Map<string, typeof allSnapshots>();
+    for (const snap of allSnapshots) {
+      const existing = snapshotsByStudent.get(snap.student_id) ?? [];
+      existing.push(snap);
+      snapshotsByStudent.set(snap.student_id, existing);
+    }
+
+    // 4. Build payloads
+    const results: Array<{
+      studentId: string;
+      studentName: string;
+      payload: Record<string, unknown>;
+    }> = [];
+
+    for (const student of students) {
+      const snapshots = snapshotsByStudent.get(student.id) ?? [];
+
+      const subjects = snapshots.map((snapshot) => ({
+        subject_name: snapshot.subject.name,
+        subject_code: snapshot.subject.code ?? null,
+        computed_value: Number(snapshot.computed_value),
+        display_value: snapshot.overridden_value ?? snapshot.display_value,
+        overridden_value: snapshot.overridden_value ?? null,
+      }));
+
+      // Attendance summary
+      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
+        by: ['derived_status'],
+        where: {
+          tenant_id: tenantId,
+          student_id: student.id,
+          summary_date: {
+            gte: period.start_date,
+            lte: period.end_date,
+          },
+        },
+        _count: { id: true },
+      });
+
+      const statusCounts = new Map(
+        attendanceSummaries.map((s) => [s.derived_status, s._count.id]),
+      );
+
+      const totalDays = attendanceSummaries.reduce((sum, s) => sum + s._count.id, 0);
+      const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
+      const absentDays = (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
+      const lateDays = statusCounts.get('late') ?? 0;
+
+      const attendanceSummary = totalDays > 0
+        ? { total_days: totalDays, present_days: presentDays, absent_days: absentDays, late_days: lateDays }
+        : undefined;
+
+      const payload = {
+        student: {
+          full_name: `${student.first_name} ${student.last_name}`,
+          student_number: student.student_number ?? null,
+          year_group: student.year_group?.name ?? '',
+          class_homeroom: student.homeroom_class?.name ?? null,
+        },
+        period: {
+          name: period.name,
+          academic_year: period.academic_year.name,
+          start_date: period.start_date.toISOString().slice(0, 10),
+          end_date: period.end_date.toISOString().slice(0, 10),
+        },
+        subjects,
+        attendance_summary: attendanceSummary,
+        teacher_comment: null,
+        principal_comment: null,
+      };
+
+      results.push({
+        studentId: student.id,
+        studentName: `${student.first_name} ${student.last_name}`,
+        payload,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Overview: paginated list of period grade snapshots showing Student | Period | Final Grade | Status.
+   */
+  async gradeOverview(
+    tenantId: string,
+    params: {
+      page: number;
+      pageSize: number;
+      class_id?: string;
+      academic_period_id?: string;
+    },
+  ) {
+    const { page, pageSize, class_id, academic_period_id } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.PeriodGradeSnapshotWhereInput = {
+      tenant_id: tenantId,
+    };
+
+    if (class_id) {
+      where.class_id = class_id;
+    }
+    if (academic_period_id) {
+      where.academic_period_id = academic_period_id;
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.periodGradeSnapshot.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: [
+          { student: { last_name: 'asc' } },
+          { subject: { name: 'asc' } },
+        ],
+        include: {
+          student: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              student_number: true,
+            },
+          },
+          subject: {
+            select: { id: true, name: true },
+          },
+          academic_period: {
+            select: { id: true, name: true },
+          },
+          class_entity: {
+            select: { id: true, name: true },
+          },
+        },
+      }),
+      this.prisma.periodGradeSnapshot.count({ where }),
+    ]);
+
+    return {
+      data: data.map((row) => ({
+        id: row.id,
+        student_name: `${row.student.first_name} ${row.student.last_name}`,
+        student_number: row.student.student_number,
+        subject_name: row.subject.name,
+        class_name: row.class_entity.name,
+        period_name: row.academic_period.name,
+        academic_period_id: row.academic_period.id,
+        final_grade: row.overridden_value ?? row.display_value,
+        computed_value: Number(row.computed_value),
+        has_override: row.overridden_value !== null,
+      })),
+      meta: { page, pageSize, total },
+    };
+  }
+
+  /**
    * Invalidate transcript cache for a given tenant+student.
    */
   async invalidateTranscriptCache(tenantId: string, studentId: string) {

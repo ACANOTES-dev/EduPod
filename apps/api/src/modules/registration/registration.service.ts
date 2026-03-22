@@ -137,7 +137,7 @@ export class RegistrationService {
       const db = tx as unknown as PrismaService;
 
       // ── 1. Create Household ─────────────────────────────────────────────
-      const householdNumber = await this.sequenceService.nextNumber(tenantId, 'household', tx, 'HH');
+      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, tx);
 
       const household = await db.household.create({
         data: {
@@ -496,7 +496,6 @@ export class RegistrationService {
           due_date: dueDate,
           subtotal_amount: subtotal,
           discount_amount: totalDiscountAmount,
-          tax_amount: 0,
           total_amount: totalAmount,
           balance_amount: balanceAmount,
           currency_code: tenant.currency_code,

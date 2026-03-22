@@ -27,14 +27,6 @@ interface FormField {
   display_order: number;
 }
 
-interface TimelineEvent {
-  id: string;
-  event_type: string;
-  description: string;
-  created_at: string;
-  user_name?: string;
-}
-
 interface InternalNote {
   id: string;
   content: string;
@@ -45,19 +37,26 @@ interface InternalNote {
 interface ApplicationDetail {
   id: string;
   application_number: string;
-  student_name: string;
+  student_first_name: string;
+  student_last_name: string;
   date_of_birth?: string | null;
   status: string;
   submitted_at: string | null;
   created_at: string;
-  payload: Record<string, unknown>;
-  form: {
+  updated_at: string;
+  payload_json: Record<string, unknown>;
+  form_definition: {
     id: string;
     name: string;
     fields: FormField[];
-  };
-  timeline: TimelineEvent[];
-  notes: InternalNote[];
+  } | null;
+  notes: Array<{
+    id: string;
+    note: string;
+    is_internal: boolean;
+    created_at: string;
+    author: { id: string; first_name: string; last_name: string };
+  }>;
 }
 
 // ─── Status variant map ───────────────────────────────────────────────────────
@@ -109,7 +108,7 @@ function NotesTab({
     try {
       await apiClient(`/api/v1/applications/${applicationId}/notes`, {
         method: 'POST',
-        body: JSON.stringify({ content: newNote }),
+        body: JSON.stringify({ note: newNote, is_internal: true }),
       });
       setNewNote('');
       onNoteAdded();
@@ -163,41 +162,6 @@ function NotesTab({
   );
 }
 
-// ─── Timeline Tab ─────────────────────────────────────────────────────────────
-
-function TimelineTab({ events }: { events: TimelineEvent[] }) {
-  return (
-    <div className="space-y-3">
-      {events.length === 0 ? (
-        <p className="py-4 text-center text-sm text-text-tertiary">No timeline events yet.</p>
-      ) : (
-        <div className="relative space-y-4">
-          {/* Vertical line */}
-          <div className="absolute start-3.5 top-2 bottom-2 w-px bg-border" />
-
-          {events.map((event) => (
-            <div key={event.id} className="relative flex gap-4 ps-10">
-              <div className="absolute start-1.5 top-1.5 h-4 w-4 rounded-full border-2 border-primary-700 bg-surface" />
-              <div className="flex-1">
-                <p className="text-sm text-text-primary">{event.description}</p>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-text-tertiary">
-                  <span>{new Date(event.created_at).toLocaleString()}</span>
-                  {event.user_name && (
-                    <>
-                      <span>&middot;</span>
-                      <span>{event.user_name}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ApplicationDetailPage() {
@@ -212,6 +176,8 @@ export default function ApplicationDetailPage() {
   const [application, setApplication] = React.useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [showRejectForm, setShowRejectForm] = React.useState(false);
+  const [rejectionReason, setRejectionReason] = React.useState('');
 
   const fetchApplication = React.useCallback(async () => {
     if (!id) return;
@@ -229,13 +195,40 @@ export default function ApplicationDetailPage() {
     void fetchApplication();
   }, [fetchApplication]);
 
-  const handleStatusAction = async (action: string) => {
+  const handleReviewAction = async (status: 'under_review' | 'pending_acceptance_approval' | 'rejected') => {
+    if (!application) return;
+    if (status === 'rejected' && !rejectionReason.trim()) {
+      setShowRejectForm(true);
+      return;
+    }
     setActionLoading(true);
     try {
-      await apiClient(`/api/v1/applications/${id}/${action}`, {
+      await apiClient(`/api/v1/applications/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify({
+          status,
+          expected_updated_at: application.updated_at,
+          ...(status === 'rejected' ? { rejection_reason: rejectionReason } : {}),
+        }),
+      });
+      toast.success(t('statusUpdateSuccess'));
+      setShowRejectForm(false);
+      setRejectionReason('');
+      void fetchApplication();
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    setActionLoading(true);
+    try {
+      await apiClient(`/api/v1/applications/${id}/withdraw`, {
         method: 'POST',
       });
-      toast.success(`Application ${action} successful`);
+      toast.success(t('statusUpdateSuccess'));
       void fetchApplication();
     } catch {
       toast.error(tc('errorGeneric'));
@@ -285,7 +278,7 @@ export default function ApplicationDetailPage() {
           <Button
             key="review"
             variant="outline"
-            onClick={() => handleStatusAction('start-review')}
+            onClick={() => handleReviewAction('under_review')}
             disabled={actionLoading}
           >
             <Clock className="me-2 h-4 w-4" />
@@ -297,7 +290,7 @@ export default function ApplicationDetailPage() {
         actions.push(
           <Button
             key="accept"
-            onClick={() => handleStatusAction('accept')}
+            onClick={() => handleReviewAction('pending_acceptance_approval')}
             disabled={actionLoading}
           >
             <CheckCircle className="me-2 h-4 w-4" />
@@ -306,7 +299,7 @@ export default function ApplicationDetailPage() {
           <Button
             key="reject"
             variant="outline"
-            onClick={() => handleStatusAction('reject')}
+            onClick={() => handleReviewAction('rejected')}
             disabled={actionLoading}
           >
             <XCircle className="me-2 h-4 w-4" />
@@ -333,7 +326,7 @@ export default function ApplicationDetailPage() {
         <Button
           key="withdraw"
           variant="ghost"
-          onClick={() => handleStatusAction('withdraw')}
+          onClick={handleWithdraw}
           disabled={actionLoading}
         >
           {t('withdraw')}
@@ -350,8 +343,8 @@ export default function ApplicationDetailPage() {
       label: t('application'),
       content: (
         <ApplicationTab
-          fields={application.form?.fields ?? []}
-          payload={application.payload ?? {}}
+          fields={application.form_definition?.fields ?? []}
+          payload={(application.payload_json as Record<string, unknown>) ?? {}}
         />
       ),
     },
@@ -360,28 +353,61 @@ export default function ApplicationDetailPage() {
       label: t('notes'),
       content: (
         <NotesTab
-          notes={application.notes ?? []}
+          notes={(application.notes ?? []).map((n) => ({
+            id: n.id,
+            content: n.note,
+            created_at: n.created_at,
+            user_name: `${n.author.first_name} ${n.author.last_name}`,
+          }))}
           applicationId={id}
           onNoteAdded={() => void fetchApplication()}
         />
       ),
     },
-    {
-      key: 'timeline',
-      label: t('timeline'),
-      content: <TimelineTab events={application.timeline ?? []} />,
-    },
   ];
+
+  const studentName = `${application.student_first_name} ${application.student_last_name}`.trim();
 
   return (
     <RecordHub
-      title={application.student_name}
+      title={studentName}
       reference={application.application_number}
       status={{
         label: application.status.replace(/_/g, ' '),
         variant: STATUS_VARIANT_MAP[application.status] ?? 'neutral',
       }}
-      actions={<div className="flex flex-wrap items-center gap-2">{renderActions()}</div>}
+      actions={
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">{renderActions()}</div>
+          {showRejectForm && (
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <Textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder={t('rejectionReasonPlaceholder')}
+                  rows={2}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={actionLoading || !rejectionReason.trim()}
+                onClick={() => handleReviewAction('rejected')}
+              >
+                {t('confirmReject')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setShowRejectForm(false); setRejectionReason(''); }}
+              >
+                {tc('cancel')}
+              </Button>
+            </div>
+          )}
+        </div>
+      }
       metrics={[
         {
           label: t('submittedAt'),

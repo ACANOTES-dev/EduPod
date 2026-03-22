@@ -56,6 +56,9 @@ export function FinaliseDialog({ open, onOpenChange, run, onConfirm }: FinaliseD
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-text-secondary">{t('finaliseConfirm')}</p>
+          <p className="text-xs text-warning-text bg-warning-50 border border-warning-border rounded-lg px-3 py-2">
+            {t('finaliseImmutableWarning')}
+          </p>
 
           <div className="rounded-xl border border-border bg-surface-secondary p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">

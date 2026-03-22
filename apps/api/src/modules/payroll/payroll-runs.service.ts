@@ -117,6 +117,7 @@ export class PayrollRunsService {
         basic_pay: Number(e.basic_pay),
         bonus_pay: Number(e.bonus_pay),
         total_pay: Number(e.total_pay),
+        override_total_pay: e.override_total_pay != null ? Number(e.override_total_pay) : null,
         snapshot_base_salary: e.snapshot_base_salary != null ? Number(e.snapshot_base_salary) : null,
         snapshot_per_class_rate: e.snapshot_per_class_rate != null ? Number(e.snapshot_per_class_rate) : null,
       })),
@@ -178,7 +179,7 @@ export class PayrollRunsService {
   async createRun(tenantId: string, userId: string, dto: CreatePayrollRunDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(async (tx) => {
+    const runId = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Check for duplicate month
@@ -303,9 +304,11 @@ export class PayrollRunsService {
         });
       }
 
-      // Return the created run with entries
-      return this.getRun(tenantId, run.id);
-    });
+      return run.id;
+    })) as string;
+
+    // Fetch the full run after the transaction has committed
+    return this.getRun(tenantId, runId);
   }
 
   async updateRun(tenantId: string, runId: string, dto: UpdatePayrollRunDto) {
@@ -725,15 +728,19 @@ export class PayrollRunsService {
         where: { payroll_run_id: runId, tenant_id: tenantId },
       });
 
-      // Compute totals
+      // Compute totals — use override_total_pay when set
       let totalBasicPay = 0;
       let totalBonusPay = 0;
       let totalPay = 0;
 
       for (const entry of entries) {
+        if (entry.override_total_pay !== null) {
+          totalPay += Number(entry.override_total_pay);
+        } else {
+          totalPay += Number(entry.total_pay);
+        }
         totalBasicPay += Number(entry.basic_pay);
         totalBonusPay += Number(entry.bonus_pay);
-        totalPay += Number(entry.total_pay);
       }
 
       totalBasicPay = Number(totalBasicPay.toFixed(2));
@@ -817,6 +824,7 @@ export class PayrollRunsService {
             'basic_pay',
             'bonus_pay',
             'total_pay',
+            'override_total_pay',
           ];
           for (const field of entryDecimalFields) {
             if (e[field] !== null && e[field] !== undefined) {

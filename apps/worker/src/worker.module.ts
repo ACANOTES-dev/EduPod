@@ -29,6 +29,7 @@ import { PayrollSessionGenerationProcessor } from './processors/payroll/session-
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingSolverProcessor } from './processors/scheduling-solver.processor';
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
+import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 
@@ -86,6 +87,10 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
         name: QUEUE_NAMES.IMPORTS,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
       },
+      {
+        name: QUEUE_NAMES.ADMISSIONS,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],
@@ -99,6 +104,8 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
         return client;
       },
     },
+    // Admissions queue processors
+    AdmissionsAutoExpiryProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

@@ -23,10 +23,11 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { ResultsMatrix } from './results-matrix';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,9 @@ interface Assessment {
   status: string;
   category_name: string;
   category_id: string;
+  subject_id?: string;
+  subject_name?: string;
+  subject?: { id: string; name: string };
   max_score: number;
   due_date: string | null;
   grading_deadline: string | null;
@@ -60,22 +64,18 @@ interface PeriodGrade {
 
 interface PeriodGradesResponse {
   data: PeriodGrade[];
-  meta: { page: number; pageSize: number; total: number };
 }
 
-interface GradeConfig {
-  id: string;
-  grading_scale_id: string | null;
-  grading_scale_name: string | null;
-  category_weights: Array<{ category_id: string; category_name: string; weight: number }>;
-}
-
-interface GradingScale {
+interface SelectOption {
   id: string;
   name: string;
 }
 
-type TabKey = 'assessments' | 'period-grades' | 'grade-config';
+interface ListResponse<T> {
+  data: T[];
+}
+
+type TabKey = 'assessments' | 'results' | 'grades';
 
 const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'> = {
   draft: 'warning',
@@ -105,12 +105,22 @@ export default function ClassGradebookPage() {
   const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
   const [statusTarget, setStatusTarget] = React.useState<Assessment | null>(null);
   const [newStatus, setNewStatus] = React.useState('');
+  const [assessmentSubjectFilter, setAssessmentSubjectFilter] = React.useState('all');
+  const [assessmentSubjects, setAssessmentSubjects] = React.useState<SelectOption[]>([]);
   const PAGE_SIZE = 20;
 
-  const fetchAssessments = React.useCallback(async (p: number) => {
+  // Load subjects for the filter dropdown
+  React.useEffect(() => {
+    apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
+      .then((res) => setAssessmentSubjects(res.data))
+      .catch(() => undefined);
+  }, []);
+
+  const fetchAssessments = React.useCallback(async (p: number, subjectId: string) => {
     setAssessmentsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), class_id: classId });
+      if (subjectId !== 'all') params.set('subject_id', subjectId);
       const res = await apiClient<AssessmentsResponse>(`/api/v1/gradebook/assessments?${params.toString()}`);
       setAssessments(res.data);
       setAssessmentsTotal(res.meta.total);
@@ -124,9 +134,9 @@ export default function ClassGradebookPage() {
 
   React.useEffect(() => {
     if (activeTab === 'assessments') {
-      void fetchAssessments(assessmentsPage);
+      void fetchAssessments(assessmentsPage, assessmentSubjectFilter);
     }
-  }, [activeTab, assessmentsPage, fetchAssessments]);
+  }, [activeTab, assessmentsPage, assessmentSubjectFilter, fetchAssessments]);
 
   const handleStatusChange = async () => {
     if (!statusTarget || !newStatus) return;
@@ -137,7 +147,7 @@ export default function ClassGradebookPage() {
       });
       setStatusDialogOpen(false);
       setStatusTarget(null);
-      void fetchAssessments(assessmentsPage);
+      void fetchAssessments(assessmentsPage, assessmentSubjectFilter);
     } catch {
       toast.error(tc('errorGeneric'));
     }
@@ -217,44 +227,63 @@ export default function ClassGradebookPage() {
 
   // ─── Period Grades Tab ─────────────────────────────────────────────────────
   const [periodGrades, setPeriodGrades] = React.useState<PeriodGrade[]>([]);
-  const [periodGradesTotal, setPeriodGradesTotal] = React.useState(0);
-  const [periodGradesPage, setPeriodGradesPage] = React.useState(1);
-  const [periodGradesLoading, setPeriodGradesLoading] = React.useState(true);
+  const [periodGradesLoading, setPeriodGradesLoading] = React.useState(false);
   const [computing, setComputing] = React.useState(false);
   const [overrideDialogOpen, setOverrideDialogOpen] = React.useState(false);
   const [overrideTarget, setOverrideTarget] = React.useState<PeriodGrade | null>(null);
   const [overrideScore, setOverrideScore] = React.useState('');
   const [overrideLetter, setOverrideLetter] = React.useState('');
 
-  const fetchPeriodGrades = React.useCallback(async (p: number) => {
+  // Subject & period selectors required by API
+  const [pgSubjects, setPgSubjects] = React.useState<SelectOption[]>([]);
+  const [pgPeriods, setPgPeriods] = React.useState<SelectOption[]>([]);
+  const [pgSubjectId, setPgSubjectId] = React.useState('');
+  const [pgPeriodId, setPgPeriodId] = React.useState('');
+
+  // Load subject/period options when tab activates
+  React.useEffect(() => {
+    if (activeTab === 'grades') {
+      apiClient<ListResponse<SelectOption>>('/api/v1/subjects?pageSize=100&subject_type=academic')
+        .then((res) => setPgSubjects(res.data))
+        .catch(() => undefined);
+      apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
+        .then((res) => setPgPeriods(res.data))
+        .catch(() => undefined);
+    }
+  }, [activeTab]);
+
+  const fetchPeriodGrades = React.useCallback(async (subjectId: string, periodId: string) => {
+    if (!subjectId || !periodId) return;
     setPeriodGradesLoading(true);
     try {
-      const prms = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), class_id: classId });
+      const prms = new URLSearchParams({ class_id: classId, subject_id: subjectId, academic_period_id: periodId });
       const res = await apiClient<PeriodGradesResponse>(`/api/v1/gradebook/period-grades?${prms.toString()}`);
       setPeriodGrades(res.data);
-      setPeriodGradesTotal(res.meta.total);
     } catch {
       setPeriodGrades([]);
-      setPeriodGradesTotal(0);
     } finally {
       setPeriodGradesLoading(false);
     }
   }, [classId]);
 
   React.useEffect(() => {
-    if (activeTab === 'period-grades') {
-      void fetchPeriodGrades(periodGradesPage);
+    if (activeTab === 'grades' && pgSubjectId && pgPeriodId) {
+      void fetchPeriodGrades(pgSubjectId, pgPeriodId);
     }
-  }, [activeTab, periodGradesPage, fetchPeriodGrades]);
+  }, [activeTab, pgSubjectId, pgPeriodId, fetchPeriodGrades]);
 
   const handleComputeGrades = async () => {
+    if (!pgSubjectId || !pgPeriodId) {
+      toast.error('Select a subject and period first');
+      return;
+    }
     setComputing(true);
     try {
-      await apiClient(`/api/v1/gradebook/period-grades/compute`, {
+      await apiClient('/api/v1/gradebook/period-grades/compute', {
         method: 'POST',
-        body: JSON.stringify({ class_id: classId }),
+        body: JSON.stringify({ class_id: classId, subject_id: pgSubjectId, academic_period_id: pgPeriodId }),
       });
-      void fetchPeriodGrades(periodGradesPage);
+      void fetchPeriodGrades(pgSubjectId, pgPeriodId);
       toast.success('Grades computed');
     } catch {
       toast.error(tc('errorGeneric'));
@@ -267,14 +296,14 @@ export default function ClassGradebookPage() {
     if (!overrideTarget) return;
     try {
       await apiClient(`/api/v1/gradebook/period-grades/${overrideTarget.id}/override`, {
-        method: 'PATCH',
+        method: 'POST',
         body: JSON.stringify({
-          override_score: overrideScore ? Number(overrideScore) : null,
-          override_letter: overrideLetter || null,
+          overridden_value: overrideScore || overrideLetter || '',
+          override_reason: 'Manual override',
         }),
       });
       setOverrideDialogOpen(false);
-      void fetchPeriodGrades(periodGradesPage);
+      if (pgSubjectId && pgPeriodId) void fetchPeriodGrades(pgSubjectId, pgPeriodId);
     } catch {
       toast.error(tc('errorGeneric'));
     }
@@ -341,63 +370,10 @@ export default function ClassGradebookPage() {
     },
   ];
 
-  // ─── Grade Config Tab ──────────────────────────────────────────────────────
-  const [, setGradeConfig] = React.useState<GradeConfig | null>(null);
-  const [configLoading, setConfigLoading] = React.useState(true);
-  const [scales, setScales] = React.useState<GradingScale[]>([]);
-  const [selectedScale, setSelectedScale] = React.useState('');
-  const [categoryWeights, setCategoryWeights] = React.useState<Array<{ category_id: string; category_name: string; weight: number }>>([]);
-  const [configSaving, setConfigSaving] = React.useState(false);
-
-  const fetchGradeConfig = React.useCallback(async () => {
-    setConfigLoading(true);
-    try {
-      const res = await apiClient<{ data: GradeConfig }>(`/api/v1/gradebook/grade-config?class_id=${classId}`);
-      setGradeConfig(res.data);
-      setSelectedScale(res.data.grading_scale_id ?? '');
-      setCategoryWeights(res.data.category_weights ?? []);
-    } catch {
-      setGradeConfig(null);
-    } finally {
-      setConfigLoading(false);
-    }
-  }, [classId]);
-
-  React.useEffect(() => {
-    if (activeTab === 'grade-config') {
-      void fetchGradeConfig();
-      apiClient<{ data: GradingScale[] }>('/api/v1/gradebook/grading-scales?pageSize=100')
-        .then((res) => setScales(res.data))
-        .catch(() => undefined);
-    }
-  }, [activeTab, fetchGradeConfig]);
-
-  const weightsSum = categoryWeights.reduce((acc, cw) => acc + cw.weight, 0);
-
-  const handleConfigSave = async () => {
-    setConfigSaving(true);
-    try {
-      await apiClient(`/api/v1/gradebook/grade-config`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          class_id: classId,
-          grading_scale_id: selectedScale || null,
-          category_weights: categoryWeights,
-        }),
-      });
-      toast.success('Configuration saved');
-      void fetchGradeConfig();
-    } catch {
-      toast.error(tc('errorGeneric'));
-    } finally {
-      setConfigSaving(false);
-    }
-  };
-
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'assessments', label: t('assessments') },
-    { key: 'period-grades', label: t('periodGrades') },
-    { key: 'grade-config', label: t('gradeConfig') },
+    { key: 'results', label: t('results') },
+    { key: 'grades', label: t('grades') },
   ];
 
   return (
@@ -414,7 +390,7 @@ export default function ClassGradebookPage() {
                 <Plus className="me-2 h-4 w-4" />
                 {t('newAssessment')}
               </Button>
-            ) : activeTab === 'period-grades' ? (
+            ) : activeTab === 'grades' ? (
               <Button onClick={handleComputeGrades} disabled={computing}>
                 {computing ? tc('loading') : t('computeGrades')}
               </Button>
@@ -444,6 +420,21 @@ export default function ClassGradebookPage() {
       {/* Tab content */}
       {activeTab === 'assessments' && (
         <>
+          {/* Subject filter for assessments */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={assessmentSubjectFilter} onValueChange={(v) => { setAssessmentSubjectFilter(v); setAssessmentsPage(1); }}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={t('subject')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {assessmentSubjects.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <DataTable
             columns={assessmentColumns}
             data={assessments}
@@ -451,6 +442,7 @@ export default function ClassGradebookPage() {
             pageSize={PAGE_SIZE}
             total={assessmentsTotal}
             onPageChange={setAssessmentsPage}
+            onRowClick={(row) => router.push(`/${locale}/gradebook/${classId}/assessments/${row.id}/grades`)}
             keyExtractor={(row) => row.id}
             isLoading={assessmentsLoading}
           />
@@ -492,18 +484,52 @@ export default function ClassGradebookPage() {
         </>
       )}
 
-      {activeTab === 'period-grades' && (
+      {activeTab === 'results' && (
+        <ResultsMatrix classId={classId} />
+      )}
+
+      {activeTab === 'grades' && (
         <>
-          <DataTable
-            columns={periodGradeColumns}
-            data={periodGrades}
-            page={periodGradesPage}
-            pageSize={PAGE_SIZE}
-            total={periodGradesTotal}
-            onPageChange={setPeriodGradesPage}
-            keyExtractor={(row) => row.id}
-            isLoading={periodGradesLoading}
-          />
+          {/* Subject + period selectors required by API */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={pgSubjectId} onValueChange={setPgSubjectId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={t('subject')} />
+              </SelectTrigger>
+              <SelectContent>
+                {pgSubjects.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={pgPeriodId} onValueChange={setPgPeriodId}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={t('period')} />
+              </SelectTrigger>
+              <SelectContent>
+                {pgPeriods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!pgSubjectId || !pgPeriodId ? (
+            <p className="py-8 text-center text-sm text-text-tertiary">
+              Select a subject and period to view grades.
+            </p>
+          ) : (
+            <DataTable
+              columns={periodGradeColumns}
+              data={periodGrades}
+              page={1}
+              pageSize={periodGrades.length || 1}
+              total={periodGrades.length}
+              onPageChange={() => undefined}
+              keyExtractor={(row) => row.id}
+              isLoading={periodGradesLoading}
+            />
+          )}
 
           {/* Override dialog */}
           <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
@@ -548,67 +574,6 @@ export default function ClassGradebookPage() {
             </DialogContent>
           </Dialog>
         </>
-      )}
-
-      {activeTab === 'grade-config' && (
-        <div className="space-y-6">
-          {configLoading ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-12 animate-pulse rounded-xl bg-surface-secondary" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="max-w-md space-y-4">
-                <div>
-                  <Label>Grading Scale</Label>
-                  <Select value={selectedScale} onValueChange={setSelectedScale}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select grading scale" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {scales.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Category Weights</Label>
-                {weightsSum !== 100 && weightsSum > 0 && (
-                  <p className="text-sm text-warning-text">
-                    {t('weightsWarning', { sum: String(weightsSum) })}
-                  </p>
-                )}
-                {categoryWeights.map((cw, idx) => (
-                  <div key={cw.category_id} className="flex items-center gap-3">
-                    <span className="min-w-[120px] text-sm text-text-primary">{cw.category_name}</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={String(cw.weight)}
-                      onChange={(e) => {
-                        setCategoryWeights((prev) =>
-                          prev.map((w, i) => (i === idx ? { ...w, weight: Number(e.target.value) } : w)),
-                        );
-                      }}
-                      className="w-24"
-                    />
-                    <span className="text-sm text-text-tertiary">%</span>
-                  </div>
-                ))}
-              </div>
-
-              <Button onClick={handleConfigSave} disabled={configSaving}>
-                {configSaving ? tc('loading') : tc('save')}
-              </Button>
-            </>
-          )}
-        </div>
       )}
     </div>
   );

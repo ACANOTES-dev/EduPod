@@ -64,6 +64,7 @@ export default function NewAssessmentPage() {
   const [maxScore, setMaxScore] = React.useState('100');
   const [dueDate, setDueDate] = React.useState('');
   const [gradingDeadline, setGradingDeadline] = React.useState('');
+  const [countsTowardReportCard, setCountsTowardReportCard] = React.useState(true);
 
   const [saving, setSaving] = React.useState(false);
 
@@ -95,6 +96,7 @@ export default function NewAssessmentPage() {
           max_score: Number(maxScore),
           due_date: dueDate || undefined,
           grading_deadline: gradingDeadline || undefined,
+          counts_toward_report_card: countsTowardReportCard,
         }),
       });
       router.push(`/${locale}/gradebook/${classId}`);
@@ -198,6 +200,19 @@ export default function NewAssessmentPage() {
             value={gradingDeadline}
             onChange={(e) => setGradingDeadline(e.target.value)}
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="counts-toward-report-card"
+            type="checkbox"
+            checked={countsTowardReportCard}
+            onChange={(e) => setCountsTowardReportCard(e.target.checked)}
+            className="h-4 w-4 rounded border-border text-primary-600 focus:ring-primary-500"
+          />
+          <Label htmlFor="counts-toward-report-card" className="cursor-pointer">
+            {t('countsTowardReportCard')}
+          </Label>
         </div>
 
         <div className="flex gap-3 pt-2">

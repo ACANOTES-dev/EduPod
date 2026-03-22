@@ -291,7 +291,63 @@ export class RolesService {
     return this.getRole(tenantId, roleId);
   }
 
+  /**
+   * List all permissions, optionally filtered by tier.
+   * Groups permissions by module (key prefix before the dot).
+   */
+  async listPermissions(tier?: RoleTier) {
+    const where = tier
+      ? {
+          permission_tier: {
+            in: this.getTiersAtOrBelow(tier),
+          },
+        }
+      : {};
+
+    const permissions = await this.prisma.permission.findMany({
+      where,
+      orderBy: { permission_key: 'asc' },
+    });
+
+    // Group by module (prefix before first dot)
+    const grouped: Record<
+      string,
+      { id: string; key: string; description: string; tier: string }[]
+    > = {};
+
+    for (const p of permissions) {
+      const mod = p.permission_key.split('.')[0] ?? 'other';
+      if (!grouped[mod]) grouped[mod] = [];
+      grouped[mod].push({
+        id: p.id,
+        key: p.permission_key,
+        description: p.description,
+        tier: p.permission_tier,
+      });
+    }
+
+    return {
+      data: permissions.map((p) => ({
+        id: p.id,
+        key: p.permission_key,
+        description: p.description,
+        tier: p.permission_tier,
+      })),
+      grouped,
+    };
+  }
+
   // ─── Private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Return all tier strings at or below the given tier.
+   */
+  private getTiersAtOrBelow(tier: RoleTier): RoleTier[] {
+    const rank = TIER_RANK[tier];
+    return (Object.entries(TIER_RANK) as [RoleTier, number][])
+      .filter(([, r]) => r <= rank)
+      .map(([t]) => t);
+  }
 
   /**
    * Validate that all permissions are at or below the role's tier level.

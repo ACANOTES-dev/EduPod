@@ -53,6 +53,14 @@ export class PaymentsController {
     return this.paymentsService.findAll(tenant.tenant_id, query);
   }
 
+  @Get('staff')
+  @RequiresPermission('finance.view')
+  async getAcceptingStaff(
+    @CurrentTenant() tenant: TenantContext,
+  ) {
+    return this.paymentsService.getAcceptingStaff(tenant.tenant_id);
+  }
+
   @Get(':id')
   @RequiresPermission('finance.view')
   async findOne(

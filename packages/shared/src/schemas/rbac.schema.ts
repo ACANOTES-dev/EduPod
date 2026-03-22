@@ -66,3 +66,13 @@ export const assignPermissionsSchema = z.object({
 });
 
 export type AssignPermissionsDto = z.infer<typeof assignPermissionsSchema>;
+
+export const userListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().max(200).optional(),
+  role_id: z.string().uuid().optional(),
+  status: z.enum(['active', 'suspended']).optional(),
+});
+
+export type UserListQuery = z.infer<typeof userListQuerySchema>;

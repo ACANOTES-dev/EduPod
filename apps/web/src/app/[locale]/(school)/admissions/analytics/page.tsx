@@ -12,14 +12,11 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AnalyticsData {
-  funnel: Array<{
-    stage: string;
-    count: number;
-  }>;
-  total_applications: number;
+interface AnalyticsResponse {
+  funnel: Record<string, number>;
+  total: number;
   conversion_rate: number;
-  avg_days_to_decision: number;
+  avg_days_to_decision: number | null;
 }
 
 // ─── Funnel Chart ─────────────────────────────────────────────────────────────
@@ -50,11 +47,11 @@ export default function AdmissionsAnalyticsPage() {
   const tc = useTranslations('common');
   const router = useRouter();
 
-  const [analytics, setAnalytics] = React.useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = React.useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: AnalyticsData }>('/api/v1/applications/analytics')
+    apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics')
       .then((res) => setAnalytics(res.data))
       .catch(() => {
         // ignore
@@ -93,7 +90,7 @@ export default function AdmissionsAnalyticsPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard
             label={t('totalApplications')}
-            value={analytics.total_applications}
+            value={analytics.total}
           />
           <StatCard
             label={t('conversionRate')}
@@ -101,15 +98,20 @@ export default function AdmissionsAnalyticsPage() {
           />
           <StatCard
             label={t('avgDaysToDecision')}
-            value={analytics.avg_days_to_decision.toFixed(1)}
+            value={analytics.avg_days_to_decision != null ? analytics.avg_days_to_decision.toFixed(1) : '—'}
           />
         </div>
       )}
 
       {/* Funnel chart */}
-      {analytics?.funnel && analytics.funnel.length > 0 ? (
-        <FunnelChart data={analytics.funnel} />
-      ) : analytics?.total_applications === 0 ? (
+      {analytics?.funnel && analytics.total > 0 ? (
+        <FunnelChart
+          data={Object.entries(analytics.funnel).map(([stage, count]) => ({
+            stage: stage.replace(/_/g, ' '),
+            count,
+          }))}
+        />
+      ) : analytics?.total === 0 ? (
         <div className="rounded-xl border border-border bg-surface p-12 text-center shadow-sm">
           <p className="text-sm text-text-tertiary">{t('noApplicationsYet')}</p>
         </div>

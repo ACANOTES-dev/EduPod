@@ -85,8 +85,15 @@ export class AnnouncementsService {
     scope: string;
     target_payload: Record<string, unknown>;
     scheduled_publish_at?: string | null;
+    delivery_channels?: string[];
   }) {
     const cleanHtml = sanitiseHtml(dto.body_html);
+
+    // Ensure in_app is always present
+    const channels = dto.delivery_channels ?? ['in_app'];
+    if (!channels.includes('in_app')) {
+      channels.unshift('in_app');
+    }
 
     return this.prisma.announcement.create({
       data: {
@@ -98,6 +105,8 @@ export class AnnouncementsService {
         scope: dto.scope as any, // Prisma enum cast
         target_payload: dto.target_payload as Prisma.InputJsonValue,
         scheduled_publish_at: dto.scheduled_publish_at ? new Date(dto.scheduled_publish_at) : null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delivery_channels: channels as any,
         author_user_id: userId,
       },
       include: {
@@ -114,6 +123,7 @@ export class AnnouncementsService {
     scope?: string;
     target_payload?: Record<string, unknown>;
     scheduled_publish_at?: string | null;
+    delivery_channels?: string[];
   }) {
     const existing = await this.getById(tenantId, id);
 
@@ -133,6 +143,11 @@ export class AnnouncementsService {
       updateData.scheduled_publish_at = dto.scheduled_publish_at
         ? new Date(dto.scheduled_publish_at)
         : null;
+    }
+    if (dto.delivery_channels !== undefined) {
+      const channels = [...dto.delivery_channels];
+      if (!channels.includes('in_app')) channels.unshift('in_app');
+      updateData.delivery_channels = channels;
     }
 
     return this.prisma.announcement.update({
@@ -253,12 +268,15 @@ export class AnnouncementsService {
 
     if (targets.length === 0) return;
 
+    // Use announcement's delivery channels (always includes in_app)
+    const deliveryChannels = (announcement.delivery_channels as string[]) ?? ['in_app'];
+
     // Create notifications in batches of 100
     const batchSize = 100;
     for (let i = 0; i < targets.length; i += batchSize) {
       const batch = targets.slice(i, i + batchSize);
       const notifications = batch.flatMap((target) =>
-        target.channels.map((channel) => ({
+        deliveryChannels.map((channel) => ({
           tenant_id: tenantId,
           recipient_user_id: target.user_id,
           channel,
