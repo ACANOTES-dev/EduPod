@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -10,14 +11,19 @@ import {
   Post,
   Put,
   Query,
+  Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   createAttendanceSessionSchema,
   saveAttendanceRecordsSchema,
   amendAttendanceRecordSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -29,6 +35,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { AttendanceUploadService } from './attendance-upload.service';
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
 
@@ -64,11 +71,29 @@ const exceptionsQuerySchema = z.object({
   end_date: z.string().optional(),
 });
 
+const uploadTemplateQuerySchema = z.object({
+  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+});
+
+const uploadBodySchema = z.object({
+  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+});
+
+interface UploadedFileShape {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class AttendanceController {
   constructor(
     private readonly attendanceService: AttendanceService,
+    private readonly attendanceUploadService: AttendanceUploadService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly prisma: PrismaService,
@@ -244,6 +269,77 @@ export class AttendanceController {
       user.sub,
       studentId,
       query,
+    );
+  }
+
+  // ─── Bulk Upload ──────────────────────────────────────────────────────
+
+  @Get('attendance/upload-template')
+  @RequiresPermission('attendance.manage')
+  async downloadTemplate(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(uploadTemplateQuerySchema))
+    query: z.infer<typeof uploadTemplateQuerySchema>,
+    @Res() res: Response,
+  ) {
+    const csv = await this.attendanceUploadService.generateTemplate(
+      tenant.tenant_id,
+      query.session_date,
+    );
+
+    const filename = `attendance-${query.session_date}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  }
+
+  @Post('attendance/upload')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttendance(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: UploadedFileShape | undefined,
+    @Body(new ZodValidationPipe(uploadBodySchema))
+    body: z.infer<typeof uploadBodySchema>,
+  ) {
+    if (!file) {
+      throw new BadRequestException({
+        code: 'FILE_REQUIRED',
+        message: 'A file must be uploaded',
+      });
+    }
+
+    const ext = file.originalname.toLowerCase().split('.').pop();
+    const isValidType =
+      ext === 'csv' ||
+      ext === 'xlsx' ||
+      ext === 'xls' ||
+      file.mimetype.includes('csv') ||
+      file.mimetype.includes('spreadsheet') ||
+      file.mimetype.includes('excel');
+
+    if (!isValidType) {
+      throw new BadRequestException({
+        code: 'INVALID_FILE_TYPE',
+        message: 'Only CSV (.csv) and Excel (.xlsx, .xls) files are accepted',
+      });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BadRequestException({
+        code: 'FILE_TOO_LARGE',
+        message: 'File size must not exceed 10MB',
+      });
+    }
+
+    return this.attendanceUploadService.processUpload(
+      tenant.tenant_id,
+      user.sub,
+      file.buffer,
+      file.originalname,
+      body.session_date,
     );
   }
 

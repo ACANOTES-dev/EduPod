@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ClipboardCheck, Plus } from 'lucide-react';
+import { ClipboardCheck, Plus, Upload } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -227,10 +228,18 @@ export default function AttendancePage() {
       <PageHeader
         title={t('title')}
         actions={
-          <Button onClick={() => { setCreateOpen(true); setCreateError(''); setCreateClassId(''); }}>
-            <Plus className="me-2 h-4 w-4" />
-            {t('createSession')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href={`/${locale}/attendance/upload`}>
+              <Button variant="outline">
+                <Upload className="me-2 h-4 w-4" />
+                {t('uploadAttendance')}
+              </Button>
+            </Link>
+            <Button onClick={() => { setCreateOpen(true); setCreateError(''); setCreateClassId(''); }}>
+              <Plus className="me-2 h-4 w-4" />
+              {t('createSession')}
+            </Button>
+          </div>
         }
       />
       <DataTable
