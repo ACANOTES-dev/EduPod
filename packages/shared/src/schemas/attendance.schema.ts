@@ -18,7 +18,7 @@ export const saveAttendanceRecordsSchema = z.object({
   records: z.array(z.object({
     student_id: z.string().uuid(),
     status: attendanceRecordStatusEnum,
-    reason: z.string().optional(),
+    reason: z.string().nullable().optional(),
   })).min(1),
 });
 
