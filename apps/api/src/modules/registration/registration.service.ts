@@ -268,9 +268,6 @@ export class RegistrationService {
       for (let i = 0; i < dto.students.length; i++) {
         const s = dto.students[i]!;
         const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
-        const fullName = s.middle_name
-          ? `${s.first_name} ${s.middle_name} ${s.last_name}`.trim()
-          : `${s.first_name} ${s.last_name}`.trim();
 
         const student = await db.student.create({
           data: {
@@ -279,7 +276,6 @@ export class RegistrationService {
             first_name: s.first_name,
             middle_name: s.middle_name ?? null,
             last_name: s.last_name,
-            full_name: fullName,
             national_id: s.national_id,
             date_of_birth: new Date(s.date_of_birth),
             gender: s.gender as 'male' | 'female' | 'other' | 'prefer_not_to_say',
