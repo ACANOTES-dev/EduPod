@@ -17,7 +17,7 @@ import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, getAccessToken } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -56,57 +56,8 @@ const IMPORT_TYPES = [
 
 type ImportType = (typeof IMPORT_TYPES)[number];
 
-/**
- * CSV template column headers per import type.
- * Generated client-side — no API call needed.
- */
-const TEMPLATE_COLUMNS: Record<ImportType, string[]> = {
-  students: [
-    'first_name', 'last_name', 'middle_name', 'date_of_birth', 'gender',
-    'year_group_name', 'class_name', 'entry_date', 'student_number',
-    'nationality', 'medical_notes', 'allergies', 'dietary_requirements',
-    'parent1_first_name', 'parent1_last_name', 'parent1_email',
-    'parent1_phone', 'parent1_relationship',
-    'parent2_first_name', 'parent2_last_name', 'parent2_email',
-    'parent2_phone', 'parent2_relationship',
-    'household_name', 'address_line1', 'address_line2',
-    'city', 'country', 'postal_code',
-  ],
-  parents: [
-    'first_name', 'last_name', 'email', 'phone', 'relationship', 'household_name',
-  ],
-  staff: [
-    'first_name', 'last_name', 'email', 'phone', 'job_title',
-    'staff_number', 'department', 'employment_type', 'start_date',
-  ],
-  fees: [
-    'household_name', 'fee_structure_name', 'amount', 'discount_pct',
-    'billing_period', 'due_date',
-  ],
-  exam_results: [
-    'student_number', 'student_name', 'subject', 'assessment_name',
-    'score', 'max_score', 'grade', 'term',
-  ],
-  staff_compensation: [
-    'staff_number', 'staff_name', 'compensation_type', 'amount',
-    'effective_from', 'effective_to', 'currency',
-  ],
-};
-
-/**
- * Generate a CSV template string and trigger a browser download.
- */
-function downloadCsvTemplate(importType: ImportType): void {
-  const columns = TEMPLATE_COLUMNS[importType];
-  const csvContent = columns.join(',') + '\n';
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${importType}_template.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
+/** File extensions accepted for upload. */
+const ACCEPTED_FILE_EXTENSIONS = '.csv,.xlsx';
 
 const statusVariantMap: Record<string, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
   pending: 'neutral',
@@ -119,6 +70,40 @@ const statusVariantMap: Record<string, 'neutral' | 'info' | 'warning' | 'success
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+/**
+ * Download an XLSX template from the API.
+ */
+async function downloadXlsxTemplate(importType: ImportType): Promise<void> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const token = getAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(
+    `${API_URL}/api/v1/imports/template?import_type=${importType}`,
+    { headers, credentials: 'include' },
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to download template');
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${importType}_import_template.xlsx`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function isAcceptedFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return name.endsWith('.csv') || name.endsWith('.xlsx');
+}
 
 // ─── Upload Section ──────────────────────────────────────────────────────────
 
@@ -135,6 +120,7 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState('');
   const [dragOver, setDragOver] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (selectedFile: File | null) => {
@@ -143,8 +129,8 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
       setError(t('fileTooLarge'));
       return;
     }
-    if (!selectedFile.name.endsWith('.csv')) {
-      setError(t('csvOnly'));
+    if (!isAcceptedFile(selectedFile)) {
+      setError(t('xlsxOrCsvOnly'));
       return;
     }
     setError('');
@@ -158,9 +144,16 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
     handleFileSelect(droppedFile);
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     if (!importType) return;
-    downloadCsvTemplate(importType as ImportType);
+    setDownloading(true);
+    try {
+      await downloadXlsxTemplate(importType as ImportType);
+    } catch {
+      setError(t('templateDownloadFailed'));
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -175,10 +168,17 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
       formData.append('import_type', importType);
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+      const token = getAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_URL}/api/v1/imports/upload`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers,
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: { message: 'Upload failed' } }));
@@ -217,9 +217,9 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
         </div>
 
         {importType && (
-          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={downloading}>
             <Download className="me-1.5 h-3.5 w-3.5" />
-            {t('downloadTemplate')}
+            {downloading ? tc('loading') : t('downloadTemplate')}
           </Button>
         )}
       </div>
@@ -243,11 +243,11 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
         <p className="mt-2 text-sm text-text-secondary">
           {file ? file.name : t('dropzoneText')}
         </p>
-        <p className="mt-1 text-xs text-text-tertiary">{t('csvMaxSize')}</p>
+        <p className="mt-1 text-xs text-text-tertiary">{t('xlsxMaxSize')}</p>
         <Input
           ref={fileInputRef}
           type="file"
-          accept=".csv"
+          accept={ACCEPTED_FILE_EXTENSIONS}
           className="hidden"
           onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
         />

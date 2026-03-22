@@ -4,10 +4,14 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { ImportType } from '@school/shared';
+import * as XLSX from 'xlsx';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+
+/** Example data values from the XLSX template, used to detect and skip example rows. */
+const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'ahmed', 'sarah', 'stf-001']);
 
 @Injectable()
 export class ImportProcessingService {
@@ -19,8 +23,8 @@ export class ImportProcessingService {
   ) {}
 
   /**
-   * Process a confirmed import job. Downloads CSV, parses rows, creates
-   * records in the DB for each valid row within an RLS-scoped transaction.
+   * Process a confirmed import job. Downloads file (CSV or XLSX), parses rows,
+   * creates records in the DB for each valid row within an RLS-scoped transaction.
    * Updates the import_job with final counts and deletes S3 file on completion.
    */
   async process(tenantId: string, jobId: string): Promise<void> {
@@ -40,24 +44,34 @@ export class ImportProcessingService {
     const createdByUserId = job.created_by_user_id;
 
     try {
-      // Download CSV from S3
+      // Download file from S3
       const fileBuffer = await this.s3Service.download(job.file_key);
-      const csvContent = fileBuffer.toString('utf-8');
 
-      // Parse CSV
-      const lines = csvContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
-      if (lines.length < 2) {
+      // Determine file type from S3 key
+      const isXlsx = job.file_key.toLowerCase().endsWith('.xlsx');
+
+      // Parse file into rows
+      let headers: string[];
+      let dataRows: Record<string, string>[];
+
+      if (isXlsx) {
+        const parsed = this.parseXlsx(fileBuffer);
+        headers = parsed.headers;
+        dataRows = parsed.rows;
+      } else {
+        const parsed = this.parseCsv(fileBuffer);
+        headers = parsed.headers;
+        dataRows = parsed.rows;
+      }
+
+      // headers is used for reference only -- we already have parsed rows
+      if (headers.length === 0 || dataRows.length === 0) {
         await this.updateJobFinal(jobId, 'failed', 0, 0);
         return;
       }
 
-      const headerLine = lines[0];
-      if (!headerLine) {
-        await this.updateJobFinal(jobId, 'failed', 0, 0);
-        return;
-      }
-      const headers = this.parseCsvLine(headerLine).map((h) => h.trim().toLowerCase());
-      const dataLines = lines.slice(1);
+      // Filter out example rows
+      const filteredRows = dataRows.filter((row) => !this.isExampleRow(row, importType));
 
       let successCount = 0;
       let failCount = 0;
@@ -67,7 +81,7 @@ export class ImportProcessingService {
       await rlsClient.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
-        for (let i = 0; i < dataLines.length; i++) {
+        for (let i = 0; i < filteredRows.length; i++) {
           const rowNumber = i + 2; // 1-indexed, row 1 = headers
 
           // Skip rows that had validation errors
@@ -76,19 +90,10 @@ export class ImportProcessingService {
             continue;
           }
 
-          const dataLine = dataLines[i];
-          if (!dataLine) {
+          const row = filteredRows[i];
+          if (!row) {
             failCount++;
             continue;
-          }
-
-          const values = this.parseCsvLine(dataLine);
-          const row: Record<string, string> = {};
-          for (let j = 0; j < headers.length; j++) {
-            const header = headers[j];
-            if (header) {
-              row[header] = (values[j] ?? '').trim();
-            }
           }
 
           try {
@@ -132,6 +137,117 @@ export class ImportProcessingService {
     }
   }
 
+  // ─── File Parsers ──────────────────────────────────────────────────────
+
+  /**
+   * Normalize a header: lowercase, trim, strip trailing asterisks.
+   */
+  private normalizeHeader(raw: string): string {
+    return raw.trim().toLowerCase().replace(/\s*\*\s*$/, '').trim();
+  }
+
+  /**
+   * Parse a CSV buffer into headers and data rows.
+   */
+  private parseCsv(buffer: Buffer): { headers: string[]; rows: Record<string, string>[] } {
+    const csvContent = buffer.toString('utf-8');
+    const lines = csvContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+    if (lines.length < 2) {
+      return { headers: [], rows: [] };
+    }
+
+    const headerLine = lines[0];
+    if (!headerLine) {
+      return { headers: [], rows: [] };
+    }
+
+    const headers = this.parseCsvLine(headerLine).map((h) => this.normalizeHeader(h));
+    const rows: Record<string, string>[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const dataLine = lines[i];
+      if (!dataLine) continue;
+
+      const values = this.parseCsvLine(dataLine);
+      const row: Record<string, string> = {};
+      for (let j = 0; j < headers.length; j++) {
+        const header = headers[j];
+        if (header) {
+          row[header] = (values[j] ?? '').trim();
+        }
+      }
+
+      const hasData = Object.values(row).some((v) => v.length > 0);
+      if (hasData) {
+        rows.push(row);
+      }
+    }
+
+    return { headers, rows };
+  }
+
+  /**
+   * Parse an XLSX buffer into headers and data rows.
+   */
+  private parseXlsx(buffer: Buffer): { headers: string[]; rows: Record<string, string>[] } {
+    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      return { headers: [], rows: [] };
+    }
+
+    const sheet = workbook.Sheets[firstSheetName];
+    if (!sheet) {
+      return { headers: [], rows: [] };
+    }
+
+    const rawRows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: '',
+      raw: true,
+    });
+
+    if (rawRows.length < 2) {
+      return { headers: [], rows: [] };
+    }
+
+    const headerRow = rawRows[0];
+    if (!headerRow) {
+      return { headers: [], rows: [] };
+    }
+
+    const headers = headerRow.map((h) => this.normalizeHeader(String(h)));
+    const rows: Record<string, string>[] = [];
+
+    for (let i = 1; i < rawRows.length; i++) {
+      const rawRow = rawRows[i];
+      if (!rawRow) continue;
+
+      const row: Record<string, string> = {};
+      for (let j = 0; j < headers.length; j++) {
+        const header = headers[j];
+        if (!header) continue;
+
+        const cellValue = rawRow[j];
+        if (cellValue instanceof Date) {
+          row[header] = this.formatDateToISO(cellValue);
+        } else {
+          row[header] = String(cellValue ?? '').trim();
+        }
+      }
+
+      const hasData = Object.values(row).some((v) => v.length > 0);
+      if (hasData) {
+        rows.push(row);
+      }
+    }
+
+    return { headers, rows };
+  }
+
+  // ─── Row Processing ────────────────────────────────────────────────────
+
   /**
    * Process a single row based on import type.
    */
@@ -174,10 +290,9 @@ export class ImportProcessingService {
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
     const middleName = row['middle_name'] ?? '';
-    const studentNumber = row['student_number'] ?? '';
     const dateOfBirth = row['date_of_birth'] ?? '';
-    const yearGroupName = row['year_group_name'] ?? '';
-    const entryDateStr = row['entry_date'] ?? '';
+    // Accept both 'year_group' (new template) and 'year_group_name' (legacy)
+    const yearGroupName = row['year_group'] ?? row['year_group_name'] ?? '';
     const genderRaw = row['gender'] ?? '';
     const medicalNotes = row['medical_notes'] ?? '';
     const allergies = row['allergies'] ?? '';
@@ -204,15 +319,10 @@ export class ImportProcessingService {
     const country = row['country'] ?? '';
     const postalCode = row['postal_code'] ?? '';
 
-    // Resolve year_group_id from year_group_name
+    // Resolve year_group_id from year_group name (fuzzy: case-insensitive, accept "Y1", "Grade 1", etc.)
     let yearGroupId: string | null = null;
     if (yearGroupName) {
-      const yearGroup = await db.yearGroup.findFirst({
-        where: { tenant_id: tenantId, name: yearGroupName },
-      });
-      if (yearGroup) {
-        yearGroupId = yearGroup.id;
-      }
+      yearGroupId = await this.resolveYearGroup(db, tenantId, yearGroupName);
     }
 
     // Create or find household
@@ -253,17 +363,20 @@ export class ImportProcessingService {
     // Determine if allergy info was provided
     const hasAllergy = !!allergies;
 
+    // Parse date_of_birth (support multiple formats)
+    const parsedDob = this.parseFlexibleDate(dateOfBirth);
+
     await db.student.create({
       data: {
         tenant_id: tenantId,
         household_id: household.id,
-        student_number: studentNumber || null,
+        student_number: null, // Auto-generated by system
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,
         full_name: fullNameParts.join(' '),
-        date_of_birth: new Date(dateOfBirth),
-        entry_date: entryDateStr ? new Date(entryDateStr) : null,
+        date_of_birth: parsedDob ?? new Date(dateOfBirth),
+        entry_date: new Date(), // Default to today
         gender,
         medical_notes: medicalNotes || null,
         has_allergy: hasAllergy,
@@ -316,6 +429,45 @@ export class ImportProcessingService {
         },
       });
     }
+  }
+
+  /**
+   * Fuzzy-match year group name against existing year groups.
+   * Handles: "Year 1", "year 1", "Y1", "Grade 1", "grade 1", etc.
+   */
+  private async resolveYearGroup(
+    db: PrismaService,
+    tenantId: string,
+    input: string,
+  ): Promise<string | null> {
+    const normalized = input.trim().toLowerCase();
+
+    // Load all year groups for this tenant
+    const yearGroups = await db.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, name: true },
+    });
+
+    // Try exact case-insensitive match first
+    for (const yg of yearGroups) {
+      if (yg.name.toLowerCase() === normalized) {
+        return yg.id;
+      }
+    }
+
+    // Try common aliases: "Y1" -> "Year 1", "Grade 1" -> "Year 1"
+    const numberMatch = /\d+/.exec(normalized);
+    if (numberMatch) {
+      const num = numberMatch[0];
+      for (const yg of yearGroups) {
+        const ygNum = /\d+/.exec(yg.name.toLowerCase());
+        if (ygNum && ygNum[0] === num) {
+          return yg.id;
+        }
+      }
+    }
+
+    return null;
   }
 
   private async processParentRow(
@@ -599,6 +751,84 @@ export class ImportProcessingService {
         created_by_user_id: createdByUserId,
       },
     });
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────
+
+  /**
+   * Detect if a row is the example/hint row from the template.
+   */
+  private isExampleRow(row: Record<string, string>, importType: ImportType): boolean {
+    const keyFields: Record<ImportType, string> = {
+      students: 'first_name',
+      parents: 'first_name',
+      staff: 'first_name',
+      fees: 'household_name',
+      exam_results: 'student_number',
+      staff_compensation: 'staff_number',
+    };
+
+    const field = keyFields[importType];
+    const value = (row[field] ?? '').toLowerCase().trim();
+    if (!value) return false;
+
+    if (EXAMPLE_FIRST_NAMES.has(value)) {
+      if (importType === 'students' && value === 'aisha') {
+        const lastName = (row['last_name'] ?? '').toLowerCase();
+        if (lastName === 'al-mansour') return true;
+      }
+      if (importType === 'parents' && value === 'ahmed') {
+        const lastName = (row['last_name'] ?? '').toLowerCase();
+        if (lastName === 'al-mansour') return true;
+      }
+      if (importType === 'staff' && value === 'sarah') {
+        const lastName = (row['last_name'] ?? '').toLowerCase();
+        if (lastName === 'johnson') return true;
+      }
+    }
+
+    // Check for template hint patterns (parentheses in values)
+    const allValues = Object.values(row).join(' ');
+    if (allValues.includes('(') && allValues.includes(')') && EXAMPLE_FIRST_NAMES.has(value)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Parse a date string in multiple formats: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY.
+   */
+  private parseFlexibleDate(dateStr: string): Date | null {
+    const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+    if (isoMatch) {
+      const date = new Date(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T00:00:00Z`);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    const slashMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
+    if (slashMatch) {
+      const date = new Date(`${slashMatch[3]}-${slashMatch[2]}-${slashMatch[1]}T00:00:00Z`);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    const dashMatch = /^(\d{2})-(\d{2})-(\d{4})$/.exec(dateStr);
+    if (dashMatch) {
+      const date = new Date(`${dashMatch[3]}-${dashMatch[2]}-${dashMatch[1]}T00:00:00Z`);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    return null;
+  }
+
+  /**
+   * Format a Date object to ISO date string (YYYY-MM-DD).
+   */
+  private formatDateToISO(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**

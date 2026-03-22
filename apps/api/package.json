@@ -33,6 +33,7 @@
     "compression": "^1.7.5",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
     "helmet": "^8.0.0",
     "ioredis": "^5.4.2",
     "isomorphic-dompurify": "^3.5.1",

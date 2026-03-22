@@ -36,6 +36,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
+import { ImportTemplateService } from './import-template.service';
 import { ImportService } from './import.service';
 
 interface UploadedFileShape {
@@ -51,10 +52,33 @@ const templateQuerySchema = z.object({
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+/** MIME types accepted for import uploads (CSV and XLSX). */
+const ACCEPTED_MIMES = [
+  'text/csv',
+  'application/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
+/** File extensions accepted for import uploads. */
+const ACCEPTED_EXTENSIONS = ['.csv', '.xlsx'];
+
+function hasAcceptedExtension(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+function hasAcceptedMime(mimetype: string): boolean {
+  return ACCEPTED_MIMES.some((m) => mimetype.includes(m));
+}
+
 @Controller('v1/imports')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ImportController {
-  constructor(private readonly importService: ImportService) {}
+  constructor(
+    private readonly importService: ImportService,
+    private readonly importTemplateService: ImportTemplateService,
+  ) {}
 
   @Post('upload')
   @RequiresPermission('settings.manage')
@@ -69,14 +93,14 @@ export class ImportController {
     if (!file) {
       throw new BadRequestException({
         code: 'FILE_REQUIRED',
-        message: 'A CSV file must be uploaded',
+        message: 'A file must be uploaded (.csv or .xlsx)',
       });
     }
 
-    if (!file.mimetype.includes('csv') && !file.originalname.endsWith('.csv')) {
+    if (!hasAcceptedMime(file.mimetype) && !hasAcceptedExtension(file.originalname)) {
       throw new BadRequestException({
         code: 'INVALID_FILE_TYPE',
-        message: 'Only CSV files are accepted',
+        message: 'Only CSV (.csv) and Excel (.xlsx) files are accepted',
       });
     }
 
@@ -113,12 +137,16 @@ export class ImportController {
     query: z.infer<typeof templateQuerySchema>,
     @Res() res: Response,
   ) {
-    const csv = this.importService.getTemplate(query.import_type as ImportType);
-    const filename = `${query.import_type}_template.csv`;
+    const importType = query.import_type as ImportType;
+    const buffer = await this.importTemplateService.generateTemplate(importType);
+    const filename = `${query.import_type}_import_template.xlsx`;
 
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(csv);
+    res.send(buffer);
   }
 
   @Get(':id')

@@ -11,15 +11,6 @@ import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
-const TEMPLATE_HEADERS: Record<ImportType, string> = {
-  students: 'first_name,last_name,middle_name,date_of_birth,gender,year_group_name,class_name,entry_date,student_number,nationality,medical_notes,allergies,dietary_requirements,parent1_first_name,parent1_last_name,parent1_email,parent1_phone,parent1_relationship,parent2_first_name,parent2_last_name,parent2_email,parent2_phone,parent2_relationship,household_name,address_line1,address_line2,city,country,postal_code',
-  parents: 'first_name,last_name,email,phone,relationship,household_name',
-  staff: 'first_name,last_name,email,phone,job_title,staff_number,department,employment_type,start_date',
-  fees: 'household_name,fee_structure_name,amount,discount_pct,billing_period,due_date',
-  exam_results: 'student_number,student_name,subject,assessment_name,score,max_score,grade,term',
-  staff_compensation: 'staff_number,staff_name,compensation_type,amount,effective_from,effective_to,currency',
-};
-
 @Injectable()
 export class ImportService {
   private readonly logger = new Logger(ImportService.name);
@@ -31,7 +22,7 @@ export class ImportService {
   ) {}
 
   /**
-   * Upload a CSV file to S3 and create an import_job record.
+   * Upload a CSV or XLSX file to S3 and create an import_job record.
    * Enqueues an `imports:validate` job for async validation.
    */
   async upload(
@@ -41,6 +32,12 @@ export class ImportService {
     fileName: string,
     importType: ImportType,
   ) {
+    // Determine file extension for S3 key and mime type
+    const ext = fileName.toLowerCase().endsWith('.xlsx') ? 'xlsx' : 'csv';
+    const mimeType = ext === 'xlsx'
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'text/csv';
+
     // Create the job record first to get the ID
     const job = await this.prisma.importJob.create({
       data: {
@@ -52,13 +49,13 @@ export class ImportService {
       },
     });
 
-    // Upload CSV to S3 at {tenantId}/imports/{jobId}.csv
-    const s3Key = `imports/${job.id}.csv`;
+    // Upload file to S3 at {tenantId}/imports/{jobId}.{ext}
+    const s3Key = `imports/${job.id}.${ext}`;
     const fullKey = await this.s3Service.upload(
       tenantId,
       s3Key,
       fileBuffer,
-      'text/csv',
+      mimeType,
     );
 
     // Update the job with the file key
@@ -173,7 +170,7 @@ export class ImportService {
     if (totalRows > 0 && failedRows >= totalRows) {
       throw new BadRequestException({
         code: 'ALL_ROWS_FAILED',
-        message: 'All rows have validation errors. Fix the CSV and re-upload.',
+        message: 'All rows have validation errors. Fix the file and re-upload.',
       });
     }
 
@@ -197,21 +194,6 @@ export class ImportService {
     this.logger.log(`Import job ${jobId} confirmed for processing`);
 
     return this.serializeJob(updatedJob);
-  }
-
-  /**
-   * Return CSV template string with headers for the given import type.
-   */
-  getTemplate(importType: ImportType): string {
-    const headers = TEMPLATE_HEADERS[importType];
-    if (!headers) {
-      throw new BadRequestException({
-        code: 'INVALID_IMPORT_TYPE',
-        message: `Unknown import type: "${importType}"`,
-      });
-    }
-    // Return headers row followed by a newline (ready for data entry)
-    return headers + '\n';
   }
 
   private serializeJob(job: Record<string, unknown>): Record<string, unknown> {
