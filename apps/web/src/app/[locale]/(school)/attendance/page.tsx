@@ -2,6 +2,13 @@
 
 import {
   Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -79,8 +86,8 @@ export default function AttendancePage() {
         const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
         if (cls !== 'all') params.set('class_id', cls);
         if (status !== 'all') params.set('status', status);
-        if (from) params.set('date_from', from);
-        if (to) params.set('date_to', to);
+        if (from) params.set('start_date', from);
+        if (to) params.set('end_date', to);
         const res = await apiClient<SessionsResponse>(`/api/v1/attendance-sessions?${params.toString()}`);
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
@@ -98,15 +105,30 @@ export default function AttendancePage() {
     void fetchSessions(page, classFilter, statusFilter, dateFrom, dateTo);
   }, [page, classFilter, statusFilter, dateFrom, dateTo, fetchSessions]);
 
-  const handleCreateSession = async () => {
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createClassId, setCreateClassId] = React.useState('');
+  const [createDate, setCreateDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState('');
+
+  const handleCreateSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createClassId) { setCreateError(t('selectClassRequired')); return; }
+    if (!createDate) { setCreateError(t('selectDateRequired')); return; }
+    setCreateLoading(true);
+    setCreateError('');
     try {
       const res = await apiClient<{ data: { id: string } }>('/api/v1/attendance-sessions', {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ class_id: createClassId, session_date: createDate }),
       });
+      setCreateOpen(false);
       router.push(`/${locale}/attendance/mark/${res.data.id}`);
-    } catch {
-      router.push(`/${locale}/attendance`);
+    } catch (err: unknown) {
+      const ex = err as { error?: { message?: string } };
+      setCreateError(ex?.error?.message ?? tc('errorGeneric'));
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -206,7 +228,7 @@ export default function AttendancePage() {
       <PageHeader
         title={t('title')}
         actions={
-          <Button onClick={handleCreateSession}>
+          <Button onClick={() => { setCreateOpen(true); setCreateError(''); setCreateClassId(''); }}>
             <Plus className="me-2 h-4 w-4" />
             {t('createSession')}
           </Button>
@@ -223,6 +245,47 @@ export default function AttendancePage() {
         keyExtractor={(row) => row.id}
         isLoading={isLoading}
       />
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('createSession')}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateSession} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>{t('sessionClass')}</Label>
+              <Select value={createClassId} onValueChange={setCreateClassId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('selectClass')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('sessionDate')}</Label>
+              <Input
+                type="date"
+                value={createDate}
+                onChange={(e) => setCreateDate(e.target.value)}
+                required
+              />
+            </div>
+            {createError && <p className="text-sm text-danger-text">{createError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>
+                {tc('cancel')}
+              </Button>
+              <Button type="submit" disabled={createLoading}>
+                {createLoading ? tc('loading') : t('createSession')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

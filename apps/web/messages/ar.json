@@ -48,6 +48,7 @@
     "overview": "نظرة عامة",
     "people": "الأشخاص",
     "academics": "الأكاديمية",
+    "assessmentRecords": "التقييم والسجلات",
     "operations": "العمليات",
     "school": "المدرسة",
     "scheduling": "الجدولة",
@@ -1823,7 +1824,11 @@
     "enrolledCount": "المقيّدون",
     "pendingSubmissions": "الإرسالات المعلقة",
     "todaysSchedule": "جدول اليوم",
-    "todaysSessions": "جلسات اليوم"
+    "todaysSessions": "جلسات اليوم",
+    "sessionClass": "الفصل",
+    "selectClass": "اختر فصلاً...",
+    "selectClassRequired": "يرجى اختيار فصل",
+    "selectDateRequired": "يرجى اختيار تاريخ"
   },
   "gradebook": {
     "title": "سجل الدرجات",

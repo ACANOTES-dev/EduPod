@@ -106,6 +106,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: BookOpen, labelKey: 'nav.classes', href: '/classes' },
       { icon: LayoutGrid, labelKey: 'nav.subjects', href: '/subjects', roles: ADMIN_ROLES },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
+    ],
+  },
+  {
+    labelKey: 'nav.assessmentRecords',
+    roles: STAFF_ROLES,
+    items: [
       { icon: ClipboardCheck, labelKey: 'nav.attendance', href: '/attendance' },
       { icon: ClipboardList, labelKey: 'nav.gradebook', href: '/gradebook' },
       { icon: FileText, labelKey: 'nav.reportCards', href: '/report-cards', roles: ADMIN_ROLES },

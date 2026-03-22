@@ -48,6 +48,7 @@
     "overview": "Overview",
     "people": "People",
     "academics": "Academics",
+    "assessmentRecords": "Assessment & Records",
     "operations": "Operations",
     "school": "School",
     "scheduling": "Scheduling",
@@ -1819,7 +1820,11 @@
     "enrolledCount": "Enrolled",
     "pendingSubmissions": "Pending Submissions",
     "todaysSchedule": "Today's Schedule",
-    "todaysSessions": "Today's Sessions"
+    "todaysSessions": "Today's Sessions",
+    "sessionClass": "Class",
+    "selectClass": "Select a class...",
+    "selectClassRequired": "Please select a class",
+    "selectDateRequired": "Please select a date"
   },
   "gradebook": {
     "title": "Gradebook",

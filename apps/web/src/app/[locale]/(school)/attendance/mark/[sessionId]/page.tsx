@@ -34,9 +34,19 @@ interface StudentRecord {
   reason: string;
 }
 
-interface SessionResponse {
-  data: SessionDetail;
-  records: StudentRecord[];
+/** Shape returned by GET /api/v1/attendance-sessions/:id (wrapped in { data: ... } by interceptor) */
+interface ApiSession {
+  id: string;
+  session_date: string;
+  status: string;
+  class_entity: { id: string; name: string } | null;
+  records: Array<{
+    id: string;
+    student: { id: string; first_name: string; last_name: string };
+    status: string;
+    reason: string | null;
+  }>;
+  enrolled_students: Array<{ id: string; first_name: string; last_name: string }>;
 }
 
 const ATTENDANCE_STATUSES = [
@@ -65,10 +75,45 @@ export default function MarkAttendancePage() {
 
   React.useEffect(() => {
     if (!sessionId) return;
-    apiClient<{ data: SessionResponse }>(`/api/v1/attendance-sessions/${sessionId}`)
+    apiClient<{ data: ApiSession }>(`/api/v1/attendance-sessions/${sessionId}`)
       .then((res) => {
-        setSession(res.data.data);
-        setRecords(res.data.records ?? []);
+        const s = res.data;
+        // Map API shape to frontend SessionDetail
+        setSession({
+          id: s.id,
+          date: s.session_date,
+          status: s.status,
+          class: s.class_entity ?? { id: '', name: '—' },
+        });
+
+        // Build student records: merge existing records + enrolled students without records
+        const existingMap = new Map(
+          (s.records ?? []).map((r) => [
+            r.student.id,
+            {
+              id: r.id,
+              student_id: r.student.id,
+              student_name: `${r.student.first_name} ${r.student.last_name}`,
+              status: r.status,
+              reason: r.reason ?? '',
+            },
+          ]),
+        );
+
+        // Add enrolled students who don't have a record yet (default to present)
+        for (const student of s.enrolled_students ?? []) {
+          if (!existingMap.has(student.id)) {
+            existingMap.set(student.id, {
+              id: '',
+              student_id: student.id,
+              student_name: `${student.first_name} ${student.last_name}`,
+              status: 'present',
+              reason: '',
+            });
+          }
+        }
+
+        setRecords(Array.from(existingMap.values()));
       })
       .catch(() => setError('Failed to load session'))
       .finally(() => setLoading(false));
