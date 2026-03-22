@@ -48,7 +48,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
     const fetchFees = async () => {
       dispatch({ type: 'SET_LOADING', loading: true });
       try {
-        const res = await apiClient<FeePreviewResult>(
+        const res = await apiClient<{ data: FeePreviewResult }>(
           '/api/v1/registration/family/preview-fees',
           {
             method: 'POST',
@@ -57,7 +57,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
             }),
           },
         );
-        dispatch({ type: 'SET_FEE_PREVIEW', preview: res });
+        dispatch({ type: 'SET_FEE_PREVIEW', preview: res.data });
       } catch {
         dispatch({ type: 'SET_ERROR', error: 'Failed to load fee preview' });
       } finally {
