@@ -140,9 +140,16 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         }
       }
 
+      const cleanParent = (p: typeof state.primaryParent) => ({
+        ...p,
+        email: p.email || undefined,
+      });
+
       const dto = {
-        primary_parent: state.primaryParent,
-        secondary_parent: state.showSecondaryParent ? state.secondaryParent : undefined,
+        primary_parent: cleanParent(state.primaryParent),
+        secondary_parent: state.showSecondaryParent && state.secondaryParent
+          ? cleanParent(state.secondaryParent)
+          : undefined,
         household: state.household,
         emergency_contacts: state.emergencyContacts,
         students: state.students.map((s) => ({
