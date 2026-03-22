@@ -31,28 +31,32 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface GradingScale {
-  id: string;
-  name: string;
-  scale_type: string;
-  config: Record<string, unknown>;
-  in_use: boolean;
-}
-
-interface GradingScalesResponse {
-  data: GradingScale[];
-  meta: { page: number; pageSize: number; total: number };
-}
-
 interface ScaleRange {
   min: number;
   max: number;
   label: string;
 }
 
-interface ScaleLabel {
-  key: string;
+interface ScaleGrade {
   label: string;
+  numeric_value?: number;
+}
+
+interface GradingScale {
+  id: string;
+  name: string;
+  config_json: {
+    type: string;
+    ranges?: ScaleRange[];
+    grades?: ScaleGrade[];
+    passing_threshold?: number;
+  };
+  is_in_use?: boolean;
+}
+
+interface GradingScalesResponse {
+  data: GradingScale[];
+  meta: { page: number; pageSize: number; total: number };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -79,9 +83,9 @@ export default function GradingScalesPage() {
     { min: 0, max: 59, label: 'F' },
     { min: 60, max: 100, label: 'A' },
   ]);
-  const [labels, setLabels] = React.useState<ScaleLabel[]>([
-    { key: 'excellent', label: 'Excellent' },
-    { key: 'good', label: 'Good' },
+  const [grades, setGrades] = React.useState<ScaleGrade[]>([
+    { label: 'Excellent' },
+    { label: 'Good' },
   ]);
 
   const fetchScales = React.useCallback(async (p: number) => {
@@ -110,9 +114,9 @@ export default function GradingScalesPage() {
       { min: 0, max: 59, label: 'F' },
       { min: 60, max: 100, label: 'A' },
     ]);
-    setLabels([
-      { key: 'excellent', label: 'Excellent' },
-      { key: 'good', label: 'Good' },
+    setGrades([
+      { label: 'Excellent' },
+      { label: 'Good' },
     ]);
   }, []);
 
@@ -125,28 +129,28 @@ export default function GradingScalesPage() {
   const openEdit = React.useCallback((scale: GradingScale) => {
     setEditTarget(scale);
     setName(scale.name);
-    setScaleType(scale.scale_type);
-    const cfg = scale.config;
-    if (scale.scale_type === 'numeric' && Array.isArray(cfg.ranges)) {
-      setRanges(cfg.ranges as ScaleRange[]);
-    } else if (Array.isArray(cfg.labels)) {
-      setLabels(cfg.labels as ScaleLabel[]);
+    const cfg = scale.config_json;
+    setScaleType(cfg.type);
+    if (cfg.type === 'numeric' && Array.isArray(cfg.ranges)) {
+      setRanges(cfg.ranges);
+    } else if (Array.isArray(cfg.grades)) {
+      setGrades(cfg.grades);
     }
     setDialogOpen(true);
   }, []);
 
-  const buildConfig = React.useCallback(() => {
+  const buildConfigJson = React.useCallback(() => {
     if (scaleType === 'numeric') {
-      return { ranges };
+      return { type: scaleType, ranges };
     }
-    return { labels };
-  }, [scaleType, ranges, labels]);
+    return { type: scaleType, grades };
+  }, [scaleType, ranges, grades]);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const body = { name: name.trim(), scale_type: scaleType, config: buildConfig() };
+      const body = { name: name.trim(), config_json: buildConfigJson() };
       if (editTarget) {
         await apiClient(`/api/v1/gradebook/grading-scales/${editTarget.id}`, {
           method: 'PATCH',
@@ -168,7 +172,7 @@ export default function GradingScalesPage() {
   };
 
   const handleDelete = async (scale: GradingScale) => {
-    if (scale.in_use) return;
+    if (scale.is_in_use) return;
     try {
       await apiClient(`/api/v1/gradebook/grading-scales/${scale.id}`, { method: 'DELETE' });
       void fetchScales(page);
@@ -195,17 +199,17 @@ export default function GradingScalesPage() {
     );
   };
 
-  const addLabel = () => {
-    setLabels((prev) => [...prev, { key: '', label: '' }]);
+  const addGrade = () => {
+    setGrades((prev) => [...prev, { label: '' }]);
   };
 
-  const removeLabel = (idx: number) => {
-    setLabels((prev) => prev.filter((_, i) => i !== idx));
+  const removeGrade = (idx: number) => {
+    setGrades((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const updateLabel = (idx: number, field: keyof ScaleLabel, value: string) => {
-    setLabels((prev) =>
-      prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)),
+  const updateGrade = (idx: number, value: string) => {
+    setGrades((prev) =>
+      prev.map((g, i) => (i === idx ? { ...g, label: value } : g)),
     );
   };
 
@@ -221,14 +225,14 @@ export default function GradingScalesPage() {
       key: 'type',
       header: 'Type',
       render: (row: GradingScale) => (
-        <span className="text-text-secondary capitalize">{row.scale_type}</span>
+        <span className="text-text-secondary capitalize">{row.config_json.type}</span>
       ),
     },
     {
       key: 'in_use',
       header: 'Status',
       render: (row: GradingScale) =>
-        row.in_use ? (
+        row.is_in_use ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -262,7 +266,7 @@ export default function GradingScalesPage() {
           <Button
             variant="ghost"
             size="sm"
-            disabled={row.in_use}
+            disabled={row.is_in_use}
             onClick={(e) => {
               e.stopPropagation();
               void handleDelete(row);
@@ -379,31 +383,25 @@ export default function GradingScalesPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Labels</Label>
-                  <Button variant="ghost" size="sm" onClick={addLabel}>
+                  <Label>Grades</Label>
+                  <Button variant="ghost" size="sm" onClick={addGrade}>
                     <Plus className="me-1 h-3 w-3" />
                     Add
                   </Button>
                 </div>
-                {labels.map((l, idx) => (
+                {grades.map((g, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <Input
-                      value={l.key}
-                      onChange={(e) => updateLabel(idx, 'key', e.target.value)}
-                      className="w-32"
-                      placeholder="Key"
-                    />
-                    <Input
-                      value={l.label}
-                      onChange={(e) => updateLabel(idx, 'label', e.target.value)}
+                      value={g.label}
+                      onChange={(e) => updateGrade(idx, e.target.value)}
                       className="flex-1"
-                      placeholder="Display label"
+                      placeholder="Grade label (e.g. Excellent)"
                     />
-                    {labels.length > 1 && (
+                    {grades.length > 1 && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeLabel(idx)}
+                        onClick={() => removeGrade(idx)}
                       >
                         <Trash2 className="h-3.5 w-3.5 text-danger-text" />
                       </Button>

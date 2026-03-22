@@ -31,7 +31,7 @@ interface AssessmentCategory {
 
 interface CategoriesResponse {
   data: AssessmentCategory[];
-  meta: { page: number; pageSize: number; total: number };
+  meta?: { page: number; pageSize: number; total: number };
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export default function AssessmentCategoriesPage() {
   const handleSave = async () => {
     if (!name.trim()) return;
     const weight = Number(defaultWeight);
-    if (Number.isNaN(weight) || weight < 0 || weight > 100) return;
+    if (Number.isNaN(weight) || weight <= 0 || weight > 100) return;
     setSaving(true);
     try {
       const body = { name: name.trim(), default_weight: weight };

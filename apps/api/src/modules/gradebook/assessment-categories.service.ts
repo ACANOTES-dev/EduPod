@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { type AssessmentCategory, Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,7 +21,7 @@ export class AssessmentCategoriesService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     try {
-      return await prismaWithRls.$transaction(async (tx) => {
+      const result = await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
         return db.assessmentCategory.create({
@@ -32,6 +32,8 @@ export class AssessmentCategoriesService {
           },
         });
       });
+      const cat = result as AssessmentCategory;
+      return { ...cat, default_weight: Number(cat.default_weight) };
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -61,6 +63,7 @@ export class AssessmentCategoriesService {
 
     const data = categories.map(({ _count, ...cat }) => ({
       ...cat,
+      default_weight: Number(cat.default_weight),
       in_use: _count.assessments > 0,
     }));
 
@@ -82,7 +85,10 @@ export class AssessmentCategoriesService {
       });
     }
 
-    return category;
+    return {
+      ...category,
+      default_weight: Number(category.default_weight),
+    };
   }
 
   /**
@@ -104,7 +110,7 @@ export class AssessmentCategoriesService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     try {
-      return await prismaWithRls.$transaction(async (tx) => {
+      const result = await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
         const updateData: Prisma.AssessmentCategoryUpdateInput = {};
@@ -120,6 +126,8 @@ export class AssessmentCategoriesService {
           data: updateData,
         });
       });
+      const cat = result as AssessmentCategory;
+      return { ...cat, default_weight: Number(cat.default_weight) };
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&

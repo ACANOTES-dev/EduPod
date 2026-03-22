@@ -85,7 +85,7 @@ export default function AcademicYearsPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      await apiClient(`/api/v1/academic-years/${id}`, {
+      await apiClient(`/api/v1/academic-years/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
