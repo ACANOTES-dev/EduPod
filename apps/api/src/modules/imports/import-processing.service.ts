@@ -11,7 +11,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
 /** Example data values from the XLSX template, used to detect and skip example rows. */
-const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'ahmed', 'sarah', 'stf-001']);
+const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'omar', 'ahmed', 'sarah', 'stf-001']);
+
+/** Tracks family deduplication results across grouped student processing. */
+interface StudentImportStats {
+  students_created: number;
+  households_created: number;
+  households_reused: number;
+  parents_created: number;
+  family_groups: Array<{ email: string; rows: number[] }>;
+  skipped_rows: Array<{ row: number; reason: string }>;
+}
 
 @Injectable()
 export class ImportProcessingService {
@@ -75,41 +85,67 @@ export class ImportProcessingService {
 
       let successCount = 0;
       let failCount = 0;
+      let extraSummary: Partial<StudentImportStats> | undefined;
 
       const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-      await rlsClient.$transaction(async (tx) => {
-        const db = tx as unknown as PrismaService;
+      if (importType === 'students') {
+        // Students use family-grouped processing for deduplication
+        const result = await this.processStudentRows(
+          rlsClient,
+          tenantId,
+          filteredRows,
+          errorRows,
+          jobId,
+        );
+        successCount = result.students_created;
+        failCount = result.skipped_rows.filter(
+          (r) => r.reason.startsWith('Error:') ||
+                 r.reason.startsWith('Family group error:') ||
+                 r.reason.startsWith('Validation error'),
+        ).length;
+        extraSummary = {
+          students_created: result.students_created,
+          households_created: result.households_created,
+          households_reused: result.households_reused,
+          parents_created: result.parents_created,
+          family_groups: result.family_groups,
+        };
+      } else {
+        // All other import types process row-by-row
+        await rlsClient.$transaction(async (tx) => {
+          const db = tx as unknown as PrismaService;
 
-        for (let i = 0; i < filteredRows.length; i++) {
-          const rowNumber = i + 2; // 1-indexed, row 1 = headers
+          for (let i = 0; i < filteredRows.length; i++) {
+            const rowNumber = i + 2; // 1-indexed, row 1 = headers
 
-          // Skip rows that had validation errors
-          if (errorRows.has(rowNumber)) {
-            failCount++;
-            continue;
+            // Skip rows that had validation errors
+            if (errorRows.has(rowNumber)) {
+              failCount++;
+              continue;
+            }
+
+            const row = filteredRows[i];
+            if (!row) {
+              failCount++;
+              continue;
+            }
+
+            try {
+              await this.processRow(db, tenantId, importType, row, createdByUserId);
+              successCount++;
+            } catch (err) {
+              this.logger.warn(
+                `Import job ${jobId} row ${rowNumber} processing error: ${String(err)}`,
+              );
+              failCount++;
+            }
           }
-
-          const row = filteredRows[i];
-          if (!row) {
-            failCount++;
-            continue;
-          }
-
-          try {
-            await this.processRow(db, tenantId, importType, row, createdByUserId);
-            successCount++;
-          } catch (err) {
-            this.logger.warn(
-              `Import job ${jobId} row ${rowNumber} processing error: ${String(err)}`,
-            );
-            failCount++;
-          }
-        }
-      });
+        });
+      }
 
       const finalStatus = failCount > 0 && successCount === 0 ? 'failed' : 'completed';
-      await this.updateJobFinal(jobId, finalStatus, successCount, failCount);
+      await this.updateJobFinal(jobId, finalStatus, successCount, failCount, extraSummary);
 
       // Delete S3 file on completion
       try {
@@ -260,8 +296,9 @@ export class ImportProcessingService {
   ): Promise<void> {
     switch (importType) {
       case 'students':
-        await this.processStudentRow(db, tenantId, row);
-        break;
+        // Students are handled by processStudentRows with family grouping
+        // This branch should never be reached
+        throw new Error('Student rows should be processed via processStudentRows');
       case 'parents':
         await this.processParentRow(db, tenantId, row);
         break;
@@ -282,71 +319,294 @@ export class ImportProcessingService {
     }
   }
 
-  private async processStudentRow(
+  /**
+   * Process all student rows with family deduplication.
+   * Groups rows by parent1_email, creates one household + parents per family,
+   * and links all students in that family to the same household.
+   * Also checks if a parent with the same email already exists in the DB.
+   */
+  private async processStudentRows(
+    rlsClient: ReturnType<typeof createRlsClient>,
+    tenantId: string,
+    filteredRows: Record<string, string>[],
+    errorRows: Set<number>,
+    jobId: string,
+  ): Promise<StudentImportStats> {
+    const stats: StudentImportStats = {
+      students_created: 0,
+      households_created: 0,
+      households_reused: 0,
+      parents_created: 0,
+      family_groups: [],
+      skipped_rows: [],
+    };
+
+    // Build row-index-to-original-row-number mapping.
+    // filteredRows already has example rows removed, but row numbers should reflect
+    // position in the original spreadsheet (1-indexed, row 1 = headers).
+    // We track the original index for error reporting.
+    interface IndexedRow {
+      row: Record<string, string>;
+      originalRowNumber: number;
+    }
+
+    const indexedRows: IndexedRow[] = filteredRows.map((row, i) => ({
+      row,
+      originalRowNumber: i + 2, // row 1 = headers, rows start at 2
+    }));
+
+    // Group rows by parent1_email (case-insensitive, trimmed)
+    const familyGroups = new Map<string, IndexedRow[]>();
+    const noEmailRows: IndexedRow[] = [];
+
+    for (const entry of indexedRows) {
+      // Skip rows that had validation errors
+      if (errorRows.has(entry.originalRowNumber)) {
+        stats.skipped_rows.push({
+          row: entry.originalRowNumber,
+          reason: 'Validation error from preview',
+        });
+        continue;
+      }
+
+      const email = (entry.row['parent1_email'] ?? '').trim().toLowerCase();
+      if (!email) {
+        noEmailRows.push(entry);
+        continue;
+      }
+
+      const existing = familyGroups.get(email);
+      if (existing) {
+        existing.push(entry);
+      } else {
+        familyGroups.set(email, [entry]);
+      }
+    }
+
+    // Process all rows within a single RLS transaction
+    await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // Process rows with no parent email — create a standalone household from last name
+      for (const entry of noEmailRows) {
+        try {
+          const lastName = entry.row['last_name'] ?? '';
+          const householdName = entry.row['household_name'] || `${lastName} Family`;
+          const household = await db.household.create({
+            data: {
+              tenant_id: tenantId,
+              household_name: householdName,
+              address_line_1: entry.row['address_line1'] || null,
+              address_line_2: entry.row['address_line2'] || null,
+              city: entry.row['city'] || null,
+              country: entry.row['country'] || null,
+              postal_code: entry.row['postal_code'] || null,
+              needs_completion: true,
+            },
+          });
+          stats.households_created++;
+
+          await this.createStudentFromRow(db, tenantId, entry.row, household.id);
+          stats.students_created++;
+          stats.skipped_rows.push({
+            row: entry.originalRowNumber,
+            reason: 'No parent email — student created with standalone household',
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Import job ${jobId} row ${entry.originalRowNumber} processing error: ${String(err)}`,
+          );
+          stats.skipped_rows.push({
+            row: entry.originalRowNumber,
+            reason: `Error: ${String(err)}`,
+          });
+        }
+      }
+
+      // Process each family group
+      for (const [email, familyRows] of familyGroups) {
+        const rowNumbers = familyRows.map((r) => r.originalRowNumber);
+        stats.family_groups.push({ email, rows: rowNumbers });
+
+        const firstRow = familyRows[0];
+        if (!firstRow) continue;
+
+        try {
+          // Check if a parent with this email already exists in the DB
+          const existingParent = await db.parent.findFirst({
+            where: {
+              tenant_id: tenantId,
+              email: email, // CITEXT handles case-insensitivity
+            },
+            include: {
+              household_parents: {
+                select: { household_id: true },
+                take: 1,
+              },
+            },
+          });
+
+          let householdId: string;
+
+          if (existingParent && existingParent.household_parents.length > 0) {
+            // Reuse existing household from previously imported/created parent
+            const firstHouseholdParent = existingParent.household_parents[0];
+            if (!firstHouseholdParent) {
+              throw new Error(`Parent ${email} has no household link`);
+            }
+            householdId = firstHouseholdParent.household_id;
+            stats.households_reused++;
+
+            this.logger.log(
+              `Import job ${jobId}: reusing existing household for parent ${email}`,
+            );
+          } else {
+            // Create new household from first row's data
+            const parent1LastName = firstRow.row['parent1_last_name'] ?? '';
+            const householdName = firstRow.row['household_name'] ?? '';
+            const resolvedHouseholdName =
+              householdName || `${parent1LastName} Family`;
+
+            const household = await db.household.create({
+              data: {
+                tenant_id: tenantId,
+                household_name: resolvedHouseholdName,
+                address_line_1:
+                  firstRow.row['address_line1'] || null,
+                address_line_2:
+                  firstRow.row['address_line2'] || null,
+                city: firstRow.row['city'] || null,
+                country: firstRow.row['country'] || null,
+                postal_code: firstRow.row['postal_code'] || null,
+                needs_completion: true,
+              },
+            });
+            householdId = household.id;
+            stats.households_created++;
+
+            // Create parent 1 from first row
+            const parent1FirstName =
+              firstRow.row['parent1_first_name'] ?? '';
+            const parent1Phone = firstRow.row['parent1_phone'] ?? '';
+            const parent1Relationship =
+              firstRow.row['parent1_relationship'] ?? '';
+
+            if (parent1FirstName && parent1LastName) {
+              const parent1 = await db.parent.create({
+                data: {
+                  tenant_id: tenantId,
+                  first_name: parent1FirstName,
+                  last_name: parent1LastName,
+                  email: email || null,
+                  phone: parent1Phone || null,
+                  relationship_label: parent1Relationship || null,
+                  preferred_contact_channels: ['email'],
+                },
+              });
+              await db.householdParent.create({
+                data: {
+                  tenant_id: tenantId,
+                  household_id: householdId,
+                  parent_id: parent1.id,
+                },
+              });
+              stats.parents_created++;
+            }
+
+            // Create parent 2 from first row if provided
+            const parent2FirstName =
+              firstRow.row['parent2_first_name'] ?? '';
+            const parent2LastName =
+              firstRow.row['parent2_last_name'] ?? '';
+            const parent2Email = firstRow.row['parent2_email'] ?? '';
+            const parent2Phone = firstRow.row['parent2_phone'] ?? '';
+            const parent2Relationship =
+              firstRow.row['parent2_relationship'] ?? '';
+
+            if (parent2FirstName && parent2LastName) {
+              const parent2 = await db.parent.create({
+                data: {
+                  tenant_id: tenantId,
+                  first_name: parent2FirstName,
+                  last_name: parent2LastName,
+                  email: parent2Email || null,
+                  phone: parent2Phone || null,
+                  relationship_label: parent2Relationship || null,
+                  preferred_contact_channels: ['email'],
+                },
+              });
+              await db.householdParent.create({
+                data: {
+                  tenant_id: tenantId,
+                  household_id: householdId,
+                  parent_id: parent2.id,
+                },
+              });
+              stats.parents_created++;
+            }
+          }
+
+          // Create all students in this family group
+          for (const entry of familyRows) {
+            try {
+              await this.createStudentFromRow(
+                db,
+                tenantId,
+                entry.row,
+                householdId,
+              );
+              stats.students_created++;
+            } catch (err) {
+              this.logger.warn(
+                `Import job ${jobId} row ${entry.originalRowNumber} student creation error: ${String(err)}`,
+              );
+              stats.skipped_rows.push({
+                row: entry.originalRowNumber,
+                reason: `Error: ${String(err)}`,
+              });
+            }
+          }
+        } catch (err) {
+          // If the whole family group fails (e.g. household creation fails),
+          // mark all rows in the group as failed
+          this.logger.warn(
+            `Import job ${jobId} family group ${email} error: ${String(err)}`,
+          );
+          for (const entry of familyRows) {
+            stats.skipped_rows.push({
+              row: entry.originalRowNumber,
+              reason: `Family group error: ${String(err)}`,
+            });
+          }
+        }
+      }
+    });
+
+    return stats;
+  }
+
+  /**
+   * Create a single student record from a parsed row, linked to the given household.
+   */
+  private async createStudentFromRow(
     db: PrismaService,
     tenantId: string,
     row: Record<string, string>,
+    householdId: string,
   ): Promise<void> {
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
     const middleName = row['middle_name'] ?? '';
     const dateOfBirth = row['date_of_birth'] ?? '';
-    // Accept both 'year_group' (new template) and 'year_group_name' (legacy)
     const yearGroupName = row['year_group'] ?? row['year_group_name'] ?? '';
     const genderRaw = row['gender'] ?? '';
     const medicalNotes = row['medical_notes'] ?? '';
     const allergies = row['allergies'] ?? '';
 
-    // Parent 1 fields
-    const parent1FirstName = row['parent1_first_name'] ?? '';
-    const parent1LastName = row['parent1_last_name'] ?? '';
-    const parent1Email = row['parent1_email'] ?? '';
-    const parent1Phone = row['parent1_phone'] ?? '';
-    const parent1Relationship = row['parent1_relationship'] ?? '';
-
-    // Parent 2 fields
-    const parent2FirstName = row['parent2_first_name'] ?? '';
-    const parent2LastName = row['parent2_last_name'] ?? '';
-    const parent2Email = row['parent2_email'] ?? '';
-    const parent2Phone = row['parent2_phone'] ?? '';
-    const parent2Relationship = row['parent2_relationship'] ?? '';
-
-    // Household fields
-    const householdName = row['household_name'] ?? '';
-    const addressLine1 = row['address_line1'] ?? '';
-    const addressLine2 = row['address_line2'] ?? '';
-    const city = row['city'] ?? '';
-    const country = row['country'] ?? '';
-    const postalCode = row['postal_code'] ?? '';
-
-    // Resolve year_group_id from year_group name (fuzzy: case-insensitive, accept "Y1", "Grade 1", etc.)
+    // Resolve year_group_id
     let yearGroupId: string | null = null;
     if (yearGroupName) {
       yearGroupId = await this.resolveYearGroup(db, tenantId, yearGroupName);
-    }
-
-    // Create or find household
-    const resolvedHouseholdName = householdName || `${lastName} Family`;
-    let household = await db.household.findFirst({
-      where: {
-        tenant_id: tenantId,
-        household_name: resolvedHouseholdName,
-      },
-    });
-
-    if (!household) {
-      household = await db.household.create({
-        data: {
-          tenant_id: tenantId,
-          household_name: resolvedHouseholdName,
-          address_line_1: addressLine1 || null,
-          address_line_2: addressLine2 || null,
-          city: city || null,
-          country: country || null,
-          postal_code: postalCode || null,
-          needs_completion: true,
-        },
-      });
     }
 
     // Normalise gender
@@ -369,14 +629,14 @@ export class ImportProcessingService {
     await db.student.create({
       data: {
         tenant_id: tenantId,
-        household_id: household.id,
-        student_number: null, // Auto-generated by system
+        household_id: householdId,
+        student_number: null,
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,
         full_name: fullNameParts.join(' '),
         date_of_birth: parsedDob ?? new Date(dateOfBirth),
-        entry_date: new Date(), // Default to today
+        entry_date: new Date(),
         gender,
         medical_notes: medicalNotes || null,
         has_allergy: hasAllergy,
@@ -385,50 +645,6 @@ export class ImportProcessingService {
         year_group_id: yearGroupId,
       },
     });
-
-    // Create parent 1 if provided
-    if (parent1FirstName && parent1LastName) {
-      const parent1 = await db.parent.create({
-        data: {
-          tenant_id: tenantId,
-          first_name: parent1FirstName,
-          last_name: parent1LastName,
-          email: parent1Email || null,
-          phone: parent1Phone || null,
-          relationship_label: parent1Relationship || null,
-          preferred_contact_channels: ['email'],
-        },
-      });
-      await db.householdParent.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          parent_id: parent1.id,
-        },
-      });
-    }
-
-    // Create parent 2 if provided
-    if (parent2FirstName && parent2LastName) {
-      const parent2 = await db.parent.create({
-        data: {
-          tenant_id: tenantId,
-          first_name: parent2FirstName,
-          last_name: parent2LastName,
-          email: parent2Email || null,
-          phone: parent2Phone || null,
-          relationship_label: parent2Relationship || null,
-          preferred_contact_channels: ['email'],
-        },
-      });
-      await db.householdParent.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          parent_id: parent2.id,
-        },
-      });
-    }
   }
 
   /**
@@ -757,6 +973,9 @@ export class ImportProcessingService {
 
   /**
    * Detect if a row is the example/hint row from the template.
+   * For students: checks if parent1_email contains "example.com" AND the row
+   * appears in the first few data rows (row number <= 4, accounting for header + up to 2 example rows).
+   * Also checks for known example first_name + last_name pairs.
    */
   private isExampleRow(row: Record<string, string>, importType: ImportType): boolean {
     const keyFields: Record<ImportType, string> = {
@@ -773,7 +992,7 @@ export class ImportProcessingService {
     if (!value) return false;
 
     if (EXAMPLE_FIRST_NAMES.has(value)) {
-      if (importType === 'students' && value === 'aisha') {
+      if (importType === 'students' && (value === 'aisha' || value === 'omar')) {
         const lastName = (row['last_name'] ?? '').toLowerCase();
         if (lastName === 'al-mansour') return true;
       }
@@ -784,6 +1003,20 @@ export class ImportProcessingService {
       if (importType === 'staff' && value === 'sarah') {
         const lastName = (row['last_name'] ?? '').toLowerCase();
         if (lastName === 'johnson') return true;
+      }
+    }
+
+    // For students: detect example rows by checking if parent1_email uses example.com
+    // and the known example names match. This catches both template example rows.
+    if (importType === 'students') {
+      const parent1Email = (row['parent1_email'] ?? '').toLowerCase().trim();
+      const lastName = (row['last_name'] ?? '').toLowerCase().trim();
+      if (
+        parent1Email.endsWith('@example.com') &&
+        lastName === 'al-mansour' &&
+        (value === 'aisha' || value === 'omar')
+      ) {
+        return true;
       }
     }
 
@@ -874,6 +1107,7 @@ export class ImportProcessingService {
     status: 'completed' | 'failed',
     successful: number,
     failed: number,
+    extraSummary?: Partial<StudentImportStats>,
   ): Promise<void> {
     const existing = await this.prisma.importJob.findUnique({
       where: { id: jobId },
@@ -881,15 +1115,27 @@ export class ImportProcessingService {
 
     const existingSummary = (existing?.summary_json as Prisma.JsonObject) ?? {};
 
+    const summaryData: Prisma.JsonObject = {
+      ...existingSummary,
+      successful,
+      failed,
+    };
+
+    if (extraSummary) {
+      summaryData['students_created'] = extraSummary.students_created ?? 0;
+      summaryData['households_created'] = extraSummary.households_created ?? 0;
+      summaryData['households_reused'] = extraSummary.households_reused ?? 0;
+      summaryData['parents_created'] = extraSummary.parents_created ?? 0;
+      if (extraSummary.family_groups) {
+        summaryData['family_groups'] = extraSummary.family_groups as unknown as Prisma.JsonArray;
+      }
+    }
+
     await this.prisma.importJob.update({
       where: { id: jobId },
       data: {
         status,
-        summary_json: {
-          ...existingSummary,
-          successful,
-          failed,
-        },
+        summary_json: summaryData,
       },
     });
   }

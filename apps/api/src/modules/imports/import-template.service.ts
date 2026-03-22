@@ -92,6 +92,40 @@ const STUDENT_COLUMNS: TemplateColumn[] = [
   { key: 'postal_code', header: 'postal_code', required: false, width: 12, comment: 'Postal/ZIP code', example: '12345' },
 ];
 
+/**
+ * Second example row for the students template showing a sibling in the same family.
+ * Uses the same parent email (ahmed@example.com) to demonstrate family grouping.
+ */
+const STUDENT_SIBLING_EXAMPLE: Record<string, string> = {
+  first_name: 'Omar',
+  last_name: 'Al-Mansour',
+  middle_name: '',
+  date_of_birth: '2017-08-22',
+  gender: 'male',
+  year_group: 'Year 1',
+  class_name: '',
+  nationality: 'AE',
+  medical_notes: '',
+  allergies: '',
+  dietary_requirements: 'halal',
+  parent1_first_name: 'Ahmed',
+  parent1_last_name: 'Al-Mansour',
+  parent1_email: 'ahmed@example.com',
+  parent1_phone: '+971501234567',
+  parent1_relationship: 'father',
+  parent2_first_name: 'Fatima',
+  parent2_last_name: 'Al-Mansour',
+  parent2_email: 'fatima@example.com',
+  parent2_phone: '+971509876543',
+  parent2_relationship: 'mother',
+  household_name: '',
+  address_line1: '123 Al Wasl Road',
+  address_line2: 'Villa 5',
+  city: 'Dubai',
+  country: 'AE',
+  postal_code: '12345',
+};
+
 const PARENT_COLUMNS: TemplateColumn[] = [
   { key: 'first_name', header: 'first_name *', required: true, width: 15, comment: 'Parent first name', example: 'Ahmed' },
   { key: 'last_name', header: 'last_name *', required: true, width: 15, comment: 'Parent last name', example: 'Al-Mansour' },
@@ -213,7 +247,7 @@ export class ImportTemplateService {
     });
     headerRow.height = 24;
 
-    // Add example row (row 2)
+    // Add example row(s)
     const exampleData: Record<string, string> = {};
     for (const col of columns) {
       exampleData[col.key] = col.example;
@@ -224,6 +258,20 @@ export class ImportTemplateService {
     exampleRow.eachCell((cell) => {
       cell.font = EXAMPLE_FONT;
     });
+
+    // For students: add a second example row showing a sibling (same parent email)
+    if (importType === 'students') {
+      const siblingData: Record<string, string> = {};
+      for (const col of columns) {
+        siblingData[col.key] = STUDENT_SIBLING_EXAMPLE[col.key] ?? col.example;
+      }
+      dataSheet.addRow(siblingData);
+
+      const siblingRow = dataSheet.getRow(3);
+      siblingRow.eachCell((cell) => {
+        cell.font = EXAMPLE_FONT;
+      });
+    }
 
     // Apply data validation and number formats for the data region (rows 2 through 1000)
     for (let colIdx = 0; colIdx < columns.length; colIdx++) {
@@ -256,14 +304,31 @@ export class ImportTemplateService {
 
     instrSheet.addRow([]); // blank row
 
+    const studentExtraInstructions = importType === 'students'
+      ? [
+          '8. For families with multiple students, repeat the parent and address columns on each row',
+          '9. Students sharing the same parent email will be automatically grouped into one household',
+          '10. If a parent email already exists in the system, the student will be added to their existing household',
+        ]
+      : [];
+
+    const exampleRowHint = importType === 'students'
+      ? "1. Fill in the 'Import Data' sheet starting from row 4 (rows 2-3 are examples)"
+      : "1. Fill in the 'Import Data' sheet starting from row 3 (row 2 is an example)";
+
+    const deleteHint = importType === 'students'
+      ? '6. Delete the example rows (rows 2-3) before uploading'
+      : '6. Delete the example row (row 2) before uploading';
+
     const instructions = [
-      "1. Fill in the 'Import Data' sheet starting from row 3 (row 2 is an example)",
+      exampleRowHint,
       '2. Required columns are marked with darker green headers and an asterisk (*)',
       '3. Do not modify or delete the header row',
       '4. Dropdown fields will show valid options when you click the cell',
       '5. Dates must be in YYYY-MM-DD format',
-      '6. Delete the example row (row 2) before uploading',
+      deleteHint,
       '7. Save the file and upload it on the Import page',
+      ...studentExtraInstructions,
     ];
 
     for (const instruction of instructions) {
