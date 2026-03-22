@@ -8,7 +8,6 @@ import {
   Loader2,
   Pin,
   Sparkles,
-  XCircle,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
