@@ -113,10 +113,43 @@ export function PromotionWizard() {
       // Steps 2 and 3 both show preview — fetch on transition to step 2
       setPreviewLoading(true);
       try {
-        const res = await apiClient<{ data: PreviewStudent[] }>(
+        interface YearGroupGroup {
+          year_group_id: string | null;
+          year_group_name: string | null;
+          students: Array<{
+            student_id: string;
+            student_name: string;
+            current_status: string;
+            proposed_action: string;
+            proposed_year_group_id: string | null;
+            proposed_year_group_name: string | null;
+          }>;
+        }
+        interface PreviewApiResponse {
+          academic_year: { id: string; name: string };
+          year_groups: YearGroupGroup[];
+        }
+        const res = await apiClient<{ data: PreviewApiResponse }>(
           `/api/v1/promotion/preview?academic_year_id=${selectedYearId}`,
         );
-        setPreviewData(Array.isArray(res.data) ? res.data : []);
+        // Flatten grouped response into flat PreviewStudent array
+        const apiData = res.data;
+        const flat: PreviewStudent[] = [];
+        if (apiData?.year_groups) {
+          for (const group of apiData.year_groups) {
+            for (const s of group.students) {
+              flat.push({
+                student_id: s.student_id,
+                student_name: s.student_name,
+                current_status: s.current_status,
+                proposed_action: s.proposed_action,
+                year_group_id: group.year_group_id ?? '',
+                year_group_name: group.year_group_name ?? 'Unassigned',
+              });
+            }
+          }
+        }
+        setPreviewData(flat);
         setOverrides({});
         setStep(2);
       } catch (err: unknown) {

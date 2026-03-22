@@ -139,13 +139,6 @@ export default function ClassesPage() {
       ),
     },
     {
-      key: 'subject',
-      header: t('colSubject'),
-      render: (row: ClassRow) => (
-        <span className="text-text-secondary">{row.subject?.name ?? '—'}</span>
-      ),
-    },
-    {
       key: 'status',
       header: t('colStatus'),
       render: (row: ClassRow) => statusBadge(row.status),

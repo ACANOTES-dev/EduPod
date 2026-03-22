@@ -22,6 +22,8 @@ interface ListClassesParams {
   year_group_id?: string;
   status?: string;
   search?: string;
+  /** When true (default), only return homeroom classes (subject_id IS NULL) */
+  homeroom_only?: boolean;
 }
 
 @Injectable()
@@ -89,7 +91,7 @@ export class ClassesService {
   }
 
   async findAll(tenantId: string, params: ListClassesParams) {
-    const { page, pageSize, academic_year_id, year_group_id, status, search } = params;
+    const { page, pageSize, academic_year_id, year_group_id, status, search, homeroom_only } = params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ClassWhereInput = { tenant_id: tenantId };
@@ -99,6 +101,10 @@ export class ClassesService {
     if (status) where.status = status as $Enums.ClassStatus;
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
+    }
+    // Default: only show homeroom classes (no subject_id)
+    if (homeroom_only !== false) {
+      where.subject_id = null;
     }
 
     const [data, total] = await Promise.all([

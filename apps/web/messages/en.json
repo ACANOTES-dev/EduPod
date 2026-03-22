@@ -34,6 +34,7 @@
     "staff": "Staff",
     "households": "Households",
     "classes": "Classes",
+    "subjects": "Subjects",
     "promotion": "Promotion",
     "attendance": "Attendance",
     "gradebook": "Gradebook",
@@ -955,6 +956,7 @@
       "skipped": "Skipped"
     },
     "noStudents": "No students to promote",
+    "noStudentsToPreview": "No students found for this academic year. Ensure students have active class enrolments.",
     "confirmMessage": "This action cannot be undone. Are you sure you want to proceed?",
     "success": "Promotion completed successfully"
   },
@@ -2159,6 +2161,7 @@
   },
   "registration": {
     "title": "Register Family",
+    "registerFamily": "Register Family",
     "confirmClose": "Are you sure? All entered data will be lost.",
     "stepParentHousehold": "Parent & Household",
     "stepStudents": "Students",
