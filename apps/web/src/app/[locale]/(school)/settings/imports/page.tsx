@@ -54,6 +54,60 @@ const IMPORT_TYPES = [
   'staff_compensation',
 ] as const;
 
+type ImportType = (typeof IMPORT_TYPES)[number];
+
+/**
+ * CSV template column headers per import type.
+ * Generated client-side — no API call needed.
+ */
+const TEMPLATE_COLUMNS: Record<ImportType, string[]> = {
+  students: [
+    'first_name', 'last_name', 'middle_name', 'date_of_birth', 'gender',
+    'year_group_name', 'class_name', 'entry_date', 'student_number',
+    'nationality', 'medical_notes', 'allergies', 'dietary_requirements',
+    'parent1_first_name', 'parent1_last_name', 'parent1_email',
+    'parent1_phone', 'parent1_relationship',
+    'parent2_first_name', 'parent2_last_name', 'parent2_email',
+    'parent2_phone', 'parent2_relationship',
+    'household_name', 'address_line1', 'address_line2',
+    'city', 'country', 'postal_code',
+  ],
+  parents: [
+    'first_name', 'last_name', 'email', 'phone', 'relationship', 'household_name',
+  ],
+  staff: [
+    'first_name', 'last_name', 'email', 'phone', 'job_title',
+    'staff_number', 'department', 'employment_type', 'start_date',
+  ],
+  fees: [
+    'household_name', 'fee_structure_name', 'amount', 'discount_pct',
+    'billing_period', 'due_date',
+  ],
+  exam_results: [
+    'student_number', 'student_name', 'subject', 'assessment_name',
+    'score', 'max_score', 'grade', 'term',
+  ],
+  staff_compensation: [
+    'staff_number', 'staff_name', 'compensation_type', 'amount',
+    'effective_from', 'effective_to', 'currency',
+  ],
+};
+
+/**
+ * Generate a CSV template string and trigger a browser download.
+ */
+function downloadCsvTemplate(importType: ImportType): void {
+  const columns = TEMPLATE_COLUMNS[importType];
+  const csvContent = columns.join(',') + '\n';
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${importType}_template.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 const statusVariantMap: Record<string, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
   pending: 'neutral',
   validating: 'info',
@@ -104,25 +158,9 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
     handleFileSelect(droppedFile);
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = () => {
     if (!importType) return;
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-      const response = await fetch(
-        `${API_URL}/api/v1/imports/template?import_type=${importType}`,
-        { credentials: 'include' },
-      );
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${importType}_template.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      setError(t('templateDownloadFailed'));
-    }
+    downloadCsvTemplate(importType as ImportType);
   };
 
   const handleUpload = async () => {

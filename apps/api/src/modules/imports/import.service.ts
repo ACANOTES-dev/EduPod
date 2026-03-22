@@ -12,12 +12,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
 const TEMPLATE_HEADERS: Record<ImportType, string> = {
-  students: 'first_name,last_name,student_number,date_of_birth,year_group_name,gender,nationality',
-  parents: 'first_name,last_name,email,phone,household_name',
-  staff: 'first_name,last_name,email,job_title,department,employment_type',
-  fees: 'fee_structure_name,household_name,amount',
-  exam_results: 'student_number,subject_name,score,grade',
-  staff_compensation: 'staff_number,compensation_type,base_salary,per_class_rate',
+  students: 'first_name,last_name,middle_name,date_of_birth,gender,year_group_name,class_name,entry_date,student_number,nationality,medical_notes,allergies,dietary_requirements,parent1_first_name,parent1_last_name,parent1_email,parent1_phone,parent1_relationship,parent2_first_name,parent2_last_name,parent2_email,parent2_phone,parent2_relationship,household_name,address_line1,address_line2,city,country,postal_code',
+  parents: 'first_name,last_name,email,phone,relationship,household_name',
+  staff: 'first_name,last_name,email,phone,job_title,staff_number,department,employment_type,start_date',
+  fees: 'household_name,fee_structure_name,amount,discount_pct,billing_period,due_date',
+  exam_results: 'student_number,student_name,subject,assessment_name,score,max_score,grade,term',
+  staff_compensation: 'staff_number,staff_name,compensation_type,amount,effective_from,effective_to,currency',
 };
 
 @Injectable()

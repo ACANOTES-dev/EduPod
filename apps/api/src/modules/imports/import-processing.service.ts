@@ -173,10 +173,36 @@ export class ImportProcessingService {
   ): Promise<void> {
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
+    const middleName = row['middle_name'] ?? '';
     const studentNumber = row['student_number'] ?? '';
     const dateOfBirth = row['date_of_birth'] ?? '';
     const yearGroupName = row['year_group_name'] ?? '';
+    const entryDateStr = row['entry_date'] ?? '';
     const genderRaw = row['gender'] ?? '';
+    const medicalNotes = row['medical_notes'] ?? '';
+    const allergies = row['allergies'] ?? '';
+
+    // Parent 1 fields
+    const parent1FirstName = row['parent1_first_name'] ?? '';
+    const parent1LastName = row['parent1_last_name'] ?? '';
+    const parent1Email = row['parent1_email'] ?? '';
+    const parent1Phone = row['parent1_phone'] ?? '';
+    const parent1Relationship = row['parent1_relationship'] ?? '';
+
+    // Parent 2 fields
+    const parent2FirstName = row['parent2_first_name'] ?? '';
+    const parent2LastName = row['parent2_last_name'] ?? '';
+    const parent2Email = row['parent2_email'] ?? '';
+    const parent2Phone = row['parent2_phone'] ?? '';
+    const parent2Relationship = row['parent2_relationship'] ?? '';
+
+    // Household fields
+    const householdName = row['household_name'] ?? '';
+    const addressLine1 = row['address_line1'] ?? '';
+    const addressLine2 = row['address_line2'] ?? '';
+    const city = row['city'] ?? '';
+    const country = row['country'] ?? '';
+    const postalCode = row['postal_code'] ?? '';
 
     // Resolve year_group_id from year_group_name
     let yearGroupId: string | null = null;
@@ -189,11 +215,12 @@ export class ImportProcessingService {
       }
     }
 
-    // Create or find a placeholder household for the student
+    // Create or find household
+    const resolvedHouseholdName = householdName || `${lastName} Family`;
     let household = await db.household.findFirst({
       where: {
         tenant_id: tenantId,
-        household_name: `${lastName} Family`,
+        household_name: resolvedHouseholdName,
       },
     });
 
@@ -201,7 +228,12 @@ export class ImportProcessingService {
       household = await db.household.create({
         data: {
           tenant_id: tenantId,
-          household_name: `${lastName} Family`,
+          household_name: resolvedHouseholdName,
+          address_line_1: addressLine1 || null,
+          address_line_2: addressLine2 || null,
+          city: city || null,
+          country: country || null,
+          postal_code: postalCode || null,
           needs_completion: true,
         },
       });
@@ -215,20 +247,75 @@ export class ImportProcessingService {
       else if (g === 'f' || g === 'female') gender = 'female';
     }
 
+    // Build full name
+    const fullNameParts = [firstName, middleName, lastName].filter(Boolean);
+
+    // Determine if allergy info was provided
+    const hasAllergy = !!allergies;
+
     await db.student.create({
       data: {
         tenant_id: tenantId,
         household_id: household.id,
         student_number: studentNumber || null,
         first_name: firstName,
+        middle_name: middleName || null,
         last_name: lastName,
-        full_name: `${firstName} ${lastName}`,
+        full_name: fullNameParts.join(' '),
         date_of_birth: new Date(dateOfBirth),
+        entry_date: entryDateStr ? new Date(entryDateStr) : null,
         gender,
+        medical_notes: medicalNotes || null,
+        has_allergy: hasAllergy,
+        allergy_details: allergies || null,
         status: 'active',
         year_group_id: yearGroupId,
       },
     });
+
+    // Create parent 1 if provided
+    if (parent1FirstName && parent1LastName) {
+      const parent1 = await db.parent.create({
+        data: {
+          tenant_id: tenantId,
+          first_name: parent1FirstName,
+          last_name: parent1LastName,
+          email: parent1Email || null,
+          phone: parent1Phone || null,
+          relationship_label: parent1Relationship || null,
+          preferred_contact_channels: ['email'],
+        },
+      });
+      await db.householdParent.create({
+        data: {
+          tenant_id: tenantId,
+          household_id: household.id,
+          parent_id: parent1.id,
+        },
+      });
+    }
+
+    // Create parent 2 if provided
+    if (parent2FirstName && parent2LastName) {
+      const parent2 = await db.parent.create({
+        data: {
+          tenant_id: tenantId,
+          first_name: parent2FirstName,
+          last_name: parent2LastName,
+          email: parent2Email || null,
+          phone: parent2Phone || null,
+          relationship_label: parent2Relationship || null,
+          preferred_contact_channels: ['email'],
+        },
+      });
+      await db.householdParent.create({
+        data: {
+          tenant_id: tenantId,
+          household_id: household.id,
+          parent_id: parent2.id,
+        },
+      });
+    }
   }
 
   private async processParentRow(
@@ -240,6 +327,7 @@ export class ImportProcessingService {
     const lastName = row['last_name'] ?? '';
     const email = row['email'] ?? '';
     const phone = row['phone'] ?? '';
+    const relationship = row['relationship'] ?? '';
     const householdName = row['household_name'] ?? '';
 
     // Create or find household
@@ -270,6 +358,7 @@ export class ImportProcessingService {
         last_name: lastName,
         email: email || null,
         phone: phone || null,
+        relationship_label: relationship || null,
         preferred_contact_channels: ['email'],
       },
     });
@@ -294,7 +383,9 @@ export class ImportProcessingService {
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
     const email = row['email'] ?? '';
+    const phone = row['phone'] ?? '';
     const jobTitle = row['job_title'] ?? '';
+    const staffNumber = row['staff_number'] ?? '';
     const department = row['department'] ?? '';
     const employmentTypeRaw = row['employment_type'] ?? '';
 
@@ -304,6 +395,7 @@ export class ImportProcessingService {
         first_name: firstName,
         last_name: lastName,
         email,
+        phone: phone || null,
         password_hash: '', // Placeholder -- set via invitation flow
         global_status: 'active',
       },
@@ -322,6 +414,7 @@ export class ImportProcessingService {
       data: {
         tenant_id: tenantId,
         user_id: user.id,
+        staff_number: staffNumber || null,
         job_title: jobTitle || null,
         department: department || null,
         employment_type: employmentType,
@@ -383,7 +476,9 @@ export class ImportProcessingService {
     createdByUserId: string,
   ): Promise<void> {
     const studentNumber = row['student_number'] ?? '';
-    const subjectName = row['subject_name'] ?? '';
+    // Accept both 'subject' (new template) and 'subject_name' (legacy)
+    const subjectName = row['subject'] ?? row['subject_name'] ?? '';
+    const assessmentName = row['assessment_name'] ?? '';
     const scoreStr = row['score'] ?? '';
     const grade = row['grade'] ?? '';
 
@@ -411,18 +506,30 @@ export class ImportProcessingService {
       throw new Error(`Subject "${subjectName}" not found`);
     }
 
-    // Find the latest open or closed assessment for this subject
-    const assessment = await db.assessment.findFirst({
-      where: {
-        tenant_id: tenantId,
-        subject_id: subject.id,
-        status: { in: ['open', 'closed'] },
-      },
-      orderBy: { created_at: 'desc' },
-    });
+    // Find assessment: by title if provided, otherwise the latest open/closed
+    let assessment;
+    if (assessmentName) {
+      assessment = await db.assessment.findFirst({
+        where: {
+          tenant_id: tenantId,
+          subject_id: subject.id,
+          title: assessmentName,
+        },
+      });
+    }
+    if (!assessment) {
+      assessment = await db.assessment.findFirst({
+        where: {
+          tenant_id: tenantId,
+          subject_id: subject.id,
+          status: { in: ['open', 'closed'] },
+        },
+        orderBy: { created_at: 'desc' },
+      });
+    }
 
     if (!assessment) {
-      throw new Error(`No open or closed assessment found for subject "${subjectName}"`);
+      throw new Error(`No assessment found for subject "${subjectName}"`);
     }
 
     await db.grade.create({
@@ -446,8 +553,12 @@ export class ImportProcessingService {
   ): Promise<void> {
     const staffNumber = row['staff_number'] ?? '';
     const compensationTypeRaw = row['compensation_type'] ?? '';
+    // Accept 'amount' (new template) or legacy 'base_salary'/'per_class_rate'
+    const amountStr = row['amount'] ?? '';
     const baseSalaryStr = row['base_salary'] ?? '';
     const perClassRateStr = row['per_class_rate'] ?? '';
+    const effectiveFromStr = row['effective_from'] ?? '';
+    const effectiveToStr = row['effective_to'] ?? '';
 
     // Find staff profile by staff_number
     const staffProfile = await db.staffProfile.findFirst({
@@ -464,15 +575,27 @@ export class ImportProcessingService {
     const compensationType: 'salaried' | 'per_class' =
       compensationTypeRaw.toLowerCase() === 'per_class' ? 'per_class' : 'salaried';
 
+    // Use 'amount' column as fallback when legacy columns are absent
+    const resolvedBaseSalary = baseSalaryStr
+      ? Number(baseSalaryStr)
+      : compensationType === 'salaried' && amountStr
+        ? Number(amountStr)
+        : null;
+    const resolvedPerClassRate = perClassRateStr
+      ? Number(perClassRateStr)
+      : compensationType === 'per_class' && amountStr
+        ? Number(amountStr)
+        : null;
+
     await db.staffCompensation.create({
       data: {
         tenant_id: tenantId,
         staff_profile_id: staffProfile.id,
         compensation_type: compensationType,
-        base_salary: baseSalaryStr ? Number(baseSalaryStr) : null,
-        per_class_rate: perClassRateStr ? Number(perClassRateStr) : null,
-        effective_from: new Date(),
-        effective_to: null,
+        base_salary: resolvedBaseSalary,
+        per_class_rate: resolvedPerClassRate,
+        effective_from: effectiveFromStr ? new Date(effectiveFromStr) : new Date(),
+        effective_to: effectiveToStr ? new Date(effectiveToStr) : null,
         created_by_user_id: createdByUserId,
       },
     });

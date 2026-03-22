@@ -9,27 +9,29 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
 /**
- * Required headers per import type.
+ * Required headers per import type (minimum columns that must be present in
+ * the uploaded CSV). Additional columns from the template are accepted but
+ * not mandatory for header validation.
  */
 const REQUIRED_HEADERS: Record<ImportType, string[]> = {
-  students: ['first_name', 'last_name', 'student_number', 'date_of_birth', 'year_group_name', 'gender', 'nationality'],
-  parents: ['first_name', 'last_name', 'email', 'phone', 'household_name'],
-  staff: ['first_name', 'last_name', 'email', 'job_title', 'department', 'employment_type'],
+  students: ['first_name', 'last_name', 'date_of_birth', 'gender'],
+  parents: ['first_name', 'last_name', 'email'],
+  staff: ['first_name', 'last_name', 'email'],
   fees: ['fee_structure_name', 'household_name', 'amount'],
-  exam_results: ['student_number', 'subject_name', 'score', 'grade'],
-  staff_compensation: ['staff_number', 'compensation_type', 'base_salary', 'per_class_rate'],
+  exam_results: ['student_number', 'subject', 'score'],
+  staff_compensation: ['staff_number', 'compensation_type', 'amount'],
 };
 
 /**
  * Fields that must not be empty for each import type.
  */
 const REQUIRED_FIELDS: Record<ImportType, string[]> = {
-  students: ['first_name', 'last_name', 'student_number', 'date_of_birth'],
+  students: ['first_name', 'last_name', 'date_of_birth'],
   parents: ['first_name', 'last_name', 'email'],
   staff: ['first_name', 'last_name', 'email'],
   fees: ['fee_structure_name', 'household_name', 'amount'],
-  exam_results: ['student_number', 'subject_name', 'score'],
-  staff_compensation: ['staff_number', 'compensation_type'],
+  exam_results: ['student_number', 'subject', 'score'],
+  staff_compensation: ['staff_number', 'compensation_type', 'amount'],
 };
 
 interface ValidationError {
@@ -273,6 +275,7 @@ export class ImportValidationService {
 
         if (importType === 'staff_compensation') {
           const compType = row['compensation_type'] ?? '';
+          const amount = row['amount'] ?? '';
           const baseSalary = row['base_salary'] ?? '';
           const perClassRate = row['per_class_rate'] ?? '';
 
@@ -286,7 +289,15 @@ export class ImportValidationService {
             rowHasError = true;
           }
 
-          // Validate numeric fields
+          // Validate numeric fields (amount, base_salary, per_class_rate)
+          if (amount.length > 0 && isNaN(Number(amount))) {
+            errors.push({
+              row: rowNumber,
+              field: 'amount',
+              error: 'amount must be a valid number',
+            });
+            rowHasError = true;
+          }
           if (baseSalary.length > 0 && isNaN(Number(baseSalary))) {
             errors.push({
               row: rowNumber,
