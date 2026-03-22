@@ -65,34 +65,54 @@ export class RegistrationService {
         },
       });
 
-      // Calculate annual amount for each fee structure
-      const fees = feeStructures.map((fs) => {
-        const baseAmount = Number(fs.amount);
-        let annualAmount: number;
+      // Get year group names for each student
+      const yearGroups = await db.yearGroup.findMany({
+        where: { id: { in: yearGroupIds }, tenant_id: tenantId },
+        select: { id: true, name: true },
+      });
+      const yearGroupNameMap = new Map(yearGroups.map((yg) => [yg.id, yg.name]));
 
-        switch (fs.billing_frequency) {
-          case 'one_off':
-          case 'custom':
-            annualAmount = baseAmount;
-            break;
-          case 'term':
-            annualAmount = roundMoney(baseAmount * termCount);
-            break;
-          case 'monthly':
-            annualAmount = roundMoney(baseAmount * 12);
-            break;
-          default:
-            annualAmount = baseAmount;
-        }
+      // Build per-student fee data (matching frontend FeePreviewStudent shape)
+      let grandTotal = 0;
+      const students = dto.students.map((student, index) => {
+        const applicableFees = feeStructures
+          .filter((fs) => fs.year_group_id === student.year_group_id || fs.year_group_id === null)
+          .map((fs) => {
+            const baseAmount = Number(fs.amount);
+            let annualAmount: number;
+
+            switch (fs.billing_frequency) {
+              case 'one_off':
+              case 'custom':
+                annualAmount = baseAmount;
+                break;
+              case 'term':
+                annualAmount = roundMoney(baseAmount * termCount);
+                break;
+              case 'monthly':
+                annualAmount = roundMoney(baseAmount * 12);
+                break;
+              default:
+                annualAmount = baseAmount;
+            }
+
+            return {
+              fee_structure_id: fs.id,
+              name: fs.name,
+              billing_frequency: fs.billing_frequency,
+              base_amount: baseAmount,
+              annual_amount: annualAmount,
+            };
+          });
+
+        const subtotal = applicableFees.reduce((sum, f) => sum + f.annual_amount, 0);
+        grandTotal += subtotal;
 
         return {
-          id: fs.id,
-          name: fs.name,
-          billing_frequency: fs.billing_frequency,
-          amount: baseAmount,
-          annual_amount: annualAmount,
-          year_group_id: fs.year_group_id,
-          year_group_name: (fs as unknown as { year_group: { name: string } | null }).year_group?.name ?? null,
+          student_index: index,
+          year_group_name: yearGroupNameMap.get(student.year_group_id) ?? '',
+          fees: applicableFees,
+          subtotal: roundMoney(subtotal),
         };
       });
 
@@ -102,27 +122,15 @@ export class RegistrationService {
       });
 
       const availableDiscounts = discounts.map((d) => ({
-        id: d.id,
+        discount_id: d.id,
         name: d.name,
         discount_type: d.discount_type,
         value: Number(d.value),
       }));
 
-      // Calculate grand total (sum of all annual amounts per student)
-      let grandTotal = 0;
-      for (const student of dto.students) {
-        const applicableFees = fees.filter(
-          (f) => f.year_group_id === student.year_group_id || f.year_group_id === null,
-        );
-        for (const fee of applicableFees) {
-          grandTotal += fee.annual_amount;
-        }
-      }
-
       return {
-        fees,
+        students,
         available_discounts: availableDiscounts,
-        term_count: termCount,
         grand_total: roundMoney(grandTotal),
       };
     });
