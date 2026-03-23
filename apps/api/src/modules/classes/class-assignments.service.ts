@@ -287,4 +287,107 @@ export class ClassAssignmentService {
 
     return { assigned, skipped, errors };
   }
+
+  /**
+   * Get export data: students grouped by subclass with full details + branding.
+   */
+  async getExportData(tenantId: string) {
+    const activeAcademicYear = await this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, status: 'active' },
+      select: { id: true, name: true },
+    });
+
+    if (!activeAcademicYear) {
+      throw new NotFoundException({
+        code: 'NO_ACTIVE_ACADEMIC_YEAR',
+        message: 'No active academic year found',
+      });
+    }
+
+    // Fetch students with gender and DOB
+    const students = await this.prisma.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active',
+        year_group_id: { not: null },
+        class_homeroom_id: { not: null },
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        student_number: true,
+        gender: true,
+        date_of_birth: true,
+        class_homeroom_id: true,
+        year_group_id: true,
+      },
+      orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
+    });
+
+    // Fetch homeroom classes
+    const classes = await this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        subject_id: null,
+        status: 'active',
+        academic_year_id: activeAcademicYear.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        year_group_id: true,
+        year_group: { select: { name: true, display_order: true } },
+      },
+      orderBy: [
+        { year_group: { display_order: 'asc' } },
+        { name: 'asc' },
+      ],
+    });
+
+    // Fetch branding
+    const branding = await this.prisma.tenantBranding.findUnique({
+      where: { tenant_id: tenantId },
+      select: {
+        school_name_display: true,
+        school_name_ar: true,
+        logo_url: true,
+      },
+    });
+
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+
+    // Group students by class
+    const studentsByClass = new Map<string, typeof students>();
+    for (const student of students) {
+      const classId = student.class_homeroom_id as string;
+      if (!studentsByClass.has(classId)) {
+        studentsByClass.set(classId, []);
+      }
+      studentsByClass.get(classId)!.push(student);
+    }
+
+    const classLists = classes.map((cls) => ({
+      class_id: cls.id,
+      class_name: cls.name,
+      year_group_name: cls.year_group?.name ?? '',
+      students: (studentsByClass.get(cls.id) ?? []).map((s) => ({
+        student_number: s.student_number,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        gender: s.gender,
+        date_of_birth: s.date_of_birth,
+      })),
+    }));
+
+    return {
+      academic_year: activeAcademicYear.name,
+      school_name: branding?.school_name_display ?? tenant?.name ?? '',
+      logo_url: branding?.logo_url ?? null,
+      class_lists: classLists,
+    };
+  }
 }

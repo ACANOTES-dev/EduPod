@@ -768,7 +768,18 @@
     "assignedOf": "{assigned} of {total} assigned",
     "noStudents": "No students in this year group",
     "noChanges": "No changes to save",
-    "pendingChanges": "{count} pending changes"
+    "pendingChanges": "{count} pending changes",
+    "selectAll": "Select all",
+    "selectedStudents": "{count} students selected",
+    "assignToClass": "Assign to class...",
+    "assignSelected": "Assign",
+    "clearSelection": "Clear",
+    "bulkAssignQueued": "{count} assignments queued — click Save to apply",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exportSuccess": "Export downloaded",
+    "exportError": "Failed to generate export",
+    "noDataToExport": "No assigned students to export"
   },
   "classes": {
     "title": "Classes",

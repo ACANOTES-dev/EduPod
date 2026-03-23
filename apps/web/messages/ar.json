@@ -768,7 +768,18 @@
     "assignedOf": "{assigned} من {total} معيّنين",
     "noStudents": "لا يوجد طلاب في هذه المرحلة",
     "noChanges": "لا توجد تغييرات للحفظ",
-    "pendingChanges": "{count} تغييرات معلّقة"
+    "pendingChanges": "{count} تغييرات معلّقة",
+    "selectAll": "تحديد الكل",
+    "selectedStudents": "{count} طالب محدد",
+    "assignToClass": "تعيين إلى فصل...",
+    "assignSelected": "تعيين",
+    "clearSelection": "مسح",
+    "bulkAssignQueued": "{count} تعيين في قائمة الانتظار — اضغط حفظ للتطبيق",
+    "exportExcel": "تصدير Excel",
+    "exportPdf": "تصدير PDF",
+    "exportSuccess": "تم تنزيل التصدير",
+    "exportError": "فشل إنشاء التصدير",
+    "noDataToExport": "لا يوجد طلاب معيّنون للتصدير"
   },
   "classes": {
     "title": "الفصول",

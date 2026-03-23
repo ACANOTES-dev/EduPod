@@ -29,6 +29,12 @@ export class ClassAssignmentsController {
     return this.classAssignmentService.getAssignments(tenant.tenant_id);
   }
 
+  @Get('class-assignments/export-data')
+  @RequiresPermission('students.manage')
+  async getExportData(@CurrentTenant() tenant: { tenant_id: string }) {
+    return this.classAssignmentService.getExportData(tenant.tenant_id);
+  }
+
   @Post('class-assignments/bulk')
   @RequiresPermission('students.manage')
   @HttpCode(HttpStatus.OK)
