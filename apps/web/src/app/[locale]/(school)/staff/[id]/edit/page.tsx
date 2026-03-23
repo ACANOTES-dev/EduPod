@@ -89,7 +89,6 @@ export default function EditStaffPage() {
       />
       <StaffForm
         initialValues={{
-          user_id: staff.user.id,
           job_title: staff.job_title ?? '',
           employment_status: staff.employment_status,
           department: staff.department ?? '',

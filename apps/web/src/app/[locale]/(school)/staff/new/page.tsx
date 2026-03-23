@@ -20,7 +20,11 @@ export default function NewStaffPage() {
 
   const handleSubmit = async (values: StaffFormValues) => {
     const payload = {
-      user_id: values.user_id,
+      first_name: values.first_name,
+      last_name: values.last_name,
+      email: values.email,
+      phone: values.phone || undefined,
+      role_id: values.role_id,
       job_title: values.job_title || undefined,
       employment_status: values.employment_status,
       department: values.department || undefined,

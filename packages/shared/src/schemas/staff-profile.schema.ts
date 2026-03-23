@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
 export const createStaffProfileSchema = z.object({
-  user_id: z.string().uuid(),
-  staff_number: z.string().max(50).optional(),
+  first_name: z.string().min(1).max(100),
+  last_name: z.string().min(1).max(100),
+  email: z.string().email().max(255),
+  phone: z.string().max(50).optional(),
+  role_id: z.string().uuid(),
   job_title: z.string().max(255).optional(),
   employment_status: z.enum(['active', 'inactive']),
   department: z.string().max(255).optional(),

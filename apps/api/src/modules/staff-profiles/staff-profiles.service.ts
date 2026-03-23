@@ -10,6 +10,7 @@ import type {
   StaffProfileQueryDto,
   UpdateStaffProfileDto,
 } from '@school/shared';
+import { hash } from 'bcryptjs';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -74,23 +75,28 @@ export class StaffProfilesService {
   ) {}
 
   /**
-   * Create a new staff profile for the given user within a tenant.
-   * Users table is platform-level (no RLS). Staff profiles are tenant-scoped.
+   * Generate a random staff number in format: ABC1234-5
+   * (3 uppercase letters + 4 digits + hyphen + 1 digit)
+   */
+  private generateStaffNumber(): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letterPart = Array.from(
+      { length: 3 },
+      () => letters[Math.floor(Math.random() * 26)],
+    ).join('');
+    const numberPart = String(Math.floor(Math.random() * 10000)).padStart(
+      4,
+      '0',
+    );
+    const lastDigit = Math.floor(Math.random() * 10);
+    return `${letterPart}${numberPart}-${lastDigit}`;
+  }
+
+  /**
+   * Create a new staff profile, user account, membership, and role assignment.
+   * The staff number is auto-generated and used as the initial password.
    */
   async create(tenantId: string, dto: CreateStaffProfileDto) {
-    // Validate user exists (users table is platform-level — not RLS scoped)
-    const user = await this.prisma.user.findUnique({
-      where: { id: dto.user_id },
-      select: { id: true },
-    });
-
-    if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message: `User with id "${dto.user_id}" not found`,
-      });
-    }
-
     // Encrypt bank details if provided
     let bankAccountNumberEncrypted: string | null = null;
     let bankIbanEncrypted: string | null = null;
@@ -108,19 +114,120 @@ export class StaffProfilesService {
       bankEncryptionKeyRef = bankEncryptionKeyRef ?? result.keyRef;
     }
 
+    // Generate unique staff number (retry on collision)
+    let staffNumber = this.generateStaffNumber();
+
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     try {
       const profile = (await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
-        // Auto-generate staff number
-        const staffNumber = await this.sequenceService.nextNumber(tenantId, 'staff', tx, 'STF');
+        // Ensure staff number is unique within this tenant
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const existing = await db.staffProfile.findFirst({
+            where: { tenant_id: tenantId, staff_number: staffNumber },
+            select: { id: true },
+          });
+          if (!existing) break;
+          staffNumber = this.generateStaffNumber();
+        }
+
+        // Hash the staff number as the initial password
+        const passwordHash = await hash(staffNumber, 12);
+
+        // Check if user with this email already exists
+        const existingUser = await db.user.findUnique({
+          where: { email: dto.email.toLowerCase() },
+          select: { id: true },
+        });
+
+        let userId: string;
+
+        if (existingUser) {
+          // User exists — check they don't already have a staff profile here
+          const existingProfile = await db.staffProfile.findFirst({
+            where: { tenant_id: tenantId, user_id: existingUser.id },
+            select: { id: true },
+          });
+          if (existingProfile) {
+            throw new ConflictException({
+              code: 'STAFF_PROFILE_EXISTS',
+              message:
+                'A staff profile already exists for this email in this school',
+            });
+          }
+
+          userId = existingUser.id;
+
+          // Ensure they have an active membership in this tenant
+          const existingMembership = await db.tenantMembership.findUnique({
+            where: {
+              idx_tenant_memberships_tenant_user: {
+                tenant_id: tenantId,
+                user_id: userId,
+              },
+            },
+            select: { id: true },
+          });
+
+          if (!existingMembership) {
+            const membership = await db.tenantMembership.create({
+              data: {
+                tenant_id: tenantId,
+                user_id: userId,
+                membership_status: 'active',
+                joined_at: new Date(),
+              },
+            });
+
+            await db.membershipRole.create({
+              data: {
+                membership_id: membership.id,
+                role_id: dto.role_id,
+                tenant_id: tenantId,
+              },
+            });
+          }
+        } else {
+          // Create new user account with staff number as password
+          const newUser = await db.user.create({
+            data: {
+              email: dto.email.toLowerCase(),
+              password_hash: passwordHash,
+              first_name: dto.first_name,
+              last_name: dto.last_name,
+              phone: dto.phone ?? null,
+              email_verified_at: new Date(),
+            },
+          });
+
+          userId = newUser.id;
+
+          // Create tenant membership
+          const membership = await db.tenantMembership.create({
+            data: {
+              tenant_id: tenantId,
+              user_id: userId,
+              membership_status: 'active',
+              joined_at: new Date(),
+            },
+          });
+
+          // Assign role
+          await db.membershipRole.create({
+            data: {
+              membership_id: membership.id,
+              role_id: dto.role_id,
+              tenant_id: tenantId,
+            },
+          });
+        }
 
         return db.staffProfile.create({
           data: {
             tenant_id: tenantId,
-            user_id: dto.user_id,
+            user_id: userId,
             staff_number: staffNumber,
             job_title: dto.job_title ?? null,
             employment_status: dto.employment_status ?? 'active',
