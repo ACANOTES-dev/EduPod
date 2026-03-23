@@ -197,7 +197,7 @@ export class StaffProfilesService {
               password_hash: passwordHash,
               first_name: dto.first_name,
               last_name: dto.last_name,
-              phone: dto.phone ?? null,
+              phone: dto.phone,
               email_verified_at: new Date(),
             },
           });

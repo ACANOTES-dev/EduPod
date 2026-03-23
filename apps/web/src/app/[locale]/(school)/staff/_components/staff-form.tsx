@@ -177,6 +177,7 @@ export function StaffForm({
                 dir="ltr"
                 value={values.phone}
                 onChange={set('phone')}
+                required
               />
             </div>
 

@@ -4,7 +4,7 @@ export const createStaffProfileSchema = z.object({
   first_name: z.string().min(1).max(100),
   last_name: z.string().min(1).max(100),
   email: z.string().email().max(255),
-  phone: z.string().max(50).optional(),
+  phone: z.string().min(1).max(50),
   role_id: z.string().uuid(),
   job_title: z.string().max(255).optional(),
   employment_status: z.enum(['active', 'inactive']),
