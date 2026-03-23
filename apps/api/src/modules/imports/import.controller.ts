@@ -167,4 +167,14 @@ export class ImportController {
   ) {
     return this.importService.confirm(tenant.tenant_id, id);
   }
+
+  @Post(':id/rollback')
+  @RequiresPermission('settings.manage')
+  @HttpCode(HttpStatus.OK)
+  async rollback(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.importService.rollback(tenant.tenant_id, id);
+  }
 }

@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type { ImportFilterDto, ImportType } from '@school/shared';
 import type { Queue } from 'bullmq';
 import * as XLSX from 'xlsx';
@@ -200,6 +201,9 @@ export class ImportService {
 
           const hasErrors = missingHeaders.length > 0 || rowErrors.length > 0;
 
+          // Build preview data: summary stats + first 30 rows
+          const previewJson = this.buildPreview(headers, rows, importType);
+
           await this.prisma.importJob.update({
             where: { id: job.id },
             data: {
@@ -211,6 +215,7 @@ export class ImportService {
                 header_errors: missingHeaders.length > 0 ? [`Missing: ${missingHeaders.join(', ')}`] : [],
                 row_errors: rowErrors.slice(0, 50),
               },
+              preview_json: previewJson as unknown as Prisma.InputJsonValue,
             },
           });
         }
@@ -337,6 +342,233 @@ export class ImportService {
     this.logger.log(`Import job ${jobId} confirmed for processing`);
 
     return this.serializeJob(updatedJob);
+  }
+
+  async rollback(tenantId: string, jobId: string) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId, tenant_id: tenantId },
+    });
+
+    if (!job) {
+      throw new NotFoundException({
+        code: 'IMPORT_JOB_NOT_FOUND',
+        message: `Import job with id "${jobId}" not found`,
+      });
+    }
+
+    if (job.status !== 'completed') {
+      throw new BadRequestException({
+        code: 'INVALID_IMPORT_STATUS',
+        message: `Only completed imports can be rolled back. Current status: "${job.status}"`,
+      });
+    }
+
+    // Get all tracked records for this import
+    const trackedRecords = await this.prisma.importJobRecord.findMany({
+      where: { import_job_id: jobId, tenant_id: tenantId },
+      orderBy: { created_at: 'asc' },
+    });
+
+    if (trackedRecords.length === 0) {
+      throw new BadRequestException({
+        code: 'NO_TRACKED_RECORDS',
+        message: 'No tracked records found for this import. Rollback is only available for imports processed after the tracking feature was added.',
+      });
+    }
+
+    const students = trackedRecords.filter((r) => r.record_type === 'student');
+    const parents = trackedRecords.filter((r) => r.record_type === 'parent');
+    const households = trackedRecords.filter((r) => r.record_type === 'household');
+
+    let deletedCount = 0;
+    const skippedDetails: Array<{ record_type: string; record_id: string; reason: string }> = [];
+
+    // Check and delete students
+    for (const rec of students) {
+      const deps = await this.prisma.student.findUnique({
+        where: { id: rec.record_id },
+        select: {
+          id: true,
+          _count: {
+            select: {
+              attendance_records: true,
+              grades: true,
+              class_enrolments: true,
+              invoice_lines: true,
+              report_cards: true,
+            },
+          },
+        },
+      });
+
+      if (!deps) { deletedCount++; continue; } // already deleted
+
+      const totalDeps = deps._count.attendance_records + deps._count.grades +
+        deps._count.class_enrolments + deps._count.invoice_lines + deps._count.report_cards;
+
+      if (totalDeps > 0) {
+        const reasons: string[] = [];
+        if (deps._count.attendance_records > 0) reasons.push(`${deps._count.attendance_records} attendance records`);
+        if (deps._count.grades > 0) reasons.push(`${deps._count.grades} grades`);
+        if (deps._count.class_enrolments > 0) reasons.push(`${deps._count.class_enrolments} class enrolments`);
+        if (deps._count.invoice_lines > 0) reasons.push(`${deps._count.invoice_lines} invoice lines`);
+        if (deps._count.report_cards > 0) reasons.push(`${deps._count.report_cards} report cards`);
+        skippedDetails.push({
+          record_type: 'student',
+          record_id: rec.record_id,
+          reason: `Has dependent data: ${reasons.join(', ')}`,
+        });
+        continue;
+      }
+
+      // Safe to delete — remove junction records first
+      await this.prisma.studentParent.deleteMany({ where: { student_id: rec.record_id } });
+      await this.prisma.householdFeeAssignment.deleteMany({ where: { student_id: rec.record_id } });
+      await this.prisma.student.delete({ where: { id: rec.record_id } });
+      deletedCount++;
+    }
+
+    // Check and delete parents
+    for (const rec of parents) {
+      const parent = await this.prisma.parent.findUnique({
+        where: { id: rec.record_id },
+        select: { id: true, user_id: true },
+      });
+
+      if (!parent) { deletedCount++; continue; }
+
+      if (parent.user_id) {
+        skippedDetails.push({
+          record_type: 'parent',
+          record_id: rec.record_id,
+          reason: 'Linked to a platform user account',
+        });
+        continue;
+      }
+
+      await this.prisma.householdParent.deleteMany({ where: { parent_id: rec.record_id } });
+      await this.prisma.studentParent.deleteMany({ where: { parent_id: rec.record_id } });
+      await this.prisma.parent.delete({ where: { id: rec.record_id } });
+      deletedCount++;
+    }
+
+    // Check and delete households
+    for (const rec of households) {
+      // Check if household has students NOT from this import
+      const importStudentIds = new Set(students.map((s) => s.record_id));
+      const remainingStudents = await this.prisma.student.findMany({
+        where: { household_id: rec.record_id },
+        select: { id: true },
+      });
+
+      const externalStudents = remainingStudents.filter((s) => !importStudentIds.has(s.id));
+      if (externalStudents.length > 0) {
+        skippedDetails.push({
+          record_type: 'household',
+          record_id: rec.record_id,
+          reason: `Has ${externalStudents.length} student(s) not from this import`,
+        });
+        continue;
+      }
+
+      // Check if household still exists (might have been cascade-deleted)
+      const hh = await this.prisma.household.findUnique({ where: { id: rec.record_id }, select: { id: true } });
+      if (!hh) { deletedCount++; continue; }
+
+      await this.prisma.householdEmergencyContact.deleteMany({ where: { household_id: rec.record_id } });
+      await this.prisma.householdParent.deleteMany({ where: { household_id: rec.record_id } });
+      await this.prisma.household.delete({ where: { id: rec.record_id } });
+      deletedCount++;
+    }
+
+    // Update job status
+    const newStatus = skippedDetails.length === 0 ? 'rolled_back' : 'partially_rolled_back';
+
+    const updatedJob = await this.prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: newStatus,
+        summary_json: {
+          ...(job.summary_json as Record<string, unknown>),
+          rollback: {
+            deleted_count: deletedCount,
+            skipped_count: skippedDetails.length,
+            skipped_details: skippedDetails,
+          },
+        },
+      },
+      include: {
+        created_by: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
+    });
+
+    this.logger.log(
+      `Import job ${jobId} rollback: ${deletedCount} deleted, ${skippedDetails.length} skipped`,
+    );
+
+    return {
+      ...this.serializeJob(updatedJob),
+      rollback_summary: {
+        deleted_count: deletedCount,
+        skipped_count: skippedDetails.length,
+        skipped_details: skippedDetails,
+      },
+    };
+  }
+
+  private buildPreview(
+    headers: string[],
+    rows: string[][],
+    importType: string,
+  ): Record<string, unknown> {
+    // Summary stats
+    const summary: Record<string, unknown> = { total_rows: rows.length };
+
+    if (importType === 'students') {
+      const ygIdx = headers.indexOf('year_group');
+      const genderIdx = headers.indexOf('gender');
+      const parentEmailIdx = headers.indexOf('parent1_email');
+
+      if (ygIdx !== -1) {
+        const byYearGroup: Record<string, number> = {};
+        for (const row of rows) {
+          const yg = (row[ygIdx] ?? '').trim() || 'Unknown';
+          byYearGroup[yg] = (byYearGroup[yg] ?? 0) + 1;
+        }
+        summary.by_year_group = byYearGroup;
+      }
+
+      if (genderIdx !== -1) {
+        const byGender: Record<string, number> = {};
+        for (const row of rows) {
+          const g = (row[genderIdx] ?? '').trim().toLowerCase() || 'unknown';
+          byGender[g] = (byGender[g] ?? 0) + 1;
+        }
+        summary.by_gender = byGender;
+      }
+
+      if (parentEmailIdx !== -1) {
+        const emails = new Set<string>();
+        for (const row of rows) {
+          const e = (row[parentEmailIdx] ?? '').trim().toLowerCase();
+          if (e) emails.add(e);
+        }
+        summary.household_count = emails.size;
+      }
+    }
+
+    // Sample rows (first 30) as objects
+    const sampleRows = rows.slice(0, 30).map((row) => {
+      const obj: Record<string, string> = {};
+      for (let i = 0; i < headers.length; i++) {
+        obj[headers[i]!] = row[i] ?? '';
+      }
+      return obj;
+    });
+
+    return { summary, sample_rows: sampleRows, headers };
   }
 
   private serializeJob(job: Record<string, unknown>): Record<string, unknown> {

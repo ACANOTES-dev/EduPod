@@ -32,6 +32,19 @@ export class ImportProcessingService {
     private readonly s3Service: S3Service,
   ) {}
 
+  /** Track a record created by an import job for potential rollback. */
+  private async trackRecord(
+    db: PrismaService,
+    tenantId: string,
+    jobId: string,
+    recordType: string,
+    recordId: string,
+  ): Promise<void> {
+    await db.importJobRecord.create({
+      data: { tenant_id: tenantId, import_job_id: jobId, record_type: recordType, record_id: recordId },
+    });
+  }
+
   /**
    * Process a confirmed import job. Downloads file (CSV or XLSX), parses rows,
    * creates records in the DB for each valid row within an RLS-scoped transaction.
@@ -405,9 +418,11 @@ export class ImportProcessingService {
             },
           });
           stats.households_created++;
+          await this.trackRecord(db, tenantId, jobId, 'household', household.id);
 
-          await this.createStudentFromRow(db, tenantId, entry.row, household.id);
+          const studentId = await this.createStudentFromRow(db, tenantId, entry.row, household.id);
           stats.students_created++;
+          await this.trackRecord(db, tenantId, jobId, 'student', studentId);
           stats.skipped_rows.push({
             row: entry.originalRowNumber,
             reason: 'No parent email — student created with standalone household',
@@ -483,6 +498,7 @@ export class ImportProcessingService {
             });
             householdId = household.id;
             stats.households_created++;
+            await this.trackRecord(db, tenantId, jobId, 'household', household.id);
 
             // Create parent 1 from first row
             const parent1FirstName =
@@ -503,6 +519,7 @@ export class ImportProcessingService {
                   preferred_contact_channels: ['email'],
                 },
               });
+              await this.trackRecord(db, tenantId, jobId, 'parent', parent1.id);
               await db.householdParent.create({
                 data: {
                   tenant_id: tenantId,
@@ -535,6 +552,7 @@ export class ImportProcessingService {
                   preferred_contact_channels: ['email'],
                 },
               });
+              await this.trackRecord(db, tenantId, jobId, 'parent', parent2.id);
               await db.householdParent.create({
                 data: {
                   tenant_id: tenantId,
@@ -549,13 +567,14 @@ export class ImportProcessingService {
           // Create all students in this family group
           for (const entry of familyRows) {
             try {
-              await this.createStudentFromRow(
+              const studentId = await this.createStudentFromRow(
                 db,
                 tenantId,
                 entry.row,
                 householdId,
               );
               stats.students_created++;
+              await this.trackRecord(db, tenantId, jobId, 'student', studentId);
             } catch (err) {
               this.logger.warn(
                 `Import job ${jobId} row ${entry.originalRowNumber} student creation error: ${String(err)}`,
@@ -593,7 +612,7 @@ export class ImportProcessingService {
     tenantId: string,
     row: Record<string, string>,
     householdId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
     const middleName = row['middle_name'] ?? '';
@@ -617,16 +636,13 @@ export class ImportProcessingService {
       else if (g === 'f' || g === 'female') gender = 'female';
     }
 
-    // Build full name
-    const fullNameParts = [firstName, middleName, lastName].filter(Boolean);
-
     // Determine if allergy info was provided
     const hasAllergy = !!allergies;
 
     // Parse date_of_birth (support multiple formats)
     const parsedDob = this.parseFlexibleDate(dateOfBirth);
 
-    await db.student.create({
+    const student = await db.student.create({
       data: {
         tenant_id: tenantId,
         household_id: householdId,
@@ -634,7 +650,6 @@ export class ImportProcessingService {
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,
-        full_name: fullNameParts.join(' '),
         date_of_birth: parsedDob ?? new Date(dateOfBirth),
         entry_date: new Date(),
         gender,
@@ -645,6 +660,7 @@ export class ImportProcessingService {
         year_group_id: yearGroupId,
       },
     });
+    return student.id;
   }
 
   /**

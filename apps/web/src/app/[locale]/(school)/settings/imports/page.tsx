@@ -10,7 +10,7 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Download, Upload, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
+import { Download, Upload, CheckCircle, AlertTriangle, FileText, Undo2, Home } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -22,6 +22,23 @@ import { formatDateTime } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ImportPreview {
+  summary: {
+    total_rows: number;
+    by_year_group?: Record<string, number>;
+    by_gender?: Record<string, number>;
+    household_count?: number;
+  };
+  sample_rows: Record<string, string>[];
+  headers: string[];
+}
+
+interface RollbackSummary {
+  deleted_count: number;
+  skipped_count: number;
+  skipped_details: Array<{ record_type: string; record_id: string; reason: string }>;
+}
+
 interface ImportJob {
   id: string;
   import_type: string;
@@ -32,6 +49,8 @@ interface ImportJob {
   created_at: string;
   completed_at: string | null;
   errors: ImportError[] | null;
+  preview_json: ImportPreview | null;
+  rollback_summary?: RollbackSummary | null;
 }
 
 interface ImportError {
@@ -61,12 +80,15 @@ const ACCEPTED_FILE_EXTENSIONS = '.csv,.xlsx';
 
 const statusVariantMap: Record<string, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
   pending: 'neutral',
+  uploaded: 'neutral',
   validating: 'info',
   validated: 'info',
   processing: 'warning',
   completed: 'success',
   failed: 'danger',
   confirmed: 'warning',
+  rolled_back: 'neutral',
+  partially_rolled_back: 'warning',
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -346,6 +368,82 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
         </div>
       )}
 
+      {/* Preview section */}
+      {job.preview_json && (
+        <div className="space-y-3">
+          {/* Summary cards */}
+          <h3 className="text-sm font-semibold text-text-primary">Preview</h3>
+          <div className="flex flex-wrap gap-3">
+            {job.preview_json.summary.by_year_group && (
+              <div className="rounded-lg border border-border bg-surface-secondary p-3">
+                <p className="text-xs font-medium text-text-tertiary mb-1">By Year Group</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(job.preview_json.summary.by_year_group).map(([yg, count]) => (
+                    <span key={yg} className="text-xs text-text-secondary">
+                      {yg}: <span className="font-medium text-text-primary">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {job.preview_json.summary.by_gender && (
+              <div className="rounded-lg border border-border bg-surface-secondary p-3">
+                <p className="text-xs font-medium text-text-tertiary mb-1">By Gender</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(job.preview_json.summary.by_gender).map(([g, count]) => (
+                    <span key={g} className="text-xs text-text-secondary capitalize">
+                      {g}: <span className="font-medium text-text-primary">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {job.preview_json.summary.household_count != null && (
+              <div className="rounded-lg border border-border bg-surface-secondary p-3">
+                <p className="text-xs font-medium text-text-tertiary mb-1">Households</p>
+                <div className="flex items-center gap-1">
+                  <Home className="h-3.5 w-3.5 text-text-tertiary" />
+                  <span className="text-sm font-medium text-text-primary">{job.preview_json.summary.household_count}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sample table */}
+          {job.preview_json.sample_rows.length > 0 && (
+            <div>
+              <p className="text-xs text-text-tertiary mb-1">
+                Showing {job.preview_json.sample_rows.length} of {job.preview_json.summary.total_rows} rows
+              </p>
+              <div className="max-h-72 overflow-auto rounded-lg border border-border">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-surface-secondary">
+                      {job.preview_json.headers.slice(0, 8).map((h) => (
+                        <th key={h} className="px-2 py-1.5 text-start font-semibold text-text-tertiary whitespace-nowrap">
+                          {h.replace(/_/g, ' ')}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {job.preview_json.sample_rows.map((row, idx) => (
+                      <tr key={idx} className="border-b border-border last:border-b-0">
+                        {job.preview_json!.headers.slice(0, 8).map((h) => (
+                          <td key={h} className="px-2 py-1.5 text-text-secondary whitespace-nowrap max-w-[150px] truncate">
+                            {row[h] || '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {isValidated && (job.valid_rows ?? 0) > 0 && (
         <Button onClick={handleConfirm} disabled={confirming}>
           <CheckCircle className="me-2 h-4 w-4" />
@@ -372,6 +470,62 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Rollback Button ─────────────────────────────────────────────────────────
+
+function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () => void }) {
+  const [confirming, setConfirming] = React.useState(false);
+  const [rolling, setRolling] = React.useState(false);
+  const [result, setResult] = React.useState<RollbackSummary | null>(null);
+
+  const handleRollback = async () => {
+    setRolling(true);
+    try {
+      const res = await apiClient<{ data: ImportJob; rollback_summary: RollbackSummary }>(
+        `/api/v1/imports/${jobId}/rollback`,
+        { method: 'POST' },
+      );
+      setResult(res.rollback_summary ?? (res.data as unknown as { rollback_summary?: RollbackSummary }).rollback_summary ?? null);
+      onRollback();
+    } catch {
+      // error handled by global handler
+    } finally {
+      setRolling(false);
+      setConfirming(false);
+    }
+  };
+
+  if (result) {
+    return (
+      <div className="text-xs">
+        <span className="text-success-text">{result.deleted_count} deleted</span>
+        {result.skipped_count > 0 && (
+          <span className="text-warning-text ms-2">{result.skipped_count} kept</span>
+        )}
+      </div>
+    );
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <Button size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={rolling}>
+          Cancel
+        </Button>
+        <Button size="sm" variant="outline" className="text-danger-text border-danger-text" onClick={handleRollback} disabled={rolling}>
+          {rolling ? 'Rolling back...' : 'Confirm'}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button size="sm" variant="ghost" onClick={() => setConfirming(true)}>
+      <Undo2 className="me-1 h-3.5 w-3.5" />
+      Rollback
+    </Button>
   );
 }
 
@@ -494,6 +648,19 @@ export default function ImportsPage() {
         <span dir="ltr" className="text-text-secondary whitespace-nowrap">
           {formatDateTime(row.created_at)}
         </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (row: ImportJob) => (
+        row.status === 'completed' ? (
+          <RollbackButton jobId={row.id} onRollback={() => void fetchHistory(page)} />
+        ) : row.status === 'rolled_back' ? (
+          <span className="text-xs text-text-tertiary">Rolled back</span>
+        ) : row.status === 'partially_rolled_back' ? (
+          <span className="text-xs text-warning-text">Partial rollback</span>
+        ) : null
       ),
     },
   ];
