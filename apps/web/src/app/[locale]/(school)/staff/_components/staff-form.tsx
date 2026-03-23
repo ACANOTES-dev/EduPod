@@ -20,7 +20,7 @@ import { apiClient } from '@/lib/api-client';
 
 interface RoleOption {
   id: string;
-  role_name: string;
+  display_name: string;
   role_tier: string;
 }
 
@@ -193,7 +193,7 @@ export function StaffForm({
                 <SelectContent>
                   {roles.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.role_name}
+                      {r.display_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
