@@ -76,12 +76,24 @@ export class ImportService {
       `Import job ${job.id} created for tenant ${tenantId}, type=${importType}, file=${fileName}`,
     );
 
-    // Run validation inline (faster than waiting for worker to pick up BullMQ job)
-    this.importValidationService.validate(tenantId, job.id).catch((err) => {
-      this.logger.error(`Inline validation failed for job ${job.id}: ${err instanceof Error ? err.message : String(err)}`);
+    // Run validation inline before returning
+    try {
+      await this.importValidationService.validate(tenantId, job.id);
+    } catch (err) {
+      this.logger.error(`Validation failed for job ${job.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // Re-fetch the job to get updated validation results
+    const finalJob = await this.prisma.importJob.findUnique({
+      where: { id: job.id },
+      include: {
+        created_by: {
+          select: { id: true, first_name: true, last_name: true },
+        },
+      },
     });
 
-    return this.serializeJob(updatedJob);
+    return this.serializeJob(finalJob ?? updatedJob);
   }
 
   /**
