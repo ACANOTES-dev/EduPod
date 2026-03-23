@@ -12,16 +12,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 export interface RegistrationResult {
-  household_id: string;
-  household_number: string;
-  primary_parent_id: string;
-  secondary_parent_id: string | null;
-  students: Array<{ id: string; index: number }>;
-  invoice_id: string;
-  invoice_number: string;
-  invoice_status: string;
-  invoice_total: number;
-  invoice_due_date: string | undefined;
+  household: { id: string; household_number: string; household_name: string };
+  parents: Array<{ id: string; first_name: string; last_name: string }>;
+  students: Array<{ id: string; student_number: string; first_name: string; last_name: string }>;
+  invoice: {
+    id: string;
+    invoice_number: string;
+    total_amount: number;
+    balance_amount: number;
+    status: string;
+  };
 }
 
 @Injectable()
@@ -263,7 +263,7 @@ export class RegistrationService {
       });
 
       // ── 7. Create Students ─────────────────────────────────────────────
-      const createdStudents: Array<{ id: string; index: number }> = [];
+      const createdStudents: Array<{ id: string; index: number; student_number: string; first_name: string; last_name: string }> = [];
 
       for (let i = 0; i < dto.students.length; i++) {
         const s = dto.students[i]!;
@@ -286,7 +286,7 @@ export class RegistrationService {
           },
         });
 
-        createdStudents.push({ id: student.id, index: i });
+        createdStudents.push({ id: student.id, index: i, student_number: studentNumber, first_name: s.first_name, last_name: s.last_name });
 
         // ── 8. Create StudentParent links ────────────────────────────────
         await db.studentParent.create({
@@ -514,20 +514,29 @@ export class RegistrationService {
         },
       });
 
+      const parents: RegistrationResult['parents'] = [
+        { id: primaryParent.id, first_name: dto.primary_parent.first_name, last_name: dto.primary_parent.last_name },
+      ];
+      if (secondaryParent && dto.secondary_parent) {
+        parents.push({ id: secondaryParent.id, first_name: dto.secondary_parent.first_name, last_name: dto.secondary_parent.last_name });
+      }
+
       return {
-        household_id: household.id,
-        household_number: householdNumber,
-        primary_parent_id: primaryParent.id,
-        secondary_parent_id: secondaryParent?.id ?? null,
+        household: { id: household.id, household_number: householdNumber, household_name: dto.household.household_name },
+        parents,
         students: createdStudents.map((cs) => ({
           id: cs.id,
-          index: cs.index,
+          student_number: cs.student_number,
+          first_name: cs.first_name,
+          last_name: cs.last_name,
         })),
-        invoice_id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        invoice_status: invoice.status as string,
-        invoice_total: Number(invoice.total_amount),
-        invoice_due_date: invoice.due_date.toISOString().split('T')[0],
+        invoice: {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          total_amount: Number(invoice.total_amount),
+          balance_amount: Number(invoice.balance_amount),
+          status: invoice.status as string,
+        },
       };
     })) as RegistrationResult;
 
@@ -535,14 +544,17 @@ export class RegistrationService {
     try {
       const issuedInvoice = await this.invoicesService.issue(
         tenantId,
-        result.invoice_id,
+        result.invoice.id,
         userId,
         true,
       );
 
       return {
         ...result,
-        invoice_status: (issuedInvoice as { status?: string }).status ?? result.invoice_status,
+        invoice: {
+          ...result.invoice,
+          status: (issuedInvoice as { status?: string }).status ?? result.invoice.status,
+        },
       };
     } catch {
       // If issuing fails (e.g., approval needed), return result with draft/pending status
