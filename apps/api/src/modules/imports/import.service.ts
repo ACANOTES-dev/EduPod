@@ -13,6 +13,8 @@ import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
+import { ImportProcessingService } from './import-processing.service';
+
 // ─── File parsing helpers ───────────────────────────────────────────────────
 
 function normaliseHeader(raw: string): string {
@@ -101,6 +103,7 @@ export class ImportService {
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
     @InjectQueue('imports') private readonly importsQueue: Queue,
+    private readonly importProcessingService: ImportProcessingService,
   ) {}
 
   async upload(
@@ -324,9 +327,27 @@ export class ImportService {
       });
     }
 
-    const updatedJob = await this.prisma.importJob.update({
+    await this.prisma.importJob.update({
       where: { id: jobId },
       data: { status: 'processing' },
+    });
+
+    this.logger.log(`Import job ${jobId} confirmed — processing inline`);
+
+    // Process inline instead of enqueuing to worker (worker BullMQ unreliable)
+    try {
+      await this.importProcessingService.process(tenantId, jobId);
+    } catch (err) {
+      this.logger.error(`Processing failed for job ${jobId}: ${err instanceof Error ? err.message : String(err)}`);
+      await this.prisma.importJob.update({
+        where: { id: jobId },
+        data: { status: 'failed', summary_json: { error: `Processing error: ${err instanceof Error ? err.message : String(err)}` } },
+      }).catch(() => { /* best effort */ });
+    }
+
+    // Re-fetch final state
+    const finalJob = await this.prisma.importJob.findUnique({
+      where: { id: jobId },
       include: {
         created_by: {
           select: { id: true, first_name: true, last_name: true },
@@ -334,14 +355,7 @@ export class ImportService {
       },
     });
 
-    await this.importsQueue.add('imports:process', {
-      tenant_id: tenantId,
-      import_job_id: jobId,
-    });
-
-    this.logger.log(`Import job ${jobId} confirmed for processing`);
-
-    return this.serializeJob(updatedJob);
+    return this.serializeJob(finalJob ?? job);
   }
 
   async rollback(tenantId: string, jobId: string) {
