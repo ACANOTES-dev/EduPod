@@ -340,6 +340,18 @@ export class ImportService {
   }
 
   private serializeJob(job: Record<string, unknown>): Record<string, unknown> {
-    return { ...job };
+    const summary = (job.summary_json ?? {}) as Record<string, unknown>;
+    return {
+      ...job,
+      total_rows: summary.total_rows ?? null,
+      valid_rows: summary.valid_rows ?? null,
+      invalid_rows: summary.invalid_rows ?? null,
+      errors: [
+        ...(Array.isArray(summary.header_errors) ? summary.header_errors.map((e: unknown) => ({ row: 0, field: '', message: String(e) })) : []),
+        ...(Array.isArray(summary.row_errors) ? (summary.row_errors as Array<{ row: number; errors: string[] }>).flatMap((re) =>
+          re.errors.map((msg) => ({ row: re.row, field: '', message: msg })),
+        ) : []),
+      ],
+    };
   }
 }
