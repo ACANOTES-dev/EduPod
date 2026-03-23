@@ -2,9 +2,10 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
+import * as XLSX from 'xlsx';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
-import { downloadFromS3 } from '../../base/s3.helpers';
+import { downloadBufferFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ export const IMPORT_VALIDATION_JOB = 'imports:validate';
 
 const EXPECTED_HEADERS: Record<string, string[]> = {
   students: [
-    'first_name', 'last_name', 'date_of_birth', 'gender', 'household_name',
+    'first_name', 'last_name', 'date_of_birth', 'gender',
   ],
   parents: [
     'first_name', 'last_name', 'email', 'phone', 'relationship_label',
@@ -79,7 +80,16 @@ export class ImportValidationProcessor extends WorkerHost {
   }
 }
 
-// ─── CSV Parsing Helpers ─────────────────────────────────────────────────────
+// ─── File Parsing ───────────────────────────────────────────────────────────
+
+/** Normalise a header: lowercase, trim, strip trailing asterisks/spaces. */
+function normaliseHeader(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s*\*+$/, '')   // strip trailing " *" or " **"
+    .replace(/\s+/g, '_');    // collapse spaces to underscores
+}
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -91,10 +101,9 @@ function parseCsvLine(line: string): string[] {
 
     if (inQuotes) {
       if (char === '"') {
-        // Check for escaped quote
         if (i + 1 < line.length && line[i + 1] === '"') {
           current += '"';
-          i++; // skip next quote
+          i++;
         } else {
           inQuotes = false;
         }
@@ -117,6 +126,59 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
+function parseFile(
+  fileBuffer: Buffer,
+  fileKey: string,
+): { headers: string[]; rows: string[][] } {
+  const isXlsx = fileKey.toLowerCase().endsWith('.xlsx') || fileKey.toLowerCase().endsWith('.xls');
+
+  if (isXlsx) {
+    return parseXlsx(fileBuffer);
+  }
+  return parseCsv(fileBuffer.toString('utf-8'));
+}
+
+function parseXlsx(buffer: Buffer): { headers: string[]; rows: string[][] } {
+  const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return { headers: [], rows: [] };
+
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) return { headers: [], rows: [] };
+
+  const rawData: unknown[][] = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    defval: '',
+    blankrows: false,
+  });
+
+  if (rawData.length === 0) return { headers: [], rows: [] };
+
+  const headerRow = rawData[0] as string[];
+  const headers = headerRow.map((h) => normaliseHeader(String(h ?? '')));
+
+  const rows: string[][] = [];
+  for (let i = 1; i < rawData.length; i++) {
+    const rawRow = rawData[i] as unknown[];
+    // Skip completely empty rows
+    const hasData = rawRow.some((cell) => {
+      const val = String(cell ?? '').trim();
+      return val.length > 0;
+    });
+    if (!hasData) continue;
+
+    const row = rawRow.map((cell) => {
+      if (cell instanceof Date) {
+        return cell.toISOString().split('T')[0] ?? '';
+      }
+      return String(cell ?? '').trim();
+    });
+    rows.push(row);
+  }
+
+  return { headers, rows };
+}
+
 function parseCsv(content: string): { headers: string[]; rows: string[][] } {
   const lines = content.split('\n').filter((line) => line.trim().length > 0);
 
@@ -129,10 +191,32 @@ function parseCsv(content: string): { headers: string[]; rows: string[][] } {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCsvLine(firstLine).map((h) => h.toLowerCase().trim());
+  const headers = parseCsvLine(firstLine).map((h) => normaliseHeader(h));
   const rows = lines.slice(1).map((line) => parseCsvLine(line));
 
   return { headers, rows };
+}
+
+// ─── Example row detection ──────────────────────────────────────────────────
+
+const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'ahmed', 'omar', 'sarah', 'stf-001']);
+
+function isExampleRow(headers: string[], row: string[]): boolean {
+  const fnIndex = headers.indexOf('first_name');
+  if (fnIndex === -1) return false;
+  const firstName = (row[fnIndex] ?? '').toLowerCase().trim();
+  if (!EXAMPLE_FIRST_NAMES.has(firstName)) return false;
+
+  const lnIndex = headers.indexOf('last_name');
+  const lastName = lnIndex !== -1 ? (row[lnIndex] ?? '').toLowerCase().trim() : '';
+  // Match known template example rows
+  if (firstName === 'aisha' && lastName === 'al-mansour') return true;
+  if (firstName === 'omar' && lastName === 'al-mansour') return true;
+  if (firstName === 'ahmed' && lastName === 'al-farsi') return true;
+
+  // Check for template hint patterns like "(e.g. ...)"
+  const hasHint = row.some((cell) => /\(e\.g\.|example|sample/i.test(cell));
+  return hasHint;
 }
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
@@ -184,10 +268,10 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       return;
     }
 
-    // 2. Download CSV from S3
-    let csvContent: string;
+    // 2. Download file from S3 as Buffer
+    let fileBuffer: Buffer;
     try {
-      csvContent = await this.downloadFromS3(importJob.file_key);
+      fileBuffer = await downloadBufferFromS3(importJob.file_key);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown S3 download error';
       this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
@@ -201,28 +285,49 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       return;
     }
 
-    // 3. Parse CSV
-    const { headers, rows } = parseCsv(csvContent);
+    // 3. Parse file (XLSX or CSV based on extension)
+    const { headers, rows: allRows } = parseFile(fileBuffer, importJob.file_key);
 
     if (headers.length === 0) {
       await tx.importJob.update({
         where: { id: import_job_id },
         data: {
           status: 'failed',
-          summary_json: { error: 'CSV file is empty or has no headers.' },
+          summary_json: { error: 'File is empty or has no recognisable headers.' },
         },
       });
       return;
     }
 
-    // 4. Validate headers
+    // 4. Filter out example rows
+    const rows = allRows.filter((row) => !isExampleRow(headers, row));
+
+    if (rows.length === 0) {
+      await tx.importJob.update({
+        where: { id: import_job_id },
+        data: {
+          status: 'failed',
+          summary_json: {
+            error: allRows.length > 0
+              ? 'File contains only example/template rows. Please replace them with real data.'
+              : 'File has headers but no data rows.',
+            total_rows: 0,
+            valid_rows: 0,
+            invalid_rows: 0,
+          },
+        },
+      });
+      return;
+    }
+
+    // 5. Validate headers
     const missingHeaders = expectedHeaders.filter((h) => !headers.includes(h));
     const headerErrors: string[] = [];
     if (missingHeaders.length > 0) {
       headerErrors.push(`Missing required headers: ${missingHeaders.join(', ')}`);
     }
 
-    // 5. Validate each row
+    // 6. Validate each row
     const rowErrors: Array<{ row: number; errors: string[] }> = [];
     let validRowCount = 0;
 
@@ -234,7 +339,7 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       for (const field of requiredFields) {
         const colIndex = headers.indexOf(field);
         if (colIndex === -1) {
-          continue; // already flagged as missing header
+          continue;
         }
         const value = row[colIndex];
         if (!value || value.trim().length === 0) {
@@ -273,7 +378,7 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       }
     }
 
-    // 6. Simple duplicate detection
+    // 7. Simple duplicate detection
     const duplicates: Array<{ row: number; match: string }> = [];
     try {
       for (let i = 0; i < rows.length; i++) {
@@ -331,14 +436,14 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
       this.logger.warn(`Duplicate detection encountered an error — continuing without full duplicate check: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 7. Build summary and update import_job
+    // 8. Build summary and update import_job
     const hasErrors = headerErrors.length > 0 || rowErrors.length > 0;
     const summary = {
       total_rows: rows.length,
       valid_rows: validRowCount,
       invalid_rows: rowErrors.length,
       header_errors: headerErrors,
-      row_errors: rowErrors.slice(0, 50), // Cap to 50 to avoid huge JSON
+      row_errors: rowErrors.slice(0, 50),
       duplicates: duplicates.slice(0, 50),
       duplicate_count: duplicates.length,
     };
@@ -354,9 +459,5 @@ class ImportValidationJob extends TenantAwareJob<ImportValidationPayload> {
     this.logger.log(
       `Import validation complete for job ${import_job_id}: ${rows.length} rows, ${validRowCount} valid, ${rowErrors.length} invalid, ${duplicates.length} duplicates, tenant ${tenant_id}`,
     );
-  }
-
-  private async downloadFromS3(fileKey: string): Promise<string> {
-    return downloadFromS3(fileKey);
   }
 }

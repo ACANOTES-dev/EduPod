@@ -30,6 +30,11 @@ export function getS3Bucket(): string {
 }
 
 export async function downloadFromS3(fileKey: string): Promise<string> {
+  const buf = await downloadBufferFromS3(fileKey);
+  return buf.toString('utf-8');
+}
+
+export async function downloadBufferFromS3(fileKey: string): Promise<Buffer> {
   const s3 = createS3Client();
   const response = await s3.send(
     new GetObjectCommand({ Bucket: getS3Bucket(), Key: fileKey }),
@@ -39,7 +44,7 @@ export async function downloadFromS3(fileKey: string): Promise<string> {
   for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString('utf-8');
+  return Buffer.concat(chunks);
 }
 
 export async function uploadToS3(fileKey: string, content: string, contentType = 'application/json'): Promise<void> {

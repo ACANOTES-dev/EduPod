@@ -3,8 +3,10 @@ import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import * as XLSX from 'xlsx';
+
 import { QUEUE_NAMES } from '../../base/queue.constants';
-import { downloadFromS3, deleteFromS3 } from '../../base/s3.helpers';
+import { downloadBufferFromS3, deleteFromS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -47,7 +49,15 @@ export class ImportProcessingProcessor extends WorkerHost {
   }
 }
 
-// ─── CSV Parsing Helpers ─────────────────────────────────────────────────────
+// ─── File Parsing Helpers ────────────────────────────────────────────────────
+
+function normaliseHeader(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s*\*+$/, '')
+    .replace(/\s+/g, '_');
+}
 
 function parseCsvLine(line: string): string[] {
   const fields: string[] = [];
@@ -84,21 +94,53 @@ function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-function parseCsv(content: string): { headers: string[]; rows: string[][] } {
+function parseFile(
+  fileBuffer: Buffer,
+  fileKey: string,
+): { headers: string[]; rows: string[][] } {
+  const isXlsx = fileKey.toLowerCase().endsWith('.xlsx') || fileKey.toLowerCase().endsWith('.xls');
+
+  if (isXlsx) {
+    const workbook = XLSX.read(fileBuffer, { type: 'buffer', cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return { headers: [], rows: [] };
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return { headers: [], rows: [] };
+
+    const rawData: unknown[][] = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      defval: '',
+      blankrows: false,
+    });
+
+    if (rawData.length === 0) return { headers: [], rows: [] };
+
+    const headerRow = rawData[0] as string[];
+    const headers = headerRow.map((h) => normaliseHeader(String(h ?? '')));
+
+    const rows: string[][] = [];
+    for (let i = 1; i < rawData.length; i++) {
+      const rawRow = rawData[i] as unknown[];
+      const hasData = rawRow.some((cell) => String(cell ?? '').trim().length > 0);
+      if (!hasData) continue;
+      const row = rawRow.map((cell) => {
+        if (cell instanceof Date) return cell.toISOString().split('T')[0] ?? '';
+        return String(cell ?? '').trim();
+      });
+      rows.push(row);
+    }
+
+    return { headers, rows };
+  }
+
+  // CSV fallback
+  const content = fileBuffer.toString('utf-8');
   const lines = content.split('\n').filter((line) => line.trim().length > 0);
-
-  if (lines.length === 0) {
-    return { headers: [], rows: [] };
-  }
-
+  if (lines.length === 0) return { headers: [], rows: [] };
   const firstLine = lines[0];
-  if (!firstLine) {
-    return { headers: [], rows: [] };
-  }
-
-  const headers = parseCsvLine(firstLine).map((h) => h.toLowerCase().trim());
+  if (!firstLine) return { headers: [], rows: [] };
+  const headers = parseCsvLine(firstLine).map((h) => normaliseHeader(h));
   const rows = lines.slice(1).map((line) => parseCsvLine(line));
-
   return { headers, rows };
 }
 
@@ -149,10 +191,10 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
       data: { status: 'processing' },
     });
 
-    // 2. Download CSV from S3
-    let csvContent: string;
+    // 2. Download file from S3
+    let fileBuffer: Buffer;
     try {
-      csvContent = await downloadFromS3(importJob.file_key);
+      fileBuffer = await downloadBufferFromS3(importJob.file_key);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown S3 download error';
       this.logger.error(`Failed to download S3 file ${importJob.file_key}: ${message}`);
@@ -166,8 +208,8 @@ class ImportProcessingJob extends TenantAwareJob<ImportProcessingPayload> {
       return;
     }
 
-    // 3. Parse CSV
-    const { headers, rows } = parseCsv(csvContent);
+    // 3. Parse file (XLSX or CSV)
+    const { headers, rows } = parseFile(fileBuffer, importJob.file_key);
 
     if (rows.length === 0) {
       await tx.importJob.update({
