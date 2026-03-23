@@ -11,6 +11,8 @@ import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
+import { ImportValidationService } from './import-validation.service';
+
 @Injectable()
 export class ImportService {
   private readonly logger = new Logger(ImportService.name);
@@ -19,6 +21,7 @@ export class ImportService {
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
     @InjectQueue('imports') private readonly importsQueue: Queue,
+    private readonly importValidationService: ImportValidationService,
   ) {}
 
   /**
@@ -69,15 +72,14 @@ export class ImportService {
       },
     });
 
-    // Enqueue validation job
-    await this.importsQueue.add('imports:validate', {
-      tenant_id: tenantId,
-      import_job_id: job.id,
-    });
-
     this.logger.log(
       `Import job ${job.id} created for tenant ${tenantId}, type=${importType}, file=${fileName}`,
     );
+
+    // Run validation inline (faster than waiting for worker to pick up BullMQ job)
+    this.importValidationService.validate(tenantId, job.id).catch((err) => {
+      this.logger.error(`Inline validation failed for job ${job.id}: ${err instanceof Error ? err.message : String(err)}`);
+    });
 
     return this.serializeJob(updatedJob);
   }
