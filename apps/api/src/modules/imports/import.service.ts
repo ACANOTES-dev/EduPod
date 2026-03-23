@@ -72,7 +72,7 @@ export class ImportService {
     // Enqueue validation job
     await this.importsQueue.add('imports:validate', {
       tenant_id: tenantId,
-      job_id: job.id,
+      import_job_id: job.id,
     });
 
     this.logger.log(
@@ -188,7 +188,7 @@ export class ImportService {
     // Enqueue processing job
     await this.importsQueue.add('imports:process', {
       tenant_id: tenantId,
-      job_id: jobId,
+      import_job_id: jobId,
     });
 
     this.logger.log(`Import job ${jobId} confirmed for processing`);
