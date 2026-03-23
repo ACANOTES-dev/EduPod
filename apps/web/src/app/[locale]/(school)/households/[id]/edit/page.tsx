@@ -48,10 +48,53 @@ export default function EditHouseholdPage() {
   }, [id]);
 
   const handleSubmit = async (data: HouseholdFormData) => {
+    // 1. Update household basics (name, address)
+    const { emergency_contacts: _, ...householdBasics } = data;
     await apiClient<{ data: HouseholdDetail }>(`/api/v1/households/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(data),
+      body: JSON.stringify(householdBasics),
     });
+
+    // 2. Sync emergency contacts via dedicated endpoints
+    const originalContacts = household?.emergency_contacts ?? [];
+    const updatedContacts = data.emergency_contacts;
+
+    const originalIds = new Set(originalContacts.map((c) => c.id).filter(Boolean));
+    const updatedIds = new Set(updatedContacts.map((c) => c.id).filter(Boolean));
+
+    // Delete contacts that were removed
+    for (const original of originalContacts) {
+      if (original.id && !updatedIds.has(original.id)) {
+        await apiClient(`/api/v1/households/${id}/emergency-contacts/${original.id}`, {
+          method: 'DELETE',
+        });
+      }
+    }
+
+    // Create new contacts (no id) and update existing ones
+    for (const contact of updatedContacts) {
+      const payload = {
+        contact_name: contact.contact_name,
+        phone: contact.phone,
+        relationship_label: contact.relationship_label,
+        display_order: contact.display_order,
+      };
+
+      if (contact.id && originalIds.has(contact.id)) {
+        // Update existing contact
+        await apiClient(`/api/v1/households/${id}/emergency-contacts/${contact.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // Create new contact
+        await apiClient(`/api/v1/households/${id}/emergency-contacts`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+    }
+
     toast.success('Household updated successfully');
     router.push(`/households/${id}`);
   };

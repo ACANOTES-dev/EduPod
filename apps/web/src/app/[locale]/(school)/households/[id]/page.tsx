@@ -206,9 +206,9 @@ export default function HouseholdHubPage() {
 
   const handleSetBillingParent = async (parentId: string) => {
     try {
-      await apiClient(`/api/v1/households/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ primary_billing_parent_id: parentId }),
+      await apiClient(`/api/v1/households/${id}/billing-parent`, {
+        method: 'PUT',
+        body: JSON.stringify({ parent_id: parentId }),
       });
       toast.success('Billing parent updated');
       await fetchHousehold();
