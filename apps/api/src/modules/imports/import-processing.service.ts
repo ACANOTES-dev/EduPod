@@ -9,6 +9,7 @@ import * as XLSX from 'xlsx';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 /** Example data values from the XLSX template, used to detect and skip example rows. */
 const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'omar', 'ahmed', 'sarah', 'stf-001']);
@@ -30,6 +31,7 @@ export class ImportProcessingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
+    private readonly sequenceService: SequenceService,
   ) {}
 
   /** Track a record created by an import job for potential rollback. */
@@ -405,10 +407,12 @@ export class ImportProcessingService {
         try {
           const lastName = entry.row['last_name'] ?? '';
           const householdName = entry.row['household_name'] || `${lastName} Family`;
+          const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
           const household = await db.household.create({
             data: {
               tenant_id: tenantId,
               household_name: householdName,
+              household_number: householdNumber,
               address_line_1: entry.row['address_line1'] || null,
               address_line_2: entry.row['address_line2'] || null,
               city: entry.row['city'] || null,
@@ -482,10 +486,12 @@ export class ImportProcessingService {
             const resolvedHouseholdName =
               householdName || `${parent1LastName} Family`;
 
+            const familyHouseholdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
             const household = await db.household.create({
               data: {
                 tenant_id: tenantId,
                 household_name: resolvedHouseholdName,
+                household_number: familyHouseholdNumber,
                 address_line_1:
                   firstRow.row['address_line1'] || null,
                 address_line_2:
@@ -642,11 +648,14 @@ export class ImportProcessingService {
     // Parse date_of_birth (support multiple formats)
     const parsedDob = this.parseFlexibleDate(dateOfBirth);
 
+    // Auto-generate student number
+    const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', db, 'STU');
+
     const student = await db.student.create({
       data: {
         tenant_id: tenantId,
         household_id: householdId,
-        student_number: null,
+        student_number: studentNumber,
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,

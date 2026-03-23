@@ -156,7 +156,8 @@ export class AttendanceUploadService {
 
     // 6. Build CSV
     const lines: string[] = [
-      '# Status values: P=Present, A=Absent (Unexcused), AE=Absent (Excused), L=Late, LE=Left Early',
+      `"# Attendance Template — ${sessionDate}"`,
+      '"# Status values: P=Present | A=Absent (Unexcused) | AE=Absent (Excused) | L=Late | LE=Left Early"',
       'student_number,student_name,class_name,status',
       ...rows,
     ];
