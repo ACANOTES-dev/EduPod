@@ -60,6 +60,18 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
     const { tenant_id, date } = data;
     const targetDate = new Date(date);
 
+    // ── Read tenant settings ONCE for default-present check ──────────────
+    const tenantSettings = await tx.tenantSetting.findFirst({
+      where: { tenant_id },
+      select: { settings: true },
+    });
+    const settings =
+      (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const attendanceSettings =
+      (settings.attendance as Record<string, unknown>) ?? {};
+    const defaultPresentEnabled =
+      attendanceSettings.defaultPresentEnabled === true;
+
     // JavaScript getDay(): 0=Sunday, 1=Monday, ..., 6=Saturday
     // Schema uses 0=Monday, 1=Tuesday, ..., 6=Sunday
     const jsDay = targetDate.getDay();
@@ -130,7 +142,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
 
       // Create session (skip if already exists via unique constraint)
       try {
-        await tx.attendanceSession.create({
+        const session = await tx.attendanceSession.create({
           data: {
             tenant_id,
             class_id: schedule.class_id,
@@ -140,6 +152,38 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
           },
         });
         created++;
+
+        // ── Default present: bulk-insert present records for all enrolled students ──
+        if (defaultPresentEnabled) {
+          await tx.attendanceSession.update({
+            where: { id: session.id },
+            data: { default_present: true },
+          });
+
+          const enrolments = await tx.classEnrolment.findMany({
+            where: {
+              class_id: schedule.class_id,
+              tenant_id,
+              status: 'active',
+            },
+            select: { student_id: true },
+          });
+
+          if (enrolments.length > 0) {
+            const now = new Date();
+            await tx.attendanceRecord.createMany({
+              data: enrolments.map((e) => ({
+                tenant_id,
+                attendance_session_id: session.id,
+                student_id: e.student_id,
+                status: 'present' as const,
+                marked_by_user_id: '00000000-0000-0000-0000-000000000000',
+                marked_at: now,
+              })),
+              skipDuplicates: true,
+            });
+          }
+        }
       } catch (err: unknown) {
         // Unique constraint violation = session already exists, skip
         if (
@@ -155,7 +199,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
     }
 
     this.logger.log(
-      `Generated ${created} attendance sessions for tenant ${tenant_id} on ${date}`,
+      `Generated ${created} sessions${defaultPresentEnabled ? ' (with default present records)' : ''} for tenant ${tenant_id} on ${date}`,
     );
   }
 }
