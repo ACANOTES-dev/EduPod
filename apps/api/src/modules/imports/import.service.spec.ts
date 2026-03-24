@@ -6,6 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
+import { ImportProcessingService } from './import-processing.service';
 import { ImportService } from './import.service';
 
 const TENANT_ID = 'tenant-uuid-1';
@@ -40,6 +41,7 @@ describe('ImportService', () => {
       create: jest.Mock;
       findFirst: jest.Mock;
       findMany: jest.Mock;
+      findUnique: jest.Mock;
       count: jest.Mock;
       update: jest.Mock;
     };
@@ -52,6 +54,9 @@ describe('ImportService', () => {
   let mockQueue: {
     add: jest.Mock;
   };
+  let mockImportProcessingService: {
+    process: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -59,6 +64,7 @@ describe('ImportService', () => {
         create: jest.fn(),
         findFirst: jest.fn(),
         findMany: jest.fn(),
+        findUnique: jest.fn(),
         count: jest.fn(),
         update: jest.fn(),
       },
@@ -74,12 +80,17 @@ describe('ImportService', () => {
       add: jest.fn(),
     };
 
+    mockImportProcessingService = {
+      process: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ImportService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
         { provide: getQueueToken('imports'), useValue: mockQueue },
+        { provide: ImportProcessingService, useValue: mockImportProcessingService },
       ],
     }).compile();
 
@@ -98,6 +109,7 @@ describe('ImportService', () => {
       mockPrisma.importJob.create.mockResolvedValue(buildMockJob({ file_key: null }));
       mockS3.upload.mockResolvedValue(`${TENANT_ID}/imports/${JOB_ID}.csv`);
       mockPrisma.importJob.update.mockResolvedValue(buildMockJob());
+      mockPrisma.importJob.findUnique.mockResolvedValue(buildMockJob());
       mockQueue.add.mockResolvedValue(undefined);
     });
 
@@ -128,13 +140,13 @@ describe('ImportService', () => {
       );
     });
 
-    it('should enqueue imports:validate job after upload', async () => {
+    it('should perform inline validation and update job status after upload', async () => {
       await service.upload(TENANT_ID, USER_ID, fileBuffer, fileName, 'students' as any);
 
-      expect(mockQueue.add).toHaveBeenCalledWith('imports:validate', {
-        tenant_id: TENANT_ID,
-        job_id: JOB_ID,
-      });
+      // Inline validation runs synchronously — no queue call for validate
+      expect(mockQueue.add).not.toHaveBeenCalledWith('imports:validate', expect.any(Object));
+      // The job record is updated with validation results
+      expect(mockPrisma.importJob.update).toHaveBeenCalled();
     });
 
     it('should return serialised job with created_by user', async () => {
@@ -230,7 +242,7 @@ describe('ImportService', () => {
   // ─── confirm() ────────────────────────────────────────────────────────────
 
   describe('confirm()', () => {
-    it('should transition validated to processing, enqueue imports:process', async () => {
+    it('should transition validated to processing and process inline', async () => {
       mockPrisma.importJob.findFirst.mockResolvedValue(
         buildMockJob({
           status: 'validated',
@@ -240,7 +252,9 @@ describe('ImportService', () => {
       mockPrisma.importJob.update.mockResolvedValue(
         buildMockJob({ status: 'processing' }),
       );
-      mockQueue.add.mockResolvedValue(undefined);
+      mockPrisma.importJob.findUnique.mockResolvedValue(
+        buildMockJob({ status: 'processing' }),
+      );
 
       const result = await service.confirm(TENANT_ID, JOB_ID);
 
@@ -251,10 +265,8 @@ describe('ImportService', () => {
           data: { status: 'processing' },
         }),
       );
-      expect(mockQueue.add).toHaveBeenCalledWith('imports:process', {
-        tenant_id: TENANT_ID,
-        job_id: JOB_ID,
-      });
+      // Inline processing — no queue enqueue, but ImportProcessingService.process is called
+      expect(mockImportProcessingService.process).toHaveBeenCalledWith(TENANT_ID, JOB_ID);
     });
 
     it('should throw INVALID_IMPORT_STATUS when not validated', async () => {
@@ -306,12 +318,15 @@ describe('ImportService', () => {
       mockPrisma.importJob.update.mockResolvedValue(
         buildMockJob({ status: 'processing' }),
       );
+      mockPrisma.importJob.findUnique.mockResolvedValue(
+        buildMockJob({ status: 'processing' }),
+      );
       mockQueue.add.mockResolvedValue(undefined);
 
       const result = await service.confirm(TENANT_ID, JOB_ID);
 
       expect(result.status).toBe('processing');
-      expect(mockQueue.add).toHaveBeenCalledWith('imports:process', expect.any(Object));
+      expect(mockImportProcessingService.process).toHaveBeenCalledWith(TENANT_ID, JOB_ID);
     });
 
     it('edge: should handle summary_json with missing fields gracefully', async () => {
@@ -323,6 +338,9 @@ describe('ImportService', () => {
         }),
       );
       mockPrisma.importJob.update.mockResolvedValue(
+        buildMockJob({ status: 'processing' }),
+      );
+      mockPrisma.importJob.findUnique.mockResolvedValue(
         buildMockJob({ status: 'processing' }),
       );
       mockQueue.add.mockResolvedValue(undefined);

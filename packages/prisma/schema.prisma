@@ -867,6 +867,7 @@ model RolePermission {
   tenant     Tenant?    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@id([role_id, permission_id])
+  @@index([tenant_id], name: "idx_role_permissions_tenant")
   @@map("role_permissions")
 }
 
@@ -881,6 +882,7 @@ model MembershipRole {
   tenant     Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@id([membership_id, role_id])
+  @@index([tenant_id], name: "idx_membership_roles_tenant")
   @@map("membership_roles")
 }
 
@@ -921,6 +923,7 @@ model ApprovalWorkflow {
   tenant        Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   approver_role Role   @relation(fields: [approver_role_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_approval_workflows_tenant")
   @@map("approval_workflows")
 }
 
@@ -1082,6 +1085,7 @@ model HouseholdParent {
   parent    Parent    @relation(fields: [parent_id], references: [id], onDelete: Cascade)
 
   @@id([household_id, parent_id])
+  @@index([tenant_id], name: "idx_household_parents_tenant")
   @@map("household_parents")
 }
 
@@ -1162,6 +1166,7 @@ model StudentParent {
   parent  Parent  @relation(fields: [parent_id], references: [id], onDelete: Cascade)
 
   @@id([student_id, parent_id])
+  @@index([tenant_id], name: "idx_student_parents_tenant")
   @@map("student_parents")
 }
 
@@ -1413,6 +1418,7 @@ model ClassStaff {
   staff_profile StaffProfile @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
 
   @@id([class_id, staff_profile_id, assignment_role])
+  @@index([tenant_id], name: "idx_class_staff_tenant")
   @@map("class_staff")
 }
 
@@ -1485,6 +1491,7 @@ model AdmissionFormField {
   tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   form_definition AdmissionFormDefinition @relation(fields: [form_definition_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_admission_form_fields_tenant")
   @@index([form_definition_id], name: "idx_form_fields_definition")
   @@map("admission_form_fields")
 }
@@ -1541,6 +1548,7 @@ model ApplicationNote {
   application Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
   author      User        @relation(fields: [author_user_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_application_notes_tenant")
   @@index([application_id], name: "idx_application_notes_application")
   @@map("application_notes")
 }
@@ -2993,6 +3001,7 @@ model InvoiceLine {
   student       Student?      @relation(fields: [student_id], references: [id], onDelete: SetNull)
   fee_structure FeeStructure? @relation(fields: [fee_structure_id], references: [id], onDelete: SetNull)
 
+  @@index([tenant_id], name: "idx_invoice_lines_tenant")
   @@index([invoice_id], name: "idx_invoice_lines_invoice")
   @@map("invoice_lines")
 }
@@ -3011,6 +3020,7 @@ model Installment {
   tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_installments_tenant")
   @@index([invoice_id], name: "idx_installments_invoice")
   @@map("installments")
 }
@@ -3057,6 +3067,7 @@ model PaymentAllocation {
   payment Payment @relation(fields: [payment_id], references: [id], onDelete: Cascade)
   invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_payment_allocations_tenant")
   @@index([payment_id], name: "idx_payment_allocations_payment")
   @@index([invoice_id], name: "idx_payment_allocations_invoice")
   @@map("payment_allocations")
@@ -3103,6 +3114,7 @@ model Refund {
   requested_by User    @relation("refund_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
   approved_by  User?   @relation("refund_approver", fields: [approved_by_user_id], references: [id], onDelete: SetNull)
 
+  @@index([tenant_id], name: "idx_refunds_tenant")
   @@index([payment_id], name: "idx_refunds_payment")
   @@map("refunds")
 }
@@ -3269,6 +3281,7 @@ model NotificationTemplate {
   // Relations
   tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
+  @@index([tenant_id], name: "idx_notification_templates_tenant")
   @@map("notification_templates")
 }
 
@@ -3337,6 +3350,7 @@ model ParentInquiryMessage {
   inquiry ParentInquiry @relation(fields: [inquiry_id], references: [id], onDelete: Cascade)
   author  User          @relation("inquiry_message_author", fields: [author_user_id], references: [id])
 
+  @@index([tenant_id], name: "idx_parent_inquiry_messages_tenant")
   @@index([inquiry_id], name: "idx_parent_inquiry_messages_inquiry")
   @@map("parent_inquiry_messages")
 }
