@@ -161,6 +161,15 @@ Every tenant-scoped table has `tenant_id UUID NOT NULL`. Row-Level Security is e
 - Every BullMQ job payload MUST include `tenant_id`. The `TenantAwareJob` base class sets RLS context before any DB operation. Jobs without `tenant_id` are rejected at enqueue time.
 - The `users` table is the ONE exception — it is platform-level, not tenant-scoped, no RLS. Guarded at the application layer.
 
+### Regression Testing — Mandatory
+
+Before considering any work complete, run the full existing test suite to verify nothing was broken by the changes. This is not optional.
+
+- Run `turbo test` (or the relevant test commands for affected packages) after every feature addition, redesign, fix, or refactor
+- If any existing test fails that was passing before your changes, you MUST fix the regression before proceeding
+- This applies to all work — new features, bug fixes, redesigns, refactors, schema changes
+- Do not skip this step. Do not treat it as a nice-to-have. A change that breaks existing functionality is not complete.
+
 ### No Drift
 
 - Do not add tables, columns, endpoints, or features not specified in the phase file

@@ -31,6 +31,7 @@ export interface ClassFormValues {
   year_group_id: string;
   subject_id: string;
   homeroom_teacher_staff_id: string;
+  max_capacity: string;
   status: string;
 }
 
@@ -47,6 +48,7 @@ const DEFAULT_VALUES: ClassFormValues = {
   year_group_id: '',
   subject_id: '',
   homeroom_teacher_staff_id: '',
+  max_capacity: '',
   status: 'active',
 };
 
@@ -199,6 +201,20 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
                 <SelectItem value="archived">{t('statusArchived')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="max_capacity">{t('classSize')}</Label>
+            <Input
+              id="max_capacity"
+              type="number"
+              min={1}
+              max={200}
+              dir="ltr"
+              value={values.max_capacity}
+              onChange={(e) => setValues((p) => ({ ...p, max_capacity: e.target.value }))}
+              placeholder={t('classSizePlaceholder')}
+            />
           </div>
         </div>
       </div>

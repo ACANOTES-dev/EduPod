@@ -67,6 +67,7 @@ export class ClassesService {
             subject_id: dto.subject_id ?? null,
             homeroom_teacher_staff_id: dto.homeroom_teacher_staff_id ?? null,
             name: dto.name,
+            max_capacity: dto.max_capacity ?? null,
             status: dto.status,
           },
           include: {
@@ -238,6 +239,8 @@ export class ClassesService {
           updateData.homeroom_teacher = dto.homeroom_teacher_staff_id
             ? { connect: { id: dto.homeroom_teacher_staff_id } }
             : { disconnect: true };
+        if ('max_capacity' in dto)
+          updateData.max_capacity = dto.max_capacity ?? null;
 
         return db.class.update({
           where: { id },

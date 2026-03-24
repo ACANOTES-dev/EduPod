@@ -327,7 +327,39 @@ export default function ClassAssignmentsPage() {
     });
   };
 
-  const handleClassChange = (studentId: string, classId: string, currentClassId: string | null) => {
+  const getClassCurrentCount = (classId: string, group: YearGroup): number => {
+    let count = 0;
+    for (const s of group.students) {
+      const pending = pendingChanges.get(s.id);
+      if (pending === classId) { count++; continue; }
+      if (!pending && s.current_homeroom_class_id === classId) { count++; }
+    }
+    return count;
+  };
+
+  const handleClassChange = (studentId: string, classId: string, currentClassId: string | null, group?: YearGroup) => {
+    // "unassign" is represented by the special value '__unassign__'
+    if (classId === '__unassign__') {
+      setPendingChanges((prev) => {
+        const next = new Map(prev);
+        next.set(studentId, '__unassign__');
+        return next;
+      });
+      return;
+    }
+
+    // Capacity check
+    if (classId && group) {
+      const cls = group.homeroom_classes.find((c) => c.id === classId);
+      if (cls?.max_capacity) {
+        const currentCount = getClassCurrentCount(classId, group);
+        if (currentCount >= cls.max_capacity) {
+          toast.error(t('classFull', { className: cls.name }), { position: 'top-center' });
+          return;
+        }
+      }
+    }
+
     setPendingChanges((prev) => {
       const next = new Map(prev);
       if (classId === currentClassId) {
@@ -347,20 +379,42 @@ export default function ClassAssignmentsPage() {
 
     setSaving(true);
     try {
-      const assignments = Array.from(pendingChanges.entries()).map(([student_id, class_id]) => ({
-        student_id,
-        class_id,
-      }));
-
       const today = new Date().toISOString().split('T')[0];
 
-      const result = await apiClient<BulkAssignResponse>('/api/v1/class-assignments/bulk', {
-        method: 'POST',
-        body: JSON.stringify({ assignments, start_date: today }),
-      });
+      // Separate assigns from unassigns
+      const assigns: { student_id: string; class_id: string }[] = [];
+      const unassigns: string[] = [];
+
+      for (const [studentId, classId] of pendingChanges) {
+        if (classId === '__unassign__') {
+          unassigns.push(studentId);
+        } else {
+          assigns.push({ student_id: studentId, class_id: classId });
+        }
+      }
+
+      let assignedCount = 0;
+
+      // Process unassigns via individual student updates
+      for (const studentId of unassigns) {
+        await apiClient(`/api/v1/students/${studentId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ class_homeroom_id: null }),
+        });
+        assignedCount++;
+      }
+
+      // Process assigns via bulk endpoint
+      if (assigns.length > 0) {
+        const result = await apiClient<BulkAssignResponse>('/api/v1/class-assignments/bulk', {
+          method: 'POST',
+          body: JSON.stringify({ assignments: assigns, start_date: today }),
+        });
+        assignedCount += result.data.assigned;
+      }
 
       toast.success(
-        `${t('savedSuccessfully')} (${result.data.assigned} ${t('assigned').toLowerCase()})`,
+        `${t('savedSuccessfully')} (${assignedCount} ${t('changes').toLowerCase()})`,
       );
       setPendingChanges(new Map());
       setSelectedStudents(new Set());
@@ -553,14 +607,34 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
     setDraggedStudent({ id: studentId, yearGroupId });
   };
 
-  const handleDrop = (targetClassId: string) => {
+  const handleDrop = (targetClassId: string | '__unassign__') => {
     if (!draggedStudent) return;
     const group = yearGroups.find((g) => g.id === draggedStudent.yearGroupId);
     if (!group) return;
-    const student = group.students.find((s) => s.id === draggedStudent.id);
-    if (!student) return;
 
-    if (student.current_homeroom_class_id !== targetClassId) {
+    if (targetClassId === '__unassign__') {
+      setPendingChanges((prev) => {
+        const next = new Map(prev);
+        next.set(draggedStudent.id, '__unassign__');
+        return next;
+      });
+      setDraggedStudent(null);
+      return;
+    }
+
+    // Capacity check
+    const cls = group.homeroom_classes.find((c) => c.id === targetClassId);
+    if (cls?.max_capacity) {
+      const currentCount = getClassCurrentCount(targetClassId, group);
+      if (currentCount >= cls.max_capacity) {
+        toast.error(t('classFull', { className: cls.name }), { position: 'top-center' });
+        setDraggedStudent(null);
+        return;
+      }
+    }
+
+    const student = group.students.find((s) => s.id === draggedStudent.id);
+    if (student && student.current_homeroom_class_id !== targetClassId) {
       setPendingChanges((prev) => {
         const next = new Map(prev);
         next.set(draggedStudent.id, targetClassId);
@@ -736,9 +810,12 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
         <div className="space-y-6">
           {yearGroups.map((group) => {
             if (group.homeroom_classes.length === 0) return null;
-            const unassigned = group.students.filter(
-              (s) => !s.current_homeroom_class_id && !pendingChanges.has(s.id),
-            );
+            const unassigned = group.students.filter((s) => {
+              const pending = pendingChanges.get(s.id);
+              if (pending === '__unassign__') return true;
+              if (pending) return false;
+              return !s.current_homeroom_class_id;
+            });
             return (
               <div key={group.id} className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -755,6 +832,7 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
                   <div
                     className="min-w-[200px] flex-1 rounded-xl border border-warning-border bg-warning-surface/30 p-3"
                     onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop('__unassign__')}
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold text-warning-text">{t('unassigned')}</span>
@@ -785,6 +863,7 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
                   {group.homeroom_classes.map((cls) => {
                     const classStudents = group.students.filter((s) => {
                       const pending = pendingChanges.get(s.id);
+                      if (pending === '__unassign__') return false;
                       if (pending) return pending === cls.id;
                       return s.current_homeroom_class_id === cls.id;
                     });
@@ -1012,6 +1091,7 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
                                       student.id,
                                       value,
                                       student.current_homeroom_class_id,
+                                      group,
                                     )
                                   }
                                 >
@@ -1019,6 +1099,11 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
                                     <SelectValue placeholder={t('selectClass')} />
                                   </SelectTrigger>
                                   <SelectContent>
+                                    {student.current_homeroom_class_id && (
+                                      <SelectItem value="__unassign__">
+                                        {t('unassignStudent')}
+                                      </SelectItem>
+                                    )}
                                     {group.homeroom_classes.map((cls) => (
                                       <SelectItem key={cls.id} value={cls.id}>
                                         {cls.name} ({cls.enrolled_count}{cls.max_capacity ? `/${cls.max_capacity}` : ''})

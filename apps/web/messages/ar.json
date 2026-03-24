@@ -802,7 +802,10 @@
     "savePreset": "حفظ",
     "presetNamePlaceholder": "اسم القالب...",
     "presetSaved": "تم حفظ القالب",
-    "presetDeleted": "تم حذف القالب"
+    "presetDeleted": "تم حذف القالب",
+    "unassignStudent": "إلغاء التعيين",
+    "classFull": "{className} ممتلئ — يرجى التعيين لفصل آخر",
+    "changes": "تغييرات"
   },
   "classes": {
     "title": "الفصول",
@@ -855,6 +858,8 @@
     "statusActive": "نشط",
     "statusInactive": "غير نشط",
     "statusArchived": "مؤرشف",
+    "classSize": "حجم الفصل",
+    "classSizePlaceholder": "مثال: 25",
     "fieldName": "اسم الفصل",
     "fieldHomeroomTeacher": "معلم الحضانة",
     "selectAcademicYear": "اختر السنة الأكاديمية",

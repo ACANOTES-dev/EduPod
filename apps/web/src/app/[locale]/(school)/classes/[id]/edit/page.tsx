@@ -20,6 +20,7 @@ interface ClassDetail {
   year_group: { id: string; name: string };
   subject: { id: string } | null;
   homeroom_teacher_staff_id: string | null;
+  max_capacity: number | null;
 }
 
 export default function EditClassPage() {
@@ -52,6 +53,7 @@ export default function EditClassPage() {
         year_group_id: values.year_group_id,
         subject_id: values.subject_id || undefined,
         homeroom_teacher_staff_id: values.homeroom_teacher_staff_id || undefined,
+        max_capacity: values.max_capacity ? Number(values.max_capacity) : null,
         status: values.status,
       }),
     });
@@ -96,6 +98,7 @@ export default function EditClassPage() {
           year_group_id: cls.year_group.id,
           subject_id: cls.subject?.id ?? '',
           homeroom_teacher_staff_id: cls.homeroom_teacher_staff_id ?? '',
+          max_capacity: cls.max_capacity ? String(cls.max_capacity) : '',
           status: cls.status,
         }}
         onSubmit={handleSubmit}

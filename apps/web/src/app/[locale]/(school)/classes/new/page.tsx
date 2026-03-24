@@ -27,6 +27,7 @@ export default function NewClassPage() {
         year_group_id: values.year_group_id,
         subject_id: values.subject_id || undefined,
         homeroom_teacher_staff_id: values.homeroom_teacher_staff_id || undefined,
+        max_capacity: values.max_capacity ? Number(values.max_capacity) : undefined,
         status: values.status,
       }),
     });

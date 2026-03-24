@@ -802,7 +802,10 @@
     "savePreset": "Save",
     "presetNamePlaceholder": "Preset name...",
     "presetSaved": "Preset saved",
-    "presetDeleted": "Preset deleted"
+    "presetDeleted": "Preset deleted",
+    "unassignStudent": "Unassign",
+    "classFull": "{className} is full — please assign to a different class",
+    "changes": "Changes"
   },
   "classes": {
     "title": "Classes",
@@ -855,6 +858,8 @@
     "statusActive": "Active",
     "statusInactive": "Inactive",
     "statusArchived": "Archived",
+    "classSize": "Class Size",
+    "classSizePlaceholder": "e.g. 25",
     "fieldName": "Class Name",
     "fieldHomeroomTeacher": "Homeroom Teacher",
     "selectAcademicYear": "Select academic year",
