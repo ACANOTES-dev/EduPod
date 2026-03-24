@@ -1042,6 +1042,8 @@ model Student {
   medical_notes     String?       @db.Text
   has_allergy       Boolean       @default(false)
   allergy_details   String?       @db.Text
+  nationality       String?       @db.VarChar(100)
+  city_of_birth     String?       @db.VarChar(100)
   created_at        DateTime      @default(now()) @db.Timestamptz()
   updated_at        DateTime      @default(now()) @updatedAt @db.Timestamptz()
 

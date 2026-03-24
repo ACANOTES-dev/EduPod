@@ -600,6 +600,8 @@
     "homeroomClass": "فصل الحضانة",
     "studentNumber": "رقم الطالب",
     "household": "الأسرة",
+    "nationality": "الجنسية",
+    "cityOfBirth": "مدينة الميلاد",
     "medicalNotes": "ملاحظات طبية",
     "hasAllergy": "لديه حساسية",
     "allergyDetails": "تفاصيل الحساسية",
@@ -779,7 +781,13 @@
     "exportPdf": "تصدير PDF",
     "exportSuccess": "تم تنزيل التصدير",
     "exportError": "فشل إنشاء التصدير",
-    "noDataToExport": "لا يوجد طلاب معيّنون للتصدير"
+    "noDataToExport": "لا يوجد طلاب معيّنون للتصدير",
+    "studentFields": "بيانات الطالب",
+    "parentFields": "بيانات ولي الأمر",
+    "preview": "معاينة",
+    "cancel": "إلغاء",
+    "exporting": "جاري التصدير...",
+    "exportNow": "تصدير"
   },
   "classes": {
     "title": "الفصول",
@@ -2401,6 +2409,8 @@
     "gender": "الجنس",
     "yearGroup": "المرحلة الدراسية",
     "nationalId": "الرقم الوطني",
+    "nationality": "الجنسية",
+    "cityOfBirth": "مدينة الميلاد",
     "male": "ذكر",
     "female": "أنثى",
     "preferNotToSay": "أفضل عدم التحديد",

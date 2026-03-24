@@ -26,6 +26,8 @@ export interface Student {
   medical_notes: string | null;
   has_allergy: boolean;
   allergy_details: string | null;
+  nationality: string | null;
+  city_of_birth: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -53,6 +53,8 @@ export interface StudentFormData {
   year_group_id: string;
   status?: string;
   national_id: string;
+  nationality: string;
+  city_of_birth: string;
   medical_notes?: string;
   has_allergy: boolean;
   allergy_details?: string;
@@ -82,6 +84,8 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
     year_group_id: initialData?.year_group_id ?? '',
     status: initialData?.status ?? 'applicant',
     national_id: initialData?.national_id ?? '',
+    nationality: initialData?.nationality ?? '',
+    city_of_birth: initialData?.city_of_birth ?? '',
     medical_notes: initialData?.medical_notes ?? '',
     has_allergy: initialData?.has_allergy ?? false,
     allergy_details: initialData?.allergy_details ?? '',
@@ -117,6 +121,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
     if (!formData.household_id) newErrors.household_id = 'Household is required';
     if (!formData.year_group_id) newErrors.year_group_id = 'Year group is required';
     if (!formData.national_id.trim()) newErrors.national_id = 'National ID is required';
+    if (!formData.nationality.trim()) newErrors.nationality = 'Nationality is required';
     if (formData.has_allergy && !formData.allergy_details?.trim()) {
       newErrors.allergy_details = 'Allergy details are required when has_allergy is checked';
     }
@@ -307,6 +312,31 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             </Select>
           </div>
         )}
+      </div>
+
+      {/* Nationality + City of Birth */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="nationality">Nationality *</Label>
+          <Input
+            id="nationality"
+            value={formData.nationality}
+            onChange={(e) => set('nationality', e.target.value)}
+            placeholder="e.g. Irish, British, Emirati"
+          />
+          {errors.nationality && (
+            <p className="text-xs text-danger-text">{errors.nationality}</p>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="city_of_birth">City of Birth</Label>
+          <Input
+            id="city_of_birth"
+            value={formData.city_of_birth}
+            onChange={(e) => set('city_of_birth', e.target.value)}
+            placeholder="e.g. Dublin, London"
+          />
+        </div>
       </div>
 
       {/* Medical */}

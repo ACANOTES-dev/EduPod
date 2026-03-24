@@ -29,6 +29,8 @@ export interface StudentFormData {
   gender: string;
   year_group_id: string;
   national_id: string;
+  nationality: string;
+  city_of_birth: string;
   isComplete: boolean;
 }
 
@@ -142,5 +144,7 @@ export const EMPTY_STUDENT: StudentFormData = {
   gender: '',
   year_group_id: '',
   national_id: '',
+  nationality: '',
+  city_of_birth: '',
   isComplete: false,
 };

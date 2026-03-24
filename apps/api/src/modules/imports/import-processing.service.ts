@@ -625,6 +625,8 @@ export class ImportProcessingService {
     const dateOfBirth = row['date_of_birth'] ?? '';
     const yearGroupName = row['year_group'] ?? row['year_group_name'] ?? '';
     const genderRaw = row['gender'] ?? '';
+    const nationality = row['nationality'] ?? '';
+    const cityOfBirth = row['city_of_birth'] ?? '';
     const medicalNotes = row['medical_notes'] ?? '';
     const allergies = row['allergies'] ?? '';
 
@@ -662,6 +664,8 @@ export class ImportProcessingService {
         date_of_birth: parsedDob ?? new Date(dateOfBirth),
         entry_date: new Date(),
         gender,
+        nationality: nationality || null,
+        city_of_birth: cityOfBirth || null,
         medical_notes: medicalNotes || null,
         has_allergy: hasAllergy,
         allergy_details: allergies || null,

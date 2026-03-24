@@ -73,3 +73,4 @@ yarn-error.log*
 *.seed
 *.pid.lock
 .cache/
+.playwright-mcp/

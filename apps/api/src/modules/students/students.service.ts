@@ -237,6 +237,8 @@ export class StudentsService {
           class_homeroom_id: dto.class_homeroom_id ?? null,
           student_number: studentNumber,
           medical_notes: dto.medical_notes ?? null,
+          nationality: dto.nationality ?? null,
+          city_of_birth: dto.city_of_birth ?? null,
           has_allergy: dto.has_allergy ?? false,
           allergy_details: dto.allergy_details ?? null,
         },
@@ -476,6 +478,8 @@ export class StudentsService {
       if ('class_homeroom_id' in dto)
         updateData.class_homeroom_id = dto.class_homeroom_id ?? null;
       if ('student_number' in dto) updateData.student_number = dto.student_number ?? null;
+      if ('nationality' in dto) updateData.nationality = dto.nationality ?? null;
+      if ('city_of_birth' in dto) updateData.city_of_birth = dto.city_of_birth ?? null;
       if ('medical_notes' in dto) updateData.medical_notes = dto.medical_notes ?? null;
       if (dto.has_allergy !== undefined) updateData.has_allergy = dto.has_allergy;
       if ('allergy_details' in dto) updateData.allergy_details = dto.allergy_details ?? null;

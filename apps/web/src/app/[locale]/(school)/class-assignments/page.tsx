@@ -4,6 +4,11 @@ import {
   Badge,
   Button,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Label,
   Select,
   SelectContent,
@@ -64,12 +69,27 @@ interface BulkAssignResponse {
   };
 }
 
+interface ExportParent {
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+}
+
 interface ExportStudent {
   student_number: string | null;
   first_name: string;
+  middle_name: string | null;
   last_name: string;
+  national_id: string | null;
+  nationality: string | null;
+  city_of_birth: string | null;
   gender: string | null;
   date_of_birth: string | null;
+  medical_notes: string | null;
+  has_allergy: boolean;
+  allergy_details: string | null;
+  parents: ExportParent[];
 }
 
 interface ExportClassList {
@@ -87,6 +107,39 @@ interface ExportDataResponse {
     class_lists: ExportClassList[];
   };
 }
+
+interface ExportColumn {
+  key: string;
+  label: string;
+  group: 'student' | 'parent';
+  getValue: (s: ExportStudent, i: number) => string;
+  width: number;
+}
+
+const ALL_EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'row_number', label: '#', group: 'student', getValue: (_s, i) => String(i + 1), width: 5 },
+  { key: 'student_number', label: 'Student Number', group: 'student', getValue: (s) => s.student_number ?? '—', width: 18 },
+  { key: 'first_name', label: 'First Name', group: 'student', getValue: (s) => s.first_name, width: 16 },
+  { key: 'middle_name', label: 'Middle Name', group: 'student', getValue: (s) => s.middle_name ?? '—', width: 14 },
+  { key: 'last_name', label: 'Last Name', group: 'student', getValue: (s) => s.last_name, width: 16 },
+  { key: 'gender', label: 'Gender', group: 'student', getValue: (s) => formatGender(s.gender), width: 10 },
+  { key: 'date_of_birth', label: 'Date of Birth', group: 'student', getValue: (s) => formatDate(s.date_of_birth), width: 14 },
+  { key: 'nationality', label: 'Nationality', group: 'student', getValue: (s) => s.nationality ?? '—', width: 14 },
+  { key: 'city_of_birth', label: 'City of Birth', group: 'student', getValue: (s) => s.city_of_birth ?? '—', width: 14 },
+  { key: 'national_id', label: 'National ID', group: 'student', getValue: (s) => s.national_id ?? '—', width: 16 },
+  { key: 'medical_notes', label: 'Medical Notes', group: 'student', getValue: (s) => s.medical_notes ?? '—', width: 20 },
+  { key: 'allergy_details', label: 'Allergy Details', group: 'student', getValue: (s) => s.has_allergy ? (s.allergy_details ?? '—') : 'None', width: 20 },
+  { key: 'parent1_name', label: 'Parent 1 Name', group: 'parent', getValue: (s) => s.parents[0] ? `${s.parents[0].first_name} ${s.parents[0].last_name}` : '—', width: 18 },
+  { key: 'parent1_email', label: 'Parent 1 Email', group: 'parent', getValue: (s) => s.parents[0]?.email ?? '—', width: 22 },
+  { key: 'parent1_phone', label: 'Parent 1 Phone', group: 'parent', getValue: (s) => s.parents[0]?.phone ?? '—', width: 16 },
+  { key: 'parent2_name', label: 'Parent 2 Name', group: 'parent', getValue: (s) => s.parents[1] ? `${s.parents[1].first_name} ${s.parents[1].last_name}` : '—', width: 18 },
+  { key: 'parent2_email', label: 'Parent 2 Email', group: 'parent', getValue: (s) => s.parents[1]?.email ?? '—', width: 22 },
+  { key: 'parent2_phone', label: 'Parent 2 Phone', group: 'parent', getValue: (s) => s.parents[1]?.phone ?? '—', width: 16 },
+];
+
+const DEFAULT_SELECTED_COLUMNS = new Set([
+  'row_number', 'student_number', 'first_name', 'last_name', 'gender', 'date_of_birth',
+]);
 
 // ─── Export helpers ──────────────────────────────────────────────────────────
 
@@ -116,31 +169,19 @@ async function loadImageAsDataUrl(url: string): Promise<string | null> {
   }
 }
 
-function generateExcel(data: ExportDataResponse['data']): void {
+function generateExcel(data: ExportDataResponse['data'], columns: ExportColumn[]): void {
   const wb = XLSX.utils.book_new();
 
   for (const classList of data.class_lists) {
     if (classList.students.length === 0) continue;
 
-    const headers = ['#', 'Student Number', 'First Name', 'Last Name', 'Gender', 'Date of Birth'];
-    const rows = classList.students.map((s, i) => [
-      i + 1,
-      s.student_number ?? '—',
-      s.first_name,
-      s.last_name,
-      formatGender(s.gender),
-      formatDate(s.date_of_birth),
-    ]);
+    const headers = columns.map((c) => c.label);
+    const rows = classList.students.map((s, i) =>
+      columns.map((c) => c.getValue(s, i)),
+    );
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = [
-      { wch: 5 },
-      { wch: 16 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 14 },
-    ];
+    ws['!cols'] = columns.map((c) => ({ wch: c.width }));
 
     const sheetName = classList.class_name.substring(0, 31);
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -153,7 +194,7 @@ function generateExcel(data: ExportDataResponse['data']): void {
   );
 }
 
-async function generatePdf(data: ExportDataResponse['data']): Promise<void> {
+async function generatePdf(data: ExportDataResponse['data'], columns: ExportColumn[]): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const margin = 20;
   const today = new Date().toLocaleDateString('en-GB', {
@@ -220,15 +261,10 @@ async function generatePdf(data: ExportDataResponse['data']): Promise<void> {
     autoTable(doc, {
       startY: yPos,
       margin: { left: margin, right: margin },
-      head: [['#', 'Student No.', 'First Name', 'Last Name', 'Gender', 'Date of Birth']],
-      body: classList.students.map((s, i) => [
-        i + 1,
-        s.student_number ?? '—',
-        s.first_name,
-        s.last_name,
-        formatGender(s.gender),
-        formatDate(s.date_of_birth),
-      ]),
+      head: [columns.map((c) => c.label)],
+      body: classList.students.map((s, i) =>
+        columns.map((c) => c.getValue(s, i)),
+      ),
       styles: { fontSize: 9, cellPadding: 2 },
       headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [245, 245, 245] },
@@ -248,6 +284,11 @@ export default function ClassAssignmentsPage() {
   const [saving, setSaving] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [showUnassignedOnly, setShowUnassignedOnly] = React.useState(false);
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
+  const [exportFormat, setExportFormat] = React.useState<'xlsx' | 'pdf'>('xlsx');
+  const [selectedColumns, setSelectedColumns] = React.useState<Set<string>>(
+    () => new Set(DEFAULT_SELECTED_COLUMNS),
+  );
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   const [pendingChanges, setPendingChanges] = React.useState<Map<string, string>>(new Map());
   const [selectedStudents, setSelectedStudents] = React.useState<Set<string>>(new Set());
@@ -381,7 +422,27 @@ export default function ClassAssignmentsPage() {
 
   // ─── Export handlers ──────────────────────────────────────────────────────
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  const openExportModal = (format: 'xlsx' | 'pdf') => {
+    setExportFormat(format);
+    setExportModalOpen(true);
+  };
+
+  const toggleColumn = (key: string) => {
+    setSelectedColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const activeColumns = ALL_EXPORT_COLUMNS.filter((c) => selectedColumns.has(c.key));
+
+  const handleExport = async () => {
+    if (activeColumns.length === 0) return;
     setExporting(true);
     try {
       const res = await apiClient<ExportDataResponse>('/api/v1/class-assignments/export-data');
@@ -389,12 +450,13 @@ export default function ClassAssignmentsPage() {
         toast.info(t('noDataToExport'));
         return;
       }
-      if (format === 'xlsx') {
-        generateExcel(res.data);
+      if (exportFormat === 'xlsx') {
+        generateExcel(res.data, activeColumns);
       } else {
-        await generatePdf(res.data);
+        await generatePdf(res.data, activeColumns);
       }
       toast.success(t('exportSuccess'));
+      setExportModalOpen(false);
     } catch {
       toast.error(t('exportError'));
     } finally {
@@ -447,21 +509,11 @@ export default function ClassAssignmentsPage() {
         description={t('description')}
         actions={
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={exporting}
-              onClick={() => void handleExport('xlsx')}
-            >
+            <Button variant="outline" size="sm" onClick={() => openExportModal('xlsx')}>
               <Download className="me-2 h-4 w-4" />
               {t('exportExcel')}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={exporting}
-              onClick={() => void handleExport('pdf')}
-            >
+            <Button variant="outline" size="sm" onClick={() => openExportModal('pdf')}>
               <Download className="me-2 h-4 w-4" />
               {t('exportPdf')}
             </Button>
@@ -696,6 +748,111 @@ export default function ClassAssignmentsPage() {
 
       {/* Bottom padding when a bar is visible */}
       {(pendingChanges.size > 0 || selectedStudents.size > 0) && <div className="h-20" />}
+
+      {/* Export column picker modal */}
+      <Dialog open={exportModalOpen} onOpenChange={setExportModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Column checkboxes */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary mb-2">{t('studentFields')}</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {ALL_EXPORT_COLUMNS.filter((c) => c.group === 'student').map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 cursor-pointer hover:bg-surface-secondary transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedColumns.has(col.key)}
+                        onCheckedChange={() => toggleColumn(col.key)}
+                      />
+                      <span className="text-sm text-text-primary">{col.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary mb-2">{t('parentFields')}</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {ALL_EXPORT_COLUMNS.filter((c) => c.group === 'parent').map((col) => (
+                    <label
+                      key={col.key}
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 cursor-pointer hover:bg-surface-secondary transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedColumns.has(col.key)}
+                        onCheckedChange={() => toggleColumn(col.key)}
+                      />
+                      <span className="text-sm text-text-primary">{col.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Preview table */}
+            {activeColumns.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary mb-2">{t('preview')}</h3>
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-surface-secondary">
+                        {activeColumns.map((col) => (
+                          <th
+                            key={col.key}
+                            className="px-3 py-2 text-start font-semibold text-text-primary whitespace-nowrap"
+                          >
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {[
+                        { student_number: 'STU-202603-001', first_name: 'Aisha', middle_name: 'May', last_name: 'Al-Farsi', national_id: '7841234', nationality: 'Emirati', city_of_birth: 'Dubai', gender: 'female', date_of_birth: '2018-03-15', medical_notes: null, has_allergy: false, allergy_details: null, parents: [{ first_name: 'Omar', last_name: 'Al-Farsi', email: 'omar@example.com', phone: '+971501234567' }, { first_name: 'Sara', last_name: 'Al-Farsi', email: 'sara@example.com', phone: '+971507654321' }] },
+                        { student_number: 'STU-202603-002', first_name: 'Liam', middle_name: null, last_name: 'Murphy', national_id: '9087654', nationality: 'Irish', city_of_birth: 'Cork', gender: 'male', date_of_birth: '2017-09-22', medical_notes: 'Asthmatic', has_allergy: true, allergy_details: 'Peanuts', parents: [{ first_name: 'Sean', last_name: 'Murphy', email: 'sean@example.com', phone: '+353871234567' }] },
+                      ].map((sample, rowIdx) => (
+                        <tr key={rowIdx}>
+                          {activeColumns.map((col) => (
+                            <td
+                              key={col.key}
+                              className="px-3 py-2 text-text-secondary whitespace-nowrap"
+                            >
+                              {col.getValue(sample, rowIdx)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
+              {t('cancel')}
+            </Button>
+            <Button
+              disabled={activeColumns.length === 0 || exporting}
+              onClick={() => void handleExport()}
+            >
+              <Download className="me-2 h-4 w-4" />
+              {exporting ? t('exporting') : t('exportNow')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

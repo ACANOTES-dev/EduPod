@@ -316,11 +316,31 @@ export class ClassAssignmentService {
         id: true,
         first_name: true,
         last_name: true,
+        middle_name: true,
         student_number: true,
+        national_id: true,
+        nationality: true,
+        city_of_birth: true,
         gender: true,
         date_of_birth: true,
+        medical_notes: true,
+        has_allergy: true,
+        allergy_details: true,
         class_homeroom_id: true,
         year_group_id: true,
+        student_parents: {
+          include: {
+            parent: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
       },
       orderBy: [{ last_name: 'asc' }, { first_name: 'asc' }],
     });
@@ -377,9 +397,22 @@ export class ClassAssignmentService {
       students: (studentsByClass.get(cls.id) ?? []).map((s) => ({
         student_number: s.student_number,
         first_name: s.first_name,
+        middle_name: s.middle_name,
         last_name: s.last_name,
+        national_id: s.national_id,
+        nationality: s.nationality,
+        city_of_birth: s.city_of_birth,
         gender: s.gender,
         date_of_birth: s.date_of_birth,
+        medical_notes: s.medical_notes,
+        has_allergy: s.has_allergy,
+        allergy_details: s.allergy_details,
+        parents: s.student_parents.map((sp: { parent: { first_name: string; last_name: string; email: string | null; phone: string | null } }) => ({
+          first_name: sp.parent.first_name,
+          last_name: sp.parent.last_name,
+          email: sp.parent.email,
+          phone: sp.parent.phone,
+        })),
       })),
     }));
 

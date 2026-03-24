@@ -26,6 +26,8 @@ export const createStudentSchema = z
     medical_notes: z.string().max(2000).optional(),
     has_allergy: z.boolean().optional(),
     allergy_details: z.string().max(1000).optional(),
+    nationality: z.string().min(1, 'Nationality is required').max(100),
+    city_of_birth: z.string().max(100).optional(),
     parent_links: z.array(parentLinkSchema).optional(),
   })
   .refine(
@@ -64,6 +66,8 @@ export const updateStudentSchema = z
     medical_notes: z.string().max(2000).nullable().optional(),
     has_allergy: z.boolean().optional(),
     allergy_details: z.string().max(1000).nullable().optional(),
+    nationality: z.string().max(100).nullable().optional(),
+    city_of_birth: z.string().max(100).nullable().optional(),
   })
   .refine(
     (data) => {

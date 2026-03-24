@@ -600,6 +600,8 @@
     "homeroomClass": "Homeroom Class",
     "studentNumber": "Student Number",
     "household": "Household",
+    "nationality": "Nationality",
+    "cityOfBirth": "City of Birth",
     "medicalNotes": "Medical Notes",
     "hasAllergy": "Has Allergy",
     "allergyDetails": "Allergy Details",
@@ -779,7 +781,13 @@
     "exportPdf": "Export PDF",
     "exportSuccess": "Export downloaded",
     "exportError": "Failed to generate export",
-    "noDataToExport": "No assigned students to export"
+    "noDataToExport": "No assigned students to export",
+    "studentFields": "Student Information",
+    "parentFields": "Parent Information",
+    "preview": "Preview",
+    "cancel": "Cancel",
+    "exporting": "Exporting...",
+    "exportNow": "Export"
   },
   "classes": {
     "title": "Classes",
@@ -2397,6 +2405,8 @@
     "gender": "Gender",
     "yearGroup": "Year Group",
     "nationalId": "National ID",
+    "nationality": "Nationality",
+    "cityOfBirth": "City of Birth",
     "male": "Male",
     "female": "Female",
     "preferNotToSay": "Prefer not to say",

@@ -19,6 +19,8 @@ interface StudentDetail {
   year_group_id?: string | null;
   status: string;
   national_id?: string | null;
+  nationality?: string | null;
+  city_of_birth?: string | null;
   medical_notes?: string | null;
   has_allergy: boolean;
   allergy_details?: string | null;
@@ -83,6 +85,8 @@ export default function EditStudentPage() {
     household_id: student.household_id ?? '',
     year_group_id: student.year_group_id ?? '',
     national_id: student.national_id ?? '',
+    nationality: student.nationality ?? '',
+    city_of_birth: student.city_of_birth ?? '',
     medical_notes: student.medical_notes ?? '',
     has_allergy: student.has_allergy,
     allergy_details: student.allergy_details ?? '',

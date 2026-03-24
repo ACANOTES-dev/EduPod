@@ -34,7 +34,8 @@ function isStudentComplete(student: StudentFormData): boolean {
     student.date_of_birth.trim() &&
     student.gender &&
     student.year_group_id &&
-    student.national_id.trim()
+    student.national_id.trim() &&
+    student.nationality.trim()
   );
 }
 
@@ -75,6 +76,8 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
         gender: current.gender,
         year_group_id: current.year_group_id,
         national_id: current.national_id,
+        nationality: current.nationality,
+        city_of_birth: current.city_of_birth,
         isComplete: current.isComplete,
       };
       merged[field] = value;
@@ -288,6 +291,32 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                       dir="ltr"
                       value={student.national_id}
                       onChange={(e) => handleFieldChange(index, 'national_id', e.target.value)}
+                    />
+                  </div>
+
+                  {/* Nationality */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`student-${index}-nationality`}>
+                      {t('nationality')} *
+                    </Label>
+                    <Input
+                      id={`student-${index}-nationality`}
+                      value={student.nationality}
+                      onChange={(e) => handleFieldChange(index, 'nationality', e.target.value)}
+                      placeholder="e.g. Irish, British"
+                    />
+                  </div>
+
+                  {/* City of Birth */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor={`student-${index}-city-of-birth`}>
+                      {t('cityOfBirth')}
+                    </Label>
+                    <Input
+                      id={`student-${index}-city-of-birth`}
+                      value={student.city_of_birth}
+                      onChange={(e) => handleFieldChange(index, 'city_of_birth', e.target.value)}
+                      placeholder="e.g. Dublin, London"
                     />
                   </div>
                 </div>

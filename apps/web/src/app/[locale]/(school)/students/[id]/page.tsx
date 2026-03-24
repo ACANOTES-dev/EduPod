@@ -54,6 +54,8 @@ interface Student {
   medical_notes?: string | null;
   has_allergy: boolean;
   allergy_details?: string | null;
+  nationality?: string | null;
+  city_of_birth?: string | null;
   year_group?: { id: string; name: string } | null;
   household?: { id: string; household_name: string } | null;
   class_enrolments?: ClassEnrolment[];
@@ -210,6 +212,18 @@ export default function StudentHubPage() {
           <div>
             <dt className="text-xs text-text-tertiary">Year Group</dt>
             <dd className="text-sm font-medium text-text-primary">{student.year_group.name}</dd>
+          </div>
+        )}
+        {student.nationality && (
+          <div>
+            <dt className="text-xs text-text-tertiary">Nationality</dt>
+            <dd className="text-sm font-medium text-text-primary">{student.nationality}</dd>
+          </div>
+        )}
+        {student.city_of_birth && (
+          <div>
+            <dt className="text-xs text-text-tertiary">City of Birth</dt>
+            <dd className="text-sm font-medium text-text-primary">{student.city_of_birth}</dd>
           </div>
         )}
       </div>
