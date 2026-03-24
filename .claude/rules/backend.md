@@ -14,7 +14,7 @@ globs: ["apps/api/**"]
 - Thin. Validate input → call service → return response. No business logic in controllers.
 - Use `@RequiresPermission('domain.action')` decorator for permission checks
 - Use `@ModuleEnabled('module_key')` guard to verify the tenant has the module enabled
-- Return consistent error shape: `{ error: string, code: string, details?: unknown }`
+- Return consistent error shape: `{ error: { code: string, message: string, details?: Record<string, unknown> } }`
 
 ## Services
 - All business logic lives here
@@ -24,7 +24,7 @@ globs: ["apps/api/**"]
 
 ## API Design
 - RESTful, namespaced under `/api/`
-- Pagination: cursor-based — `{ data: T[], cursor: string | null, hasMore: boolean }`
+- Pagination: offset-based — `?page=1&pageSize=20` (default 20, max 100). Response: `{ data: T[], meta: { page: number, pageSize: number, total: number } }`
 - Monetary values: `number` in responses (backed by `NUMERIC(12,2)` in DB) — never floating point
 - IDs: UUIDs everywhere
 
