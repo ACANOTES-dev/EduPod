@@ -136,7 +136,7 @@ export default function CommunicationsPage() {
   ];
 
   const toolbar = (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-border">
       {STATUS_TABS.map((tab) => (
         <button
           key={tab.key}

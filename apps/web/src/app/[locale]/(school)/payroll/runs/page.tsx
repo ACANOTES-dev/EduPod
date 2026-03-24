@@ -145,9 +145,9 @@ export default function PayrollRunsPage() {
         keyExtractor={(row) => row.id}
         isLoading={isLoading}
         toolbar={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={t('status')} />
               </SelectTrigger>
               <SelectContent>
@@ -159,7 +159,7 @@ export default function PayrollRunsPage() {
               </SelectContent>
             </Select>
             <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-full sm:w-32">
                 <SelectValue placeholder={t('periodYear')} />
               </SelectTrigger>
               <SelectContent>

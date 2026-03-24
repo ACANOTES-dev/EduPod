@@ -76,30 +76,30 @@ export default function NotificationDeliveryPage() {
       <PageHeader title={t('notificationDelivery')} />
 
       <div className="flex flex-wrap items-end gap-4">
-        <div>
+        <div className="w-full sm:w-auto">
           <Label htmlFor="nd-start">{t('startDate')}</Label>
           <Input
             id="nd-start"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="mt-1 w-44"
+            className="mt-1 w-full sm:w-44"
           />
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <Label htmlFor="nd-end">{t('endDate')}</Label>
           <Input
             id="nd-end"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="mt-1 w-44"
+            className="mt-1 w-full sm:w-44"
           />
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <Label>{t('channel')}</Label>
           <Select value={channelFilter} onValueChange={setChannelFilter}>
-            <SelectTrigger className="mt-1 w-40">
+            <SelectTrigger className="mt-1 w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -115,7 +115,7 @@ export default function NotificationDeliveryPage() {
 
       {isLoading ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-secondary" />
             ))}

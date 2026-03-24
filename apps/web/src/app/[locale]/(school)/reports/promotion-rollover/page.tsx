@@ -89,9 +89,9 @@ export default function PromotionRolloverPage() {
     <div className="space-y-6">
       <PageHeader title={t('promotionRollover')} />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectYear')} />
           </SelectTrigger>
           <SelectContent>

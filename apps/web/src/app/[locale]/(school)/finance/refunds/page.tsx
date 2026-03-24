@@ -230,7 +230,7 @@ export default function RefundsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[200px]">
+      <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={`${tCommon('search')}...`}
@@ -240,7 +240,7 @@ export default function RefundsPage() {
         />
       </div>
       <Select value={statusFilter} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-full sm:w-[180px]">
           <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>

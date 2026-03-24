@@ -196,7 +196,7 @@ export default function RunDetailPage() {
         <PageHeader
           title={run.period_label}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {isDraft && (
                 <>
                   <Button variant="outline" onClick={handleRefreshEntries}>
@@ -249,7 +249,7 @@ export default function RunDetailPage() {
       {/* Summary footer */}
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="text-sm font-semibold text-text-primary">{t('runSummary')}</h3>
-        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="text-xs text-text-tertiary">{t('headcount')}</p>
             <p className="text-lg font-semibold text-text-primary">{entries.length}</p>

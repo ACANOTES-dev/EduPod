@@ -205,7 +205,7 @@ export default function CompensationListPage() {
         <PageHeader
           title={t('compensation')}
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" onClick={() => setBulkOpen(true)}>
                 {t('bulkImport')}
               </Button>
@@ -227,9 +227,9 @@ export default function CompensationListPage() {
         keyExtractor={(row) => row.id}
         isLoading={isLoading}
         toolbar={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('compensationType')} />
               </SelectTrigger>
               <SelectContent>

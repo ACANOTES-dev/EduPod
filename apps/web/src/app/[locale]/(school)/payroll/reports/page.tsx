@@ -80,7 +80,7 @@ export default function PayrollReportsPage() {
       <PageHeader title={t('reports')} />
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-xl border border-border bg-surface-secondary p-1">
+      <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface-secondary p-1">
         {tabs.map((tab) => (
           <button
             key={tab.key}

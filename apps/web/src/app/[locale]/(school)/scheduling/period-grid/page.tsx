@@ -308,9 +308,9 @@ export default function PeriodGridPage() {
         title={t('auto.periodGrid')}
         description={tv('periodGridDescV2')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectAcademicYear')} />
               </SelectTrigger>
               <SelectContent>
@@ -320,7 +320,7 @@ export default function PeriodGridPage() {
               </SelectContent>
             </Select>
             <Select value={selectedYearGroup} onValueChange={setSelectedYearGroup}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectYearGroup')} />
               </SelectTrigger>
               <SelectContent>

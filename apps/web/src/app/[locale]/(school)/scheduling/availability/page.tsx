@@ -69,21 +69,21 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
 
   return (
     <div
-      className={`flex items-center gap-4 rounded-lg border p-3 transition-colors ${
+      className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 transition-colors ${
         isEnabled ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-border bg-surface-secondary'
       }`}
     >
       <button
-        className={`h-5 w-5 rounded border-2 transition-colors ${
+        className={`h-5 w-5 shrink-0 rounded border-2 transition-colors ${
           isEnabled ? 'border-green-500 bg-green-500 dark:border-green-400 dark:bg-green-400' : 'border-border bg-canvas'
         }`}
         onClick={() => onToggle(weekday, !isEnabled)}
         aria-label={isEnabled ? 'Disable' : 'Enable'}
       />
-      <span className="w-28 text-sm font-medium text-text-primary">{label}</span>
+      <span className="w-24 shrink-0 text-sm font-medium text-text-primary">{label}</span>
 
       {isEnabled ? (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
             <Label className="text-xs text-text-secondary">From</Label>
             <Input
@@ -222,9 +222,9 @@ export default function AvailabilityPage() {
         description={t('auto.availabilityDesc')}
       />
 
-      <div className="flex gap-6">
+      <div className="flex flex-col gap-6 sm:flex-row">
         {/* Staff list */}
-        <div className="w-56 shrink-0">
+        <div className="w-full sm:w-56 sm:shrink-0">
           <div className="relative mb-2">
             <Search className="absolute start-2.5 top-2.5 h-4 w-4 text-text-tertiary" />
             <Input
@@ -270,13 +270,13 @@ export default function AvailabilityPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-text-primary">
                     {selectedMember?.name}
                   </span>
                   <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="ms-3 inline-flex h-7 w-36 text-xs">
+                    <SelectTrigger className="h-7 w-full sm:w-36 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

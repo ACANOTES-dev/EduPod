@@ -196,9 +196,9 @@ export default function TeacherConfigPage() {
         title={tv('teacherConfig')}
         description={tv('teacherConfigDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectAcademicYear')} />
               </SelectTrigger>
               <SelectContent>
@@ -208,7 +208,7 @@ export default function TeacherConfigPage() {
               </SelectContent>
             </Select>
             <Select onValueChange={(v) => void handleCopyFromYear(v)}>
-              <SelectTrigger className="w-auto h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-auto h-8 text-xs">
                 <Copy className="me-1.5 h-3 w-3" />
                 <SelectValue placeholder={tv('copyFromYear')} />
               </SelectTrigger>

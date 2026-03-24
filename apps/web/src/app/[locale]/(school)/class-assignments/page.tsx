@@ -758,7 +758,7 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
         title={t('title')}
         description={t('description')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
                 type="button"
@@ -1128,16 +1128,16 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
       {/* Bulk assign floating bar */}
       {selectedStudents.size > 0 && pendingChanges.size === 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 px-4 py-3 shadow-lg backdrop-blur-sm">
-          <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4">
+          <div className="mx-auto flex max-w-screen-xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary-500" />
               <p className="text-sm font-medium text-text-secondary">
                 {t('selectedStudents', { count: selectedStudents.size })}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Select value={bulkAssignClassId} onValueChange={setBulkAssignClassId}>
-                <SelectTrigger className="h-9 w-48 text-sm">
+                <SelectTrigger className="h-9 w-full sm:w-48 text-sm">
                   <SelectValue placeholder={t('assignToClass')} />
                 </SelectTrigger>
                 <SelectContent>

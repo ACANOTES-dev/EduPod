@@ -270,7 +270,7 @@ function BooleanRow({
   const id = React.useId();
   return (
     <div className="flex items-start justify-between gap-4">
-      <div className="space-y-0.5">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
@@ -278,7 +278,7 @@ function BooleanRow({
           <p className="text-xs text-text-tertiary">{description}</p>
         )}
       </div>
-      <Switch id={id} checked={value} onCheckedChange={onChange} />
+      <Switch id={id} checked={value} onCheckedChange={onChange} className="shrink-0" />
     </div>
   );
 }
@@ -302,8 +302,8 @@ function NumberRow({
 }) {
   const id = React.useId();
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-0.5 flex-1">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
@@ -326,7 +326,7 @@ function NumberRow({
         }}
         min={min}
         max={max}
-        className="w-28 text-end"
+        className="w-full shrink-0 text-end sm:w-28"
         placeholder={nullable ? '—' : undefined}
       />
     </div>
@@ -348,8 +348,8 @@ function SelectRow({
 }) {
   const id = React.useId();
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-0.5 flex-1">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
@@ -358,7 +358,7 @@ function SelectRow({
         )}
       </div>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} className="w-40">
+        <SelectTrigger id={id} className="w-full shrink-0 sm:w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -527,12 +527,12 @@ export default function GeneralSettingsPage() {
 
   return (
     <form onSubmit={handleSave}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-text-primary">{t('general')}</h2>
           <p className="mt-1 text-sm text-text-secondary">{t('generalDescription')}</p>
         </div>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving} className="w-full shrink-0 sm:w-auto">
           {saving ? t('saving') : t('saveChanges')}
         </Button>
       </div>

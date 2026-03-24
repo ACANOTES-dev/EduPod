@@ -141,7 +141,7 @@ export default function GradebookPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Academic Year" />
           </SelectTrigger>
           <SelectContent>
@@ -153,7 +153,7 @@ export default function GradebookPage() {
         </Select>
 
         <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
@@ -165,7 +165,7 @@ export default function GradebookPage() {
         </Select>
 
         <Select value={classFilter} onValueChange={setClassFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Class" />
           </SelectTrigger>
           <SelectContent>
@@ -177,7 +177,7 @@ export default function GradebookPage() {
         </Select>
 
         <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>

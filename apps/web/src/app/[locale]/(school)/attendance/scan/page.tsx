@@ -583,7 +583,7 @@ export default function AttendanceScanPage() {
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center gap-3 pt-2">
+                <div className="flex flex-wrap items-center gap-3 pt-2">
                   <Button onClick={handleConfirm} disabled={entries.length === 0}>
                     <CheckCircle className="me-2 h-4 w-4" />
                     {t('scan.confirmApply')}
@@ -621,7 +621,7 @@ export default function AttendanceScanPage() {
                 </ul>
               </div>
             )}
-            <div className="mt-6 flex justify-center gap-3">
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button onClick={resetToUpload}>
                 {t('scan.scanAnother')}
               </Button>

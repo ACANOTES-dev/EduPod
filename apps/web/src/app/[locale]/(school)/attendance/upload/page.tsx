@@ -597,7 +597,7 @@ export default function AttendanceUploadPage() {
             {/* Undo Banner */}
             {exceptionsResult && exceptionsResult.batch_id && exceptionsResult.updated > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1">
                     <p className="font-medium text-text-primary">
                       {t('quickMarkSuccess', { count: exceptionsResult.updated })}

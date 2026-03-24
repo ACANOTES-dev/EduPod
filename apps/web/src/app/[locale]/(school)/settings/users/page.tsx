@@ -397,7 +397,7 @@ export default function UsersPage() {
         </div>
 
         <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder={t('allRoles')} />
           </SelectTrigger>
           <SelectContent>
@@ -413,7 +413,7 @@ export default function UsersPage() {
         </Select>
 
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder={t('allStatuses')} />
           </SelectTrigger>
           <SelectContent>

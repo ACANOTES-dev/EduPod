@@ -67,24 +67,24 @@ export default function WriteOffsReportPage() {
       <PageHeader title={t('writeOffs')} />
 
       <div className="flex flex-wrap items-end gap-4">
-        <div>
+        <div className="w-full sm:w-auto">
           <Label htmlFor="start-date">{t('startDate')}</Label>
           <Input
             id="start-date"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="mt-1 w-44"
+            className="mt-1 w-full sm:w-44"
           />
         </div>
-        <div>
+        <div className="w-full sm:w-auto">
           <Label htmlFor="end-date">{t('endDate')}</Label>
           <Input
             id="end-date"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="mt-1 w-44"
+            className="mt-1 w-full sm:w-44"
           />
         </div>
       </div>

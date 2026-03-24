@@ -116,9 +116,9 @@ export default function SchedulingRunsPage() {
         title={t('runs.title')}
         description={t('runs.description')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('runs.selectYear')} />
               </SelectTrigger>
               <SelectContent>

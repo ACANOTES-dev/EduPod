@@ -228,7 +228,7 @@ export default function StudentsPage() {
       </div>
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -242,7 +242,7 @@ export default function StudentsPage() {
       </Select>
 
       <Select value={yearGroupFilter} onValueChange={setYearGroupFilter}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Year Group" />
         </SelectTrigger>
         <SelectContent>
@@ -256,7 +256,7 @@ export default function StudentsPage() {
       </Select>
 
       <Select value={allergyFilter} onValueChange={setAllergyFilter}>
-        <SelectTrigger className="w-[130px]">
+        <SelectTrigger className="w-full sm:w-[130px]">
           <SelectValue placeholder="Allergy" />
         </SelectTrigger>
         <SelectContent>
@@ -274,9 +274,9 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student records and enrolments"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[130px]">
                 <div className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
                   <span>Export</span>

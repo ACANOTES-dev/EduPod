@@ -36,7 +36,7 @@ function DateRangeFilter({
           type="date"
           value={from}
           onChange={(e) => onFromChange(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -45,7 +45,7 @@ function DateRangeFilter({
           type="date"
           value={to}
           onChange={(e) => onToChange(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         />
       </div>
     </div>

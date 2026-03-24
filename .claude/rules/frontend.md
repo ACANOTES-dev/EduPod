@@ -23,6 +23,35 @@ globs: ["apps/web/**"]
 - Western numerals (0-9) in both locales. Gregorian calendar in both locales.
 - Platform admin (`(platform)/` routes) is English-only — no translation keys needed.
 
+## Mobile Responsiveness — Mandatory
+Every page and component MUST be usable at 375px width (iPhone SE). Build mobile-first.
+
+### Layout
+- Main content area in sidebar layouts: `flex-1 min-w-0 overflow-x-hidden`. The `min-w-0` is critical — flex items default to `min-width: auto` and refuse to shrink below content width, causing horizontal overflow.
+- NEVER use fixed pixel widths on content containers. Use `max-w-full`, percentages, or fluid widths.
+- Use `w-full` not `100vw` — vw includes scrollbar width and causes ~15px overflow.
+- Content padding: minimum `p-4` (16px) on mobile.
+
+### Navigation & Tabs
+- Sidebar: full on `lg:` and above, off-canvas drawer on mobile.
+- Tabs (≤4): inline full-width row. Tabs (5-7): horizontally scrollable with `overflow-x-auto` and fade hint. Tabs (>7): collapse to dropdown.
+- Minimum touch target: 44×44px on all interactive elements.
+
+### Forms & Inputs
+- Inputs: `w-full` on mobile. Fixed-width inputs only at `md:` breakpoint and above.
+- Input font-size: minimum `text-base` (16px) — prevents iOS Safari auto-zoom on focus.
+- Single-column form layouts on mobile. Two-column at `md:` and above.
+- Number/short inputs that need fixed width: use responsive classes (`w-full sm:w-28`).
+
+### Tables
+- Wrap every table in `<div className="overflow-x-auto">`.
+- On mobile, prefer card/stacked view or horizontal scroll with sticky first column.
+- Action buttons: collapse to kebab menu (three-dot) on mobile.
+
+### Images & Media
+- Always `max-w-full h-auto` on images.
+- Long unbreakable strings (URLs, emails): apply `break-all` or `overflow-wrap: break-word`.
+
 ## State
 - No global state libraries. No Redux. No Zustand.
 - Server state via React Server Components + revalidation

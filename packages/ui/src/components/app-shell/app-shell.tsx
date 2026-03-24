@@ -15,7 +15,7 @@ export function AppShell({ sidebar, topBar, children, className }: AppShellProps
   return (
     <div className={cn('flex h-screen bg-background', className)}>
       {sidebar}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {topBar}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-content">{children}</div>

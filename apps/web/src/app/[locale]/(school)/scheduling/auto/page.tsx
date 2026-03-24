@@ -209,9 +209,9 @@ export default function AutoSchedulerPage() {
         title={t('autoScheduler')}
         description={t('prerequisites')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Select year..." />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +266,7 @@ export default function AutoSchedulerPage() {
                 </div>
               ))}
 
-              <div className="pt-3 border-t border-border flex items-center justify-between">
+              <div className="pt-3 border-t border-border flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
                   <Pin className="h-3.5 w-3.5 text-text-tertiary" />
                   <span className="text-sm text-text-secondary">{modeLabel}</span>

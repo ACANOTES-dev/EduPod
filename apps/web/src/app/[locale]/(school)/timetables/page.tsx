@@ -124,7 +124,7 @@ export default function TimetablesPage() {
       {/* Filters row */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Academic Year" />
           </SelectTrigger>
           <SelectContent>
@@ -157,7 +157,7 @@ export default function TimetablesPage() {
         {/* Entity selector */}
         <div className="flex items-center gap-3">
           <Select value={selectedEntity} onValueChange={setSelectedEntity}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder={`Select ${activeTab}`} />
             </SelectTrigger>
             <SelectContent>

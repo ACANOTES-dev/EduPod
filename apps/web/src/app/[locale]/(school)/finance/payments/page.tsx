@@ -192,7 +192,7 @@ export default function PaymentsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[200px]">
+      <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={`${t('searchByReference')}...`}
@@ -203,7 +203,7 @@ export default function PaymentsPage() {
       </div>
 
       <Select value={statusFilter} onValueChange={setStatusFilter}>
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
@@ -218,7 +218,7 @@ export default function PaymentsPage() {
       </Select>
 
       <Select value={methodFilter} onValueChange={setMethodFilter}>
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue placeholder="Method" />
         </SelectTrigger>
         <SelectContent>
@@ -231,7 +231,7 @@ export default function PaymentsPage() {
       </Select>
 
       <Select value={staffFilter} onValueChange={setStaffFilter}>
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-full sm:w-[180px]">
           <SelectValue placeholder={t('selectStaff')} />
         </SelectTrigger>
         <SelectContent>
@@ -249,7 +249,7 @@ export default function PaymentsPage() {
         placeholder="From"
         value={dateFrom}
         onChange={(e) => setDateFrom(e.target.value)}
-        className="w-[150px]"
+        className="w-full sm:w-[150px]"
       />
 
       <Input
@@ -257,7 +257,7 @@ export default function PaymentsPage() {
         placeholder="To"
         value={dateTo}
         onChange={(e) => setDateTo(e.target.value)}
-        className="w-[150px]"
+        className="w-full sm:w-[150px]"
       />
     </div>
   );

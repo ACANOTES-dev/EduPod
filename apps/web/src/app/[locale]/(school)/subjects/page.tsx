@@ -161,7 +161,7 @@ export default function SubjectsPage() {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder={t('filterType')} />
         </SelectTrigger>
         <SelectContent>
@@ -174,7 +174,7 @@ export default function SubjectsPage() {
       </Select>
 
       <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -195,7 +195,7 @@ export default function NotificationsPage() {
       <h2 className="text-lg font-semibold text-text-primary">{t('notifications')}</h2>
       <p className="mt-1 text-sm text-text-secondary">{t('notificationsDescription')}</p>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-border bg-surface">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-surface-secondary">

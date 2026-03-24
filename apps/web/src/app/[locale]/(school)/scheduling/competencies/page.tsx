@@ -180,9 +180,9 @@ export default function CompetenciesPage() {
         title={tv('competencies')}
         description={tv('competenciesDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectAcademicYear')} />
               </SelectTrigger>
               <SelectContent>
@@ -192,7 +192,7 @@ export default function CompetenciesPage() {
               </SelectContent>
             </Select>
             <Select onValueChange={(v) => void handleCopyFromYear(v)}>
-              <SelectTrigger className="w-auto h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-auto h-8 text-xs">
                 <Copy className="me-1.5 h-3 w-3" />
                 <SelectValue placeholder={tv('copyFromYear')} />
               </SelectTrigger>
@@ -228,7 +228,7 @@ export default function CompetenciesPage() {
       {activeTab === 'byTeacher' && (
         <div className="space-y-4">
           <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-full sm:w-64">
               <SelectValue placeholder={tv('selectTeacher')} />
             </SelectTrigger>
             <SelectContent>
@@ -298,9 +298,9 @@ export default function CompetenciesPage() {
       {/* By Subject view */}
       {activeTab === 'bySubject' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={tv('selectSubject')} />
               </SelectTrigger>
               <SelectContent>
@@ -310,7 +310,7 @@ export default function CompetenciesPage() {
               </SelectContent>
             </Select>
             <Select value={selectedYearGroup} onValueChange={setSelectedYearGroup}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={tv('selectYearGroup')} />
               </SelectTrigger>
               <SelectContent>

@@ -373,7 +373,7 @@ export default function ExceptionsPage() {
 
   const filtersToolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="w-44">
+      <div className="w-full sm:w-44">
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as AlertStatusFilter)}>
           <SelectTrigger className="h-9">
             <SelectValue />
@@ -386,7 +386,7 @@ export default function ExceptionsPage() {
           </SelectContent>
         </Select>
       </div>
-      <div className="w-52">
+      <div className="w-full sm:w-52">
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as AlertTypeFilter)}>
           <SelectTrigger className="h-9">
             <SelectValue />

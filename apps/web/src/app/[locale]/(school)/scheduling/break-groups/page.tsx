@@ -181,9 +181,9 @@ export default function BreakGroupsPage() {
         title={tv('breakGroups')}
         description={tv('breakGroupsDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectAcademicYear')} />
               </SelectTrigger>
               <SelectContent>

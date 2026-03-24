@@ -70,7 +70,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
       {/* Tab navigation */}
       <nav
-        className="mt-6 flex gap-1 border-b border-border"
+        className="mt-6 flex gap-1 overflow-x-auto border-b border-border pb-px"
         aria-label={t('title')}
       >
         {visibleTabs.map((tab) => {
@@ -80,7 +80,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               key={tab.key}
               href={`/${locale}/settings/${tab.href}`}
               className={cn(
-                'relative px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                'relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                 isActive
                   ? 'text-primary-700 bg-surface-secondary border-b-2 border-primary-700'
                   : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary',

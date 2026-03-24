@@ -214,9 +214,9 @@ export default function CurriculumPage() {
         title={tv('curriculum')}
         description={tv('curriculumDesc')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectAcademicYear')} />
               </SelectTrigger>
               <SelectContent>
@@ -226,7 +226,7 @@ export default function CurriculumPage() {
               </SelectContent>
             </Select>
             <Select value={selectedYearGroup} onValueChange={setSelectedYearGroup}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={tv('selectYearGroup')} />
               </SelectTrigger>
               <SelectContent>
@@ -248,7 +248,7 @@ export default function CurriculumPage() {
               {tv('addSubject')}
             </Button>
             <Select onValueChange={(v) => void handleCopyFromYearGroup(v)}>
-              <SelectTrigger className="w-auto h-8 text-xs">
+              <SelectTrigger className="w-full sm:w-auto h-8 text-xs">
                 <Copy className="me-1.5 h-3 w-3" />
                 <SelectValue placeholder={tv('copyFromYearGroup')} />
               </SelectTrigger>

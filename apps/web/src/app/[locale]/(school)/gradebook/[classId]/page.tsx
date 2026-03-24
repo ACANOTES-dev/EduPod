@@ -423,7 +423,7 @@ export default function ClassGradebookPage() {
           {/* Subject filter for assessments */}
           <div className="flex flex-wrap items-center gap-3">
             <Select value={assessmentSubjectFilter} onValueChange={(v) => { setAssessmentSubjectFilter(v); setAssessmentsPage(1); }}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('subject')} />
               </SelectTrigger>
               <SelectContent>
@@ -493,7 +493,7 @@ export default function ClassGradebookPage() {
           {/* Subject + period selectors required by API */}
           <div className="flex flex-wrap items-center gap-3">
             <Select value={pgSubjectId} onValueChange={setPgSubjectId}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('subject')} />
               </SelectTrigger>
               <SelectContent>
@@ -503,7 +503,7 @@ export default function ClassGradebookPage() {
               </SelectContent>
             </Select>
             <Select value={pgPeriodId} onValueChange={setPgPeriodId}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('period')} />
               </SelectTrigger>
               <SelectContent>

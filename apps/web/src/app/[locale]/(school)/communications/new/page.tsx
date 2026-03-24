@@ -174,7 +174,7 @@ export default function NewAnnouncementPage() {
         <div className="space-y-2">
           <Label>{t('form.scopeLabel')}</Label>
           <Select value={scope} onValueChange={(v) => setScope(v as AnnouncementScope)}>
-            <SelectTrigger className="w-[240px]">
+            <SelectTrigger className="w-full sm:w-[240px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

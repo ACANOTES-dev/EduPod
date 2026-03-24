@@ -190,7 +190,7 @@ export default function GradebookImportPage() {
           {/* Template filters */}
           <div className="flex flex-wrap items-center gap-3">
             <Select value={templateClassId} onValueChange={setTemplateClassId}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Class" />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +201,7 @@ export default function GradebookImportPage() {
               </SelectContent>
             </Select>
             <Select value={templatePeriodId} onValueChange={setTemplatePeriodId}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={tg('period')} />
               </SelectTrigger>
               <SelectContent>

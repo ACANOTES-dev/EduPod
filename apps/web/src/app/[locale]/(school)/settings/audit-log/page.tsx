@@ -162,7 +162,7 @@ export default function AuditLogPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="w-44">
+      <div className="w-full sm:w-44">
         <Select value={entityType} onValueChange={setEntityType}>
           <SelectTrigger>
             <SelectValue placeholder={t('allEntityTypes')} />
@@ -177,7 +177,7 @@ export default function AuditLogPage() {
         </Select>
       </div>
 
-      <div className="relative w-44">
+      <div className="relative w-full sm:w-44">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={t('searchActor')}
@@ -187,7 +187,7 @@ export default function AuditLogPage() {
         />
       </div>
 
-      <div className="relative w-44">
+      <div className="relative w-full sm:w-44">
         <Filter className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={t('filterAction')}
@@ -197,7 +197,7 @@ export default function AuditLogPage() {
         />
       </div>
 
-      <div className="w-40">
+      <div className="w-full sm:w-40">
         <Input
           type="date"
           value={startDate}
@@ -206,7 +206,7 @@ export default function AuditLogPage() {
         />
       </div>
 
-      <div className="w-40">
+      <div className="w-full sm:w-40">
         <Input
           type="date"
           value={endDate}

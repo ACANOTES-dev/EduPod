@@ -128,9 +128,9 @@ function PreferenceTabPanel({
   return (
     <div className="space-y-4">
       {/* Add row */}
-      <div className="flex items-center gap-3 rounded-lg border border-dashed border-border p-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border p-3">
         <Select value={newEntityId} onValueChange={setNewEntityId}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder={`Select ${kind.replace('_', ' ')}…`} />
           </SelectTrigger>
           <SelectContent>
@@ -145,7 +145,7 @@ function PreferenceTabPanel({
           value={newSentiment}
           onValueChange={(v) => setNewSentiment(v as PreferenceSentiment)}
         >
-          <SelectTrigger className="w-28">
+          <SelectTrigger className="w-full sm:w-28">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -355,9 +355,9 @@ export default function PreferencesPage() {
         title={t('auto.preferences')}
         description={t('auto.preferencesDesc')}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Academic Year" />
               </SelectTrigger>
               <SelectContent>
@@ -369,7 +369,7 @@ export default function PreferencesPage() {
               </SelectContent>
             </Select>
             <Select value={selectedStaff} onValueChange={setSelectedStaff}>
-              <SelectTrigger className="w-52">
+              <SelectTrigger className="w-full sm:w-52">
                 <SelectValue placeholder="Select staff member…" />
               </SelectTrigger>
               <SelectContent>

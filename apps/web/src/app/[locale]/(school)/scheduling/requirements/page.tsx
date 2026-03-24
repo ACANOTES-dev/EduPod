@@ -336,7 +336,7 @@ export default function RequirementsPage() {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setPage(1); }}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder="Academic Year" />
         </SelectTrigger>
         <SelectContent>
@@ -349,7 +349,7 @@ export default function RequirementsPage() {
       </Select>
 
       <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="All Classes" />
         </SelectTrigger>
         <SelectContent>

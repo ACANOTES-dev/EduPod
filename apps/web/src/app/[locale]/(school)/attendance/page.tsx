@@ -204,18 +204,18 @@ export default function AttendancePage() {
         type="date"
         value={dateFrom}
         onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-        className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
+        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label="Date from"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-        className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
+        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label="Date to"
       />
       <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Class" />
         </SelectTrigger>
         <SelectContent>
@@ -226,7 +226,7 @@ export default function AttendancePage() {
         </SelectContent>
       </Select>
       <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -245,7 +245,7 @@ export default function AttendancePage() {
       <PageHeader
         title={t('title')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href={`/${locale}/attendance/upload`}>
               <Button variant="outline">
                 <Upload className="me-2 h-4 w-4" />

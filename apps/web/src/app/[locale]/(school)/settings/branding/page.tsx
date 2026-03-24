@@ -126,7 +126,7 @@ export default function BrandingPage() {
         <h3 className="text-sm font-semibold text-text-primary">{t('logo')}</h3>
         <p className="mt-1 text-xs text-text-tertiary">{t('logoHint')}</p>
 
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4">
           {/* Logo preview */}
           <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-surface-secondary">
             {logoUrl ? (

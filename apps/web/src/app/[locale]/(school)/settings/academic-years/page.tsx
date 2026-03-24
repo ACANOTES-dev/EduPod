@@ -126,7 +126,7 @@ export default function AcademicYearsPage() {
           {years.map((year) => (
             <div key={year.id} className="rounded-xl border border-border bg-surface shadow-sm">
               {/* Year row */}
-              <div className="flex items-center gap-3 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <button
                   onClick={() => setExpandedId(expandedId === year.id ? null : year.id)}
                   className="flex items-center gap-2 text-start text-sm font-medium text-text-primary"

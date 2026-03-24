@@ -326,7 +326,7 @@ export default function MarkAttendancePage() {
 
       {/* Actions */}
       {isEditable && (
-        <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-surface py-4">
+        <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 border-t border-border bg-surface py-4">
           <Button variant="outline" onClick={handleSave} disabled={saving}>
             {saving ? tc('loading') : t('save')}
           </Button>

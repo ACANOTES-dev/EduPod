@@ -133,14 +133,14 @@ export default function PayrollDashboardPage() {
       {/* Current Run */}
       {data?.latest_run && (
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-text-primary">{t('currentRun')}</h3>
               <p className="mt-1 text-lg font-medium text-text-primary">{data.latest_run.period_label}</p>
             </div>
             <StatusBadge status={data.latest_run.status} />
           </div>
-          <div className="mt-3 flex items-center gap-4 text-sm text-text-secondary">
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-text-secondary">
             <span>{t('headcount')}: {data.latest_run.headcount}</span>
             <span>{t('totalPay')}: {formatCurrency(data.latest_run.total_pay)}</span>
           </div>

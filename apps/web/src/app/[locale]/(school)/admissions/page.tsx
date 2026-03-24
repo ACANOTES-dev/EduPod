@@ -156,7 +156,7 @@ export default function AdmissionsPage() {
 
   const toolbar = (
     <div className="space-y-3">
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 overflow-x-auto border-b border-border">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
@@ -189,7 +189,7 @@ export default function AdmissionsPage() {
         title={t('title')}
         description="Manage applications and track the admissions pipeline"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               onClick={() => router.push(`/${locale}/admissions/analytics`)}

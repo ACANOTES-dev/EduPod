@@ -134,7 +134,7 @@ export default function AdmissionFormsPage() {
 
   const toolbar = (
     <div className="space-y-3">
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 overflow-x-auto border-b border-border">
         {statusTabs.map((tab) => (
           <button
             key={tab.key}
@@ -167,7 +167,7 @@ export default function AdmissionFormsPage() {
         title={t('forms')}
         description="Manage admission forms and their fields"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               onClick={async () => {

@@ -205,7 +205,7 @@ export default function SchedulesPage() {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Academic Year" />
         </SelectTrigger>
         <SelectContent>
@@ -217,7 +217,7 @@ export default function SchedulesPage() {
       </Select>
 
       <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Class" />
         </SelectTrigger>
         <SelectContent>
@@ -229,7 +229,7 @@ export default function SchedulesPage() {
       </Select>
 
       <Select value={teacherFilter} onValueChange={(v) => { setTeacherFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Teacher" />
         </SelectTrigger>
         <SelectContent>
@@ -241,7 +241,7 @@ export default function SchedulesPage() {
       </Select>
 
       <Select value={roomFilter} onValueChange={(v) => { setRoomFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Room" />
         </SelectTrigger>
         <SelectContent>
@@ -253,7 +253,7 @@ export default function SchedulesPage() {
       </Select>
 
       <Select value={weekdayFilter} onValueChange={(v) => { setWeekdayFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Day" />
         </SelectTrigger>
         <SelectContent>

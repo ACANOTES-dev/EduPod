@@ -188,19 +188,19 @@ export default function StaffPage() {
   const toolbar = (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <form onSubmit={handleSearch} className="flex items-center gap-2">
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
           <Input
             placeholder={t('searchPlaceholder')}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="ps-9 w-64"
+            className="ps-9 w-full sm:w-64"
           />
         </div>
         <Button type="submit" variant="outline" size="sm">{tc('search')}</Button>
       </form>
       <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-40">
+        <SelectTrigger className="w-full sm:w-40">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -217,9 +217,9 @@ export default function StaffPage() {
       <PageHeader
         title={t('title')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
-              <SelectTrigger className="w-[130px]">
+              <SelectTrigger className="w-full sm:w-[130px]">
                 <div className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
                   <span>{tc('export') ?? 'Export'}</span>

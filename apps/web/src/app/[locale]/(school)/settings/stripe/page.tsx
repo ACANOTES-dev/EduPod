@@ -164,12 +164,12 @@ export default function StripeConfigPage() {
       {/* Current config summary */}
       {isConfigured && !isEditing && (
         <div className="mt-6 rounded-2xl border border-border bg-surface p-6 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-text-primary">{t('stripeConfigured')}</p>
               <p className="mt-0.5 text-xs text-text-tertiary">{t('stripeConfiguredDesc')}</p>
             </div>
-            <span className="rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-700">
+            <span className="self-start rounded-full bg-success-100 px-3 py-1 text-xs font-medium text-success-700 sm:self-auto">
               {t('configured')}
             </span>
           </div>

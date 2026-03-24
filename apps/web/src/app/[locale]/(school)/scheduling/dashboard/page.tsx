@@ -131,7 +131,7 @@ export default function SchedulingDashboardPage() {
       {/* Latest run card */}
       {overview?.latest_run && (
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Sparkles className="h-5 w-5 text-text-tertiary" />
               <div>

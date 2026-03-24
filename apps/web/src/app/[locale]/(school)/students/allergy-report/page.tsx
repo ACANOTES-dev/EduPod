@@ -131,7 +131,7 @@ export default function AllergyReportPage() {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
       <Select value={yearGroupFilter} onValueChange={setYearGroupFilter}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Year Group" />
         </SelectTrigger>
         <SelectContent>
@@ -145,7 +145,7 @@ export default function AllergyReportPage() {
       </Select>
 
       <Select value={classFilter} onValueChange={setClassFilter}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Class" />
         </SelectTrigger>
         <SelectContent>

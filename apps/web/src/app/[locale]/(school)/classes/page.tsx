@@ -155,7 +155,7 @@ export default function ClassesPage() {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder={t('filterYear')} />
         </SelectTrigger>
         <SelectContent>
@@ -167,7 +167,7 @@ export default function ClassesPage() {
       </Select>
 
       <Select value={groupFilter} onValueChange={(v) => { setGroupFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-44">
+        <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder={t('filterGroup')} />
         </SelectTrigger>
         <SelectContent>
@@ -179,7 +179,7 @@ export default function ClassesPage() {
       </Select>
 
       <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-36">
+        <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

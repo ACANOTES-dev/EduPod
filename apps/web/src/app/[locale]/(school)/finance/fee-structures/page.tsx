@@ -155,7 +155,7 @@ export default function FeeStructuresPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[200px]">
+      <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
           placeholder={t('feeStructures.searchPlaceholder')}
@@ -166,7 +166,7 @@ export default function FeeStructuresPage() {
       </div>
 
       <Select value={activeFilter} onValueChange={setActiveFilter}>
-        <SelectTrigger className="w-[140px]">
+        <SelectTrigger className="w-full sm:w-[140px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>

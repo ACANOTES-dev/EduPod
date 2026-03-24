@@ -180,9 +180,9 @@ export default function RoomClosuresPage() {
   ];
 
   const toolbar = (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Select value={roomFilter} onValueChange={(v) => { setRoomFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={tv('rcFilterRoom')} />
         </SelectTrigger>
         <SelectContent>

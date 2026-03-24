@@ -242,7 +242,7 @@ export default function ProfilePage() {
         <div className="space-y-1.5">
           <Label htmlFor="preferred-locale">{t('profile.preferredLocale')}</Label>
           <Select value={preferredLocale} onValueChange={setPreferredLocale}>
-            <SelectTrigger id="preferred-locale" className="w-48">
+            <SelectTrigger id="preferred-locale" className="w-full sm:w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -192,7 +192,7 @@ export default function GradingWeightsPage() {
       {/* Year group selector + copy button */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={selectedYearGroup} onValueChange={setSelectedYearGroup}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-full sm:w-56">
             <SelectValue placeholder={t('selectYearGroup')} />
           </SelectTrigger>
           <SelectContent>
@@ -243,7 +243,7 @@ export default function GradingWeightsPage() {
                 key={period.id}
                 className="rounded-xl border border-border bg-surface p-5 space-y-4"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-sm font-semibold text-text-primary">
                     {period.name}
                   </h3>

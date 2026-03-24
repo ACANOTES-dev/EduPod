@@ -223,7 +223,7 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
       <h2 className="text-lg font-semibold text-text-primary">{t('newImport')}</h2>
 
       <div className="flex flex-wrap items-end gap-4">
-        <div className="w-56">
+        <div className="w-full sm:w-56">
           <Select value={importType} onValueChange={setImportType}>
             <SelectTrigger>
               <SelectValue placeholder={t('selectImportType')} />

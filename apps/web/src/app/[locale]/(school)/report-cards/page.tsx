@@ -268,7 +268,7 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={t('selectClass')} />
         </SelectTrigger>
         <SelectContent>
@@ -279,7 +279,7 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         </SelectContent>
       </Select>
       <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v); setPage(1); }}>
-        <SelectTrigger className="w-48">
+        <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={t('selectPeriod')} />
         </SelectTrigger>
         <SelectContent>
@@ -290,7 +290,7 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         </SelectContent>
       </Select>
       <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
-        <SelectTrigger className="w-[130px]">
+        <SelectTrigger className="w-full sm:w-[130px]">
           <div className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             <span>{tc('export')}</span>

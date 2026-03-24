@@ -126,7 +126,7 @@ export default function FeeAssignmentsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="min-w-[250px]">
+      <div className="w-full sm:min-w-[250px] sm:w-auto">
         <HouseholdSelector
           value={householdFilter}
           onValueChange={setHouseholdFilter}

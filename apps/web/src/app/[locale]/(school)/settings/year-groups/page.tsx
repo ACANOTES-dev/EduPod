@@ -126,7 +126,7 @@ export default function YearGroupsPage() {
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border bg-surface shadow-sm">
           {groups.map((group) => (
-            <li key={group.id} className="flex items-center gap-4 px-4 py-3">
+            <li key={group.id} className="flex flex-wrap items-center gap-4 px-4 py-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-xs font-bold text-text-tertiary">
                 {group.display_order}
               </span>
