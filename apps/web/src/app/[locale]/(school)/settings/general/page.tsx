@@ -4,6 +4,8 @@ import {
   Button,
   Input,
   Label,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
@@ -22,11 +24,29 @@ import { apiClient } from '@/lib/api-client';
 /*  Types                                                                     */
 /* -------------------------------------------------------------------------- */
 
+interface PatternDetectionSettings {
+  enabled: boolean;
+  excessiveAbsenceThreshold: number;
+  excessiveAbsenceWindowDays: number;
+  recurringDayThreshold: number;
+  recurringDayWindowDays: number;
+  tardinessThreshold: number;
+  tardinessWindowDays: number;
+  parentNotificationMode: 'auto' | 'manual';
+}
+
 interface AttendanceSettings {
   allowTeacherAmendment: boolean;
   autoLockAfterDays: number | null;
   pendingAlertTimeHour: number;
   workDays: number[];
+  defaultPresentEnabled: boolean;
+  notifyParentOnAbsence: boolean;
+  patternDetection: PatternDetectionSettings;
+}
+
+interface AiSettings {
+  enabled: boolean;
 }
 
 interface GradebookSettings {
@@ -104,6 +124,7 @@ interface TenantSettings {
   scheduling: SchedulingSettings;
   approvals: ApprovalsSettings;
   compliance: ComplianceSettings;
+  ai: AiSettings;
 }
 
 type SettingsSectionKey = keyof TenantSettings;
@@ -129,6 +150,18 @@ const DEFAULT_SETTINGS: TenantSettings = {
     autoLockAfterDays: null,
     pendingAlertTimeHour: 14,
     workDays: [1, 2, 3, 4, 5],
+    defaultPresentEnabled: false,
+    notifyParentOnAbsence: false,
+    patternDetection: {
+      enabled: false,
+      excessiveAbsenceThreshold: 5,
+      excessiveAbsenceWindowDays: 14,
+      recurringDayThreshold: 3,
+      recurringDayWindowDays: 30,
+      tardinessThreshold: 4,
+      tardinessWindowDays: 14,
+      parentNotificationMode: 'manual',
+    },
   },
   gradebook: {
     defaultMissingGradePolicy: 'exclude',
@@ -170,6 +203,9 @@ const DEFAULT_SETTINGS: TenantSettings = {
   },
   compliance: {
     auditLogRetentionMonths: 36,
+  },
+  ai: {
+    enabled: false,
   },
 };
 
@@ -333,6 +369,47 @@ function SelectRow({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+function SubSectionCard({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-secondary overflow-hidden">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-surface transition-colors"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div>
+          <span className="text-sm font-medium text-text-primary">{title}</span>
+          {description && (
+            <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>
+          )}
+        </div>
+        {open ? (
+          <ChevronUp className="h-4 w-4 text-text-tertiary shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-text-tertiary shrink-0" />
+        )}
+      </button>
+
+      {open && (
+        <div className="border-t border-border px-4 py-4 space-y-4">{children}</div>
+      )}
     </div>
   );
 }
@@ -525,6 +602,156 @@ export default function GeneralSettingsPage() {
               })}
             </div>
           </div>
+          <BooleanRow
+            label={t('defaultPresent')}
+            description={t('defaultPresentDescription')}
+            value={settings.attendance.defaultPresentEnabled}
+            onChange={(v) => updateSection('attendance', { defaultPresentEnabled: v })}
+          />
+          <BooleanRow
+            label={t('notifyParentOnAbsence')}
+            description={t('notifyParentOnAbsenceDescription')}
+            value={settings.attendance.notifyParentOnAbsence}
+            onChange={(v) => updateSection('attendance', { notifyParentOnAbsence: v })}
+          />
+          <SubSectionCard
+            title={t('patternDetection')}
+            description={t('patternDetectionDescription')}
+          >
+            <BooleanRow
+              label={t('patternEnabled')}
+              value={settings.attendance.patternDetection.enabled}
+              onChange={(v) =>
+                updateSection('attendance', {
+                  patternDetection: { ...settings.attendance.patternDetection, enabled: v },
+                })
+              }
+            />
+            {settings.attendance.patternDetection.enabled && (
+              <>
+                <NumberRow
+                  label={t('excessiveAbsenceThreshold')}
+                  value={settings.attendance.patternDetection.excessiveAbsenceThreshold}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        excessiveAbsenceThreshold: v ?? 5,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <NumberRow
+                  label={t('excessiveAbsenceWindowDays')}
+                  value={settings.attendance.patternDetection.excessiveAbsenceWindowDays}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        excessiveAbsenceWindowDays: v ?? 14,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <NumberRow
+                  label={t('recurringDayThreshold')}
+                  value={settings.attendance.patternDetection.recurringDayThreshold}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        recurringDayThreshold: v ?? 3,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <NumberRow
+                  label={t('recurringDayWindowDays')}
+                  value={settings.attendance.patternDetection.recurringDayWindowDays}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        recurringDayWindowDays: v ?? 30,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <NumberRow
+                  label={t('tardinessThreshold')}
+                  value={settings.attendance.patternDetection.tardinessThreshold}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        tardinessThreshold: v ?? 4,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <NumberRow
+                  label={t('tardinessWindowDays')}
+                  value={settings.attendance.patternDetection.tardinessWindowDays}
+                  onChange={(v) =>
+                    updateSection('attendance', {
+                      patternDetection: {
+                        ...settings.attendance.patternDetection,
+                        tardinessWindowDays: v ?? 14,
+                      },
+                    })
+                  }
+                  min={1}
+                />
+                <div className="space-y-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm text-text-primary">
+                      {t('parentNotificationMode')}
+                    </Label>
+                  </div>
+                  <RadioGroup
+                    value={settings.attendance.patternDetection.parentNotificationMode}
+                    onValueChange={(v) =>
+                      updateSection('attendance', {
+                        patternDetection: {
+                          ...settings.attendance.patternDetection,
+                          parentNotificationMode: v as 'auto' | 'manual',
+                        },
+                      })
+                    }
+                    className="space-y-2"
+                  >
+                    <div className="flex items-start gap-3">
+                      <RadioGroupItem value="auto" id="pattern-notif-auto" className="mt-0.5" />
+                      <div>
+                        <Label htmlFor="pattern-notif-auto" className="text-sm text-text-primary">
+                          {t('parentNotificationAuto')}
+                        </Label>
+                        <p className="text-xs text-text-tertiary">
+                          {t('parentNotificationAutoDescription')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <RadioGroupItem value="manual" id="pattern-notif-manual" className="mt-0.5" />
+                      <div>
+                        <Label htmlFor="pattern-notif-manual" className="text-sm text-text-primary">
+                          {t('parentNotificationManual')}
+                        </Label>
+                        <p className="text-xs text-text-tertiary">
+                          {t('parentNotificationManualDescription')}
+                        </p>
+                      </div>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
+            )}
+          </SubSectionCard>
         </SectionCard>
 
         {/* Gradebook */}
@@ -692,6 +919,16 @@ export default function GeneralSettingsPage() {
             value={settings.compliance.auditLogRetentionMonths}
             onChange={(v) => updateSection('compliance', { auditLogRetentionMonths: v ?? 36 })}
             min={1}
+          />
+        </SectionCard>
+
+        {/* AI Functions */}
+        <SectionCard title={t('aiTitle')} description={t('aiDescription')}>
+          <BooleanRow
+            label={t('aiEnabled')}
+            description={t('aiEnabledDescription')}
+            value={settings.ai.enabled}
+            onChange={(v) => updateSection('ai', { enabled: v })}
           />
         </SectionCard>
       </div>
