@@ -790,7 +790,19 @@
     "preview": "Preview",
     "cancel": "Cancel",
     "exporting": "Exporting...",
-    "exportNow": "Export"
+    "exportNow": "Export",
+    "listView": "List View",
+    "boardView": "Board View",
+    "print": "Print",
+    "distributeEvenly": "Distribute Evenly",
+    "noUnassignedToBalance": "No unassigned students to distribute",
+    "autoBalanced": "{count} students distributed across {classes} classes",
+    "allAssigned": "All students assigned",
+    "presets": "Presets",
+    "savePreset": "Save",
+    "presetNamePlaceholder": "Preset name...",
+    "presetSaved": "Preset saved",
+    "presetDeleted": "Preset deleted"
   },
   "classes": {
     "title": "Classes",

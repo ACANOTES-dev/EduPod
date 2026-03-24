@@ -790,7 +790,19 @@
     "preview": "معاينة",
     "cancel": "إلغاء",
     "exporting": "جاري التصدير...",
-    "exportNow": "تصدير"
+    "exportNow": "تصدير",
+    "listView": "عرض القائمة",
+    "boardView": "عرض اللوحة",
+    "print": "طباعة",
+    "distributeEvenly": "توزيع بالتساوي",
+    "noUnassignedToBalance": "لا يوجد طلاب غير معيّنين للتوزيع",
+    "autoBalanced": "تم توزيع {count} طالب على {classes} فصول",
+    "allAssigned": "جميع الطلاب تم تعيينهم",
+    "presets": "القوالب المحفوظة",
+    "savePreset": "حفظ",
+    "presetNamePlaceholder": "اسم القالب...",
+    "presetSaved": "تم حفظ القالب",
+    "presetDeleted": "تم حذف القالب"
   },
   "classes": {
     "title": "الفصول",

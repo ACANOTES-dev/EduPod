@@ -21,7 +21,7 @@ import {
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ChevronDown, ChevronUp, Download, Save, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, GripVertical, LayoutGrid, List, Printer, Save, Shuffle, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import * as XLSX from 'xlsx';
@@ -35,6 +35,7 @@ interface HomeroomClass {
   id: string;
   name: string;
   enrolled_count: number;
+  max_capacity: number | null;
 }
 
 interface Student {
@@ -290,6 +291,9 @@ export default function ClassAssignmentsPage() {
     () => new Set(DEFAULT_SELECTED_COLUMNS),
   );
   const [exportGrouping, setExportGrouping] = React.useState<'subclass' | 'year_level'>('subclass');
+  const [viewMode, setViewMode] = React.useState<'list' | 'board'>('list');
+  const [presetName, setPresetName] = React.useState('');
+  const [draggedStudent, setDraggedStudent] = React.useState<{ id: string; yearGroupId: string } | null>(null);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   const [pendingChanges, setPendingChanges] = React.useState<Map<string, string>>(new Map());
   const [selectedStudents, setSelectedStudents] = React.useState<Set<string>>(new Set());
@@ -421,6 +425,151 @@ export default function ClassAssignmentsPage() {
     setBulkAssignClassId('');
   };
 
+  // ─── Auto-balance handler ─────────────────────────────────────────────────
+
+  const handleAutoBalance = (group: YearGroup) => {
+    if (group.homeroom_classes.length === 0) return;
+
+    const unassigned = group.students.filter(
+      (s) => !s.current_homeroom_class_id && !pendingChanges.has(s.id),
+    );
+    if (unassigned.length === 0) {
+      toast.info(t('noUnassignedToBalance'));
+      return;
+    }
+
+    const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+
+    setPendingChanges((prev) => {
+      const next = new Map(prev);
+      shuffled.forEach((student, i) => {
+        const classIndex = i % group.homeroom_classes.length;
+        const targetClass = group.homeroom_classes[classIndex];
+        if (targetClass) {
+          next.set(student.id, targetClass.id);
+        }
+      });
+      return next;
+    });
+
+    toast.success(t('autoBalanced', { count: unassigned.length, classes: group.homeroom_classes.length }));
+  };
+
+  // ─── Print handler ────────────────────────────────────────────────────────
+
+  const handlePrint = async () => {
+    try {
+      const res = await apiClient<ExportDataResponse>('/api/v1/class-assignments/export-data');
+      const data = res.data;
+      if (data.class_lists.length === 0) {
+        toast.info(t('noDataToExport'));
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const html = `<!DOCTYPE html>
+<html><head><title>Class Lists</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+  .page { page-break-after: always; padding: 20px; }
+  .page:last-child { page-break-after: auto; }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 14px; margin: 10px 0 5px; color: #333; }
+  .date { font-size: 11px; color: #666; margin: 4px 0 16px; }
+  .count { font-size: 11px; color: #666; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #222; color: #fff; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #ddd; }
+  tr:nth-child(even) td { background: #f8f8f8; }
+  @media print { .page { page-break-after: always; } }
+</style></head><body>
+${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
+  <div class="page">
+    <h1>${data.school_name}</h1>
+    <div class="date">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+    <h2>${cl.year_group_name} — ${cl.class_name}</h2>
+    <div class="count">${cl.students.length} student${cl.students.length !== 1 ? 's' : ''}</div>
+    <table>
+      <thead><tr><th>#</th><th>Student No.</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>DOB</th></tr></thead>
+      <tbody>${cl.students.map((s, i) => `
+        <tr><td>${i + 1}</td><td>${s.student_number ?? '—'}</td><td>${s.first_name}</td><td>${s.last_name}</td><td>${formatGender(s.gender)}</td><td>${formatDate(s.date_of_birth)}</td></tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`).join('')}
+</body></html>`;
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    } catch {
+      toast.error(t('exportError'));
+    }
+  };
+
+  // ─── Preset handlers ──────────────────────────────────────────────────────
+
+  type ExportPreset = { name: string; columns: string[]; grouping: 'subclass' | 'year_level' };
+
+  const getPresets = (): ExportPreset[] => {
+    try {
+      return JSON.parse(localStorage.getItem('class-export-presets') ?? '[]') as ExportPreset[];
+    } catch {
+      return [];
+    }
+  };
+
+  const savePreset = () => {
+    if (!presetName.trim()) return;
+    const presets = getPresets();
+    const newPreset: ExportPreset = {
+      name: presetName.trim(),
+      columns: Array.from(selectedColumns),
+      grouping: exportGrouping,
+    };
+    const filtered = presets.filter((p) => p.name !== newPreset.name);
+    localStorage.setItem('class-export-presets', JSON.stringify([...filtered, newPreset]));
+    setPresetName('');
+    toast.success(t('presetSaved'));
+  };
+
+  const loadPreset = (preset: ExportPreset) => {
+    setSelectedColumns(new Set(preset.columns));
+    setExportGrouping(preset.grouping);
+  };
+
+  const deletePreset = (name: string) => {
+    const presets = getPresets().filter((p) => p.name !== name);
+    localStorage.setItem('class-export-presets', JSON.stringify(presets));
+    toast.success(t('presetDeleted'));
+  };
+
+  // ─── Drag-and-drop handlers ───────────────────────────────────────────────
+
+  const handleDragStart = (studentId: string, yearGroupId: string) => {
+    setDraggedStudent({ id: studentId, yearGroupId });
+  };
+
+  const handleDrop = (targetClassId: string) => {
+    if (!draggedStudent) return;
+    const group = yearGroups.find((g) => g.id === draggedStudent.yearGroupId);
+    if (!group) return;
+    const student = group.students.find((s) => s.id === draggedStudent.id);
+    if (!student) return;
+
+    if (student.current_homeroom_class_id !== targetClassId) {
+      setPendingChanges((prev) => {
+        const next = new Map(prev);
+        next.set(draggedStudent.id, targetClassId);
+        return next;
+      });
+    }
+    setDraggedStudent(null);
+  };
+
   // ─── Export handlers ──────────────────────────────────────────────────────
 
   const openExportModal = (format: 'xlsx' | 'pdf') => {
@@ -536,6 +685,28 @@ export default function ClassAssignmentsPage() {
         description={t('description')}
         actions={
           <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary-500 text-white' : 'bg-surface text-text-secondary hover:bg-surface-secondary'}`}
+                title={t('listView')}
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('board')}
+                className={`p-2 transition-colors ${viewMode === 'board' ? 'bg-primary-500 text-white' : 'bg-surface text-text-secondary hover:bg-surface-secondary'}`}
+                title={t('boardView')}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void handlePrint()}>
+              <Printer className="me-2 h-4 w-4" />
+              {t('print')}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => openExportModal('xlsx')}>
               <Download className="me-2 h-4 w-4" />
               {t('exportExcel')}
@@ -560,8 +731,122 @@ export default function ClassAssignmentsPage() {
         </Label>
       </div>
 
-      {/* Year group accordions */}
-      <div className="space-y-3">
+      {/* ─── BOARD VIEW ────────────────────────────────────────────────── */}
+      {viewMode === 'board' && (
+        <div className="space-y-6">
+          {yearGroups.map((group) => {
+            if (group.homeroom_classes.length === 0) return null;
+            const unassigned = group.students.filter(
+              (s) => !s.current_homeroom_class_id && !pendingChanges.has(s.id),
+            );
+            return (
+              <div key={group.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-text-primary">{group.name}</h2>
+                  {unassigned.length > 0 && group.homeroom_classes.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => handleAutoBalance(group)} className="text-xs">
+                      <Shuffle className="me-1.5 h-3.5 w-3.5" />
+                      {t('distributeEvenly')}
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {/* Unassigned column */}
+                  <div
+                    className="min-w-[200px] flex-1 rounded-xl border border-warning-border bg-warning-surface/30 p-3"
+                    onDragOver={(e) => e.preventDefault()}
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-warning-text">{t('unassigned')}</span>
+                      <Badge variant="warning">{unassigned.length}</Badge>
+                    </div>
+                    <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+                      {unassigned.map((student) => (
+                        <div
+                          key={student.id}
+                          draggable
+                          onDragStart={() => handleDragStart(student.id, group.id)}
+                          className="flex items-center gap-2 rounded-lg border border-border bg-surface p-2 cursor-grab active:cursor-grabbing hover:bg-surface-secondary transition-colors"
+                        >
+                          <GripVertical className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-text-primary truncate">{student.first_name} {student.last_name}</p>
+                            <p className="text-[10px] text-text-tertiary font-mono">{student.student_number}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {unassigned.length === 0 && (
+                        <p className="text-xs text-text-tertiary text-center py-4">{t('allAssigned')}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Subclass columns */}
+                  {group.homeroom_classes.map((cls) => {
+                    const classStudents = group.students.filter((s) => {
+                      const pending = pendingChanges.get(s.id);
+                      if (pending) return pending === cls.id;
+                      return s.current_homeroom_class_id === cls.id;
+                    });
+                    const count = classStudents.length;
+                    const cap = cls.max_capacity;
+                    const pct = cap ? Math.min(100, Math.round((count / cap) * 100)) : null;
+
+                    return (
+                      <div
+                        key={cls.id}
+                        className={`min-w-[200px] flex-1 rounded-xl border p-3 transition-colors ${
+                          draggedStudent ? 'border-primary-300 bg-primary-50/20 dark:border-primary-700 dark:bg-primary-950/10' : 'border-border bg-surface'
+                        }`}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => handleDrop(cls.id)}
+                      >
+                        <div className="mb-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-text-primary">{cls.name}</span>
+                            <Badge variant={pct !== null && pct >= 90 ? 'danger' : 'success'}>
+                              {count}{cap ? `/${cap}` : ''}
+                            </Badge>
+                          </div>
+                          {pct !== null && (
+                            <div className="mt-1 h-1.5 w-full rounded-full bg-border overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-danger-500' : pct >= 70 ? 'bg-warning-500' : 'bg-success-500'}`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+                          {classStudents.map((student) => (
+                            <div
+                              key={student.id}
+                              draggable
+                              onDragStart={() => handleDragStart(student.id, group.id)}
+                              className={`flex items-center gap-2 rounded-lg border p-2 cursor-grab active:cursor-grabbing hover:bg-surface-secondary transition-colors ${
+                                pendingChanges.has(student.id) ? 'border-primary-300 bg-primary-50/30 dark:bg-primary-950/10' : 'border-border bg-surface'
+                              }`}
+                            >
+                              <GripVertical className="h-3.5 w-3.5 text-text-tertiary shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-text-primary truncate">{student.first_name} {student.last_name}</p>
+                                <p className="text-[10px] text-text-tertiary font-mono">{student.student_number}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ─── LIST VIEW ─────────────────────────────────────────────────── */}
+      {viewMode === 'list' && <div className="space-y-3">
         {yearGroups.map((group) => {
           const isExpanded = expandedGroups.has(group.id);
           const assignedCount = getAssignedCount(group);
@@ -607,20 +892,58 @@ export default function ClassAssignmentsPage() {
               {/* Accordion content */}
               {isExpanded && (
                 <div className="border-t border-primary-200 dark:border-primary-800">
-                  {/* Select-all row */}
+                  {/* Capacity indicators */}
+                  {group.homeroom_classes.length > 0 && (
+                    <div className="flex flex-wrap gap-3 border-b border-primary-200/50 dark:border-primary-800/50 bg-primary-50/10 dark:bg-primary-950/5 px-4 py-2">
+                      {group.homeroom_classes.map((cls) => {
+                        const count = cls.enrolled_count + Array.from(pendingChanges.values()).filter((v) => v === cls.id).length;
+                        const cap = cls.max_capacity;
+                        const pct = cap ? Math.min(100, Math.round((count / cap) * 100)) : null;
+                        return (
+                          <div key={cls.id} className="flex items-center gap-2 text-xs">
+                            <span className="font-medium text-text-primary">{cls.name}</span>
+                            <span className="text-text-tertiary">{count}{cap ? `/${cap}` : ''}</span>
+                            {pct !== null && (
+                              <div className="h-1.5 w-16 rounded-full bg-border overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-danger-500' : pct >= 70 ? 'bg-warning-500' : 'bg-success-500'}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Select-all + auto-balance row */}
                   {visibleStudents.length > 0 && (
-                    <div className="flex items-center gap-3 border-b border-primary-200/50 dark:border-primary-800/50 bg-primary-50/20 dark:bg-primary-950/10 px-4 py-2">
-                      <Checkbox
-                        id={`select-all-${group.id}`}
-                        checked={allVisibleSelected}
-                        onCheckedChange={() => toggleSelectAll(group)}
-                      />
-                      <Label
-                        htmlFor={`select-all-${group.id}`}
-                        className="cursor-pointer text-xs font-medium text-text-secondary"
-                      >
-                        {t('selectAll')} ({visibleStudents.length})
-                      </Label>
+                    <div className="flex items-center justify-between border-b border-primary-200/50 dark:border-primary-800/50 bg-primary-50/20 dark:bg-primary-950/10 px-4 py-2">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id={`select-all-${group.id}`}
+                          checked={allVisibleSelected}
+                          onCheckedChange={() => toggleSelectAll(group)}
+                        />
+                        <Label
+                          htmlFor={`select-all-${group.id}`}
+                          className="cursor-pointer text-xs font-medium text-text-secondary"
+                        >
+                          {t('selectAll')} ({visibleStudents.length})
+                        </Label>
+                      </div>
+                      {group.homeroom_classes.length > 0 && group.students.some((s) => !s.current_homeroom_class_id && !pendingChanges.has(s.id)) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); handleAutoBalance(group); }}
+                          className="text-xs"
+                        >
+                          <Shuffle className="me-1.5 h-3.5 w-3.5" />
+                          {t('distributeEvenly')}
+                        </Button>
+                      )}
                     </div>
                   )}
 
@@ -698,7 +1021,7 @@ export default function ClassAssignmentsPage() {
                                   <SelectContent>
                                     {group.homeroom_classes.map((cls) => (
                                       <SelectItem key={cls.id} value={cls.id}>
-                                        {cls.name} ({cls.enrolled_count})
+                                        {cls.name} ({cls.enrolled_count}{cls.max_capacity ? `/${cls.max_capacity}` : ''})
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -715,7 +1038,7 @@ export default function ClassAssignmentsPage() {
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {/* Bulk assign floating bar */}
       {selectedStudents.size > 0 && pendingChanges.size === 0 && (
@@ -893,6 +1216,37 @@ export default function ClassAssignmentsPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Presets */}
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-secondary p-3">
+            <span className="text-xs font-medium text-text-primary">{t('presets')}:</span>
+            {getPresets().map((p) => (
+              <div key={p.name} className="flex items-center gap-1">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => loadPreset(p)}>
+                  {p.name}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => deletePreset(p.name)}
+                  className="text-text-tertiary hover:text-danger-text text-xs px-1"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+            <div className="flex items-center gap-1 ms-auto">
+              <input
+                type="text"
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                placeholder={t('presetNamePlaceholder')}
+                className="h-7 w-32 rounded-md border border-border bg-surface px-2 text-xs text-text-primary placeholder:text-text-tertiary"
+              />
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={savePreset} disabled={!presetName.trim()}>
+                {t('savePreset')}
+              </Button>
+            </div>
           </div>
 
           <DialogFooter>

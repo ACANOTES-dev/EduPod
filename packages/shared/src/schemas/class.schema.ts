@@ -6,6 +6,7 @@ export const createClassSchema = z.object({
   subject_id: z.string().uuid().optional(),
   homeroom_teacher_staff_id: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
+  max_capacity: z.number().int().min(1).max(200).optional(),
   status: z.enum(['active', 'inactive']),
 });
 
@@ -16,6 +17,7 @@ export const updateClassSchema = z.object({
   subject_id: z.string().uuid().nullable().optional(),
   homeroom_teacher_staff_id: z.string().uuid().nullable().optional(),
   name: z.string().min(1).max(255).optional(),
+  max_capacity: z.number().int().min(1).max(200).nullable().optional(),
   status: z.enum(['active', 'inactive']).optional(),
 });
 

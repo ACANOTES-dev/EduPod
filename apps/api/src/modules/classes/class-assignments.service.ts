@@ -60,6 +60,7 @@ export class ClassAssignmentService {
         id: true,
         name: true,
         year_group_id: true,
+        max_capacity: true,
         _count: {
           select: {
             class_enrolments: {
@@ -130,6 +131,7 @@ export class ClassAssignmentService {
           id: c.id,
           name: c.name,
           enrolled_count: c._count.class_enrolments,
+          max_capacity: c.max_capacity,
         }));
 
         return {
