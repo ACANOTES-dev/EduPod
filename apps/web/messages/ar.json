@@ -2031,6 +2031,8 @@
     "filterActive": "نشط",
     "filterAcknowledged": "تم الاطلاع",
     "filterResolved": "تم الحل",
+    "defaultPresent": "تسجيل جميع الطلاب كحاضرين مسبقاً",
+    "arrivalTime": "وقت الوصول",
     "filterAllTypes": "جميع الأنواع",
     "scan": {
       "title": "مسح ورقة الغياب",

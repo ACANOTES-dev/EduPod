@@ -2028,6 +2028,8 @@
     "filterAcknowledged": "Acknowledged",
     "filterResolved": "Resolved",
     "filterAllTypes": "All Types",
+    "defaultPresent": "Pre-mark all students as present",
+    "arrivalTime": "Arrival time",
     "scan": {
       "title": "Scan Absence Sheet",
       "description": "Take a photo of a handwritten absence sheet and let AI extract the data.",

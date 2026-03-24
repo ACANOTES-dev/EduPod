@@ -14,6 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
 } from '@school/ui';
 import { ClipboardCheck, Plus, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -72,10 +73,21 @@ export default function AttendancePage() {
   const [statusFilter, setStatusFilter] = React.useState('all');
   const [dateFrom, setDateFrom] = React.useState('');
   const [dateTo, setDateTo] = React.useState('');
+  const [defaultPresentEnabled, setDefaultPresentEnabled] = React.useState(false);
 
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
+      .catch(() => undefined);
+    apiClient<{ data?: { attendance?: { defaultPresentEnabled?: boolean } }; attendance?: { defaultPresentEnabled?: boolean } }>(
+      '/api/v1/settings',
+    )
+      .then((res) => {
+        const settings = ('data' in res && res.data) ? res.data : res;
+        if (settings?.attendance?.defaultPresentEnabled) {
+          setDefaultPresentEnabled(true);
+        }
+      })
       .catch(() => undefined);
   }, []);
 
@@ -110,6 +122,7 @@ export default function AttendancePage() {
   const [createDate, setCreateDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [createLoading, setCreateLoading] = React.useState(false);
   const [createError, setCreateError] = React.useState('');
+  const [defaultPresent, setDefaultPresent] = React.useState(true);
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +133,11 @@ export default function AttendancePage() {
     try {
       const res = await apiClient<{ data: { id: string } }>('/api/v1/attendance-sessions', {
         method: 'POST',
-        body: JSON.stringify({ class_id: createClassId, session_date: createDate }),
+        body: JSON.stringify({
+          class_id: createClassId,
+          session_date: createDate,
+          default_present: defaultPresentEnabled ? defaultPresent : undefined,
+        }),
       });
       setCreateOpen(false);
       router.push(`/${locale}/attendance/mark/${res.data.id}`);
@@ -282,6 +299,18 @@ export default function AttendancePage() {
                 required
               />
             </div>
+            {defaultPresentEnabled && (
+              <div className="flex items-center gap-2 pt-2">
+                <Switch
+                  id="default-present"
+                  checked={defaultPresent}
+                  onCheckedChange={setDefaultPresent}
+                />
+                <Label htmlFor="default-present">
+                  {t('defaultPresent')}
+                </Label>
+              </div>
+            )}
             {createError && <p className="text-sm text-danger-text">{createError}</p>}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>

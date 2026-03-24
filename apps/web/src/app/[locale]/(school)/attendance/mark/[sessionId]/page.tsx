@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Input,
   RadioGroup,
   RadioGroupItem,
   Label,
@@ -31,6 +32,7 @@ interface StudentRecord {
   student_name: string;
   status: string;
   reason: string;
+  arrival_time: string | null;
 }
 
 /** Shape returned by GET /api/v1/attendance-sessions/:id (wrapped in { data: ... } by interceptor) */
@@ -44,6 +46,7 @@ interface ApiSession {
     student: { id: string; first_name: string; last_name: string };
     status: string;
     reason: string | null;
+    arrival_time: string | null;
   }>;
   enrolled_students: Array<{ id: string; first_name: string; last_name: string }>;
 }
@@ -95,6 +98,7 @@ export default function MarkAttendancePage() {
               student_name: `${r.student.first_name} ${r.student.last_name}`,
               status: r.status,
               reason: r.reason ?? '',
+              arrival_time: r.arrival_time ?? null,
             },
           ]),
         );
@@ -108,6 +112,7 @@ export default function MarkAttendancePage() {
               student_name: `${student.first_name} ${student.last_name}`,
               status: 'present',
               reason: '',
+              arrival_time: null,
             });
           }
         }
@@ -120,7 +125,17 @@ export default function MarkAttendancePage() {
 
   const updateRecordStatus = (studentId: string, status: string) => {
     setRecords((prev) =>
-      prev.map((r) => (r.student_id === studentId ? { ...r, status } : r)),
+      prev.map((r) => {
+        if (r.student_id !== studentId) return r;
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        return {
+          ...r,
+          status,
+          arrival_time: status === 'late' ? `${hh}:${mm}` : null,
+        };
+      }),
     );
   };
 
@@ -130,9 +145,15 @@ export default function MarkAttendancePage() {
     );
   };
 
+  const updateRecordArrivalTime = (studentId: string, arrivalTime: string | null) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.student_id === studentId ? { ...r, arrival_time: arrivalTime } : r)),
+    );
+  };
+
   const markAllPresent = () => {
     setRecords((prev) =>
-      prev.map((r) => ({ ...r, status: 'present', reason: '' })),
+      prev.map((r) => ({ ...r, status: 'present', reason: '', arrival_time: null })),
     );
   };
 
@@ -146,6 +167,7 @@ export default function MarkAttendancePage() {
             student_id: r.student_id,
             status: r.status,
             reason: r.reason || null,
+            arrival_time: r.status === 'late' ? (r.arrival_time || null) : null,
           })),
         }),
       });
@@ -167,6 +189,7 @@ export default function MarkAttendancePage() {
             student_id: r.student_id,
             status: r.status,
             reason: r.reason || null,
+            arrival_time: r.status === 'late' ? (r.arrival_time || null) : null,
           })),
         }),
       });
@@ -253,23 +276,34 @@ export default function MarkAttendancePage() {
               </div>
 
               {isEditable ? (
-                <RadioGroup
-                  value={record.status}
-                  onValueChange={(v) => updateRecordStatus(record.student_id, v)}
-                  className="flex flex-wrap gap-3"
-                >
-                  {ATTENDANCE_STATUSES.map((s) => (
-                    <div key={s.value} className="flex items-center gap-1.5">
-                      <RadioGroupItem value={s.value} id={`${record.student_id}-${s.value}`} />
-                      <Label
-                        htmlFor={`${record.student_id}-${s.value}`}
-                        className="text-xs cursor-pointer"
-                      >
-                        {t(s.labelKey)}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="flex flex-wrap items-center gap-3">
+                  <RadioGroup
+                    value={record.status}
+                    onValueChange={(v) => updateRecordStatus(record.student_id, v)}
+                    className="flex flex-wrap gap-3"
+                  >
+                    {ATTENDANCE_STATUSES.map((s) => (
+                      <div key={s.value} className="flex items-center gap-1.5">
+                        <RadioGroupItem value={s.value} id={`${record.student_id}-${s.value}`} />
+                        <Label
+                          htmlFor={`${record.student_id}-${s.value}`}
+                          className="text-xs cursor-pointer"
+                        >
+                          {t(s.labelKey)}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                  {record.status === 'late' && (
+                    <Input
+                      type="time"
+                      value={record.arrival_time ?? ''}
+                      onChange={(e) => updateRecordArrivalTime(record.student_id, e.target.value || null)}
+                      className="w-28"
+                      aria-label={t('arrivalTime')}
+                    />
+                  )}
+                </div>
               ) : (
                 <AttendanceStatusBadge status={record.status} type="record" />
               )}
