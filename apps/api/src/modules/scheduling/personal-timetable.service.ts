@@ -21,6 +21,7 @@ export interface TimetableEntry {
   end_time: string;
   class_name: string;
   subject_name: string | null;
+  teacher_name?: string | null;
   room_name: string | null;
   rotation_week: number | null;
 }
