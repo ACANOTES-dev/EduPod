@@ -1989,7 +1989,19 @@
     "errorMessage": "Error",
     "backToAttendance": "Back to Attendance",
     "selectDateFirst": "Please select a date first",
-    "noFileSelected": "Please select a file"
+    "noFileSelected": "Please select a file",
+    "modeStandard": "Standard Upload",
+    "modeExceptions": "Exceptions Only",
+    "quickMark": "Quick Mark",
+    "quickMarkDescription": "Enter one student per line: student number, status code (A=Absent, AE=Excused, L=Late, LE=Left Early), and optional reason.",
+    "submitQuickMark": "Submit Quick Mark",
+    "quickMarkSuccess": "{count} records updated successfully",
+    "errorsFound": "{count} errors found",
+    "undo": "Undo",
+    "undoSuccess": "Upload reverted successfully",
+    "undoExpired": "Undo window has expired",
+    "submittingQuickMark": "Submitting...",
+    "undoing": "Undoing..."
   },
   "gradebook": {
     "title": "Gradebook",

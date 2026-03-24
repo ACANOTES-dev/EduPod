@@ -1993,7 +1993,19 @@
     "errorMessage": "خطأ",
     "backToAttendance": "العودة إلى الحضور",
     "selectDateFirst": "يرجى اختيار تاريخ أولاً",
-    "noFileSelected": "يرجى اختيار ملف"
+    "noFileSelected": "يرجى اختيار ملف",
+    "modeStandard": "الرفع القياسي",
+    "modeExceptions": "الاستثناءات فقط",
+    "quickMark": "تسجيل سريع",
+    "quickMarkDescription": "أدخل طالبًا واحدًا في كل سطر: رقم الطالب، رمز الحالة (A=غائب، AE=غائب بعذر، L=متأخر، LE=انصرف مبكرًا)، وسبب اختياري.",
+    "submitQuickMark": "إرسال التسجيل السريع",
+    "quickMarkSuccess": "تم تحديث {count} سجلات بنجاح",
+    "errorsFound": "تم العثور على {count} أخطاء",
+    "undo": "تراجع",
+    "undoSuccess": "تم التراجع عن الرفع بنجاح",
+    "undoExpired": "انتهت مهلة التراجع",
+    "submittingQuickMark": "جارٍ الإرسال...",
+    "undoing": "جارٍ التراجع..."
   },
   "gradebook": {
     "title": "سجل الدرجات",
