@@ -21,6 +21,9 @@ import {
   createAttendanceSessionSchema,
   saveAttendanceRecordsSchema,
   amendAttendanceRecordSchema,
+  defaultPresentUploadSchema,
+  quickMarkSchema,
+  uploadUndoSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
 import type { Response } from 'express';
@@ -340,6 +343,59 @@ export class AttendanceController {
       file.buffer,
       file.originalname,
       body.session_date,
+    );
+  }
+
+  // ─── Exceptions-Only Upload ──────────────────────────────────────────
+
+  @Post('attendance/exceptions-upload')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  async exceptionsUpload(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(defaultPresentUploadSchema))
+    body: z.infer<typeof defaultPresentUploadSchema>,
+  ) {
+    return this.attendanceUploadService.processExceptionsUpload(
+      tenant.tenant_id,
+      user.sub,
+      body.session_date,
+      body.records,
+    );
+  }
+
+  @Post('attendance/quick-mark')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  async quickMark(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(quickMarkSchema))
+    body: z.infer<typeof quickMarkSchema>,
+  ) {
+    const entries = this.attendanceUploadService.parseQuickMarkText(body.text);
+    return this.attendanceUploadService.processExceptionsUpload(
+      tenant.tenant_id,
+      user.sub,
+      body.session_date,
+      entries,
+    );
+  }
+
+  @Post('attendance/upload/undo')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  async undoUpload(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(uploadUndoSchema))
+    body: z.infer<typeof uploadUndoSchema>,
+  ) {
+    return this.attendanceUploadService.undoUpload(
+      tenant.tenant_id,
+      user.sub,
+      body.batch_id,
     );
   }
 
