@@ -16,7 +16,7 @@ import {
   SettingsSectionKey,
   TenantSettings,
 } from './_components/settings-types';
-import { BooleanRow, NumberRow, SectionCard, SelectRow } from './_components/settings-ui';
+import { BooleanRow, NumberRow, SectionCard, SelectRow, SubSectionCard } from './_components/settings-ui';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -302,6 +302,57 @@ export default function GeneralSettingsPage() {
             }
             min={1}
           />
+
+          {/* Substitution sub-section */}
+          <SubSectionCard
+            title={t('schedulingSubstitutionTitle')}
+            description={t('schedulingSubstitutionDesc')}
+          >
+            <BooleanRow
+              label={t('autoAssignUrgentSubstitutions')}
+              description={t('autoAssignUrgentSubstitutionsDesc')}
+              value={settings.scheduling.autoAssignUrgentSubstitutions}
+              onChange={(v) => updateSection('scheduling', { autoAssignUrgentSubstitutions: v })}
+            />
+            {settings.scheduling.autoAssignUrgentSubstitutions && (
+              <NumberRow
+                label={t('urgentThresholdMinutes')}
+                description={t('urgentThresholdMinutesDesc')}
+                value={settings.scheduling.urgentThresholdMinutes}
+                onChange={(v) => updateSection('scheduling', { urgentThresholdMinutes: v ?? 60 })}
+                min={1}
+                max={240}
+              />
+            )}
+          </SubSectionCard>
+
+          {/* Notification sub-section */}
+          <SubSectionCard
+            title={t('schedulingNotificationsTitle')}
+            description={t('schedulingNotificationsDesc')}
+          >
+            <BooleanRow
+              label={t('notifyTeachersOnScheduleChange')}
+              value={settings.scheduling.notifyTeachersOnScheduleChange}
+              onChange={(v) => updateSection('scheduling', { notifyTeachersOnScheduleChange: v })}
+            />
+            {settings.scheduling.notifyTeachersOnScheduleChange && (
+              <SelectRow
+                label={t('scheduleChangeNotificationChannel')}
+                value={settings.scheduling.scheduleChangeNotificationChannel}
+                options={[
+                  { value: 'in_app', label: t('channelInApp') },
+                  { value: 'email', label: t('channelEmail') },
+                  { value: 'both', label: t('channelBoth') },
+                ]}
+                onChange={(v) =>
+                  updateSection('scheduling', {
+                    scheduleChangeNotificationChannel: v as 'in_app' | 'email' | 'both',
+                  })
+                }
+              />
+            )}
+          </SubSectionCard>
         </SectionCard>
 
         {/* Approvals */}

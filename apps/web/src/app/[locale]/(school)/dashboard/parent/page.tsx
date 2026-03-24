@@ -1,14 +1,14 @@
 'use client';
 
 import { EmptyState, StatusBadge } from '@school/ui';
-import { Bell, FileText, GraduationCap } from 'lucide-react';
+import { Bell, Calendar, FileText, GraduationCap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
 import { GradesTab } from './_components/grades-tab';
+import { TimetableTab } from './_components/timetable-tab';
 
 interface LinkedStudent {
   student_id: string;
@@ -44,12 +44,15 @@ function studentStatusVariant(
   }
 }
 
+type ParentTab = 'overview' | 'grades' | 'timetable';
+
 export default function ParentDashboardPage() {
   const t = useTranslations('dashboard');
   const tStudents = useTranslations('students');
   const tCommon = useTranslations('common');
   const [data, setData] = useState<ParentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ParentTab>('overview');
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -72,8 +75,10 @@ export default function ParentDashboardPage() {
       name: `${s.first_name} ${s.last_name}`,
     })) ?? [];
 
+  const hasChildren = children.length > 0;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Greeting header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
@@ -82,83 +87,122 @@ export default function ParentDashboardPage() {
         <p className="mt-1 text-sm text-text-secondary">{t('summaryLine')}</p>
       </div>
 
-      {/* Linked students */}
-      <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">
-          {t('parentDashboard.linkedStudents')}
-        </h2>
+      {/* Top-level tabs */}
+      {!loading && hasChildren && (
+        <nav className="flex gap-1 border-b border-border">
+          {(
+            [
+              { key: 'overview' as const, label: t('parentDashboard.overview'), icon: GraduationCap },
+              { key: 'grades' as const, label: t('parentDashboard.gradesTab'), icon: FileText },
+              { key: 'timetable' as const, label: t('parentDashboard.timetableTab'), icon: Calendar },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
 
-        {loading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-24 rounded-2xl bg-surface-secondary animate-pulse" />
-            ))}
-          </div>
-        ) : data && data.students.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.students.map((student) => (
-              <div
-                key={student.student_id}
-                className="rounded-2xl bg-surface-secondary p-4 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-700 flex-shrink-0">
-                      <GraduationCap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">
-                        {student.first_name} {student.last_name}
-                      </p>
-                      <p className="text-xs text-text-secondary">{student.year_group_name ?? ''}</p>
+      {/* Overview tab */}
+      {(activeTab === 'overview' || !hasChildren) && (
+        <div className="space-y-8">
+          {/* Linked students */}
+          <section>
+            <h2 className="mb-3 text-base font-semibold text-text-primary">
+              {t('parentDashboard.linkedStudents')}
+            </h2>
+
+            {loading ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-24 rounded-2xl bg-surface-secondary animate-pulse" />
+                ))}
+              </div>
+            ) : data && data.students.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {data.students.map((student) => (
+                  <div
+                    key={student.student_id}
+                    className="rounded-2xl bg-surface-secondary p-4 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-700 flex-shrink-0">
+                          <GraduationCap className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">
+                            {student.first_name} {student.last_name}
+                          </p>
+                          <p className="text-xs text-text-secondary">{student.year_group_name ?? ''}</p>
+                        </div>
+                      </div>
+                      <StatusBadge status={studentStatusVariant(student.status)} dot>
+                        {tStudents(`statuses.${student.status}`)}
+                      </StatusBadge>
                     </div>
                   </div>
-                  <StatusBadge status={studentStatusVariant(student.status)} dot>
-                    {tStudents(`statuses.${student.status}`)}
-                  </StatusBadge>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={GraduationCap}
-            title={t('parentDashboard.linkedStudents')}
-            description={tCommon('noResults')}
-          />
-        )}
-      </section>
+            ) : (
+              <EmptyState
+                icon={GraduationCap}
+                title={t('parentDashboard.linkedStudents')}
+                description={tCommon('noResults')}
+              />
+            )}
+          </section>
 
-      {/* Grades & Report Cards */}
-      {!loading && children.length > 0 && (
+          {/* Outstanding Invoices */}
+          <section>
+            <h2 className="mb-3 text-base font-semibold text-text-primary">
+              {t('parentDashboard.outstandingInvoices')}
+            </h2>
+            <EmptyState
+              icon={FileText}
+              title={t('parentDashboard.noInvoices')}
+              description={t('parentDashboard.noInvoices')}
+            />
+          </section>
+
+          {/* Recent Announcements */}
+          <section>
+            <h2 className="mb-3 text-base font-semibold text-text-primary">
+              {t('parentDashboard.recentAnnouncements')}
+            </h2>
+            <EmptyState
+              icon={Bell}
+              title={t('parentDashboard.noAnnouncements')}
+              description={t('parentDashboard.noAnnouncements')}
+            />
+          </section>
+        </div>
+      )}
+
+      {/* Grades tab */}
+      {activeTab === 'grades' && hasChildren && (
         <section>
           <GradesTab students={children} />
         </section>
       )}
 
-      {/* Outstanding Invoices */}
-      <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">
-          {t('parentDashboard.outstandingInvoices')}
-        </h2>
-        <EmptyState
-          icon={FileText}
-          title={t('parentDashboard.noInvoices')}
-          description={t('parentDashboard.noInvoices')}
-        />
-      </section>
-
-      {/* Recent Announcements */}
-      <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">
-          {t('parentDashboard.recentAnnouncements')}
-        </h2>
-        <EmptyState
-          icon={Bell}
-          title={t('parentDashboard.noAnnouncements')}
-          description={t('parentDashboard.noAnnouncements')}
-        />
-      </section>
+      {/* Timetable tab */}
+      {activeTab === 'timetable' && hasChildren && (
+        <section>
+          <TimetableTab students={children} />
+        </section>
+      )}
     </div>
   );
 }

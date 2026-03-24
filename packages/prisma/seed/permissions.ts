@@ -55,6 +55,10 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'schedule.apply_auto', description: 'Apply auto-scheduler results to live schedule', permission_tier: 'admin' },
   { permission_key: 'schedule.pin_entries', description: 'Pin schedule entries (prevent auto-scheduler changes)', permission_tier: 'admin' },
   { permission_key: 'schedule.view_auto_reports', description: 'View auto-scheduler reports and diagnostics', permission_tier: 'admin' },
+  { permission_key: 'schedule.manage_substitutions', description: 'Report teacher absences, find and assign substitutes', permission_tier: 'admin' },
+  { permission_key: 'schedule.view_reports', description: 'View scheduling reports: cover analytics, workload heatmap, room utilization', permission_tier: 'admin' },
+  { permission_key: 'schedule.manage_exams', description: 'Create and manage exam timetable sessions and slots', permission_tier: 'admin' },
+  { permission_key: 'schedule.manage_scenarios', description: 'Create and manage what-if scheduling scenarios', permission_tier: 'admin' },
 
   // ─── Admin tier — Students ─────────────────────────────────────────────────
   { permission_key: 'students.manage', description: 'Manage student records', permission_tier: 'admin' },
@@ -118,6 +122,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'schedule.view_own', description: 'View own schedule', permission_tier: 'staff' },
   { permission_key: 'schedule.manage_own_preferences', description: 'Manage own scheduling preferences', permission_tier: 'staff' },
   { permission_key: 'schedule.view_own_satisfaction', description: 'View own preference satisfaction score', permission_tier: 'staff' },
+  { permission_key: 'schedule.view_personal_timetable', description: 'View personal timetable and generate calendar subscription links', permission_tier: 'staff' },
 
   // ─── Parent tier ───────────────────────────────────────────────────────────
   { permission_key: 'parent.view_own_students', description: 'View own linked students', permission_tier: 'parent' },

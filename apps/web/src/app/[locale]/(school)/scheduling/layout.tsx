@@ -7,10 +7,15 @@ import {
   ClipboardList,
   Clock,
   DoorClosed,
+  FileBarChart2,
+  FlaskConical,
+  GitBranch,
   Heart,
   History,
+  MonitorPlay,
   Sparkles,
   UserCog,
+  UserX,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -39,6 +44,12 @@ const tabs: NavTab[] = [
   { key: 'requirements', href: '/scheduling/requirements', icon: ClipboardList, tKey: 'auto.requirements' },
   { key: 'autoScheduler', href: '/scheduling/auto', icon: Sparkles, tKey: 'auto.autoScheduler' },
   { key: 'runs', href: '/scheduling/runs', icon: History, tKey: 'runs.title' },
+  { key: 'substitutions', href: '/scheduling/substitutions', icon: UserX, tKey: 'substitutions.navTitle' },
+  { key: 'substitutionBoard', href: '/scheduling/substitution-board', icon: MonitorPlay, tKey: 'board.navTitle' },
+  { key: 'myTimetable', href: '/scheduling/my-timetable', icon: Calendar, tKey: 'myTimetable.navTitle' },
+  { key: 'exams', href: '/scheduling/exams', icon: FlaskConical, tKey: 'exams.navTitle' },
+  { key: 'scenarios', href: '/scheduling/scenarios', icon: GitBranch, tKey: 'scenarios.navTitle' },
+  { key: 'coverReports', href: '/scheduling/cover-reports', icon: FileBarChart2, tKey: 'coverReports.navTitle' },
 ];
 
 export default function SchedulingLayout({ children }: { children: React.ReactNode }) {

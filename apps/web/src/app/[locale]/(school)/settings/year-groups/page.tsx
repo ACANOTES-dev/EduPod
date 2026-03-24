@@ -27,6 +27,7 @@ interface YearGroup {
   display_order: number;
   next_year_group_id: string | null;
   next_year_group?: { name: string } | null;
+  classroom_model: 'fixed_homeroom' | 'free_movement';
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export default function YearGroupsPage() {
         name: values.name,
         display_order: values.display_order,
         next_year_group_id: values.next_year_group_id || undefined,
+        classroom_model: values.classroom_model,
       }),
     });
     void fetchGroups();
@@ -82,6 +84,7 @@ export default function YearGroupsPage() {
         name: values.name,
         display_order: values.display_order,
         next_year_group_id: values.next_year_group_id || undefined,
+        classroom_model: values.classroom_model,
       }),
     });
     void fetchGroups();
@@ -175,6 +178,7 @@ export default function YearGroupsPage() {
             name: editTarget.name,
             display_order: editTarget.display_order,
             next_year_group_id: editTarget.next_year_group_id ?? '',
+            classroom_model: editTarget.classroom_model ?? 'fixed_homeroom',
           }}
           onSubmit={handleUpdate}
           title={t('editYearGroup')}

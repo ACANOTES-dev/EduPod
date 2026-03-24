@@ -548,6 +548,16 @@ model Tenant {
   import_job_records    ImportJobRecord[]
   search_index_statuses SearchIndexStatus[]
 
+  // Scheduling World-Class Relations
+  teacher_absences             TeacherAbsence[]
+  substitution_records         SubstitutionRecord[]
+  calendar_subscription_tokens CalendarSubscriptionToken[]
+  exam_sessions                ExamSession[]
+  exam_slots                   ExamSlot[]
+  exam_invigilations           ExamInvigilation[]
+  scheduling_scenarios         SchedulingScenario[]
+  rotation_configs             RotationConfig[]
+
   @@map("tenants")
 }
 
@@ -766,6 +776,12 @@ model User {
   report_card_approvals_actioned    ReportCardApproval[]         @relation("report_card_approval_actioner")
   report_card_batch_jobs_requested  ReportCardBatchJob[]         @relation("batch_job_requester")
   report_card_custom_fields_entered ReportCardCustomFieldValue[] @relation("custom_field_enterer")
+
+  // Scheduling World-Class Relations
+  absences_reported            TeacherAbsence[]            @relation("absence_reporter")
+  substitutions_assigned       SubstitutionRecord[]        @relation("substitution_assigner")
+  calendar_subscription_tokens CalendarSubscriptionToken[] @relation("calendar_token_owner")
+  scheduling_scenarios_created SchedulingScenario[]        @relation("scenario_creator")
 
   @@map("users")
 }
@@ -1207,6 +1223,11 @@ model StaffProfile {
   teacher_competencies       TeacherCompetency[]
   teacher_scheduling_configs TeacherSchedulingConfig[]
 
+  // Scheduling World-Class Relations
+  teacher_absences     TeacherAbsence[]
+  substitution_records SubstitutionRecord[] @relation("substitute_staff")
+  exam_invigilations   ExamInvigilation[]   @relation("exam_invigilator")
+
   @@unique([tenant_id, user_id], name: "idx_staff_profiles_tenant_user")
   @@index([tenant_id], name: "idx_staff_profiles_tenant")
   @@index([user_id], name: "idx_staff_profiles_user")
@@ -1243,6 +1264,10 @@ model AcademicYear {
   teacher_competencies       TeacherCompetency[]
   break_groups               BreakGroup[]
   teacher_scheduling_configs TeacherSchedulingConfig[]
+
+  // Scheduling World-Class Relations
+  scheduling_scenarios SchedulingScenario[]
+  rotation_configs     RotationConfig[]
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1281,19 +1306,23 @@ model AcademicPeriod {
   // Report Cards Enhancement Relations
   report_card_batch_jobs ReportCardBatchJob[]
 
+  // Scheduling World-Class Relations
+  exam_sessions ExamSession[]
+
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
   @@map("academic_periods")
 }
 
 model YearGroup {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String   @db.Uuid
-  name               String   @db.VarChar(100)
-  display_order      Int      @default(0) @db.SmallInt
-  next_year_group_id String?  @db.Uuid
-  created_at         DateTime @default(now()) @db.Timestamptz()
-  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String         @db.Uuid
+  name               String         @db.VarChar(100)
+  display_order      Int            @default(0) @db.SmallInt
+  next_year_group_id String?        @db.Uuid
+  classroom_model    ClassroomModel @default(fixed_homeroom)
+  created_at         DateTime       @default(now()) @db.Timestamptz()
+  updated_at         DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant               Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -1316,6 +1345,9 @@ model YearGroup {
 
   // P5+ World-Class Gradebook Relations
   curriculum_standards CurriculumStandard[]
+
+  // Scheduling World-Class Relations
+  exam_slots ExamSlot[]
 
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
@@ -1353,6 +1385,9 @@ model Subject {
   student_academic_risk_alerts StudentAcademicRiskAlert[]
   progress_report_entries      ProgressReportEntry[]
 
+  // Scheduling World-Class Relations
+  exam_slots ExamSlot[]
+
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
   @@map("subjects")
@@ -1367,6 +1402,7 @@ model Class {
   year_group_id             String?     @db.Uuid
   subject_id                String?     @db.Uuid
   homeroom_teacher_staff_id String?     @db.Uuid
+  homeroom_id               String?     @db.Uuid
   name                      String      @db.VarChar(150)
   max_capacity              Int?        @db.SmallInt
   status                    ClassStatus
@@ -1379,6 +1415,7 @@ model Class {
   year_group          YearGroup?          @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
   subject             Subject?            @relation(fields: [subject_id], references: [id], onDelete: SetNull)
   homeroom_teacher    StaffProfile?       @relation("homeroom_teacher", fields: [homeroom_teacher_staff_id], references: [id], onDelete: SetNull)
+  homeroom_room       Room?               @relation("class_homeroom_room", fields: [homeroom_id], references: [id], onDelete: SetNull)
   class_staff         ClassStaff[]
   class_enrolments    ClassEnrolment[]
   homeroom_students   Student[]           @relation("homeroom_students")
@@ -1576,6 +1613,10 @@ model Room {
   // P4B-v2 Relations
   room_closures RoomClosure[]
 
+  // Scheduling World-Class Relations
+  homeroom_classes Class[]    @relation("class_homeroom_room")
+  exam_slots       ExamSlot[]
+
   @@unique([tenant_id, name], name: "idx_rooms_tenant_name")
   @@index([tenant_id], name: "idx_rooms_tenant")
   @@map("rooms")
@@ -1599,6 +1640,7 @@ model Schedule {
   pin_reason                  String?        @db.Text
   source                      ScheduleSource @default(manual)
   scheduling_run_id           String?        @db.Uuid
+  rotation_week               Int?           @db.SmallInt
   created_at                  DateTime       @default(now()) @db.Timestamptz()
   updated_at                  DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
@@ -1611,6 +1653,9 @@ model Schedule {
   attendance_sessions      AttendanceSession[]
   schedule_period_template SchedulePeriodTemplate? @relation(fields: [schedule_period_template_id], references: [id], onDelete: SetNull)
   scheduling_run           SchedulingRun?          @relation(fields: [scheduling_run_id], references: [id], onDelete: SetNull)
+
+  // Scheduling World-Class Relations
+  substitution_records SubstitutionRecord[]
 
   @@index([tenant_id, class_id, weekday], name: "idx_schedules_tenant_class")
   @@index([tenant_id, room_id, weekday], name: "idx_schedules_tenant_room")
@@ -1845,6 +1890,9 @@ model SchedulingRun {
   created_by    User         @relation("scheduling_run_created_by", fields: [created_by_user_id], references: [id])
   applied_by    User?        @relation("scheduling_run_applied_by", fields: [applied_by_user_id], references: [id])
   schedules     Schedule[]
+
+  // Scheduling World-Class Relations
+  scheduling_scenarios SchedulingScenario[] @relation("scenario_base_run")
 
   @@index([tenant_id, academic_year_id, status], name: "idx_scheduling_runs_tenant_year")
   @@map("scheduling_runs")
@@ -2320,6 +2368,33 @@ enum TrendDirection {
   improving
   declining
   stable
+}
+
+// ─── Scheduling World-Class Enhancement Enums ──────────────────────────────
+
+enum ClassroomModel {
+  fixed_homeroom
+  free_movement
+}
+
+enum SubstitutionStatus {
+  assigned
+  confirmed
+  declined
+  completed
+}
+
+enum ExamSessionStatus {
+  planning
+  published
+  completed
+}
+
+enum ScenarioStatus {
+  draft
+  solved
+  approved
+  rejected
 }
 
 // ─── P5+: Gradebook World-Class Enhancement Models ────────────────────────
@@ -2878,6 +2953,183 @@ model ReportCardVerificationToken {
 
   @@index([tenant_id, report_card_id], name: "idx_report_card_verification_tokens_report")
   @@map("report_card_verification_tokens")
+}
+
+// ─── Scheduling World-Class Enhancement Models ────────────────────────────
+
+model TeacherAbsence {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  staff_profile_id    String   @db.Uuid
+  absence_date        DateTime @db.Date
+  full_day            Boolean  @default(true)
+  period_from         Int?     @db.SmallInt
+  period_to           Int?     @db.SmallInt
+  reason              String?  @db.Text
+  reported_by_user_id String   @db.Uuid
+  reported_at         DateTime @db.Timestamptz()
+  created_at          DateTime @default(now()) @db.Timestamptz()
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile        StaffProfile         @relation(fields: [staff_profile_id], references: [id], onDelete: Cascade)
+  reported_by          User                 @relation("absence_reporter", fields: [reported_by_user_id], references: [id], onDelete: Cascade)
+  substitution_records SubstitutionRecord[]
+
+  @@unique([tenant_id, staff_profile_id, absence_date], name: "idx_teacher_absences_unique")
+  @@index([tenant_id, absence_date], name: "idx_teacher_absences_tenant_date")
+  @@map("teacher_absences")
+}
+
+model SubstitutionRecord {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String             @db.Uuid
+  absence_id          String             @db.Uuid
+  schedule_id         String             @db.Uuid
+  substitute_staff_id String             @db.Uuid
+  status              SubstitutionStatus @default(assigned)
+  assigned_by_user_id String             @db.Uuid
+  assigned_at         DateTime           @db.Timestamptz()
+  confirmed_at        DateTime?          @db.Timestamptz()
+  notes               String?            @db.Text
+  created_at          DateTime           @default(now()) @db.Timestamptz()
+  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  absence     TeacherAbsence @relation(fields: [absence_id], references: [id], onDelete: Cascade)
+  schedule    Schedule       @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+  substitute  StaffProfile   @relation("substitute_staff", fields: [substitute_staff_id], references: [id], onDelete: Cascade)
+  assigned_by User           @relation("substitution_assigner", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, created_at], name: "idx_substitution_records_tenant_date")
+  @@map("substitution_records")
+}
+
+/// Append-only, no updated_at
+model CalendarSubscriptionToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  user_id     String   @db.Uuid
+  token       String   @unique @db.VarChar(64)
+  entity_type String   @db.VarChar(20)
+  entity_id   String   @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation("calendar_token_owner", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id], name: "idx_calendar_subscription_tokens_tenant_user")
+  @@map("calendar_subscription_tokens")
+}
+
+model ExamSession {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String            @db.Uuid
+  academic_period_id String            @db.Uuid
+  name               String            @db.VarChar(255)
+  start_date         DateTime          @db.Date
+  end_date           DateTime          @db.Date
+  status             ExamSessionStatus @default(planning)
+  created_at         DateTime          @default(now()) @db.Timestamptz()
+  updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  exam_slots      ExamSlot[]
+
+  @@index([tenant_id, academic_period_id], name: "idx_exam_sessions_tenant_period")
+  @@map("exam_sessions")
+}
+
+model ExamSlot {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  exam_session_id  String   @db.Uuid
+  subject_id       String   @db.Uuid
+  year_group_id    String   @db.Uuid
+  date             DateTime @db.Date
+  start_time       DateTime @db.Time
+  end_time         DateTime @db.Time
+  room_id          String?  @db.Uuid
+  duration_minutes Int
+  student_count    Int
+  created_at       DateTime @default(now()) @db.Timestamptz()
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_session  ExamSession        @relation(fields: [exam_session_id], references: [id], onDelete: Cascade)
+  subject       Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group    YearGroup          @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  room          Room?              @relation(fields: [room_id], references: [id], onDelete: SetNull)
+  invigilations ExamInvigilation[]
+
+  @@index([tenant_id, exam_session_id], name: "idx_exam_slots_tenant_session")
+  @@map("exam_slots")
+}
+
+/// Append-only, no updated_at
+model ExamInvigilation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  exam_slot_id     String   @db.Uuid
+  staff_profile_id String   @db.Uuid
+  role             String   @db.VarChar(20)
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  exam_slot     ExamSlot     @relation(fields: [exam_slot_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation("exam_invigilator", fields: [staff_profile_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, exam_slot_id], name: "idx_exam_invigilation_tenant_slot")
+  @@map("exam_invigilation")
+}
+
+model SchedulingScenario {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String         @db.Uuid
+  name               String         @db.VarChar(255)
+  description        String?        @db.Text
+  academic_year_id   String         @db.Uuid
+  base_run_id        String?        @db.Uuid
+  adjustments_json   Json
+  solver_result_json Json?
+  status             ScenarioStatus @default(draft)
+  created_by_user_id String         @db.Uuid
+  created_at         DateTime       @default(now()) @db.Timestamptz()
+  updated_at         DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear   @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  base_run      SchedulingRun? @relation("scenario_base_run", fields: [base_run_id], references: [id], onDelete: SetNull)
+  created_by    User           @relation("scenario_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, academic_year_id], name: "idx_scheduling_scenarios_tenant_year")
+  @@map("scheduling_scenarios")
+}
+
+model RotationConfig {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String   @db.Uuid
+  academic_year_id     String   @db.Uuid
+  cycle_length         Int      @db.SmallInt
+  week_labels_json     Json
+  effective_start_date DateTime @db.Date
+  created_at           DateTime @default(now()) @db.Timestamptz()
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, academic_year_id], name: "idx_rotation_configs_tenant_year")
+  @@map("rotation_configs")
 }
 
 // ─── P6: Finance ──────────────────────────────────────────────────────────

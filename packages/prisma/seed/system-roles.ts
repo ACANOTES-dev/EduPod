@@ -44,6 +44,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.configure_availability', 'schedule.manage_preferences',
       'schedule.run_auto', 'schedule.apply_auto', 'schedule.pin_entries',
       'schedule.view_auto_reports',
+      // Schedule enhanced
+      'schedule.manage_substitutions', 'schedule.view_reports',
+      'schedule.manage_exams', 'schedule.manage_scenarios',
       // Students, Attendance, Gradebook
       'students.manage', 'students.view',
       'attendance.manage', 'attendance.view', 'attendance.take',
@@ -77,6 +80,9 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.configure_period_grid', 'schedule.configure_requirements',
       'schedule.configure_availability', 'schedule.manage_preferences',
       'schedule.pin_entries', 'schedule.view_auto_reports',
+      // Schedule enhanced
+      'schedule.manage_substitutions', 'schedule.view_reports',
+      'schedule.manage_exams', 'schedule.manage_scenarios',
       // Students, Attendance, Gradebook
       'students.manage', 'students.view',
       'attendance.manage', 'attendance.view', 'attendance.take',
@@ -110,6 +116,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.view_own',
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
+      'schedule.view_personal_timetable',
     ],
   },
   {

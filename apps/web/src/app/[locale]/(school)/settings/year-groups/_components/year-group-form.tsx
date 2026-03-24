@@ -28,6 +28,7 @@ export interface YearGroupFormValues {
   name: string;
   display_order: number;
   next_year_group_id: string;
+  classroom_model: 'fixed_homeroom' | 'free_movement';
 }
 
 interface YearGroupFormProps {
@@ -45,6 +46,7 @@ const DEFAULT: YearGroupFormValues = {
   name: '',
   display_order: 1,
   next_year_group_id: '',
+  classroom_model: 'fixed_homeroom',
 };
 
 export function YearGroupForm({
@@ -59,6 +61,7 @@ export function YearGroupForm({
 }: YearGroupFormProps) {
   const tc = useTranslations('common');
   const t = useTranslations('yearGroups');
+  const tSched = useTranslations('scheduling');
 
   const [values, setValues] = React.useState<YearGroupFormValues>({ ...DEFAULT, ...initialValues });
   const [loading, setLoading] = React.useState(false);
@@ -132,6 +135,29 @@ export function YearGroupForm({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Classroom model */}
+          <div className="space-y-1.5">
+            <Label htmlFor="yg-classroom-model">{tSched('classroomModel.label')}</Label>
+            <p className="text-xs text-text-tertiary">{tSched('classroomModel.description')}</p>
+            <Select
+              value={values.classroom_model}
+              onValueChange={(v) => setValues((p) => ({ ...p, classroom_model: v as 'fixed_homeroom' | 'free_movement' }))}
+            >
+              <SelectTrigger id="yg-classroom-model">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed_homeroom">
+                  {tSched('classroomModel.fixedHomeroom')}
+                </SelectItem>
+                <SelectItem value="free_movement">
+                  {tSched('classroomModel.freeMovement')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>

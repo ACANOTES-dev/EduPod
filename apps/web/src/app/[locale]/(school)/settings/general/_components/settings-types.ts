@@ -91,6 +91,10 @@ export interface SchedulingSettings {
   maxSolverDurationSeconds: number;
   preferenceWeights: SchedulingPreferenceWeights;
   globalSoftWeights: SchedulingGlobalSoftWeights;
+  autoAssignUrgentSubstitutions: boolean;
+  urgentThresholdMinutes: number;
+  notifyTeachersOnScheduleChange: boolean;
+  scheduleChangeNotificationChannel: 'in_app' | 'email' | 'both';
 }
 
 export interface ApprovalsSettings {
@@ -205,6 +209,10 @@ export const DEFAULT_SETTINGS: TenantSettings = {
       roomConsistency: 1,
       workloadBalance: 1,
     },
+    autoAssignUrgentSubstitutions: false,
+    urgentThresholdMinutes: 60,
+    notifyTeachersOnScheduleChange: true,
+    scheduleChangeNotificationChannel: 'both',
   },
   approvals: {
     expiryDays: 7,
