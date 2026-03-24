@@ -36,14 +36,14 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
-import { AiCommentsService } from './ai-comments.service';
-import { AiGradingInstructionService } from './ai-grading-instruction.service';
-import { AiGradingService } from './ai-grading.service';
-import { AiProgressSummaryService } from './ai-progress-summary.service';
-import { AnalyticsService } from './analytics.service';
-import { GradePublishingService } from './grade-publishing.service';
-import { NlQueryService } from './nl-query.service';
-import { ProgressReportService } from './progress-report.service';
+import { AiCommentsService } from './ai/ai-comments.service';
+import { AiGradingInstructionService } from './ai/ai-grading-instruction.service';
+import { AiGradingService } from './ai/ai-grading.service';
+import { AiProgressSummaryService } from './ai/ai-progress-summary.service';
+import { NlQueryService } from './ai/nl-query.service';
+import { AnalyticsService } from './analytics/analytics.service';
+import { GradePublishingService } from './grading/grade-publishing.service';
+import { ProgressReportService } from './progress/progress-report.service';
 
 // ─── Uploaded File Shape ──────────────────────────────────────────────────────
 

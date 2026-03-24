@@ -45,13 +45,13 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { AssessmentTemplateService } from './assessment-template.service';
-import { CompetencyScaleService } from './competency-scale.service';
-import { GpaService } from './gpa.service';
-import { GradeCurveService } from './grade-curve.service';
+import { AssessmentTemplateService } from './assessments/assessment-template.service';
+import { GradeCurveService } from './assessments/grade-curve.service';
 import { GradesService } from './grades.service';
-import { RubricService } from './rubric.service';
-import { StandardsService } from './standards.service';
+import { CompetencyScaleService } from './grading/competency-scale.service';
+import { GpaService } from './grading/gpa.service';
+import { RubricService } from './grading/rubric.service';
+import { StandardsService } from './grading/standards.service';
 
 // ─── Query Schemas ────────────────────────────────────────────────────────
 

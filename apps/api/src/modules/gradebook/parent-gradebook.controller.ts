@@ -24,7 +24,7 @@ import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { GradesService } from './grades.service';
-import { ReportCardsService } from './report-cards.service';
+import { ReportCardsService } from './report-cards/report-cards.service';
 import { TranscriptsService } from './transcripts.service';
 
 // ─── Query Schemas ────────────────────────────────────────────────────────

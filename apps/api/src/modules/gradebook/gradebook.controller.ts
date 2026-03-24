@@ -44,11 +44,11 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { AssessmentsService } from './assessments.service';
+import { AssessmentsService } from './assessments/assessments.service';
 import { BulkImportService } from './bulk-import.service';
 import { ClassGradeConfigsService } from './class-grade-configs.service';
 import { GradesService } from './grades.service';
-import { PeriodGradeComputationService } from './period-grade-computation.service';
+import { PeriodGradeComputationService } from './grading/period-grade-computation.service';
 import { ResultsMatrixService } from './results-matrix.service';
 import { YearGroupGradeWeightsService } from './year-group-grade-weights.service';
 
