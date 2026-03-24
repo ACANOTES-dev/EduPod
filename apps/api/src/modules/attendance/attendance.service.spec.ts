@@ -5,6 +5,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
 
+import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
 
@@ -72,6 +73,7 @@ describe('AttendanceService — state machine', () => {
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
       ],
     }).compile();
 
@@ -223,6 +225,7 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: {} },
         { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
       ],
     }).compile();
 
@@ -390,6 +393,7 @@ describe('AttendanceService — createSession default_present', () => {
         { provide: SchoolClosuresService, useValue: mockClosures },
         { provide: DailySummaryService, useValue: {} },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
       ],
     }).compile();
 

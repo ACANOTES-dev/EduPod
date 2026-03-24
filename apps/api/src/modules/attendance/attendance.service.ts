@@ -12,6 +12,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
 
+import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { DailySummaryService } from './daily-summary.service';
 import type { CreateAttendanceSessionDto, SaveAttendanceRecordsDto, AmendAttendanceRecordDto } from './dto/attendance.dto';
 
@@ -43,6 +44,7 @@ export class AttendanceService {
     private readonly closuresService: SchoolClosuresService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly settingsService: SettingsService,
+    private readonly parentNotificationService: AttendanceParentNotificationService,
   ) {}
 
   // ─── Session Management ─────────────────────────────────────────────────
@@ -494,7 +496,7 @@ export class AttendanceService {
     // 1. Validate session exists and is open
     const session = await this.prisma.attendanceSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
-      select: { id: true, status: true, class_id: true },
+      select: { id: true, status: true, class_id: true, session_date: true },
     });
 
     if (!session) {
@@ -537,10 +539,15 @@ export class AttendanceService {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
     const now = new Date();
 
-    const records = await prismaWithRls.$transaction(async (tx) => {
+    const records = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const upsertedRecords = [];
+      const upsertedRecords: Array<{
+        id: string;
+        student_id: string;
+        status: string;
+        [key: string]: unknown;
+      }> = [];
       for (const record of dto.records) {
         // Find existing record for this session + student
         const existing = await db.attendanceRecord.findFirst({
@@ -580,7 +587,26 @@ export class AttendanceService {
       }
 
       return upsertedRecords;
-    });
+    })) as Array<{ id: string; student_id: string; status: string; [key: string]: unknown }>;
+
+    // 4. Trigger parent notifications for non-present records (outside transaction)
+    const sessionDateStr = session.session_date.toISOString().split('T')[0] ?? '';
+    for (const record of records) {
+      if (record.status !== 'present') {
+        try {
+          await this.parentNotificationService.triggerAbsenceNotification(
+            tenantId,
+            record.student_id,
+            record.id,
+            record.status,
+            sessionDateStr,
+          );
+        } catch (err) {
+          // Notification failure must never break attendance saving
+          void err;
+        }
+      }
+    }
 
     return { data: records };
   }

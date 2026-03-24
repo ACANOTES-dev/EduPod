@@ -9,6 +9,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { DailySummaryService } from './daily-summary.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -100,6 +101,7 @@ export class AttendanceUploadService {
     private readonly settingsService: SettingsService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly redisService: RedisService,
+    private readonly parentNotificationService: AttendanceParentNotificationService,
   ) {}
 
   // ─── Template Generation ────────────────────────────────────────────────
@@ -698,6 +700,27 @@ export class AttendanceUploadService {
     // Recalculate daily summaries for affected students
     for (const studentId of affectedStudentIds) {
       await this.dailySummaryService.recalculate(tenantId, studentId, date);
+    }
+
+    // Trigger parent notifications for each updated record (outside transaction)
+    for (const entry of undoEntries) {
+      // Only notify for exception statuses (all entries here are non-present)
+      try {
+        const matchingInput = entries.find(
+          (e) => studentByNumber.get(e.student_number) === entry.student_id,
+        );
+        if (matchingInput) {
+          await this.parentNotificationService.triggerAbsenceNotification(
+            tenantId,
+            entry.student_id,
+            entry.record_id,
+            matchingInput.status,
+            sessionDate,
+          );
+        }
+      } catch {
+        // Notification failure must never break attendance operations
+      }
     }
 
     return {
