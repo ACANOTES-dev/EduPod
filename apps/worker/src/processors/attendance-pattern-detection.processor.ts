@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
@@ -374,11 +374,21 @@ class AttendancePatternDetectionJob extends TenantAwareJob<AttendancePatternDete
       detected_date: Date;
       window_start: Date;
       window_end: Date;
-      details_json: Prisma.InputJsonValue;
+      details_json: Record<string, unknown>;
     },
   ): Promise<number> {
     try {
-      await tx.attendancePatternAlert.create({ data });
+      await tx.attendancePatternAlert.create({
+        data: {
+          tenant_id: data.tenant_id,
+          student_id: data.student_id,
+          alert_type: data.alert_type,
+          detected_date: data.detected_date,
+          window_start: data.window_start,
+          window_end: data.window_end,
+          details_json: JSON.parse(JSON.stringify(data.details_json)),
+        },
+      });
       return 1;
     } catch (err: unknown) {
       // P2002 = unique constraint violation — alert already exists for this

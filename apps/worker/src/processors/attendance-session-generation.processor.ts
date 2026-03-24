@@ -172,7 +172,7 @@ class AttendanceSessionGenerationJob extends TenantAwareJob<AttendanceSessionGen
           if (enrolments.length > 0) {
             const now = new Date();
             await tx.attendanceRecord.createMany({
-              data: enrolments.map((e) => ({
+              data: enrolments.map((e: { student_id: string }) => ({
                 tenant_id,
                 attendance_session_id: session.id,
                 student_id: e.student_id,
