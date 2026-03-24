@@ -289,6 +289,7 @@ export default function ClassAssignmentsPage() {
   const [selectedColumns, setSelectedColumns] = React.useState<Set<string>>(
     () => new Set(DEFAULT_SELECTED_COLUMNS),
   );
+  const [exportGrouping, setExportGrouping] = React.useState<'subclass' | 'year_level'>('subclass');
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   const [pendingChanges, setPendingChanges] = React.useState<Map<string, string>>(new Map());
   const [selectedStudents, setSelectedStudents] = React.useState<Set<string>>(new Set());
@@ -441,6 +442,25 @@ export default function ClassAssignmentsPage() {
 
   const activeColumns = ALL_EXPORT_COLUMNS.filter((c) => selectedColumns.has(c.key));
 
+  const mergeByYearLevel = (classLists: ExportClassList[]): ExportClassList[] => {
+    const grouped = new Map<string, ExportClassList>();
+    for (const cl of classLists) {
+      const key = cl.year_group_name;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.students = [...existing.students, ...cl.students];
+      } else {
+        grouped.set(key, {
+          class_id: cl.class_id,
+          class_name: cl.year_group_name,
+          year_group_name: cl.year_group_name,
+          students: [...cl.students],
+        });
+      }
+    }
+    return Array.from(grouped.values());
+  };
+
   const handleExport = async () => {
     if (activeColumns.length === 0) return;
     setExporting(true);
@@ -450,10 +470,17 @@ export default function ClassAssignmentsPage() {
         toast.info(t('noDataToExport'));
         return;
       }
+      const exportData = {
+        ...res.data,
+        class_lists:
+          exportGrouping === 'year_level'
+            ? mergeByYearLevel(res.data.class_lists)
+            : res.data.class_lists,
+      };
       if (exportFormat === 'xlsx') {
-        generateExcel(res.data, activeColumns);
+        generateExcel(exportData, activeColumns);
       } else {
-        await generatePdf(res.data, activeColumns);
+        await generatePdf(exportData, activeColumns);
       }
       toast.success(t('exportSuccess'));
       setExportModalOpen(false);
@@ -759,6 +786,35 @@ export default function ClassAssignmentsPage() {
           </DialogHeader>
 
           <div className="space-y-6">
+            {/* Grouping toggle */}
+            <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-secondary p-3">
+              <Label className="text-sm font-medium text-text-primary">{t('groupBy')}</Label>
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExportGrouping('subclass')}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    exportGrouping === 'subclass'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface text-text-secondary hover:bg-surface-secondary'
+                  }`}
+                >
+                  {t('groupBySubclass')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportGrouping('year_level')}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    exportGrouping === 'year_level'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-surface text-text-secondary hover:bg-surface-secondary'
+                  }`}
+                >
+                  {t('groupByYearLevel')}
+                </button>
+              </div>
+            </div>
+
             {/* Column checkboxes */}
             <div className="space-y-4">
               <div>
