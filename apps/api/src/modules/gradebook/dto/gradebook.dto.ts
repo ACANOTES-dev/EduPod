@@ -1,20 +1,45 @@
 import type {
-  createGradingScaleSchema,
-  updateGradingScaleSchema,
+  acknowledgeRiskAlertSchema,
+  applyCurveSchema,
+  bulkImportStandardsSchema,
+  bulkUpsertGradesSchema,
+  computeGpaSchema,
+  computePeriodGradesSchema,
+  copyYearGroupGradeWeightsSchema,
+  createAiGradingInstructionSchema,
   createAssessmentCategorySchema,
+  createAssessmentFromTemplateSchema,
+  createAssessmentSchema,
+  createAssessmentTemplateSchema,
+  createCompetencyScaleSchema,
+  createCurriculumStandardSchema,
+  createGradingScaleSchema,
+  createRubricTemplateSchema,
+  generateAiCommentsSchema,
+  generateProgressReportsSchema,
+  generateReportCardsSchema,
+  importProcessSchema,
+  mapAssessmentStandardsSchema,
+  nlQuerySchema,
+  overridePeriodGradeSchema,
+  publishGradesSchema,
+  resolveRiskAlertSchema,
+  reviewAiGradingInstructionSchema,
+  saveRubricGradesSchema,
+  sendProgressReportSchema,
+  setDefaultGradeSchema,
+  transitionAssessmentStatusSchema,
+  undoCurveSchema,
   updateAssessmentCategorySchema,
+  updateAssessmentSchema,
+  updateAssessmentTemplateSchema,
+  updateCompetencyScaleSchema,
+  updateGradingScaleSchema,
+  updateProgressReportEntrySchema,
+  updateReportCardSchema,
+  updateRubricTemplateSchema,
   upsertGradeConfigSchema,
   upsertYearGroupGradeWeightSchema,
-  copyYearGroupGradeWeightsSchema,
-  createAssessmentSchema,
-  updateAssessmentSchema,
-  transitionAssessmentStatusSchema,
-  bulkUpsertGradesSchema,
-  computePeriodGradesSchema,
-  overridePeriodGradeSchema,
-  generateReportCardsSchema,
-  updateReportCardSchema,
-  importProcessSchema,
 } from '@school/shared';
 import type { z } from 'zod';
 
@@ -34,3 +59,52 @@ export type OverridePeriodGradeDto = z.infer<typeof overridePeriodGradeSchema>;
 export type GenerateReportCardsDto = z.infer<typeof generateReportCardsSchema>;
 export type UpdateReportCardDto = z.infer<typeof updateReportCardSchema>;
 export type ImportProcessDto = z.infer<typeof importProcessSchema>;
+
+// ─── C1: Rubric ───────────────────────────────────────────────────────────
+export type CreateRubricTemplateDto = z.infer<typeof createRubricTemplateSchema>;
+export type UpdateRubricTemplateDto = z.infer<typeof updateRubricTemplateSchema>;
+export type SaveRubricGradesDto = z.infer<typeof saveRubricGradesSchema>;
+
+// ─── C2: Standards ────────────────────────────────────────────────────────
+export type CreateCurriculumStandardDto = z.infer<typeof createCurriculumStandardSchema>;
+export type BulkImportStandardsDto = z.infer<typeof bulkImportStandardsSchema>;
+export type MapAssessmentStandardsDto = z.infer<typeof mapAssessmentStandardsSchema>;
+export type CreateCompetencyScaleDto = z.infer<typeof createCompetencyScaleSchema>;
+export type UpdateCompetencyScaleDto = z.infer<typeof updateCompetencyScaleSchema>;
+
+// ─── C3: GPA ──────────────────────────────────────────────────────────────
+export type ComputeGpaDto = z.infer<typeof computeGpaSchema>;
+
+// ─── C5: Grade Curve ─────────────────────────────────────────────────────
+export type ApplyCurveDto = z.infer<typeof applyCurveSchema>;
+export type UndoCurveDto = z.infer<typeof undoCurveSchema>;
+
+// ─── C6: Assessment Templates ─────────────────────────────────────────────
+export type CreateAssessmentTemplateDto = z.infer<typeof createAssessmentTemplateSchema>;
+export type UpdateAssessmentTemplateDto = z.infer<typeof updateAssessmentTemplateSchema>;
+export type CreateAssessmentFromTemplateDto = z.infer<typeof createAssessmentFromTemplateSchema>;
+
+// ─── C7: Batch Default Grades ─────────────────────────────────────────────
+export type SetDefaultGradeDto = z.infer<typeof setDefaultGradeSchema>;
+
+// ─── B1: AI Comments ──────────────────────────────────────────────────────
+export type GenerateAiCommentsDto = z.infer<typeof generateAiCommentsSchema>;
+
+// ─── B2: AI Grading Instructions ─────────────────────────────────────────
+export type CreateAiGradingInstructionDto = z.infer<typeof createAiGradingInstructionSchema>;
+export type ReviewAiGradingInstructionDto = z.infer<typeof reviewAiGradingInstructionSchema>;
+
+// ─── B3/B4: Risk Alerts ───────────────────────────────────────────────────
+export type AcknowledgeRiskAlertDto = z.infer<typeof acknowledgeRiskAlertSchema>;
+export type ResolveRiskAlertDto = z.infer<typeof resolveRiskAlertSchema>;
+
+// ─── B5: Natural Language Query ───────────────────────────────────────────
+export type NlQueryDto = z.infer<typeof nlQuerySchema>;
+
+// ─── D1: Grade Publishing ─────────────────────────────────────────────────
+export type PublishGradesDto = z.infer<typeof publishGradesSchema>;
+
+// ─── D2: Progress Reports ─────────────────────────────────────────────────
+export type GenerateProgressReportsDto = z.infer<typeof generateProgressReportsSchema>;
+export type UpdateProgressReportEntryDto = z.infer<typeof updateProgressReportEntrySchema>;
+export type SendProgressReportDto = z.infer<typeof sendProgressReportSchema>;

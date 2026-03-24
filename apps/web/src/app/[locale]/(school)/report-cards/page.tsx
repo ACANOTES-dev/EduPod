@@ -11,7 +11,7 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Download, FileText, Loader2 } from 'lucide-react';
+import { Download, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -132,6 +132,7 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
   const [page, setPage] = React.useState(1);
   const PAGE_SIZE = 20;
   const [isLoading, setIsLoading] = React.useState(true);
+  const [generatingAllComments, setGeneratingAllComments] = React.useState(false);
 
   const [classFilter, setClassFilter] = React.useState('all');
   const [periodFilter, setPeriodFilter] = React.useState('all');
@@ -210,6 +211,25 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
       }
     } catch {
       toast.error(tc('errorGeneric'));
+    }
+  };
+
+  const handleGenerateAllComments = async () => {
+    if (classFilter === 'all' || periodFilter === 'all') {
+      toast.error(t('aiGenerateAllSelectFirst'));
+      return;
+    }
+    setGeneratingAllComments(true);
+    try {
+      await apiClient('/api/v1/report-cards/ai-generate-comments', {
+        method: 'POST',
+        body: JSON.stringify({ class_id: classFilter, academic_period_id: periodFilter }),
+      });
+      toast.success(t('aiGenerateAllSuccess'));
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setGeneratingAllComments(false);
     }
   };
 
@@ -301,6 +321,19 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
           <SelectItem value="pdf">PDF</SelectItem>
         </SelectContent>
       </Select>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleGenerateAllComments}
+        disabled={generatingAllComments || classFilter === 'all' || periodFilter === 'all'}
+      >
+        {generatingAllComments ? (
+          <Loader2 className="me-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="me-2 h-4 w-4" />
+        )}
+        {t('aiGenerateAllComments')}
+      </Button>
     </div>
   );
 

@@ -20,6 +20,7 @@ import { ComplianceExecutionProcessor } from './processors/compliance/compliance
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
+import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
@@ -122,6 +123,7 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Gradebook queue processors
     MassReportCardPdfProcessor,
     BulkImportProcessor,
+    GradebookRiskDetectionProcessor,
     // Finance queue processors
     OverdueDetectionProcessor,
     InvoiceApprovalCallbackProcessor,

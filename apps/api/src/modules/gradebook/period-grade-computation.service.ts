@@ -7,6 +7,9 @@ import {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { GpaService } from './gpa.service';
+import { StandardsService } from './standards.service';
+
 interface CategoryWeight {
   category_id: string;
   weight: number;
@@ -36,12 +39,17 @@ export interface ComputationWarning {
 
 @Injectable()
 export class PeriodGradeComputationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gpaService: GpaService,
+    private readonly standardsService: StandardsService,
+  ) {}
 
   /**
    * Compute period grades for a class/subject/period combination.
    * Full algorithm: load config, assessments, grades, compute weighted averages,
    * apply grading scale, upsert snapshots.
+   * Optionally triggers GPA and competency snapshot computation afterward.
    */
   async compute(
     tenantId: string,
@@ -103,7 +111,19 @@ export class PeriodGradeComputationService {
       });
     }
 
-    // 3. Load all assessments for (class, subject, period) where status NOT 'draft'
+    // 3. Load tenant settings for formative weight cap
+    const tenantSetting = await this.prisma.tenantSetting.findFirst({
+      where: { tenant_id: tenantId },
+      select: { settings: true },
+    });
+
+    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
+    const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
+    const missingGradePolicy = (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
+    const formativeWeightCap = gradebookSettings['formativeWeightCap'] as number | null | undefined;
+    const formativeIncluded = gradebookSettings['formativeIncludedInPeriodGrade'] !== false;
+
+    // 4. Load all assessments for (class, subject, period) where status NOT 'draft'
     const assessments = await this.prisma.assessment.findMany({
       where: {
         tenant_id: tenantId,
@@ -115,12 +135,12 @@ export class PeriodGradeComputationService {
       include: {
         grades: true,
         category: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, assessment_type: true },
         },
       },
     });
 
-    // 4. If no assessments, error
+    // 5. If no assessments, error
     if (assessments.length === 0) {
       throw new BadRequestException({
         code: 'NO_ASSESSMENTS',
@@ -128,7 +148,7 @@ export class PeriodGradeComputationService {
       });
     }
 
-    // 5. Load enrolled students
+    // 6. Load enrolled students
     const enrolments = await this.prisma.classEnrolment.findMany({
       where: {
         tenant_id: tenantId,
@@ -147,53 +167,38 @@ export class PeriodGradeComputationService {
       });
     }
 
-    // 6. Get tenant setting for missing grade policy
-    const tenantSetting = await this.prisma.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
+    // 7. Apply formative inclusion setting
+    // If formativeIncluded = false, exclude formative assessments entirely
+    const includedAssessments = formativeIncluded
+      ? assessments
+      : assessments.filter((a) => a.category.assessment_type !== 'formative');
 
-    const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
-    const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
-    const missingGradePolicy = (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
-
-    // 7. Use resolved category weights (from year-group or class-subject config)
-    const categoryWeights = categoryWeightsRaw;
-
-    // 8. Normalize weights if sum != 100
-    const weightSum = categoryWeights.reduce((sum, w) => sum + w.weight, 0);
-    if (weightSum === 0) {
+    if (includedAssessments.length === 0) {
       throw new BadRequestException({
-        code: 'ZERO_WEIGHT_SUM',
-        message: 'Category weights must not all be zero',
+        code: 'NO_ASSESSMENTS',
+        message: 'No summative assessments found and formative grades are excluded from period grade',
       });
     }
-    let normalizedWeights: Array<{ category_id: string; weight: number }>;
 
-    if (Math.abs(weightSum - 100) > 0.01) {
-      warnings.push({
-        code: 'WEIGHTS_NORMALIZED',
-        message: `Category weights summed to ${weightSum}, not 100. Weights have been normalized.`,
-      });
-      normalizedWeights = categoryWeights.map((w) => ({
-        category_id: w.category_id,
-        weight: (w.weight / weightSum) * 100,
-      }));
-    } else {
-      normalizedWeights = categoryWeights.map((w) => ({
-        category_id: w.category_id,
-        weight: w.weight,
-      }));
-    }
+    // 8. Resolve and normalize category weights with formative cap
+    const categoryWeights = this.resolveWeightsWithFormativeCap(
+      categoryWeightsRaw,
+      includedAssessments.map((a) => ({
+        category_id: a.category_id,
+        assessment_type: a.category.assessment_type,
+      })),
+      formativeWeightCap ?? null,
+      warnings,
+    );
 
     // Build a map of category_id -> weight
     const categoryWeightMap = new Map(
-      normalizedWeights.map((w) => [w.category_id, w.weight]),
+      categoryWeights.map((w) => [w.category_id, w.weight]),
     );
 
     // Group assessments by category
-    const assessmentsByCategory = new Map<string, typeof assessments>();
-    for (const assessment of assessments) {
+    const assessmentsByCategory = new Map<string, typeof includedAssessments>();
+    for (const assessment of includedAssessments) {
       const catId = assessment.category_id;
       const existing = assessmentsByCategory.get(catId) ?? [];
       existing.push(assessment);
@@ -308,15 +313,113 @@ export class PeriodGradeComputationService {
       return results;
     })) as { id: string }[];
 
+    // 11. Trigger GPA computation for all students (best-effort, non-blocking)
+    void this.triggerGpaComputation(tenantId, studentIds, periodId);
+
+    // 12. Trigger competency snapshot computation for all students (best-effort)
+    void this.triggerCompetencyComputation(tenantId, studentIds, periodId);
+
     return {
       data: snapshots,
       warnings,
       meta: {
         students_computed: snapshots.length,
-        assessments_included: assessments.length,
+        assessments_included: includedAssessments.length,
         missing_grade_policy: missingGradePolicy,
+        formative_cap_applied: formativeWeightCap != null,
       },
     };
+  }
+
+  // ─── Private Helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Resolve category weights, applying the formative cap if configured.
+   * Formative categories' combined weight is capped at formativeWeightCap%.
+   * Summative weights are scaled up proportionally to compensate.
+   */
+  private resolveWeightsWithFormativeCap(
+    rawWeights: CategoryWeight[],
+    categoryTypes: Array<{ category_id: string; assessment_type: string }>,
+    formativeWeightCap: number | null,
+    warnings: ComputationWarning[],
+  ): CategoryWeight[] {
+    const weightSum = rawWeights.reduce((sum, w) => sum + w.weight, 0);
+
+    if (weightSum === 0) {
+      throw new BadRequestException({
+        code: 'ZERO_WEIGHT_SUM',
+        message: 'Category weights must not all be zero',
+      });
+    }
+
+    // Normalize weights to sum to 100
+    let normalizedWeights: CategoryWeight[];
+    if (Math.abs(weightSum - 100) > 0.01) {
+      warnings.push({
+        code: 'WEIGHTS_NORMALIZED',
+        message: `Category weights summed to ${weightSum}, not 100. Weights have been normalized.`,
+      });
+      normalizedWeights = rawWeights.map((w) => ({
+        category_id: w.category_id,
+        weight: (w.weight / weightSum) * 100,
+      }));
+    } else {
+      normalizedWeights = rawWeights.map((w) => ({ ...w }));
+    }
+
+    // Apply formative cap if configured
+    if (formativeWeightCap != null && formativeWeightCap >= 0) {
+      const typeMap = new Map(
+        categoryTypes.map((ct) => [ct.category_id, ct.assessment_type]),
+      );
+
+      const formativeWeights = normalizedWeights.filter(
+        (w) => typeMap.get(w.category_id) === 'formative',
+      );
+      const summativeWeights = normalizedWeights.filter(
+        (w) => typeMap.get(w.category_id) !== 'formative',
+      );
+
+      const currentFormativeTotal = formativeWeights.reduce(
+        (sum, w) => sum + w.weight,
+        0,
+      );
+
+      if (currentFormativeTotal > formativeWeightCap) {
+        warnings.push({
+          code: 'FORMATIVE_CAP_APPLIED',
+          message: `Formative weight (${currentFormativeTotal.toFixed(1)}%) exceeded cap (${formativeWeightCap}%). Weights adjusted.`,
+        });
+
+        // Scale formative weights down to cap
+        const formativeScaleFactor = formativeWeightCap / currentFormativeTotal;
+        const scaledFormative = formativeWeights.map((w) => ({
+          ...w,
+          weight: w.weight * formativeScaleFactor,
+        }));
+
+        // Scale summative weights up to fill the remaining (100 - cap)%
+        const remainingSummativeWeight = 100 - formativeWeightCap;
+        const currentSummativeTotal = summativeWeights.reduce(
+          (sum, w) => sum + w.weight,
+          0,
+        );
+
+        const summativeScaleFactor = currentSummativeTotal > 0
+          ? remainingSummativeWeight / currentSummativeTotal
+          : 1;
+
+        const scaledSummative = summativeWeights.map((w) => ({
+          ...w,
+          weight: w.weight * summativeScaleFactor,
+        }));
+
+        return [...scaledFormative, ...scaledSummative];
+      }
+    }
+
+    return normalizedWeights;
   }
 
   /**
@@ -359,5 +462,40 @@ export class PeriodGradeComputationService {
     }
 
     return `${Math.round(percentage * 100) / 100}%`;
+  }
+
+  /**
+   * Trigger GPA computation for a list of students — best-effort, non-blocking.
+   * Errors are logged but do not fail the period grade computation.
+   */
+  private async triggerGpaComputation(
+    tenantId: string,
+    studentIds: string[],
+    periodId: string,
+  ): Promise<void> {
+    for (const studentId of studentIds) {
+      try {
+        await this.gpaService.computeGpa(tenantId, studentId, periodId);
+      } catch {
+        // Best-effort: GPA computation failure should not fail period grade computation
+      }
+    }
+  }
+
+  /**
+   * Trigger competency snapshot computation for a list of students — best-effort.
+   */
+  private async triggerCompetencyComputation(
+    tenantId: string,
+    studentIds: string[],
+    periodId: string,
+  ): Promise<void> {
+    for (const studentId of studentIds) {
+      try {
+        await this.standardsService.computeCompetencySnapshots(tenantId, studentId, periodId);
+      } catch {
+        // Best-effort: competency computation failure should not fail period grade computation
+      }
+    }
   }
 }

@@ -10,6 +10,9 @@ import {
   DialogTitle,
   Input,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -18,7 +21,7 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { ArrowLeft, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, BarChart2, Pencil, Plus } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -27,6 +30,7 @@ import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+import { AnalyticsTab } from './analytics-tab';
 import { ResultsMatrix } from './results-matrix';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -75,7 +79,16 @@ interface ListResponse<T> {
   data: T[];
 }
 
-type TabKey = 'assessments' | 'results' | 'grades';
+interface AssessmentTemplate {
+  id: string;
+  name: string;
+  category_id: string;
+  max_score: number;
+  rubric_template_id: string | null;
+  counts_toward_report_card: boolean;
+}
+
+type TabKey = 'assessments' | 'results' | 'grades' | 'analytics';
 
 const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'> = {
   draft: 'warning',
@@ -96,6 +109,21 @@ export default function ClassGradebookPage() {
   const classId = params?.classId as string;
 
   const [activeTab, setActiveTab] = React.useState<TabKey>('assessments');
+
+  // ─── Assessment Templates (for "From Template" dropdown) ──────────────────
+  const [assessmentTemplates, setAssessmentTemplates] = React.useState<AssessmentTemplate[]>([]);
+  const [templatePopoverOpen, setTemplatePopoverOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    apiClient<{ data: AssessmentTemplate[] }>('/api/v1/gradebook/assessment-templates?pageSize=100')
+      .then((res) => setAssessmentTemplates(res.data))
+      .catch(() => undefined);
+  }, []);
+
+  const handleCreateFromTemplate = (tplId: string) => {
+    setTemplatePopoverOpen(false);
+    router.push(`/${locale}/gradebook/${classId}/assessments/new?template_id=${tplId}`);
+  };
 
   // ─── Assessments Tab ───────────────────────────────────────────────────────
   const [assessments, setAssessments] = React.useState<Assessment[]>([]);
@@ -370,10 +398,11 @@ export default function ClassGradebookPage() {
     },
   ];
 
-  const tabs: { key: TabKey; label: string }[] = [
+  const tabs: { key: TabKey; label: string; icon?: React.ReactNode }[] = [
     { key: 'assessments', label: t('assessments') },
     { key: 'results', label: t('results') },
     { key: 'grades', label: t('grades') },
+    { key: 'analytics', label: t('analytics'), icon: <BarChart2 className="inline-block me-1 h-3.5 w-3.5" /> },
   ];
 
   return (
@@ -386,10 +415,38 @@ export default function ClassGradebookPage() {
           title={t('title')}
           actions={
             activeTab === 'assessments' ? (
-              <Button onClick={() => router.push(`/${locale}/gradebook/${classId}/assessments/new`)}>
-                <Plus className="me-2 h-4 w-4" />
-                {t('newAssessment')}
-              </Button>
+              <div className="flex items-center gap-2">
+                {assessmentTemplates.length > 0 && (
+                  <Popover open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline">
+                        {t('fromTemplate')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-64 p-0">
+                      <div className="p-2">
+                        <p className="px-2 py-1.5 text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                          {t('assessmentTemplates')}
+                        </p>
+                        {assessmentTemplates.map((tpl) => (
+                          <button
+                            key={tpl.id}
+                            onClick={() => handleCreateFromTemplate(tpl.id)}
+                            className="w-full rounded-md px-3 py-2 text-start text-sm hover:bg-surface-secondary transition-colors"
+                          >
+                            <span className="font-medium text-text-primary">{tpl.name}</span>
+                            <span className="ms-2 text-xs text-text-secondary">/ {tpl.max_score}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+                <Button onClick={() => router.push(`/${locale}/gradebook/${classId}/assessments/new`)}>
+                  <Plus className="me-2 h-4 w-4" />
+                  {t('newAssessment')}
+                </Button>
+              </div>
             ) : activeTab === 'grades' ? (
               <Button onClick={handleComputeGrades} disabled={computing}>
                 {computing ? tc('loading') : t('computeGrades')}
@@ -400,19 +457,19 @@ export default function ClassGradebookPage() {
       </div>
 
       {/* Tabs */}
-      <nav className="flex gap-1 border-b border-border" aria-label="Gradebook tabs">
+      <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label="Gradebook tabs">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`relative px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+            className={`relative whitespace-nowrap px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
               activeTab === tab.key
                 ? 'text-primary-700 bg-surface-secondary border-b-2 border-primary-700'
                 : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
             }`}
             aria-current={activeTab === tab.key ? 'page' : undefined}
           >
-            {tab.label}
+            {tab.icon}{tab.label}
           </button>
         ))}
       </nav>
@@ -486,6 +543,10 @@ export default function ClassGradebookPage() {
 
       {activeTab === 'results' && (
         <ResultsMatrix classId={classId} />
+      )}
+
+      {activeTab === 'analytics' && (
+        <AnalyticsTab classId={classId} />
       )}
 
       {activeTab === 'grades' && (

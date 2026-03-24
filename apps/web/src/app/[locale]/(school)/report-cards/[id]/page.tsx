@@ -7,7 +7,7 @@ import {
   Label,
   toast,
 } from '@school/ui';
-import { ArrowLeft, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -59,6 +59,8 @@ export default function ReportCardDetailPage() {
   const [reportCard, setReportCard] = React.useState<ReportCardDetail | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
+  const [generatingTeacher, setGeneratingTeacher] = React.useState(false);
+  const [generatingPrincipal, setGeneratingPrincipal] = React.useState(false);
 
   const [teacherComment, setTeacherComment] = React.useState('');
   const [principalComment, setPrincipalComment] = React.useState('');
@@ -128,6 +130,29 @@ export default function ReportCardDetailPage() {
   const handleDownload = () => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
     window.open(`${baseUrl}/api/v1/report-cards/${id}/pdf?download=true`, '_blank');
+  };
+
+  const handleGenerateAiComment = async (
+    commentType: 'teacher' | 'principal',
+  ) => {
+    const setGenerating =
+      commentType === 'teacher' ? setGeneratingTeacher : setGeneratingPrincipal;
+    const setter = commentType === 'teacher' ? setTeacherComment : setPrincipalComment;
+    setGenerating(true);
+    try {
+      const res = await apiClient<{ data: { comment: string } }>(
+        `/api/v1/report-cards/${id}/ai-comment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ comment_type: commentType }),
+        },
+      );
+      setter(res.data.comment);
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   if (isLoading) {
@@ -208,23 +233,57 @@ export default function ReportCardDetailPage() {
 
       {/* Comments */}
       <div className="space-y-4">
-        <div>
-          <Label htmlFor="teacher-comment">{t('teacherComment')}</Label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="teacher-comment">{t('teacherComment')}</Label>
+            {isDraft && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleGenerateAiComment('teacher')}
+                disabled={generatingTeacher}
+              >
+                {generatingTeacher ? (
+                  <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="me-2 h-3.5 w-3.5" />
+                )}
+                {t('aiGenerateComment')}
+              </Button>
+            )}
+          </div>
           <Textarea
             id="teacher-comment"
             value={teacherComment}
             onChange={(e) => setTeacherComment(e.target.value)}
-            disabled={!isDraft}
+            disabled={!isDraft || generatingTeacher}
             rows={3}
           />
         </div>
-        <div>
-          <Label htmlFor="principal-comment">{t('principalComment')}</Label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="principal-comment">{t('principalComment')}</Label>
+            {isDraft && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleGenerateAiComment('principal')}
+                disabled={generatingPrincipal}
+              >
+                {generatingPrincipal ? (
+                  <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="me-2 h-3.5 w-3.5" />
+                )}
+                {t('aiGenerateComment')}
+              </Button>
+            )}
+          </div>
           <Textarea
             id="principal-comment"
             value={principalComment}
             onChange={(e) => setPrincipalComment(e.target.value)}
-            disabled={!isDraft}
+            disabled={!isDraft || generatingPrincipal}
             rows={3}
           />
         </div>

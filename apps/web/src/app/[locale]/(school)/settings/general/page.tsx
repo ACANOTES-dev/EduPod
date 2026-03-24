@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Textarea,
   toast,
 } from '@school/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -47,11 +48,24 @@ interface AttendanceSettings {
 
 interface AiSettings {
   enabled: boolean;
+  commentStyle: 'formal' | 'warm' | 'balanced';
+  commentSampleReference: string | null;
+  commentTargetWordCount: number;
+  aiProgressSummariesEnabled: boolean;
+  aiGradingDailyLimit: number;
 }
 
 interface GradebookSettings {
   defaultMissingGradePolicy: 'exclude' | 'zero';
   requireGradeComment: boolean;
+  formativeWeightCap: number | null;
+  formativeIncludedInPeriodGrade: boolean;
+  gpaPrecision: 1 | 2;
+  gpaScaleLabel: string;
+  atRiskDetectionEnabled: boolean;
+  atRiskDetectionFrequency: 'daily' | 'weekly';
+  gradingConsistencyThreshold: number;
+  requireApprovalForMarkingSchemes: boolean;
 }
 
 interface AdmissionsSettings {
@@ -166,6 +180,14 @@ const DEFAULT_SETTINGS: TenantSettings = {
   gradebook: {
     defaultMissingGradePolicy: 'exclude',
     requireGradeComment: false,
+    formativeWeightCap: null,
+    formativeIncludedInPeriodGrade: true,
+    gpaPrecision: 2,
+    gpaScaleLabel: 'GPA',
+    atRiskDetectionEnabled: false,
+    atRiskDetectionFrequency: 'weekly',
+    gradingConsistencyThreshold: 15,
+    requireApprovalForMarkingSchemes: false,
   },
   admissions: {
     requireApprovalForAcceptance: true,
@@ -206,6 +228,11 @@ const DEFAULT_SETTINGS: TenantSettings = {
   },
   ai: {
     enabled: false,
+    commentStyle: 'balanced',
+    commentSampleReference: null,
+    commentTargetWordCount: 100,
+    aiProgressSummariesEnabled: false,
+    aiGradingDailyLimit: 200,
   },
 };
 
@@ -369,6 +396,75 @@ function SelectRow({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+function TextRow({
+  label,
+  description,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  description?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const id = React.useId();
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <Label htmlFor={id} className="text-sm text-text-primary">
+          {label}
+        </Label>
+        {description && (
+          <p className="text-xs text-text-tertiary">{description}</p>
+        )}
+      </div>
+      <Input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full shrink-0 sm:w-56"
+      />
+    </div>
+  );
+}
+
+function TextareaRow({
+  label,
+  description,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  description?: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const id = React.useId();
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-sm text-text-primary">
+        {label}
+      </Label>
+      {description && (
+        <p className="text-xs text-text-tertiary">{description}</p>
+      )}
+      <Textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        className="text-sm"
+      />
     </div>
   );
 }
@@ -811,6 +907,85 @@ export default function GeneralSettingsPage() {
             value={settings.gradebook.requireGradeComment}
             onChange={(v) => updateSection('gradebook', { requireGradeComment: v })}
           />
+          <NumberRow
+            label={t('formativeWeightCap')}
+            description={t('formativeWeightCapDesc')}
+            value={settings.gradebook.formativeWeightCap}
+            onChange={(v) => updateSection('gradebook', { formativeWeightCap: v })}
+            min={0}
+            max={100}
+            nullable
+          />
+          <BooleanRow
+            label={t('formativeIncludedInPeriodGrade')}
+            description={t('formativeIncludedInPeriodGradeDesc')}
+            value={settings.gradebook.formativeIncludedInPeriodGrade}
+            onChange={(v) => updateSection('gradebook', { formativeIncludedInPeriodGrade: v })}
+          />
+          <SelectRow
+            label={t('gpaPrecision')}
+            description={t('gpaPrecisionDesc')}
+            value={String(settings.gradebook.gpaPrecision)}
+            options={[
+              { value: '1', label: t('gpaPrecision1') },
+              { value: '2', label: t('gpaPrecision2') },
+            ]}
+            onChange={(v) =>
+              updateSection('gradebook', { gpaPrecision: Number(v) as 1 | 2 })
+            }
+          />
+          <TextRow
+            label={t('gpaScaleLabel')}
+            description={t('gpaScaleLabelDesc')}
+            value={settings.gradebook.gpaScaleLabel}
+            onChange={(v) => updateSection('gradebook', { gpaScaleLabel: v })}
+            placeholder="GPA"
+          />
+          <SubSectionCard
+            title={t('atRiskDetection')}
+            description={t('atRiskDetectionDesc')}
+          >
+            <BooleanRow
+              label={t('atRiskDetectionEnabled')}
+              value={settings.gradebook.atRiskDetectionEnabled}
+              onChange={(v) => updateSection('gradebook', { atRiskDetectionEnabled: v })}
+            />
+            {settings.gradebook.atRiskDetectionEnabled && (
+              <>
+                <SelectRow
+                  label={t('atRiskDetectionFrequency')}
+                  value={settings.gradebook.atRiskDetectionFrequency}
+                  options={[
+                    { value: 'daily', label: t('frequencyDaily') },
+                    { value: 'weekly', label: t('frequencyWeekly') },
+                  ]}
+                  onChange={(v) =>
+                    updateSection('gradebook', {
+                      atRiskDetectionFrequency: v as 'daily' | 'weekly',
+                    })
+                  }
+                />
+                <NumberRow
+                  label={t('gradingConsistencyThreshold')}
+                  description={t('gradingConsistencyThresholdDesc')}
+                  value={settings.gradebook.gradingConsistencyThreshold}
+                  onChange={(v) =>
+                    updateSection('gradebook', { gradingConsistencyThreshold: v ?? 15 })
+                  }
+                  min={1}
+                  max={100}
+                />
+                <BooleanRow
+                  label={t('requireApprovalForMarkingSchemes')}
+                  description={t('requireApprovalForMarkingSchemesDesc')}
+                  value={settings.gradebook.requireApprovalForMarkingSchemes}
+                  onChange={(v) =>
+                    updateSection('gradebook', { requireApprovalForMarkingSchemes: v })
+                  }
+                />
+              </>
+            )}
+          </SubSectionCard>
         </SectionCard>
 
         {/* Admissions */}
@@ -967,6 +1142,55 @@ export default function GeneralSettingsPage() {
             value={settings.ai.enabled}
             onChange={(v) => updateSection('ai', { enabled: v })}
           />
+          {settings.ai.enabled && (
+            <>
+              <SelectRow
+                label={t('aiCommentStyle')}
+                description={t('aiCommentStyleDesc')}
+                value={settings.ai.commentStyle}
+                options={[
+                  { value: 'formal', label: t('aiCommentStyleFormal') },
+                  { value: 'warm', label: t('aiCommentStyleWarm') },
+                  { value: 'balanced', label: t('aiCommentStyleBalanced') },
+                ]}
+                onChange={(v) =>
+                  updateSection('ai', {
+                    commentStyle: v as 'formal' | 'warm' | 'balanced',
+                  })
+                }
+              />
+              <TextareaRow
+                label={t('aiCommentSampleReference')}
+                description={t('aiCommentSampleReferenceDesc')}
+                value={settings.ai.commentSampleReference ?? ''}
+                onChange={(v) =>
+                  updateSection('ai', { commentSampleReference: v || null })
+                }
+                placeholder={t('aiCommentSampleReferencePlaceholder')}
+              />
+              <NumberRow
+                label={t('aiCommentTargetWordCount')}
+                description={t('aiCommentTargetWordCountDesc')}
+                value={settings.ai.commentTargetWordCount}
+                onChange={(v) => updateSection('ai', { commentTargetWordCount: v ?? 100 })}
+                min={20}
+                max={500}
+              />
+              <BooleanRow
+                label={t('aiProgressSummariesEnabled')}
+                description={t('aiProgressSummariesEnabledDesc')}
+                value={settings.ai.aiProgressSummariesEnabled}
+                onChange={(v) => updateSection('ai', { aiProgressSummariesEnabled: v })}
+              />
+              <NumberRow
+                label={t('aiGradingDailyLimit')}
+                description={t('aiGradingDailyLimitDesc')}
+                value={settings.ai.aiGradingDailyLimit}
+                onChange={(v) => updateSection('ai', { aiGradingDailyLimit: v ?? 200 })}
+                min={1}
+              />
+            </>
+          )}
         </SectionCard>
       </div>
 

@@ -2,6 +2,10 @@
 
 import {
   Button,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -9,7 +13,7 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Save } from 'lucide-react';
+import { Save, Target } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -83,6 +87,10 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   // Local grade overrides for UI (merged with server data)
   const [localGrades, setLocalGrades] = React.useState<Record<string, Record<string, GradeEntry>>>({});
 
+  // Default score popover
+  const [defaultPopoverOpen, setDefaultPopoverOpen] = React.useState(false);
+  const [defaultScoreInput, setDefaultScoreInput] = React.useState('');
+
   // Load filter options
   React.useEffect(() => {
     apiClient<ListResponse<SelectOption>>('/api/v1/academic-periods?pageSize=50')
@@ -132,6 +140,43 @@ export function ResultsMatrix({ classId }: { classId: string }) {
       next.set(key, { student_id: studentId, assessment_id: assessmentId, raw_score: numValue, is_missing: false });
       return next;
     });
+  };
+
+  // Apply default score to all empty cells
+  const applyDefaultScore = (defaultScore: number) => {
+    if (!matrix) return;
+    setDefaultPopoverOpen(false);
+    setDefaultScoreInput('');
+
+    const nextLocal = { ...localGrades };
+    const nextDirty = new Map(dirtyGrades);
+
+    for (const student of matrix.students) {
+      for (const subject of displaySubjects) {
+        for (const assessment of subject.assessments) {
+          if (assessment.status === 'closed' || assessment.status === 'locked') continue;
+          const existing = nextLocal[student.id]?.[assessment.id];
+          // Only fill cells that are currently empty (no score and not marked missing)
+          if (existing?.raw_score != null || existing?.is_missing) continue;
+
+          const clamped = Math.min(Math.max(0, defaultScore), assessment.max_score);
+          nextLocal[student.id] = {
+            ...nextLocal[student.id],
+            [assessment.id]: { raw_score: clamped, is_missing: false },
+          };
+          const key = `${student.id}:${assessment.id}`;
+          nextDirty.set(key, {
+            student_id: student.id,
+            assessment_id: assessment.id,
+            raw_score: clamped,
+            is_missing: false,
+          });
+        }
+      }
+    }
+
+    setLocalGrades(nextLocal);
+    setDirtyGrades(nextDirty);
   };
 
   // Save dirty grades
@@ -357,7 +402,7 @@ export function ResultsMatrix({ classId }: { classId: string }) {
               </div>
 
               {/* Save bar */}
-              <div className="flex items-center justify-between border-t border-border bg-surface-secondary/50 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-secondary/50 px-4 py-3">
                 <p className="text-xs text-text-secondary">
                   <strong className="text-text-primary">{matrix.students.length}</strong> {tc('student').toLowerCase()}s
                   {' · '}
@@ -371,14 +416,51 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                     </span>
                   )}
                 </p>
-                <Button
-                  onClick={handleSave}
-                  disabled={dirtyGrades.size === 0 || isSaving}
-                  size="sm"
-                >
-                  <Save className="me-2 h-3.5 w-3.5" />
-                  {isSaving ? tc('loading') : t('save')}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Set Default Score */}
+                  <Popover open={defaultPopoverOpen} onOpenChange={setDefaultPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={!matrix}>
+                        <Target className="me-1.5 h-3.5 w-3.5" />
+                        {t('setDefault')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-56 p-3">
+                      <p className="mb-2 text-xs font-medium text-text-primary">{t('setDefaultScore')}</p>
+                      <p className="mb-3 text-xs text-text-secondary">{t('setDefaultScoreHint')}</p>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={defaultScoreInput}
+                          onChange={(e) => setDefaultScoreInput(e.target.value)}
+                          placeholder="Score"
+                          className="flex-1"
+                          dir="ltr"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const val = Number(defaultScoreInput);
+                            if (!isNaN(val) && val >= 0) applyDefaultScore(val);
+                          }}
+                          disabled={!defaultScoreInput}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
+                  <Button
+                    onClick={handleSave}
+                    disabled={dirtyGrades.size === 0 || isSaving}
+                    size="sm"
+                  >
+                    <Save className="me-2 h-3.5 w-3.5" />
+                    {isSaving ? tc('loading') : t('save')}
+                  </Button>
+                </div>
               </div>
             </div>
           )}

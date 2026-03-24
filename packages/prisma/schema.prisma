@@ -455,8 +455,8 @@ model Tenant {
   school_closures            SchoolClosure[]
   attendance_sessions        AttendanceSession[]
   attendance_records         AttendanceRecord[]
-  daily_attendance_summaries  DailyAttendanceSummary[]
-  attendance_pattern_alerts   AttendancePatternAlert[]
+  daily_attendance_summaries DailyAttendanceSummary[]
+  attendance_pattern_alerts  AttendancePatternAlert[]
 
   // P4B Relations
   schedule_period_templates     SchedulePeriodTemplate[]
@@ -484,6 +484,23 @@ model Tenant {
 
   // Gradebook Phase D Relations
   year_group_grade_weights YearGroupGradeWeight[]
+
+  // P5+ World-Class Gradebook Relations
+  rubric_templates             RubricTemplate[]
+  rubric_grades                RubricGrade[]
+  curriculum_standards         CurriculumStandard[]
+  assessment_standard_mappings AssessmentStandardMapping[]
+  competency_scales            CompetencyScale[]
+  student_competency_snapshots StudentCompetencySnapshot[]
+  gpa_snapshots                GpaSnapshot[]
+  grade_curve_audits           GradeCurveAudit[]
+  assessment_templates         AssessmentTemplate[]
+  ai_grading_instructions      AiGradingInstruction[]
+  ai_grading_references        AiGradingReference[]
+  student_academic_risk_alerts StudentAcademicRiskAlert[]
+  progress_reports             ProgressReport[]
+  progress_report_entries      ProgressReportEntry[]
+  nl_query_history             NlQueryHistory[]
 
   // P6 Relations
   fee_structures            FeeStructure[]
@@ -678,8 +695,8 @@ model User {
 
   // P4A Relations
   school_closures_created       SchoolClosure[]
-  attendance_sessions_submitted AttendanceSession[] @relation("session_submitter")
-  attendance_records_marked     AttendanceRecord[]  @relation("record_marker")
+  attendance_sessions_submitted AttendanceSession[]      @relation("session_submitter")
+  attendance_records_marked     AttendanceRecord[]       @relation("record_marker")
   acknowledged_alerts           AttendancePatternAlert[] @relation("alert_acknowledger")
 
   // P4B Relations
@@ -699,11 +716,11 @@ model User {
   refunds_approved  Refund[]  @relation("refund_approver")
 
   // P6B Relations
-  compensations_created  StaffCompensation[] @relation("compensation_creator")
-  payroll_runs_created   PayrollRun[]        @relation("payroll_run_creator")
-  payroll_runs_finalised PayrollRun[]        @relation("payroll_run_finaliser")
-  payroll_entry_overrides PayrollEntry[]     @relation("payroll_entry_override_by")
-  payslips_issued        Payslip[]           @relation("payslip_issuer")
+  compensations_created   StaffCompensation[] @relation("compensation_creator")
+  payroll_runs_created    PayrollRun[]        @relation("payroll_run_creator")
+  payroll_runs_finalised  PayrollRun[]        @relation("payroll_run_finaliser")
+  payroll_entry_overrides PayrollEntry[]      @relation("payroll_entry_override_by")
+  payslips_issued         Payslip[]           @relation("payslip_issuer")
 
   // P7 Relations
   authored_announcements    Announcement[]         @relation("announcement_author")
@@ -718,6 +735,19 @@ model User {
 
   // P4B-v2 Relations
   room_closures_created RoomClosure[] @relation("room_closure_creator")
+
+  // P5+ World-Class Gradebook Relations
+  rubric_templates_created     RubricTemplate[]           @relation("rubric_template_creator")
+  assessment_templates_created AssessmentTemplate[]       @relation("assessment_template_creator")
+  ai_instructions_submitted    AiGradingInstruction[]     @relation("ai_instruction_submitter")
+  ai_instructions_reviewed     AiGradingInstruction[]     @relation("ai_instruction_reviewer")
+  ai_references_uploaded       AiGradingReference[]       @relation("ai_reference_uploader")
+  ai_references_reviewed       AiGradingReference[]       @relation("ai_reference_reviewer")
+  grade_curves_applied         GradeCurveAudit[]          @relation("curve_applicant")
+  assessment_grades_published  Assessment[]               @relation("assessment_grade_publisher")
+  risk_alerts_acknowledged     StudentAcademicRiskAlert[] @relation("risk_alert_acknowledger")
+  progress_reports_generated   ProgressReport[]           @relation("progress_report_generator")
+  nl_query_history             NlQueryHistory[]
 
   @@map("users")
 }
@@ -1068,9 +1098,9 @@ model Student {
   homeroom_class             Class?                   @relation("homeroom_students", fields: [class_homeroom_id], references: [id], onDelete: SetNull)
   student_parents            StudentParent[]
   class_enrolments           ClassEnrolment[]
-  attendance_records          AttendanceRecord[]
-  daily_attendance_summaries  DailyAttendanceSummary[]
-  attendance_pattern_alerts   AttendancePatternAlert[]
+  attendance_records         AttendanceRecord[]
+  daily_attendance_summaries DailyAttendanceSummary[]
+  attendance_pattern_alerts  AttendancePatternAlert[]
 
   // P5 Relations
   grades                 Grade[]
@@ -1083,6 +1113,12 @@ model Student {
 
   // P7 Relations
   inquiries ParentInquiry[]
+
+  // P5+ World-Class Gradebook Relations
+  student_competency_snapshots StudentCompetencySnapshot[]
+  gpa_snapshots                GpaSnapshot[]
+  student_academic_risk_alerts StudentAcademicRiskAlert[]
+  progress_reports             ProgressReport[]
 
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
@@ -1210,6 +1246,11 @@ model AcademicPeriod {
   // Gradebook Phase D Relations
   year_group_grade_weights YearGroupGradeWeight[]
 
+  // P5+ World-Class Gradebook Relations
+  student_competency_snapshots StudentCompetencySnapshot[]
+  gpa_snapshots                GpaSnapshot[]
+  progress_reports             ProgressReport[]
+
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
   @@map("academic_periods")
@@ -1243,6 +1284,9 @@ model YearGroup {
   // Gradebook Phase D Relations
   year_group_grade_weights YearGroupGradeWeight[]
 
+  // P5+ World-Class Gradebook Relations
+  curriculum_standards CurriculumStandard[]
+
   @@unique([tenant_id, name], name: "idx_year_groups_tenant_name")
   @@index([tenant_id], name: "idx_year_groups_tenant")
   @@map("year_groups")
@@ -1270,6 +1314,14 @@ model Subject {
   // P4B-v2 Relations
   curriculum_requirements CurriculumRequirement[]
   teacher_competencies    TeacherCompetency[]
+
+  // P5+ World-Class Gradebook Relations
+  rubric_templates             RubricTemplate[]
+  curriculum_standards         CurriculumStandard[]
+  assessment_templates         AssessmentTemplate[]
+  ai_grading_instructions      AiGradingInstruction[]
+  student_academic_risk_alerts StudentAcademicRiskAlert[]
+  progress_report_entries      ProgressReportEntry[]
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -1310,6 +1362,10 @@ model Class {
   class_subject_grade_configs ClassSubjectGradeConfig[]
   assessments                 Assessment[]
   period_grade_snapshots      PeriodGradeSnapshot[]
+
+  // P5+ World-Class Gradebook Relations
+  ai_grading_instructions AiGradingInstruction[]
+  progress_reports        ProgressReport[]
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -1406,27 +1462,27 @@ model AdmissionFormField {
 }
 
 model Application {
-  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id              String            @db.Uuid
-  form_definition_id     String            @db.Uuid
-  application_number     String            @db.VarChar(50)
-  submitted_by_parent_id String?           @db.Uuid
-  student_first_name     String            @db.VarChar(100)
-  student_last_name      String            @db.VarChar(100)
-  date_of_birth          DateTime?         @db.Date
-  status                 ApplicationStatus @default(draft)
-  submitted_at           DateTime?         @db.Timestamptz()
-  reviewed_at            DateTime?         @db.Timestamptz()
-  reviewed_by_user_id        String?           @db.Uuid
-  payload_json               Json
-  payment_status             AdmissionPaymentStatus @default(pending)
-  payment_amount             Decimal?          @db.Decimal(12, 2)
-  discount_applied           Decimal?          @db.Decimal(12, 2)
-  payment_deadline           DateTime?         @db.Timestamptz()
-  stripe_payment_intent_id   String?           @db.VarChar(255)
-  rejection_reason           String?           @db.Text
-  created_at                 DateTime          @default(now()) @db.Timestamptz()
-  updated_at                 DateTime          @default(now()) @updatedAt @db.Timestamptz()
+  id                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String                 @db.Uuid
+  form_definition_id       String                 @db.Uuid
+  application_number       String                 @db.VarChar(50)
+  submitted_by_parent_id   String?                @db.Uuid
+  student_first_name       String                 @db.VarChar(100)
+  student_last_name        String                 @db.VarChar(100)
+  date_of_birth            DateTime?              @db.Date
+  status                   ApplicationStatus      @default(draft)
+  submitted_at             DateTime?              @db.Timestamptz()
+  reviewed_at              DateTime?              @db.Timestamptz()
+  reviewed_by_user_id      String?                @db.Uuid
+  payload_json             Json
+  payment_status           AdmissionPaymentStatus @default(pending)
+  payment_amount           Decimal?               @db.Decimal(12, 2)
+  discount_applied         Decimal?               @db.Decimal(12, 2)
+  payment_deadline         DateTime?              @db.Timestamptz()
+  stripe_payment_intent_id String?                @db.VarChar(255)
+  rejection_reason         String?                @db.Text
+  created_at               DateTime               @default(now()) @db.Timestamptz()
+  updated_at               DateTime               @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -1980,16 +2036,18 @@ model GradingScale {
 }
 
 model AssessmentCategory {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id      String   @db.Uuid
-  name           String   @db.VarChar(100)
-  default_weight Decimal  @db.Decimal(5, 2)
-  created_at     DateTime @default(now()) @db.Timestamptz()
-  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz()
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String         @db.Uuid
+  name            String         @db.VarChar(100)
+  default_weight  Decimal        @db.Decimal(5, 2)
+  assessment_type AssessmentType @default(summative)
+  created_at      DateTime       @default(now()) @db.Timestamptz()
+  updated_at      DateTime       @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant      Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  assessments Assessment[]
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessments          Assessment[]
+  assessment_templates AssessmentTemplate[]
 
   @@unique([tenant_id, name], name: "idx_assessment_categories_tenant_name")
   @@index([tenant_id], name: "idx_assessment_categories_tenant")
@@ -2003,6 +2061,7 @@ model ClassSubjectGradeConfig {
   subject_id           String   @db.Uuid
   grading_scale_id     String   @db.Uuid
   category_weight_json Json
+  credit_hours         Decimal? @db.Decimal(5, 2)
   created_at           DateTime @default(now()) @db.Timestamptz()
   updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
 
@@ -2018,28 +2077,41 @@ model ClassSubjectGradeConfig {
 }
 
 model Assessment {
-  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String           @db.Uuid
-  class_id           String           @db.Uuid
-  subject_id         String           @db.Uuid
-  academic_period_id String           @db.Uuid
-  category_id        String           @db.Uuid
-  title              String           @db.VarChar(255)
-  max_score          Decimal          @db.Decimal(10, 2)
-  due_date           DateTime?        @db.Date
-  grading_deadline   DateTime?        @db.Date
-  status                    AssessmentStatus @default(draft)
-  counts_toward_report_card Boolean          @default(true)
-  created_at                DateTime         @default(now()) @db.Timestamptz()
-  updated_at                DateTime         @default(now()) @updatedAt @db.Timestamptz()
+  id                          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String           @db.Uuid
+  class_id                    String           @db.Uuid
+  subject_id                  String           @db.Uuid
+  academic_period_id          String           @db.Uuid
+  category_id                 String           @db.Uuid
+  title                       String           @db.VarChar(255)
+  max_score                   Decimal          @db.Decimal(10, 2)
+  due_date                    DateTime?        @db.Date
+  grading_deadline            DateTime?        @db.Date
+  status                      AssessmentStatus @default(draft)
+  counts_toward_report_card   Boolean          @default(true)
+  // Rubric (C1)
+  rubric_template_id          String?          @db.Uuid
+  // Grade curve (C5)
+  curve_applied               CurveMethod      @default(none)
+  curve_params_json           Json?
+  // Grade publishing (D1)
+  grades_published_at         DateTime?        @db.Timestamptz()
+  grades_published_by_user_id String?          @db.Uuid
+  created_at                  DateTime         @default(now()) @db.Timestamptz()
+  updated_at                  DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  class_entity    Class              @relation(fields: [class_id], references: [id], onDelete: Cascade)
-  subject         Subject            @relation(fields: [subject_id], references: [id], onDelete: Cascade)
-  academic_period AcademicPeriod     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
-  category        AssessmentCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
-  grades          Grade[]
+  tenant              Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity        Class                       @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject             Subject                     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  academic_period     AcademicPeriod              @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  category            AssessmentCategory          @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  rubric_template     RubricTemplate?             @relation("assessment_rubric", fields: [rubric_template_id], references: [id], onDelete: SetNull)
+  grades_published_by User?                       @relation("assessment_grade_publisher", fields: [grades_published_by_user_id], references: [id], onDelete: SetNull)
+  grades              Grade[]
+  standard_mappings   AssessmentStandardMapping[]
+  curve_audits        GradeCurveAudit[]
+  ai_references       AiGradingReference[]
 
   @@index([tenant_id, class_id], name: "idx_assessments_tenant_class")
   @@index([tenant_id, academic_period_id], name: "idx_assessments_tenant_period")
@@ -2056,14 +2128,16 @@ model Grade {
   comment            String?   @db.Text
   entered_by_user_id String    @db.Uuid
   entered_at         DateTime? @db.Timestamptz()
+  ai_assisted        Boolean   @default(false)
   created_at         DateTime  @default(now()) @db.Timestamptz()
   updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant     Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  assessment Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
-  student    Student    @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  entered_by User       @relation("grades_entered", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
+  tenant        Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment    Assessment    @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  entered_by    User          @relation("grades_entered", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
+  rubric_grades RubricGrade[]
 
   @@unique([tenant_id, assessment_id, student_id], name: "idx_grades_unique")
   @@index([tenant_id, student_id], name: "idx_grades_student")
@@ -2101,13 +2175,13 @@ model PeriodGradeSnapshot {
 }
 
 model YearGroupGradeWeight {
-  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String   @db.Uuid
-  year_group_id        String   @db.Uuid
-  academic_period_id   String   @db.Uuid
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @db.Uuid
+  year_group_id         String   @db.Uuid
+  academic_period_id    String   @db.Uuid
   category_weights_json Json
-  created_at           DateTime @default(now()) @db.Timestamptz()
-  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz()
+  created_at            DateTime @default(now()) @db.Timestamptz()
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -2147,6 +2221,391 @@ model ReportCard {
   @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
   @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
   @@map("report_cards")
+}
+
+// ─── P5+: Gradebook World-Class Enhancement Enums ─────────────────────────
+
+enum AssessmentType {
+  formative
+  summative
+}
+
+enum CurveMethod {
+  none
+  linear_shift
+  linear_scale
+  sqrt
+  bell
+  custom
+}
+
+enum AiGradingInstructionStatus {
+  draft
+  pending_approval
+  active
+  rejected
+}
+
+enum AcademicRiskLevel {
+  low
+  medium
+  high
+}
+
+enum AcademicAlertType {
+  at_risk_low
+  at_risk_medium
+  at_risk_high
+  score_anomaly
+  class_anomaly
+  grading_pattern_anomaly
+  teacher_variance
+}
+
+enum AcademicAlertStatus {
+  active
+  acknowledged
+  resolved
+}
+
+enum ProgressReportStatus {
+  draft
+  sent
+}
+
+enum TrendDirection {
+  improving
+  declining
+  stable
+}
+
+// ─── P5+: Gradebook World-Class Enhancement Models ────────────────────────
+
+model RubricTemplate {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  name               String   @db.VarChar(200)
+  subject_id         String?  @db.Uuid
+  criteria_json      Json
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  subject              Subject?             @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  created_by           User                 @relation("rubric_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  assessments          Assessment[]         @relation("assessment_rubric")
+  assessment_templates AssessmentTemplate[] @relation("template_rubric")
+  rubric_grades        RubricGrade[]
+
+  @@unique([tenant_id, name], name: "idx_rubric_templates_tenant_name")
+  @@index([tenant_id], name: "idx_rubric_templates_tenant")
+  @@map("rubric_templates")
+}
+
+model RubricGrade {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  grade_id           String   @db.Uuid
+  rubric_template_id String   @db.Uuid
+  criterion_id       String   @db.VarChar(50)
+  level_index        Int      @db.SmallInt
+  points_awarded     Decimal  @db.Decimal(10, 2)
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  grade           Grade          @relation(fields: [grade_id], references: [id], onDelete: Cascade)
+  rubric_template RubricTemplate @relation(fields: [rubric_template_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, grade_id, criterion_id], name: "idx_rubric_grades_unique")
+  @@index([tenant_id, grade_id], name: "idx_rubric_grades_tenant_grade")
+  @@map("rubric_grades")
+}
+
+model CurriculumStandard {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  subject_id    String   @db.Uuid
+  year_group_id String   @db.Uuid
+  code          String   @db.VarChar(50)
+  description   String   @db.Text
+  created_at    DateTime @default(now()) @db.Timestamptz()
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  subject              Subject                     @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  year_group           YearGroup                   @relation(fields: [year_group_id], references: [id], onDelete: Cascade)
+  assessment_mappings  AssessmentStandardMapping[]
+  competency_snapshots StudentCompetencySnapshot[]
+
+  @@unique([tenant_id, subject_id, code], name: "idx_curriculum_standards_unique")
+  @@index([tenant_id, subject_id], name: "idx_curriculum_standards_tenant_subject")
+  @@map("curriculum_standards")
+}
+
+model AssessmentStandardMapping {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  assessment_id String   @db.Uuid
+  standard_id   String   @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment Assessment         @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  standard   CurriculumStandard @relation(fields: [standard_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, assessment_id, standard_id], name: "idx_assessment_standard_mapping_unique")
+  @@index([tenant_id, assessment_id], name: "idx_asm_tenant_assessment")
+  @@map("assessment_standard_mappings")
+}
+
+model CompetencyScale {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  name        String   @db.VarChar(100)
+  levels_json Json
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, name], name: "idx_competency_scales_tenant_name")
+  @@index([tenant_id], name: "idx_competency_scales_tenant")
+  @@map("competency_scales")
+}
+
+model StudentCompetencySnapshot {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  student_id          String   @db.Uuid
+  standard_id         String   @db.Uuid
+  academic_period_id  String   @db.Uuid
+  competency_level    String   @db.VarChar(50)
+  score_average       Decimal  @db.Decimal(10, 4)
+  computed_from_count Int      @db.SmallInt
+  last_updated        DateTime @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  standard        CurriculumStandard @relation(fields: [standard_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod     @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, standard_id, academic_period_id], name: "idx_competency_snapshots_unique")
+  @@index([tenant_id, student_id], name: "idx_competency_snapshots_student")
+  @@map("student_competency_snapshots")
+}
+
+model GpaSnapshot {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  student_id         String   @db.Uuid
+  academic_period_id String   @db.Uuid
+  gpa_value          Decimal  @db.Decimal(4, 3)
+  credit_hours_total Decimal  @db.Decimal(10, 2)
+  snapshot_at        DateTime @db.Timestamptz()
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, academic_period_id], name: "idx_gpa_snapshots_unique")
+  @@index([tenant_id, student_id], name: "idx_gpa_snapshots_student")
+  @@map("gpa_snapshots")
+}
+
+model GradeCurveAudit {
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String      @db.Uuid
+  assessment_id      String      @db.Uuid
+  applied_by_user_id String      @db.Uuid
+  applied_at         DateTime    @db.Timestamptz()
+  method             CurveMethod
+  params_json        Json?
+  before_scores      Json
+  after_scores       Json
+  can_undo           Boolean     @default(true)
+  created_at         DateTime    @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  applied_by User       @relation("curve_applicant", fields: [applied_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, assessment_id], name: "idx_grade_curve_audit_tenant_assessment")
+  @@map("grade_curve_audit")
+}
+
+model AssessmentTemplate {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  name                      String   @db.VarChar(200)
+  subject_id                String?  @db.Uuid
+  category_id               String   @db.Uuid
+  max_score                 Decimal  @db.Decimal(10, 2)
+  rubric_template_id        String?  @db.Uuid
+  standard_ids_json         Json?
+  counts_toward_report_card Boolean  @default(true)
+  created_by_user_id        String   @db.Uuid
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  subject         Subject?           @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  category        AssessmentCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  rubric_template RubricTemplate?    @relation("template_rubric", fields: [rubric_template_id], references: [id], onDelete: SetNull)
+  created_by      User               @relation("assessment_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], name: "idx_assessment_templates_tenant")
+  @@map("assessment_templates")
+}
+
+model AiGradingInstruction {
+  id                   String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                     @db.Uuid
+  class_id             String                     @db.Uuid
+  subject_id           String                     @db.Uuid
+  instruction_text     String                     @db.Text
+  status               AiGradingInstructionStatus @default(draft)
+  submitted_by_user_id String                     @db.Uuid
+  reviewed_by_user_id  String?                    @db.Uuid
+  reviewed_at          DateTime?                  @db.Timestamptz()
+  rejection_reason     String?                    @db.Text
+  created_at           DateTime                   @default(now()) @db.Timestamptz()
+  updated_at           DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject      Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+  submitted_by User    @relation("ai_instruction_submitter", fields: [submitted_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by  User?   @relation("ai_instruction_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, class_id, subject_id], name: "idx_ai_grading_instructions_unique")
+  @@index([tenant_id], name: "idx_ai_grading_instructions_tenant")
+  @@map("ai_grading_instructions")
+}
+
+model AiGradingReference {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                     @db.Uuid
+  assessment_id       String                     @db.Uuid
+  file_url            String                     @db.Text
+  file_type           String                     @db.VarChar(50)
+  uploaded_by_user_id String                     @db.Uuid
+  status              AiGradingInstructionStatus @default(active)
+  reviewed_by_user_id String?                    @db.Uuid
+  reviewed_at         DateTime?                  @db.Timestamptz()
+  created_at          DateTime                   @default(now()) @db.Timestamptz()
+  updated_at          DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assessment  Assessment @relation(fields: [assessment_id], references: [id], onDelete: Cascade)
+  uploaded_by User       @relation("ai_reference_uploader", fields: [uploaded_by_user_id], references: [id], onDelete: Cascade)
+  reviewed_by User?      @relation("ai_reference_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, assessment_id], name: "idx_ai_grading_references_tenant_assessment")
+  @@map("ai_grading_references")
+}
+
+model StudentAcademicRiskAlert {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String              @db.Uuid
+  student_id              String              @db.Uuid
+  risk_level              AcademicRiskLevel
+  alert_type              AcademicAlertType
+  subject_id              String?             @db.Uuid
+  trigger_reason          String              @db.Text
+  details_json            Json
+  detected_date           DateTime            @db.Date
+  status                  AcademicAlertStatus @default(active)
+  acknowledged_by_user_id String?             @db.Uuid
+  resolved_at             DateTime?           @db.Timestamptz()
+  created_at              DateTime            @default(now()) @db.Timestamptz()
+  updated_at              DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  subject         Subject? @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  acknowledged_by User?    @relation("risk_alert_acknowledger", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, status], name: "idx_academic_risk_alerts_tenant_status")
+  @@index([tenant_id, student_id], name: "idx_academic_risk_alerts_tenant_student")
+  @@map("student_academic_risk_alerts")
+}
+
+model ProgressReport {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String               @db.Uuid
+  student_id           String               @db.Uuid
+  class_id             String               @db.Uuid
+  academic_period_id   String               @db.Uuid
+  generated_by_user_id String               @db.Uuid
+  status               ProgressReportStatus @default(draft)
+  sent_at              DateTime?            @db.Timestamptz()
+  created_at           DateTime             @default(now()) @db.Timestamptz()
+  updated_at           DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student               @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  class_entity    Class                 @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod        @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  generated_by    User                  @relation("progress_report_generator", fields: [generated_by_user_id], references: [id], onDelete: Cascade)
+  entries         ProgressReportEntry[]
+
+  @@index([tenant_id, academic_period_id], name: "idx_progress_reports_tenant_period")
+  @@index([tenant_id, student_id], name: "idx_progress_reports_tenant_student")
+  @@map("progress_reports")
+}
+
+model ProgressReportEntry {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String         @db.Uuid
+  progress_report_id String         @db.Uuid
+  subject_id         String         @db.Uuid
+  current_average    Decimal        @db.Decimal(10, 4)
+  trend              TrendDirection
+  teacher_note       String?        @db.Text
+  created_at         DateTime       @default(now()) @db.Timestamptz()
+  updated_at         DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  progress_report ProgressReport @relation(fields: [progress_report_id], references: [id], onDelete: Cascade)
+  subject         Subject        @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, progress_report_id], name: "idx_progress_report_entries_report")
+  @@map("progress_report_entries")
+}
+
+model NlQueryHistory {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String   @db.Uuid
+  user_id               String   @db.Uuid
+  question              String   @db.Text
+  structured_query_json Json
+  result_count          Int      @default(0)
+  created_at            DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, user_id], name: "idx_nl_query_history_tenant_user")
+  @@map("nl_query_history")
 }
 
 // ─── P6: Finance ──────────────────────────────────────────────────────────
@@ -2505,20 +2964,20 @@ model Payslip {
 // ─── P7: Announcements ──────────────────────────────────────────────────────
 
 model Announcement {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String             @db.Uuid
-  title                String             @db.VarChar(255)
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                @db.Uuid
+  title                String                @db.VarChar(255)
   body_html            String
-  status               AnnouncementStatus @default(draft)
+  status               AnnouncementStatus    @default(draft)
   scope                AnnouncementScope
   target_payload       Json
-  scheduled_publish_at DateTime?          @db.Timestamptz(6)
-  published_at         DateTime?          @db.Timestamptz(6)
+  scheduled_publish_at DateTime?             @db.Timestamptz(6)
+  published_at         DateTime?             @db.Timestamptz(6)
   delivery_channels    NotificationChannel[] @default([in_app])
-  author_user_id       String             @db.Uuid
-  approval_request_id  String?            @db.Uuid
-  created_at           DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+  author_user_id       String                @db.Uuid
+  approval_request_id  String?               @db.Uuid
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
   tenant           Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -2782,8 +3241,8 @@ model ImportJob {
   updated_at         DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
-  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by User   @relation("import_created_by", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User              @relation("import_created_by", fields: [created_by_user_id], references: [id], onDelete: Cascade)
   records    ImportJobRecord[]
 
   @@index([tenant_id, status], name: "idx_import_jobs_tenant")
