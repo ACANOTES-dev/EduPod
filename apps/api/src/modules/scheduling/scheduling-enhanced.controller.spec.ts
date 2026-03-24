@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
+import type { TenantContext } from '@school/shared';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { CoverTrackingService } from './cover-tracking.service';
@@ -12,7 +14,6 @@ import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 import { SchedulingEnhancedController } from './scheduling-enhanced.controller';
 import { SubstitutionService } from './substitution.service';
 
-import type { TenantContext } from '@school/shared';
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',

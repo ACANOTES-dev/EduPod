@@ -36,7 +36,7 @@ const ASSIGNMENT_ID = 'assign-uuid-1111';
 const HOUSEHOLD_ID = 'household-uuid-1111';
 const FEE_STRUCTURE_ID = 'fs-uuid-1111';
 const DISCOUNT_ID = 'discount-uuid-1111';
-const STUDENT_ID = 'student-uuid-1111';
+const _STUDENT_ID = 'student-uuid-1111';
 
 const makeAssignment = (overrides: Record<string, unknown> = {}) => ({
   id: ASSIGNMENT_ID,

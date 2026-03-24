@@ -57,7 +57,7 @@ function buildMockRedis() {
   return { getClient: jest.fn().mockReturnValue(client), _client: client };
 }
 
-const basePeriod = {
+const _basePeriod = {
   id: PERIOD_ID,
   name: 'Term 1',
   start_date: new Date('2025-09-01'),
@@ -66,7 +66,7 @@ const basePeriod = {
   academic_year: { id: 'year-1', name: '2025-2026' },
 };
 
-const baseStudent = {
+const _baseStudent = {
   id: STUDENT_ID,
   first_name: 'Ali',
   last_name: 'Hassan',

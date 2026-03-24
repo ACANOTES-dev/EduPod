@@ -5,8 +5,8 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
-import { ImportController } from './import.controller';
 import { ImportTemplateService } from './import-template.service';
+import { ImportController } from './import.controller';
 import { ImportService } from './import.service';
 
 const TENANT_ID = 'tenant-uuid-1';

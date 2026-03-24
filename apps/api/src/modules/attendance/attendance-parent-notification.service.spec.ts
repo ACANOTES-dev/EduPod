@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { NotificationsService } from '../communications/notifications.service';
 import { SettingsService } from '../configuration/settings.service';

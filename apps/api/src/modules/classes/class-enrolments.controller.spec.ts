@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 import { z } from 'zod';
 
@@ -14,7 +15,7 @@ const ENROLMENT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 const mockTenant = { tenant_id: TENANT_ID };
 
-const enrolmentStatusQuerySchema = z.object({
+const _enrolmentStatusQuerySchema = z.object({
   status: z.enum(['active', 'dropped', 'completed']).optional(),
 });
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { TeacherSchedulingConfigController } from './teacher-scheduling-config.controller';

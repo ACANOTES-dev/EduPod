@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
-
 import type { CreateStaffProfileDto, StaffProfileQueryDto, UpdateStaffProfileDto } from '@school/shared';
 
 import { StaffProfilesController } from './staff-profiles.controller';

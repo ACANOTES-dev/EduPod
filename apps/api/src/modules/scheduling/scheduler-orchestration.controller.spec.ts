@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
+import type { TenantContext } from '@school/shared';
 
 import { SchedulerOrchestrationController } from './scheduler-orchestration.controller';
 import { SchedulerOrchestrationService } from './scheduler-orchestration.service';
 
-import type { TenantContext } from '@school/shared';
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',

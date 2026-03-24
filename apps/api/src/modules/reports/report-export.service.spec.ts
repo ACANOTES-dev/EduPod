@@ -133,7 +133,7 @@ describe('ReportExportService', () => {
     // We test that the service does not throw with empty data
     const result = await svc.generateBrandedPdf([], { title: 'Empty Report', school_name: 'My School' });
 
-    const content = result.buffer.toString();
+    const _content = result.buffer.toString();
     // If puppeteer worked → binary buffer; if fallback → HTML with school name
     // At minimum, the result should be a non-empty buffer
     expect(result.buffer.length).toBeGreaterThan(0);

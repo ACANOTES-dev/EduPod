@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PlatformOwnerGuard } from './guards/platform-owner.guard';
+
 
 import { DomainsController } from './domains.controller';
 import { DomainsService } from './domains.service';
+import { PlatformOwnerGuard } from './guards/platform-owner.guard';
 
 const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const DOMAIN_ID = '11111111-2222-3333-4444-555555555555';

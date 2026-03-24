@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
 
-import { PublicContactController } from './public-contact.controller';
 import { ContactFormService } from './contact-form.service';
+import { PublicContactController } from './public-contact.controller';
 
 const TENANT_ID = 'tenant-uuid-1';
 

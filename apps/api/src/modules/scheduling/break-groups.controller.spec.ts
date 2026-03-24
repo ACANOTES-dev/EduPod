@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+import type { TenantContext } from '@school/shared';
 
 import { BreakGroupsController } from './break-groups.controller';
 import { BreakGroupsService } from './break-groups.service';
 
-import type { TenantContext } from '@school/shared';
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',

@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import type { CreateStudentDto } from './dto/create-student.dto';
+import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
+import type { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentsController } from './students.controller';
 import { StudentsService } from './students.service';
-import type { CreateStudentDto } from './dto/create-student.dto';
-import type { UpdateStudentDto } from './dto/update-student.dto';
-import type { UpdateStudentStatusDto } from './dto/update-student-status.dto';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const STUDENT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';

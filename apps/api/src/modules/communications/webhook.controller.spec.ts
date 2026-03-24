@@ -58,8 +58,8 @@ describe('WebhookController', () => {
     });
 
     it('should verify signature and pass event to service when secret is configured', async () => {
-      const secretBytes = Buffer.from('dGVzdC1zZWNyZXQtMTIzNDU2Nzg5MDEyMzQ=', 'base64');
-      const webhookSecret = `whsec_dGVzdC1zZWNyZXQtMTIzNDU2Nzg5MDEyMzQ=`;
+      const secretBytes = Buffer.from('dGVzdF9mYWtlX3NlY3JldA==', 'base64');
+      const webhookSecret = `whsec_dGVzdF9mYWtlX3NlY3JldA==`;
       mockConfigService.get.mockReturnValue(webhookSecret);
 
       const body = { type: 'email.delivered', data: { message_id: 'msg-1' } };
@@ -80,7 +80,7 @@ describe('WebhookController', () => {
     });
 
     it('should reject invalid Resend webhook signature', async () => {
-      const webhookSecret = `whsec_dGVzdC1zZWNyZXQtMTIzNDU2Nzg5MDEyMzQ=`;
+      const webhookSecret = `whsec_dGVzdF9mYWtlX3NlY3JldA==`;
       mockConfigService.get.mockReturnValue(webhookSecret);
 
       const body = { type: 'email.delivered', data: { message_id: 'msg-1' } };
@@ -93,8 +93,8 @@ describe('WebhookController', () => {
     });
 
     it('should reject when timestamp is too old', async () => {
-      const secretBytes = Buffer.from('dGVzdC1zZWNyZXQtMTIzNDU2Nzg5MDEyMzQ=', 'base64');
-      const webhookSecret = `whsec_dGVzdC1zZWNyZXQtMTIzNDU2Nzg5MDEyMzQ=`;
+      const secretBytes = Buffer.from('dGVzdF9mYWtlX3NlY3JldA==', 'base64');
+      const webhookSecret = `whsec_dGVzdF9mYWtlX3NlY3JldA==`;
       mockConfigService.get.mockReturnValue(webhookSecret);
 
       const body = { type: 'email.delivered', data: { message_id: 'msg-1' } };

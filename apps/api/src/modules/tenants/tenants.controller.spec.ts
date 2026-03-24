@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { PlatformOwnerGuard } from './guards/platform-owner.guard';
 
+import { PlatformOwnerGuard } from './guards/platform-owner.guard';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
 

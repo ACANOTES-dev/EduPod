@@ -5,8 +5,8 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
-import { ContactSubmissionsController } from './contact-submissions.controller';
 import { ContactFormService } from './contact-form.service';
+import { ContactSubmissionsController } from './contact-submissions.controller';
 
 const TENANT_ID = 'tenant-uuid-1';
 const SUBMISSION_ID = 'sub-uuid-1';

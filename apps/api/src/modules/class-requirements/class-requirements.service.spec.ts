@@ -17,7 +17,7 @@ const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const CLASS_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const REQUIREMENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const YEAR_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
-const USER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+const _USER_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const ROOM_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
