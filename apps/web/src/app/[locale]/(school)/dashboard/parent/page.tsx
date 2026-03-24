@@ -1,12 +1,13 @@
 'use client';
 
 import { EmptyState, StatusBadge } from '@school/ui';
-import { Bell, Calendar, FileText, GraduationCap } from 'lucide-react';
+import { Bell, Calendar, CreditCard, FileText, GraduationCap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
+import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';
 import { TimetableTab } from './_components/timetable-tab';
 
@@ -44,7 +45,7 @@ function studentStatusVariant(
   }
 }
 
-type ParentTab = 'overview' | 'grades' | 'timetable';
+type ParentTab = 'overview' | 'grades' | 'timetable' | 'finances';
 
 export default function ParentDashboardPage() {
   const t = useTranslations('dashboard');
@@ -95,6 +96,7 @@ export default function ParentDashboardPage() {
               { key: 'overview' as const, label: t('parentDashboard.overview'), icon: GraduationCap },
               { key: 'grades' as const, label: t('parentDashboard.gradesTab'), icon: FileText },
               { key: 'timetable' as const, label: t('parentDashboard.timetableTab'), icon: Calendar },
+              { key: 'finances' as const, label: t('parentDashboard.financesTab'), icon: CreditCard },
             ] as const
           ).map(({ key, label, icon: Icon }) => (
             <button
@@ -201,6 +203,13 @@ export default function ParentDashboardPage() {
       {activeTab === 'timetable' && hasChildren && (
         <section>
           <TimetableTab students={children} />
+        </section>
+      )}
+
+      {/* Finances tab */}
+      {activeTab === 'finances' && (
+        <section>
+          <FinancesTab />
         </section>
       )}
     </div>

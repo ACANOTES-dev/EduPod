@@ -51,6 +51,13 @@ export interface FinanceSettings {
   requireApprovalForInvoiceIssue: boolean;
   defaultPaymentTermDays: number;
   allowPartialPayment: boolean;
+  paymentReminderEnabled: boolean;
+  dueSoonReminderDays: number;
+  finalNoticeAfterDays: number;
+  reminderChannel: 'email' | 'whatsapp' | 'both';
+  autoIssueRecurringInvoices: boolean;
+  lateFeeEnabled: boolean;
+  defaultLateFeeConfigId: string | null;
 }
 
 export interface CommunicationsSettings {
@@ -187,6 +194,13 @@ export const DEFAULT_SETTINGS: TenantSettings = {
     requireApprovalForInvoiceIssue: false,
     defaultPaymentTermDays: 30,
     allowPartialPayment: true,
+    paymentReminderEnabled: true,
+    dueSoonReminderDays: 3,
+    finalNoticeAfterDays: 14,
+    reminderChannel: 'email',
+    autoIssueRecurringInvoices: false,
+    lateFeeEnabled: false,
+    defaultLateFeeConfigId: null,
   },
   communications: {
     primaryOutboundChannel: 'email',

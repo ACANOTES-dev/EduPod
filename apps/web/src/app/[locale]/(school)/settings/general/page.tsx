@@ -221,6 +221,67 @@ export default function GeneralSettingsPage() {
             value={settings.finance.allowPartialPayment}
             onChange={(v) => updateSection('finance', { allowPartialPayment: v })}
           />
+
+          {/* Payment reminders sub-section */}
+          <SubSectionCard
+            title={t('financeRemindersTitle')}
+            description={t('financeRemindersDesc')}
+            defaultOpen={false}
+          >
+            <BooleanRow
+              label={t('paymentReminderEnabled')}
+              value={settings.finance.paymentReminderEnabled}
+              onChange={(v) => updateSection('finance', { paymentReminderEnabled: v })}
+            />
+            {settings.finance.paymentReminderEnabled && (
+              <>
+                <NumberRow
+                  label={t('dueSoonReminderDays')}
+                  description={t('dueSoonReminderDaysDesc')}
+                  value={settings.finance.dueSoonReminderDays}
+                  onChange={(v) => updateSection('finance', { dueSoonReminderDays: v ?? 3 })}
+                  min={1}
+                />
+                <NumberRow
+                  label={t('finalNoticeAfterDays')}
+                  description={t('finalNoticeAfterDaysDesc')}
+                  value={settings.finance.finalNoticeAfterDays}
+                  onChange={(v) => updateSection('finance', { finalNoticeAfterDays: v ?? 14 })}
+                  min={1}
+                />
+                <SelectRow
+                  label={t('reminderChannel')}
+                  value={settings.finance.reminderChannel}
+                  options={[
+                    { value: 'email', label: t('channelEmail') },
+                    { value: 'whatsapp', label: t('channelWhatsApp') },
+                    { value: 'both', label: t('channelBoth') },
+                  ]}
+                  onChange={(v) =>
+                    updateSection('finance', {
+                      reminderChannel: v as 'email' | 'whatsapp' | 'both',
+                    })
+                  }
+                />
+              </>
+            )}
+          </SubSectionCard>
+
+          {/* Recurring invoices */}
+          <BooleanRow
+            label={t('autoIssueRecurringInvoices')}
+            description={t('autoIssueRecurringInvoicesDesc')}
+            value={settings.finance.autoIssueRecurringInvoices}
+            onChange={(v) => updateSection('finance', { autoIssueRecurringInvoices: v })}
+          />
+
+          {/* Late fees */}
+          <BooleanRow
+            label={t('lateFeeEnabled')}
+            description={t('lateFeeEnabledDesc')}
+            value={settings.finance.lateFeeEnabled}
+            onChange={(v) => updateSection('finance', { lateFeeEnabled: v })}
+          />
         </SectionCard>
 
         {/* Communications */}

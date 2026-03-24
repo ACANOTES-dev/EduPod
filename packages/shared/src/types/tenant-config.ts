@@ -40,6 +40,13 @@ export interface TenantSettingsFinance {
   requireApprovalForInvoiceIssue: boolean;
   defaultPaymentTermDays: number;
   allowPartialPayment: boolean;
+  paymentReminderEnabled: boolean;
+  dueSoonReminderDays: number;
+  finalNoticeAfterDays: number;
+  reminderChannel: 'email' | 'whatsapp' | 'both';
+  autoIssueRecurringInvoices: boolean;
+  lateFeeEnabled: boolean;
+  defaultLateFeeConfigId: string | null;
 }
 
 export interface TenantSettingsCommunications {

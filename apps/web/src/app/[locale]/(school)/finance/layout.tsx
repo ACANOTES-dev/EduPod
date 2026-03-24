@@ -1,7 +1,10 @@
 'use client';
 
 import {
+  Award,
+  BarChart3,
   Calculator,
+  CalendarClock,
   CreditCard,
   FileText,
   LayoutDashboard,
@@ -9,6 +12,7 @@ import {
   Receipt,
   RotateCcw,
   ScrollText,
+  ShieldCheck,
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -26,6 +30,11 @@ const tabs = [
   { key: 'payments', label: 'navPayments', href: '/finance/payments', icon: CreditCard },
   { key: 'refunds', label: 'navRefunds', href: '/finance/refunds', icon: RotateCcw },
   { key: 'statements', label: 'navStatements', href: '/finance/statements', icon: ScrollText },
+  { key: 'reports', label: 'navReports', href: '/finance/reports', icon: BarChart3 },
+  { key: 'creditNotes', label: 'navCreditNotes', href: '/finance/credit-notes', icon: FileText },
+  { key: 'scholarships', label: 'navScholarships', href: '/finance/scholarships', icon: Award },
+  { key: 'paymentPlans', label: 'navPaymentPlans', href: '/finance/payment-plans', icon: CalendarClock },
+  { key: 'auditTrail', label: 'navAuditTrail', href: '/finance/audit-trail', icon: ShieldCheck },
 ];
 
 export default function FinanceLayout({ children }: { children: React.ReactNode }) {

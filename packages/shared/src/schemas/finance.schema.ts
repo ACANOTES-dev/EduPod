@@ -238,3 +238,168 @@ export const statementPdfQuerySchema = z.object({
   date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
+
+// ─── Credit Notes ────────────────────────────────────────────────────────────
+
+export const createCreditNoteSchema = z.object({
+  household_id: z.string().uuid(),
+  amount: z.number().positive(),
+  reason: z.string().min(1).max(2000),
+});
+export type CreateCreditNoteDto = z.infer<typeof createCreditNoteSchema>;
+
+export const applyCreditNoteSchema = z.object({
+  credit_note_id: z.string().uuid(),
+  invoice_id: z.string().uuid(),
+  applied_amount: z.number().positive(),
+});
+export type ApplyCreditNoteDto = z.infer<typeof applyCreditNoteSchema>;
+
+export const creditNoteQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  household_id: z.string().uuid().optional(),
+});
+export type CreditNoteQueryDto = z.infer<typeof creditNoteQuerySchema>;
+
+// ─── Late Fees ────────────────────────────────────────────────────────────────
+
+export const createLateFeeConfigSchema = z.object({
+  name: z.string().min(1).max(200),
+  fee_type: z.enum(['fixed', 'percent']),
+  value: z.number().positive(),
+  grace_period_days: z.number().int().min(0).default(0),
+  max_applications: z.number().int().min(1).default(1),
+  frequency_days: z.number().int().min(1).optional(),
+});
+export type CreateLateFeeConfigDto = z.infer<typeof createLateFeeConfigSchema>;
+
+export const updateLateFeeConfigSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  fee_type: z.enum(['fixed', 'percent']).optional(),
+  value: z.number().positive().optional(),
+  grace_period_days: z.number().int().min(0).optional(),
+  max_applications: z.number().int().min(1).optional(),
+  frequency_days: z.number().int().min(1).nullable().optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateLateFeeConfigDto = z.infer<typeof updateLateFeeConfigSchema>;
+
+export const lateFeeConfigQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  active: z.coerce.boolean().optional(),
+});
+export type LateFeeConfigQueryDto = z.infer<typeof lateFeeConfigQuerySchema>;
+
+// ─── Scholarships ────────────────────────────────────────────────────────────
+
+export const createScholarshipSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  discount_type: z.enum(['fixed', 'percent']),
+  value: z.number().positive(),
+  student_id: z.string().uuid(),
+  award_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  renewal_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  fee_structure_id: z.string().uuid().optional(),
+});
+export type CreateScholarshipDto = z.infer<typeof createScholarshipSchema>;
+
+export const revokeScholarshipSchema = z.object({
+  reason: z.string().min(1).max(2000),
+});
+export type RevokeScholarshipDto = z.infer<typeof revokeScholarshipSchema>;
+
+export const scholarshipQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  student_id: z.string().uuid().optional(),
+  status: z.enum(['active', 'expired', 'revoked']).optional(),
+});
+export type ScholarshipQueryDto = z.infer<typeof scholarshipQuerySchema>;
+
+// ─── Recurring Invoice Configs ────────────────────────────────────────────────
+
+export const createRecurringInvoiceConfigSchema = z.object({
+  fee_structure_id: z.string().uuid(),
+  frequency: z.enum(['monthly', 'term']),
+  next_generation_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type CreateRecurringInvoiceConfigDto = z.infer<typeof createRecurringInvoiceConfigSchema>;
+
+export const updateRecurringInvoiceConfigSchema = z.object({
+  frequency: z.enum(['monthly', 'term']).optional(),
+  next_generation_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateRecurringInvoiceConfigDto = z.infer<typeof updateRecurringInvoiceConfigSchema>;
+
+export const recurringInvoiceConfigQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  active: z.coerce.boolean().optional(),
+});
+export type RecurringInvoiceConfigQueryDto = z.infer<typeof recurringInvoiceConfigQuerySchema>;
+
+// ─── Payment Plans ────────────────────────────────────────────────────────────
+
+const proposedInstallmentSchema = z.object({
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amount: z.number().positive(),
+});
+
+export const requestPaymentPlanSchema = z.object({
+  proposed_installments: z.array(proposedInstallmentSchema).min(1),
+  reason: z.string().min(1).max(2000),
+});
+export type RequestPaymentPlanDto = z.infer<typeof requestPaymentPlanSchema>;
+
+export const approvePaymentPlanSchema = z.object({
+  admin_notes: z.string().max(2000).optional(),
+});
+export type ApprovePaymentPlanDto = z.infer<typeof approvePaymentPlanSchema>;
+
+export const rejectPaymentPlanSchema = z.object({
+  admin_notes: z.string().min(1).max(2000),
+});
+export type RejectPaymentPlanDto = z.infer<typeof rejectPaymentPlanSchema>;
+
+export const counterOfferPaymentPlanSchema = z.object({
+  proposed_installments: z.array(proposedInstallmentSchema).min(1),
+  admin_notes: z.string().max(2000).optional(),
+});
+export type CounterOfferPaymentPlanDto = z.infer<typeof counterOfferPaymentPlanSchema>;
+
+export const paymentPlanRequestQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['pending', 'approved', 'rejected', 'counter_offered']).optional(),
+});
+export type PaymentPlanRequestQueryDto = z.infer<typeof paymentPlanRequestQuerySchema>;
+
+// ─── Finance Audit ────────────────────────────────────────────────────────────
+
+export const financeAuditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  entity_type: z.string().optional(),
+  entity_id: z.string().uuid().optional(),
+  search: z.string().optional(),
+  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type FinanceAuditQueryDto = z.infer<typeof financeAuditQuerySchema>;
+
+// ─── Bulk Operations ──────────────────────────────────────────────────────────
+
+export const bulkInvoiceIdsSchema = z.object({
+  invoice_ids: z.array(z.string().uuid()).min(1).max(200),
+});
+export type BulkInvoiceIdsDto = z.infer<typeof bulkInvoiceIdsSchema>;
+
+export const bulkExportSchema = z.object({
+  invoice_ids: z.array(z.string().uuid()).min(1).max(200),
+  format: z.enum(['csv', 'pdf']).default('csv'),
+});
+export type BulkExportDto = z.infer<typeof bulkExportSchema>;

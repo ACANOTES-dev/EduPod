@@ -73,6 +73,13 @@ export const tenantSettingsSchema = z.object({
       requireApprovalForInvoiceIssue: z.boolean().default(false),
       defaultPaymentTermDays: z.number().int().min(0).default(30),
       allowPartialPayment: z.boolean().default(true),
+      paymentReminderEnabled: z.boolean().default(true),
+      dueSoonReminderDays: z.number().int().min(1).default(3),
+      finalNoticeAfterDays: z.number().int().min(1).default(14),
+      reminderChannel: z.enum(['email', 'whatsapp', 'both']).default('email'),
+      autoIssueRecurringInvoices: z.boolean().default(false),
+      lateFeeEnabled: z.boolean().default(false),
+      defaultLateFeeConfigId: z.string().uuid().nullable().default(null),
     })
     .default({}),
   communications: z

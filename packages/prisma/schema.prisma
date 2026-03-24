@@ -515,16 +515,26 @@ model Tenant {
   report_card_verification_tokens ReportCardVerificationToken[]
 
   // P6 Relations
-  fee_structures            FeeStructure[]
-  discounts                 Discount[]
-  household_fee_assignments HouseholdFeeAssignment[]
-  invoices                  Invoice[]
-  invoice_lines             InvoiceLine[]
-  installments              Installment[]
-  payments                  Payment[]
-  payment_allocations       PaymentAllocation[]
-  receipts                  Receipt[]
-  refunds                   Refund[]
+  fee_structures             FeeStructure[]
+  discounts                  Discount[]
+  household_fee_assignments  HouseholdFeeAssignment[]
+  invoices                   Invoice[]
+  invoice_lines              InvoiceLine[]
+  installments               Installment[]
+  payments                   Payment[]
+  payment_allocations        PaymentAllocation[]
+  receipts                   Receipt[]
+  refunds                    Refund[]
+
+  // P6 Finance World-Class Relations
+  invoice_reminders          InvoiceReminder[]
+  recurring_invoice_configs  RecurringInvoiceConfig[]
+  credit_notes               CreditNote[]
+  credit_note_applications   CreditNoteApplication[]
+  late_fee_configs           LateFeeConfig[]
+  late_fee_applications      LateFeeApplication[]
+  payment_plan_requests      PaymentPlanRequest[]
+  scholarships               Scholarship[]
 
   // P6B Relations
   staff_compensations StaffCompensation[]
@@ -731,11 +741,15 @@ model User {
   report_cards_published ReportCard[]          @relation("report_card_publisher")
 
   // P6 Relations
-  invoices_created  Invoice[] @relation("invoice_creator")
-  payments_posted   Payment[] @relation("payment_poster")
-  receipts_issued   Receipt[] @relation("receipt_issuer")
-  refunds_requested Refund[]  @relation("refund_requester")
-  refunds_approved  Refund[]  @relation("refund_approver")
+  invoices_created            Invoice[]               @relation("invoice_creator")
+  payments_posted             Payment[]               @relation("payment_poster")
+  receipts_issued             Receipt[]               @relation("receipt_issuer")
+  refunds_requested           Refund[]                @relation("refund_requester")
+  refunds_approved            Refund[]                @relation("refund_approver")
+  credit_notes_issued         CreditNote[]            @relation("credit_note_issuer")
+  credit_note_applications    CreditNoteApplication[] @relation("credit_note_applier")
+  payment_plans_reviewed      PaymentPlanRequest[]    @relation("payment_plan_reviewer")
+  scholarships_awarded        Scholarship[]           @relation("scholarship_awarder")
 
   // P6B Relations
   compensations_created   StaffCompensation[] @relation("compensation_creator")
@@ -1022,9 +1036,11 @@ model Household {
   students           Student[]
 
   // P6 Relations
-  fee_assignments HouseholdFeeAssignment[]
-  invoices        Invoice[]
-  payments        Payment[]
+  fee_assignments       HouseholdFeeAssignment[]
+  invoices              Invoice[]
+  payments              Payment[]
+  credit_notes          CreditNote[]
+  payment_plan_requests PaymentPlanRequest[]
 
   @@index([tenant_id], name: "idx_households_tenant")
   @@index([tenant_id, status], name: "idx_households_tenant_status")
@@ -1081,6 +1097,9 @@ model Parent {
   // Report Cards Enhancement Relations
   report_card_deliveries      ReportCardDelivery[]
   report_card_acknowledgments ReportCardAcknowledgment[]
+
+  // P6 Finance World-Class Relations
+  payment_plan_requests PaymentPlanRequest[] @relation("payment_plan_requester")
 
   @@index([tenant_id], name: "idx_parents_tenant")
   @@index([tenant_id, email], name: "idx_parents_tenant_email")
@@ -1152,6 +1171,7 @@ model Student {
   // P6 Relations
   fee_assignments HouseholdFeeAssignment[]
   invoice_lines   InvoiceLine[]
+  scholarships    Scholarship[]
 
   // P7 Relations
   inquiries ParentInquiry[]
@@ -2051,6 +2071,48 @@ enum BillingFrequency {
   term
   monthly
   custom
+}
+
+enum ReminderType {
+  due_soon
+  overdue
+  final_notice
+}
+
+enum ReminderChannel {
+  email
+  whatsapp
+  in_app
+}
+
+enum RecurringFrequency {
+  monthly
+  term
+}
+
+enum CreditNoteStatus {
+  open
+  partially_used
+  fully_used
+  cancelled
+}
+
+enum LateFeeType {
+  fixed
+  percent
+}
+
+enum PaymentPlanStatus {
+  pending
+  approved
+  rejected
+  counter_offered
+}
+
+enum ScholarshipStatus {
+  active
+  expired
+  revoked
 }
 
 enum DiscountType {
@@ -3150,6 +3212,8 @@ model FeeStructure {
   year_group                YearGroup?               @relation(fields: [year_group_id], references: [id], onDelete: SetNull)
   household_fee_assignments HouseholdFeeAssignment[]
   invoice_lines             InvoiceLine[]
+  recurring_invoice_configs RecurringInvoiceConfig[]
+  scholarships              Scholarship[]
 
   @@unique([tenant_id, name], name: "idx_fee_structures_tenant_name")
   @@index([tenant_id], name: "idx_fee_structures_tenant")
@@ -3220,13 +3284,17 @@ model Invoice {
   updated_at               DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant              Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  household           Household           @relation(fields: [household_id], references: [id], onDelete: Cascade)
-  approval_request    ApprovalRequest?    @relation(fields: [approval_request_id], references: [id], onDelete: SetNull)
-  created_by          User                @relation("invoice_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
-  lines               InvoiceLine[]
-  installments        Installment[]
-  payment_allocations PaymentAllocation[]
+  tenant                   Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household                Household               @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  approval_request         ApprovalRequest?        @relation(fields: [approval_request_id], references: [id], onDelete: SetNull)
+  created_by               User                    @relation("invoice_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  lines                    InvoiceLine[]
+  installments             Installment[]
+  payment_allocations      PaymentAllocation[]
+  reminders                InvoiceReminder[]
+  credit_note_applications CreditNoteApplication[]
+  late_fee_applications    LateFeeApplication[]
+  payment_plan_requests    PaymentPlanRequest[]
 
   @@unique([tenant_id, invoice_number], name: "idx_invoices_number")
   @@index([tenant_id, household_id], name: "idx_invoices_tenant_household")
@@ -3369,6 +3437,186 @@ model Refund {
   @@index([tenant_id], name: "idx_refunds_tenant")
   @@index([payment_id], name: "idx_refunds_payment")
   @@map("refunds")
+}
+
+// ─── P6: Finance World-Class Enhancement ──────────────────────────────────
+
+model InvoiceReminder {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String          @db.Uuid
+  invoice_id    String          @db.Uuid
+  reminder_type ReminderType
+  channel       ReminderChannel
+  sent_at       DateTime        @db.Timestamptz()
+  created_at    DateTime        @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, invoice_id], name: "idx_invoice_reminders_tenant_invoice")
+  @@map("invoice_reminders")
+}
+
+model RecurringInvoiceConfig {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String             @db.Uuid
+  fee_structure_id     String             @db.Uuid
+  frequency            RecurringFrequency
+  next_generation_date DateTime           @db.Date
+  last_generated_at    DateTime?          @db.Timestamptz()
+  active               Boolean            @default(true)
+  created_at           DateTime           @default(now()) @db.Timestamptz()
+  updated_at           DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  fee_structure FeeStructure @relation(fields: [fee_structure_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, fee_structure_id], name: "idx_recurring_configs_tenant_fee")
+  @@index([tenant_id, active], name: "idx_recurring_configs_tenant_active")
+  @@map("recurring_invoice_configs")
+}
+
+model CreditNote {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String           @db.Uuid
+  household_id        String           @db.Uuid
+  credit_note_number  String           @db.VarChar(50)
+  amount              Decimal          @db.Decimal(12, 2)
+  remaining_balance   Decimal          @db.Decimal(12, 2)
+  reason              String           @db.Text
+  status              CreditNoteStatus @default(open)
+  issued_by_user_id   String           @db.Uuid
+  issued_at           DateTime         @db.Timestamptz()
+  created_at          DateTime         @default(now()) @db.Timestamptz()
+  updated_at          DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  household    Household                @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  issued_by    User                     @relation("credit_note_issuer", fields: [issued_by_user_id], references: [id], onDelete: Cascade)
+  applications CreditNoteApplication[]
+
+  @@unique([tenant_id, credit_note_number], name: "idx_credit_notes_number")
+  @@index([tenant_id, household_id], name: "idx_credit_notes_tenant_household")
+  @@map("credit_notes")
+}
+
+model CreditNoteApplication {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  credit_note_id      String   @db.Uuid
+  invoice_id          String   @db.Uuid
+  applied_amount      Decimal  @db.Decimal(12, 2)
+  applied_at          DateTime @db.Timestamptz()
+  applied_by_user_id  String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  credit_note CreditNote @relation(fields: [credit_note_id], references: [id], onDelete: Cascade)
+  invoice     Invoice    @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  applied_by  User       @relation("credit_note_applier", fields: [applied_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, credit_note_id], name: "idx_credit_note_applications_note")
+  @@index([tenant_id, invoice_id], name: "idx_credit_note_applications_invoice")
+  @@map("credit_note_applications")
+}
+
+model LateFeeConfig {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String      @db.Uuid
+  name              String      @db.VarChar(150)
+  fee_type          LateFeeType
+  value             Decimal     @db.Decimal(12, 2)
+  grace_period_days Int
+  max_applications  Int         @default(1)
+  frequency_days    Int?
+  active            Boolean     @default(true)
+  created_at        DateTime    @default(now()) @db.Timestamptz()
+  updated_at        DateTime    @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  applications LateFeeApplication[]
+
+  @@unique([tenant_id, name], name: "idx_late_fee_configs_tenant_name")
+  @@index([tenant_id], name: "idx_late_fee_configs_tenant")
+  @@map("late_fee_configs")
+}
+
+model LateFeeApplication {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  invoice_id          String   @db.Uuid
+  late_fee_config_id  String   @db.Uuid
+  amount              Decimal  @db.Decimal(12, 2)
+  applied_at          DateTime @db.Timestamptz()
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice         Invoice       @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  late_fee_config LateFeeConfig @relation(fields: [late_fee_config_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, invoice_id], name: "idx_late_fee_applications_invoice")
+  @@map("late_fee_applications")
+}
+
+model PaymentPlanRequest {
+  id                          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String            @db.Uuid
+  invoice_id                  String            @db.Uuid
+  household_id                String            @db.Uuid
+  requested_by_parent_id      String            @db.Uuid
+  proposed_installments_json  Json
+  reason                      String            @db.Text
+  status                      PaymentPlanStatus @default(pending)
+  admin_notes                 String?           @db.Text
+  reviewed_by_user_id         String?           @db.Uuid
+  reviewed_at                 DateTime?         @db.Timestamptz()
+  created_at                  DateTime          @default(now()) @db.Timestamptz()
+  updated_at                  DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant               Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoice              Invoice   @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  household            Household @relation(fields: [household_id], references: [id], onDelete: Cascade)
+  requested_by_parent  Parent    @relation("payment_plan_requester", fields: [requested_by_parent_id], references: [id], onDelete: Cascade)
+  reviewed_by          User?     @relation("payment_plan_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, status], name: "idx_payment_plan_requests_tenant")
+  @@index([tenant_id, invoice_id], name: "idx_payment_plan_requests_invoice")
+  @@map("payment_plan_requests")
+}
+
+model Scholarship {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String            @db.Uuid
+  name               String            @db.VarChar(200)
+  description        String?           @db.Text
+  discount_type      DiscountType
+  value              Decimal           @db.Decimal(12, 2)
+  student_id         String            @db.Uuid
+  awarded_by_user_id String            @db.Uuid
+  award_date         DateTime          @db.Date
+  renewal_date       DateTime?         @db.Date
+  status             ScholarshipStatus @default(active)
+  revocation_reason  String?           @db.Text
+  fee_structure_id   String?           @db.Uuid
+  created_at         DateTime          @default(now()) @db.Timestamptz()
+  updated_at         DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student       Student       @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  awarded_by    User          @relation("scholarship_awarder", fields: [awarded_by_user_id], references: [id], onDelete: Cascade)
+  fee_structure FeeStructure? @relation(fields: [fee_structure_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, student_id], name: "idx_scholarships_tenant_student")
+  @@index([tenant_id, status], name: "idx_scholarships_tenant_status")
+  @@map("scholarships")
 }
 
 // ─── P6B: Payroll ──────────────────────────────────────────────────────────
