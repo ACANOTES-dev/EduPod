@@ -24,6 +24,7 @@ import {
   amendAttendanceRecordSchema,
   defaultPresentUploadSchema,
   quickMarkSchema,
+  scanConfirmSchema,
   uploadUndoSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
@@ -32,14 +33,17 @@ import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AttendancePatternService } from './attendance-pattern.service';
+import { AttendanceScanService } from './attendance-scan.service';
 import { AttendanceUploadService } from './attendance-upload.service';
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
@@ -100,12 +104,17 @@ interface UploadedFileShape {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+const scanBodySchema = z.object({
+  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+});
+
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class AttendanceController {
   constructor(
     private readonly attendanceService: AttendanceService,
     private readonly attendancePatternService: AttendancePatternService,
+    private readonly attendanceScanService: AttendanceScanService,
     private readonly attendanceUploadService: AttendanceUploadService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly permissionCacheService: PermissionCacheService,
@@ -406,6 +415,77 @@ export class AttendanceController {
       tenant.tenant_id,
       user.sub,
       body.batch_id,
+    );
+  }
+
+  // ─── AI Scan ────────────────────────────────────────────────────────────
+
+  @Post('attendance/scan')
+  @UseGuards(AuthGuard, PermissionGuard, ModuleEnabledGuard)
+  @ModuleEnabled('ai_functions')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('image'))
+  async scanAttendanceImage(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: UploadedFileShape | undefined,
+    @Body(new ZodValidationPipe(scanBodySchema))
+    body: z.infer<typeof scanBodySchema>,
+  ) {
+    if (!file) {
+      throw new BadRequestException({
+        error: {
+          code: 'FILE_REQUIRED',
+          message: 'An image file must be uploaded',
+        },
+      });
+    }
+
+    if (!AttendanceScanService.isAllowedMimeType(file.mimetype)) {
+      throw new BadRequestException({
+        error: {
+          code: 'INVALID_FILE_TYPE',
+          message:
+            'Only image files are accepted (JPEG, PNG, GIF, WebP)',
+        },
+      });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BadRequestException({
+        error: {
+          code: 'FILE_TOO_LARGE',
+          message: 'Image size must not exceed 10MB',
+        },
+      });
+    }
+
+    return this.attendanceScanService.scanImage(
+      tenant.tenant_id,
+      user.sub,
+      file.buffer,
+      file.mimetype,
+      body.session_date,
+    );
+  }
+
+  @Post('attendance/scan/confirm')
+  @UseGuards(AuthGuard, PermissionGuard, ModuleEnabledGuard)
+  @ModuleEnabled('ai_functions')
+  @RequiresPermission('attendance.manage')
+  @HttpCode(HttpStatus.OK)
+  async confirmScan(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(scanConfirmSchema))
+    body: z.infer<typeof scanConfirmSchema>,
+  ) {
+    return this.attendanceUploadService.processExceptionsUpload(
+      tenant.tenant_id,
+      user.sub,
+      body.session_date,
+      body.entries,
     );
   }
 

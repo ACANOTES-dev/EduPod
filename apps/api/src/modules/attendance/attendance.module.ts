@@ -8,6 +8,7 @@ import { SchoolClosuresModule } from '../school-closures/school-closures.module'
 
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
 import { AttendancePatternService } from './attendance-pattern.service';
+import { AttendanceScanService } from './attendance-scan.service';
 import { AttendanceUploadService } from './attendance-upload.service';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
@@ -25,6 +26,7 @@ import { DailySummaryService } from './daily-summary.service';
   providers: [
     AttendanceService,
     AttendancePatternService,
+    AttendanceScanService,
     AttendanceUploadService,
     DailySummaryService,
     AttendanceParentNotificationService,
