@@ -16,7 +16,7 @@ import {
   SettingsSectionKey,
   TenantSettings,
 } from './_components/settings-types';
-import { BooleanRow, NumberRow, SectionCard, SelectRow, SubSectionCard } from './_components/settings-ui';
+import { BooleanRow, NumberRow, SectionCard, SelectRow, SubSectionCard, TextRow } from './_components/settings-ui';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -330,6 +330,93 @@ export default function GeneralSettingsPage() {
             value={settings.payroll.autoPopulateClassCounts}
             onChange={(v) => updateSection('payroll', { autoPopulateClassCounts: v })}
           />
+
+          {/* Payroll calendar sub-section */}
+          <SubSectionCard
+            title={t('payrollCalendarTitle')}
+            description={t('payrollCalendarDesc')}
+          >
+            <NumberRow
+              label={t('payDay')}
+              description={t('payDayDesc')}
+              value={settings.payroll.payDay}
+              onChange={(v) => updateSection('payroll', { payDay: v ?? 25 })}
+              min={1}
+              max={28}
+            />
+            <NumberRow
+              label={t('payrollPreparationLeadDays')}
+              description={t('payrollPreparationLeadDaysDesc')}
+              value={settings.payroll.payrollPreparationLeadDays}
+              onChange={(v) => updateSection('payroll', { payrollPreparationLeadDays: v ?? 5 })}
+              min={0}
+            />
+          </SubSectionCard>
+
+          {/* Auto-create sub-section */}
+          <SubSectionCard
+            title={t('autoCreatePayrollTitle')}
+            description={t('autoCreatePayrollDesc')}
+          >
+            <BooleanRow
+              label={t('autoCreatePayrollRun')}
+              value={settings.payroll.autoCreatePayrollRun}
+              onChange={(v) => updateSection('payroll', { autoCreatePayrollRun: v })}
+            />
+            {settings.payroll.autoCreatePayrollRun && (
+              <NumberRow
+                label={t('autoCreateRunDay')}
+                description={t('autoCreateRunDayDesc')}
+                value={settings.payroll.autoCreateRunDay}
+                onChange={(v) => updateSection('payroll', { autoCreateRunDay: v ?? 1 })}
+                min={1}
+                max={28}
+              />
+            )}
+          </SubSectionCard>
+
+          {/* Accountant export sub-section */}
+          <SubSectionCard
+            title={t('accountantExportTitle')}
+            description={t('accountantExportDesc')}
+          >
+            <TextRow
+              label={t('payrollAccountantEmail')}
+              description={t('payrollAccountantEmailDesc')}
+              value={settings.payroll.payrollAccountantEmail}
+              onChange={(v) => updateSection('payroll', { payrollAccountantEmail: v })}
+              placeholder="accounts@school.example"
+            />
+          </SubSectionCard>
+
+          {/* Payslip delivery sub-section */}
+          <SubSectionCard
+            title={t('payslipDeliveryTitle')}
+            description={t('payslipDeliveryDesc')}
+          >
+            <BooleanRow
+              label={t('autoSendPayslips')}
+              description={t('autoSendPayslipsDesc')}
+              value={settings.payroll.autoSendPayslips}
+              onChange={(v) => updateSection('payroll', { autoSendPayslips: v })}
+            />
+            {settings.payroll.autoSendPayslips && (
+              <SelectRow
+                label={t('payslipDeliveryMethod')}
+                value={settings.payroll.payslipDeliveryMethod}
+                options={[
+                  { value: 'email', label: t('channelEmail') },
+                  { value: 'in_app', label: t('channelInApp') },
+                  { value: 'both', label: t('channelBoth') },
+                ]}
+                onChange={(v) =>
+                  updateSection('payroll', {
+                    payslipDeliveryMethod: v as 'email' | 'in_app' | 'both',
+                  })
+                }
+              />
+            )}
+          </SubSectionCard>
         </SectionCard>
 
         {/* Scheduling */}

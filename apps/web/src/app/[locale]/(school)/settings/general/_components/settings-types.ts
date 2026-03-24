@@ -69,6 +69,13 @@ export interface PayrollSettings {
   requireApprovalForNonPrincipal: boolean;
   defaultBonusMultiplier: number;
   autoPopulateClassCounts: boolean;
+  payDay: number;
+  payrollPreparationLeadDays: number;
+  autoCreatePayrollRun: boolean;
+  autoCreateRunDay: number;
+  payrollAccountantEmail: string;
+  autoSendPayslips: boolean;
+  payslipDeliveryMethod: 'email' | 'in_app' | 'both';
 }
 
 export interface GeneralSectionSettings {
@@ -210,6 +217,13 @@ export const DEFAULT_SETTINGS: TenantSettings = {
     requireApprovalForNonPrincipal: true,
     defaultBonusMultiplier: 1.0,
     autoPopulateClassCounts: true,
+    payDay: 25,
+    payrollPreparationLeadDays: 5,
+    autoCreatePayrollRun: false,
+    autoCreateRunDay: 1,
+    payrollAccountantEmail: '',
+    autoSendPayslips: false,
+    payslipDeliveryMethod: 'email',
   },
   scheduling: {
     teacherWeeklyMaxPeriods: null,

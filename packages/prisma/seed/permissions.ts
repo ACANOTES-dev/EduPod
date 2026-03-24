@@ -42,6 +42,11 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'payroll.generate_payslips', description: 'Generate and export payslip PDFs', permission_tier: 'admin' },
   { permission_key: 'payroll.view_bank_details', description: 'View decrypted staff bank account details (audit-logged)', permission_tier: 'admin' },
   { permission_key: 'payroll.view_reports', description: 'View payroll analytics and summary reports', permission_tier: 'admin' },
+  { permission_key: 'payroll.manage_attendance', description: 'Mark and manage daily staff attendance records', permission_tier: 'admin' },
+  { permission_key: 'payroll.manage_class_delivery', description: 'Confirm and manage class delivery records', permission_tier: 'admin' },
+  { permission_key: 'payroll.manage_exports', description: 'Create export templates and export payroll data', permission_tier: 'admin' },
+  { permission_key: 'payroll.manage_allowances', description: 'Configure allowance types and staff allowance assignments', permission_tier: 'admin' },
+  { permission_key: 'payroll.manage_deductions', description: 'Create and manage staff recurring deductions', permission_tier: 'admin' },
 
   // ─── Admin tier — Schedule ─────────────────────────────────────────────────
   { permission_key: 'schedule.manage', description: 'Manage schedule entries (create, edit, delete)', permission_tier: 'admin' },
