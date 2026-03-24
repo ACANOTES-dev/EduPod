@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 
-import Anthropic from '@anthropic-ai/sdk';
 import {
   BadRequestException,
   Injectable,
@@ -69,7 +68,8 @@ If the image does not appear to be an attendance/absence sheet, return an empty 
 @Injectable()
 export class AttendanceScanService {
   private readonly logger = new Logger(AttendanceScanService.name);
-  private anthropic: Anthropic | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -77,7 +77,16 @@ export class AttendanceScanService {
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
-      this.anthropic = new Anthropic({ apiKey });
+      try {
+        // Dynamic import to avoid build failure when SDK is not installed
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const AnthropicSdk = require('@anthropic-ai/sdk').default;
+        this.anthropic = new AnthropicSdk({ apiKey });
+      } catch {
+        this.logger.warn(
+          '@anthropic-ai/sdk is not installed — AI scan functionality will be unavailable',
+        );
+      }
     } else {
       this.logger.warn(
         'ANTHROPIC_API_KEY is not set — AI scan functionality will be unavailable',
@@ -140,8 +149,8 @@ export class AttendanceScanService {
       ],
     });
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    const aiText = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+    const textBlock = response.content.find((b: { type: string; text?: string }) => b.type === 'text');
+    const aiText = textBlock?.text ?? '';
 
     // 4. Parse the AI response
     const entries = this.parseScanResponse(aiText);
