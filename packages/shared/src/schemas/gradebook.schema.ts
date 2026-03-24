@@ -474,3 +474,188 @@ export const listAssessmentTemplatesQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   subject_id: z.string().uuid().optional(),
 });
+
+// ─── Report Card World-Class Enhancement Schemas ──────────────────────────
+
+// Template Designer (R1 + R2)
+
+export const templateSectionConfigSchema = z.object({
+  id: z.string().min(1).max(100),
+  type: z.enum([
+    'header',
+    'student_info',
+    'grades_table',
+    'attendance_summary',
+    'competency_summary',
+    'conduct',
+    'extracurriculars',
+    'custom_text',
+    'teacher_comment',
+    'principal_comment',
+    'threshold_remarks',
+    'comparative_indicators',
+    'qr_code',
+    'signature_area',
+  ]),
+  order: z.number().int().nonnegative(),
+  style_variant: z.string().min(1).max(50),
+  enabled: z.boolean(),
+  config: z.record(z.string(), z.unknown()),
+});
+
+export const createReportCardTemplateSchema = z.object({
+  name: z.string().min(1).max(200),
+  locale: z.string().min(1).max(10),
+  sections_json: z.array(templateSectionConfigSchema).min(1),
+  branding_overrides_json: z.record(z.string(), z.unknown()).nullable().optional(),
+  is_default: z.boolean().optional(),
+});
+export type CreateReportCardTemplateDto = z.infer<typeof createReportCardTemplateSchema>;
+
+export const updateReportCardTemplateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  sections_json: z.array(templateSectionConfigSchema).min(1).optional(),
+  branding_overrides_json: z.record(z.string(), z.unknown()).nullable().optional(),
+  is_default: z.boolean().optional(),
+});
+export type UpdateReportCardTemplateDto = z.infer<typeof updateReportCardTemplateSchema>;
+
+export const listReportCardTemplatesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  locale: z.string().min(1).max(10).optional(),
+});
+
+// Approval Workflow (R3)
+
+export const approvalStepSchema = z.object({
+  order: z.number().int().nonnegative(),
+  role_key: z.string().min(1).max(50),
+  label: z.string().min(1).max(100),
+  required: z.boolean(),
+});
+
+export const createApprovalConfigSchema = z.object({
+  name: z.string().min(1).max(100),
+  steps_json: z.array(approvalStepSchema),
+  is_active: z.boolean().optional(),
+});
+export type CreateApprovalConfigDto = z.infer<typeof createApprovalConfigSchema>;
+
+export const updateApprovalConfigSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  steps_json: z.array(approvalStepSchema).optional(),
+  is_active: z.boolean().optional(),
+});
+export type UpdateApprovalConfigDto = z.infer<typeof updateApprovalConfigSchema>;
+
+export const rejectApprovalSchema = z.object({
+  reason: z.string().min(1).max(1000),
+});
+export type RejectApprovalDto = z.infer<typeof rejectApprovalSchema>;
+
+export const bulkApproveSchema = z.object({
+  approval_ids: z.array(z.string().uuid()).min(1).max(100),
+});
+export type BulkApproveDto = z.infer<typeof bulkApproveSchema>;
+
+export const getPendingApprovalsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  role_key: z.string().min(1).max(50),
+});
+
+// Bulk Operations (R4)
+
+export const bulkGenerateSchema = z.object({
+  class_id: z.string().uuid(),
+  academic_period_id: z.string().uuid(),
+});
+export type BulkGenerateDto = z.infer<typeof bulkGenerateSchema>;
+
+export const bulkPublishSchema = z.object({
+  report_card_ids: z.array(z.string().uuid()).min(1).max(200),
+});
+export type BulkPublishDto = z.infer<typeof bulkPublishSchema>;
+
+export const bulkDeliverSchema = z.object({
+  report_card_ids: z.array(z.string().uuid()).min(1).max(200),
+});
+export type BulkDeliverDto = z.infer<typeof bulkDeliverSchema>;
+
+// Delivery (R5)
+
+// Batch PDF (R6)
+
+export const batchPdfSchema = z.object({
+  class_id: z.string().uuid(),
+  academic_period_id: z.string().uuid(),
+  template_id: z.string().uuid().nullable().optional(),
+});
+export type BatchPdfDto = z.infer<typeof batchPdfSchema>;
+
+// Custom Fields (R8)
+
+export const createCustomFieldDefSchema = z.object({
+  name: z.string().min(1).max(100),
+  label: z.string().min(1).max(200),
+  label_ar: z.string().max(200).nullable().optional(),
+  field_type: z.enum(['text', 'select', 'rating']),
+  options_json: z.record(z.string(), z.unknown()).nullable().optional(),
+  section_type: z.enum(['conduct', 'extracurricular', 'custom']),
+  display_order: z.number().int().nonnegative().optional(),
+});
+export type CreateCustomFieldDefDto = z.infer<typeof createCustomFieldDefSchema>;
+
+export const updateCustomFieldDefSchema = z.object({
+  label: z.string().min(1).max(200).optional(),
+  label_ar: z.string().max(200).nullable().optional(),
+  field_type: z.enum(['text', 'select', 'rating']).optional(),
+  options_json: z.record(z.string(), z.unknown()).nullable().optional(),
+  section_type: z.enum(['conduct', 'extracurricular', 'custom']).optional(),
+  display_order: z.number().int().nonnegative().optional(),
+});
+export type UpdateCustomFieldDefDto = z.infer<typeof updateCustomFieldDefSchema>;
+
+export const saveCustomFieldValuesSchema = z.object({
+  values: z.array(z.object({
+    field_def_id: z.string().uuid(),
+    value: z.string().min(1),
+  })).min(1),
+});
+export type SaveCustomFieldValuesDto = z.infer<typeof saveCustomFieldValuesSchema>;
+
+// Grade Thresholds (R11)
+
+export const thresholdEntrySchema = z.object({
+  min_score: z.number().nonnegative().max(100),
+  label: z.string().min(1).max(100),
+  label_ar: z.string().min(1).max(100),
+});
+
+export const createGradeThresholdConfigSchema = z.object({
+  name: z.string().min(1).max(100),
+  thresholds_json: z.array(thresholdEntrySchema).min(1),
+  is_default: z.boolean().optional(),
+});
+export type CreateGradeThresholdConfigDto = z.infer<typeof createGradeThresholdConfigSchema>;
+
+export const updateGradeThresholdConfigSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  thresholds_json: z.array(thresholdEntrySchema).min(1).optional(),
+  is_default: z.boolean().optional(),
+});
+export type UpdateGradeThresholdConfigDto = z.infer<typeof updateGradeThresholdConfigSchema>;
+
+// Analytics (R10)
+
+export const analyticsQuerySchema = z.object({
+  academic_period_id: z.string().uuid().optional(),
+});
+
+// Acknowledgment (R13)
+
+export const acknowledgeReportCardSchema = z.object({
+  parent_id: z.string().uuid(),
+});
+export type AcknowledgeReportCardDto = z.infer<typeof acknowledgeReportCardSchema>;

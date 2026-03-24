@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AcademicsModule } from '../academics/academics.module';
@@ -22,6 +23,7 @@ import { CompetencyScaleService } from './competency-scale.service';
 import { GpaService } from './gpa.service';
 import { GradeCurveService } from './grade-curve.service';
 import { GradePublishingService } from './grade-publishing.service';
+import { GradeThresholdService } from './grade-threshold.service';
 import { GradebookAdvancedController } from './gradebook-advanced.controller';
 import { GradebookInsightsController } from './gradebook-insights.controller';
 import { GradebookController } from './gradebook.controller';
@@ -32,6 +34,14 @@ import { NlQueryService } from './nl-query.service';
 import { ParentGradebookController } from './parent-gradebook.controller';
 import { PeriodGradeComputationService } from './period-grade-computation.service';
 import { ProgressReportService } from './progress-report.service';
+import { ReportCardAcknowledgmentService } from './report-card-acknowledgment.service';
+import { ReportCardAnalyticsService } from './report-card-analytics.service';
+import { ReportCardApprovalService } from './report-card-approval.service';
+import { ReportCardCustomFieldsService } from './report-card-custom-fields.service';
+import { ReportCardDeliveryService } from './report-card-delivery.service';
+import { ReportCardTemplateService } from './report-card-template.service';
+import { ReportCardVerificationService } from './report-card-verification.service';
+import { ReportCardsEnhancedController, ReportCardVerificationController } from './report-cards-enhanced.controller';
 import { ReportCardsController } from './report-cards.controller';
 import { ReportCardsService } from './report-cards.service';
 import { ResultsMatrixService } from './results-matrix.service';
@@ -49,6 +59,7 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     ConfigurationModule,
     PdfRenderingModule,
     RedisModule,
+    BullModule.registerQueue({ name: 'gradebook' }),
   ],
   controllers: [
     GradingScalesController,
@@ -59,6 +70,9 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     ReportCardsController,
     TranscriptsController,
     ParentGradebookController,
+    // Report Cards Enhancement
+    ReportCardsEnhancedController,
+    ReportCardVerificationController,
   ],
   providers: [
     GradingScalesService,
@@ -90,6 +104,15 @@ import { YearGroupGradeWeightsService } from './year-group-grade-weights.service
     // D: Parent Experience
     GradePublishingService,
     ProgressReportService,
+    // Report Cards World-Class Enhancement
+    ReportCardTemplateService,
+    ReportCardApprovalService,
+    ReportCardDeliveryService,
+    ReportCardCustomFieldsService,
+    GradeThresholdService,
+    ReportCardVerificationService,
+    ReportCardAcknowledgmentService,
+    ReportCardAnalyticsService,
   ],
   exports: [ReportCardsService, TranscriptsService],
 })

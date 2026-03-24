@@ -98,6 +98,12 @@ export const PERMISSIONS = {
     manage_ai_grading: 'gradebook.manage_ai_grading',
     approve_ai_grading: 'gradebook.approve_ai_grading',
   },
+  // Report Cards (enhanced)
+  report_cards: {
+    approve: 'report_cards.approve',
+    manage_templates: 'report_cards.manage_templates',
+    bulk_operations: 'report_cards.bulk_operations',
+  },
   // Transcripts
   transcripts: {
     generate: 'transcripts.generate',
@@ -207,6 +213,9 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.gradebook.view_analytics]: 'admin',
   [PERMISSIONS.gradebook.publish_grades_to_parents]: 'admin',
   [PERMISSIONS.gradebook.approve_ai_grading]: 'admin',
+  [PERMISSIONS.report_cards.approve]: 'admin',
+  [PERMISSIONS.report_cards.manage_templates]: 'admin',
+  [PERMISSIONS.report_cards.bulk_operations]: 'admin',
   [PERMISSIONS.transcripts.generate]: 'admin',
   [PERMISSIONS.admissions.manage]: 'admin',
   [PERMISSIONS.admissions.view]: 'admin',
@@ -302,6 +311,9 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.gradebook.publish_grades_to_parents,
     PERMISSIONS.gradebook.manage_ai_grading,
     PERMISSIONS.gradebook.approve_ai_grading,
+    PERMISSIONS.report_cards.approve,
+    PERMISSIONS.report_cards.manage_templates,
+    PERMISSIONS.report_cards.bulk_operations,
     PERMISSIONS.transcripts.generate,
     PERMISSIONS.admissions.manage,
     PERMISSIONS.admissions.view,
@@ -361,6 +373,9 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.gradebook.publish_grades_to_parents,
     PERMISSIONS.gradebook.manage_ai_grading,
     PERMISSIONS.gradebook.approve_ai_grading,
+    PERMISSIONS.report_cards.approve,
+    PERMISSIONS.report_cards.manage_templates,
+    PERMISSIONS.report_cards.bulk_operations,
     PERMISSIONS.transcripts.generate,
     PERMISSIONS.admissions.manage,
     PERMISSIONS.admissions.view,

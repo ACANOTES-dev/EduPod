@@ -502,6 +502,18 @@ model Tenant {
   progress_report_entries      ProgressReportEntry[]
   nl_query_history             NlQueryHistory[]
 
+  // Report Cards Enhancement Relations
+  report_card_templates           ReportCardTemplate[]
+  report_card_approval_configs    ReportCardApprovalConfig[]
+  report_card_approvals           ReportCardApproval[]
+  report_card_deliveries          ReportCardDelivery[]
+  report_card_batch_jobs          ReportCardBatchJob[]
+  report_card_custom_field_defs   ReportCardCustomFieldDef[]
+  report_card_custom_field_values ReportCardCustomFieldValue[]
+  grade_threshold_configs         GradeThresholdConfig[]
+  report_card_acknowledgments     ReportCardAcknowledgment[]
+  report_card_verification_tokens ReportCardVerificationToken[]
+
   // P6 Relations
   fee_structures            FeeStructure[]
   discounts                 Discount[]
@@ -748,6 +760,12 @@ model User {
   risk_alerts_acknowledged     StudentAcademicRiskAlert[] @relation("risk_alert_acknowledger")
   progress_reports_generated   ProgressReport[]           @relation("progress_report_generator")
   nl_query_history             NlQueryHistory[]
+
+  // Report Cards Enhancement Relations
+  report_card_templates_created     ReportCardTemplate[]         @relation("report_card_template_creator")
+  report_card_approvals_actioned    ReportCardApproval[]         @relation("report_card_approval_actioner")
+  report_card_batch_jobs_requested  ReportCardBatchJob[]         @relation("batch_job_requester")
+  report_card_custom_fields_entered ReportCardCustomFieldValue[] @relation("custom_field_enterer")
 
   @@map("users")
 }
@@ -1041,6 +1059,10 @@ model Parent {
   // P7 Relations
   inquiries ParentInquiry[]
 
+  // Report Cards Enhancement Relations
+  report_card_deliveries      ReportCardDelivery[]
+  report_card_acknowledgments ReportCardAcknowledgment[]
+
   @@index([tenant_id], name: "idx_parents_tenant")
   @@index([tenant_id, email], name: "idx_parents_tenant_email")
   @@index([user_id], name: "idx_parents_user")
@@ -1251,6 +1273,9 @@ model AcademicPeriod {
   gpa_snapshots                GpaSnapshot[]
   progress_reports             ProgressReport[]
 
+  // Report Cards Enhancement Relations
+  report_card_batch_jobs ReportCardBatchJob[]
+
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
   @@map("academic_periods")
@@ -1366,6 +1391,9 @@ model Class {
   // P5+ World-Class Gradebook Relations
   ai_grading_instructions AiGradingInstruction[]
   progress_reports        ProgressReport[]
+
+  // Report Cards Enhancement Relations
+  report_card_batch_jobs ReportCardBatchJob[]
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -2217,6 +2245,13 @@ model ReportCard {
   revision_of     ReportCard?    @relation("report_card_revisions", fields: [revision_of_report_card_id], references: [id], onDelete: SetNull)
   revisions       ReportCard[]   @relation("report_card_revisions")
 
+  // Report Cards Enhancement Relations
+  approvals           ReportCardApproval[]
+  deliveries          ReportCardDelivery[]
+  custom_field_values ReportCardCustomFieldValue[]
+  acknowledgments     ReportCardAcknowledgment[]
+  verification_tokens ReportCardVerificationToken[]
+
   @@index([tenant_id, student_id], name: "idx_report_cards_student")
   @@index([tenant_id, academic_period_id], name: "idx_report_cards_period")
   @@index([revision_of_report_card_id], name: "idx_report_cards_revision")
@@ -2606,6 +2641,235 @@ model NlQueryHistory {
 
   @@index([tenant_id, user_id], name: "idx_nl_query_history_tenant_user")
   @@map("nl_query_history")
+}
+
+// ─── Report Cards World-Class Enhancement Enums ───────────────────────────
+
+enum ApprovalStepStatus {
+  pending
+  approved
+  rejected
+}
+
+enum DeliveryChannel {
+  email
+  whatsapp
+  in_app
+}
+
+enum DeliveryStatus {
+  pending_delivery
+  sent
+  failed
+  viewed
+}
+
+enum BatchJobStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+// ─── Report Cards World-Class Enhancement Models ──────────────────────────
+
+model ReportCardTemplate {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String   @db.Uuid
+  name                    String   @db.VarChar(200)
+  is_default              Boolean  @default(false)
+  locale                  String   @db.VarChar(10)
+  sections_json           Json
+  branding_overrides_json Json?
+  created_by_user_id      String   @db.Uuid
+  created_at              DateTime @default(now()) @db.Timestamptz()
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("report_card_template_creator", fields: [created_by_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, name, locale], name: "idx_report_card_templates_unique")
+  @@index([tenant_id], name: "idx_report_card_templates_tenant")
+  @@map("report_card_templates")
+}
+
+model ReportCardApprovalConfig {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  name       String   @db.VarChar(100)
+  steps_json Json
+  is_active  Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz()
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, name], name: "idx_report_card_approval_configs_unique")
+  @@index([tenant_id], name: "idx_report_card_approval_configs_tenant")
+  @@map("report_card_approval_configs")
+}
+
+model ReportCardApproval {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String             @db.Uuid
+  report_card_id      String             @db.Uuid
+  step_order          Int                @db.SmallInt
+  role_key            String             @db.VarChar(50)
+  status              ApprovalStepStatus @default(pending)
+  actioned_by_user_id String?            @db.Uuid
+  actioned_at         DateTime?          @db.Timestamptz()
+  rejection_reason    String?            @db.Text
+  created_at          DateTime           @default(now()) @db.Timestamptz()
+  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  report_card ReportCard @relation(fields: [report_card_id], references: [id], onDelete: Cascade)
+  actioned_by User?      @relation("report_card_approval_actioner", fields: [actioned_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, report_card_id, step_order], name: "idx_report_card_approvals_unique")
+  @@index([tenant_id, report_card_id], name: "idx_report_card_approvals_report")
+  @@map("report_card_approvals")
+}
+
+model ReportCardDelivery {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String          @db.Uuid
+  report_card_id String          @db.Uuid
+  parent_id      String          @db.Uuid
+  channel        DeliveryChannel
+  status         DeliveryStatus  @default(pending_delivery)
+  sent_at        DateTime?       @db.Timestamptz()
+  viewed_at      DateTime?       @db.Timestamptz()
+  created_at     DateTime        @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  report_card ReportCard @relation(fields: [report_card_id], references: [id], onDelete: Cascade)
+  parent      Parent     @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, report_card_id], name: "idx_report_card_deliveries_report")
+  @@map("report_card_deliveries")
+}
+
+model ReportCardBatchJob {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String         @db.Uuid
+  class_id             String         @db.Uuid
+  academic_period_id   String         @db.Uuid
+  template_id          String?        @db.Uuid
+  status               BatchJobStatus @default(queued)
+  total_count          Int            @db.SmallInt
+  completed_count      Int            @default(0) @db.SmallInt
+  file_url             String?        @db.Text
+  requested_by_user_id String         @db.Uuid
+  error_message        String?        @db.Text
+  created_at           DateTime       @default(now()) @db.Timestamptz()
+  updated_at           DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity    Class          @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod @relation(fields: [academic_period_id], references: [id], onDelete: Cascade)
+  requested_by    User           @relation("batch_job_requester", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, status], name: "idx_report_card_batch_jobs_status")
+  @@map("report_card_batch_jobs")
+}
+
+model ReportCardCustomFieldDef {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  name          String   @db.VarChar(100)
+  label         String   @db.VarChar(200)
+  label_ar      String?  @db.VarChar(200)
+  field_type    String   @db.VarChar(20)
+  options_json  Json?
+  section_type  String   @db.VarChar(50)
+  display_order Int      @default(0) @db.SmallInt
+  created_at    DateTime @default(now()) @db.Timestamptz()
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  values ReportCardCustomFieldValue[]
+
+  @@unique([tenant_id, name], name: "idx_report_card_custom_field_defs_unique")
+  @@index([tenant_id], name: "idx_report_card_custom_field_defs_tenant")
+  @@map("report_card_custom_field_defs")
+}
+
+model ReportCardCustomFieldValue {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  report_card_id     String   @db.Uuid
+  field_def_id       String   @db.Uuid
+  value              String   @db.Text
+  entered_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  report_card ReportCard               @relation(fields: [report_card_id], references: [id], onDelete: Cascade)
+  field_def   ReportCardCustomFieldDef @relation(fields: [field_def_id], references: [id], onDelete: Cascade)
+  entered_by  User                     @relation("custom_field_enterer", fields: [entered_by_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, report_card_id, field_def_id], name: "idx_report_card_custom_field_values_unique")
+  @@index([tenant_id, report_card_id], name: "idx_report_card_custom_field_values_report")
+  @@map("report_card_custom_field_values")
+}
+
+model GradeThresholdConfig {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  name            String   @db.VarChar(100)
+  thresholds_json Json
+  is_default      Boolean  @default(false)
+  created_at      DateTime @default(now()) @db.Timestamptz()
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, name], name: "idx_grade_threshold_configs_unique")
+  @@index([tenant_id], name: "idx_grade_threshold_configs_tenant")
+  @@map("grade_threshold_configs")
+}
+
+model ReportCardAcknowledgment {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  report_card_id  String   @db.Uuid
+  parent_id       String   @db.Uuid
+  acknowledged_at DateTime @db.Timestamptz()
+  ip_address      String?  @db.VarChar(45)
+  created_at      DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  report_card ReportCard @relation(fields: [report_card_id], references: [id], onDelete: Cascade)
+  parent      Parent     @relation(fields: [parent_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, report_card_id, parent_id], name: "idx_report_card_acknowledgments_unique")
+  @@map("report_card_acknowledgments")
+}
+
+model ReportCardVerificationToken {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  report_card_id String   @db.Uuid
+  token          String   @unique @db.VarChar(64)
+  created_at     DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  report_card ReportCard @relation(fields: [report_card_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, report_card_id], name: "idx_report_card_verification_tokens_report")
+  @@map("report_card_verification_tokens")
 }
 
 // ─── P6: Finance ──────────────────────────────────────────────────────────
