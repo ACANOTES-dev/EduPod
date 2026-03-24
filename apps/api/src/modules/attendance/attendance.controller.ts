@@ -17,6 +17,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { AttendanceAlertStatus, AttendanceAlertType } from '@prisma/client';
 import {
   createAttendanceSessionSchema,
   saveAttendanceRecordsSchema,
@@ -38,6 +39,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { AttendancePatternService } from './attendance-pattern.service';
 import { AttendanceUploadService } from './attendance-upload.service';
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
@@ -82,6 +84,13 @@ const uploadBodySchema = z.object({
   session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
+const listPatternAlertsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.nativeEnum(AttendanceAlertStatus).optional(),
+  alert_type: z.nativeEnum(AttendanceAlertType).optional(),
+});
+
 interface UploadedFileShape {
   buffer: Buffer;
   originalname: string;
@@ -96,6 +105,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export class AttendanceController {
   constructor(
     private readonly attendanceService: AttendanceService,
+    private readonly attendancePatternService: AttendancePatternService,
     private readonly attendanceUploadService: AttendanceUploadService,
     private readonly dailySummaryService: DailySummaryService,
     private readonly permissionCacheService: PermissionCacheService,
@@ -396,6 +406,54 @@ export class AttendanceController {
       tenant.tenant_id,
       user.sub,
       body.batch_id,
+    );
+  }
+
+  // ─── Pattern Alerts ─────────────────────────────────────────────────────
+
+  @Get('attendance/pattern-alerts')
+  @RequiresPermission('attendance.view_pattern_reports')
+  async listPatternAlerts(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listPatternAlertsQuerySchema))
+    query: z.infer<typeof listPatternAlertsQuerySchema>,
+  ) {
+    return this.attendancePatternService.listAlerts(tenant.tenant_id, query);
+  }
+
+  @Patch('attendance/pattern-alerts/:id/acknowledge')
+  @RequiresPermission('attendance.view_pattern_reports')
+  async acknowledgePatternAlert(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.attendancePatternService.acknowledgeAlert(
+      tenant.tenant_id,
+      id,
+      user.sub,
+    );
+  }
+
+  @Patch('attendance/pattern-alerts/:id/resolve')
+  @RequiresPermission('attendance.view_pattern_reports')
+  async resolvePatternAlert(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.attendancePatternService.resolveAlert(tenant.tenant_id, id);
+  }
+
+  @Post('attendance/pattern-alerts/:id/notify-parent')
+  @RequiresPermission('attendance.view_pattern_reports')
+  @HttpCode(HttpStatus.OK)
+  async notifyParentManual(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.attendancePatternService.notifyParentManual(
+      tenant.tenant_id,
+      id,
     );
   }
 

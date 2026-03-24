@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from './base/queue.constants';
 import { WorkerHealthController } from './health/worker-health.controller';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
+import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
@@ -113,6 +114,7 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     AttendanceSessionGenerationProcessor,
     AttendancePendingDetectionProcessor,
     AttendanceAutoLockProcessor,
+    AttendancePatternDetectionProcessor,
     // Scheduling queue processors
     SchedulingSolverProcessor,
     SchedulingSolverV2Processor,
