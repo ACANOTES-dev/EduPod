@@ -151,11 +151,22 @@ export class AttendanceService {
       }
     }
 
-    // 5. Create session with race prevention via upsert-like approach
+    // 5. Determine effective default_present
+    let effectiveDefaultPresent: boolean | null = null;
+    if (dto.default_present === true || dto.default_present === false) {
+      effectiveDefaultPresent = dto.default_present;
+    } else {
+      effectiveDefaultPresent = tenantSettings.attendance.defaultPresentEnabled || null;
+    }
+
+    // 6. Create session with race prevention via upsert-like approach
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
+    let session: { id: string; [key: string]: unknown };
+    let isExisting = false;
+
     try {
-      return await prismaWithRls.$transaction(async (tx) => {
+      session = (await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
 
         // Check if session already exists for this class + date + schedule
@@ -170,6 +181,7 @@ export class AttendanceService {
         });
 
         if (existing) {
+          isExisting = true;
           return existing;
         }
 
@@ -181,6 +193,7 @@ export class AttendanceService {
             session_date: sessionDate,
             status: 'open',
             override_reason: isClosure ? dto.override_reason : null,
+            default_present: effectiveDefaultPresent,
           },
           include: {
             class_entity: {
@@ -188,7 +201,7 @@ export class AttendanceService {
             },
           },
         });
-      });
+      })) as { id: string; [key: string]: unknown };
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -204,10 +217,70 @@ export class AttendanceService {
             status: { not: 'cancelled' },
           },
         });
-        if (existing) return existing;
+        if (existing) {
+          return existing;
+        }
       }
       throw err;
     }
+
+    // 7. If newly created and default_present is active, create present records
+    if (!isExisting && effectiveDefaultPresent) {
+      await this.createDefaultPresentRecords(
+        tenantId,
+        session.id,
+        dto.class_id,
+        userId,
+      );
+    }
+
+    return session;
+  }
+
+  /**
+   * Create "present" attendance records for all actively enrolled students in a class.
+   * Used when a session is created with default_present enabled.
+   */
+  async createDefaultPresentRecords(
+    tenantId: string,
+    sessionId: string,
+    classId: string,
+    userId: string,
+  ): Promise<number> {
+    // Get all actively enrolled students in the class
+    const enrolments = await this.prisma.classEnrolment.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: classId,
+        status: 'active',
+      },
+      select: { student_id: true },
+    });
+
+    if (enrolments.length === 0) {
+      return 0;
+    }
+
+    const now = new Date();
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const result = (await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      return db.attendanceRecord.createMany({
+        data: enrolments.map((e) => ({
+          tenant_id: tenantId,
+          attendance_session_id: sessionId,
+          student_id: e.student_id,
+          status: 'present' as $Enums.AttendanceRecordStatus,
+          marked_by_user_id: userId,
+          marked_at: now,
+        })),
+        skipDuplicates: true,
+      });
+    })) as { count: number };
+
+    return result.count;
   }
 
   /**

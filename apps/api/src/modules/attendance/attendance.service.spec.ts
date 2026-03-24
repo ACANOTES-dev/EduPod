@@ -1,6 +1,7 @@
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
 
@@ -10,12 +11,18 @@ import { DailySummaryService } from './daily-summary.service';
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const SESSION_ID = 'session-1';
 const USER_ID = 'user-1';
+const CLASS_ID = 'class-1';
 
 // Mock the RLS middleware
 const mockRlsTx = {
   attendanceSession: {
     update: jest.fn(),
     updateMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+  },
+  attendanceRecord: {
+    createMany: jest.fn(),
   },
 };
 
@@ -33,6 +40,7 @@ describe('AttendanceService — state machine', () => {
     tenantSetting: { findFirst: jest.Mock };
   };
   let mockDailySummary: { recalculate: jest.Mock };
+  let mockSettings: { getSettings: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -42,6 +50,12 @@ describe('AttendanceService — state machine', () => {
     };
 
     mockDailySummary = { recalculate: jest.fn().mockResolvedValue(null) };
+    mockSettings = { getSettings: jest.fn().mockResolvedValue({
+      attendance: {
+        workDays: [1, 2, 3, 4, 5],
+        defaultPresentEnabled: false,
+      },
+    }) };
 
     mockRlsTx.attendanceSession.update.mockReset();
     mockRlsTx.attendanceSession.update.mockResolvedValue({
@@ -57,6 +71,7 @@ describe('AttendanceService — state machine', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
+        { provide: SettingsService, useValue: mockSettings },
       ],
     }).compile();
 
@@ -178,5 +193,335 @@ describe('AttendanceService — state machine', () => {
     await expect(
       service.cancelSession(TENANT_ID, SESSION_ID),
     ).rejects.toThrow(ConflictException);
+  });
+});
+
+describe('AttendanceService — createDefaultPresentRecords', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    classEnrolment: { findMany: jest.Mock };
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      classEnrolment: { findMany: jest.fn() },
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockRlsTx.attendanceRecord.createMany.mockReset();
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 3 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should create present records for all enrolled students', async () => {
+    const enrolledStudents = [
+      { student_id: 'student-1' },
+      { student_id: 'student-2' },
+      { student_id: 'student-3' },
+    ];
+    mockPrisma.classEnrolment.findMany.mockResolvedValue(enrolledStudents);
+
+    const count = await service.createDefaultPresentRecords(
+      TENANT_ID,
+      SESSION_ID,
+      CLASS_ID,
+      USER_ID,
+    );
+
+    expect(count).toBe(3);
+    expect(mockPrisma.classEnrolment.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        class_id: CLASS_ID,
+        status: 'active',
+      },
+      select: { student_id: true },
+    });
+    expect(mockRlsTx.attendanceRecord.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          attendance_session_id: SESSION_ID,
+          student_id: 'student-1',
+          status: 'present',
+          marked_by_user_id: USER_ID,
+        }),
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          attendance_session_id: SESSION_ID,
+          student_id: 'student-2',
+          status: 'present',
+          marked_by_user_id: USER_ID,
+        }),
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          attendance_session_id: SESSION_ID,
+          student_id: 'student-3',
+          status: 'present',
+          marked_by_user_id: USER_ID,
+        }),
+      ]),
+      skipDuplicates: true,
+    });
+  });
+
+  it('should return 0 and skip createMany when no students are enrolled', async () => {
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+
+    const count = await service.createDefaultPresentRecords(
+      TENANT_ID,
+      SESSION_ID,
+      CLASS_ID,
+      USER_ID,
+    );
+
+    expect(count).toBe(0);
+    expect(mockRlsTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+
+  it('should use skipDuplicates to handle concurrent inserts', async () => {
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      { student_id: 'student-1' },
+    ]);
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 0 });
+
+    const count = await service.createDefaultPresentRecords(
+      TENANT_ID,
+      SESSION_ID,
+      CLASS_ID,
+      USER_ID,
+    );
+
+    expect(count).toBe(0);
+    expect(mockRlsTx.attendanceRecord.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: true }),
+    );
+  });
+});
+
+describe('AttendanceService — createSession default_present', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    class: { findFirst: jest.Mock };
+    classStaff: { findFirst: jest.Mock };
+    classEnrolment: { findMany: jest.Mock };
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockSettings: { getSettings: jest.Mock };
+  let mockClosures: { isClosureDate: jest.Mock };
+
+  const baseClass = {
+    id: CLASS_ID,
+    academic_year_id: 'ay-1',
+    year_group_id: null,
+    academic_year: {
+      start_date: new Date('2025-09-01'),
+      end_date: new Date('2026-06-30'),
+    },
+  };
+
+  const baseDto = {
+    class_id: CLASS_ID,
+    session_date: '2026-03-10', // Tuesday
+  };
+
+  const createdSession = {
+    id: SESSION_ID,
+    tenant_id: TENANT_ID,
+    class_id: CLASS_ID,
+    session_date: new Date('2026-03-10'),
+    status: 'open',
+    default_present: null,
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      class: { findFirst: jest.fn().mockResolvedValue(baseClass) },
+      classStaff: { findFirst: jest.fn() },
+      classEnrolment: { findMany: jest.fn().mockResolvedValue([]) },
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        attendance: {
+          workDays: [0, 1, 2, 3, 4, 5, 6],
+          defaultPresentEnabled: false,
+        },
+      }),
+    };
+
+    mockClosures = { isClosureDate: jest.fn().mockResolvedValue(false) };
+
+    // Reset RLS tx mocks
+    mockRlsTx.attendanceSession.findFirst.mockReset();
+    mockRlsTx.attendanceSession.findFirst.mockResolvedValue(null); // No existing session
+    mockRlsTx.attendanceSession.create.mockReset();
+    mockRlsTx.attendanceSession.create.mockResolvedValue(createdSession);
+    mockRlsTx.attendanceRecord.createMany.mockReset();
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 0 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: mockClosures },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: mockSettings },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should call createDefaultPresentRecords when dto.default_present is true', async () => {
+    const enrolledStudents = [
+      { student_id: 'student-1' },
+      { student_id: 'student-2' },
+    ];
+    mockPrisma.classEnrolment.findMany.mockResolvedValue(enrolledStudents);
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 2 });
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { ...baseDto, default_present: true },
+      ['attendance.manage'],
+    );
+
+    // Session should be created with default_present: true
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          default_present: true,
+        }),
+      }),
+    );
+
+    // Should have created present records
+    expect(mockRlsTx.attendanceRecord.createMany).toHaveBeenCalled();
+  });
+
+  it('should NOT call createDefaultPresentRecords when dto.default_present is false', async () => {
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { ...baseDto, default_present: false },
+      ['attendance.manage'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          default_present: false,
+        }),
+      }),
+    );
+
+    expect(mockRlsTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+
+  it('should fall back to tenant settings when dto.default_present is undefined', async () => {
+    mockSettings.getSettings.mockResolvedValue({
+      attendance: {
+        workDays: [0, 1, 2, 3, 4, 5, 6],
+        defaultPresentEnabled: true,
+      },
+    });
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([
+      { student_id: 'student-1' },
+    ]);
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 1 });
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      baseDto,
+      ['attendance.manage'],
+    );
+
+    // Session should be created with default_present: true (from tenant settings)
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          default_present: true,
+        }),
+      }),
+    );
+
+    // Should have created present records
+    expect(mockRlsTx.attendanceRecord.createMany).toHaveBeenCalled();
+  });
+
+  it('should store null when tenant setting is false and dto.default_present is undefined', async () => {
+    mockSettings.getSettings.mockResolvedValue({
+      attendance: {
+        workDays: [0, 1, 2, 3, 4, 5, 6],
+        defaultPresentEnabled: false,
+      },
+    });
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      baseDto,
+      ['attendance.manage'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          default_present: null,
+        }),
+      }),
+    );
+
+    expect(mockRlsTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+
+  it('should NOT create records when session already exists', async () => {
+    // Simulate existing session found inside transaction
+    mockRlsTx.attendanceSession.findFirst.mockResolvedValue({
+      id: 'existing-session',
+      tenant_id: TENANT_ID,
+      class_id: CLASS_ID,
+      status: 'open',
+    });
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { ...baseDto, default_present: true },
+      ['attendance.manage'],
+    );
+
+    // create should NOT have been called since the session already existed
+    expect(mockRlsTx.attendanceSession.create).not.toHaveBeenCalled();
+    // Should NOT create attendance records for an existing session
+    expect(mockRlsTx.attendanceRecord.createMany).not.toHaveBeenCalled();
   });
 });
