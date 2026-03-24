@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Input, Label, Textarea, toast } from '@school/ui';
-import { ArrowLeft, Download, Upload, CheckCircle2, AlertTriangle, Undo2 } from 'lucide-react';
+import { ArrowLeft, Camera, Download, Upload, CheckCircle2, AlertTriangle, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -74,6 +74,26 @@ export default function AttendanceUploadPage() {
   const undoTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // AI scan feature flag
+  const [aiEnabled, setAiEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    async function checkAi() {
+      try {
+        const res = await apiClient<{ data?: { ai?: { enabled?: boolean } }; ai?: { enabled?: boolean } }>(
+          '/api/v1/settings',
+        );
+        const settings = ('data' in res && res.data) ? res.data : res;
+        if (settings?.ai?.enabled) {
+          setAiEnabled(true);
+        }
+      } catch {
+        // Silently ignore — AI button just stays hidden
+      }
+    }
+    void checkAi();
+  }, []);
 
   // ─── Undo Countdown ──────────────────────────────────────────────────────
 
@@ -303,12 +323,22 @@ export default function AttendanceUploadPage() {
         title={t('uploadTitle')}
         description={t('uploadDescription')}
         actions={
-          <Link href={`/${locale}/attendance`}>
-            <Button variant="outline">
-              <ArrowLeft className="me-2 h-4 w-4" />
-              {t('backToAttendance')}
-            </Button>
-          </Link>
+          <>
+            {aiEnabled && (
+              <Link href={`/${locale}/attendance/scan`}>
+                <Button variant="outline">
+                  <Camera className="me-2 h-4 w-4" />
+                  {t('scan.title')}
+                </Button>
+              </Link>
+            )}
+            <Link href={`/${locale}/attendance`}>
+              <Button variant="outline">
+                <ArrowLeft className="me-2 h-4 w-4" />
+                {t('backToAttendance')}
+              </Button>
+            </Link>
+          </>
         }
       />
 
