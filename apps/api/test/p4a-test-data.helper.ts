@@ -112,6 +112,8 @@ export async function setupP4ATestData(
     date_of_birth: '2015-05-15',
     gender: 'male',
     status: 'active',
+    national_id: `NID-${ts}`,
+    nationality: 'Test Country',
   }, AL_NOOR_DOMAIN).expect(201);
   const studentId = studentRes.body.data.id;
 
