@@ -432,7 +432,44 @@ export default function GeneralSettingsPage() {
         const data = await apiClient<TenantSettings | SettingsApiResponse>('/api/v1/settings');
         // Handle both wrapped and unwrapped response shapes
         const settingsData = ('data' in data && data.data) ? data.data : data as TenantSettings;
-        setSettings((prev) => ({ ...prev, ...settingsData }));
+        // Deep merge: spread each section individually so nested defaults
+        // (e.g. attendance.patternDetection) are preserved when the API
+        // response doesn't include them yet.
+        setSettings((prev) => {
+          const merged = { ...prev } as unknown as Record<string, Record<string, unknown>>;
+          const api = settingsData as unknown as Record<string, Record<string, unknown>>;
+          for (const key of Object.keys(prev)) {
+            const prevSection = merged[key];
+            const apiSection = api[key];
+            if (
+              apiSection &&
+              typeof apiSection === 'object' &&
+              !Array.isArray(apiSection) &&
+              typeof prevSection === 'object' &&
+              prevSection !== null
+            ) {
+              // Two-level deep merge for nested objects (e.g. patternDetection)
+              const mergedSection = { ...prevSection };
+              for (const [sk, sv] of Object.entries(apiSection)) {
+                if (
+                  sv !== null &&
+                  typeof sv === 'object' &&
+                  !Array.isArray(sv) &&
+                  typeof mergedSection[sk] === 'object' &&
+                  mergedSection[sk] !== null
+                ) {
+                  mergedSection[sk] = { ...(mergedSection[sk] as Record<string, unknown>), ...(sv as Record<string, unknown>) };
+                } else {
+                  mergedSection[sk] = sv;
+                }
+              }
+              merged[key] = mergedSection;
+            } else if (apiSection !== undefined) {
+              merged[key] = apiSection;
+            }
+          }
+          return merged as unknown as TenantSettings;
+        });
         if ('warnings' in data && Array.isArray(data.warnings)) {
           setWarnings(data.warnings);
         }
