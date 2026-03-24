@@ -229,6 +229,18 @@ enum DailyAttendanceStatus {
   excused
 }
 
+enum AttendanceAlertType {
+  excessive_absences
+  recurring_day
+  chronic_tardiness
+}
+
+enum AttendanceAlertStatus {
+  active
+  acknowledged
+  resolved
+}
+
 // ─── P4B Enums ──────────────────────────────────────────────────────────────
 
 enum SchedulePeriodType {
@@ -443,7 +455,8 @@ model Tenant {
   school_closures            SchoolClosure[]
   attendance_sessions        AttendanceSession[]
   attendance_records         AttendanceRecord[]
-  daily_attendance_summaries DailyAttendanceSummary[]
+  daily_attendance_summaries  DailyAttendanceSummary[]
+  attendance_pattern_alerts   AttendancePatternAlert[]
 
   // P4B Relations
   schedule_period_templates     SchedulePeriodTemplate[]
@@ -667,6 +680,7 @@ model User {
   school_closures_created       SchoolClosure[]
   attendance_sessions_submitted AttendanceSession[] @relation("session_submitter")
   attendance_records_marked     AttendanceRecord[]  @relation("record_marker")
+  acknowledged_alerts           AttendancePatternAlert[] @relation("alert_acknowledger")
 
   // P4B Relations
   scheduling_runs_created SchedulingRun[] @relation("scheduling_run_created_by")
@@ -1054,8 +1068,9 @@ model Student {
   homeroom_class             Class?                   @relation("homeroom_students", fields: [class_homeroom_id], references: [id], onDelete: SetNull)
   student_parents            StudentParent[]
   class_enrolments           ClassEnrolment[]
-  attendance_records         AttendanceRecord[]
-  daily_attendance_summaries DailyAttendanceSummary[]
+  attendance_records          AttendanceRecord[]
+  daily_attendance_summaries  DailyAttendanceSummary[]
+  attendance_pattern_alerts   AttendancePatternAlert[]
 
   // P5 Relations
   grades                 Grade[]
@@ -1544,6 +1559,7 @@ model AttendanceSession {
   session_date         DateTime                @db.Date
   status               AttendanceSessionStatus
   override_reason      String?                 @db.Text
+  default_present      Boolean?
   submitted_by_user_id String?                 @db.Uuid
   submitted_at         DateTime?               @db.Timestamptz()
   created_at           DateTime                @default(now()) @db.Timestamptz()
@@ -1569,6 +1585,7 @@ model AttendanceRecord {
   student_id            String                 @db.Uuid
   status                AttendanceRecordStatus
   reason                String?                @db.Text
+  arrival_time          String?                @db.VarChar(5)
   marked_by_user_id     String                 @db.Uuid
   marked_at             DateTime               @db.Timestamptz()
   amended_from_status   String?                @db.VarChar(50)
@@ -2806,4 +2823,34 @@ model SearchIndexStatus {
   @@unique([tenant_id, entity_type, entity_id], name: "idx_search_index_status_unique")
   @@index([tenant_id, index_status], name: "idx_search_index_status_pending")
   @@map("search_index_status")
+}
+
+// ─── Attendance Pattern Alerts ──────────────────────────────────────────────
+
+model AttendancePatternAlert {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                @db.Uuid
+  student_id         String                @db.Uuid
+  alert_type         AttendanceAlertType
+  detected_date      DateTime              @db.Date
+  window_start       DateTime              @db.Date
+  window_end         DateTime              @db.Date
+  details_json       Json
+  status             AttendanceAlertStatus @default(active)
+  acknowledged_by    String?               @db.Uuid
+  acknowledged_at    DateTime?             @db.Timestamptz()
+  parent_notified    Boolean               @default(false)
+  parent_notified_at DateTime?             @db.Timestamptz()
+  created_at         DateTime              @default(now()) @db.Timestamptz()
+  updated_at         DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student           Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  acknowledged_user User?   @relation("alert_acknowledger", fields: [acknowledged_by], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, student_id, alert_type, detected_date], name: "idx_pattern_alerts_unique")
+  @@index([tenant_id, student_id], name: "idx_pattern_alerts_tenant_student")
+  @@index([tenant_id, status], name: "idx_pattern_alerts_tenant_status")
+  @@map("attendance_pattern_alerts")
 }
