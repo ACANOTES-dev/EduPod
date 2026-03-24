@@ -35,6 +35,20 @@ export const tenantSettingsSchema = z.object({
       pendingAlertTimeHour: z.number().int().min(0).max(23).default(14),
       /** Days of the week when school is in session. 0=Sunday, 1=Monday, ..., 6=Saturday. */
       workDays: z.array(z.number().int().min(0).max(6)).default([1, 2, 3, 4, 5]),
+      defaultPresentEnabled: z.boolean().default(false),
+      notifyParentOnAbsence: z.boolean().default(false),
+      patternDetection: z
+        .object({
+          enabled: z.boolean().default(false),
+          excessiveAbsenceThreshold: z.number().int().min(1).default(5),
+          excessiveAbsenceWindowDays: z.number().int().min(1).default(14),
+          recurringDayThreshold: z.number().int().min(1).default(3),
+          recurringDayWindowDays: z.number().int().min(1).default(30),
+          tardinessThreshold: z.number().int().min(1).default(4),
+          tardinessWindowDays: z.number().int().min(1).default(14),
+          parentNotificationMode: z.enum(['auto', 'manual']).default('manual'),
+        })
+        .default({}),
     })
     .default({}),
   gradebook: z
@@ -114,6 +128,11 @@ export const tenantSettingsSchema = z.object({
   compliance: z
     .object({
       auditLogRetentionMonths: z.number().int().min(1).default(36),
+    })
+    .default({}),
+  ai: z
+    .object({
+      enabled: z.boolean().default(false),
     })
     .default({}),
 });

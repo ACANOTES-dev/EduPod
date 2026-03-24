@@ -10,6 +10,7 @@ export const MODULE_KEYS = [
   'compliance',
   'parent_inquiries',
   'auto_scheduling',
+  'ai_functions',
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];

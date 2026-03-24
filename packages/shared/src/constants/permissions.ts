@@ -83,6 +83,7 @@ export const PERMISSIONS = {
     take: 'attendance.take',
     amend_historical: 'attendance.amend_historical',
     override_closure: 'attendance.override_closure',
+    view_pattern_reports: 'attendance.view_pattern_reports',
   },
   // Gradebook
   gradebook: {
@@ -192,6 +193,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.attendance.view]: 'admin',
   [PERMISSIONS.attendance.amend_historical]: 'admin',
   [PERMISSIONS.attendance.override_closure]: 'admin',
+  [PERMISSIONS.attendance.view_pattern_reports]: 'admin',
   [PERMISSIONS.gradebook.manage]: 'admin',
   [PERMISSIONS.gradebook.view]: 'admin',
   [PERMISSIONS.gradebook.override_final_grade]: 'admin',
@@ -280,6 +282,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.attendance.view,
     PERMISSIONS.attendance.amend_historical,
     PERMISSIONS.attendance.override_closure,
+    PERMISSIONS.attendance.view_pattern_reports,
     PERMISSIONS.gradebook.manage,
     PERMISSIONS.gradebook.view,
     PERMISSIONS.gradebook.override_final_grade,
@@ -333,6 +336,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.attendance.view,
     PERMISSIONS.attendance.amend_historical,
     PERMISSIONS.attendance.override_closure,
+    PERMISSIONS.attendance.view_pattern_reports,
     PERMISSIONS.gradebook.manage,
     PERMISSIONS.gradebook.view,
     PERMISSIONS.gradebook.override_final_grade,

@@ -80,3 +80,66 @@ export interface TeacherDashboardData {
   }>;
   pending_submissions: number;
 }
+
+export type AttendanceAlertType = 'excessive_absences' | 'recurring_day' | 'chronic_tardiness';
+export type AttendanceAlertStatus = 'active' | 'acknowledged' | 'resolved';
+
+export interface AttendancePatternAlert {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  alert_type: AttendanceAlertType;
+  detected_date: string;
+  window_start: string;
+  window_end: string;
+  details_json: ExcessiveAbsenceDetails | RecurringDayDetails | TardinessDetails;
+  status: AttendanceAlertStatus;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+  parent_notified: boolean;
+  parent_notified_at: string | null;
+  created_at: string;
+  /** Relations (optional, populated by includes) */
+  student?: { id: string; first_name: string; last_name: string; student_number: string };
+}
+
+export interface ExcessiveAbsenceDetails {
+  count: number;
+  threshold: number;
+  window_days: number;
+}
+
+export interface RecurringDayDetails {
+  day_of_week: number;
+  day_name: string;
+  count: number;
+  threshold: number;
+  dates: string[];
+}
+
+export interface TardinessDetails {
+  count: number;
+  threshold: number;
+  window_days: number;
+}
+
+export interface ScanResultEntry {
+  student_number: string;
+  status: 'absent_unexcused' | 'absent_excused' | 'late' | 'left_early';
+  reason?: string;
+  confidence: 'high' | 'low';
+  resolved_student_name?: string;
+  resolved_student_id?: string;
+  error?: string;
+}
+
+export interface ScanResult {
+  entries: ScanResultEntry[];
+  raw_ai_response?: string;
+}
+
+export interface QuickMarkEntry {
+  student_number: string;
+  status: string;
+  reason?: string;
+}
