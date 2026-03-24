@@ -115,6 +115,9 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
 
   // ─── Admin tier — Analytics ────────────────────────────────────────────────
   { permission_key: 'analytics.view', description: 'View analytics dashboards and reports', permission_tier: 'admin' },
+  { permission_key: 'analytics.manage_reports', description: 'Create custom reports, schedule delivery, and set threshold alerts', permission_tier: 'admin' },
+  { permission_key: 'analytics.view_board_reports', description: 'View and generate board governance reports', permission_tier: 'admin' },
+  { permission_key: 'analytics.manage_compliance', description: 'Configure compliance report templates for regulatory submissions', permission_tier: 'admin' },
 
   // ─── Admin tier — Compliance ───────────────────────────────────────────────
   { permission_key: 'compliance.manage', description: 'Manage compliance and GDPR settings', permission_tier: 'admin' },

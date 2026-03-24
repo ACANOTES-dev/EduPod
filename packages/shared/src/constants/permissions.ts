@@ -158,6 +158,9 @@ export const PERMISSIONS = {
   // Analytics (admin)
   analytics: {
     view: 'analytics.view',
+    manage_reports: 'analytics.manage_reports',
+    view_board_reports: 'analytics.view_board_reports',
+    manage_compliance: 'analytics.manage_compliance',
   },
   // Compliance (admin)
   compliance: {
@@ -265,6 +268,9 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.inquiries.respond]: 'admin',
   [PERMISSIONS.website.manage]: 'admin',
   [PERMISSIONS.analytics.view]: 'admin',
+  [PERMISSIONS.analytics.manage_reports]: 'admin',
+  [PERMISSIONS.analytics.view_board_reports]: 'admin',
+  [PERMISSIONS.analytics.manage_compliance]: 'admin',
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
 
@@ -379,6 +385,9 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.inquiries.respond,
     PERMISSIONS.website.manage,
     PERMISSIONS.analytics.view,
+    PERMISSIONS.analytics.manage_reports,
+    PERMISSIONS.analytics.view_board_reports,
+    PERMISSIONS.analytics.manage_compliance,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
   ],
@@ -439,6 +448,9 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.inquiries.respond,
     PERMISSIONS.website.manage,
     PERMISSIONS.analytics.view,
+    PERMISSIONS.analytics.manage_reports,
+    PERMISSIONS.analytics.view_board_reports,
+    PERMISSIONS.analytics.manage_compliance,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
   ],

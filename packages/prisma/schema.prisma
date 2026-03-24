@@ -612,6 +612,13 @@ model Tenant {
   scheduling_scenarios         SchedulingScenario[]
   rotation_configs             RotationConfig[]
 
+  // Reports World-Class Relations
+  saved_reports               SavedReport[]
+  board_reports               BoardReport[]
+  compliance_report_templates ComplianceReportTemplate[]
+  scheduled_reports           ScheduledReport[]
+  report_alerts               ReportAlert[]
+
   @@map("tenants")
 }
 
@@ -849,6 +856,12 @@ model User {
   substitutions_assigned       SubstitutionRecord[]        @relation("substitution_assigner")
   calendar_subscription_tokens CalendarSubscriptionToken[] @relation("calendar_token_owner")
   scheduling_scenarios_created SchedulingScenario[]        @relation("scenario_creator")
+
+  // Reports World-Class Relations
+  saved_reports_created     SavedReport[]     @relation("saved_report_creator")
+  board_reports_generated   BoardReport[]     @relation("board_report_generator")
+  scheduled_reports_created ScheduledReport[] @relation("scheduled_report_creator")
+  report_alerts_created     ReportAlert[]     @relation("report_alert_creator")
 
   @@map("users")
 }
@@ -1388,6 +1401,9 @@ model AcademicPeriod {
 
   // Scheduling World-Class Relations
   exam_sessions ExamSession[]
+
+  // Reports World-Class Relations
+  board_reports BoardReport[]
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
@@ -4369,4 +4385,112 @@ model StaffRecurringDeduction {
 
   @@index([tenant_id, staff_profile_id], name: "idx_staff_deductions_tenant_staff")
   @@map("staff_recurring_deductions")
+}
+
+// ─── Reports World-Class Models ──────────────────────────────────────────────
+
+model SavedReport {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  name               String   @db.VarChar(255)
+  data_source        String   @db.VarChar(50)
+  dimensions_json    Json
+  measures_json      Json
+  filters_json       Json
+  chart_type         String?  @db.VarChar(50)
+  is_shared          Boolean  @default(false)
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("saved_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, name], name: "idx_saved_reports_tenant_name")
+  @@index([tenant_id], name: "idx_saved_reports_tenant")
+  @@map("saved_reports")
+}
+
+model BoardReport {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String   @db.Uuid
+  title                String   @db.VarChar(255)
+  academic_period_id   String?  @db.Uuid
+  report_type          String   @db.VarChar(50)
+  sections_json        Json
+  generated_at         DateTime @db.Timestamptz()
+  generated_by_user_id String   @db.Uuid
+  file_url             String?  @db.Text
+  created_at           DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  generated_by User            @relation("board_report_generator", fields: [generated_by_user_id], references: [id], onDelete: SetNull)
+  period       AcademicPeriod? @relation(fields: [academic_period_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id], name: "idx_board_reports_tenant")
+  @@map("board_reports")
+}
+
+model ComplianceReportTemplate {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  name         String   @db.VarChar(255)
+  country_code String   @db.VarChar(2)
+  fields_json  Json
+  created_at   DateTime @default(now()) @db.Timestamptz()
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], name: "idx_compliance_report_templates_tenant")
+  @@map("compliance_report_templates")
+}
+
+model ScheduledReport {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
+  name               String    @db.VarChar(255)
+  report_type        String    @db.VarChar(100)
+  parameters_json    Json
+  schedule_cron      String    @db.VarChar(100)
+  recipient_emails   Json
+  format             String    @db.VarChar(10)
+  active             Boolean   @default(true)
+  last_sent_at       DateTime? @db.Timestamptz()
+  created_by_user_id String    @db.Uuid
+  created_at         DateTime  @default(now()) @db.Timestamptz()
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("scheduled_report_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, active], name: "idx_scheduled_reports_tenant_active")
+  @@map("scheduled_reports")
+}
+
+model ReportAlert {
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String    @db.Uuid
+  name                         String    @db.VarChar(255)
+  metric                       String    @db.VarChar(100)
+  operator                     String    @db.VarChar(10)
+  threshold                    Decimal   @db.Decimal(12, 2)
+  check_frequency              String    @db.VarChar(20)
+  notification_recipients_json Json
+  active                       Boolean   @default(true)
+  last_triggered_at            DateTime? @db.Timestamptz()
+  created_by_user_id           String    @db.Uuid
+  created_at                   DateTime  @default(now()) @db.Timestamptz()
+  updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User   @relation("report_alert_creator", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, active], name: "idx_report_alerts_tenant_active")
+  @@map("report_alerts")
 }

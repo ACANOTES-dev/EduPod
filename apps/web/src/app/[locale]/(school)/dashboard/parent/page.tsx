@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
+import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';
 import { GradesTab } from './_components/grades-tab';
 import { TimetableTab } from './_components/timetable-tab';
@@ -119,6 +120,11 @@ export default function ParentDashboardPage() {
       {/* Overview tab */}
       {(activeTab === 'overview' || !hasChildren) && (
         <div className="space-y-8">
+          {/* AI Insight Card */}
+          {!loading && hasChildren && (
+            <AiInsightCard students={data?.students ?? []} />
+          )}
+
           {/* Linked students */}
           <section>
             <h2 className="mb-3 text-base font-semibold text-text-primary">
