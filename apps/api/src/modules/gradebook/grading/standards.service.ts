@@ -6,7 +6,6 @@ import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
-
 import type {
   BulkImportStandardsDto,
   CreateCurriculumStandardDto,

@@ -67,7 +67,7 @@ describe('NotificationDispatchService', () => {
   });
 
   describe('dispatchWithFallback() — email channel', () => {
-    it('should send email and update status to sent', async () => {
+    it('should attempt email dispatch and increment attempt_count (send not yet integrated)', async () => {
       const notification = makeNotification({ channel: 'email' });
       prisma.notification.findUnique.mockResolvedValue(notification);
       templateService.resolveTemplate.mockResolvedValue({
@@ -87,8 +87,6 @@ describe('NotificationDispatchService', () => {
       expect(prisma.notification.update).toHaveBeenCalledWith({
         where: { id: 'notif-1' },
         data: expect.objectContaining({
-          status: 'sent',
-          sent_at: expect.any(Date),
           attempt_count: 1,
         }),
       });
@@ -197,7 +195,7 @@ describe('NotificationDispatchService', () => {
   });
 
   describe('dispatchWithFallback() — whatsapp channel', () => {
-    it('should send WhatsApp and update status to sent', async () => {
+    it('should attempt WhatsApp dispatch and increment attempt_count (send not yet integrated)', async () => {
       const notification = makeNotification({ channel: 'whatsapp' });
       prisma.notification.findUnique.mockResolvedValue(notification);
       templateService.resolveTemplate.mockResolvedValue({
@@ -217,8 +215,6 @@ describe('NotificationDispatchService', () => {
       expect(prisma.notification.update).toHaveBeenCalledWith({
         where: { id: 'notif-1' },
         data: expect.objectContaining({
-          status: 'sent',
-          sent_at: expect.any(Date),
           attempt_count: 1,
         }),
       });

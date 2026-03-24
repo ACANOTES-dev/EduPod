@@ -71,7 +71,16 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'gradebook.view', description: 'View gradebook data', permission_tier: 'admin' },
   { permission_key: 'gradebook.override_final_grade', description: 'Override computed period grade display value', permission_tier: 'admin' },
   { permission_key: 'gradebook.publish_report_cards', description: 'Publish report cards to parents', permission_tier: 'admin' },
+  { permission_key: 'gradebook.apply_curve', description: 'Apply grade curves and adjustments to assessment scores', permission_tier: 'admin' },
+  { permission_key: 'gradebook.view_analytics', description: 'View gradebook analytics and performance reports', permission_tier: 'admin' },
+  { permission_key: 'gradebook.publish_grades_to_parents', description: 'Publish individual grades to parent portal', permission_tier: 'admin' },
+  { permission_key: 'gradebook.approve_ai_grading', description: 'Review and approve AI-generated grading suggestions', permission_tier: 'admin' },
   { permission_key: 'transcripts.generate', description: 'Generate academic transcripts', permission_tier: 'admin' },
+
+  // ─── Admin tier — Report Cards ─────────────────────────────────────────────
+  { permission_key: 'report_cards.approve', description: 'Approve report cards before publishing', permission_tier: 'admin' },
+  { permission_key: 'report_cards.manage_templates', description: 'Create and manage report card templates', permission_tier: 'admin' },
+  { permission_key: 'report_cards.bulk_operations', description: 'Perform bulk operations on report cards (generate, publish, export)', permission_tier: 'admin' },
 
   // ─── Admin tier — Admissions ───────────────────────────────────────────────
   { permission_key: 'admissions.manage', description: 'Manage admissions applications and workflows', permission_tier: 'admin' },
@@ -105,6 +114,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   // ─── Staff tier ────────────────────────────────────────────────────────────
   { permission_key: 'attendance.take', description: 'Take attendance for assigned classes', permission_tier: 'staff' },
   { permission_key: 'gradebook.enter_grades', description: 'Enter grades for assigned classes', permission_tier: 'staff' },
+  { permission_key: 'gradebook.manage_ai_grading', description: 'Configure and use AI grading for assigned classes', permission_tier: 'staff' },
   { permission_key: 'schedule.view_own', description: 'View own schedule', permission_tier: 'staff' },
   { permission_key: 'schedule.manage_own_preferences', description: 'Manage own scheduling preferences', permission_tier: 'staff' },
   { permission_key: 'schedule.view_own_satisfaction', description: 'View own preference satisfaction score', permission_tier: 'staff' },

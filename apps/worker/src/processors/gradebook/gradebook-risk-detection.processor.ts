@@ -77,16 +77,42 @@ export class GradebookRiskDetectionProcessor extends WorkerHost {
 
     const { tenant_id } = job.data;
 
-    if (!tenant_id) {
-      throw new Error('Job rejected: missing tenant_id in payload.');
+    if (tenant_id) {
+      // Per-tenant mode: dispatched explicitly for a single tenant
+      this.logger.log(
+        `Processing ${GRADEBOOK_DETECT_RISKS_JOB} — tenant ${tenant_id}`,
+      );
+      const innerJob = new GradebookRiskDetectionJob(this.prisma);
+      await innerJob.execute(job.data);
+      return;
+    }
+
+    // Cross-tenant cron mode: iterate all active tenants
+    this.logger.log(
+      `Processing ${GRADEBOOK_DETECT_RISKS_JOB} — cross-tenant cron run`,
+    );
+
+    const tenants = await this.prisma.tenant.findMany({
+      where: { status: 'active' },
+      select: { id: true },
+    });
+
+    let successCount = 0;
+    for (const tenant of tenants) {
+      const innerJob = new GradebookRiskDetectionJob(this.prisma);
+      try {
+        await innerJob.execute({ tenant_id: tenant.id });
+        successCount++;
+      } catch (err: unknown) {
+        this.logger.error(
+          `Risk detection failed for tenant ${tenant.id}: ${String(err)}`,
+        );
+      }
     }
 
     this.logger.log(
-      `Processing ${GRADEBOOK_DETECT_RISKS_JOB} — tenant ${tenant_id}`,
+      `${GRADEBOOK_DETECT_RISKS_JOB} cron complete: ${successCount}/${tenants.length} tenants processed`,
     );
-
-    const innerJob = new GradebookRiskDetectionJob(this.prisma);
-    await innerJob.execute(job.data);
   }
 }
 

@@ -277,6 +277,7 @@ export class AttendanceUploadService {
     const students = await this.prisma.student.findMany({
       where: { tenant_id: tenantId },
       select: { id: true, student_number: true },
+      take: 1000,
     });
     const studentByNumber = new Map<string, string>();
     for (const s of students) {
@@ -580,6 +581,7 @@ export class AttendanceUploadService {
     const students = await this.prisma.student.findMany({
       where: { tenant_id: tenantId },
       select: { id: true, student_number: true },
+      take: 1000,
     });
     const studentByNumber = new Map<string, string>();
     for (const s of students) {

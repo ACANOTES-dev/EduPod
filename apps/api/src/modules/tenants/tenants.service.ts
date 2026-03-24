@@ -204,7 +204,7 @@ export class TenantsService {
     }
 
     // Create tenant-scoped system roles + assign permissions
-    const allPermissions = await this.prisma.permission.findMany();
+    const allPermissions = await this.prisma.permission.findMany({ take: 1000 });
     const permissionMap = new Map<string, string>();
     for (const p of allPermissions) {
       permissionMap.set(p.permission_key, p.id);

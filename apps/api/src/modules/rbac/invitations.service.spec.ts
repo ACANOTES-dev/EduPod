@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -89,6 +90,7 @@ describe('InvitationsService', () => {
       providers: [
         InvitationsService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: getQueueToken('notifications'), useValue: { add: jest.fn() } },
       ],
     }).compile();
 

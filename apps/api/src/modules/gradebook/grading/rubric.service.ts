@@ -7,7 +7,6 @@ import {
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
-
 import type {
   CreateRubricTemplateDto,
   SaveRubricGradesDto,

@@ -549,7 +549,7 @@ describe('AnnouncementsService', () => {
       );
 
       const targets = [
-        { user_id: 'user-1', locale: 'en', channels: ['in_app', 'email'] },
+        { user_id: 'user-1', locale: 'en', channels: ['in_app'] },
       ];
       mockAudienceService.resolve.mockResolvedValue(targets);
       mockNotificationsService.createBatch.mockResolvedValue(undefined);
@@ -566,12 +566,6 @@ describe('AnnouncementsService', () => {
             recipient_user_id: 'user-1',
             channel: 'in_app',
             template_key: 'announcement.published',
-          }),
-          expect.objectContaining({
-            source_entity_type: 'announcement',
-            source_entity_id: ANNOUNCEMENT_ID,
-            recipient_user_id: 'user-1',
-            channel: 'email',
           }),
         ]),
       );

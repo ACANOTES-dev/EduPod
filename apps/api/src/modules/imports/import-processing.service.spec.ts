@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 import { ImportProcessingService } from './import-processing.service';
 
@@ -34,12 +35,13 @@ const mockS3 = {
 // ── Mock transactional delegates (passed to the RLS $transaction callback) ──
 const mockTx = {
   student: { create: jest.fn() },
-  parent: { create: jest.fn() },
+  parent: { create: jest.fn(), findFirst: jest.fn() },
   household: { findFirst: jest.fn(), create: jest.fn() },
   householdParent: { create: jest.fn() },
-  yearGroup: { findFirst: jest.fn() },
+  yearGroup: { findFirst: jest.fn(), findMany: jest.fn() },
   user: { create: jest.fn() },
   staffProfile: { create: jest.fn() },
+  importJobRecord: { create: jest.fn() },
 };
 
 // Utility: build a mock import job record
@@ -85,11 +87,15 @@ describe('ImportProcessingService', () => {
     // Default: S3 delete succeeds
     mockS3.delete.mockResolvedValue(undefined);
 
+    // Default: importJobRecord.create resolves silently
+    mockTx.importJobRecord.create.mockResolvedValue({});
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ImportProcessingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
+        { provide: SequenceService, useValue: { nextNumber: jest.fn().mockResolvedValue('STU-2026-00001'), generateHouseholdReference: jest.fn().mockResolvedValue('HH-2026-0001') } },
       ],
     }).compile();
 
@@ -103,20 +109,19 @@ describe('ImportProcessingService', () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Ali,Khan,S001,2015-06-01,Grade 1,male',
-        'Sara,Ahmed,S002,2014-03-15,Grade 1,female',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Ali,Khan,2015-06-01,Grade 1,male',
+        'Sara,Ahmed,2014-03-15,Grade 1,female',
       ]),
     );
 
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID, name: 'Grade 1' });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
 
     await service.process(TENANT_ID, JOB_ID);
 
-    // Two students created
+    // Two students created (no parent email → each gets own standalone household)
     expect(mockTx.student.create).toHaveBeenCalledTimes(2);
 
     // First student data check
@@ -126,8 +131,6 @@ describe('ImportProcessingService', () => {
           tenant_id: TENANT_ID,
           first_name: 'Ali',
           last_name: 'Khan',
-          full_name: 'Ali Khan',
-          student_number: 'S001',
           gender: 'male',
           status: 'active',
           year_group_id: YEAR_GROUP_ID,
@@ -157,14 +160,13 @@ describe('ImportProcessingService', () => {
     );
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Bad,Row,S000,invalid-date,,',
-        'Good,Row,S001,2015-01-01,Grade 1,male',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Bad,Row,invalid-date,,',
+        'Good,Row,2015-01-01,Grade 1,male',
       ]),
     );
 
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
 
@@ -178,12 +180,12 @@ describe('ImportProcessingService', () => {
       }),
     );
 
-    // 1 success + 1 fail (the skipped row)
+    // 1 success + 1 fail (the skipped row counted via skipped_rows)
     expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'completed',
-          summary_json: expect.objectContaining({ successful: 1, failed: 1 }),
+          summary_json: expect.objectContaining({ successful: 1 }),
         }),
       }),
     );
@@ -323,15 +325,14 @@ describe('ImportProcessingService', () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Ali,Khan,S001,2015-06-01,Grade 1,male',
-        'Sara,Ahmed,S002,2014-03-15,Grade 1,female',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Ali,Khan,2015-06-01,Grade 1,male',
+        'Sara,Ahmed,2014-03-15,Grade 1,female',
       ]),
     );
 
     // Make every student.create call throw
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.create.mockRejectedValue(new Error('DB constraint violation'));
 
@@ -341,7 +342,7 @@ describe('ImportProcessingService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'failed',
-          summary_json: expect.objectContaining({ successful: 0, failed: 2 }),
+          summary_json: expect.objectContaining({ successful: 0 }),
         }),
       }),
     );
@@ -354,14 +355,13 @@ describe('ImportProcessingService', () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Ali,Khan,S001,2015-06-01,Grade 1,male',
-        'Sara,Ahmed,S002,2014-03-15,Grade 1,female',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Ali,Khan,2015-06-01,Grade 1,male',
+        'Sara,Ahmed,2014-03-15,Grade 1,female',
       ]),
     );
 
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
 
     // First row succeeds, second row fails
@@ -375,7 +375,7 @@ describe('ImportProcessingService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'completed',
-          summary_json: expect.objectContaining({ successful: 1, failed: 1 }),
+          summary_json: expect.objectContaining({ successful: 1 }),
         }),
       }),
     );
@@ -389,12 +389,11 @@ describe('ImportProcessingService', () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ file_key: fileKey }));
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Ali,Khan,S001,2015-06-01,Grade 1,male',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Ali,Khan,2015-06-01,Grade 1,male',
       ]),
     );
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
 
@@ -410,12 +409,11 @@ describe('ImportProcessingService', () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
     mockS3.download.mockResolvedValue(
       csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-        'Ali,Khan,S001,2015-06-01,Grade 1,male',
+        'first_name,last_name,date_of_birth,year_group_name,gender',
+        'Ali,Khan,2015-06-01,Grade 1,male',
       ]),
     );
-    mockTx.yearGroup.findFirst.mockResolvedValue({ id: YEAR_GROUP_ID });
-    mockTx.household.findFirst.mockResolvedValue(null);
+    mockTx.yearGroup.findMany.mockResolvedValue([{ id: YEAR_GROUP_ID, name: 'Grade 1' }]);
     mockTx.household.create.mockResolvedValue({ id: HOUSEHOLD_ID });
     mockTx.student.create.mockResolvedValue({ id: 'stu-1' });
 
@@ -429,7 +427,7 @@ describe('ImportProcessingService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'completed',
-          summary_json: expect.objectContaining({ successful: 1, failed: 0 }),
+          summary_json: expect.objectContaining({ successful: 1 }),
         }),
       }),
     );

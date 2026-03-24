@@ -8,7 +8,6 @@ import { Prisma, $Enums } from '@prisma/client';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
-
 import type { UpdateReportCardDto } from '../dto/gradebook.dto';
 
 interface ListReportCardsParams {

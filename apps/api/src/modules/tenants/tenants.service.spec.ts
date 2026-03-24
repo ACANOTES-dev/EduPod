@@ -207,9 +207,9 @@ describe('TenantsService', () => {
         }),
       );
 
-      // Modules created — one per MODULE_KEY (11 total)
+      // Modules created — one per MODULE_KEY
       expect(mockPrisma.tenantModule.create).toHaveBeenCalledTimes(MODULE_KEYS.length);
-      expect(MODULE_KEYS.length).toBe(11);
+      expect(MODULE_KEYS.length).toBe(12);
 
       // Each MODULE_KEY created with is_enabled: true
       for (const moduleKey of MODULE_KEYS) {

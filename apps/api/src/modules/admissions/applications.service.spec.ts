@@ -24,6 +24,7 @@ describe('ApplicationsService', () => {
       findFirst: jest.Mock;
       findMany: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       count: jest.Mock;
     };
     applicationNote: { create: jest.Mock; findFirst: jest.Mock };
@@ -36,7 +37,7 @@ describe('ApplicationsService', () => {
     studentParent: { create: jest.Mock };
     $queryRaw: jest.Mock;
   };
-  let mockSequenceService: { nextNumber: jest.Mock };
+  let mockSequenceService: { nextNumber: jest.Mock; generateHouseholdReference: jest.Mock };
   let mockRateLimitService: { checkAndIncrement: jest.Mock };
   let mockApprovalRequestsService: { checkAndCreateIfNeeded: jest.Mock };
   let mockSearchIndexService: { indexEntity: jest.Mock };
@@ -76,6 +77,7 @@ describe('ApplicationsService', () => {
         findFirst: jest.fn(),
         findMany: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         count: jest.fn(),
       },
       applicationNote: {
@@ -111,6 +113,7 @@ describe('ApplicationsService', () => {
 
     mockSequenceService = {
       nextNumber: jest.fn(),
+      generateHouseholdReference: jest.fn().mockResolvedValue('HH-2026-0001'),
     };
 
     mockRateLimitService = {
@@ -356,15 +359,18 @@ describe('ApplicationsService', () => {
         status: 'submitted',
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
-      mockPrisma.application.findFirst.mockResolvedValue(app);
-      mockPrisma.application.update.mockResolvedValue({
-        ...app,
-        status: 'rejected',
-      });
+      const rejectedApp = { ...app, status: 'rejected', rejection_reason: 'Does not meet criteria' };
+      // First findFirst returns the app for status check; second returns after update
+      mockPrisma.application.findFirst
+        .mockResolvedValueOnce(app)
+        .mockResolvedValueOnce(rejectedApp);
+      mockPrisma.application.update.mockResolvedValue(rejectedApp);
+      mockPrisma.applicationNote.create.mockResolvedValue({});
 
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'rejected',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
+        rejection_reason: 'Does not meet criteria',
       }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
@@ -424,15 +430,17 @@ describe('ApplicationsService', () => {
         status: 'under_review',
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
-      mockPrisma.application.findFirst.mockResolvedValue(app);
-      mockPrisma.application.update.mockResolvedValue({
-        ...app,
-        status: 'rejected',
-      });
+      const rejectedApp = { ...app, status: 'rejected', rejection_reason: 'Not suitable' };
+      mockPrisma.application.findFirst
+        .mockResolvedValueOnce(app)
+        .mockResolvedValueOnce(rejectedApp);
+      mockPrisma.application.update.mockResolvedValue(rejectedApp);
+      mockPrisma.applicationNote.create.mockResolvedValue({});
 
       const result = await service.review(TENANT_ID, 'app-1', {
         status: 'rejected',
         expected_updated_at: '2026-01-01T00:00:00.000Z',
+        rejection_reason: 'Not suitable',
       }, USER_ID) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
@@ -540,6 +548,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: 'yg-1', name: 'Grade 1' });
       mockPrisma.parent.create.mockResolvedValue({ id: 'parent-new' });
       mockPrisma.household.create.mockResolvedValue({
@@ -580,6 +589,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: 'yg-1' });
       mockPrisma.parent.findFirst.mockResolvedValue({ id: 'existing-parent' });
       mockPrisma.household.create.mockResolvedValue({
@@ -615,6 +625,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: 'yg-1' });
       mockPrisma.parent.create.mockResolvedValue({ id: 'new-parent' });
       mockPrisma.household.create.mockResolvedValue({
@@ -652,6 +663,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: 'yg-1' });
       mockPrisma.parent.create
         .mockResolvedValueOnce({ id: 'parent1' })
@@ -703,6 +715,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -716,6 +729,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(
         service.convert(TENANT_ID, 'app-1', {
@@ -731,6 +745,7 @@ describe('ApplicationsService', () => {
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
       mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue({ id: 'yg-1' });
       mockPrisma.parent.create.mockResolvedValue({ id: 'p1' });
       mockPrisma.household.create.mockResolvedValue({

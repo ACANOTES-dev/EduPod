@@ -4,7 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 import { QUEUE_NAMES } from './base/queue.constants';
+import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { WorkerHealthController } from './health/worker-health.controller';
+import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
@@ -22,6 +24,7 @@ import { OverdueDetectionProcessor } from './processors/finance/overdue-detectio
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
 import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
+import { ReportCardAutoGenerateProcessor } from './processors/gradebook/report-card-auto-generate.processor';
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
@@ -31,7 +34,6 @@ import { PayrollSessionGenerationProcessor } from './processors/payroll/session-
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingSolverProcessor } from './processors/scheduling-solver.processor';
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
-import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 
@@ -124,6 +126,9 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     MassReportCardPdfProcessor,
     BulkImportProcessor,
     GradebookRiskDetectionProcessor,
+    ReportCardAutoGenerateProcessor,
+    // Cron scheduler — registers repeatable BullMQ jobs on startup
+    CronSchedulerService,
     // Finance queue processors
     OverdueDetectionProcessor,
     InvoiceApprovalCallbackProcessor,

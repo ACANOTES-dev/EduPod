@@ -7,7 +7,6 @@ import {
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
-
 import { AiProgressSummaryService } from '../ai/ai-progress-summary.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

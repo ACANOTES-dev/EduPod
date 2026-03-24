@@ -49,6 +49,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage', 'attendance.view', 'attendance.take',
       'gradebook.manage', 'gradebook.view', 'gradebook.enter_grades',
       'gradebook.override_final_grade', 'gradebook.publish_report_cards',
+      'gradebook.apply_curve', 'gradebook.view_analytics',
+      'gradebook.publish_grades_to_parents', 'gradebook.manage_ai_grading',
+      'gradebook.approve_ai_grading',
+      'report_cards.approve', 'report_cards.manage_templates', 'report_cards.bulk_operations',
       'transcripts.generate',
       // Admissions, Finance
       'admissions.manage', 'admissions.view',
@@ -78,6 +82,10 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'attendance.manage', 'attendance.view', 'attendance.take',
       'gradebook.manage', 'gradebook.view', 'gradebook.enter_grades',
       'gradebook.override_final_grade', 'gradebook.publish_report_cards',
+      'gradebook.apply_curve', 'gradebook.view_analytics',
+      'gradebook.publish_grades_to_parents', 'gradebook.manage_ai_grading',
+      'gradebook.approve_ai_grading',
+      'report_cards.approve', 'report_cards.manage_templates', 'report_cards.bulk_operations',
       'transcripts.generate',
       // Admissions
       'admissions.manage', 'admissions.view',
@@ -98,7 +106,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     default_permissions: [
       'students.view',
       'attendance.take', 'attendance.view',
-      'gradebook.enter_grades', 'gradebook.view',
+      'gradebook.enter_grades', 'gradebook.view', 'gradebook.manage_ai_grading',
       'schedule.view_own',
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',

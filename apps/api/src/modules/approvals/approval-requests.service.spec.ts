@@ -1,3 +1,4 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -65,6 +66,9 @@ describe('ApprovalRequestsService', () => {
           provide: PrismaService,
           useValue: mockPrisma,
         },
+        { provide: getQueueToken('notifications'), useValue: { add: jest.fn() } },
+        { provide: getQueueToken('finance'), useValue: { add: jest.fn() } },
+        { provide: getQueueToken('payroll'), useValue: { add: jest.fn() } },
       ],
     }).compile();
 

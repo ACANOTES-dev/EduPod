@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Input, Label, toast } from '@school/ui';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -130,10 +131,13 @@ export default function BrandingPage() {
           {/* Logo preview */}
           <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-surface-secondary">
             {logoUrl ? (
-              <img
+              <Image
                 src={logoUrl}
                 alt={t('logo')}
+                width={64}
+                height={64}
                 className="h-full w-full rounded-xl object-contain"
+                unoptimized
               />
             ) : (
               <span className="text-xs text-text-tertiary">{t('noLogo')}</span>
