@@ -165,22 +165,31 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
     }
 
     // 3. Flatten into GradeDataPoint array with percentage scores
-    const grades: GradeDataPoint[] = gradeRows.map((g) => {
-      const rawScore = Number(g.raw_score);
-      const maxScore = Number(g.assessment.max_score);
-      const pct = maxScore > 0 ? (rawScore / maxScore) * 100 : 0;
-      return {
-        assessment_id: g.assessment_id,
-        student_id: g.student_id,
-        subject_id: g.assessment.subject_id,
-        class_id: g.assessment.class_id,
-        raw_score: rawScore,
-        max_score: maxScore,
-        pct,
-        entered_by_user_id: g.entered_by_user_id,
-        created_at: g.created_at,
-      };
-    });
+    const grades: GradeDataPoint[] = gradeRows.map(
+      (g: {
+        raw_score: unknown;
+        assessment_id: string;
+        student_id: string;
+        entered_by_user_id: string;
+        created_at: Date;
+        assessment: { max_score: unknown; subject_id: string; class_id: string };
+      }) => {
+        const rawScore = Number(g.raw_score);
+        const maxScore = Number(g.assessment.max_score);
+        const pct = maxScore > 0 ? (rawScore / maxScore) * 100 : 0;
+        return {
+          assessment_id: g.assessment_id,
+          student_id: g.student_id,
+          subject_id: g.assessment.subject_id,
+          class_id: g.assessment.class_id,
+          raw_score: rawScore,
+          max_score: maxScore,
+          pct,
+          entered_by_user_id: g.entered_by_user_id,
+          created_at: g.created_at,
+        };
+      },
+    );
 
     // 4. Get active students
     const students = await tx.student.findMany({
@@ -188,7 +197,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
       select: { id: true },
     });
 
-    const activeStudentIds = new Set(students.map((s) => s.id));
+    const activeStudentIds = new Set(students.map((s: { id: string }) => s.id));
 
     const today = new Date();
     const detectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());

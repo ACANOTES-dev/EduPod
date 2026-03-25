@@ -90,7 +90,7 @@ export class ReportCardAutoGenerateProcessor extends WorkerHost {
         distinct: ['student_id'],
       });
 
-      const studentIds = enrolments.map((e) => e.student_id);
+      const studentIds = enrolments.map((e: { student_id: string }) => e.student_id);
 
       if (studentIds.length === 0) {
         this.logger.log(
@@ -108,9 +108,9 @@ export class ReportCardAutoGenerateProcessor extends WorkerHost {
         },
         select: { student_id: true },
       });
-      const existingStudentIds = new Set(existing.map((r) => r.student_id));
+      const existingStudentIds = new Set(existing.map((r: { student_id: string }) => r.student_id));
 
-      const missing = studentIds.filter((id) => !existingStudentIds.has(id));
+      const missing = studentIds.filter((id: string) => !existingStudentIds.has(id));
 
       if (missing.length === 0) {
         this.logger.log(
@@ -121,7 +121,7 @@ export class ReportCardAutoGenerateProcessor extends WorkerHost {
 
       // Batch-create draft report cards for missing students
       await this.prisma.reportCard.createMany({
-        data: missing.map((studentId) => ({
+        data: missing.map((studentId: string) => ({
           tenant_id: tenantId,
           student_id: studentId,
           academic_period_id: period.id,
