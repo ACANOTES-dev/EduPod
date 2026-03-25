@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -59,21 +60,61 @@ export class ClassesService {
     try {
       return await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
+
+        // Validate room assignment for fixed classes
+        const homeroomId = (dto as Record<string, unknown>).homeroom_id as string | undefined;
+        if (homeroomId) {
+          const room = await db.room.findFirst({
+            where: { id: homeroomId, tenant_id: tenantId, active: true },
+            select: { id: true, name: true, capacity: true },
+          });
+          if (!room) {
+            throw new NotFoundException({
+              code: 'ROOM_NOT_FOUND',
+              message: 'Selected classroom not found',
+            });
+          }
+          // Check capacity
+          const classSize = (dto as Record<string, unknown>).max_capacity as number | undefined;
+          if (classSize && room.capacity && classSize > room.capacity) {
+            throw new BadRequestException({
+              code: 'ROOM_CAPACITY_EXCEEDED',
+              message: `Class size (${classSize}) exceeds room "${room.name}" capacity (${room.capacity})`,
+            });
+          }
+          // Check exclusivity — room must not be assigned to another class
+          const existingClass = await db.class.findFirst({
+            where: {
+              tenant_id: tenantId,
+              homeroom_id: homeroomId,
+              status: { in: ['active', 'inactive'] },
+            },
+            select: { id: true, name: true },
+          });
+          if (existingClass) {
+            throw new BadRequestException({
+              code: 'ROOM_ALREADY_ASSIGNED',
+              message: `Room is already assigned to class "${existingClass.name}"`,
+            });
+          }
+        }
+
         return db.class.create({
           data: {
             tenant_id: tenantId,
             academic_year_id: dto.academic_year_id,
             year_group_id: dto.year_group_id ?? null,
-            subject_id: dto.subject_id ?? null,
+            subject_id: null,
             homeroom_teacher_staff_id: dto.homeroom_teacher_staff_id ?? null,
+            homeroom_id: homeroomId ?? null,
             name: dto.name,
-            max_capacity: dto.max_capacity ?? null,
+            max_capacity: (dto as Record<string, unknown>).max_capacity as number ?? null,
             status: dto.status,
           },
           include: {
             academic_year: { select: { id: true, name: true } },
             year_group: { select: { id: true, name: true } },
-            subject: { select: { id: true, name: true } },
+            homeroom_room: { select: { id: true, name: true } },
           },
         });
       });

@@ -2,13 +2,17 @@ import { z } from 'zod';
 
 export const createClassSchema = z.object({
   academic_year_id: z.string().uuid(),
-  year_group_id: z.string().uuid().optional(),
-  subject_id: z.string().uuid().optional(),
+  year_group_id: z.string().uuid(),
   homeroom_teacher_staff_id: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
-  max_capacity: z.number().int().min(1).max(200).optional(),
+  max_capacity: z.number().int().min(1).max(200),
+  class_type: z.enum(['fixed', 'floating']),
+  homeroom_id: z.string().uuid().optional(),
   status: z.enum(['active', 'inactive']),
-});
+}).refine(
+  (data) => data.class_type !== 'fixed' || !!data.homeroom_id,
+  { message: 'Assigned Classroom is required for fixed classes', path: ['homeroom_id'] },
+);
 
 export type CreateClassDto = z.infer<typeof createClassSchema>;
 

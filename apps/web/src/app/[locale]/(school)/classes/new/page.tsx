@@ -25,9 +25,10 @@ export default function NewClassPage() {
         name: values.name,
         academic_year_id: values.academic_year_id,
         year_group_id: values.year_group_id,
-        subject_id: values.subject_id || undefined,
         homeroom_teacher_staff_id: values.homeroom_teacher_staff_id || undefined,
         max_capacity: values.max_capacity ? Number(values.max_capacity) : undefined,
+        class_type: values.class_type,
+        homeroom_id: values.homeroom_id || undefined,
         status: values.status,
       }),
     });
