@@ -18,8 +18,8 @@ interface ClassDetail {
   status: string;
   academic_year: { id: string; name: string };
   year_group: { id: string; name: string };
-  subject: { id: string } | null;
   homeroom_teacher_staff_id: string | null;
+  homeroom_id: string | null;
   max_capacity: number | null;
 }
 
