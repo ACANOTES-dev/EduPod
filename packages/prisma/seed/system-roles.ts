@@ -18,15 +18,18 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     default_permissions: [
       // Platform
       'tenants.manage', 'tenants.view', 'platform.reset_mfa',
+      // Users (can view/invite, but NOT manage — no suspending or password changes)
+      'users.view', 'users.invite',
       // Settings & Config
       'settings.manage', 'branding.manage', 'stripe.manage',
       'notifications.manage', 'modules.manage', 'domains.manage',
       'roles.manage',
       // Approvals
       'approvals.manage', 'approvals.view',
-      // Payroll (no bank details — privacy)
+      // Payroll (full access including bank details for executing transfers)
       'payroll.view', 'payroll.manage_compensation', 'payroll.create_run',
-      'payroll.finalise_run', 'payroll.generate_payslips', 'payroll.view_reports',
+      'payroll.finalise_run', 'payroll.generate_payslips',
+      'payroll.view_bank_details', 'payroll.view_reports',
       // Schedule
       'schedule.manage', 'schedule.override_conflict', 'schedule.manage_closures',
       'schedule.configure_period_grid', 'schedule.configure_requirements',
@@ -54,8 +57,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.view_own_students', 'parent.view_attendance', 'parent.view_grades',
       'parent.view_invoices', 'parent.make_payments', 'parent.submit_inquiry',
       'parent.view_announcements', 'parent.view_transcripts',
-      // Excluded for privacy: users.manage, users.view, users.invite,
-      //   payroll.view_bank_details, platform.impersonate
+      // Excluded: users.manage (no suspending/password changes),
+      //   platform.impersonate (reserved for future platform super-admin role)
     ],
   },
   {
