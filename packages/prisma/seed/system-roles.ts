@@ -13,7 +13,7 @@ export interface SystemRoleSeed {
 export const SYSTEM_ROLES: SystemRoleSeed[] = [
   {
     role_key: 'platform_owner',
-    display_name: 'Platform Owner',
+    display_name: 'School Owner',
     role_tier: 'platform',
     default_permissions: [
       'tenants.manage',
@@ -24,7 +24,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
   },
   {
     role_key: 'school_owner',
-    display_name: 'School Owner',
+    display_name: 'School Principal',
     role_tier: 'admin',
     default_permissions: [
       // Users & Roles
@@ -69,7 +69,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
   },
   {
     role_key: 'school_admin',
-    display_name: 'School Admin',
+    display_name: 'Admin',
     role_tier: 'admin',
     default_permissions: [
       'users.manage', 'users.invite', 'users.view', 'roles.manage',
@@ -121,7 +121,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
   },
   {
     role_key: 'finance_staff',
-    display_name: 'Finance Staff',
+    display_name: 'Accounting',
     role_tier: 'admin',
     default_permissions: [
       'finance.manage', 'finance.view', 'finance.process_payments',
@@ -129,7 +129,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
   },
   {
     role_key: 'admissions_staff',
-    display_name: 'Admissions Staff',
+    display_name: 'Front Office',
     role_tier: 'admin',
     default_permissions: [
       'admissions.manage', 'admissions.view',
@@ -149,5 +149,17 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.view_announcements',
       'parent.view_transcripts',
     ],
+  },
+  {
+    role_key: 'school_vice_principal',
+    display_name: 'School Vice-Principal',
+    role_tier: 'admin',
+    default_permissions: [],
+  },
+  {
+    role_key: 'student',
+    display_name: 'Student',
+    role_tier: 'parent',
+    default_permissions: [],
   },
 ];

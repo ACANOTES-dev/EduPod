@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 
-type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent';
+type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent' | 'school_vice_principal' | 'student';
 
 /**
  * Returns the current user's role keys and helper to check membership.

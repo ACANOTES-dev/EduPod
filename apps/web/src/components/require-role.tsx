@@ -5,7 +5,7 @@ import * as React from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 
-type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent';
+type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent' | 'school_vice_principal' | 'student';
 
 /** Routes that any authenticated user can access (no role check needed). */
 const UNRESTRICTED_PATHS = [
@@ -18,32 +18,32 @@ const UNRESTRICTED_PATHS = [
 /** Maps route prefixes to the roles allowed to access them. */
 const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   // Parent-only pages
-  { prefix: '/inquiries', roles: ['parent', 'school_owner', 'school_admin'] },
-  { prefix: '/announcements', roles: ['parent', 'school_owner', 'school_admin'] },
-  { prefix: '/applications', roles: ['parent', 'school_owner', 'school_admin', 'admissions_staff'] },
+  { prefix: '/inquiries', roles: ['parent', 'school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/announcements', roles: ['parent', 'school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/applications', roles: ['parent', 'school_owner', 'school_admin', 'school_vice_principal', 'admissions_staff'] },
 
   // Staff/admin pages — parents excluded
-  { prefix: '/students', roles: ['school_owner', 'school_admin', 'teacher', 'finance_staff', 'admissions_staff'] },
-  { prefix: '/staff', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/households', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/classes', roles: ['school_owner', 'school_admin', 'teacher'] },
-  { prefix: '/subjects', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/curriculum-matrix', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/promotion', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/attendance', roles: ['school_owner', 'school_admin', 'teacher'] },
-  { prefix: '/gradebook', roles: ['school_owner', 'school_admin', 'teacher'] },
-  { prefix: '/report-cards', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/rooms', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/schedules', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/timetables', roles: ['school_owner', 'school_admin', 'teacher'] },
-  { prefix: '/scheduling', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/admissions', roles: ['school_owner', 'school_admin', 'admissions_staff'] },
+  { prefix: '/students', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher', 'finance_staff', 'admissions_staff'] },
+  { prefix: '/staff', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/households', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/classes', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/subjects', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/curriculum-matrix', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/promotion', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/attendance', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/gradebook', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/report-cards', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/rooms', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/schedules', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/timetables', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/scheduling', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/admissions', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'admissions_staff'] },
   { prefix: '/finance', roles: ['school_owner', 'school_admin', 'finance_staff'] },
   { prefix: '/payroll', roles: ['school_owner'] },
-  { prefix: '/communications', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/approvals', roles: ['school_owner', 'school_admin'] },
-  { prefix: '/reports', roles: ['school_owner', 'school_admin', 'teacher', 'finance_staff', 'admissions_staff'] },
-  { prefix: '/website', roles: ['school_owner', 'school_admin'] },
+  { prefix: '/communications', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/approvals', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
+  { prefix: '/reports', roles: ['school_owner', 'school_admin', 'school_vice_principal', 'teacher', 'finance_staff', 'admissions_staff'] },
+  { prefix: '/website', roles: ['school_owner', 'school_admin', 'school_vice_principal'] },
   { prefix: '/settings', roles: ['school_owner', 'school_admin'] },
 ];
 

@@ -76,6 +76,8 @@ export function UserMenu() {
     finance_staff: t('roles.financeStaff'),
     admissions_staff: t('roles.admissionsStaff'),
     parent: t('roles.parent'),
+    school_vice_principal: t('roles.schoolVicePrincipal'),
+    student: t('roles.student'),
   };
   const primaryRole = primaryRoleKey
     ? (roleTranslationMap[primaryRoleKey] ?? user.memberships?.[0]?.roles?.[0]?.display_name ?? null)

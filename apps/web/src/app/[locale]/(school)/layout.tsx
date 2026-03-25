@@ -57,12 +57,12 @@ import { RegistrationWizard } from './_components/registration-wizard/registrati
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
-type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent';
+type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent' | 'school_vice_principal' | 'student';
 
 /** Roles with full admin access */
-const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_admin'];
+const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_admin', 'school_vice_principal'];
 /** Roles that are school staff (not parents) */
-const STAFF_ROLES: RoleKey[] = ['school_owner', 'school_admin', 'teacher', 'finance_staff', 'admissions_staff'];
+const STAFF_ROLES: RoleKey[] = ['school_owner', 'school_admin', 'school_vice_principal', 'teacher', 'finance_staff', 'admissions_staff'];
 
 interface NavItem {
   icon: LucideIcon;
