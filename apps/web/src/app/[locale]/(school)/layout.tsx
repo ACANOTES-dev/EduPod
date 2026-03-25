@@ -57,12 +57,12 @@ import { RegistrationWizard } from './_components/registration-wizard/registrati
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
-type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent' | 'school_vice_principal' | 'student';
+type RoleKey = 'school_principal' | 'admin' | 'teacher' | 'accounting' | 'front_office' | 'parent' | 'school_vice_principal' | 'student';
 
 /** Roles with full admin access */
-const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_admin', 'school_vice_principal'];
+const ADMIN_ROLES: RoleKey[] = ['school_principal', 'admin', 'school_vice_principal'];
 /** Roles that are school staff (not parents) */
-const STAFF_ROLES: RoleKey[] = ['school_owner', 'school_admin', 'school_vice_principal', 'teacher', 'finance_staff', 'admissions_staff'];
+const STAFF_ROLES: RoleKey[] = ['school_principal', 'admin', 'school_vice_principal', 'teacher', 'accounting', 'front_office'];
 
 interface NavItem {
   icon: LucideIcon;
@@ -128,7 +128,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
   {
     labelKey: 'nav.operations',
     items: [
-      { icon: UserPlus, labelKey: 'nav.admissions', href: '/admissions', roles: [...ADMIN_ROLES, 'admissions_staff'] },
+      { icon: UserPlus, labelKey: 'nav.admissions', href: '/admissions', roles: [...ADMIN_ROLES, 'front_office'] },
       { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
       { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
     ],
@@ -136,8 +136,8 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
   {
     labelKey: 'nav.financials',
     items: [
-      { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'finance_staff'] },
-      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner'] },
+      { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
+      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_principal'] },
     ],
   },
   {

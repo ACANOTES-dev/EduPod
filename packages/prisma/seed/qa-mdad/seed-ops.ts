@@ -1309,7 +1309,7 @@ export async function seedExtras(
 
   // Look up the school_owner role for this tenant
   const ownerRole = await prisma.role.findFirst({
-    where: { tenant_id: tenantId, role_key: 'school_owner' },
+    where: { tenant_id: tenantId, role_key: 'school_principal' },
   });
 
   if (ownerRole) {

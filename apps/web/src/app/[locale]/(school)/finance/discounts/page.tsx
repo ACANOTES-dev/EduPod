@@ -35,7 +35,7 @@ export default function DiscountsPage() {
   const t = useTranslations('finance');
   const router = useRouter();
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [discounts, setDiscounts] = React.useState<Discount[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

@@ -51,7 +51,7 @@ export default function FeeStructuresPage() {
   const t = useTranslations('finance');
   const router = useRouter();
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [feeStructures, setFeeStructures] = React.useState<FeeStructure[]>([]);
   const [, setYearGroups] = React.useState<YearGroup[]>([]);

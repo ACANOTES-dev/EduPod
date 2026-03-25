@@ -35,7 +35,7 @@ describe('Approval Workflows (e2e)', () => {
     // Resolve a valid role_id to use as the approver role — use school_owner system role
     const rolesRes = await authGet(app, '/api/v1/roles', ownerToken, AL_NOOR_DOMAIN).expect(200);
     const ownerRole = rolesRes.body.data.find(
-      (r: { role_key: string }) => r.role_key === 'school_owner',
+      (r: { role_key: string }) => r.role_key === 'school_principal',
     );
     expect(ownerRole).toBeDefined();
     approverRoleId = ownerRole.id;

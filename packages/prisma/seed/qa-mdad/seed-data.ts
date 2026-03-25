@@ -227,7 +227,7 @@ export async function seedPeople(
     where: { tenant_id: tenantId, role_key: 'teacher' },
   });
   const schoolAdminRole = await prisma.role.findFirstOrThrow({
-    where: { tenant_id: tenantId, role_key: 'school_admin' },
+    where: { tenant_id: tenantId, role_key: 'admin' },
   });
   const parentRole = await prisma.role.findFirstOrThrow({
     where: { tenant_id: tenantId, role_key: 'parent' },
@@ -235,10 +235,10 @@ export async function seedPeople(
 
   // Attempt to find optional roles — they may or may not exist
   const financeRole = await prisma.role.findFirst({
-    where: { tenant_id: tenantId, role_key: 'finance_staff' },
+    where: { tenant_id: tenantId, role_key: 'accounting' },
   });
   const admissionsRole = await prisma.role.findFirst({
-    where: { tenant_id: tenantId, role_key: 'admissions_staff' },
+    where: { tenant_id: tenantId, role_key: 'front_office' },
   });
 
   // ── B) Create ~47 new teacher users + memberships + role assignments ───────
@@ -371,9 +371,9 @@ export async function seedPeople(
     const membershipId = supportMemberships[i]!.id;
     let roleId = schoolAdminRole.id;
 
-    if (def.roleKey === 'finance_staff' && financeRole) {
+    if (def.roleKey === 'accounting' && financeRole) {
       roleId = financeRole.id;
-    } else if (def.roleKey === 'admissions_staff' && admissionsRole) {
+    } else if (def.roleKey === 'front_office' && admissionsRole) {
       roleId = admissionsRole.id;
     }
 

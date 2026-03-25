@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const permissionKey = 'attendance.take';
-  const roleKeys = ['school_owner', 'school_admin'];
+  const roleKeys = ['school_principal', 'admin'];
 
   // Find the permission record
   const permission = await prisma.permission.findFirst({

@@ -12,7 +12,7 @@ export interface SystemRoleSeed {
 
 export const SYSTEM_ROLES: SystemRoleSeed[] = [
   {
-    role_key: 'platform_owner',
+    role_key: 'school_owner',
     display_name: 'School Owner',
     role_tier: 'platform',
     default_permissions: [
@@ -23,7 +23,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     ],
   },
   {
-    role_key: 'school_owner',
+    role_key: 'school_principal',
     display_name: 'School Principal',
     role_tier: 'admin',
     default_permissions: [
@@ -68,7 +68,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     ],
   },
   {
-    role_key: 'school_admin',
+    role_key: 'admin',
     display_name: 'Admin',
     role_tier: 'admin',
     default_permissions: [
@@ -120,7 +120,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     ],
   },
   {
-    role_key: 'finance_staff',
+    role_key: 'accounting',
     display_name: 'Accounting',
     role_tier: 'admin',
     default_permissions: [
@@ -128,7 +128,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     ],
   },
   {
-    role_key: 'admissions_staff',
+    role_key: 'front_office',
     display_name: 'Front Office',
     role_tier: 'admin',
     default_permissions: [

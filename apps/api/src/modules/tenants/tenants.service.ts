@@ -28,11 +28,11 @@ const TENANT_SYSTEM_ROLES: Array<{
   display_name: string;
   role_tier: RoleTier;
 }> = [
-  { role_key: 'school_owner', display_name: 'School Principal', role_tier: 'admin' },
-  { role_key: 'school_admin', display_name: 'Admin', role_tier: 'admin' },
+  { role_key: 'school_principal', display_name: 'School Principal', role_tier: 'admin' },
+  { role_key: 'admin', display_name: 'Admin', role_tier: 'admin' },
   { role_key: 'teacher', display_name: 'Teacher', role_tier: 'staff' },
-  { role_key: 'finance_staff', display_name: 'Accounting', role_tier: 'admin' },
-  { role_key: 'admissions_staff', display_name: 'Front Office', role_tier: 'admin' },
+  { role_key: 'accounting', display_name: 'Accounting', role_tier: 'admin' },
+  { role_key: 'front_office', display_name: 'Front Office', role_tier: 'admin' },
   { role_key: 'parent', display_name: 'Parent', role_tier: 'parent' },
   { role_key: 'school_vice_principal', display_name: 'School Vice-Principal', role_tier: 'admin' },
   { role_key: 'student', display_name: 'Student', role_tier: 'parent' },

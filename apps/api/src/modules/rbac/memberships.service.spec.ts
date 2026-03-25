@@ -22,7 +22,7 @@ const ownerMembership = {
     {
       role: {
         id: 'role-owner',
-        role_key: 'school_owner',
+        role_key: 'school_principal',
         display_name: 'School Owner',
         role_tier: 'admin',
         is_system_role: true,
@@ -123,7 +123,7 @@ describe('MembershipsService', () => {
       expect(mockPrisma.membershipRole.count).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
-          role: { role_key: 'school_owner' },
+          role: { role_key: 'school_principal' },
           membership: { membership_status: 'active' },
         },
       });

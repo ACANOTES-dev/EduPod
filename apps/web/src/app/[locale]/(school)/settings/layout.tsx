@@ -8,7 +8,7 @@ import * as React from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 
-type RoleKey = 'school_owner' | 'school_admin' | 'teacher' | 'finance_staff' | 'admissions_staff' | 'parent' | 'school_vice_principal' | 'student';
+type RoleKey = 'school_principal' | 'admin' | 'teacher' | 'accounting' | 'front_office' | 'parent' | 'school_vice_principal' | 'student';
 
 interface SettingsTab {
   key: string;
@@ -22,7 +22,7 @@ const TABS: SettingsTab[] = [
   { key: 'branding', labelKey: 'branding', href: 'branding' },
   { key: 'general', labelKey: 'general', href: 'general' },
   { key: 'notifications', labelKey: 'notifications', href: 'notifications' },
-  { key: 'stripe', labelKey: 'stripe', href: 'stripe', roles: ['school_owner'] },
+  { key: 'stripe', labelKey: 'stripe', href: 'stripe', roles: ['school_principal'] },
   { key: 'users', labelKey: 'users', href: 'users' },
   { key: 'invitations', labelKey: 'invitations', href: 'invitations' },
   { key: 'roles', labelKey: 'roles', href: 'roles' },

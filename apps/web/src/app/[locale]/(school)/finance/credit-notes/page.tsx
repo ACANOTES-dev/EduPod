@@ -73,7 +73,7 @@ interface OpenInvoice {
 export default function CreditNotesPage() {
   const t = useTranslations('finance');
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [creditNotes, setCreditNotes] = React.useState<CreditNote[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

@@ -50,7 +50,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user?.memberships) return;
     const roleKeys = user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
-    const isAdmin = roleKeys.some((r) => r === 'school_owner' || r === 'school_admin');
+    const isAdmin = roleKeys.some((r) => r === 'school_principal' || r === 'admin');
     const isTeacher = roleKeys.includes('teacher');
     const isParent = roleKeys.includes('parent');
 

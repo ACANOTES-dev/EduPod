@@ -56,7 +56,7 @@ interface PaymentPlanRequest {
 export default function PaymentPlansPage() {
   const t = useTranslations('finance');
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [requests, setRequests] = React.useState<PaymentPlanRequest[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

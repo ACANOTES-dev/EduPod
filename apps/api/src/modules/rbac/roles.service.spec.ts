@@ -142,7 +142,7 @@ describe('RolesService', () => {
       const systemRole = {
         id: ROLE_ID,
         tenant_id: TENANT_ID,
-        role_key: 'school_admin',
+        role_key: 'admin',
         display_name: 'School Admin',
         is_system_role: true,
         role_tier: 'admin',
@@ -177,7 +177,7 @@ describe('RolesService', () => {
       mockPrisma.role.findFirst.mockResolvedValueOnce({
         id: ROLE_ID,
         tenant_id: null,
-        role_key: 'platform_owner',
+        role_key: 'school_owner',
         display_name: 'Platform Owner',
         is_system_role: true,
         role_tier: 'platform',
@@ -250,7 +250,7 @@ describe('RolesService', () => {
       mockPrisma.role.findFirst.mockResolvedValueOnce({
         id: ROLE_ID,
         tenant_id: null,
-        role_key: 'school_owner',
+        role_key: 'school_principal',
         display_name: 'School Owner',
         is_system_role: true,
         role_tier: 'admin',
@@ -405,7 +405,7 @@ describe('RolesService', () => {
       mockPrisma.role.findFirst.mockResolvedValueOnce({
         id: ROLE_ID,
         tenant_id: null,
-        role_key: 'platform_owner',
+        role_key: 'school_owner',
         display_name: 'Platform Owner',
         is_system_role: true,
         role_tier: 'platform',

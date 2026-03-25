@@ -50,12 +50,12 @@ describe('Roles (e2e)', () => {
 
     // Expect system roles to be present
     const roleKeys = res.body.data.map((r: { role_key: string }) => r.role_key);
-    expect(roleKeys).toContain('school_owner');
+    expect(roleKeys).toContain('school_principal');
     expect(roleKeys).toContain('teacher');
 
     // Capture the school_owner role ID for later tests
     const schoolOwnerRole = res.body.data.find(
-      (r: { role_key: string }) => r.role_key === 'school_owner',
+      (r: { role_key: string }) => r.role_key === 'school_principal',
     );
     expect(schoolOwnerRole).toBeDefined();
     systemRoleId = schoolOwnerRole.id;

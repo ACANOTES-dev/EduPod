@@ -66,7 +66,7 @@ export class PlatformOwnerGuard implements CanActivate {
     // Set doesn't contain user — try to rebuild from DB in case seed was re-run
     // Find the platform_owner role (global, tenant_id = null)
     const platformRole = await this.prisma.role.findFirst({
-      where: { role_key: 'platform_owner', tenant_id: null },
+      where: { role_key: 'school_owner', tenant_id: null },
     });
 
     if (!platformRole) {

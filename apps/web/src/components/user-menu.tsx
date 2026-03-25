@@ -71,10 +71,11 @@ export function UserMenu() {
   const primaryRoleKey = user.memberships?.[0]?.roles?.[0]?.role_key ?? null;
   const roleTranslationMap: Record<string, string> = {
     school_owner: t('roles.schoolOwner'),
-    school_admin: t('roles.schoolAdmin'),
+    school_principal: t('roles.schoolPrincipal'),
+    admin: t('roles.adminRole'),
     teacher: t('roles.teacher'),
-    finance_staff: t('roles.financeStaff'),
-    admissions_staff: t('roles.admissionsStaff'),
+    accounting: t('roles.accounting'),
+    front_office: t('roles.frontOffice'),
     parent: t('roles.parent'),
     school_vice_principal: t('roles.schoolVicePrincipal'),
     student: t('roles.student'),

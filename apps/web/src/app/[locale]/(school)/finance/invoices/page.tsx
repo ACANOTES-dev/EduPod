@@ -62,7 +62,7 @@ export default function InvoicesPage() {
   const t = useTranslations('finance');
   const router = useRouter();
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [invoices, setInvoices] = React.useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

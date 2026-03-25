@@ -62,7 +62,7 @@ export default function PaymentsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   const [payments, setPayments] = React.useState<Payment[]>([]);

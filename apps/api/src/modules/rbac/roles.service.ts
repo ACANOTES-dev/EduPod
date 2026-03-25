@@ -143,7 +143,7 @@ export class RolesService {
     }
 
     // Platform owner is fully immutable
-    if (role.role_key === 'platform_owner') {
+    if (role.role_key === 'school_owner') {
       throw new BadRequestException({
         code: 'SYSTEM_ROLE_IMMUTABLE',
         message: 'Platform owner role cannot be modified',
@@ -273,7 +273,7 @@ export class RolesService {
     }
 
     // Platform owner is fully immutable
-    if (role.role_key === 'platform_owner') {
+    if (role.role_key === 'school_owner') {
       throw new BadRequestException({
         code: 'SYSTEM_ROLE_IMMUTABLE',
         message: 'Platform owner role permissions cannot be modified',

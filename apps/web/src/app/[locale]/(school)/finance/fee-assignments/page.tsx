@@ -27,7 +27,7 @@ export default function FeeAssignmentsPage() {
   const t = useTranslations('finance');
   const router = useRouter();
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [assignments, setAssignments] = React.useState<FeeAssignment[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

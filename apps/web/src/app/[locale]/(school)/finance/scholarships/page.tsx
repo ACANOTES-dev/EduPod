@@ -67,7 +67,7 @@ type StatusFilter = 'all' | 'active' | 'expired' | 'revoked';
 export default function ScholarshipsPage() {
   const t = useTranslations('finance');
   const { hasAnyRole } = useRoleCheck();
-  const canManage = hasAnyRole('school_owner', 'finance_staff');
+  const canManage = hasAnyRole('school_principal', 'accounting');
 
   const [scholarships, setScholarships] = React.useState<Scholarship[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);

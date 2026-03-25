@@ -160,7 +160,7 @@ export default function RoleDetailPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role || role.role_key === 'platform_owner') return;
+    if (!role || role.role_key === 'school_owner') return;
     setSaving(true);
     setSaveError('');
     try {
@@ -223,11 +223,11 @@ export default function RoleDetailPage() {
   }
 
   const isSystemRole = role.is_system_role;
-  const isPlatformOwner = role.role_key === 'platform_owner';
+  const isSchoolOwner = role.role_key === 'school_owner';
   const roleTier = role.role_tier as RoleTier;
 
   // Platform owner: fully locked. Other system roles: permissions editable, name locked.
-  const canEditPermissions = !isPlatformOwner;
+  const canEditPermissions = !isSchoolOwner;
   const canEditName = !isSystemRole;
   const canDelete = !isSystemRole;
 
@@ -255,14 +255,14 @@ export default function RoleDetailPage() {
         }
       />
 
-      {isPlatformOwner && (
+      {isSchoolOwner && (
         <div className="flex items-center gap-2 rounded-lg border border-info-text/20 bg-info-fill px-4 py-3 text-sm text-info-text">
           <Lock className="h-4 w-4 shrink-0" />
           <span>{t('readOnly')}</span>
         </div>
       )}
 
-      {isSystemRole && !isPlatformOwner && (
+      {isSystemRole && !isSchoolOwner && (
         <div className="flex items-center gap-2 rounded-lg border border-info-text/20 bg-info-fill px-4 py-3 text-sm text-info-text">
           <Lock className="h-4 w-4 shrink-0" />
           <span>{t('systemRolePermissionsEditable')}</span>

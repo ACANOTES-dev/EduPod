@@ -241,14 +241,14 @@ export class MembershipsService {
 
     // Check last school_owner guard
     const hasOwnerRole = membership.membership_roles.some(
-      (mr) => mr.role.role_key === 'school_owner',
+      (mr) => mr.role.role_key === 'school_principal',
     );
 
     if (hasOwnerRole) {
       const ownerCount = await this.prisma.membershipRole.count({
         where: {
           tenant_id: tenantId,
-          role: { role_key: 'school_owner' },
+          role: { role_key: 'school_principal' },
           membership: { membership_status: 'active' },
         },
       });
@@ -257,7 +257,7 @@ export class MembershipsService {
         throw new BadRequestException({
           code: 'LAST_SCHOOL_OWNER',
           message:
-            'Cannot suspend the last school owner. Assign the school_owner role to another user first.',
+            'Cannot suspend the last school principal. Assign the school_principal role to another user first.',
         });
       }
     }
