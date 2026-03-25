@@ -51,9 +51,9 @@ export default function EditClassPage() {
         name: values.name,
         academic_year_id: values.academic_year_id,
         year_group_id: values.year_group_id,
-        subject_id: values.subject_id || undefined,
         homeroom_teacher_staff_id: values.homeroom_teacher_staff_id || undefined,
         max_capacity: values.max_capacity ? Number(values.max_capacity) : null,
+        homeroom_id: values.homeroom_id || undefined,
         status: values.status,
       }),
     });
@@ -96,9 +96,10 @@ export default function EditClassPage() {
           name: cls.name,
           academic_year_id: cls.academic_year.id,
           year_group_id: cls.year_group.id,
-          subject_id: cls.subject?.id ?? '',
           homeroom_teacher_staff_id: cls.homeroom_teacher_staff_id ?? '',
           max_capacity: cls.max_capacity ? String(cls.max_capacity) : '',
+          class_type: cls.homeroom_id ? 'fixed' : 'floating',
+          homeroom_id: cls.homeroom_id ?? '',
           status: cls.status,
         }}
         onSubmit={handleSubmit}
