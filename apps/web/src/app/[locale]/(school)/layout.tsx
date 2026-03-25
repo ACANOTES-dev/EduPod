@@ -12,6 +12,7 @@ import {
 } from '@school/ui';
 import { toast } from '@school/ui';
 import {
+  ArrowLeft,
   Ban,
   BarChart3,
   BookOpen,
@@ -40,7 +41,7 @@ import {
   MessageCircle,
   type LucideIcon,
 } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -157,6 +158,9 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
   },
 ];
 
+/** All top-level sidebar hrefs — pages at these exact paths don't get a back button. */
+const TOP_LEVEL_HREFS = new Set(navSections.flatMap((s) => s.items.map((i) => i.href)));
+
 /** Filter nav sections and items based on the user's role keys. */
 function filterNavForRoles(userRoleKeys: string[]): { labelKey: string; items: NavItem[] }[] {
   return navSections
@@ -170,6 +174,7 @@ function filterNavForRoles(userRoleKeys: string[]): { labelKey: string; items: N
 
 export default function SchoolLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations();
+  const router = useRouter();
   const { user } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
@@ -219,6 +224,12 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     if (path.startsWith('/payroll/')) return t('nav.payroll');
     return t('dashboard.title');
   }, [pathname, t]);
+
+  // Show a back button on any page that isn't a top-level sidebar destination
+  const isSubPage = React.useMemo(() => {
+    const path = (pathname ?? '').replace(/^\/[a-z]{2}(?=\/)/, '');
+    return !TOP_LEVEL_HREFS.has(path);
+  }, [pathname]);
 
   // Update browser tab title
   React.useEffect(() => {
@@ -276,6 +287,17 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         }
         topBar={
           <TopBar
+            leading={isSubPage ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.back()}
+                aria-label={t('common.back')}
+                className="p-1.5 -ms-1"
+              >
+                <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
+              </Button>
+            ) : undefined}
             title={pageTitle}
             actions={
               <div className="flex items-center gap-2">
