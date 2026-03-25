@@ -100,11 +100,34 @@ describe('MembershipsService', () => {
   // ─── suspendMembership ──────────────────────────────────────────────────────
 
   describe('suspendMembership', () => {
-    it('should prevent suspending the last school_owner', async () => {
-      // tenantMembership.findFirst returns the owner membership (with membership_roles included)
-      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(ownerMembership);
+    it('should prevent suspending any school_owner account', async () => {
+      const schoolOwnerMembership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+        membership_status: 'active',
+        membership_roles: [
+          { role: { id: 'role-so', role_key: 'school_owner', display_name: 'School Owner', role_tier: 'platform', is_system_role: true } },
+        ],
+      };
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(schoolOwnerMembership);
 
-      // membershipRole.count returns 1 — this user IS the last active owner
+      let caught: unknown;
+      try {
+        await service.suspendMembership(TENANT_ID, USER_ID);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'SCHOOL_OWNER_PROTECTED',
+      });
+      expect(mockPrisma.tenantMembership.update).not.toHaveBeenCalled();
+    });
+
+    it('should prevent suspending the last school_principal', async () => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(ownerMembership);
       mockPrisma.membershipRole.count.mockResolvedValueOnce(1);
 
       let caught: unknown;
@@ -116,10 +139,9 @@ describe('MembershipsService', () => {
 
       expect(caught).toBeInstanceOf(BadRequestException);
       expect((caught as BadRequestException).getResponse()).toMatchObject({
-        code: 'LAST_SCHOOL_OWNER',
+        code: 'LAST_SCHOOL_PRINCIPAL',
       });
 
-      // Verify the guard was checked with the correct where clause
       expect(mockPrisma.membershipRole.count).toHaveBeenCalledWith({
         where: {
           tenant_id: TENANT_ID,
@@ -127,8 +149,6 @@ describe('MembershipsService', () => {
           membership: { membership_status: 'active' },
         },
       });
-
-      // Membership must NOT have been updated
       expect(mockPrisma.tenantMembership.update).not.toHaveBeenCalled();
     });
 

@@ -18,8 +18,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     default_permissions: [
       // Platform
       'tenants.manage', 'tenants.view', 'platform.reset_mfa',
-      // Users (can view/invite, but NOT manage — no suspending or password changes)
-      'users.view', 'users.invite',
+      // Users (full access — School Owner account is protected from suspension by a guard)
+      'users.manage', 'users.view', 'users.invite',
       // Settings & Config
       'settings.manage', 'branding.manage', 'stripe.manage',
       'notifications.manage', 'modules.manage', 'domains.manage',
@@ -57,8 +57,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.view_own_students', 'parent.view_attendance', 'parent.view_grades',
       'parent.view_invoices', 'parent.make_payments', 'parent.submit_inquiry',
       'parent.view_announcements', 'parent.view_transcripts',
-      // Excluded: users.manage (no suspending/password changes),
-      //   platform.impersonate (reserved for future platform super-admin role)
+      // Excluded: platform.impersonate (reserved for future platform super-admin role)
     ],
   },
   {

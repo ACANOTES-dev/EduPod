@@ -239,13 +239,24 @@ export class MembershipsService {
       });
     }
 
-    // Check last school_owner guard
-    const hasOwnerRole = membership.membership_roles.some(
+    // School Owner accounts can never be suspended
+    const hasSchoolOwnerRole = membership.membership_roles.some(
+      (mr) => mr.role.role_key === 'school_owner',
+    );
+    if (hasSchoolOwnerRole) {
+      throw new BadRequestException({
+        code: 'SCHOOL_OWNER_PROTECTED',
+        message: 'The School Owner account cannot be suspended.',
+      });
+    }
+
+    // Last school principal guard — at least one must remain active
+    const hasPrincipalRole = membership.membership_roles.some(
       (mr) => mr.role.role_key === 'school_principal',
     );
 
-    if (hasOwnerRole) {
-      const ownerCount = await this.prisma.membershipRole.count({
+    if (hasPrincipalRole) {
+      const principalCount = await this.prisma.membershipRole.count({
         where: {
           tenant_id: tenantId,
           role: { role_key: 'school_principal' },
@@ -253,9 +264,9 @@ export class MembershipsService {
         },
       });
 
-      if (ownerCount <= 1) {
+      if (principalCount <= 1) {
         throw new BadRequestException({
-          code: 'LAST_SCHOOL_OWNER',
+          code: 'LAST_SCHOOL_PRINCIPAL',
           message:
             'Cannot suspend the last school principal. Assign the school_principal role to another user first.',
         });
