@@ -659,6 +659,65 @@ export class StudentsService {
   }
 
   /**
+   * Bulk export data — returns all students matching filters with enriched
+   * parent, year group, household, and homeroom class data.
+   */
+  async getExportData(tenantId: string, filters: { status?: StudentStatus; year_group_id?: string; has_allergy?: boolean; search?: string }) {
+    const where: Prisma.StudentWhereInput = { tenant_id: tenantId };
+
+    if (filters.status) where.status = filters.status;
+    if (filters.year_group_id) where.year_group_id = filters.year_group_id;
+    if (filters.has_allergy !== undefined) where.has_allergy = filters.has_allergy;
+    if (filters.search) {
+      where.OR = [
+        { first_name: { contains: filters.search, mode: 'insensitive' } },
+        { last_name: { contains: filters.search, mode: 'insensitive' } },
+        { full_name: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const students = await this.prisma.student.findMany({
+      where,
+      orderBy: { last_name: 'asc' },
+      select: {
+        id: true,
+        student_number: true,
+        first_name: true,
+        middle_name: true,
+        last_name: true,
+        national_id: true,
+        nationality: true,
+        city_of_birth: true,
+        gender: true,
+        date_of_birth: true,
+        status: true,
+        entry_date: true,
+        medical_notes: true,
+        has_allergy: true,
+        allergy_details: true,
+        year_group: { select: { id: true, name: true } },
+        household: { select: { id: true, household_name: true } },
+        homeroom_class: { select: { id: true, name: true } },
+        student_parents: {
+          select: {
+            relationship_label: true,
+            parent: {
+              select: {
+                first_name: true,
+                last_name: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return { data: students };
+  }
+
+  /**
    * Export pack for a student. Returns profile + placeholder arrays for
    * attendance/grades (built in later phases).
    */

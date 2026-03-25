@@ -57,6 +57,17 @@ const allergyReportQuerySchema = z.object({
   format: z.enum(['json']).optional(),
 });
 
+const studentExportQuerySchema = z.object({
+  status: z.enum(['applicant', 'active', 'withdrawn', 'graduated', 'archived']).optional(),
+  year_group_id: z.string().uuid().optional(),
+  has_allergy: z.string().optional().transform((v) => {
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    return undefined;
+  }),
+  search: z.string().optional(),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Controller('v1/students')
@@ -108,6 +119,22 @@ export class StudentsController {
     return this.studentsService.allergyReport(tenantContext.tenant_id, {
       year_group_id: query.year_group_id,
       class_id: query.class_id,
+    });
+  }
+
+  // GET /v1/students/export-data
+  @Get('export-data')
+  @RequiresPermission('students.view')
+  async getExportData(
+    @CurrentTenant() tenantContext: { tenant_id: string },
+    @Query(new ZodValidationPipe(studentExportQuerySchema))
+    query: z.infer<typeof studentExportQuerySchema>,
+  ) {
+    return this.studentsService.getExportData(tenantContext.tenant_id, {
+      status: query.status,
+      year_group_id: query.year_group_id,
+      has_allergy: query.has_allergy as boolean | undefined,
+      search: query.search,
     });
   }
 

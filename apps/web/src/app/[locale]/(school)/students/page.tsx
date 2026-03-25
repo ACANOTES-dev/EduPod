@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  Button,
+  EmptyState,
   Input,
   Select,
   SelectContent,
@@ -8,9 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
-  EmptyState,
+  toast,
 } from '@school/ui';
-import { Download, GraduationCap, Search } from 'lucide-react';
+import { Download, FileSpreadsheet, GraduationCap, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -18,6 +20,15 @@ import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { StudentExportDialog } from './_components/export-dialog';
+import {
+  ALL_EXPORT_COLUMNS,
+  DEFAULT_SELECTED_COLUMNS,
+  type ExportStudent,
+  generateExcel,
+  generatePdf,
+} from './_components/export-utils';
 
 interface YearGroup {
   id: string;
@@ -60,60 +71,64 @@ export default function StudentsPage() {
   const [yearGroupFilter, setYearGroupFilter] = React.useState('all');
   const [allergyFilter, setAllergyFilter] = React.useState('all');
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  // ── Export state ──────────────────────────────────────────────────────────
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
+  const [exportFormat, setExportFormat] = React.useState<'xlsx' | 'pdf'>('xlsx');
+  const [selectedColumns, setSelectedColumns] = React.useState(new Set(DEFAULT_SELECTED_COLUMNS));
+  const [exporting, setExporting] = React.useState(false);
+
+  const toggleColumn = (key: string) => {
+    setSelectedColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const activeColumns = ALL_EXPORT_COLUMNS.filter((c) => selectedColumns.has(c.key));
+
+  const openExportModal = (format: 'xlsx' | 'pdf') => {
+    setExportFormat(format);
+    setExportModalOpen(true);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
     try {
-      // Fetch ALL matching students (paginated, respecting backend max of 100)
-      let allData: Student[] = [];
-      let currentPage = 1;
-      let hasMore = true;
-      while (hasMore) {
-        const params = new URLSearchParams({ page: String(currentPage), pageSize: '100' });
-        if (search) params.set('search', search);
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
-        if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
+      if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
 
-        const res = await apiClient<{ data: Student[]; meta: { total: number } }>(`/api/v1/students?${params.toString()}`);
-        allData = [...allData, ...res.data];
-        hasMore = allData.length < res.meta.total;
-        currentPage++;
+      const res = await apiClient<{ data: ExportStudent[] }>(
+        `/api/v1/students/export-data?${params.toString()}`,
+      );
+
+      if (res.data.length === 0) {
+        toast.error('No students to export');
+        return;
       }
 
-      const exportColumns = [
-        { header: 'Name', key: 'full_name' },
-        { header: 'Student #', key: 'student_number' },
-        { header: 'Year Group', key: 'year_group' },
-        { header: 'Status', key: 'status' },
-        { header: 'Household', key: 'household' },
-      ];
+      const title = 'Students_List';
 
-      const exportRows = allData.map((s) => ({
-        full_name: s.full_name,
-        student_number: s.student_number,
-        year_group: s.year_group?.name ?? '',
-        status: s.status.charAt(0).toUpperCase() + s.status.slice(1),
-        household: s.household?.household_name ?? '',
-      }));
-
-      const options = {
-        fileName: 'students',
-        title: 'Students List',
-        columns: exportColumns,
-        rows: exportRows,
-      };
-
-      if (format === 'xlsx') {
-        const { exportToExcel } = await import('@/lib/export-utils');
-        exportToExcel(options);
+      if (exportFormat === 'xlsx') {
+        generateExcel(res.data, activeColumns, title);
       } else {
-        const { exportToPdf } = await import('@/lib/export-utils');
-        exportToPdf(options);
+        generatePdf(res.data, activeColumns, title);
       }
+
+      toast.success('Export downloaded');
+      setExportModalOpen(false);
     } catch {
-      // silently fail
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
     }
   };
 
+  // ── Data fetching ─────────────────────────────────────────────────────────
   const fetchStudents = React.useCallback(async () => {
     setIsLoading(true);
     try {
@@ -161,6 +176,7 @@ export default function StudentsPage() {
     setPage(1);
   }, [search, statusFilter, yearGroupFilter, allergyFilter]);
 
+  // ── Table columns ─────────────────────────────────────────────────────────
   const columns = [
     {
       key: 'full_name',
@@ -273,18 +289,16 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student records and enrolments"
         actions={
-          <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
-            <SelectTrigger className="w-full sm:w-[130px]">
-              <div className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                <span>Export</span>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-              <SelectItem value="pdf">PDF</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => openExportModal('xlsx')}>
+              <FileSpreadsheet className="me-2 h-4 w-4" />
+              Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => openExportModal('pdf')}>
+              <Download className="me-2 h-4 w-4" />
+              PDF
+            </Button>
+          </div>
         }
       />
 
@@ -308,6 +322,17 @@ export default function StudentsPage() {
           isLoading={isLoading}
         />
       )}
+
+      <StudentExportDialog
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        exportFormat={exportFormat}
+        selectedColumns={selectedColumns}
+        onToggleColumn={toggleColumn}
+        activeColumns={activeColumns}
+        exporting={exporting}
+        onExport={() => void handleExport()}
+      />
     </div>
   );
 }
