@@ -16,10 +16,46 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'School Owner',
     role_tier: 'platform',
     default_permissions: [
-      'tenants.manage',
-      'tenants.view',
-      'platform.impersonate',
-      'platform.reset_mfa',
+      // Platform
+      'tenants.manage', 'tenants.view', 'platform.reset_mfa',
+      // Settings & Config
+      'settings.manage', 'branding.manage', 'stripe.manage',
+      'notifications.manage', 'modules.manage', 'domains.manage',
+      'roles.manage',
+      // Approvals
+      'approvals.manage', 'approvals.view',
+      // Payroll (no bank details — privacy)
+      'payroll.view', 'payroll.manage_compensation', 'payroll.create_run',
+      'payroll.finalise_run', 'payroll.generate_payslips', 'payroll.view_reports',
+      // Schedule
+      'schedule.manage', 'schedule.override_conflict', 'schedule.manage_closures',
+      'schedule.configure_period_grid', 'schedule.configure_requirements',
+      'schedule.configure_availability', 'schedule.manage_preferences',
+      'schedule.run_auto', 'schedule.apply_auto', 'schedule.pin_entries',
+      'schedule.view_auto_reports', 'schedule.view_own',
+      'schedule.manage_own_preferences', 'schedule.view_own_satisfaction',
+      // Students & Attendance
+      'students.manage', 'students.view',
+      'attendance.manage', 'attendance.view', 'attendance.take',
+      'attendance.amend_historical', 'attendance.override_closure',
+      // Gradebook
+      'gradebook.manage', 'gradebook.view', 'gradebook.enter_grades',
+      'gradebook.override_final_grade', 'gradebook.publish_report_cards',
+      'transcripts.generate',
+      // Admissions & Finance
+      'admissions.manage', 'admissions.view',
+      'finance.manage', 'finance.view', 'finance.process_payments', 'finance.issue_refunds',
+      // Communications, Inquiries, Website, Analytics, Compliance
+      'communications.manage', 'communications.view', 'communications.send',
+      'inquiries.view', 'inquiries.respond',
+      'website.manage', 'analytics.view',
+      'compliance.manage', 'compliance.view',
+      // Parent capabilities
+      'parent.view_own_students', 'parent.view_attendance', 'parent.view_grades',
+      'parent.view_invoices', 'parent.make_payments', 'parent.submit_inquiry',
+      'parent.view_announcements', 'parent.view_transcripts',
+      // Excluded for privacy: users.manage, users.view, users.invite,
+      //   payroll.view_bank_details, platform.impersonate
     ],
   },
   {
