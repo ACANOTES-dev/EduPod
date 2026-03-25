@@ -13,7 +13,7 @@ interface MatrixCell {
   config_id: string;
 }
 
-interface MatrixData {
+export interface MatrixData {
   classes: Array<{
     id: string;
     name: string;
@@ -280,7 +280,6 @@ export class CurriculumMatrixService {
             max_score: dto.max_score,
             due_date: dto.due_date ? new Date(dto.due_date) : null,
             status: 'draft',
-            created_by_user_id: userId,
             counts_toward_report_card: true,
           },
         });
