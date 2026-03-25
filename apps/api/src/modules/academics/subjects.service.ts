@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Subject } from '@prisma/client';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -65,7 +65,7 @@ export class SubjectsService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const [data, total] = await prismaWithRls.$transaction(async (tx) => {
+    const [data, total] = (await prismaWithRls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaService;
       return Promise.all([
         txClient.subject.findMany({
@@ -76,7 +76,7 @@ export class SubjectsService {
         }),
         txClient.subject.count({ where }),
       ]);
-    });
+    })) as [Subject[], number];
 
     return { data, meta: { page, pageSize, total } };
   }
