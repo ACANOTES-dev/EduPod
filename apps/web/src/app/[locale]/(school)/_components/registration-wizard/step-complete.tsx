@@ -24,7 +24,9 @@ export function StepComplete({ state, dispatch, onClose }: StepCompleteProps) {
   const studentCount = reg.students.length;
   const paymentAmount = payment?.amount;
   const billingParentEmail = state.primaryParent.email;
-  const outstandingBalance = reg.invoice.balance_amount;
+  const outstandingBalance = payment
+    ? Math.max(0, reg.invoice.balance_amount - payment.amount)
+    : reg.invoice.balance_amount;
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en', {
