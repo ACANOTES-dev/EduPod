@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { RegistrationService } from '../registration/registration.service';
+
 import { HouseholdsController } from './households.controller';
 import { HouseholdsService } from './households.service';
 
@@ -51,7 +53,10 @@ describe('HouseholdsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HouseholdsController],
-      providers: [{ provide: HouseholdsService, useValue: service }],
+      providers: [
+        { provide: HouseholdsService, useValue: service },
+        { provide: RegistrationService, useValue: { addStudentToHousehold: jest.fn() } },
+      ],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })

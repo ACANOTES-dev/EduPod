@@ -29,7 +29,6 @@ const PAYMENT_METHODS = [
   { value: 'cash', labelKey: 'cash' },
   { value: 'bank_transfer', labelKey: 'bankTransfer' },
   { value: 'card_manual', labelKey: 'cardManual' },
-  { value: 'stripe', labelKey: 'stripe' },
 ] as const;
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -86,7 +85,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
           amount: parsedAmount,
           payment_method: method,
           payment_reference: reference || `REG-${reg.household.household_number}`,
-          received_at: receivedAt,
+          received_at: new Date(receivedAt + 'T00:00:00').toISOString(),
         }),
       });
 

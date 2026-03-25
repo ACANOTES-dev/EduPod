@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { FamilyRegistrationDto, PreviewFeesDto } from '@school/shared';
+import type { AddStudentToHouseholdDto, FamilyRegistrationDto, PreviewFeesDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';
@@ -558,6 +558,220 @@ export class RegistrationService {
       };
     } catch {
       // If issuing fails (e.g., approval needed), return result with draft/pending status
+      return result;
+    }
+  }
+
+  // ─── Add Student to Existing Household ──────────────────────────────────────
+
+  async addStudentToHousehold(
+    tenantId: string,
+    userId: string,
+    householdId: string,
+    dto: AddStudentToHouseholdDto,
+  ) {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const result = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // ── 1. Validate household exists ───────────────────────────────────
+      const household = await db.household.findFirst({
+        where: { id: householdId, tenant_id: tenantId },
+      });
+      if (!household) {
+        throw new NotFoundException({
+          code: 'HOUSEHOLD_NOT_FOUND',
+          message: `Household with id "${householdId}" not found`,
+        });
+      }
+
+      // ── 2. Get all parents linked to this household ────────────────────
+      const householdParents = await db.householdParent.findMany({
+        where: { household_id: householdId, tenant_id: tenantId },
+        include: { parent: true },
+      });
+
+      if (householdParents.length === 0) {
+        throw new BadRequestException({
+          code: 'NO_PARENTS',
+          message: 'Cannot add a student to a household with no parents',
+        });
+      }
+
+      // ── 3. Create student ──────────────────────────────────────────────
+      const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
+      const lastName = dto.last_name || household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '');
+
+      const student = await db.student.create({
+        data: {
+          tenant_id: tenantId,
+          household_id: householdId,
+          first_name: dto.first_name,
+          middle_name: dto.middle_name ?? null,
+          last_name: lastName,
+          national_id: dto.national_id,
+          date_of_birth: new Date(dto.date_of_birth),
+          gender: dto.gender as 'male' | 'female' | 'other' | 'prefer_not_to_say',
+          year_group_id: dto.year_group_id,
+          student_number: studentNumber,
+          nationality: dto.nationality ?? null,
+          city_of_birth: dto.city_of_birth ?? null,
+          status: 'applicant',
+          entry_date: new Date(),
+        },
+      });
+
+      // ── 4. Link student to all household parents ───────────────────────
+      for (const hp of householdParents) {
+        await db.studentParent.create({
+          data: {
+            tenant_id: tenantId,
+            student_id: student.id,
+            parent_id: hp.parent_id,
+            relationship_label: hp.role_label ?? 'Parent',
+          },
+        });
+      }
+
+      // ── 5. Auto-assign fees for this student's year group ──────────────
+      const feeStructures = await db.feeStructure.findMany({
+        where: {
+          tenant_id: tenantId,
+          active: true,
+          OR: [
+            { year_group_id: null },
+            { year_group_id: dto.year_group_id },
+          ],
+        },
+      });
+
+      const today = new Date();
+      for (const fs of feeStructures) {
+        await db.householdFeeAssignment.create({
+          data: {
+            tenant_id: tenantId,
+            household_id: householdId,
+            student_id: student.id,
+            fee_structure_id: fs.id,
+            effective_from: today,
+          },
+        });
+      }
+
+      // ── 6. Build invoice ───────────────────────────────────────────────
+      const tenant = await db.tenant.findUnique({ where: { id: tenantId } });
+      if (!tenant) {
+        throw new NotFoundException({ code: 'TENANT_NOT_FOUND', message: 'Tenant not found' });
+      }
+
+      const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
+      const invoicePrefix = branding?.invoice_prefix ?? 'INV';
+      const invoiceNumber = await this.sequenceService.nextNumber(tenantId, 'invoice', tx, invoicePrefix);
+
+      // Get term count for annual amount calculation
+      const activeYear = await db.academicYear.findFirst({
+        where: { tenant_id: tenantId, status: 'active' },
+        include: { _count: { select: { periods: true } } },
+      });
+      const termCount = (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
+
+      const lineData: Array<{
+        tenant_id: string;
+        description: string;
+        quantity: number;
+        unit_amount: number;
+        line_total: number;
+        student_id: string | null;
+        fee_structure_id: string | null;
+      }> = [];
+
+      let subtotal = 0;
+
+      for (const fs of feeStructures) {
+        const baseAmount = Number(fs.amount);
+        let annualAmount: number;
+        switch (fs.billing_frequency) {
+          case 'one_off':
+          case 'custom':
+            annualAmount = baseAmount;
+            break;
+          case 'term':
+            annualAmount = roundMoney(baseAmount * termCount);
+            break;
+          case 'monthly':
+            annualAmount = roundMoney(baseAmount * 12);
+            break;
+          default:
+            annualAmount = baseAmount;
+        }
+
+        const lineTotal = roundMoney(annualAmount);
+        lineData.push({
+          tenant_id: tenantId,
+          description: `${fs.name} — ${dto.first_name} ${lastName}`,
+          quantity: 1,
+          unit_amount: lineTotal,
+          line_total: lineTotal,
+          student_id: student.id,
+          fee_structure_id: fs.id,
+        });
+        subtotal += lineTotal;
+      }
+
+      subtotal = roundMoney(subtotal);
+
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const invoice = await db.invoice.create({
+        data: {
+          tenant_id: tenantId,
+          household_id: householdId,
+          invoice_number: invoiceNumber,
+          status: 'draft',
+          due_date: dueDate,
+          subtotal_amount: subtotal,
+          discount_amount: 0,
+          total_amount: subtotal,
+          balance_amount: subtotal,
+          currency_code: tenant.currency_code,
+          created_by_user_id: userId,
+          lines: { create: lineData },
+        },
+      });
+
+      return {
+        student: {
+          id: student.id,
+          student_number: studentNumber,
+          first_name: dto.first_name,
+          last_name: lastName,
+        },
+        invoice: {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          total_amount: Number(invoice.total_amount),
+          balance_amount: Number(invoice.balance_amount),
+          status: invoice.status as string,
+        },
+      };
+    })) as {
+      student: { id: string; student_number: string; first_name: string; last_name: string };
+      invoice: { id: string; invoice_number: string; total_amount: number; balance_amount: number; status: string };
+    };
+
+    // Issue invoice after transaction commits
+    try {
+      const issuedInvoice = await this.invoicesService.issue(tenantId, result.invoice.id, userId, true);
+      return {
+        ...result,
+        invoice: {
+          ...result.invoice,
+          status: (issuedInvoice as { status?: string }).status ?? result.invoice.status,
+        },
+      };
+    } catch {
       return result;
     }
   }

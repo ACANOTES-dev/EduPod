@@ -93,7 +93,6 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: GraduationCap, labelKey: 'nav.students', href: '/students' },
       { icon: Users, labelKey: 'nav.staff', href: '/staff', roles: ADMIN_ROLES },
       { icon: Home, labelKey: 'nav.households', href: '/households', roles: ADMIN_ROLES },
-      { icon: UserPlus, labelKey: 'nav.classAssignments', href: '/class-assignments', roles: ADMIN_ROLES },
     ],
   },
   {
@@ -102,6 +101,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: BookOpen, labelKey: 'nav.classes', href: '/classes' },
       { icon: LayoutGrid, labelKey: 'nav.subjects', href: '/subjects', roles: ADMIN_ROLES },
+      { icon: UserPlus, labelKey: 'nav.classAssignments', href: '/class-assignments', roles: ADMIN_ROLES },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
     ],
   },

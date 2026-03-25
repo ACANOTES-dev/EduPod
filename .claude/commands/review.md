@@ -1,18 +1,30 @@
+---
+description: Full hostile codebase review across 11 dimensions (security, GDPR, architecture, data integrity, reliability, performance, code quality, dependencies, i18n, devops, DR). Saves timestamped report to Code Review/.
+model: claude-opus-4-6 (if Anthropic Model) or GPT-5.3 Codex(if OpenAI Model)
+allowed-tools: Read, Glob, Grep, Bash(date *), Bash(git rev-parse *), Bash(git log *), Bash(mkdir *), Bash(cat *), Bash(node *), Bash(npx *), Write
+---
+
 # Output Instructions
 
-Save the full review report as a Markdown file in the `Code Review/` directory at the project root. Create the directory if it doesn't exist.
-
-Filename convention: `review-YYYY-MM-DD-HHMMSS.md` using the current local timestamp at the time of execution.
-
-Example: `Code Review/review-2026-03-24-143022.md`
-
-At the top of the saved report, include a metadata header:
+Before starting the review, run:
 
 ```
-# Code Review — [YYYY-MM-DD HH:MM]
-**Repository:** [repo name from package.json or directory name]
-**Commit:** [current HEAD short SHA if git repo, otherwise "N/A"]
-**Reviewed by:** Claude Code
+mkdir -p "Code Review"
+TIMESTAMP=$(date +"%Y-%m-%d-%H%M%S")
+DATESTAMP=$(date +"%Y-%m-%d %H:%M")
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "N/A")
+REPO=$(basename "$(pwd)")
+```
+
+Save the full review report to: `Code Review/review-${TIMESTAMP}.md`
+
+At the top of the saved report, include this metadata header:
+
+```
+# Code Review — ${DATESTAMP}
+**Repository:** ${REPO}
+**Commit:** ${COMMIT}
+**Reviewed by:** Claude Code (Opus) or GPT Codex (5.3 - Codex)ß
 **Scope:** Full codebase — 11 dimensions (P0–P4)
 ---
 ```
@@ -169,13 +181,7 @@ After all findings, produce:
 
 # Review History
 
-After saving the report, append a one-line entry to `Code Review/REVIEW_LOG.md` (create if it doesn't exist). Format:
-
-```
-| YYYY-MM-DD HH:MM | [short SHA] | P0: X | P1: X | P2: X | P3: X | P4: X | Total: X | [filename] |
-```
-
-If the log file is new, add this header first:
+After saving the report, update `Code Review/REVIEW_LOG.md`. If the file doesn't exist, create it with this header:
 
 ```
 # Review Log
@@ -184,4 +190,14 @@ If the log file is new, add this header first:
 |------|--------|----|----|----|----|----|-------|--------|
 ```
 
-This gives a running trendline across reviews so I can track whether the codebase is improving or regressing between iterations.
+Then append a row:
+
+```
+| ${DATESTAMP} | ${COMMIT} | P0: X | P1: X | P2: X | P3: X | P4: X | Total: X | review-${TIMESTAMP}.md |
+```
+
+This gives a running trendline across reviews to track whether the codebase is improving or regressing between iterations.
+
+# Housekeeping
+
+Add `Code Review/` to `.gitignore` — these reports are for your eyes only, not for version control.

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Button,
   Input,
   Select,
   SelectContent,
@@ -11,7 +10,7 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { Home, Plus, Search } from 'lucide-react';
+import { Home, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -182,20 +181,13 @@ export default function HouseholdsPage() {
       <PageHeader
         title="Households"
         description="Manage family household records"
-        actions={
-          <Button onClick={() => router.push('/households/new')}>
-            <Plus className="me-2 h-4 w-4" />
-            New Household
-          </Button>
-        }
       />
 
       {!isLoading && households.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState
           icon={Home}
           title="No households yet"
-          description="Add your first household to get started."
-          action={{ label: 'New Household', onClick: () => router.push('/households/new') }}
+          description="Register a new family using the wizard to create a household."
         />
       ) : (
         <DataTable

@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Button,
   Input,
   Select,
   SelectContent,
@@ -11,7 +10,7 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { Download, GraduationCap, Plus, Search } from 'lucide-react';
+import { Download, GraduationCap, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -274,24 +273,18 @@ export default function StudentsPage() {
         title="Students"
         description="Manage student records and enrolments"
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
-              <SelectTrigger className="w-full sm:w-[130px]">
-                <div className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
-                  <span>Export</span>
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
-                <SelectItem value="pdf">PDF</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={() => router.push('/students/new')}>
-              <Plus className="me-2 h-4 w-4" />
-              New Student
-            </Button>
-          </div>
+          <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
+            <SelectTrigger className="w-full sm:w-[130px]">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
         }
       />
 
@@ -299,8 +292,7 @@ export default function StudentsPage() {
         <EmptyState
           icon={GraduationCap}
           title="No students yet"
-          description="Add your first student to get started."
-          action={{ label: 'New Student', onClick: () => router.push('/students/new') }}
+          description="Register a new family using the wizard, or add a student from an existing household."
         />
       ) : (
         <DataTable

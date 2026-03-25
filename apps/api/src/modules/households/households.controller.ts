@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  addStudentToHouseholdSchema,
   createHouseholdSchema,
   emergencyContactSchema,
   mergeHouseholdSchema,
@@ -21,8 +22,10 @@ import {
   updateHouseholdSchema,
 } from '@school/shared';
 import type {
+  AddStudentToHouseholdDto,
   CreateHouseholdDto,
   EmergencyContactDto,
+  JwtPayload,
   MergeHouseholdDto,
   SplitHouseholdDto,
   TenantContext,
@@ -31,10 +34,12 @@ import type {
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { RegistrationService } from '../registration/registration.service';
 
 import { HouseholdsService } from './households.service';
 
@@ -61,7 +66,10 @@ const linkParentSchema = z.object({
 @Controller('v1/households')
 @UseGuards(AuthGuard, PermissionGuard)
 export class HouseholdsController {
-  constructor(private readonly householdsService: HouseholdsService) {}
+  constructor(
+    private readonly householdsService: HouseholdsService,
+    private readonly registrationService: RegistrationService,
+  ) {}
 
   @Post()
   @RequiresPermission('students.manage')
@@ -222,6 +230,18 @@ export class HouseholdsController {
       householdId,
       parentId,
     );
+  }
+
+  @Post(':id/students')
+  @RequiresPermission('students.manage')
+  @HttpCode(HttpStatus.CREATED)
+  async addStudent(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(addStudentToHouseholdSchema)) dto: AddStudentToHouseholdDto,
+  ) {
+    return this.registrationService.addStudentToHousehold(tenant.tenant_id, user.sub, id, dto);
   }
 
   @Get(':id/preview')

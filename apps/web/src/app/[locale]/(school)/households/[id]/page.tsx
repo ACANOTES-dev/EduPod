@@ -5,6 +5,11 @@ import {
   Button,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   StatusBadge,
   Dialog,
@@ -14,7 +19,7 @@ import {
   DialogFooter,
   toast,
 } from '@school/ui';
-import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -127,6 +132,23 @@ export default function HouseholdHubPage() {
   });
   const [isSavingContact, setIsSavingContact] = React.useState(false);
 
+  // Add Student dialog
+  interface YearGroup { id: string; name: string }
+  const [addStudentOpen, setAddStudentOpen] = React.useState(false);
+  const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
+  const [studentForm, setStudentForm] = React.useState({
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: '',
+    year_group_id: '',
+    national_id: '',
+    nationality: '',
+    city_of_birth: '',
+  });
+  const [isSavingStudent, setIsSavingStudent] = React.useState(false);
+
   const fetchHousehold = React.useCallback(async () => {
     setIsLoading(true);
     try {
@@ -149,6 +171,63 @@ export default function HouseholdHubPage() {
       .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
       .catch(() => setInvoices([]));
   }, [id]);
+
+  // Fetch year groups for add-student form
+  React.useEffect(() => {
+    apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=50')
+      .then((res) => setYearGroups(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setYearGroups([]));
+  }, []);
+
+  const openAddStudent = () => {
+    setStudentForm({
+      first_name: '',
+      middle_name: '',
+      last_name: '',
+      date_of_birth: '',
+      gender: '',
+      year_group_id: '',
+      national_id: '',
+      nationality: '',
+      city_of_birth: '',
+    });
+    setAddStudentOpen(true);
+  };
+
+  const handleSaveStudent = async () => {
+    if (!studentForm.first_name || !studentForm.date_of_birth || !studentForm.gender || !studentForm.year_group_id || !studentForm.national_id) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    setIsSavingStudent(true);
+    try {
+      await apiClient(`/api/v1/households/${id}/students`, {
+        method: 'POST',
+        body: JSON.stringify({
+          first_name: studentForm.first_name,
+          middle_name: studentForm.middle_name || undefined,
+          last_name: studentForm.last_name || undefined,
+          date_of_birth: studentForm.date_of_birth,
+          gender: studentForm.gender,
+          year_group_id: studentForm.year_group_id,
+          national_id: studentForm.national_id,
+          nationality: studentForm.nationality || undefined,
+          city_of_birth: studentForm.city_of_birth || undefined,
+        }),
+      });
+      toast.success('Student added and fees assigned');
+      setAddStudentOpen(false);
+      await fetchHousehold();
+      // Refresh invoices
+      apiClient<{ data: Invoice[] }>(`/api/v1/finance/invoices?household_id=${id}&pageSize=50`)
+        .then((res) => setInvoices(Array.isArray(res.data) ? res.data : []))
+        .catch(() => undefined);
+    } catch {
+      toast.error('Failed to add student');
+    } finally {
+      setIsSavingStudent(false);
+    }
+  };
 
   const openAddContact = () => {
     setEditingContact(null);
@@ -307,7 +386,17 @@ export default function HouseholdHubPage() {
   );
 
   const studentsTab = (
-    <div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">
+          {students.length} {students.length === 1 ? 'Student' : 'Students'}
+        </h3>
+        <Button size="sm" onClick={openAddStudent}>
+          <Plus className="me-2 h-4 w-4" />
+          Add Student
+        </Button>
+      </div>
+
       {students.length === 0 ? (
         <p className="text-sm text-text-tertiary">No students in this household.</p>
       ) : (
@@ -616,6 +705,132 @@ export default function HouseholdHubPage() {
         parents={parents}
         onSplit={(newId) => router.push(`/households/${newId}`)}
       />
+
+      {/* Add Student dialog */}
+      <Dialog open={addStudentOpen} onOpenChange={setAddStudentOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Student to {household.household_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Name row */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="stu_first">First Name *</Label>
+                <Input
+                  id="stu_first"
+                  value={studentForm.first_name}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, first_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stu_middle">Middle Name</Label>
+                <Input
+                  id="stu_middle"
+                  value={studentForm.middle_name}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, middle_name: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="stu_last">Last Name (defaults to family name)</Label>
+              <Input
+                id="stu_last"
+                placeholder={household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '')}
+                value={studentForm.last_name}
+                onChange={(e) => setStudentForm((p) => ({ ...p, last_name: e.target.value }))}
+              />
+            </div>
+
+            {/* DOB + Gender */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="stu_dob">Date of Birth *</Label>
+                <Input
+                  id="stu_dob"
+                  type="date"
+                  dir="ltr"
+                  value={studentForm.date_of_birth}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, date_of_birth: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gender *</Label>
+                <Select value={studentForm.gender} onValueChange={(v) => setStudentForm((p) => ({ ...p, gender: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                    <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Year Group */}
+            <div className="space-y-1.5">
+              <Label>Year Group *</Label>
+              <Select value={studentForm.year_group_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, year_group_id: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select year group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearGroups.map((yg) => (
+                    <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* National ID + Nationality */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="stu_nid">National ID *</Label>
+                <Input
+                  id="stu_nid"
+                  dir="ltr"
+                  value={studentForm.national_id}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, national_id: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stu_nationality">Nationality</Label>
+                <Input
+                  id="stu_nationality"
+                  value={studentForm.nationality}
+                  onChange={(e) => setStudentForm((p) => ({ ...p, nationality: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* City of Birth */}
+            <div className="space-y-1.5">
+              <Label htmlFor="stu_cob">City of Birth</Label>
+              <Input
+                id="stu_cob"
+                value={studentForm.city_of_birth}
+                onChange={(e) => setStudentForm((p) => ({ ...p, city_of_birth: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddStudentOpen(false)} disabled={isSavingStudent}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleSaveStudent()} disabled={isSavingStudent}>
+              {isSavingStudent && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              {isSavingStudent ? 'Adding...' : 'Add Student & Assign Fees'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

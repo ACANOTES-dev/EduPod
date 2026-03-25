@@ -74,3 +74,4 @@ yarn-error.log*
 *.pid.lock
 .cache/
 .playwright-mcp/
+Code Review/
