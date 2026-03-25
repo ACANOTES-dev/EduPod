@@ -136,6 +136,65 @@ describe('RolesService', () => {
       });
     });
 
+    it('should allow assigning permissions to system roles (not platform_owner)', async () => {
+      const systemRole = {
+        id: ROLE_ID,
+        tenant_id: TENANT_ID,
+        role_key: 'school_admin',
+        display_name: 'School Admin',
+        is_system_role: true,
+        role_tier: 'admin',
+      };
+
+      const systemRoleWithPerms = {
+        ...systemRole,
+        role_permissions: [
+          { permission: { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' } },
+        ],
+      };
+
+      mockPrisma.role.findFirst
+        .mockResolvedValueOnce(systemRole)
+        .mockResolvedValueOnce(systemRoleWithPerms);
+
+      mockPrisma.permission.findMany.mockResolvedValueOnce([
+        { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' },
+      ]);
+
+      mockPrisma.rolePermission.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.rolePermission.createMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.assignPermissions(TENANT_ID, ROLE_ID, [PERM_ID_ADMIN]);
+
+      expect(mockPrisma.rolePermission.createMany).toHaveBeenCalledWith({
+        data: [{ role_id: ROLE_ID, permission_id: PERM_ID_ADMIN, tenant_id: TENANT_ID }],
+      });
+      expect(result).toEqual(systemRoleWithPerms);
+    });
+
+    it('should reject assigning permissions to platform_owner role', async () => {
+      mockPrisma.role.findFirst.mockResolvedValueOnce({
+        id: ROLE_ID,
+        tenant_id: null,
+        role_key: 'platform_owner',
+        display_name: 'Platform Owner',
+        is_system_role: true,
+        role_tier: 'platform',
+      });
+
+      let caught: unknown;
+      try {
+        await service.assignPermissions(TENANT_ID, ROLE_ID, [PERM_ID_ADMIN]);
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'SYSTEM_ROLE_IMMUTABLE',
+      });
+    });
+
     it('should allow admin role to have both admin and staff permissions', async () => {
       const adminRole = {
         id: ROLE_ID,
@@ -276,6 +335,95 @@ describe('RolesService', () => {
       expect(caught).toBeInstanceOf(NotFoundException);
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ROLE_NOT_FOUND',
+      });
+    });
+  });
+
+  // ─── updateRole ─────────────────────────────────────────────────────────────
+
+  describe('updateRole', () => {
+    it('should block display_name changes on system roles', async () => {
+      mockPrisma.role.findFirst.mockResolvedValueOnce({
+        id: ROLE_ID,
+        tenant_id: TENANT_ID,
+        role_key: 'teacher',
+        display_name: 'Teacher',
+        is_system_role: true,
+        role_tier: 'staff',
+      });
+
+      let caught: unknown;
+      try {
+        await service.updateRole(TENANT_ID, ROLE_ID, { display_name: 'Instructor' });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'SYSTEM_ROLE_NAME_LOCKED',
+      });
+    });
+
+    it('should allow permission changes on system roles', async () => {
+      const systemRole = {
+        id: ROLE_ID,
+        tenant_id: TENANT_ID,
+        role_key: 'teacher',
+        display_name: 'Teacher',
+        is_system_role: true,
+        role_tier: 'staff',
+      };
+
+      const updatedRole = {
+        ...systemRole,
+        role_permissions: [
+          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+        ],
+      };
+
+      mockPrisma.role.findFirst
+        .mockResolvedValueOnce(systemRole)
+        .mockResolvedValueOnce(updatedRole);
+
+      mockPrisma.permission.findMany.mockResolvedValueOnce([
+        { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' },
+      ]);
+
+      mockPrisma.rolePermission.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.rolePermission.createMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.updateRole(TENANT_ID, ROLE_ID, {
+        permission_ids: [PERM_ID_STAFF_1],
+      });
+
+      expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
+      expect(mockPrisma.role.update).not.toHaveBeenCalled();
+      expect(result).toEqual(updatedRole);
+    });
+
+    it('should block all changes on platform_owner role', async () => {
+      mockPrisma.role.findFirst.mockResolvedValueOnce({
+        id: ROLE_ID,
+        tenant_id: null,
+        role_key: 'platform_owner',
+        display_name: 'Platform Owner',
+        is_system_role: true,
+        role_tier: 'platform',
+      });
+
+      let caught: unknown;
+      try {
+        await service.updateRole(TENANT_ID, ROLE_ID, {
+          permission_ids: [PERM_ID_ADMIN],
+        });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'SYSTEM_ROLE_IMMUTABLE',
       });
     });
   });

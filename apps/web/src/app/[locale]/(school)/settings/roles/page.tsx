@@ -204,7 +204,7 @@ export default function RolesPage() {
             variant="ghost"
             size="sm"
             onClick={() => router.push(`${localePrefix}/settings/roles/${row.id}`)}
-            title={row.is_system_role ? t('readOnly') : tc('edit')}
+            title={row.role_key === 'platform_owner' ? t('readOnly') : tc('edit')}
           >
             <Pencil className="h-3.5 w-3.5" />
           </Button>

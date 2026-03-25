@@ -160,12 +160,12 @@ export default function RoleDetailPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role || role.is_system_role) return;
+    if (!role || role.role_key === 'platform_owner') return;
     setSaving(true);
     setSaveError('');
     try {
-      // 1. Update display_name if changed
-      if (displayName.trim() !== role.display_name) {
+      // 1. Update display_name if changed (custom roles only — system role names are locked)
+      if (!role.is_system_role && displayName.trim() !== role.display_name) {
         await apiClient(`/api/v1/roles/${id}`, {
           method: 'PATCH',
           body: JSON.stringify({ display_name: displayName.trim() }),
@@ -223,7 +223,13 @@ export default function RoleDetailPage() {
   }
 
   const isSystemRole = role.is_system_role;
+  const isPlatformOwner = role.role_key === 'platform_owner';
   const roleTier = role.role_tier as RoleTier;
+
+  // Platform owner: fully locked. Other system roles: permissions editable, name locked.
+  const canEditPermissions = !isPlatformOwner;
+  const canEditName = !isSystemRole;
+  const canDelete = !isSystemRole;
 
   return (
     <div className="space-y-6">
@@ -231,7 +237,7 @@ export default function RoleDetailPage() {
         title={role.display_name}
         actions={
           <div className="flex items-center gap-2">
-            {!isSystemRole && (
+            {canDelete && (
               <Button
                 variant="outline"
                 onClick={() => setDeleteOpen(true)}
@@ -249,10 +255,17 @@ export default function RoleDetailPage() {
         }
       />
 
-      {isSystemRole && (
+      {isPlatformOwner && (
         <div className="flex items-center gap-2 rounded-lg border border-info-text/20 bg-info-fill px-4 py-3 text-sm text-info-text">
           <Lock className="h-4 w-4 shrink-0" />
           <span>{t('readOnly')}</span>
+        </div>
+      )}
+
+      {isSystemRole && !isPlatformOwner && (
+        <div className="flex items-center gap-2 rounded-lg border border-info-text/20 bg-info-fill px-4 py-3 text-sm text-info-text">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>{t('systemRolePermissionsEditable')}</span>
         </div>
       )}
 
@@ -273,7 +286,7 @@ export default function RoleDetailPage() {
                 id="display-name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                disabled={isSystemRole}
+                disabled={!canEditName}
               />
             </div>
 
@@ -317,14 +330,14 @@ export default function RoleDetailPage() {
             selectedIds={selectedPermIds}
             availablePermissions={availablePermissions}
             onChange={setSelectedPermIds}
-            disabled={isSystemRole}
+            disabled={!canEditPermissions}
           />
         </div>
 
         {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
 
-        {/* Actions — only for custom roles */}
-        {!isSystemRole && (
+        {/* Save actions — shown when permissions or name can be edited */}
+        {canEditPermissions && (
           <div className="flex items-center justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={saving}>
               {tc('cancel')}

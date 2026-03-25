@@ -124,13 +124,14 @@ export class RolesService {
   }
 
   /**
-   * Update a custom role. System roles cannot be modified.
+   * Update a role. System roles allow permission changes only (not name).
+   * The platform_owner role is fully immutable.
    */
   async updateRole(tenantId: string, roleId: string, data: UpdateRoleDto) {
     const role = await this.prisma.role.findFirst({
       where: {
         id: roleId,
-        tenant_id: tenantId,
+        OR: [{ tenant_id: tenantId }, { tenant_id: null }],
       },
     });
 
@@ -141,10 +142,19 @@ export class RolesService {
       });
     }
 
-    if (role.is_system_role) {
+    // Platform owner is fully immutable
+    if (role.role_key === 'platform_owner') {
       throw new BadRequestException({
         code: 'SYSTEM_ROLE_IMMUTABLE',
-        message: 'System roles cannot be modified',
+        message: 'Platform owner role cannot be modified',
+      });
+    }
+
+    // System roles: block display_name changes, allow permission changes
+    if (role.is_system_role && data.display_name !== undefined) {
+      throw new BadRequestException({
+        code: 'SYSTEM_ROLE_NAME_LOCKED',
+        message: 'System role names cannot be changed',
       });
     }
 
@@ -155,7 +165,9 @@ export class RolesService {
         data.permission_ids,
       );
 
-      // Replace permissions
+      // Replace permissions — use the role's tenant_id (or the caller's for null-tenant roles)
+      const permTenantId = role.tenant_id ?? tenantId;
+
       await this.prisma.rolePermission.deleteMany({
         where: { role_id: roleId },
       });
@@ -165,25 +177,24 @@ export class RolesService {
           data: data.permission_ids.map((permId) => ({
             role_id: roleId,
             permission_id: permId,
-            tenant_id: tenantId,
+            tenant_id: permTenantId,
           })),
         });
       }
     }
 
-    const updated = await this.prisma.role.update({
-      where: { id: roleId },
-      data: {
-        ...(data.display_name !== undefined
-          ? { display_name: data.display_name }
-          : {}),
-      },
-    });
+    // Only update display_name for custom roles
+    if (!role.is_system_role && data.display_name !== undefined) {
+      await this.prisma.role.update({
+        where: { id: roleId },
+        data: { display_name: data.display_name },
+      });
+    }
 
     // Invalidate permission cache for all memberships in this tenant
     await this.permissionCacheService.invalidateAllForTenant(tenantId);
 
-    return this.getRole(tenantId, updated.id);
+    return this.getRole(tenantId, roleId);
   }
 
   /**
@@ -258,10 +269,11 @@ export class RolesService {
       });
     }
 
-    if (role.is_system_role) {
+    // Platform owner is fully immutable
+    if (role.role_key === 'platform_owner') {
       throw new BadRequestException({
         code: 'SYSTEM_ROLE_IMMUTABLE',
-        message: 'System role permissions cannot be modified directly',
+        message: 'Platform owner role permissions cannot be modified',
       });
     }
 
@@ -270,7 +282,9 @@ export class RolesService {
       permissionIds,
     );
 
-    // Replace all permissions
+    // Replace all permissions — use the role's tenant_id (or the caller's for null-tenant roles)
+    const permTenantId = role.tenant_id ?? tenantId;
+
     await this.prisma.rolePermission.deleteMany({
       where: { role_id: roleId },
     });
@@ -280,7 +294,7 @@ export class RolesService {
         data: permissionIds.map((permId) => ({
           role_id: roleId,
           permission_id: permId,
-          tenant_id: tenantId,
+          tenant_id: permTenantId,
         })),
       });
     }

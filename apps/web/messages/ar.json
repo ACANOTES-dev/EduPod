@@ -1683,7 +1683,8 @@
     "permissionsSection": "الصلاحيات",
     "permissionsTierNote": "تظهر فقط الصلاحيات في المستوى المحدد أو ما دونه.",
     "actions": "الإجراءات",
-    "readOnly": "للقراءة فقط (دور النظام)",
+    "readOnly": "للقراءة فقط — لا يمكن تعديل هذا الدور",
+    "systemRolePermissionsEditable": "دور النظام — يمكن تعديل الصلاحيات، لكن لا يمكن تغيير الاسم أو الحذف",
     "displayName": "الاسم المعروض"
   },
   "profile": {
