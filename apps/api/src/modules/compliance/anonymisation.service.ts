@@ -133,10 +133,8 @@ export class AnonymisationService {
       data: {
         first_name: anonValue,
         last_name: anonValue,
-        full_name: anonValue,
         first_name_ar: anonValue,
         last_name_ar: anonValue,
-        full_name_ar: anonValue,
         student_number: anonValue,
       },
     });

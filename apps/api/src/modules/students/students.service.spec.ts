@@ -137,33 +137,11 @@ describe('StudentsService — create', () => {
     );
   });
 
-  it('should set full_name combining first and last name', async () => {
+  it('should not set full_name (generated column computed by database)', async () => {
     await service.create(TENANT_ID, { ...baseCreateDto, first_name: 'Jane', last_name: 'Smith' });
 
-    expect(mockRlsTx.student.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          full_name: 'Jane Smith',
-        }),
-      }),
-    );
-  });
-
-  it('should set full_name with middle name when provided', async () => {
-    await service.create(TENANT_ID, {
-      ...baseCreateDto,
-      first_name: 'Jane',
-      middle_name: 'Marie',
-      last_name: 'Smith',
-    });
-
-    expect(mockRlsTx.student.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          full_name: 'Jane Marie Smith',
-        }),
-      }),
-    );
+    const callData = mockRlsTx.student.create.mock.calls[0]?.[0]?.data;
+    expect(callData).not.toHaveProperty('full_name');
   });
 
   it('should create studentParent records when parent_links provided', async () => {

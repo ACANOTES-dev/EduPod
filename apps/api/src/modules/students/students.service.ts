@@ -223,9 +223,6 @@ export class StudentsService {
           first_name: dto.first_name,
           middle_name: dto.middle_name ?? null,
           last_name: dto.last_name,
-          full_name: dto.middle_name
-            ? `${dto.first_name} ${dto.middle_name} ${dto.last_name}`.trim()
-            : `${dto.first_name} ${dto.last_name}`.trim(),
           first_name_ar: dto.first_name_ar ?? null,
           last_name_ar: dto.last_name_ar ?? null,
           national_id: dto.national_id ?? null,

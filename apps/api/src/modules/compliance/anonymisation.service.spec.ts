@@ -257,13 +257,12 @@ describe('AnonymisationService', () => {
         data: expect.objectContaining({
           first_name: anonValue,
           last_name: anonValue,
-          full_name: anonValue,
           student_number: anonValue,
         }),
       });
     });
 
-    it('should anonymise Arabic name fields (first_name_ar, last_name_ar, full_name_ar)', async () => {
+    it('should anonymise Arabic name fields (first_name_ar, last_name_ar) but not generated full_name_ar', async () => {
       mockStudent.findFirst.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
@@ -277,7 +276,7 @@ describe('AnonymisationService', () => {
       const updateCall = mockStudent.update.mock.calls[0][0];
       expect(updateCall.data.first_name_ar).toBe(anonValue);
       expect(updateCall.data.last_name_ar).toBe(anonValue);
-      expect(updateCall.data.full_name_ar).toBe(anonValue);
+      expect(updateCall.data).not.toHaveProperty('full_name_ar');
     });
 
     it('should anonymise report card snapshot student_name', async () => {
