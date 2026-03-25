@@ -61,13 +61,21 @@ jobs:
             done
 
             echo "=== Restarting services ==="
-            pm2 restart api web worker 2>/dev/null || {
-              echo "Some processes not found, starting them..."
-              pm2 restart api web 2>/dev/null || true
+            echo "pm2 process list before restart:"
+            pm2 list
+
+            # Restart each process individually so failures are visible
+            pm2 restart api   && echo "api restarted"   || echo "WARN: api restart failed"
+            pm2 restart web   && echo "web restarted"   || echo "WARN: web restart failed"
+            pm2 restart worker && echo "worker restarted" || { \
+              echo "worker not found, starting..."
               pm2 start /opt/edupod/app/apps/worker/dist/apps/worker/src/main.js \
-                --name worker 2>/dev/null || pm2 restart worker
+                --name worker
             }
+
             pm2 save
+            echo "pm2 process list after restart:"
+            pm2 list
 
             echo "=== Smoke test ==="
             sleep 5
