@@ -102,7 +102,7 @@ export type ListAcademicYearsQuery = z.infer<typeof listAcademicYearsQuerySchema
 
 export const listSubjectsQuerySchema = z.object({
   subject_type: z.enum(['academic', 'supervision', 'duty', 'other']).optional(),
-  active: z.coerce.boolean().optional(),
+  active: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(100),
 });

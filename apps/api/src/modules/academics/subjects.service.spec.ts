@@ -16,8 +16,14 @@ const SUBJECT_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const mockRlsTx = {
   subject: {
     create: jest.fn(),
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    count: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+  },
+  class: {
+    count: jest.fn(),
   },
 };
 
@@ -125,14 +131,14 @@ describe('SubjectsService', () => {
   describe('findAll', () => {
     it('should return paginated subjects', async () => {
       const subjects = [baseSubject];
-      mockPrisma.subject.findMany.mockResolvedValueOnce(subjects);
-      mockPrisma.subject.count.mockResolvedValueOnce(1);
+      mockRlsTx.subject.findMany.mockResolvedValueOnce(subjects);
+      mockRlsTx.subject.count.mockResolvedValueOnce(1);
 
       const result = await service.findAll(TENANT_ID, { page: 1, pageSize: 20 });
 
       expect(result.data).toEqual(subjects);
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
-      expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
+      expect(mockRlsTx.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID },
           skip: 0,
@@ -142,12 +148,12 @@ describe('SubjectsService', () => {
     });
 
     it('should filter subjects by type and active status', async () => {
-      mockPrisma.subject.findMany.mockResolvedValueOnce([baseSubject]);
-      mockPrisma.subject.count.mockResolvedValueOnce(1);
+      mockRlsTx.subject.findMany.mockResolvedValueOnce([baseSubject]);
+      mockRlsTx.subject.count.mockResolvedValueOnce(1);
 
       await service.findAll(TENANT_ID, { subject_type: 'academic', active: true, page: 1, pageSize: 20 });
 
-      expect(mockPrisma.subject.findMany).toHaveBeenCalledWith(
+      expect(mockRlsTx.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { tenant_id: TENANT_ID, subject_type: 'academic', active: true },
         }),
@@ -159,7 +165,8 @@ describe('SubjectsService', () => {
 
   describe('update', () => {
     it('should update a subject', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
+      // assertExists uses RLS tx
+      mockRlsTx.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
       const updated = { ...baseSubject, name: 'Advanced Mathematics' };
       mockRlsTx.subject.update.mockResolvedValueOnce(updated);
 
@@ -175,7 +182,7 @@ describe('SubjectsService', () => {
     });
 
     it('should throw NotFoundException when updating nonexistent subject', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValueOnce(null);
+      mockRlsTx.subject.findFirst.mockResolvedValueOnce(null);
 
       let caught: unknown;
       try {
@@ -196,8 +203,9 @@ describe('SubjectsService', () => {
 
   describe('remove', () => {
     it('should delete a subject not in use', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
-      mockPrisma.class.count.mockResolvedValueOnce(0);
+      // All inside RLS tx now
+      mockRlsTx.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
+      mockRlsTx.class.count.mockResolvedValueOnce(0);
       mockRlsTx.subject.delete.mockResolvedValueOnce(baseSubject);
 
       const result = await service.remove(TENANT_ID, SUBJECT_ID);
@@ -207,8 +215,8 @@ describe('SubjectsService', () => {
     });
 
     it('should throw BadRequestException when deleting subject used by classes', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
-      mockPrisma.class.count.mockResolvedValueOnce(3);
+      mockRlsTx.subject.findFirst.mockResolvedValueOnce({ id: SUBJECT_ID });
+      mockRlsTx.class.count.mockResolvedValueOnce(3);
 
       let caught: unknown;
       try {
@@ -225,7 +233,7 @@ describe('SubjectsService', () => {
     });
 
     it('should throw NotFoundException when deleting nonexistent subject', async () => {
-      mockPrisma.subject.findFirst.mockResolvedValueOnce(null);
+      mockRlsTx.subject.findFirst.mockResolvedValueOnce(null);
 
       let caught: unknown;
       try {

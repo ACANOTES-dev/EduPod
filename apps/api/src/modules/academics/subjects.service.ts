@@ -63,15 +63,20 @@ export class SubjectsService {
       where.active = filters.active;
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.subject.findMany({
-        where,
-        orderBy: { name: 'asc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.subject.count({ where }),
-    ]);
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const [data, total] = await prismaWithRls.$transaction(async (tx) => {
+      const txClient = tx as unknown as PrismaService;
+      return Promise.all([
+        txClient.subject.findMany({
+          where,
+          orderBy: { name: 'asc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        txClient.subject.count({ where }),
+      ]);
+    });
 
     return { data, meta: { page, pageSize, total } };
   }
@@ -106,35 +111,48 @@ export class SubjectsService {
   }
 
   async remove(tenantId: string, id: string) {
-    await this.assertExists(tenantId, id);
-
-    // Check if referenced by classes
-    const classCount = await this.prisma.class.count({
-      where: { subject_id: id, tenant_id: tenantId },
-    });
-
-    if (classCount > 0) {
-      throw new BadRequestException({
-        code: 'SUBJECT_IN_USE',
-        message: 'Cannot delete a subject that is assigned to classes',
-      });
-    }
-
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
-      return (tx as unknown as PrismaService).subject.delete({
-        where: { id },
+      const txClient = tx as unknown as PrismaService;
+
+      // Verify subject exists
+      const subject = await txClient.subject.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { id: true },
       });
+      if (!subject) {
+        throw new NotFoundException({
+          code: 'SUBJECT_NOT_FOUND',
+          message: `Subject with id "${id}" not found`,
+        });
+      }
+
+      // Check if referenced by classes
+      const classCount = await txClient.class.count({
+        where: { subject_id: id, tenant_id: tenantId },
+      });
+      if (classCount > 0) {
+        throw new BadRequestException({
+          code: 'SUBJECT_IN_USE',
+          message: 'Cannot delete a subject that is assigned to classes',
+        });
+      }
+
+      return txClient.subject.delete({ where: { id } });
     });
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   private async assertExists(tenantId: string, id: string) {
-    const subject = await this.prisma.subject.findFirst({
-      where: { id, tenant_id: tenantId },
-      select: { id: true },
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const subject = await prismaWithRls.$transaction(async (tx) => {
+      return (tx as unknown as PrismaService).subject.findFirst({
+        where: { id, tenant_id: tenantId },
+        select: { id: true },
+      });
     });
 
     if (!subject) {

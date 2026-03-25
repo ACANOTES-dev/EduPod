@@ -27,6 +27,7 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   { prefix: '/staff', roles: ['school_owner', 'school_admin'] },
   { prefix: '/households', roles: ['school_owner', 'school_admin'] },
   { prefix: '/classes', roles: ['school_owner', 'school_admin', 'teacher'] },
+  { prefix: '/subjects', roles: ['school_owner', 'school_admin'] },
   { prefix: '/promotion', roles: ['school_owner', 'school_admin'] },
   { prefix: '/attendance', roles: ['school_owner', 'school_admin', 'teacher'] },
   { prefix: '/gradebook', roles: ['school_owner', 'school_admin', 'teacher'] },
