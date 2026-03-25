@@ -23,6 +23,7 @@ import {
   FileText,
   DollarSign,
   GraduationCap,
+  Grid3X3,
   Home,
   LayoutGrid,
   LayoutDashboard,
@@ -101,6 +102,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: BookOpen, labelKey: 'nav.classes', href: '/classes' },
       { icon: LayoutGrid, labelKey: 'nav.subjects', href: '/subjects', roles: ADMIN_ROLES },
+      { icon: Grid3X3, labelKey: 'nav.curriculumMatrix', href: '/curriculum-matrix', roles: ADMIN_ROLES },
       { icon: UserPlus, labelKey: 'nav.classAssignments', href: '/class-assignments', roles: ADMIN_ROLES },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
     ],

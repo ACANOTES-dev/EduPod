@@ -6,6 +6,8 @@ import { AcademicPeriodsController } from './academic-periods.controller';
 import { AcademicPeriodsService } from './academic-periods.service';
 import { AcademicYearsController } from './academic-years.controller';
 import { AcademicYearsService } from './academic-years.service';
+import { CurriculumMatrixController } from './curriculum-matrix.controller';
+import { CurriculumMatrixService } from './curriculum-matrix.service';
 import { PromotionController } from './promotion.controller';
 import { PromotionService } from './promotion.service';
 import { SubjectsController } from './subjects.controller';
@@ -21,6 +23,7 @@ import { YearGroupsService } from './year-groups.service';
     YearGroupsController,
     SubjectsController,
     PromotionController,
+    CurriculumMatrixController,
   ],
   providers: [
     AcademicYearsService,
@@ -28,6 +31,7 @@ import { YearGroupsService } from './year-groups.service';
     YearGroupsService,
     SubjectsService,
     PromotionService,
+    CurriculumMatrixService,
   ],
   exports: [
     AcademicYearsService,
