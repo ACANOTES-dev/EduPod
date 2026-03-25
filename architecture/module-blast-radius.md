@@ -1,0 +1,140 @@
+# Module Blast Radius Map
+
+> **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
+> **Maintenance**: Update when adding new cross-module imports or changing module exports.
+> **Last verified**: 2026-03-25
+
+---
+
+## How to read this
+
+Each module lists:
+- **Exports**: Services other modules can inject
+- **Consumed by**: Modules that import and call these services
+- **Blast radius**: What breaks if you change the exported service interface
+
+If a module isn't listed, it has no downstream dependents (safe to modify in isolation).
+
+---
+
+## Tier 1 — Global Infrastructure (change = everything breaks)
+
+### PrismaService
+- **Blast radius**: Every module. Every service. Every test.
+- **Rule**: Never modify PrismaService interface without full regression.
+
+### RedisService
+- **Blast radius**: Auth, attendance, classes, communications, domains, finance reports, gradebook, households, memberships, notifications, payroll, staff-profiles, students, dashboard, website
+- **Rule**: Cache key format changes require auditing all consumers.
+
+---
+
+## Tier 2 — Cross-Cutting Services (change = multiple domains break)
+
+### SequenceService (TenantsModule)
+- **Consumed by**: Admissions, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
+- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references across 13 consumers.
+- **Danger**: The `refund` sequence type is used in code but NOT in the canonical `SEQUENCE_TYPES` constant. If you validate against the constant, refunds break silently.
+
+### SettingsService (ConfigurationModule)
+- **Consumed by**: Attendance (service + upload + pattern + parent notification), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports)
+- **Blast radius**: HIGH. Settings shape changes affect attendance policies, finance billing rules, and payroll calculation.
+- **Danger**: Settings are tenant-specific. A schema change requires migrating ALL tenants' stored JSONB settings. The `tenantSettingsSchema` in shared/ is the single source of truth.
+
+### EncryptionService (ConfigurationModule)
+- **Consumed by**: Admissions payment, finance/Stripe, payslips, staff profiles
+- **Blast radius**: MEDIUM. All encrypted field access (bank details, Stripe keys).
+- **Danger**: Changing encryption/decryption logic makes existing encrypted data unreadable.
+
+### ApprovalRequestsService (ApprovalsModule)
+- **Consumed by**: Admissions/applications, communications/announcements, finance/invoices, payroll/runs
+- **Blast radius**: HIGH. The approval callback dispatch system (Mode A) routes approved requests to domain-specific BullMQ queues. The `MODE_A_CALLBACKS` mapping connects approval types to queue/job pairs.
+- **Danger**: Adding a new approval type requires updating BOTH the callback map AND the corresponding worker processor. Missing either = approved items never execute.
+
+### PdfRenderingService (PdfRenderingModule)
+- **Consumed by**: Finance/receipts, finance/statements, payroll/reports, payslips
+- **Blast radius**: MEDIUM. Template changes affect all PDF-generating domains.
+
+### S3Service (S3Module)
+- **Consumed by**: Branding, compliance, imports (service + validation + processing)
+- **Blast radius**: LOW-MEDIUM. File storage path changes affect document retrieval.
+
+### SearchIndexService (SearchModule)
+- **Consumed by**: Various services enqueue `search:index-entity` jobs on mutations
+- **Blast radius**: LOW. Search index is eventually consistent; breakage = stale search results, not data loss.
+
+---
+
+## Tier 3 — Domain Services (change = specific feature breaks)
+
+### AuthService (AuthModule)
+- **Consumed by**: TenantsModule
+- **Blast radius**: LOW (only tenant provisioning uses it directly; auth flow is middleware-based)
+
+### StaffProfilesService (StaffProfilesModule)
+- **Consumed by**: Imported by its own controllers only, but staff data is READ by payroll, scheduling, attendance, classes via Prisma directly
+- **Blast radius**: MEDIUM. Schema changes to staff_profiles table affect payroll calculations, scheduling solver, attendance marking, class assignments.
+- **Danger**: Other modules query staff_profiles via Prisma, not through StaffProfilesService. A schema change won't cause import errors but WILL cause runtime query failures in payroll/scheduling/attendance.
+
+### ClassesService + ClassEnrolmentsService (ClassesModule)
+- **Consumed by**: No direct importers, but class data is READ by gradebook, attendance, scheduling, finance, report cards
+- **Danger**: Same pattern as StaffProfiles — other modules query classes/class_enrolments via Prisma directly.
+
+### InvoicesService (FinanceModule)
+- **Consumed by**: RegistrationModule (creates registration invoices)
+- **Blast radius**: LOW direct, but invoice status changes trigger payment cascades.
+
+### NotificationsService + NotificationDispatchService (CommunicationsModule)
+- **Consumed by**: AttendanceModule (parent notifications)
+- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts.
+
+### SchoolClosuresService (SchoolClosuresModule)
+- **Consumed by**: AttendanceModule
+- **Blast radius**: LOW. Closure data affects attendance session generation.
+
+### AcademicPeriodsService (AcademicsModule)
+- **Consumed by**: No direct importers, but academic periods are READ by gradebook, report cards, scheduling, promotion
+- **Danger**: Period status transitions (planned -> active -> closed) trigger gradebook and report card auto-generation cron jobs in the worker.
+
+### PermissionCacheService (CommonModule — Global)
+- **Consumed by**: PermissionGuard (every protected endpoint)
+- **Blast radius**: CRITICAL. Cache invalidation bugs = users can't access features. Cache poisoning = permission escalation.
+
+---
+
+## Tier 4 — Isolated Modules (safe to modify independently)
+
+These modules have NO downstream dependents. Changes are contained:
+
+- ParentsModule
+- HouseholdsModule (except reads tenant sequences)
+- RoomsModule (only consumed by SchedulesModule)
+- PeriodGridModule (only consumed by SchedulingRunsModule)
+- PreferencesModule
+- DashboardModule
+- HealthModule
+- WebsiteModule
+- ComplianceModule
+- ReportsModule (queries everything via Prisma, but nothing depends on it)
+- ParentInquiriesModule
+
+---
+
+## Cross-Module Query Pattern (Prisma Bypass)
+
+**Critical awareness**: Many modules query other modules' tables directly via PrismaService rather than injecting the owning module's service. This means:
+
+1. **Schema changes** to these tables break consumers that aren't visible in the NestJS module import graph
+2. The NestJS dependency graph underestimates actual coupling
+
+Known Prisma-direct consumers:
+| Table | Queried directly by |
+|-------|-------------------|
+| `staff_profiles` | Payroll, scheduling, attendance, classes, reports, dashboard |
+| `students` | Attendance, gradebook, report cards, finance, admissions, reports |
+| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards |
+| `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance |
+| `invoices` + `payments` | Finance reports, dashboard, parent portal |
+| `attendance_records` + `attendance_sessions` | Reports, dashboard, gradebook risk detection |
+
+**Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.

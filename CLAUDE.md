@@ -2,31 +2,29 @@
 
 ## What This Is
 
-Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. Phase 1 is ~90% complete (~180k lines of code). Two confirmed tenants pending onboarding.
+Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~180k lines of code. Two confirmed tenants pending onboarding.
 
-## Implementation Plans
-
-This project is built phase-by-phase from implementation plans stored in `plans/`.
+## Reference Documents
 
 ```
-plans/
+Plans/
 ├── context.md                    # Architecture, RLS, auth, RBAC — ALWAYS LOAD
 ├── ui-design-brief.md            # Visual language, components — LOAD FOR ANY FRONTEND WORK
-├── masterplan.md                 # Full unified plan (reference only)
-├── phases-instruction/           # What to build (P0–P9 specs)
-├── phases-plan/                  # How to build it (generated plans)
-├── phases-results/               # What was built (post-implementation summaries)
-├── phases-testing-instruction/   # How to test it
-└── phases-testing-result/        # Test outcomes
-```
+├── deployment-architecture.md    # Deployment setup and environment plan
+└── archive/                      # Historical phase plans, results, testing (P0–P9)
 
-Build order: P0 → P1 → P2 → P3 → P4a → P4b → P5 → P6 → P6b → P7 → P8 → P9
+architecture/
+├── feature-map.md                # COMPLETE feature inventory — what exists and where it lives
+├── module-blast-radius.md        # Cross-module dependencies — what breaks if you change X
+├── event-job-catalog.md          # BullMQ job flows and side-effect chains
+├── state-machines.md             # All lifecycle state machines with valid transitions
+├── danger-zones.md               # Non-obvious coupling and risks
+└── pre-flight-checklist.md       # Before/after checklist for every code change
+```
 
 ---
 
 ## Current Workflow
-
-Phase 1 (P0–P9) is complete. The phase plans, results, and testing files in `plans/` are historical reference — do not execute from them.
 
 Current work is iterative: refining existing functionality, adding enhancements based on tenant feedback, and QA fixes. Work may touch any module in any order. Each session is self-contained — read the relevant source code, make the requested changes, run regression tests.
 

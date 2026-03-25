@@ -1,8 +1,6 @@
 # SHARED CONTEXT — School Operating System
 
-**Purpose**: This file is loaded with EVERY phase file. It gives you the tech stack, architecture, conventions, patterns, auth model, RBAC rules, and security model. The phase file gives you the specific data models, requirements, edge cases, and deliverables for the work you're building.
-
-**Rule**: Do not implement anything outside the scope of the loaded phase file. This shared context is reference only.
+**Purpose**: Architecture reference document. Covers tech stack, infrastructure, conventions, patterns, auth model, RBAC rules, and security model for the entire codebase.
 
 ---
 
@@ -10,11 +8,11 @@
 
 This is a centralised, multi-tenant school operating system delivered as a SaaS platform on a single codebase and single deployment. All school tenants share one PostgreSQL database with strict Row-Level Security (RLS) isolation enforced at the database layer via mandatory `tenant_id` on every tenant-scoped row. The platform serves two initial school clients with the architecture designed to scale to hundreds of tenants without code changes or infrastructure duplication — adding a new school is a tenant provisioning operation, not a deployment.
 
-The system provides: configurable admissions, student records, household and family management, staff and academic structure, manual and auto-scheduling with a CSP-based timetable solver (constraint propagation + backtracking) operating in manual/auto/hybrid modes, attendance, gradebook with weighted categories, report cards, academic transcripts, a finance module with invoicing/payments/refunds/installments, a payroll module with salaried and per-class compensation models/monthly payroll runs/immutable snapshots/payslip generation/payroll analytics, a communications layer spanning email (Resend), WhatsApp (Twilio), and in-app notifications with explicit parent communication preferences and WhatsApp-to-email fallback, a parent inquiry messaging system, a public website CMS per school, approval workflows, compliance/GDPR tooling, analytics, and role-aware dashboards.
+The system provides: configurable admissions, student records, household and family management, staff and academic structure, manual and auto-scheduling with a CSP-based timetable solver (constraint propagation + backtracking) operating in manual/auto/hybrid/scenario modes, attendance with pattern detection and auto-locking, gradebook with weighted categories and AI-assisted grading, report cards with multi-step approval and bulk PDF generation, academic transcripts, a finance module with invoicing/payments/refunds/installments/credit notes/late fees/scholarships/payment plans/recurring invoices, a payroll module with salaried and per-class compensation models/monthly payroll runs/immutable snapshots/payslip generation/payroll analytics, a communications layer spanning email (Resend), WhatsApp (Twilio), and in-app notifications with explicit parent communication preferences and WhatsApp-to-email fallback, a parent inquiry messaging system, a public website CMS per school, approval workflows, compliance/GDPR tooling with data subject access and erasure, data imports (students/staff/parents/fees/grades/compensation), analytics and unified reporting with scheduled reports and alerts, and role-aware dashboards.
 
-Bilingual English/Arabic support with full RTL behaviour is foundational for all school-facing portals. Platform admin remains English-only. The system is delivered as a responsive web application with PWA shell — no native mobile apps in Phase 1. There are no public APIs, no self-service school onboarding, no general document upload/storage, and no offline writes. Auto-scheduling is included as a day-1 feature delivered in Phase 4b. All printable outputs (receipts, invoices, report cards, transcripts) are rendered on demand from code templates via Puppeteer and are not stored as document records.
+Bilingual English/Arabic support with full RTL behaviour is foundational for all school-facing portals. Platform admin remains English-only. The system is delivered as a responsive web application with PWA shell — no native mobile apps currently. There are no public APIs, no self-service school onboarding, no general document upload/storage, and no offline writes. All printable outputs (receipts, invoices, report cards, transcripts, payslips) are rendered on demand from code templates via Puppeteer and are not stored as document records.
 
-**Environments**: Local → Staging → Demo → Production. One production deployment serves all schools.
+**Environments**: Local → Production (single Hetzner VPS). Staging and demo environments planned pre-launch (see `Plans/deployment-architecture.md`).
 
 ---
 
@@ -27,7 +25,7 @@ Bilingual English/Arabic support with full RTL behaviour is foundational for all
 | **Backend** | NestJS + TypeScript | Modular monolith |
 | **ORM** | Prisma | With RLS middleware for tenant context injection |
 | **Database** | PostgreSQL 16+ | Shared database, shared schema, RLS on all tenant tables |
-| **Cache/Sessions** | Redis 7 (AWS ElastiCache) | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs. |
+| **Cache/Sessions** | Redis 7 | Sessions, caching, rate limiting, queue coordination. **Production: AOF persistence enabled** to survive restarts without losing BullMQ delayed jobs. |
 | **Job Queue** | BullMQ | Background job processing with dead-letter support |
 | **Frontend** | Next.js 14+ (App Router) | Single codebase, role-aware shells |
 | **UI Framework** | React + TypeScript + Tailwind CSS | Logical CSS utilities only (no physical left/right) |
@@ -40,10 +38,10 @@ Bilingual English/Arabic support with full RTL behaviour is foundational for all
 | **Payments** | Stripe Direct | Per-school Stripe accounts, encrypted key storage |
 | **PDF Rendering** | Puppeteer | On-demand, locale-specific templates, Noto Sans Arabic |
 | **File Storage** | AWS S3 | Logos, website media, temporary import files only |
-| **Hosting** | AWS ECS/Fargate | Frontend, backend, and worker services |
-| **Database Hosting** | AWS RDS PostgreSQL | Multi-AZ deployment, automated daily snapshots, 14-day retention, PITR |
+| **Hosting** | Hetzner VPS | Frontend, backend, and worker services on single server (multi-environment planned) |
+| **Database Hosting** | PostgreSQL on Hetzner | Single server, automated backups |
 | **CDN/Edge** | Cloudflare for SaaS | Custom domains, SSL, CDN, edge protection |
-| **Monitoring** | Sentry + CloudWatch + custom alerts | Error tracking + infrastructure monitoring + operational alerts |
+| **Monitoring** | Sentry + custom alerts | Error tracking + operational alerts |
 | **CI/CD** | GitHub Actions | Lint → type-check → test → build → deploy |
 
 ### 2.2 Monorepo Package Structure (Turborepo)
@@ -75,26 +73,24 @@ root/
                     └──────────────┬──────────────────────┘
                                    │
                     ┌──────────────▼──────────────────────┐
-                    │           AWS ALB                     │
+                    │        Hetzner VPS (Caddy)           │
                     └──┬───────────┬──────────────────────┘
                        │           │
           ┌────────────▼──┐  ┌─────▼────────────┐
           │  Frontend      │  │  Backend API      │
           │  (Next.js)     │  │  (NestJS)         │
-          │  ECS/Fargate   │  │  ECS/Fargate      │
-          │  Stateless     │  │  Stateless        │
+          │  Port 3000     │  │  Port 3001        │
           └────────────────┘  └──┬──────┬─────────┘
                                  │      │
                     ┌────────────▼┐  ┌──▼──────────────┐
                     │  PostgreSQL  │  │  Redis           │
-                    │  (AWS RDS)   │  │  (ElastiCache)   │
                     │  + RLS       │  │  Sessions/Cache  │
                     └──────────────┘  └──────┬──────────┘
                                              │
                                    ┌─────────▼──────────┐
                                    │  Worker Service     │
                                    │  (BullMQ consumers) │
-                                   │  ECS/Fargate        │
+                                   │  Port 3002          │
                                    └─────────────────────┘
                                              │
                               ┌──────────────┼────────────────┐
@@ -107,12 +103,12 @@ root/
 
 ### 2.4 Scaling Model
 
-- **Frontend**: Stateless, horizontally scalable behind ALB
+- **Frontend**: Stateless, horizontally scalable (currently single VPS)
 - **Backend API**: Stateless (sessions in Redis), horizontally scalable
 - **Workers**: Scale by queue depth, BullMQ supports multiple concurrent consumers
-- **PostgreSQL**: Single primary, read replica added when needed (not Phase 1)
-- **Redis**: Single ElastiCache instance, cluster mode if needed later
-- **Meilisearch**: Single instance, sufficient for Phase 1 scale
+- **PostgreSQL**: Single primary, read replica added when needed
+- **Redis**: Single instance, cluster mode if needed later
+- **Meilisearch**: Single instance, sufficient for current scale
 - **S3**: Effectively unlimited, tenant-namespaced paths
 
 ### 2.5 Connection Pooling & RLS
@@ -286,7 +282,7 @@ Resolved tenant context is propagated to: Prisma RLS, permission guards, cache k
 | **HTML Sanitization** | DOMPurify server-side on all TipTap HTML before storage |
 | **SQL Injection** | Prisma parameterised queries, raw queries prohibited |
 | **XSS** | React default escaping + CSP + sanitised rich text |
-| **Encryption at Rest** | AWS RDS AES-256, S3 server-side encryption |
+| **Encryption at Rest** | PostgreSQL encryption, S3 server-side encryption |
 | **Stripe Key Encryption** | AES-256 with key in AWS Secrets Manager, never exposed in API responses |
 | **Audit** | All security-relevant actions logged to append-only audit_logs |
 
@@ -299,7 +295,7 @@ Entities subject to concurrent editing implement optimistic concurrency via `upd
 
 ### 2.15 Frontend Architecture Requirements
 
-- **Dark mode**: Full support as Phase 1 deliverable. All colour tokens in both modes via CSS custom properties, toggled by class on `<html>` using `next-themes`.
+- **Dark mode**: Full support. All colour tokens in both modes via CSS custom properties, toggled by class on `<html>` using `next-themes`.
 - **`user_ui_preferences`**: Per-user, per-tenant UI state (sidebar collapsed, role context, theme, locale, table configs, saved filters, recent/pinned records, active tabs). `PATCH` merge API.
 - **Preview endpoints**: `GET /api/v1/{entity}/:id/preview` for hover cards. Lightweight (<50ms p95), 30s Redis cache. Entities: student, household, staff, class, application, invoice, payroll run, approval.
 - **Keyboard shortcut system**: `ShortcutProvider` React context. Global shortcuts (`⌘K`, `Esc`) always registered. Per-page shortcuts registered on mount, deregistered on unmount.
@@ -345,13 +341,8 @@ Entities subject to concurrent editing implement optimistic concurrency via `upd
 
 ---
 
-## OPEN DECISIONS (DEFERRED — NOT IN SCOPE)
+## DEFERRED FEATURES (NOT YET BUILT)
 
-## 8. OPEN DECISIONS
-
-All decisions have been resolved through the Phase 1 interrogation and follow-up process. There are no remaining open decisions blocking implementation.
-
-**Decisions deferred to future phases** (not Phase 1):
 - Student transfer / data portability between schools
 - Multi-household per student (custody arrangements)
 - Public API design and versioning
@@ -359,18 +350,10 @@ All decisions have been resolved through the Phase 1 interrogation and follow-up
 - General document upload/storage
 - Offline writes
 - Native mobile apps
-- Multi-currency support
-- Parent engagement scoring dashboard (instrumentation is Phase 1, dashboard is later)
-- Automatic credit balance ledger for household overpayments (v1: manual allocation only)
-- Substitute teacher session credit attribution in payroll (v1: credits scheduled teacher, manual override required)
+- Multi-currency support (single currency per tenant — permanent constraint)
 - Level 2 Payroll: statutory tax deductions, end-of-service benefits, jurisdiction-specific compliance
 - Level 3 Payroll: WPS file generation, bank API integration, direct disbursement
 - Payroll-to-accounting export (journal entries, GL integration)
-
-**Auto-scheduling features deferred beyond v1** (delivered in Phase 4b but with these limitations):
-- Substitute teacher scheduling (v1 requires manual substitute assignment)
-- Multi-week rotation schedules (v1 assumes single weekly pattern)
 - Student elective scheduling with capacity constraints
-- Advanced solver algorithms (CSP is sufficient for target school sizes)
-- Multiple availability windows per day per teacher (v1 supports one window per day)
+- Advanced solver algorithms beyond CSP
 
