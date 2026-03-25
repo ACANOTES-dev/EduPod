@@ -31,6 +31,9 @@ jobs:
 
             echo "=== Cleaning stale build caches ==="
             rm -f packages/shared/tsconfig.tsbuildinfo
+            rm -rf apps/web/.next
+            rm -rf apps/api/dist
+            rm -rf apps/worker/dist
 
             echo "=== Regenerating Prisma client ==="
             cd packages/prisma
