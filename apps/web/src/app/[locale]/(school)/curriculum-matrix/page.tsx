@@ -105,10 +105,10 @@ export default function CurriculumMatrixPage() {
     try {
       const params = new URLSearchParams();
       if (yearFilter !== 'all') params.set('academic_year_id', yearFilter);
-      const res = await apiClient<MatrixData>(
+      const res = await apiClient<{ data: MatrixData }>(
         `/api/v1/curriculum-matrix?${params.toString()}`,
       );
-      setMatrix(res);
+      setMatrix(res.data);
     } catch {
       setMatrix(null);
     } finally {
