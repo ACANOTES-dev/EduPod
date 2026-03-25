@@ -78,8 +78,8 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
       apiClient<ListResponse<YearGroup>>('/api/v1/year-groups?pageSize=100'),
-      apiClient<ListResponse<Room>>('/api/v1/rooms?pageSize=200&active=true'),
-      apiClient<ListResponse<StaffProfile>>('/api/v1/staff-profiles?pageSize=200'),
+      apiClient<ListResponse<Room>>('/api/v1/rooms?pageSize=100&active=true'),
+      apiClient<ListResponse<StaffProfile>>('/api/v1/staff-profiles?pageSize=100'),
     ])
       .then(([years, groups, roomsRes, staff]) => {
         setAcademicYears(years.data);
