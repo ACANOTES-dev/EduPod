@@ -122,7 +122,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-auto max-w-[calc(100vw-2rem)] min-w-[min(672px,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}
