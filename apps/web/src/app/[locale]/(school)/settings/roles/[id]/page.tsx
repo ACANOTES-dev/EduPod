@@ -123,13 +123,14 @@ export default function RoleDetailPage() {
       try {
         // Load target role and all permissions in parallel
         const [roleRes, permsRes] = await Promise.all([
-          apiClient<RoleDetail>(`/api/v1/roles/${id}`),
+          apiClient<{ data: RoleDetail }>(`/api/v1/roles/${id}`),
           apiClient<PermissionsResponse>('/api/v1/permissions'),
         ]);
 
-        setRole(roleRes);
-        setDisplayName(roleRes.display_name);
-        setSelectedPermIds(roleRes.role_permissions.map((rp) => rp.permission.id));
+        const roleData = roleRes.data;
+        setRole(roleData);
+        setDisplayName(roleData.display_name);
+        setSelectedPermIds(roleData.role_permissions.map((rp) => rp.permission.id));
 
         setAvailablePermissions(
           permsRes.data.map((p) => ({
