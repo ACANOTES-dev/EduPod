@@ -9,16 +9,25 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  toast,
 } from '@school/ui';
 import { Download, Plus, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
+import { ExportDialog } from './_components/export-dialog';
+import {
+  ALL_EXPORT_COLUMNS,
+  DEFAULT_SELECTED_COLUMNS,
+  ExportStaffProfile,
+  generateExcel,
+  generatePdf,
+} from './_components/export-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,11 +38,13 @@ interface StaffProfile {
   department: string | null;
   employment_status: string;
   employment_type: string;
+  roles: string[];
   user: {
     id: string;
     first_name: string;
     last_name: string;
     email: string;
+    phone: string | null;
   };
 }
 
@@ -61,7 +72,37 @@ export default function StaffPage() {
   const [search, setSearch] = React.useState('');
   const [searchInput, setSearchInput] = React.useState('');
 
-  const handleExport = async (format: 'xlsx' | 'pdf') => {
+  // ─── Export state ───────────────────────────────────────────────────────────
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
+  const [exportFormat, setExportFormat] = React.useState<'xlsx' | 'pdf'>('xlsx');
+  const [selectedColumns, setSelectedColumns] = React.useState<Set<string>>(
+    () => new Set(DEFAULT_SELECTED_COLUMNS),
+  );
+  const [exporting, setExporting] = React.useState(false);
+  const [presetName, setPresetName] = React.useState('');
+
+  const openExportModal = (format: 'xlsx' | 'pdf') => {
+    setExportFormat(format);
+    setExportModalOpen(true);
+  };
+
+  const toggleColumn = (key: string) => {
+    setSelectedColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const activeColumns = ALL_EXPORT_COLUMNS.filter((c) => selectedColumns.has(c.key));
+
+  const handleExport = async () => {
+    if (activeColumns.length === 0) return;
+    setExporting(true);
     try {
       // Fetch ALL matching staff (paginated, respecting backend max of 100)
       let allData: StaffProfile[] = [];
@@ -78,42 +119,35 @@ export default function StaffPage() {
         currentPage++;
       }
 
-      const exportColumns = [
-        { header: 'Name', key: 'name' },
-        { header: 'Email', key: 'email' },
-        { header: 'Job Title', key: 'job_title' },
-        { header: 'Department', key: 'department' },
-        { header: 'Status', key: 'employment_status' },
-        { header: 'Type', key: 'employment_type' },
-      ];
-
-      const exportRows = allData.map((s) => ({
-        name: `${s.user.first_name} ${s.user.last_name}`,
+      const exportRows: ExportStaffProfile[] = allData.map((s) => ({
+        staff_number: s.staff_number,
+        first_name: s.user.first_name,
+        last_name: s.user.last_name,
         email: s.user.email,
-        job_title: s.job_title ?? '',
-        department: s.department ?? '',
-        employment_status: s.employment_status.charAt(0).toUpperCase() + s.employment_status.slice(1),
-        employment_type: s.employment_type.replace('_', ' '),
+        phone: s.user.phone,
+        job_title: s.job_title,
+        department: s.department,
+        employment_status: s.employment_status,
+        employment_type: s.employment_type,
+        roles: s.roles,
       }));
 
-      const options = {
-        fileName: 'staff',
-        title: 'Staff List',
-        columns: exportColumns,
-        rows: exportRows,
-      };
-
-      if (format === 'xlsx') {
-        const { exportToExcel } = await import('@/lib/export-utils');
-        exportToExcel(options);
+      const schoolName = 'School';
+      if (exportFormat === 'xlsx') {
+        generateExcel(exportRows, activeColumns, schoolName);
       } else {
-        const { exportToPdf } = await import('@/lib/export-utils');
-        exportToPdf(options);
+        generatePdf(exportRows, activeColumns, schoolName);
       }
+      toast.success(t('exportSuccess'));
+      setExportModalOpen(false);
     } catch {
-      // silently fail
+      toast.error(t('exportError'));
+    } finally {
+      setExporting(false);
     }
   };
+
+  // ─── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchStaff = React.useCallback(async (p: number, status: string, q: string) => {
     setIsLoading(true);
@@ -172,6 +206,15 @@ export default function StaffPage() {
       ),
     },
     {
+      key: 'roles',
+      header: t('colRole'),
+      render: (row: StaffProfile) => (
+        <span className="text-text-secondary">
+          {row.roles.length > 0 ? row.roles.join(', ') : '—'}
+        </span>
+      ),
+    },
+    {
       key: 'employment_status',
       header: t('colStatus'),
       render: (row: StaffProfile) => employmentStatusBadge(row.employment_status),
@@ -218,7 +261,7 @@ export default function StaffPage() {
         title={t('title')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select onValueChange={(v) => void handleExport(v as 'xlsx' | 'pdf')}>
+            <Select onValueChange={(v) => openExportModal(v as 'xlsx' | 'pdf')}>
               <SelectTrigger className="w-full sm:w-[130px]">
                 <div className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
@@ -248,6 +291,18 @@ export default function StaffPage() {
         keyExtractor={(row) => row.id}
         isLoading={isLoading}
         onRowClick={(row) => router.push(`/${locale}/staff/${row.id}`)}
+      />
+      <ExportDialog
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        exportFormat={exportFormat}
+        selectedColumns={selectedColumns}
+        onToggleColumn={toggleColumn}
+        activeColumns={activeColumns}
+        exporting={exporting}
+        onExport={() => void handleExport()}
+        presetName={presetName}
+        onPresetNameChange={setPresetName}
       />
     </div>
   );

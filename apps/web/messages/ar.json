@@ -1273,7 +1273,20 @@
     "hideDetails": "إخفاء",
     "showDetails": "إظهار",
     "loadError": "فشل تحميل بيانات الموظف",
-    "notFound": "الموظف غير موجود"
+    "notFound": "الموظف غير موجود",
+    "exportExcel": "تصدير إكسل",
+    "exportPdf": "تصدير PDF",
+    "personalFields": "المعلومات الشخصية",
+    "employmentFields": "معلومات التوظيف",
+    "preview": "معاينة",
+    "cancel": "إلغاء",
+    "exporting": "جارٍ التصدير...",
+    "exportNow": "تصدير",
+    "exportSuccess": "تم تنزيل التصدير",
+    "exportError": "فشل إنشاء التصدير",
+    "presets": "القوالب",
+    "savePreset": "حفظ",
+    "presetNamePlaceholder": "اسم القالب..."
   },
   "classAssignments": {
     "title": "توزيع الفصول",

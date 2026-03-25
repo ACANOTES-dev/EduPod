@@ -25,6 +25,7 @@ export interface UserSummary {
   first_name: string;
   last_name: string;
   email: string;
+  phone?: string | null;
 }
 
 export interface StaffProfileWithUser {
@@ -43,6 +44,18 @@ export interface StaffProfileWithUser {
   created_at: Date;
   updated_at: Date;
   user: UserSummary;
+}
+
+interface UserSummaryWithRoles extends UserSummary {
+  memberships: {
+    membership_roles: {
+      role: { display_name: string };
+    }[];
+  }[];
+}
+
+interface StaffProfileWithUserAndRoles extends Omit<StaffProfileWithUser, 'user'> {
+  user: UserSummaryWithRoles;
 }
 
 interface ClassEntitySummary {
@@ -309,6 +322,19 @@ export class StaffProfilesService {
                 first_name: true,
                 last_name: true,
                 email: true,
+                phone: true,
+                memberships: {
+                  where: { tenant_id: tenantId },
+                  select: {
+                    membership_roles: {
+                      select: {
+                        role: {
+                          select: { display_name: true },
+                        },
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -316,12 +342,19 @@ export class StaffProfilesService {
         }),
         db.staffProfile.count({ where }),
       ]);
-    })) as [StaffProfileWithUser[], number];
+    })) as [StaffProfileWithUserAndRoles[], number];
 
     const [profiles, total] = result;
 
     return {
-      data: profiles.map((p) => this.maskBankDetails(p)),
+      data: profiles.map((p) => {
+        const roles = p.user.memberships
+          .flatMap((m) => m.membership_roles)
+          .map((mr) => mr.role.display_name);
+        const { memberships: _m, ...userWithoutMemberships } = p.user;
+        const masked = this.maskBankDetails({ ...p, user: userWithoutMemberships });
+        return { ...masked, roles };
+      }),
       meta: {
         page,
         pageSize,

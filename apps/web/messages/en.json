@@ -1273,7 +1273,20 @@
     "hideDetails": "Hide",
     "showDetails": "Show",
     "loadError": "Failed to load staff profile",
-    "notFound": "Staff profile not found"
+    "notFound": "Staff profile not found",
+    "exportExcel": "Export Excel",
+    "exportPdf": "Export PDF",
+    "personalFields": "Personal Information",
+    "employmentFields": "Employment Information",
+    "preview": "Preview",
+    "cancel": "Cancel",
+    "exporting": "Exporting...",
+    "exportNow": "Export",
+    "exportSuccess": "Export downloaded",
+    "exportError": "Failed to generate export",
+    "presets": "Presets",
+    "savePreset": "Save",
+    "presetNamePlaceholder": "Preset name..."
   },
   "classAssignments": {
     "title": "Class Assignments",

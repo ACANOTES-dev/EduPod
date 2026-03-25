@@ -232,7 +232,21 @@ describe('StaffProfilesService — findAll', () => {
     mockEncryption = buildMockEncryption();
     mockSequence = { nextNumber: jest.fn() };
 
-    mockRlsTx.staffProfile.findMany.mockReset().mockResolvedValue([baseStaffProfile]);
+    const profileWithRoles = {
+      ...baseStaffProfile,
+      user: {
+        ...baseStaffProfile.user,
+        phone: '+353871234567',
+        memberships: [
+          {
+            membership_roles: [
+              { role: { display_name: 'Teacher' } },
+            ],
+          },
+        ],
+      },
+    };
+    mockRlsTx.staffProfile.findMany.mockReset().mockResolvedValue([profileWithRoles]);
     mockRlsTx.staffProfile.count.mockReset().mockResolvedValue(1);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -260,6 +274,11 @@ describe('StaffProfilesService — findAll', () => {
     expect(result.data[0]).not.toHaveProperty('bank_iban_encrypted');
     expect(result.data[0]).toHaveProperty('bank_account_last4');
     expect(result.data[0]).toHaveProperty('bank_iban_last4');
+    // roles should be flattened from memberships
+    const first = result.data[0]!;
+    expect(first.roles).toEqual(['Teacher']);
+    // memberships should not leak into the response user object
+    expect(first.user).not.toHaveProperty('memberships');
   });
 
   it('should filter by employment_status when provided', async () => {
