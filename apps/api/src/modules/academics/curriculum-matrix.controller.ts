@@ -56,7 +56,7 @@ export class CurriculumMatrixController {
   }
 
   @Post('toggle')
-  @RequiresPermission('students.manage')
+  @RequiresPermission('curriculum_matrix.manage')
   @HttpCode(HttpStatus.OK)
   async toggle(
     @CurrentTenant() tenant: TenantContext,

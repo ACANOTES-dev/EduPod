@@ -120,6 +120,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'analytics.manage_compliance', description: 'Configure compliance report templates for regulatory submissions', permission_tier: 'admin' },
 
   // ─── Admin tier — Compliance ───────────────────────────────────────────────
+  { permission_key: 'curriculum_matrix.manage', description: 'Unlock and modify the curriculum matrix (class-subject assignments)', permission_tier: 'admin' },
   { permission_key: 'compliance.manage', description: 'Manage compliance and GDPR settings', permission_tier: 'admin' },
   { permission_key: 'compliance.view', description: 'View audit logs and compliance reports', permission_tier: 'admin' },
 

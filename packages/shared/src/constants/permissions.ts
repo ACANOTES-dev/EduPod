@@ -162,6 +162,10 @@ export const PERMISSIONS = {
     view_board_reports: 'analytics.view_board_reports',
     manage_compliance: 'analytics.manage_compliance',
   },
+  // Curriculum Matrix (admin)
+  curriculum_matrix: {
+    manage: 'curriculum_matrix.manage',
+  },
   // Compliance (admin)
   compliance: {
     manage: 'compliance.manage',
@@ -271,6 +275,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.analytics.manage_reports]: 'admin',
   [PERMISSIONS.analytics.view_board_reports]: 'admin',
   [PERMISSIONS.analytics.manage_compliance]: 'admin',
+  [PERMISSIONS.curriculum_matrix.manage]: 'admin',
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
 
@@ -388,6 +393,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.analytics.manage_reports,
     PERMISSIONS.analytics.view_board_reports,
     PERMISSIONS.analytics.manage_compliance,
+    PERMISSIONS.curriculum_matrix.manage,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
   ],

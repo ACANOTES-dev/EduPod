@@ -52,6 +52,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'communications.manage', 'communications.view', 'communications.send',
       'inquiries.view', 'inquiries.respond',
       'website.manage', 'analytics.view',
+      'curriculum_matrix.manage',
       'compliance.manage', 'compliance.view',
       // Parent capabilities
       'parent.view_own_students', 'parent.view_attendance', 'parent.view_grades',
@@ -102,6 +103,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'communications.manage', 'communications.view', 'communications.send',
       'inquiries.view', 'inquiries.respond',
       'website.manage', 'analytics.view',
+      'curriculum_matrix.manage',
       'compliance.manage', 'compliance.view',
     ],
   },

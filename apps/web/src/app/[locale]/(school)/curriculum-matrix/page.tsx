@@ -16,11 +16,14 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Check, Loader2, Plus } from 'lucide-react';
+import { Check, Loader2, Lock, Plus, Unlock } from 'lucide-react';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
+
+const UNLOCK_ROLES = new Set(['school_owner', 'school_principal']);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,9 +70,33 @@ interface AssessmentCategory {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CurriculumMatrixPage() {
+  const { user } = useAuth();
   const [matrix, setMatrix] = React.useState<MatrixData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [togglingCells, setTogglingCells] = React.useState<Set<string>>(new Set());
+  const [isLocked, setIsLocked] = React.useState(true);
+
+  const userRoleKeys = React.useMemo(() => {
+    if (!user?.memberships) return [];
+    return user.memberships.flatMap((m) => m.roles?.map((r) => r.role_key) ?? []);
+  }, [user]);
+
+  const canUnlock = React.useMemo(
+    () => userRoleKeys.some((k) => UNLOCK_ROLES.has(k)),
+    [userRoleKeys],
+  );
+
+  const handleToggleLock = () => {
+    if (isLocked) {
+      if (!canUnlock) {
+        toast.error('Only the School Owner or School Principal can unlock the curriculum matrix.');
+        return;
+      }
+      setIsLocked(false);
+    } else {
+      setIsLocked(true);
+    }
+  };
 
   // Filters
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
@@ -135,6 +162,7 @@ export default function CurriculumMatrixPage() {
   // ─── Toggle handler ─────────────────────────────────────────────────────
 
   const handleToggle = async (classId: string, subjectId: string) => {
+    if (isLocked) return;
     const key = cellKey(classId, subjectId);
     if (togglingCells.has(key)) return;
 
@@ -295,7 +323,7 @@ export default function CurriculumMatrixPage() {
         title="Curriculum Matrix"
         actions={
           <div className="flex items-center gap-2">
-            {isSelecting ? (
+            {!isLocked && isSelecting ? (
               <>
                 <span className="text-sm text-text-secondary">
                   {selectedCells.size} selected
@@ -315,18 +343,18 @@ export default function CurriculumMatrixPage() {
                   Create Assessments ({selectedCells.size})
                 </Button>
               </>
-            ) : (
+            ) : !isLocked ? (
               <Button size="sm" variant="outline" onClick={() => setIsSelecting(true)}>
                 <Plus className="me-2 h-4 w-4" />
                 Bulk Create Assessments
               </Button>
-            )}
+            ) : null}
           </div>
         }
       />
 
-      {/* Year filter */}
-      <div className="flex items-center gap-3">
+      {/* Year filter + lock toggle */}
+      <div className="flex items-center justify-between gap-3">
         <Select value={yearFilter} onValueChange={setYearFilter}>
           <SelectTrigger className="w-full sm:w-56">
             <SelectValue placeholder="Academic Year" />
@@ -338,10 +366,32 @@ export default function CurriculumMatrixPage() {
             ))}
           </SelectContent>
         </Select>
+
+        <button
+          type="button"
+          onClick={handleToggleLock}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            isLocked
+              ? 'border-border bg-surface-secondary text-text-secondary hover:bg-surface-secondary/80'
+              : 'border-success-border bg-success-fill/10 text-success-text'
+          }`}
+        >
+          {isLocked ? (
+            <>
+              <Lock className="h-4 w-4" />
+              <span>Locked</span>
+            </>
+          ) : (
+            <>
+              <Unlock className="h-4 w-4" />
+              <span>Unlocked — click to lock</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Matrix grid */}
-      <div className="overflow-x-auto rounded-xl border border-border">
+      <div className={`overflow-x-auto rounded-xl border border-border ${isLocked ? 'opacity-60 pointer-events-none select-none' : ''}`}>
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-surface-secondary">
