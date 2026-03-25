@@ -19,7 +19,7 @@ const _enrolmentStatusQuerySchema = z.object({
   status: z.enum(['active', 'dropped', 'completed']).optional(),
 });
 
-type EnrolmentStatusQuery = z.infer<typeof enrolmentStatusQuerySchema>;
+type EnrolmentStatusQuery = z.infer<typeof _enrolmentStatusQuerySchema>;
 
 function buildMockClassEnrolmentsService() {
   return {

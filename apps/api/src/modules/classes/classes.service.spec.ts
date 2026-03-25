@@ -71,6 +71,9 @@ const baseClass = {
 const baseCreateDto = {
   name: '10A',
   academic_year_id: ACADEMIC_YEAR_ID,
+  year_group_id: 'yg-1',
+  max_capacity: 30,
+  class_type: 'floating' as const,
   status: 'active' as const,
 };
 

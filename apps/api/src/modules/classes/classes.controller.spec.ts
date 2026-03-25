@@ -54,6 +54,9 @@ describe('ClassesController', () => {
     const dto: CreateClassDto = {
       name: '10A',
       academic_year_id: YEAR_ID,
+      year_group_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      max_capacity: 30,
+      class_type: 'floating',
       status: 'active',
     };
     const expected = { id: CLASS_ID, name: '10A' };
