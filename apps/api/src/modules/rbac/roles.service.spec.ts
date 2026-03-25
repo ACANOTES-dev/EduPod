@@ -41,7 +41,9 @@ describe('RolesService', () => {
   let service: RolesService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    mockPermissionCacheService.invalidateAllForTenant.mockResolvedValue(undefined);
+    mockPermissionCacheService.invalidate.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -157,10 +159,7 @@ describe('RolesService', () => {
         .mockResolvedValueOnce(systemRole)
         .mockResolvedValueOnce(systemRoleWithPerms);
 
-      mockPrisma.permission.findMany.mockResolvedValueOnce([
-        { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' },
-      ]);
-
+      // System roles skip tier enforcement — no permission.findMany mock needed
       mockPrisma.rolePermission.deleteMany.mockResolvedValueOnce({ count: 0 });
       mockPrisma.rolePermission.createMany.mockResolvedValueOnce({ count: 1 });
 
@@ -169,6 +168,8 @@ describe('RolesService', () => {
       expect(mockPrisma.rolePermission.createMany).toHaveBeenCalledWith({
         data: [{ role_id: ROLE_ID, permission_id: PERM_ID_ADMIN, tenant_id: TENANT_ID }],
       });
+      // Tier enforcement should have been skipped for system roles
+      expect(mockPrisma.permission.findMany).not.toHaveBeenCalled();
       expect(result).toEqual(systemRoleWithPerms);
     });
 
@@ -386,10 +387,7 @@ describe('RolesService', () => {
         .mockResolvedValueOnce(systemRole)
         .mockResolvedValueOnce(updatedRole);
 
-      mockPrisma.permission.findMany.mockResolvedValueOnce([
-        { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' },
-      ]);
-
+      // System roles skip tier enforcement — no permission.findMany mock needed
       mockPrisma.rolePermission.deleteMany.mockResolvedValueOnce({ count: 0 });
       mockPrisma.rolePermission.createMany.mockResolvedValueOnce({ count: 1 });
 
@@ -399,6 +397,7 @@ describe('RolesService', () => {
 
       expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
       expect(mockPrisma.role.update).not.toHaveBeenCalled();
+      expect(mockPrisma.permission.findMany).not.toHaveBeenCalled();
       expect(result).toEqual(updatedRole);
     });
 

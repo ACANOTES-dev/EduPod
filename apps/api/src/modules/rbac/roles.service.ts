@@ -158,12 +158,15 @@ export class RolesService {
       });
     }
 
-    // If permission_ids are provided, validate tier enforcement
+    // If permission_ids are provided, validate tier enforcement (custom roles only —
+    // system roles bypass tier enforcement since they may have mixed-tier permissions)
     if (data.permission_ids) {
-      await this.validateTierEnforcement(
-        role.role_tier as RoleTier,
-        data.permission_ids,
-      );
+      if (!role.is_system_role) {
+        await this.validateTierEnforcement(
+          role.role_tier as RoleTier,
+          data.permission_ids,
+        );
+      }
 
       // Replace permissions — use the role's tenant_id (or the caller's for null-tenant roles)
       const permTenantId = role.tenant_id ?? tenantId;
@@ -277,10 +280,13 @@ export class RolesService {
       });
     }
 
-    await this.validateTierEnforcement(
-      role.role_tier as RoleTier,
-      permissionIds,
-    );
+    // Tier enforcement for custom roles only — system roles may have mixed-tier permissions
+    if (!role.is_system_role) {
+      await this.validateTierEnforcement(
+        role.role_tier as RoleTier,
+        permissionIds,
+      );
+    }
 
     // Replace all permissions — use the role's tenant_id (or the caller's for null-tenant roles)
     const permTenantId = role.tenant_id ?? tenantId;
