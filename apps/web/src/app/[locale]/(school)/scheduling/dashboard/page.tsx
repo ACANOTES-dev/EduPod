@@ -106,17 +106,17 @@ function KpiCard({ label, value, icon, highlight, sub }: KpiCardProps) {
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function WorkloadHeatmap() {
+function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
   const t = useTranslations('scheduling.auto');
   const [cells, setCells] = React.useState<WorkloadCell[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: WorkloadCell[] }>('/api/v1/scheduling-dashboard/workload')
+    apiClient<{ data: WorkloadCell[] }>(`/api/v1/scheduling-dashboard/workload?academic_year_id=${academicYearId}`)
       .then((res) => setCells(res.data ?? []))
       .catch(() => setCells([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [academicYearId]);
 
   if (loading) {
     return (
@@ -228,17 +228,17 @@ function WorkloadHeatmap() {
 
 // ─── Room Utilisation ─────────────────────────────────────────────────────────
 
-function RoomUtilisationTab() {
+function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
   const t = useTranslations('scheduling.auto');
   const [rooms, setRooms] = React.useState<RoomUtilisation[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: RoomUtilisation[] }>('/api/v1/scheduling-dashboard/room-utilisation')
+    apiClient<{ data: RoomUtilisation[] }>(`/api/v1/scheduling-dashboard/room-utilisation?academic_year_id=${academicYearId}`)
       .then((res) => setRooms(res.data ?? []))
       .catch(() => setRooms([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [academicYearId]);
 
   if (loading) {
     return (
@@ -290,16 +290,16 @@ function RoomUtilisationTab() {
 
 // ─── Trends Tab ───────────────────────────────────────────────────────────────
 
-function TrendsTab() {
+function TrendsTab({ academicYearId }: { academicYearId: string }) {
   const [trends, setTrends] = React.useState<TrendPoint[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: TrendPoint[] }>('/api/v1/scheduling-dashboard/trends')
+    apiClient<{ data: TrendPoint[] }>(`/api/v1/scheduling-dashboard/trends?academic_year_id=${academicYearId}`)
       .then((res) => setTrends(res.data ?? []))
       .catch(() => setTrends([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [academicYearId]);
 
   if (loading) {
     return (
@@ -405,18 +405,18 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
       </div>
 
       {/* Scheduling efficiency metrics */}
-      {(overview.room_utilisation_pct !== null || overview.teacher_utilisation_pct !== null) && (
+      {(overview.room_utilisation_pct != null || overview.teacher_utilisation_pct != null) && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {overview.room_utilisation_pct !== null && (
+          {overview.room_utilisation_pct != null && (
             <KpiCard label="Room Utilisation" value={`${Math.round(overview.room_utilisation_pct)}%`} icon={<BarChart3 className="h-5 w-5" />} />
           )}
-          {overview.teacher_utilisation_pct !== null && (
+          {overview.teacher_utilisation_pct != null && (
             <KpiCard label="Teacher Utilisation" value={`${Math.round(overview.teacher_utilisation_pct)}%`} icon={<BarChart3 className="h-5 w-5" />} />
           )}
-          {overview.avg_gaps !== null && (
+          {overview.avg_gaps != null && (
             <KpiCard label="Avg Teacher Gaps" value={overview.avg_gaps.toFixed(1)} icon={<BarChart3 className="h-5 w-5" />} />
           )}
-          {overview.preference_score !== null && (
+          {overview.preference_score != null && (
             <KpiCard label="Preference Score" value={`${Math.round(overview.preference_score)}%`} icon={<Sparkles className="h-5 w-5" />} highlight />
           )}
         </div>
@@ -476,6 +476,7 @@ export default function SchedulingDashboardPage() {
   const [activeTab, setActiveTab] = React.useState<DashTab>('overview');
   const [overview, setOverview] = React.useState<DashboardOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [academicYearId, setAcademicYearId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setLoading(true);
@@ -486,6 +487,7 @@ export default function SchedulingDashboardPage() {
           setLoading(false);
           return;
         }
+        setAcademicYearId(yearId);
         return apiClient<DashboardOverview>(`/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`, { silent: true })
           .then((ov) => setOverview(ov));
       })
@@ -531,13 +533,13 @@ export default function SchedulingDashboardPage() {
       </div>
 
       {activeTab === 'overview' && <OverviewTab overview={overview} loading={loading} locale={locale} />}
-      {activeTab === 'workload' && (
+      {activeTab === 'workload' && academicYearId && (
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <WorkloadHeatmap />
+          <WorkloadHeatmap academicYearId={academicYearId} />
         </div>
       )}
-      {activeTab === 'rooms' && <RoomUtilisationTab />}
-      {activeTab === 'trends' && <TrendsTab />}
+      {activeTab === 'rooms' && academicYearId && <RoomUtilisationTab academicYearId={academicYearId} />}
+      {activeTab === 'trends' && academicYearId && <TrendsTab academicYearId={academicYearId} />}
     </div>
   );
 }

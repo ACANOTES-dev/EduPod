@@ -14,10 +14,11 @@ describe('SchedulingDashboardService', () => {
     class: { count: jest.Mock };
     classSchedulingRequirement: { count: jest.Mock; findMany: jest.Mock };
     schedule: { groupBy: jest.Mock; count: jest.Mock; findMany: jest.Mock };
-    schedulingRun: { findFirst: jest.Mock; count: jest.Mock };
+    schedulingRun: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     staffAvailability: { findMany: jest.Mock };
     schedulePeriodTemplate: { count: jest.Mock };
     staffProfile: { findFirst: jest.Mock; findMany: jest.Mock };
+    room: { count: jest.Mock; findMany: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -34,12 +35,17 @@ describe('SchedulingDashboardService', () => {
       },
       schedulingRun: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
       },
       staffAvailability: { findMany: jest.fn().mockResolvedValue([]) },
       schedulePeriodTemplate: { count: jest.fn().mockResolvedValue(0) },
       staffProfile: {
         findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      room: {
+        count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([]),
       },
     };
@@ -69,6 +75,9 @@ describe('SchedulingDashboardService', () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
       mockPrisma.schedulingRun.count.mockResolvedValue(0);
       mockPrisma.schedule.count.mockResolvedValue(3);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(0);
+      mockPrisma.room.count.mockResolvedValue(0);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
@@ -78,9 +87,13 @@ describe('SchedulingDashboardService', () => {
       expect(result.pinned_entries).toBe(3);
       expect(result.active_run).toBe(false);
       expect(result.latest_run).toBeNull();
+      expect(result.room_utilisation_pct).toBeNull();
+      expect(result.teacher_utilisation_pct).toBeNull();
+      expect(result.avg_gaps).toBeNull();
+      expect(result.preference_score).toBeNull();
     });
 
-    it('should include latest_run when a completed run exists', async () => {
+    it('should include latest_run and preference_score when a completed run exists', async () => {
       mockPrisma.class.count.mockResolvedValue(5);
       mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
       mockPrisma.schedule.groupBy.mockResolvedValue([]);
@@ -100,6 +113,9 @@ describe('SchedulingDashboardService', () => {
       });
       mockPrisma.schedulingRun.count.mockResolvedValue(0);
       mockPrisma.schedule.count.mockResolvedValue(0);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.room.count.mockResolvedValue(5);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
@@ -107,6 +123,7 @@ describe('SchedulingDashboardService', () => {
       expect(result.latest_run?.id).toBe('run-1');
       expect(result.latest_run?.soft_preference_score).toBe(85);
       expect(result.latest_run?.created_at).toBe(NOW.toISOString());
+      expect(result.preference_score).toBe(85);
     });
 
     it('should set active_run to true when queued/running runs exist', async () => {
@@ -116,10 +133,46 @@ describe('SchedulingDashboardService', () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
       mockPrisma.schedulingRun.count.mockResolvedValue(1);
       mockPrisma.schedule.count.mockResolvedValue(0);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(0);
+      mockPrisma.room.count.mockResolvedValue(0);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
 
       const result = await service.overview(TENANT_ID, AY_ID);
 
       expect(result.active_run).toBe(true);
+    });
+
+    it('should compute room and teacher utilisation from schedule data', async () => {
+      mockPrisma.class.count.mockResolvedValue(5);
+      mockPrisma.classSchedulingRequirement.count.mockResolvedValue(5);
+      mockPrisma.schedule.groupBy.mockResolvedValue([]);
+      mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
+      mockPrisma.schedulingRun.count.mockResolvedValue(0);
+      // 3 pinned
+      mockPrisma.schedule.count
+        .mockResolvedValueOnce(3) // pinned
+        .mockResolvedValueOnce(10); // usedRoomSlots
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.room.count.mockResolvedValue(5); // 5 rooms
+      // 15 teacher schedule entries for 3 unique teachers
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { teacher_staff_id: 't1', weekday: 0, period_order: 1 },
+        { teacher_staff_id: 't1', weekday: 0, period_order: 2 },
+        { teacher_staff_id: 't1', weekday: 0, period_order: 4 },
+        { teacher_staff_id: 't2', weekday: 0, period_order: 1 },
+        { teacher_staff_id: 't2', weekday: 0, period_order: 2 },
+        { teacher_staff_id: 't3', weekday: 1, period_order: 1 },
+      ]);
+
+      const result = await service.overview(TENANT_ID, AY_ID);
+
+      // room: 10 / (5 * 25) = 8%
+      expect(result.room_utilisation_pct).toBe(8);
+      // teacher: 6 entries / (3 teachers * 25 slots) = 8%
+      expect(result.teacher_utilisation_pct).toBe(8);
+      // avg_gaps: t1-day0 has [1,2,4] -> 1 gap, t2-day0 has [1,2] -> 0, t3-day1 has [1] -> 0
+      // total=1, groups=3 -> 0.3
+      expect(result.avg_gaps).toBe(0.3);
     });
   });
 
@@ -371,6 +424,83 @@ describe('SchedulingDashboardService', () => {
 
       expect(result.staff_satisfaction).toHaveLength(1);
       expect(result.staff_satisfaction[0]?.staff_id).toBe('staff-1');
+    });
+  });
+
+  // ─── roomUtilisation ──────────────────────────────────────────────────────
+
+  describe('roomUtilisation', () => {
+    it('should return per-room utilisation data', async () => {
+      mockPrisma.room.findMany.mockResolvedValue([
+        { id: 'room-1', name: 'Lab A', room_type: 'laboratory', capacity: 30 },
+        { id: 'room-2', name: 'Room 101', room_type: 'classroom', capacity: 25 },
+      ]);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.schedule.findMany.mockResolvedValue([
+        { room_id: 'room-1', weekday: 0, period_order: 1, schedule_period_template: { period_name: 'P1' } },
+        { room_id: 'room-1', weekday: 0, period_order: 2, schedule_period_template: { period_name: 'P2' } },
+        { room_id: 'room-1', weekday: 1, period_order: 1, schedule_period_template: { period_name: 'P1' } },
+      ]);
+
+      const result = await service.roomUtilisation(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(2);
+      const lab = result.data.find((r) => r.room_id === 'room-1');
+      expect(lab?.utilisation_pct).toBe(12); // 3/25 = 12%
+      expect(lab?.peak_period).toBe('P1'); // P1 appears twice
+      const room101 = result.data.find((r) => r.room_id === 'room-2');
+      expect(room101?.utilisation_pct).toBe(0);
+    });
+
+    it('should return empty data when no rooms exist', async () => {
+      mockPrisma.room.findMany.mockResolvedValue([]);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.schedule.findMany.mockResolvedValue([]);
+
+      const result = await service.roomUtilisation(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(0);
+    });
+  });
+
+  // ─── trends ───────────────────────────────────────────────────────────────
+
+  describe('trends', () => {
+    it('should return trend data from past runs', async () => {
+      mockPrisma.schedulingRun.findMany.mockResolvedValue([
+        {
+          id: 'run-1',
+          entries_generated: 50,
+          entries_unassigned: 2,
+          soft_preference_score: 80,
+          soft_preference_max: 100,
+          created_at: NOW,
+          result_json: {
+            entries: [
+              { room_id: 'r1', teacher_staff_id: 't1', weekday: 0, period_order: 1 },
+              { room_id: 'r1', teacher_staff_id: 't1', weekday: 0, period_order: 2 },
+            ],
+            unassigned: [],
+          },
+        },
+      ]);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.room.count.mockResolvedValue(5);
+
+      const result = await service.trends(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.preference_score).toBe(80);
+    });
+
+    it('should return empty data when no completed runs exist', async () => {
+      mockPrisma.schedulingRun.findMany.mockResolvedValue([]);
+      mockPrisma.schedulePeriodTemplate.count.mockResolvedValue(25);
+      mockPrisma.room.count.mockResolvedValue(0);
+
+      const result = await service.trends(TENANT_ID, AY_ID);
+
+      expect(result.data).toHaveLength(0);
     });
   });
 });

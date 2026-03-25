@@ -24,6 +24,8 @@ describe('SchedulingDashboardController', () => {
     unassigned: jest.Mock;
     preferences: jest.Mock;
     getStaffProfileId: jest.Mock;
+    roomUtilisation: jest.Mock;
+    trends: jest.Mock;
   };
   let mockPermissionCache: { getPermissions: jest.Mock };
 
@@ -34,6 +36,8 @@ describe('SchedulingDashboardController', () => {
       unassigned: jest.fn(),
       preferences: jest.fn(),
       getStaffProfileId: jest.fn(),
+      roomUtilisation: jest.fn(),
+      trends: jest.fn(),
     };
     mockPermissionCache = {
       getPermissions: jest.fn().mockResolvedValue([]),
@@ -97,6 +101,40 @@ describe('SchedulingDashboardController', () => {
 
       expect(result).toEqual(unassignedData);
       expect(mockDashboardService.unassigned).toHaveBeenCalledWith(
+        TENANT.tenant_id,
+        AY_ID,
+      );
+    });
+  });
+
+  // ─── roomUtilisation ──────────────────────────────────────────────────────
+
+  describe('roomUtilisation', () => {
+    it('should delegate to dashboard service', async () => {
+      const roomData = { data: [{ room_id: 'r1', utilisation_pct: 50 }] };
+      mockDashboardService.roomUtilisation.mockResolvedValue(roomData);
+
+      const result = await controller.roomUtilisation(TENANT, { academic_year_id: AY_ID });
+
+      expect(result).toEqual(roomData);
+      expect(mockDashboardService.roomUtilisation).toHaveBeenCalledWith(
+        TENANT.tenant_id,
+        AY_ID,
+      );
+    });
+  });
+
+  // ─── trends ──────────────────────────────────────────────────────────────
+
+  describe('trends', () => {
+    it('should delegate to dashboard service', async () => {
+      const trendData = { data: [{ label: '01 Mar', preference_score: 80 }] };
+      mockDashboardService.trends.mockResolvedValue(trendData);
+
+      const result = await controller.trends(TENANT, { academic_year_id: AY_ID });
+
+      expect(result).toEqual(trendData);
+      expect(mockDashboardService.trends).toHaveBeenCalledWith(
         TENANT.tenant_id,
         AY_ID,
       );

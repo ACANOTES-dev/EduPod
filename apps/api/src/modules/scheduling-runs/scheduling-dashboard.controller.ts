@@ -76,6 +76,34 @@ export class SchedulingDashboardController {
   }
 
   /**
+   * GET /v1/scheduling-dashboard/room-utilisation
+   * Per-room utilisation stats for the academic year.
+   */
+  @Get('room-utilisation')
+  @RequiresPermission('schedule.view_auto_reports')
+  async roomUtilisation(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(baseQuerySchema))
+    query: z.infer<typeof baseQuerySchema>,
+  ) {
+    return this.dashboardService.roomUtilisation(tenant.tenant_id, query.academic_year_id);
+  }
+
+  /**
+   * GET /v1/scheduling-dashboard/trends
+   * Historical scheduling metrics across runs.
+   */
+  @Get('trends')
+  @RequiresPermission('schedule.view_auto_reports')
+  async trends(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(baseQuerySchema))
+    query: z.infer<typeof baseQuerySchema>,
+  ) {
+    return this.dashboardService.trends(tenant.tenant_id, query.academic_year_id);
+  }
+
+  /**
    * GET /v1/scheduling-dashboard/preferences
    * Staff preference satisfaction from the latest run.
    * Accessible to users with schedule.view_auto_reports OR schedule.view_own_satisfaction.
