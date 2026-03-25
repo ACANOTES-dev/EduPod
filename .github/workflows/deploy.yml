@@ -61,21 +61,11 @@ jobs:
             done
 
             echo "=== Restarting services ==="
-            echo "pm2 process list before restart:"
-            pm2 list
-
-            # Restart each process individually so failures are visible
-            pm2 restart api   && echo "api restarted"   || echo "WARN: api restart failed"
-            pm2 restart web   && echo "web restarted"   || echo "WARN: web restart failed"
-            pm2 restart worker && echo "worker restarted" || { \
-              echo "worker not found, starting..."
-              pm2 start /opt/edupod/app/apps/worker/dist/apps/worker/src/main.js \
-                --name worker
-            }
-
-            pm2 save
+            # Services run under edupod user's pm2, not root's
+            sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 restart api web worker
+            sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 save
             echo "pm2 process list after restart:"
-            pm2 list
+            sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 list
 
             echo "=== Smoke test ==="
             sleep 5
