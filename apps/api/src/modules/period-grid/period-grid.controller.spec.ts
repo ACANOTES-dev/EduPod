@@ -8,6 +8,7 @@ import { PeriodGridService } from './period-grid.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ACADEMIC_YEAR_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const YEAR_GROUP_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const PERIOD_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
 const mockTenant: TenantContext = {
@@ -66,6 +67,7 @@ describe('PeriodGridController', () => {
     const tenant = mockTenant;
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
       weekday: 1,
       period_name: 'Period 1',
       period_order: 1,
@@ -110,6 +112,7 @@ describe('PeriodGridController', () => {
     const tenant = mockTenant;
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
       source_weekday: 1,
       target_weekdays: [2, 3],
     };

@@ -14,6 +14,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const ACADEMIC_YEAR_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const YEAR_GROUP_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const PERIOD_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
 describe('PeriodGridService', () => {
@@ -78,6 +79,7 @@ describe('PeriodGridService', () => {
   it('should throw BadRequestException when start_time >= end_time', async () => {
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
       weekday: 1,
       period_name: 'Period 1',
       period_order: 1,
@@ -110,6 +112,7 @@ describe('PeriodGridService', () => {
 
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
       weekday: 1,
       period_name: 'Period 1',
       period_order: 1,
@@ -138,6 +141,7 @@ describe('PeriodGridService', () => {
 
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
       weekday: 1,
       period_name: 'Period 1',
       period_order: 1,
@@ -224,6 +228,7 @@ describe('PeriodGridService', () => {
     await expect(
       service.copyDay(TENANT_ID, {
         academic_year_id: ACADEMIC_YEAR_ID,
+        year_group_id: YEAR_GROUP_ID,
         source_weekday: 1,
         target_weekdays: [2, 3],
       }),
