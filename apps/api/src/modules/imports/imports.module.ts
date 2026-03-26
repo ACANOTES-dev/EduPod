@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { ConfigurationModule } from '../configuration/configuration.module';
 import { S3Module } from '../s3/s3.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
@@ -12,6 +13,7 @@ import { ImportService } from './import.service';
 
 @Module({
   imports: [
+    ConfigurationModule,
     S3Module,
     TenantsModule,
     BullModule.registerQueue({ name: 'imports' }),

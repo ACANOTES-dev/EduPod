@@ -7,6 +7,7 @@ import type { ImportType } from '@school/shared';
 import * as XLSX from 'xlsx';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { SequenceService } from '../tenants/sequence.service';
@@ -32,6 +33,7 @@ export class ImportProcessingService {
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
     private readonly sequenceService: SequenceService,
+    private readonly encryptionService: EncryptionService,
   ) {}
 
   /** Track a record created by an import job for potential rollback. */
@@ -783,20 +785,38 @@ export class ImportProcessingService {
     return `${letterPart}${numberPart}-${lastDigit}`;
   }
 
+  private resolveEmploymentType(raw: string): 'full_time' | 'part_time' | 'contract' | 'substitute' {
+    if (!raw) return 'full_time';
+    const et = raw.toLowerCase().replace(/[\s-]/g, '_');
+    if (et === 'part_time') return 'part_time';
+    if (et === 'contract' || et === 'contractor') return 'contract';
+    if (et === 'substitute') return 'substitute';
+    return 'full_time';
+  }
+
   private async processStaffRow(
     db: PrismaService,
     tenantId: string,
     row: Record<string, string>,
   ): Promise<void> {
+    // ─── Extract fields ──────────────────────────────────────────────────
     const firstName = row['first_name'] ?? '';
     const lastName = row['last_name'] ?? '';
-    const email = row['email'] ?? '';
+    const email = (row['email'] ?? '').toLowerCase().trim();
     const phone = row['phone'] ?? '';
+    const roleName = (row['role'] ?? '').trim();
     const jobTitle = row['job_title'] ?? '';
     const department = row['department'] ?? '';
-    const employmentTypeRaw = row['employment_type'] ?? '';
+    const employmentStatusRaw = (row['employment_status'] ?? '').toLowerCase().trim();
+    const employmentType = this.resolveEmploymentType(row['employment_type'] ?? '');
+    const bankName = row['bank_name'] ?? '';
+    const bankAccountNumber = row['bank_account_number'] ?? '';
+    const bankIban = row['bank_iban'] ?? '';
 
-    // Generate unique staff number (same format as staff-profiles.service: ABC1234-5)
+    const employmentStatus: 'active' | 'inactive' =
+      employmentStatusRaw === 'inactive' ? 'inactive' : 'active';
+
+    // ─── Generate unique staff number (ABC1234-5) ────────────────────────
     let staffNumber = this.generateStaffNumber();
     for (let attempt = 0; attempt < 5; attempt++) {
       const existing = await db.staffProfile.findFirst({
@@ -807,40 +827,124 @@ export class ImportProcessingService {
       staffNumber = this.generateStaffNumber();
     }
 
-    // Hash staff number as initial password (matches staff-profiles.service create flow)
+    // ─── Hash staff number as initial password ───────────────────────────
     const { hash } = await import('bcryptjs');
     const passwordHash = await hash(staffNumber, 12);
 
-    // Create user first
-    const user = await db.user.create({
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        phone: phone || null,
-        password_hash: passwordHash,
-        global_status: 'active',
-      },
-    });
-
-    // Resolve employment_type to valid enum values
-    let employmentType: 'full_time' | 'part_time' | 'contract' | 'substitute' = 'full_time';
-    if (employmentTypeRaw) {
-      const et = employmentTypeRaw.toLowerCase().replace(/[\s-]/g, '_');
-      if (et === 'part_time') employmentType = 'part_time';
-      else if (et === 'contract' || et === 'contractor') employmentType = 'contract';
-      else if (et === 'substitute') employmentType = 'substitute';
+    // ─── Resolve role by display_name (case-insensitive) ─────────────────
+    let roleId: string | null = null;
+    if (roleName) {
+      const role = await db.role.findFirst({
+        where: {
+          tenant_id: tenantId,
+          display_name: { equals: roleName, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (role) {
+        roleId = role.id;
+      } else {
+        this.logger.warn(`Role "${roleName}" not found for tenant ${tenantId}, skipping role assignment`);
+      }
     }
 
+    // ─── Encrypt bank details if provided ────────────────────────────────
+    let bankAccountEncrypted: string | null = null;
+    let bankIbanEncrypted: string | null = null;
+    let bankEncryptionKeyRef: string | null = null;
+
+    if (bankAccountNumber) {
+      const result = this.encryptionService.encrypt(bankAccountNumber);
+      bankAccountEncrypted = result.encrypted;
+      bankEncryptionKeyRef = result.keyRef;
+    }
+    if (bankIban) {
+      const result = this.encryptionService.encrypt(bankIban);
+      bankIbanEncrypted = result.encrypted;
+      bankEncryptionKeyRef = bankEncryptionKeyRef ?? result.keyRef;
+    }
+
+    // ─── Create or find user ─────────────────────────────────────────────
+    let userId: string;
+    const existingUser = await db.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      userId = existingUser.id;
+    } else {
+      const newUser = await db.user.create({
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          email,
+          phone: phone || null,
+          password_hash: passwordHash,
+          email_verified_at: new Date(),
+          global_status: 'active',
+        },
+      });
+      userId = newUser.id;
+    }
+
+    // ─── Create tenant membership + role assignment ──────────────────────
+    const existingMembership = await db.tenantMembership.findUnique({
+      where: {
+        idx_tenant_memberships_tenant_user: {
+          tenant_id: tenantId,
+          user_id: userId,
+        },
+      },
+      select: { id: true },
+    });
+
+    let membershipId: string;
+    if (existingMembership) {
+      membershipId = existingMembership.id;
+    } else {
+      const membership = await db.tenantMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: userId,
+          membership_status: 'active',
+          joined_at: new Date(),
+        },
+      });
+      membershipId = membership.id;
+    }
+
+    if (roleId) {
+      // Check if role already assigned
+      const existingRole = await db.membershipRole.findFirst({
+        where: { membership_id: membershipId, role_id: roleId },
+        select: { membership_id: true },
+      });
+      if (!existingRole) {
+        await db.membershipRole.create({
+          data: {
+            membership_id: membershipId,
+            role_id: roleId,
+            tenant_id: tenantId,
+          },
+        });
+      }
+    }
+
+    // ─── Create staff profile ────────────────────────────────────────────
     await db.staffProfile.create({
       data: {
         tenant_id: tenantId,
-        user_id: user.id,
+        user_id: userId,
         staff_number: staffNumber,
         job_title: jobTitle || null,
         department: department || null,
         employment_type: employmentType,
-        employment_status: 'active',
+        employment_status: employmentStatus,
+        bank_name: bankName || null,
+        bank_account_number_encrypted: bankAccountEncrypted,
+        bank_iban_encrypted: bankIbanEncrypted,
+        bank_encryption_key_ref: bankEncryptionKeyRef,
       },
     });
   }

@@ -138,13 +138,21 @@ const PARENT_COLUMNS: TemplateColumn[] = [
 ];
 
 const STAFF_COLUMNS: TemplateColumn[] = [
+  // Personal Information
   { key: 'first_name', header: 'first_name *', required: true, width: 15, comment: 'Staff first name', example: 'Sarah' },
   { key: 'last_name', header: 'last_name *', required: true, width: 15, comment: 'Staff last name', example: 'Johnson' },
   { key: 'email', header: 'email *', required: true, width: 25, comment: 'Valid email address', example: 'sarah.j@school.edu' },
   { key: 'phone', header: 'phone *', required: true, width: 18, comment: 'With country code e.g. +353851234567', example: '+353851234567' },
+  { key: 'role', header: 'role *', required: true, width: 20, comment: 'Role name e.g. Teacher, Admin', example: 'Teacher' },
+  // Employment Details
   { key: 'job_title', header: 'job_title', required: false, width: 22, comment: 'Job title', example: 'Mathematics Teacher' },
   { key: 'department', header: 'department', required: false, width: 18, comment: 'Department name', example: 'Mathematics' },
-  { key: 'employment_type', header: 'employment_type *', required: true, width: 18, comment: 'Employment type', example: 'full_time', validation: listValidation(['full_time', 'part_time', 'contract', 'substitute']) },
+  { key: 'employment_status', header: 'employment_status', required: false, width: 18, comment: 'Default: active', example: 'active', validation: listValidation(['active', 'inactive']) },
+  { key: 'employment_type', header: 'employment_type', required: false, width: 18, comment: 'Default: full_time', example: 'full_time', validation: listValidation(['full_time', 'part_time', 'contract', 'substitute']) },
+  // Bank Details
+  { key: 'bank_name', header: 'bank_name', required: false, width: 18, comment: 'Bank name', example: 'AIB' },
+  { key: 'bank_account_number', header: 'bank_account_number', required: false, width: 22, comment: 'Account number (encrypted at rest)', example: '12345678' },
+  { key: 'bank_iban', header: 'bank_iban', required: false, width: 28, comment: 'IBAN (encrypted at rest)', example: 'IE29AIBK93115212345678' },
 ];
 
 const FEES_COLUMNS: TemplateColumn[] = [
