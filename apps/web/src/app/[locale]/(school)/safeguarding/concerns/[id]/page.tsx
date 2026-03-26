@@ -65,8 +65,8 @@ type MobileTab = 'detail' | 'actions' | 'attachments';
 export default function ConcernDetailPage() {
   const params = useParams();
   const pathname = usePathname();
-  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
-  const concernId = params.id as string;
+  const _locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+  const concernId = params?.id as string;
 
   const [concern, setConcern] = React.useState<ConcernDetail | null>(null);
   const [actions, setActions] = React.useState<TimelineAction[]>([]);
