@@ -34,7 +34,9 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAwardService } from './behaviour-award.service';
+import type { HouseMemberWithPoints } from './behaviour-house.service';
 import { BehaviourHouseService } from './behaviour-house.service';
+import type { HouseStanding, LeaderboardResult } from './behaviour-points.service';
 import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourRecognitionService } from './behaviour-recognition.service';
 
@@ -76,7 +78,7 @@ export class BehaviourRecognitionController {
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(leaderboardQuerySchema))
     query: z.infer<typeof leaderboardQuerySchema>,
-  ) {
+  ): Promise<LeaderboardResult> {
     return this.pointsService.getLeaderboard(tenant.tenant_id, query);
   }
 
@@ -86,7 +88,7 @@ export class BehaviourRecognitionController {
   @RequiresPermission('behaviour.view')
   async getHouseStandings(
     @CurrentTenant() tenant: TenantContext,
-  ) {
+  ): Promise<HouseStanding[]> {
     const academicYear = await this.getActiveAcademicYear(tenant.tenant_id);
     return this.pointsService.getHouseStandings(
       tenant.tenant_id,
@@ -99,7 +101,7 @@ export class BehaviourRecognitionController {
   async getHouseDetail(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  ): Promise<{ id: string; name: string; members: HouseMemberWithPoints[] }> {
     const academicYear = await this.getActiveAcademicYear(tenant.tenant_id);
     return this.houseService.getHouseDetail(
       tenant.tenant_id,
