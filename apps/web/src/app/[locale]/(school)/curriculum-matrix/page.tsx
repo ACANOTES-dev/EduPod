@@ -16,7 +16,7 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Check, Loader2, Lock, Plus, Unlock } from 'lucide-react';
+import { AlertTriangle, Check, Loader2, Lock, Plus, Save, Unlock } from 'lucide-react';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -67,6 +67,8 @@ interface AssessmentCategory {
   name: string;
 }
 
+type YearGroupState = 'all' | 'none' | 'mixed';
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CurriculumMatrixPage() {
@@ -75,6 +77,13 @@ export default function CurriculumMatrixPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [togglingCells, setTogglingCells] = React.useState<Set<string>>(new Set());
   const [isLocked, setIsLocked] = React.useState(true);
+
+  // View mode toggle
+  const [viewMode, setViewMode] = React.useState<'class' | 'year'>('class');
+
+  // Year-level pending changes: Map<"yearGroupId:subjectId", boolean>
+  const [yearLevelChanges, setYearLevelChanges] = React.useState<Map<string, boolean>>(new Map());
+  const [isSavingYearChanges, setIsSavingYearChanges] = React.useState(false);
 
   const userRoleKeys = React.useMemo(() => {
     if (!user?.memberships) return [];
@@ -159,7 +168,7 @@ export default function CurriculumMatrixPage() {
   const isAssigned = (classId: string, subjectId: string) =>
     assignmentSet.has(cellKey(classId, subjectId));
 
-  // ─── Toggle handler ─────────────────────────────────────────────────────
+  // ─── Toggle handler (class level) ─────────────────────────────────────
 
   const handleToggle = async (classId: string, subjectId: string) => {
     if (isLocked) return;
@@ -277,21 +286,158 @@ export default function CurriculumMatrixPage() {
 
   const groupedClasses = React.useMemo(() => {
     if (!matrix) return [];
-    const groups: Array<{ yearGroup: string; classes: MatrixClass[] }> = [];
-    const groupMap = new Map<string, MatrixClass[]>();
+    const groups: Array<{ yearGroup: string; yearGroupId: string | null; classes: MatrixClass[] }> = [];
+    const groupMap = new Map<string, { yearGroupId: string | null; classes: MatrixClass[] }>();
 
     for (const c of matrix.classes) {
       const key = c.year_group?.name ?? 'Ungrouped';
-      if (!groupMap.has(key)) groupMap.set(key, []);
-      groupMap.get(key)!.push(c);
+      if (!groupMap.has(key)) groupMap.set(key, { yearGroupId: c.year_group?.id ?? null, classes: [] });
+      groupMap.get(key)!.classes.push(c);
     }
 
-    for (const [yearGroup, classes] of groupMap) {
-      groups.push({ yearGroup, classes });
+    for (const [yearGroup, data] of groupMap) {
+      groups.push({ yearGroup, yearGroupId: data.yearGroupId, classes: data.classes });
     }
 
     return groups;
   }, [matrix]);
+
+  // ─── Year-level computed state ──────────────────────────────────────────
+
+  const getYearGroupSubjectState = React.useCallback(
+    (yearGroupId: string, subjectId: string): YearGroupState => {
+      if (!matrix) return 'none';
+
+      const classesInGroup = matrix.classes.filter((c) => c.year_group?.id === yearGroupId);
+      if (classesInGroup.length === 0) return 'none';
+
+      let assignedCount = 0;
+      for (const cls of classesInGroup) {
+        if (assignmentSet.has(cellKey(cls.id, subjectId))) assignedCount++;
+      }
+
+      if (assignedCount === 0) return 'none';
+      if (assignedCount === classesInGroup.length) return 'all';
+      return 'mixed';
+    },
+    [matrix, assignmentSet],
+  );
+
+  const getEffectiveYearState = React.useCallback(
+    (yearGroupId: string, subjectId: string): { state: YearGroupState; isPending: boolean } => {
+      const changeKey = `${yearGroupId}:${subjectId}`;
+      const pendingValue = yearLevelChanges.get(changeKey);
+
+      if (pendingValue !== undefined) {
+        return { state: pendingValue ? 'all' : 'none', isPending: true };
+      }
+
+      return { state: getYearGroupSubjectState(yearGroupId, subjectId), isPending: false };
+    },
+    [yearLevelChanges, getYearGroupSubjectState],
+  );
+
+  // ─── Year-level toggle handler ──────────────────────────────────────────
+
+  const handleYearLevelToggle = (yearGroupId: string, subjectId: string) => {
+    if (isLocked) return;
+
+    const changeKey = `${yearGroupId}:${subjectId}`;
+    const { state } = getEffectiveYearState(yearGroupId, subjectId);
+
+    setYearLevelChanges((prev) => {
+      const next = new Map(prev);
+
+      if (state === 'none' || state === 'mixed') {
+        // Toggle to all enabled
+        const originalState = getYearGroupSubjectState(yearGroupId, subjectId);
+        if (originalState === 'all') {
+          // Pending change would return to original state, so remove it
+          next.delete(changeKey);
+        } else {
+          next.set(changeKey, true);
+        }
+      } else {
+        // state === 'all' -> toggle to none
+        const originalState = getYearGroupSubjectState(yearGroupId, subjectId);
+        if (originalState === 'none') {
+          // Pending change would return to original state, so remove it
+          next.delete(changeKey);
+        } else {
+          next.set(changeKey, false);
+        }
+      }
+
+      return next;
+    });
+  };
+
+  // ─── Year-level save handler ────────────────────────────────────────────
+
+  const handleSaveYearChanges = async () => {
+    if (yearLevelChanges.size === 0) return;
+
+    // We need an academic year to pass to the endpoint
+    // Get the academic year from the first class in the matrix
+    const academicYearId = yearFilter !== 'all'
+      ? yearFilter
+      : matrix?.classes[0]?.academic_year?.id;
+
+    if (!academicYearId) {
+      toast.error('Please select an academic year first.');
+      return;
+    }
+
+    // Group changes by year group
+    const changesByYearGroup = new Map<string, Array<{ subject_id: string; enabled: boolean }>>();
+    for (const [key, enabled] of yearLevelChanges) {
+      const [yearGroupId, subjectId] = key.split(':');
+      if (!yearGroupId || !subjectId) continue;
+      if (!changesByYearGroup.has(yearGroupId)) changesByYearGroup.set(yearGroupId, []);
+      changesByYearGroup.get(yearGroupId)!.push({ subject_id: subjectId, enabled });
+    }
+
+    setIsSavingYearChanges(true);
+    let totalCreated = 0;
+    let totalRemoved = 0;
+
+    try {
+      for (const [yearGroupId, assignments] of changesByYearGroup) {
+        const res = await apiClient<{ created: number; removed: number }>(
+          '/api/v1/curriculum-matrix/year-group-assign',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              academic_year_id: academicYearId,
+              year_group_id: yearGroupId,
+              assignments,
+            }),
+          },
+        );
+        totalCreated += res.created;
+        totalRemoved += res.removed;
+      }
+
+      toast.success(`Year-level update complete: ${totalCreated} assigned, ${totalRemoved} removed`);
+      setYearLevelChanges(new Map());
+      await fetchMatrix();
+    } catch {
+      // Error toast handled by apiClient
+    } finally {
+      setIsSavingYearChanges(false);
+    }
+  };
+
+  // ─── Mode switch handler ────────────────────────────────────────────────
+
+  const handleViewModeChange = (mode: 'class' | 'year') => {
+    if (mode === viewMode) return;
+    if (mode === 'class' && yearLevelChanges.size > 0) {
+      // Clear unsaved year-level changes when switching to class mode
+      setYearLevelChanges(new Map());
+    }
+    setViewMode(mode);
+  };
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -323,7 +469,7 @@ export default function CurriculumMatrixPage() {
         title="Curriculum Matrix"
         actions={
           <div className="flex items-center gap-2">
-            {!isLocked && isSelecting ? (
+            {viewMode === 'class' && !isLocked && isSelecting ? (
               <>
                 <span className="text-sm text-text-secondary">
                   {selectedCells.size} selected
@@ -343,29 +489,74 @@ export default function CurriculumMatrixPage() {
                   Create Assessments ({selectedCells.size})
                 </Button>
               </>
-            ) : !isLocked ? (
+            ) : viewMode === 'class' && !isLocked ? (
               <Button size="sm" variant="outline" onClick={() => setIsSelecting(true)}>
                 <Plus className="me-2 h-4 w-4" />
                 Bulk Create Assessments
               </Button>
             ) : null}
+
+            {viewMode === 'year' && yearLevelChanges.size > 0 && (
+              <Button
+                size="sm"
+                onClick={() => void handleSaveYearChanges()}
+                disabled={isSavingYearChanges}
+              >
+                {isSavingYearChanges ? (
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="me-2 h-4 w-4" />
+                )}
+                {isSavingYearChanges
+                  ? 'Saving...'
+                  : `Save Changes (${yearLevelChanges.size})`}
+              </Button>
+            )}
           </div>
         }
       />
 
-      {/* Year filter + lock toggle */}
-      <div className="flex items-center justify-between gap-3">
-        <Select value={yearFilter} onValueChange={setYearFilter}>
-          <SelectTrigger className="w-full sm:w-56">
-            <SelectValue placeholder="Academic Year" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Academic Years</SelectItem>
-            {academicYears.map((y) => (
-              <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Year filter + view toggle + lock toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Select value={yearFilter} onValueChange={setYearFilter}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="Academic Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Academic Years</SelectItem>
+              {academicYears.map((y) => (
+                <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* View mode segmented control */}
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => handleViewModeChange('class')}
+              className={`px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'class'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-surface-secondary text-text-secondary hover:bg-surface-secondary/80'
+              }`}
+            >
+              Class Level
+            </button>
+            <button
+              type="button"
+              onClick={() => handleViewModeChange('year')}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-s border-border ${
+                viewMode === 'year'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-surface-secondary text-text-secondary hover:bg-surface-secondary/80'
+              }`}
+            >
+              Year Level
+            </button>
+          </div>
+        </div>
 
         <button
           type="button"
@@ -396,7 +587,7 @@ export default function CurriculumMatrixPage() {
           <thead>
             <tr className="bg-surface-secondary">
               <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary border-e border-border min-w-[180px]">
-                Class
+                {viewMode === 'class' ? 'Class' : 'Year Group'}
               </th>
               {matrix.subjects.map((subject) => (
                 <th
@@ -415,28 +606,92 @@ export default function CurriculumMatrixPage() {
             </tr>
           </thead>
           <tbody>
-            {groupedClasses.map((group) => (
-              <React.Fragment key={group.yearGroup}>
-                {/* Year group header row */}
-                <tr>
-                  <td
-                    colSpan={matrix.subjects.length + 1}
-                    className="bg-surface-secondary/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-secondary border-y border-border"
+            {viewMode === 'class' ? (
+              /* ─── Class Level View ─────────────────────────────────── */
+              groupedClasses.map((group) => (
+                <React.Fragment key={group.yearGroup}>
+                  {/* Year group header row */}
+                  <tr>
+                    <td
+                      colSpan={matrix.subjects.length + 1}
+                      className="bg-surface-secondary/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-secondary border-y border-border"
+                    >
+                      {group.yearGroup}
+                    </td>
+                  </tr>
+                  {/* Class rows */}
+                  {group.classes.map((cls) => (
+                    <tr key={cls.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors">
+                      <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
+                        {cls.name}
+                      </td>
+                      {matrix.subjects.map((subject) => {
+                        const key = cellKey(cls.id, subject.id);
+                        const assigned = isAssigned(cls.id, subject.id);
+                        const toggling = togglingCells.has(key);
+                        const selected = selectedCells.has(key);
+
+                        return (
+                          <td
+                            key={subject.id}
+                            className="border-e border-border last:border-e-0 p-0"
+                          >
+                            <button
+                              type="button"
+                              className={`flex h-10 w-full items-center justify-center transition-all
+                                ${isSelecting && assigned
+                                  ? selected
+                                    ? 'bg-primary-500/20 ring-2 ring-inset ring-primary-500'
+                                    : 'hover:bg-surface-secondary cursor-pointer'
+                                  : ''
+                                }
+                                ${!isSelecting ? 'cursor-pointer hover:bg-surface-secondary' : ''}
+                                ${toggling ? 'opacity-50' : ''}
+                              `}
+                              onClick={() => {
+                                if (isSelecting) {
+                                  toggleCellSelection(cls.id, subject.id);
+                                } else {
+                                  void handleToggle(cls.id, subject.id);
+                                }
+                              }}
+                              disabled={toggling}
+                              aria-label={`${subject.name} for ${cls.name}: ${assigned ? 'assigned' : 'not assigned'}`}
+                            >
+                              {toggling ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
+                              ) : assigned ? (
+                                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-success-fill">
+                                  <Check className="h-4 w-4 text-success-text" strokeWidth={3} />
+                                </div>
+                              ) : (
+                                <div className="h-7 w-7 rounded-md border-2 border-border-primary bg-surface-secondary" />
+                              )}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </React.Fragment>
+              ))
+            ) : (
+              /* ─── Year Level View ──────────────────────────────────── */
+              groupedClasses
+                .filter((g) => g.yearGroupId !== null)
+                .map((group) => (
+                  <tr
+                    key={group.yearGroupId}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors"
                   >
-                    {group.yearGroup}
-                  </td>
-                </tr>
-                {/* Class rows */}
-                {group.classes.map((cls) => (
-                  <tr key={cls.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors">
                     <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
-                      {cls.name}
+                      <div>{group.yearGroup}</div>
+                      <div className="text-[10px] text-text-tertiary">
+                        {group.classes.length} class{group.classes.length !== 1 ? 'es' : ''}
+                      </div>
                     </td>
                     {matrix.subjects.map((subject) => {
-                      const key = cellKey(cls.id, subject.id);
-                      const assigned = isAssigned(cls.id, subject.id);
-                      const toggling = togglingCells.has(key);
-                      const selected = selectedCells.has(key);
+                      const { state, isPending } = getEffectiveYearState(group.yearGroupId!, subject.id);
 
                       return (
                         <td
@@ -445,43 +700,30 @@ export default function CurriculumMatrixPage() {
                         >
                           <button
                             type="button"
-                            className={`flex h-10 w-full items-center justify-center transition-all
-                              ${isSelecting && assigned
-                                ? selected
-                                  ? 'bg-primary-500/20 ring-2 ring-inset ring-primary-500'
-                                  : 'hover:bg-surface-secondary cursor-pointer'
-                                : ''
-                              }
-                              ${!isSelecting ? 'cursor-pointer hover:bg-surface-secondary' : ''}
-                              ${toggling ? 'opacity-50' : ''}
+                            className={`flex h-10 w-full items-center justify-center transition-all cursor-pointer hover:bg-surface-secondary/50
+                              ${isPending ? 'ring-2 ring-inset ring-dashed ring-primary-400' : ''}
                             `}
-                            onClick={() => {
-                              if (isSelecting) {
-                                toggleCellSelection(cls.id, subject.id);
-                              } else {
-                                void handleToggle(cls.id, subject.id);
-                              }
-                            }}
-                            disabled={toggling}
-                            aria-label={`${subject.name} for ${cls.name}: ${assigned ? 'assigned' : 'not assigned'}`}
+                            onClick={() => handleYearLevelToggle(group.yearGroupId!, subject.id)}
+                            aria-label={`${subject.name} for ${group.yearGroup}: ${state}`}
                           >
-                            {toggling ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
-                            ) : assigned ? (
-                              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-success-fill">
+                            {state === 'all' ? (
+                              <div className={`flex h-7 w-7 items-center justify-center rounded-md bg-success-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}>
                                 <Check className="h-4 w-4 text-success-text" strokeWidth={3} />
                               </div>
+                            ) : state === 'mixed' ? (
+                              <div className={`flex h-7 w-7 items-center justify-center rounded-md bg-error-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}>
+                                <AlertTriangle className="h-4 w-4 text-error-text" strokeWidth={2.5} />
+                              </div>
                             ) : (
-                              <div className="h-7 w-7 rounded-md border-2 border-border-primary bg-surface-secondary" />
+                              <div className={`h-7 w-7 rounded-md border-2 bg-surface-secondary ${isPending ? 'border-dashed border-primary-500' : 'border-border-primary'}`} />
                             )}
                           </button>
                         </td>
                       );
                     })}
                   </tr>
-                ))}
-              </React.Fragment>
-            ))}
+                ))
+            )}
           </tbody>
         </table>
       </div>
