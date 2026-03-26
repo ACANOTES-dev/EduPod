@@ -49,40 +49,91 @@ export class PeriodGridService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    try {
-      const result = await prismaWithRls.$transaction(async (tx) => {
-        const db = tx as unknown as PrismaService;
-        return db.schedulePeriodTemplate.create({
-          data: {
-            tenant_id: tenantId,
-            academic_year_id: dto.academic_year_id,
-            year_group_id: dto.year_group_id,
-            weekday: dto.weekday,
-            period_name: dto.period_name,
-            period_name_ar: dto.period_name_ar ?? null,
-            period_order: dto.period_order,
-            start_time: this.timeToDate(dto.start_time),
-            end_time: this.timeToDate(dto.end_time),
-            schedule_period_type: dto.schedule_period_type ?? 'teaching',
-            supervision_mode: dto.supervision_mode ?? 'none',
-            break_group_id: dto.break_group_id ?? null,
-          },
-        });
+    const result = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // Get all existing periods for this day, sorted by start_time
+      const existing = await db.schedulePeriodTemplate.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: dto.academic_year_id,
+          year_group_id: dto.year_group_id,
+          weekday: dto.weekday,
+        },
+        orderBy: { start_time: 'asc' },
       });
 
-      return this.formatPeriod(result as Record<string, unknown>);
-    } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
-        throw new ConflictException({
-          code: 'PERIOD_TEMPLATE_CONFLICT',
-          message: 'A period with the same order or start time already exists for this weekday',
-        });
+      const newStartMin = this.timeStringToMinutes(dto.start_time);
+      const newEndMin = this.timeStringToMinutes(dto.end_time);
+
+      // Push any overlapping or subsequent periods forward
+      let pushAmount = 0;
+      for (const p of existing) {
+        const pStart = this.timeToMinutes(p.start_time);
+        const pEnd = this.timeToMinutes(p.end_time);
+        const pDuration = pEnd - pStart;
+
+        // Check if this period overlaps with the new one
+        if (pStart < newEndMin && pEnd > newStartMin) {
+          // Overlapping — push it to start after the new period
+          pushAmount = newEndMin - pStart;
+        }
+
+        if (pushAmount > 0) {
+          const shiftedStart = this.addMinutesToTime(this.formatTime(p.start_time), pushAmount);
+          const shiftedEnd = this.addMinutesToTime(shiftedStart, pDuration);
+          await db.schedulePeriodTemplate.update({
+            where: { id: p.id },
+            data: {
+              start_time: this.timeToDate(shiftedStart),
+              end_time: this.timeToDate(shiftedEnd),
+            },
+          });
+        }
       }
-      throw err;
-    }
+
+      // Insert with temporary high order to avoid unique constraint on period_order
+      const created = await db.schedulePeriodTemplate.create({
+        data: {
+          tenant_id: tenantId,
+          academic_year_id: dto.academic_year_id,
+          year_group_id: dto.year_group_id,
+          weekday: dto.weekday,
+          period_name: dto.period_name,
+          period_name_ar: dto.period_name_ar ?? null,
+          period_order: 9999,
+          start_time: this.timeToDate(dto.start_time),
+          end_time: this.timeToDate(dto.end_time),
+          schedule_period_type: dto.schedule_period_type ?? 'teaching',
+          supervision_mode: dto.supervision_mode ?? 'none',
+          break_group_id: dto.break_group_id ?? null,
+        },
+      });
+
+      // Re-order all periods by start_time
+      const allPeriods = await db.schedulePeriodTemplate.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: dto.academic_year_id,
+          year_group_id: dto.year_group_id,
+          weekday: dto.weekday,
+        },
+        orderBy: { start_time: 'asc' },
+      });
+
+      for (let i = 0; i < allPeriods.length; i++) {
+        if (allPeriods[i]!.period_order !== i + 1) {
+          await db.schedulePeriodTemplate.update({
+            where: { id: allPeriods[i]!.id },
+            data: { period_order: i + 1 },
+          });
+        }
+      }
+
+      return created;
+    });
+
+    return this.formatPeriod(result as Record<string, unknown>);
   }
 
   async update(tenantId: string, id: string, dto: UpdatePeriodTemplateDto) {
@@ -150,13 +201,48 @@ export class PeriodGridService {
   }
 
   async delete(tenantId: string, id: string) {
-    await this.assertExists(tenantId, id);
+    const deleted = await this.assertExists(tenantId, id);
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      return db.schedulePeriodTemplate.delete({ where: { id } });
+
+      // Delete the period
+      await db.schedulePeriodTemplate.delete({ where: { id } });
+
+      // Close the gap: shift subsequent periods earlier to fill the void
+      const remaining = await db.schedulePeriodTemplate.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: deleted.academic_year_id,
+          year_group_id: deleted.year_group_id,
+          weekday: deleted.weekday,
+        },
+        orderBy: { period_order: 'asc' },
+      });
+
+      // Re-chain times: each period starts where the previous one ends
+      let cursor = remaining.length > 0 ? this.formatTime(remaining[0]!.start_time) : null;
+      for (let i = 0; i < remaining.length; i++) {
+        const p = remaining[i]!;
+        const duration = this.timeToMinutes(p.end_time) - this.timeToMinutes(p.start_time);
+        const newStart = i === 0 ? this.formatTime(p.start_time) : cursor!;
+        const newEnd = this.addMinutesToTime(newStart, duration);
+
+        await db.schedulePeriodTemplate.update({
+          where: { id: p.id },
+          data: {
+            period_order: i + 1,
+            start_time: this.timeToDate(newStart),
+            end_time: this.timeToDate(newEnd),
+          },
+        });
+
+        cursor = newEnd;
+      }
+
+      return { message: 'Period deleted and day re-chained' };
     });
   }
 
@@ -360,6 +446,22 @@ export class PeriodGridService {
 
   private formatTime(date: Date): string {
     return date.toISOString().slice(11, 16);
+  }
+
+  private timeToMinutes(date: Date): number {
+    return date.getUTCHours() * 60 + date.getUTCMinutes();
+  }
+
+  private timeStringToMinutes(time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    return h! * 60 + m!;
+  }
+
+  private addMinutesToTime(time: string, minutes: number): string {
+    const total = this.timeStringToMinutes(time) + minutes;
+    const h = String(Math.floor(total / 60)).padStart(2, '0');
+    const m = String(total % 60).padStart(2, '0');
+    return `${h}:${m}`;
   }
 
   private formatPeriod(period: Record<string, unknown>): Record<string, unknown> {

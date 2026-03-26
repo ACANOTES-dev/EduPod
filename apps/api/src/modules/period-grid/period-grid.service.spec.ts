@@ -97,15 +97,20 @@ describe('PeriodGridService', () => {
     const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
       createRlsClient: jest.Mock;
     };
+    const createdRecord = {
+      id: PERIOD_ID,
+      weekday: 1,
+      period_order: 1,
+      start_time: new Date('1970-01-01T08:00:00.000Z'),
+      end_time: new Date('1970-01-01T08:45:00.000Z'),
+    };
     const mockTx = {
       schedulePeriodTemplate: {
-        create: jest.fn().mockResolvedValue({
-          id: PERIOD_ID,
-          weekday: 1,
-          period_order: 1,
-          start_time: new Date('1970-01-01T08:00:00.000Z'),
-          end_time: new Date('1970-01-01T08:45:00.000Z'),
-        }),
+        findMany: jest.fn()
+          .mockResolvedValueOnce([]) // existing periods (none)
+          .mockResolvedValueOnce([createdRecord]), // all periods after insert (for re-ordering)
+        create: jest.fn().mockResolvedValue(createdRecord),
+        update: jest.fn().mockResolvedValue({}),
       },
     };
     createRlsClient.mockReturnValue({
@@ -129,30 +134,50 @@ describe('PeriodGridService', () => {
     expect(result['end_time']).toBe('08:45');
   });
 
-  it('should throw ConflictException on duplicate period order', async () => {
+  it('should push overlapping periods forward when creating', async () => {
     const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
       createRlsClient: jest.Mock;
     };
-    const prismaError = new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint failed',
-      { code: 'P2002', clientVersion: '5.0.0' },
-    );
+    const existingPeriod = {
+      id: 'existing-1',
+      period_order: 1,
+      start_time: new Date('1970-01-01T08:00:00.000Z'),
+      end_time: new Date('1970-01-01T09:00:00.000Z'),
+    };
+    const createdPeriod = {
+      id: 'new-1',
+      period_order: 9999,
+      start_time: new Date('1970-01-01T08:00:00.000Z'),
+      end_time: new Date('1970-01-01T08:30:00.000Z'),
+    };
+    const mockTx = {
+      schedulePeriodTemplate: {
+        findMany: jest.fn()
+          .mockResolvedValueOnce([existingPeriod]) // existing periods check
+          .mockResolvedValueOnce([createdPeriod, { ...existingPeriod, start_time: new Date('1970-01-01T08:30:00.000Z'), end_time: new Date('1970-01-01T09:30:00.000Z') }]), // all periods for re-ordering
+        create: jest.fn().mockResolvedValue(createdPeriod),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
     createRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockRejectedValue(prismaError),
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
     });
 
     const dto = {
       academic_year_id: ACADEMIC_YEAR_ID,
       year_group_id: YEAR_GROUP_ID,
       weekday: 1,
-      period_name: 'Period 1',
+      period_name: 'New Period',
       period_order: 1,
       start_time: '08:00',
-      end_time: '08:45',
+      end_time: '08:30',
       schedule_period_type: 'teaching' as const,
     };
 
-    await expect(service.create(TENANT_ID, dto)).rejects.toThrow(ConflictException);
+    await service.create(TENANT_ID, dto);
+
+    // Should have pushed the overlapping period forward
+    expect(mockTx.schedulePeriodTemplate.update).toHaveBeenCalled();
   });
 
   // ─── update ─────────────────────────────────────────────────────────────────
@@ -202,8 +227,13 @@ describe('PeriodGridService', () => {
     await expect(service.delete(TENANT_ID, PERIOD_ID)).rejects.toThrow(NotFoundException);
   });
 
-  it('should delete a period when it exists', async () => {
-    mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue({ id: PERIOD_ID });
+  it('should delete a period and re-chain remaining periods', async () => {
+    mockPrisma.schedulePeriodTemplate.findFirst.mockResolvedValue({
+      id: PERIOD_ID,
+      academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
+      weekday: 1,
+    });
 
     const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
       createRlsClient: jest.Mock;
@@ -211,6 +241,15 @@ describe('PeriodGridService', () => {
     const mockTx = {
       schedulePeriodTemplate: {
         delete: jest.fn().mockResolvedValue({ id: PERIOD_ID }),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'remaining-1',
+            period_order: 2,
+            start_time: new Date('1970-01-01T09:00:00.000Z'),
+            end_time: new Date('1970-01-01T10:00:00.000Z'),
+          },
+        ]),
+        update: jest.fn().mockResolvedValue({}),
       },
     };
     createRlsClient.mockReturnValue({
@@ -219,7 +258,8 @@ describe('PeriodGridService', () => {
 
     const result = await service.delete(TENANT_ID, PERIOD_ID);
 
-    expect(result).toEqual({ id: PERIOD_ID });
+    expect(mockTx.schedulePeriodTemplate.delete).toHaveBeenCalled();
+    expect(result).toEqual({ message: 'Period deleted and day re-chained' });
   });
 
   // ─── copyDay ────────────────────────────────────────────────────────────────

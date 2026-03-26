@@ -99,17 +99,10 @@ ALTER TABLE staff_availability DROP CONSTRAINT IF EXISTS chk_sa_time_order;
 ALTER TABLE staff_availability ADD CONSTRAINT chk_sa_time_order CHECK (available_to > available_from);
 
 -- ── Exclusion Constraint (period time overlap) ──────────────────────────────
-
+-- Removed: overlap prevention is handled at the application layer.
+-- The constraint was too rigid for the period grid UX which needs smart
+-- overlap handling (inserting periods that push existing ones forward).
 ALTER TABLE schedule_period_templates DROP CONSTRAINT IF EXISTS schedule_period_templates_no_time_overlap;
-ALTER TABLE schedule_period_templates
-  ADD CONSTRAINT schedule_period_templates_no_time_overlap
-  EXCLUDE USING gist (
-    tenant_id WITH =,
-    academic_year_id WITH =,
-    COALESCE(year_group_id, '00000000-0000-0000-0000-000000000000'::uuid) WITH =,
-    weekday WITH =,
-    timerange(start_time, end_time) WITH &&
-  );
 
 -- ── Partial Unique Index (one active scheduling run per tenant/year) ────────
 
