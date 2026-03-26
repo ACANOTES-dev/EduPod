@@ -1885,8 +1885,8 @@ model SchedulePeriodTemplate {
   break_group   BreakGroup?  @relation(fields: [break_group_id], references: [id], onDelete: SetNull)
   schedules     Schedule[]
 
-  @@unique([tenant_id, academic_year_id, weekday, period_order], name: "idx_schedule_period_templates_order", map: "idx_schedule_period_templates_order")
-  @@unique([tenant_id, academic_year_id, weekday, start_time], name: "idx_schedule_period_templates_time", map: "idx_schedule_period_templates_time")
+  @@unique([tenant_id, academic_year_id, year_group_id, weekday, period_order], name: "idx_schedule_period_templates_order", map: "idx_schedule_period_templates_order")
+  @@unique([tenant_id, academic_year_id, year_group_id, weekday, start_time], name: "idx_schedule_period_templates_time", map: "idx_schedule_period_templates_time")
   @@index([tenant_id, academic_year_id], name: "idx_schedule_period_templates_tenant_year")
   @@map("schedule_period_templates")
 }
