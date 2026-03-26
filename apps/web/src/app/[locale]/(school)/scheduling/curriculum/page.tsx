@@ -115,12 +115,16 @@ export default function CurriculumPage() {
         apiClient<{ data: ApiCurriculumRow[] }>(
           `/api/v1/scheduling/curriculum-requirements?${params.toString()}&pageSize=100`,
         ),
-        apiClient<{ total_teaching_periods: number }>(
+        apiClient<{ total_teaching_periods: number } | { data: { total_teaching_periods: number } }>(
           `/api/v1/period-grid/teaching-count?${params.toString()}`,
         ).catch(() => ({ total_teaching_periods: 0 })),
       ]);
 
-      setTotalTeachingPeriods(gridRes.total_teaching_periods ?? 0);
+      // Handle wrapped response: { data: { total_teaching_periods: N } } or { total_teaching_periods: N }
+      const teachingCount = 'data' in gridRes && typeof gridRes.data === 'object' && gridRes.data !== null
+        ? (gridRes.data as { total_teaching_periods: number }).total_teaching_periods
+        : (gridRes as { total_teaching_periods: number }).total_teaching_periods;
+      setTotalTeachingPeriods(teachingCount ?? 0);
 
       // Handle response shape — API may wrap in { data: [...] } or return raw array
       const matrixRes: MatrixSubject[] = Array.isArray(matrixRaw)
