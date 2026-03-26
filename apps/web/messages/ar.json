@@ -2597,6 +2597,7 @@
       "primary": "أساسي",
       "eligible": "معلمين مؤهلين",
       "noTeachers": "لا معلمين",
+      "noCurriculumSubjects": "لا توجد مواد مخصصة لهذه المجموعة السنوية في مصفوفة المنهج.",
       "teacherName": "اسم المعلم",
       "addBreakGroup": "إضافة مجموعة استراحة",
       "noBreakGroups": "لا توجد مجموعات استراحة مكوَّنة.",

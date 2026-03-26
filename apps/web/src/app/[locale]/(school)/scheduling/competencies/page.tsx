@@ -55,10 +55,21 @@ export default function CompetenciesPage() {
   const [selectedSubject, setSelectedSubject] = React.useState('');
   const [selectedYearGroup, setSelectedYearGroup] = React.useState('');
 
+  // Subjects assigned to the selected year group via the curriculum matrix
+  const [curriculumSubjectIds, setCurriculumSubjectIds] = React.useState<Set<string>>(new Set());
+
   // Only staff with "Teacher" role for the matrix columns
   const teacherRoleStaff = React.useMemo(
     () => teachers.filter((t) => t.roles.some((r) => r.toLowerCase() === 'teacher')),
     [teachers],
+  );
+
+  // Subjects filtered to only those in the curriculum for the selected year group
+  const matrixSubjects = React.useMemo(
+    () => (curriculumSubjectIds.size > 0
+      ? subjects.filter((s) => curriculumSubjectIds.has(s.id))
+      : []),
+    [subjects, curriculumSubjectIds],
   );
 
   // Load reference data
@@ -89,6 +100,22 @@ export default function CompetenciesPage() {
       if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
+
+  // Fetch curriculum subjects for the selected year group (drives which columns appear)
+  React.useEffect(() => {
+    if (!selectedYear || !selectedTeacherTabYg) {
+      setCurriculumSubjectIds(new Set());
+      return;
+    }
+    apiClient<{ data: Array<{ subject_id: string }> }>(
+      `/api/v1/scheduling/curriculum-requirements?academic_year_id=${selectedYear}&year_group_id=${selectedTeacherTabYg}&pageSize=100`,
+      { silent: true },
+    )
+      .then((res) => {
+        setCurriculumSubjectIds(new Set(res.data.map((r) => r.subject_id)));
+      })
+      .catch(() => setCurriculumSubjectIds(new Set()));
+  }, [selectedYear, selectedTeacherTabYg]);
 
   // Fetch competencies — load all for byTeacher matrix, filtered for bySubject
   const fetchCompetencies = React.useCallback(async () => {
@@ -264,7 +291,7 @@ export default function CompetenciesPage() {
             </SelectContent>
           </Select>
 
-          {selectedTeacherTabYg && teacherRoleStaff.length > 0 && (
+          {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length > 0 && (
             <div className="rounded-2xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="text-sm border-collapse">
@@ -273,7 +300,7 @@ export default function CompetenciesPage() {
                       <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase sticky start-0 bg-surface-secondary z-10 min-w-[180px]">
                         {tv('teacherName')}
                       </th>
-                      {subjects.map((subject) => (
+                      {matrixSubjects.map((subject) => (
                         <th key={subject.id} className="px-3 py-3 text-center text-xs font-medium text-text-tertiary uppercase">
                           {subject.name}
                         </th>
@@ -284,7 +311,7 @@ export default function CompetenciesPage() {
                     {isLoading ? (
                       <tr>
                         <td
-                          colSpan={subjects.length + 1}
+                          colSpan={matrixSubjects.length + 1}
                           className="px-4 py-8 text-center text-text-tertiary"
                         >
                           {tc('loading')}
@@ -299,7 +326,7 @@ export default function CompetenciesPage() {
                           <td className="px-4 py-2 font-medium text-text-primary sticky start-0 bg-surface z-10">
                             {teacher.name}
                           </td>
-                          {subjects.map((subject) => {
+                          {matrixSubjects.map((subject) => {
                             const comp = competencies.find(
                               (c) =>
                                 c.staff_profile_id === teacher.id &&
@@ -339,6 +366,12 @@ export default function CompetenciesPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length === 0 && !isLoading && (
+            <div className="rounded-2xl border border-border px-4 py-8 text-center text-text-tertiary">
+              {tv('noCurriculumSubjects')}
             </div>
           )}
 

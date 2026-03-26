@@ -2597,6 +2597,7 @@
       "primary": "Primary",
       "eligible": "eligible teachers",
       "noTeachers": "No teachers",
+      "noCurriculumSubjects": "No subjects assigned to this year group in the curriculum matrix.",
       "teacherName": "Teacher Name",
       "addBreakGroup": "Add Break Group",
       "noBreakGroups": "No break groups configured.",
