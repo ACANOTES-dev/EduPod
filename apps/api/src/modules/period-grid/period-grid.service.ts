@@ -152,40 +152,79 @@ export class PeriodGridService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    try {
-      const result = await prismaWithRls.$transaction(async (tx) => {
-        const db = tx as unknown as PrismaService;
+    const result = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
 
-        const updateData: Prisma.SchedulePeriodTemplateUncheckedUpdateInput = {};
-        if (dto.period_name !== undefined) updateData.period_name = dto.period_name;
-        if (dto.period_name_ar !== undefined) updateData.period_name_ar = dto.period_name_ar;
-        if (dto.period_order !== undefined) updateData.period_order = dto.period_order;
-        if (dto.start_time !== undefined) updateData.start_time = this.timeToDate(dto.start_time);
-        if (dto.end_time !== undefined) updateData.end_time = this.timeToDate(dto.end_time);
-        if (dto.schedule_period_type !== undefined)
-          updateData.schedule_period_type = dto.schedule_period_type;
-        if (dto.supervision_mode !== undefined) updateData.supervision_mode = dto.supervision_mode;
-        if (dto.break_group_id !== undefined) updateData.break_group_id = dto.break_group_id;
+      const updateData: Prisma.SchedulePeriodTemplateUncheckedUpdateInput = {};
+      if (dto.period_name !== undefined) updateData.period_name = dto.period_name;
+      if (dto.period_name_ar !== undefined) updateData.period_name_ar = dto.period_name_ar;
+      if (dto.period_order !== undefined) updateData.period_order = dto.period_order;
+      if (dto.start_time !== undefined) updateData.start_time = this.timeToDate(dto.start_time);
+      if (dto.end_time !== undefined) updateData.end_time = this.timeToDate(dto.end_time);
+      if (dto.schedule_period_type !== undefined)
+        updateData.schedule_period_type = dto.schedule_period_type;
+      if (dto.supervision_mode !== undefined) updateData.supervision_mode = dto.supervision_mode;
+      if (dto.break_group_id !== undefined) updateData.break_group_id = dto.break_group_id;
 
-        return db.schedulePeriodTemplate.update({
-          where: { id },
-          data: updateData,
-        });
+      const updated = await db.schedulePeriodTemplate.update({
+        where: { id },
+        data: updateData,
       });
 
-      return this.formatPeriod(result as Record<string, unknown>);
-    } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
-        throw new ConflictException({
-          code: 'PERIOD_TEMPLATE_CONFLICT',
-          message: 'A period with the same order or start time already exists for this weekday',
+      // Cascade time changes to subsequent periods
+      if (dto.end_time !== undefined || dto.start_time !== undefined) {
+        const allPeriods = await db.schedulePeriodTemplate.findMany({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: existing.academic_year_id,
+            year_group_id: existing.year_group_id,
+            weekday: existing.weekday,
+          },
+          orderBy: { period_order: 'asc' },
         });
+
+        // Re-chain: each period's start = previous period's end
+        for (let i = 1; i < allPeriods.length; i++) {
+          const prev = allPeriods[i - 1]!;
+          const curr = allPeriods[i]!;
+          const prevEnd = curr.id === updated.id
+            ? this.timeToDate(newEndTime)
+            : prev.id === updated.id
+              ? this.timeToDate(newEndTime)
+              : prev.end_time;
+
+          // Only cascade if previous period was the one we just updated
+          // or if a previous cascade already shifted things
+          const prevEndMin = this.timeToMinutes(prevEnd);
+          const currStartMin = this.timeToMinutes(curr.start_time);
+
+          if (prev.id === updated.id || prevEndMin !== currStartMin) {
+            const currDuration = this.timeToMinutes(curr.end_time) - this.timeToMinutes(curr.start_time);
+            const newCurrStart = this.formatTime(prevEnd);
+            const newCurrEnd = this.addMinutesToTime(newCurrStart, currDuration);
+
+            await db.schedulePeriodTemplate.update({
+              where: { id: curr.id },
+              data: {
+                start_time: this.timeToDate(newCurrStart),
+                end_time: this.timeToDate(newCurrEnd),
+              },
+            });
+
+            // Update the in-memory object so the next iteration sees the cascaded time
+            allPeriods[i] = {
+              ...curr,
+              start_time: this.timeToDate(newCurrStart),
+              end_time: this.timeToDate(newCurrEnd),
+            };
+          }
+        }
       }
-      throw err;
-    }
+
+      return updated;
+    });
+
+    return this.formatPeriod(result as Record<string, unknown>);
   }
 
   async getTeachingCount(tenantId: string, academicYearId: string, yearGroupId?: string): Promise<number> {
