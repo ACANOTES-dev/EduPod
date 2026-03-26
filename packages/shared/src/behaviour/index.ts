@@ -4,5 +4,11 @@ export * from './scope';
 export * from './state-machine';
 export * from './safeguarding-state-machine';
 export * from './state-machine-intervention';
+export * from './state-machine-sanction';
+export * from './state-machine-exclusion';
+export * from './state-machine-appeal';
 export * from './school-calendar';
 export * from './schemas';
+
+// AI utilities
+export * from '../ai';

@@ -19,6 +19,9 @@ import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
+import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
+import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
+import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
@@ -129,11 +132,15 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     BehaviourCheckAwardsProcessor,
     BehaviourGuardianRestrictionCheckProcessor,
     EvaluatePolicyProcessor,
+    BehaviourSuspensionReturnProcessor,
     // Safeguarding processors (Phase D)
     AttachmentScanProcessor,
     BreakGlassExpiryProcessor,
     SlaCheckProcessor,
     CriticalEscalationProcessor,
+    // Phase F: Analytics + AI processors
+    DetectPatternsProcessor,
+    RefreshMVProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

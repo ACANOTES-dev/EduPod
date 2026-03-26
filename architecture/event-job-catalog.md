@@ -333,3 +333,31 @@ Incident created / participant added
 ```
 
 **Danger**: A single failed action does NOT abort the pipeline — it's recorded as `execution_status = 'failed'` and processing continues. The pipeline runs entirely within one Prisma transaction, so if the transaction times out, ALL evaluations for that incident are lost and the job will retry from scratch (idempotent — already-evaluated stages are skipped).
+
+---
+
+### `behaviour:suspension-return` (behaviour queue)
+
+**Trigger**: Daily cron at 07:00 per tenant timezone (one job per tenant).
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/suspension-return.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase C
+
+**Side effects chain**:
+```
+Daily cron fires at 07:00
+  -> behaviour:suspension-return enqueued per tenant
+  -> Worker computes target_date = today + 3 school days (respects school_closures)
+  -> Queries behaviour_sanctions WHERE suspension_end_date = target_date
+     AND status IN (scheduled, not_served_absent)
+     AND type IN (suspension_internal, suspension_external)
+  -> For each matching sanction:
+    -> Idempotency: check if return_check_in task already exists for this sanction
+    -> If no existing task: create behaviour_task with:
+       - task_type = 'return_check_in'
+       - assigned_to_id = supervised_by_id -> principal fallback
+       - priority = 'high', due_date = suspension_end_date
+```
+
+**Danger**: The 3 school day lookahead uses `addSchoolDays()` from shared package, which queries `school_closures`. If closures are not up-to-date, tasks may be created on wrong dates. Idempotent — safe to retry.

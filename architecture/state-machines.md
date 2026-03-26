@@ -409,3 +409,67 @@ cancelled*
   - `* -> cancelled`: Records history with mandatory reason.
   - `pending -> overdue`: Set automatically by `behaviour:task-reminders` daily cron when `due_date < yesterday`. Sends overdue notification.
 - **Note**: `overdue` is NOT terminal — tasks can still be completed or cancelled after becoming overdue.
+
+### SanctionStatus (Phase C)
+```
+pending_approval -> [scheduled, cancelled]
+scheduled        -> [served, partially_served, no_show, excused, cancelled, superseded, not_served_absent, appealed]
+appealed         -> [scheduled, cancelled, replaced]
+no_show          -> [superseded, cancelled]
+excused          -> [superseded, cancelled]
+not_served_absent-> [superseded]
+served*
+partially_served*
+cancelled*
+replaced*
+superseded*
+```
+- **Guarded by**: `packages/shared/src/behaviour/state-machine-sanction.ts` -> `isValidSanctionTransition()` + `behaviour-sanctions.service.ts` -> `transitionStatus()`
+- **Side effects**:
+  - Creation: Generates `SN-YYYYMM-NNNNNN` sequence number. Checks if approval required (suspension/expulsion). Auto-creates exclusion case for external suspensions >= 5 days or expulsions.
+  - `scheduled -> served`: Sets `served_at`, `served_by_id`. Records history.
+  - `scheduled -> appealed`: Triggered by appeal submission. Sets appeal reference.
+  - `scheduled -> superseded`: Old sanction on reschedule. New sanction created with same incident link.
+  - `appealed -> scheduled`: Appeal rejected (upheld_original). Sanction reinstated.
+  - `appealed -> cancelled`: Appeal upheld (overturned). Incident transitions to `closed_after_appeal`.
+  - `appealed -> replaced`: Appeal partially upheld. New replacement sanction created.
+  - Bulk mark served: `POST /sanctions/bulk-mark-served` transitions multiple sanctions atomically with partial success.
+- **Danger**: Appeal decision cascading — a single `decide` call can transition the sanction, incident, and exclusion case. All in one transaction.
+
+### ExclusionStatus (Phase C)
+```
+initiated             -> [notice_issued]
+notice_issued         -> [hearing_scheduled_exc]
+hearing_scheduled_exc -> [hearing_held]
+hearing_held          -> [decision_made]
+decision_made         -> [appeal_window]
+appeal_window         -> [finalised, overturned]
+finalised*
+overturned*
+```
+- **Guarded by**: `packages/shared/src/behaviour/state-machine-exclusion.ts` -> `isValidExclusionTransition()` + `behaviour-exclusion-cases.service.ts`
+- **Side effects**:
+  - Creation: Auto-populates `statutory_timeline` JSON with school-day-computed deadlines. Sets legal holds on incident, sanction, and all linked entities. Creates `appeal_review` task.
+  - `hearing_held -> decision_made`: Records decision, computes `appeal_deadline = decision_date + 15 school days`.
+  - `decision_made -> appeal_window`: Auto-transition on decision recording.
+  - `appeal_window -> overturned`: Linked appeal succeeded. Sanction cancelled.
+- **Danger**: Statutory timeline dates are computed once on creation and stored as JSONB. If school closures change after creation, stored dates may be stale. Dynamic status computation in `getTimeline()` mitigates this for current status.
+
+### AppealStatus (Phase C)
+```
+submitted         -> [under_review, withdrawn_appeal]
+under_review      -> [hearing_scheduled, decided, withdrawn_appeal]
+hearing_scheduled -> [decided, withdrawn_appeal]
+decided*
+withdrawn_appeal*
+```
+- **Guarded by**: `packages/shared/src/behaviour/state-machine-appeal.ts` -> `isValidAppealTransition()` + `behaviour-appeals.service.ts`
+- **Side effects**:
+  - Submission: Generates `AP-YYYYMM-NNNNNN`. If sanction is `scheduled`, transitions to `appealed`. Sets legal holds. Links to exclusion case if applicable. Creates `appeal_review` task.
+  - `* -> decided`: Records decision + reasoning. Applies outcome:
+    - `upheld_original`: sanction `appealed -> scheduled`
+    - `modified`: applies amendments, creates replacement sanction if needed
+    - `overturned`: sanction -> `cancelled`, incident -> `closed_after_appeal`, exclusion case -> `overturned`
+  - Creates amendment notices for parent-visible field changes. All in single interactive transaction.
+  - `* -> withdrawn_appeal`: Restores sanction from `appealed -> scheduled`.
+- **Danger**: The `decide` endpoint's atomic transaction touches up to 6 tables: appeals, sanctions, incidents, exclusion_cases, amendment_notices, entity_history. Transaction timeout risk on complex decisions.
