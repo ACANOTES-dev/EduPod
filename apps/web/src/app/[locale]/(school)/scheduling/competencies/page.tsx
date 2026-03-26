@@ -101,7 +101,7 @@ export default function CompetenciesPage() {
       } else {
         url = `/api/v1/scheduling/teacher-competencies?academic_year_id=${selectedYear}`;
       }
-      const res = await apiClient<{ data: Competency[] }>(url);
+      const res = await apiClient<{ data: Competency[] }>(url, { silent: true });
       setCompetencies(res.data);
     } catch {
       setCompetencies([]);
@@ -131,14 +131,15 @@ export default function CompetenciesPage() {
       if (existing) {
         await apiClient(
           `/api/v1/scheduling/teacher-competencies/${existing.id}`,
-          { method: 'DELETE' },
+          { method: 'DELETE', silent: true },
         );
         setCompetencies((prev) => prev.filter((c) => c.id !== existing.id));
       } else {
-        const created = await apiClient<Competency>(
+        const res = await apiClient<{ data: Competency }>(
           '/api/v1/scheduling/teacher-competencies',
           {
             method: 'POST',
+            silent: true,
             body: JSON.stringify({
               academic_year_id: selectedYear,
               staff_profile_id: teacherId,
@@ -148,7 +149,7 @@ export default function CompetenciesPage() {
             }),
           },
         );
-        setCompetencies((prev) => [...prev, created]);
+        setCompetencies((prev) => [...prev, res.data]);
       }
     } catch {
       toast.error(tc('errorGeneric'));
