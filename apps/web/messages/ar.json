@@ -2669,7 +2669,23 @@
         "90": "90 دقيقة",
         "120": "120 دقيقة",
         "custom": "مخصص"
-      }
+      },
+      "curriculumRedesign": "متطلبات الجدولة",
+      "curriculumRedesignDesc": "تكوين متطلبات الحصص التدريسية لكل مادة. يتم تعبئة المواد تلقائياً من مصفوفة المنهج.",
+      "periodDurationCol": "مدة الحصة",
+      "minPerWeekCol": "أدنى/أسبوع",
+      "maxPerDayCol": "أقصى/يوم",
+      "doublePeriodCol": "مزدوج؟",
+      "hoursPerWeek": "ساعات/أسبوع",
+      "hoursPerMonth": "ساعات/شهر",
+      "hoursPerYear": "ساعات/سنة",
+      "classesCol": "الفصول",
+      "saveAll": "حفظ الكل",
+      "savedSuccessfully": "تم حفظ متطلبات المنهج بنجاح",
+      "noMatrixSubjects": "لم يتم تعيين مواد في مصفوفة المنهج لهذه المجموعة السنوية.",
+      "goToCurriculumMatrix": "الذهاب إلى مصفوفة المنهج",
+      "forecastTeachingHours": "ساعات التدريس المتوقعة",
+      "minutesShort": "دقيقة"
     },
     "substitutions": {
       "title": "إدارة الإحلال",

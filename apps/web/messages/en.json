@@ -2669,7 +2669,23 @@
         "90": "90 min",
         "120": "120 min",
         "custom": "Custom"
-      }
+      },
+      "curriculumRedesign": "Scheduling Requirements",
+      "curriculumRedesignDesc": "Configure teaching period requirements for each subject. Subjects are auto-populated from the Curriculum Matrix.",
+      "periodDurationCol": "Period Duration",
+      "minPerWeekCol": "Min/Week",
+      "maxPerDayCol": "Max/Day",
+      "doublePeriodCol": "Double?",
+      "hoursPerWeek": "Hrs/Week",
+      "hoursPerMonth": "Hrs/Month",
+      "hoursPerYear": "Hrs/Year",
+      "classesCol": "Classes",
+      "saveAll": "Save All",
+      "savedSuccessfully": "Curriculum requirements saved successfully",
+      "noMatrixSubjects": "No subjects assigned in the Curriculum Matrix for this year group.",
+      "goToCurriculumMatrix": "Go to Curriculum Matrix",
+      "forecastTeachingHours": "Forecast Teaching Hours",
+      "minutesShort": "min"
     },
     "substitutions": {
       "title": "Substitution Management",
