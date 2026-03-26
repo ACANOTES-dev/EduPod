@@ -142,4 +142,20 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'parent.submit_inquiry', description: 'Submit parent inquiries', permission_tier: 'parent' },
   { permission_key: 'parent.view_announcements', description: 'View school announcements', permission_tier: 'parent' },
   { permission_key: 'parent.view_transcripts', description: 'View and download own children\'s transcripts', permission_tier: 'parent' },
+
+  // ─── Behaviour Management ──────────────────────────────────────────────────
+  { permission_key: 'behaviour.log', description: 'Create incidents, access quick-log', permission_tier: 'staff' },
+  { permission_key: 'behaviour.view', description: 'View incidents within scope', permission_tier: 'staff' },
+  { permission_key: 'behaviour.manage', description: 'Manage sanctions, interventions, tasks, appeals', permission_tier: 'staff' },
+  { permission_key: 'behaviour.admin', description: 'Configure behaviour module, admin operations', permission_tier: 'admin' },
+  { permission_key: 'behaviour.view_sensitive', description: 'View context notes and SEND notes', permission_tier: 'staff' },
+  { permission_key: 'behaviour.view_staff_analytics', description: 'View staff logging activity', permission_tier: 'admin' },
+  { permission_key: 'behaviour.ai_query', description: 'AI narrative and natural language query', permission_tier: 'staff' },
+  { permission_key: 'behaviour.appeal', description: 'Submit appeal as parent', permission_tier: 'parent' },
+
+  // ─── Safeguarding ────────────────────────────────────────────────────────
+  { permission_key: 'safeguarding.report', description: 'Report safeguarding concerns', permission_tier: 'staff' },
+  { permission_key: 'safeguarding.view', description: 'View safeguarding concerns', permission_tier: 'admin' },
+  { permission_key: 'safeguarding.manage', description: 'Manage safeguarding concerns', permission_tier: 'admin' },
+  { permission_key: 'safeguarding.seal', description: 'Seal safeguarding concerns (irreversible)', permission_tier: 'admin' },
 ];

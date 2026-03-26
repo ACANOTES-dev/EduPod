@@ -619,6 +619,43 @@ model Tenant {
   scheduled_reports           ScheduledReport[]
   report_alerts               ReportAlert[]
 
+  // Behaviour Management Relations
+  behaviour_categories               BehaviourCategory[]
+  behaviour_incidents                BehaviourIncident[]
+  behaviour_incident_participants    BehaviourIncidentParticipant[]
+  behaviour_description_templates    BehaviourDescriptionTemplate[]
+  behaviour_entity_history           BehaviourEntityHistory[]
+  behaviour_tasks                    BehaviourTask[]
+  behaviour_parent_acknowledgements  BehaviourParentAcknowledgement[]
+  behaviour_sanctions                BehaviourSanction[]
+  behaviour_appeals                  BehaviourAppeal[]
+  behaviour_amendment_notices        BehaviourAmendmentNotice[]
+  behaviour_exclusion_cases          BehaviourExclusionCase[]
+  behaviour_attachments              BehaviourAttachment[]
+  behaviour_interventions            BehaviourIntervention[]
+  behaviour_intervention_incidents   BehaviourInterventionIncident[]
+  behaviour_intervention_reviews     BehaviourInterventionReview[]
+  behaviour_recognition_awards       BehaviourRecognitionAward[]
+  behaviour_award_types              BehaviourAwardType[]
+  behaviour_house_teams              BehaviourHouseTeam[]
+  behaviour_house_memberships        BehaviourHouseMembership[]
+  behaviour_policy_rules             BehaviourPolicyRule[]
+  behaviour_policy_rule_actions      BehaviourPolicyRuleAction[]
+  behaviour_policy_rule_versions     BehaviourPolicyRuleVersion[]
+  behaviour_policy_evaluations       BehaviourPolicyEvaluation[]
+  behaviour_policy_action_executions BehaviourPolicyActionExecution[]
+  behaviour_alerts                   BehaviourAlert[]
+  behaviour_alert_recipients         BehaviourAlertRecipient[]
+  behaviour_documents                BehaviourDocument[]
+  behaviour_document_templates       BehaviourDocumentTemplate[]
+  behaviour_guardian_restrictions    BehaviourGuardianRestriction[]
+  behaviour_publication_approvals    BehaviourPublicationApproval[]
+  behaviour_legal_holds              BehaviourLegalHold[]
+  safeguarding_concerns              SafeguardingConcern[]
+  safeguarding_actions               SafeguardingAction[]
+  safeguarding_concern_incidents     SafeguardingConcernIncident[]
+  safeguarding_break_glass_grants    SafeguardingBreakGlassGrant[]
+
   @@map("tenants")
 }
 
@@ -863,6 +900,44 @@ model User {
   scheduled_reports_created ScheduledReport[] @relation("scheduled_report_creator")
   report_alerts_created     ReportAlert[]     @relation("report_alert_creator")
 
+  // Behaviour Management Relations
+  bh_incidents_reported             BehaviourIncident[]            @relation("bh_incident_reporter")
+  bh_parent_descriptions_set        BehaviourIncident[]            @relation("bh_parent_desc_setter")
+  bh_entity_history_changes         BehaviourEntityHistory[]       @relation("bh_entity_history_changer")
+  bh_tasks_assigned                 BehaviourTask[]                @relation("bh_task_assignee")
+  bh_tasks_created                  BehaviourTask[]                @relation("bh_task_creator")
+  bh_tasks_completed                BehaviourTask[]                @relation("bh_task_completer")
+  bh_sanctions_supervised           BehaviourSanction[]            @relation("bh_sanction_supervisor")
+  bh_sanctions_served               BehaviourSanction[]            @relation("bh_sanction_server")
+  bh_appeals_reviewed               BehaviourAppeal[]              @relation("bh_appeal_reviewer")
+  bh_appeals_decided                BehaviourAppeal[]              @relation("bh_appeal_decider")
+  bh_amendments_changed             BehaviourAmendmentNotice[]     @relation("bh_amendment_changer")
+  bh_amendments_authorised          BehaviourAmendmentNotice[]     @relation("bh_amendment_authoriser")
+  bh_exclusions_decided             BehaviourExclusionCase[]       @relation("bh_exclusion_decider")
+  bh_attachments_uploaded           BehaviourAttachment[]          @relation("bh_attachment_uploader")
+  bh_interventions_assigned         BehaviourIntervention[]        @relation("bh_intervention_assignee")
+  bh_intervention_reviews_done      BehaviourInterventionReview[]  @relation("bh_intervention_reviewer")
+  bh_recognition_awards_given       BehaviourRecognitionAward[]    @relation("bh_award_giver")
+  bh_policy_rule_versions_changed   BehaviourPolicyRuleVersion[]   @relation("bh_policy_version_changer")
+  bh_alert_recipients               BehaviourAlertRecipient[]      @relation("bh_alert_recipient")
+  bh_documents_generated            BehaviourDocument[]            @relation("bh_document_generator")
+  bh_guardian_restrictions_set      BehaviourGuardianRestriction[] @relation("bh_restriction_setter")
+  bh_guardian_restrictions_approved BehaviourGuardianRestriction[] @relation("bh_restriction_approver")
+  bh_guardian_restrictions_revoked  BehaviourGuardianRestriction[] @relation("bh_restriction_revoker")
+  bh_publication_approvals_admin    BehaviourPublicationApproval[] @relation("bh_publication_admin")
+  bh_legal_holds_set                BehaviourLegalHold[]           @relation("bh_legal_hold_setter")
+  bh_legal_holds_released           BehaviourLegalHold[]           @relation("bh_legal_hold_releaser")
+  sg_concerns_reported              SafeguardingConcern[]          @relation("sg_concern_reporter")
+  sg_concerns_liaison               SafeguardingConcern[]          @relation("sg_concern_liaison")
+  sg_concerns_assigned              SafeguardingConcern[]          @relation("sg_concern_assignee")
+  sg_concerns_sealed                SafeguardingConcern[]          @relation("sg_concern_sealer")
+  sg_concerns_seal_approved         SafeguardingConcern[]          @relation("sg_concern_seal_approver")
+  sg_actions_performed              SafeguardingAction[]           @relation("sg_action_performer")
+  sg_concern_incidents_linked       SafeguardingConcernIncident[]  @relation("sg_concern_incident_linker")
+  sg_break_glass_granted_to         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantee")
+  sg_break_glass_granted_by         SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_grantor")
+  sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_reviewer")
+
   @@map("users")
 }
 
@@ -1054,6 +1129,10 @@ model ApprovalRequest {
   // P7 Relations
   announcements Announcement[]
 
+  // Behaviour Management Relations
+  bh_incidents BehaviourIncident[] @relation("bh_incident_approval")
+  bh_sanctions BehaviourSanction[] @relation("bh_sanction_approval")
+
   @@index([tenant_id, status], name: "idx_approval_requests_tenant_status")
   @@map("approval_requests")
 }
@@ -1167,6 +1246,12 @@ model Parent {
   // P6 Finance World-Class Relations
   payment_plan_requests PaymentPlanRequest[] @relation("payment_plan_requester")
 
+  // Behaviour Management Relations
+  bh_incident_participants   BehaviourIncidentParticipant[]   @relation("bh_participant_parent")
+  bh_parent_acknowledgements BehaviourParentAcknowledgement[] @relation("bh_ack_parent")
+  bh_appeals_appellant       BehaviourAppeal[]                @relation("bh_appeal_appellant_parent")
+  bh_guardian_restrictions   BehaviourGuardianRestriction[]   @relation("bh_restriction_parent")
+
   @@index([tenant_id], name: "idx_parents_tenant")
   @@index([tenant_id, email], name: "idx_parents_tenant_email")
   @@index([user_id], name: "idx_parents_user")
@@ -1248,6 +1333,21 @@ model Student {
   student_academic_risk_alerts StudentAcademicRiskAlert[]
   progress_reports             ProgressReport[]
 
+  // Behaviour Management Relations
+  bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_student")
+  bh_sanctions             BehaviourSanction[]            @relation("bh_sanction_student")
+  bh_appeals               BehaviourAppeal[]              @relation("bh_appeal_student")
+  bh_exclusion_cases       BehaviourExclusionCase[]       @relation("bh_exclusion_student")
+  bh_interventions         BehaviourIntervention[]        @relation("bh_intervention_student")
+  bh_recognition_awards    BehaviourRecognitionAward[]    @relation("bh_award_student")
+  bh_house_memberships     BehaviourHouseMembership[]     @relation("bh_house_member_student")
+  bh_policy_evaluations    BehaviourPolicyEvaluation[]    @relation("bh_policy_eval_student")
+  bh_alerts                BehaviourAlert[]               @relation("bh_alert_student")
+  bh_documents             BehaviourDocument[]            @relation("bh_document_student")
+  bh_guardian_restrictions BehaviourGuardianRestriction[] @relation("bh_restriction_student")
+  bh_publication_approvals BehaviourPublicationApproval[] @relation("bh_publication_student")
+  sg_concerns              SafeguardingConcern[]          @relation("sg_concern_student")
+
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
   @@index([tenant_id, household_id], name: "idx_students_tenant_household")
@@ -1321,6 +1421,11 @@ model StaffProfile {
   substitution_records SubstitutionRecord[] @relation("substitute_staff")
   exam_invigilations   ExamInvigilation[]   @relation("exam_invigilator")
 
+  // Behaviour Management Relations
+  bh_incident_participants BehaviourIncidentParticipant[] @relation("bh_participant_staff")
+  bh_appeals_appellant     BehaviourAppeal[]              @relation("bh_appeal_appellant_staff")
+  bh_alerts                BehaviourAlert[]               @relation("bh_alert_staff")
+
   @@unique([tenant_id, user_id], name: "idx_staff_profiles_tenant_user")
   @@index([tenant_id], name: "idx_staff_profiles_tenant")
   @@index([user_id], name: "idx_staff_profiles_user")
@@ -1361,6 +1466,11 @@ model AcademicYear {
   // Scheduling World-Class Relations
   scheduling_scenarios SchedulingScenario[]
   rotation_configs     RotationConfig[]
+
+  // Behaviour Management Relations
+  bh_incidents          BehaviourIncident[]         @relation("bh_incident_academic_year")
+  bh_recognition_awards BehaviourRecognitionAward[] @relation("bh_award_academic_year")
+  bh_house_memberships  BehaviourHouseMembership[]  @relation("bh_house_member_year")
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -1404,6 +1514,9 @@ model AcademicPeriod {
 
   // Reports World-Class Relations
   board_reports BoardReport[]
+
+  // Behaviour Management Relations
+  bh_incidents BehaviourIncident[] @relation("bh_incident_academic_period")
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
@@ -1483,6 +1596,10 @@ model Subject {
 
   // Scheduling World-Class Relations
   exam_slots ExamSlot[]
+
+  // Behaviour Management Relations
+  bh_incidents BehaviourIncident[] @relation("bh_incident_subject")
+  bh_alerts    BehaviourAlert[]    @relation("bh_alert_subject")
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -1713,6 +1830,10 @@ model Room {
   homeroom_classes Class[]    @relation("class_homeroom_room")
   exam_slots       ExamSlot[]
 
+  // Behaviour Management Relations
+  bh_incidents_in_room BehaviourIncident[] @relation("bh_incident_room")
+  bh_sanctions_in_room BehaviourSanction[] @relation("bh_sanction_room")
+
   @@unique([tenant_id, name], name: "idx_rooms_tenant_name")
   @@index([tenant_id], name: "idx_rooms_tenant")
   @@map("rooms")
@@ -1755,6 +1876,9 @@ model Schedule {
 
   // Payroll World-Class Relations
   class_delivery_records ClassDeliveryRecord[]
+
+  // Behaviour Management Relations
+  bh_incidents BehaviourIncident[] @relation("bh_incident_schedule")
 
   @@index([tenant_id, class_id, weekday], name: "idx_schedules_tenant_class")
   @@index([tenant_id, room_id, weekday], name: "idx_schedules_tenant_room")
@@ -3898,6 +4022,11 @@ model Notification {
   tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   recipient User   @relation("notification_recipient", fields: [recipient_user_id], references: [id])
 
+  // Behaviour Management Relations
+  bh_parent_acknowledgements    BehaviourParentAcknowledgement[] @relation("bh_ack_notification")
+  bh_amendment_original_notif   BehaviourAmendmentNotice[]       @relation("bh_amendment_original_notif")
+  bh_amendment_correction_notif BehaviourAmendmentNotice[]       @relation("bh_amendment_correction_notif")
+
   @@index([tenant_id, recipient_user_id, status], name: "idx_notifications_tenant_recipient")
   @@map("notifications")
 }
@@ -4494,4 +4623,1571 @@ model ReportAlert {
 
   @@index([tenant_id, active], name: "idx_report_alerts_tenant_active")
   @@map("report_alerts")
+}
+
+// ─── Behaviour Management Enums ─────────────────────────────────────────────
+
+enum BehaviourPolarity {
+  positive
+  negative
+  neutral
+}
+
+enum BenchmarkCategory {
+  praise
+  merit
+  minor_positive
+  major_positive
+  verbal_warning
+  written_warning
+  detention
+  internal_suspension
+  external_suspension
+  expulsion
+  note
+  observation
+  other
+}
+
+enum IncidentStatus {
+  draft
+  active
+  investigating
+  under_review
+  awaiting_approval
+  awaiting_parent_meeting
+  escalated
+  resolved
+  withdrawn
+  closed_after_appeal
+  superseded
+  converted_to_safeguarding
+}
+
+enum IncidentApprovalStatus {
+  not_required
+  pending
+  approved
+  rejected
+}
+
+enum ParentNotifStatus {
+  not_required
+  pending
+  sent
+  delivered
+  failed
+  acknowledged
+}
+
+enum ContextType {
+  class_           @map("class")
+  break_           @map("break")
+  before_school
+  after_school
+  lunch
+  transport
+  extra_curricular
+  off_site
+  online
+  other
+}
+
+enum ParticipantType {
+  student
+  staff
+  parent
+  visitor
+  unknown
+}
+
+enum ParticipantRole {
+  subject
+  witness
+  bystander
+  reporter
+  victim
+  instigator
+  mediator
+}
+
+enum BehaviourEntityType {
+  incident
+  sanction
+  intervention
+  appeal
+  task
+  exclusion_case
+  publication_approval
+  break_glass_grant
+  guardian_restriction
+}
+
+enum BehaviourTaskType {
+  follow_up
+  intervention_review
+  parent_meeting
+  parent_acknowledgement
+  approval_action
+  sanction_supervision
+  return_check_in
+  safeguarding_action
+  document_requested
+  appeal_review
+  break_glass_review
+  guardian_restriction_review
+  custom
+}
+
+enum BehaviourTaskEntityType {
+  incident
+  sanction
+  intervention
+  safeguarding_concern
+  appeal
+  break_glass_grant
+  exclusion_case
+  guardian_restriction
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum BehaviourTaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+  overdue
+}
+
+enum RetentionStatus {
+  active
+  archived
+  anonymised
+}
+
+enum SanctionType {
+  detention
+  suspension_internal
+  suspension_external
+  expulsion
+  community_service
+  loss_of_privilege
+  restorative_meeting
+  other_sanction      @map("other")
+}
+
+enum SanctionStatus {
+  pending_approval
+  scheduled
+  served
+  partially_served
+  no_show
+  excused
+  cancelled
+  rescheduled
+  not_served_absent
+  appealed
+  replaced
+}
+
+enum AppealStatus {
+  submitted
+  under_review
+  hearing_scheduled
+  decided
+  withdrawn_appeal  @map("withdrawn")
+}
+
+enum AppealDecision {
+  upheld_original
+  modified
+  overturned
+}
+
+enum AppealOutcome {
+  upheld
+  modified_appeal   @map("modified")
+  overturned_appeal @map("overturned")
+}
+
+enum GroundsCategory {
+  factual_inaccuracy
+  disproportionate_consequence
+  procedural_error
+  mitigating_circumstances
+  mistaken_identity
+  other_grounds                @map("other")
+}
+
+enum AmendmentType {
+  correction
+  supersession
+  retraction
+}
+
+enum AcknowledgementChannel {
+  email
+  whatsapp
+  in_app
+}
+
+enum AcknowledgementMethod {
+  in_app_button
+  email_link
+  whatsapp_reply
+}
+
+enum ExclusionType {
+  suspension_extended
+  expulsion
+  managed_move
+  permanent_exclusion
+}
+
+enum ExclusionStatus {
+  initiated
+  notice_issued
+  hearing_scheduled_exc @map("hearing_scheduled")
+  hearing_held
+  decision_made
+  appeal_window
+  finalised
+  overturned
+}
+
+enum ExclusionDecision {
+  exclusion_confirmed
+  exclusion_modified
+  exclusion_reversed
+  alternative_consequence
+}
+
+enum DocumentType {
+  detention_notice
+  suspension_letter
+  return_meeting_letter
+  behaviour_contract
+  intervention_summary
+  appeal_hearing_invite
+  appeal_decision_letter
+  exclusion_notice
+  exclusion_decision_letter
+  board_pack
+  custom_document
+}
+
+enum DocumentStatus {
+  draft_doc  @map("draft")
+  finalised
+  sent_doc   @map("sent")
+  superseded
+}
+
+enum InterventionType {
+  behaviour_plan
+  mentoring
+  counselling_referral
+  restorative
+  academic_support
+  parent_engagement
+  external_agency
+  other_intervention   @map("other")
+}
+
+enum InterventionStatus {
+  planned
+  active_intervention    @map("active")
+  monitoring
+  completed_intervention @map("completed")
+  abandoned
+}
+
+enum InterventionProgress {
+  on_track
+  some_progress
+  no_progress
+  regression
+}
+
+enum InterventionOutcome {
+  improved
+  no_change
+  deteriorated
+  inconclusive
+}
+
+enum PublicationType {
+  recognition_wall_website
+  house_leaderboard_website
+  individual_achievement_website
+}
+
+enum PublicationEntityType {
+  incident
+  award
+}
+
+enum ParentConsentStatus {
+  not_requested
+  pending_consent @map("pending")
+  granted
+  denied
+}
+
+enum AlertType {
+  escalating_student
+  disengaging_student
+  hotspot
+  logging_gap
+  overdue_review
+  suspension_return
+  policy_threshold_breach
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum AlertStatus {
+  active_alert   @map("active")
+  resolved_alert @map("resolved")
+}
+
+enum AlertRecipientStatus {
+  unseen
+  seen
+  acknowledged
+  snoozed
+  resolved_recipient @map("resolved")
+  dismissed
+}
+
+enum RestrictionType {
+  no_behaviour_visibility
+  no_behaviour_notifications
+  no_portal_access
+  no_communications
+}
+
+enum RestrictionStatus {
+  active_restriction     @map("active")
+  expired
+  revoked
+  superseded_restriction @map("superseded")
+}
+
+enum LegalHoldEntityType {
+  incident
+  sanction
+  intervention
+  appeal
+  exclusion_case
+  task
+  attachment
+}
+
+enum LegalHoldStatus {
+  active_hold @map("active")
+  released
+}
+
+enum SafeguardingConcernType {
+  physical_abuse
+  emotional_abuse
+  sexual_abuse
+  neglect
+  self_harm
+  bullying
+  online_safety
+  domestic_violence
+  substance_abuse
+  mental_health
+  radicalisation
+  other_concern     @map("other")
+}
+
+enum SafeguardingSeverity {
+  low_sev      @map("low")
+  medium_sev   @map("medium")
+  high_sev     @map("high")
+  critical_sev @map("critical")
+}
+
+enum SafeguardingStatus {
+  reported
+  acknowledged
+  under_investigation
+  referred
+  sg_monitoring       @map("monitoring")
+  sg_resolved         @map("resolved")
+  sealed
+}
+
+enum SafeguardingActionType {
+  note_added
+  status_changed
+  assigned
+  meeting_held
+  parent_contacted
+  agency_contacted
+  tusla_referred
+  garda_referred
+  document_uploaded
+  document_downloaded
+  review_completed
+}
+
+enum BreakGlassScope {
+  all_concerns
+  specific_concerns
+}
+
+enum AttachmentClassification {
+  staff_statement
+  student_statement
+  parent_letter
+  meeting_minutes
+  screenshot
+  photo
+  scanned_document
+  referral_form
+  return_agreement
+  behaviour_contract_doc @map("behaviour_contract")
+  medical_report
+  agency_correspondence
+  other_classification   @map("other")
+}
+
+enum AttachmentVisibility {
+  staff_all
+  pastoral_only
+  management_only
+  safeguarding_only
+}
+
+enum ScanStatus {
+  pending_scan @map("pending")
+  clean
+  infected
+  scan_failed
+}
+
+enum PolicyStage {
+  consequence
+  approval_stage     @map("approval")
+  notification_stage @map("notification")
+  support
+  alerting
+}
+
+enum PolicyMatchStrategy {
+  first_match
+  all_matching
+}
+
+enum PolicyEvaluationResult {
+  matched
+  no_match
+  skipped_inactive
+  evaluation_error
+}
+
+enum PolicyActionType {
+  auto_escalate
+  create_sanction
+  require_approval
+  require_parent_meeting
+  require_parent_notification
+  create_task
+  create_intervention
+  notify_roles
+  notify_users
+  flag_for_review
+  block_without_approval
+}
+
+enum PolicyActionExecutionStatus {
+  success
+  failed
+  skipped_duplicate
+  skipped_condition
+}
+
+enum AppellantType {
+  parent_appellant  @map("parent")
+  student_appellant @map("student")
+  staff_appellant   @map("staff")
+}
+
+enum ReporterAckStatus {
+  received
+  assigned_ack     @map("assigned")
+  under_review_ack @map("under_review")
+}
+
+// ─── Behaviour Management Models ────────────────────────────────────────────
+
+model BehaviourCategory {
+  id                           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String            @db.Uuid
+  name                         String            @db.VarChar(100)
+  name_ar                      String?           @db.VarChar(100)
+  polarity                     BehaviourPolarity
+  severity                     Int
+  point_value                  Int               @default(0)
+  color                        String?           @db.VarChar(7)
+  icon                         String?           @db.VarChar(50)
+  requires_follow_up           Boolean           @default(false)
+  requires_parent_notification Boolean           @default(false)
+  parent_visible               Boolean           @default(true)
+  benchmark_category           BenchmarkCategory
+  display_order                Int               @default(0)
+  is_active                    Boolean           @default(true)
+  is_system                    Boolean           @default(false)
+  created_at                   DateTime          @default(now()) @db.Timestamptz()
+  updated_at                   DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incidents             BehaviourIncident[]
+  description_templates BehaviourDescriptionTemplate[]
+
+  @@unique([tenant_id, name], name: "idx_behaviour_categories_tenant_name")
+  @@index([tenant_id], name: "idx_behaviour_categories_tenant")
+  @@map("behaviour_categories")
+}
+
+model BehaviourIncident {
+  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                    String                 @db.Uuid
+  incident_number              String                 @db.VarChar(20)
+  idempotency_key              String?                @db.VarChar(36)
+  category_id                  String                 @db.Uuid
+  polarity                     BehaviourPolarity
+  severity                     Int
+  reported_by_id               String                 @db.Uuid
+  description                  String                 @db.Text
+  parent_description           String?                @db.Text
+  parent_description_ar        String?                @db.Text
+  parent_description_locked    Boolean                @default(false)
+  parent_description_set_by_id String?                @db.Uuid
+  parent_description_set_at    DateTime?              @db.Timestamptz()
+  context_notes                String?                @db.Text
+  location                     String?                @db.VarChar(100)
+  context_type                 ContextType            @default(class_)
+  occurred_at                  DateTime               @db.Timestamptz()
+  logged_at                    DateTime               @default(now()) @db.Timestamptz()
+  academic_year_id             String                 @db.Uuid
+  academic_period_id           String?                @db.Uuid
+  schedule_entry_id            String?                @db.Uuid
+  subject_id                   String?                @db.Uuid
+  room_id                      String?                @db.Uuid
+  period_order                 Int?
+  weekday                      Int?
+  status                       IncidentStatus         @default(draft)
+  approval_status              IncidentApprovalStatus @default(not_required)
+  approval_request_id          String?                @db.Uuid
+  parent_notification_status   ParentNotifStatus      @default(not_required)
+  follow_up_required           Boolean                @default(false)
+  escalated_from_id            String?                @db.Uuid
+  policy_evaluation_id         String?                @db.Uuid
+  context_snapshot             Json                   @default("{}")
+  retention_status             RetentionStatus        @default(active)
+  archived_at                  DateTime?              @db.Timestamptz()
+  created_at                   DateTime               @default(now()) @db.Timestamptz()
+  updated_at                   DateTime               @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                         Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  category                       BehaviourCategory                @relation(fields: [category_id], references: [id])
+  reported_by                    User                             @relation("bh_incident_reporter", fields: [reported_by_id], references: [id], onDelete: Restrict)
+  parent_description_set_by      User?                            @relation("bh_parent_desc_setter", fields: [parent_description_set_by_id], references: [id], onDelete: SetNull)
+  academic_year                  AcademicYear                     @relation("bh_incident_academic_year", fields: [academic_year_id], references: [id])
+  academic_period                AcademicPeriod?                  @relation("bh_incident_academic_period", fields: [academic_period_id], references: [id], onDelete: SetNull)
+  schedule_entry                 Schedule?                        @relation("bh_incident_schedule", fields: [schedule_entry_id], references: [id], onDelete: SetNull)
+  subject                        Subject?                         @relation("bh_incident_subject", fields: [subject_id], references: [id], onDelete: SetNull)
+  room                           Room?                            @relation("bh_incident_room", fields: [room_id], references: [id], onDelete: SetNull)
+  approval_request               ApprovalRequest?                 @relation("bh_incident_approval", fields: [approval_request_id], references: [id], onDelete: SetNull)
+  escalated_from                 BehaviourIncident?               @relation("bh_incident_escalation", fields: [escalated_from_id], references: [id], onDelete: SetNull)
+  escalated_to                   BehaviourIncident[]              @relation("bh_incident_escalation")
+  participants                   BehaviourIncidentParticipant[]
+  sanctions                      BehaviourSanction[]
+  appeals                        BehaviourAppeal[]
+  parent_acknowledgements        BehaviourParentAcknowledgement[]
+  exclusion_cases                BehaviourExclusionCase[]
+  intervention_incidents         BehaviourInterventionIncident[]
+  policy_evaluations             BehaviourPolicyEvaluation[]
+  recognition_awards             BehaviourRecognitionAward[]      @relation("bh_award_trigger_incident")
+  safeguarding_concern_incidents SafeguardingConcernIncident[]
+
+  @@unique([tenant_id, incident_number], name: "idx_behaviour_incidents_number")
+  @@unique([tenant_id, idempotency_key], name: "idx_behaviour_incidents_idempotency")
+  @@index([tenant_id, occurred_at(sort: Desc)], name: "idx_behaviour_incidents_occurred")
+  @@index([tenant_id, polarity, occurred_at(sort: Desc)], name: "idx_behaviour_incidents_polarity")
+  @@index([tenant_id, status], name: "idx_behaviour_incidents_status")
+  @@index([tenant_id, status, follow_up_required], name: "idx_behaviour_incidents_followup")
+  @@index([tenant_id, category_id, occurred_at(sort: Desc)], name: "idx_behaviour_incidents_category")
+  @@index([tenant_id, reported_by_id, occurred_at(sort: Desc)], name: "idx_behaviour_incidents_reporter")
+  @@index([tenant_id, subject_id, weekday, period_order], name: "idx_behaviour_incidents_subject_time")
+  @@index([tenant_id, context_type, weekday, period_order], name: "idx_behaviour_incidents_context_time")
+  @@index([tenant_id, academic_year_id], name: "idx_behaviour_incidents_year")
+  @@map("behaviour_incidents")
+}
+
+model BehaviourIncidentParticipant {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String          @db.Uuid
+  incident_id      String          @db.Uuid
+  participant_type ParticipantType
+  student_id       String?         @db.Uuid
+  staff_id         String?         @db.Uuid
+  parent_id        String?         @db.Uuid
+  external_name    String?         @db.VarChar(200)
+  role             ParticipantRole @default(subject)
+  points_awarded   Int             @default(0)
+  parent_visible   Boolean         @default(true)
+  notes            String?         @db.Text
+  student_snapshot Json?
+  created_at       DateTime        @default(now()) @db.Timestamptz()
+  updated_at       DateTime        @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident      BehaviourIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  student       Student?          @relation("bh_participant_student", fields: [student_id], references: [id], onDelete: SetNull)
+  staff_profile StaffProfile?     @relation("bh_participant_staff", fields: [staff_id], references: [id], onDelete: SetNull)
+  parent        Parent?           @relation("bh_participant_parent", fields: [parent_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, incident_id], name: "idx_behaviour_participants_incident")
+  @@index([tenant_id, student_id], name: "idx_behaviour_participants_student")
+  @@map("behaviour_incident_participants")
+}
+
+model BehaviourDescriptionTemplate {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  category_id   String   @db.Uuid
+  locale        String   @default("en") @db.VarChar(5)
+  text          String   @db.VarChar(500)
+  display_order Int      @default(0)
+  is_active     Boolean  @default(true)
+  is_system     Boolean  @default(false)
+  created_at    DateTime @default(now()) @db.Timestamptz()
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant   Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  category BehaviourCategory @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, category_id], name: "idx_behaviour_desc_templates_category")
+  @@map("behaviour_description_templates")
+}
+
+/// Append-only audit trail
+model BehaviourEntityHistory {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String              @db.Uuid
+  entity_type     BehaviourEntityType
+  entity_id       String              @db.Uuid
+  changed_by_id   String              @db.Uuid
+  change_type     String              @db.VarChar(50)
+  previous_values Json?
+  new_values      Json
+  reason          String?             @db.Text
+  created_at      DateTime            @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  changed_by User   @relation("bh_entity_history_changer", fields: [changed_by_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, entity_type, entity_id, created_at], name: "idx_behaviour_entity_history_entity")
+  @@index([tenant_id, entity_type, created_at], name: "idx_behaviour_entity_history_type")
+  @@map("behaviour_entity_history")
+}
+
+model BehaviourTask {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                  @db.Uuid
+  task_type           BehaviourTaskType
+  entity_type         BehaviourTaskEntityType
+  entity_id           String                  @db.Uuid
+  title               String                  @db.VarChar(300)
+  description         String?                 @db.Text
+  assigned_to_id      String                  @db.Uuid
+  created_by_id       String                  @db.Uuid
+  priority            TaskPriority            @default(medium)
+  status              BehaviourTaskStatus     @default(pending)
+  due_date            DateTime                @db.Timestamptz()
+  completed_at        DateTime?               @db.Timestamptz()
+  completed_by_id     String?                 @db.Uuid
+  completion_notes    String?                 @db.Text
+  reminder_sent_at    DateTime?               @db.Timestamptz()
+  overdue_notified_at DateTime?               @db.Timestamptz()
+  created_at          DateTime                @default(now()) @db.Timestamptz()
+  updated_at          DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assigned_to  User   @relation("bh_task_assignee", fields: [assigned_to_id], references: [id], onDelete: Restrict)
+  created_by   User   @relation("bh_task_creator", fields: [created_by_id], references: [id], onDelete: Restrict)
+  completed_by User?  @relation("bh_task_completer", fields: [completed_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, assigned_to_id, status, due_date], name: "idx_behaviour_tasks_assignee")
+  @@index([tenant_id, entity_type, entity_id], name: "idx_behaviour_tasks_entity")
+  @@index([tenant_id, status, due_date], name: "idx_behaviour_tasks_status")
+  @@map("behaviour_tasks")
+}
+
+/// Append-only
+model BehaviourParentAcknowledgement {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                  @db.Uuid
+  incident_id            String?                 @db.Uuid
+  sanction_id            String?                 @db.Uuid
+  amendment_notice_id    String?                 @db.Uuid
+  parent_id              String                  @db.Uuid
+  notification_id        String?                 @db.Uuid
+  channel                AcknowledgementChannel?
+  sent_at                DateTime                @db.Timestamptz()
+  delivered_at           DateTime?               @db.Timestamptz()
+  read_at                DateTime?               @db.Timestamptz()
+  acknowledged_at        DateTime?               @db.Timestamptz()
+  acknowledgement_method AcknowledgementMethod?
+  created_at             DateTime                @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident         BehaviourIncident?        @relation(fields: [incident_id], references: [id], onDelete: SetNull)
+  sanction         BehaviourSanction?        @relation(fields: [sanction_id], references: [id], onDelete: SetNull)
+  amendment_notice BehaviourAmendmentNotice? @relation(fields: [amendment_notice_id], references: [id], onDelete: SetNull)
+  parent           Parent                    @relation("bh_ack_parent", fields: [parent_id], references: [id], onDelete: Cascade)
+  notification     Notification?             @relation("bh_ack_notification", fields: [notification_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, incident_id], name: "idx_behaviour_parent_ack_incident")
+  @@index([tenant_id, parent_id], name: "idx_behaviour_parent_ack_parent")
+  @@map("behaviour_parent_acknowledgements")
+}
+
+model BehaviourSanction {
+  id                      String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String                 @db.Uuid
+  sanction_number         String                 @db.VarChar(20)
+  incident_id             String                 @db.Uuid
+  student_id              String                 @db.Uuid
+  type                    SanctionType
+  status                  SanctionStatus
+  approval_status         IncidentApprovalStatus @default(not_required)
+  approval_request_id     String?                @db.Uuid
+  scheduled_date          DateTime               @db.Date
+  scheduled_start_time    DateTime?              @db.Time()
+  scheduled_end_time      DateTime?              @db.Time()
+  scheduled_room_id       String?                @db.Uuid
+  supervised_by_id        String?                @db.Uuid
+  suspension_start_date   DateTime?              @db.Date
+  suspension_end_date     DateTime?              @db.Date
+  suspension_days         Int?
+  return_conditions       String?                @db.Text
+  parent_meeting_required Boolean                @default(false)
+  parent_meeting_date     DateTime?              @db.Timestamptz()
+  parent_meeting_notes    String?                @db.Text
+  served_at               DateTime?              @db.Timestamptz()
+  served_by_id            String?                @db.Uuid
+  replaced_by_id          String?                @db.Uuid
+  appeal_notes            String?                @db.Text
+  appeal_outcome          AppealOutcome?
+  notes                   String?                @db.Text
+  retention_status        RetentionStatus        @default(active)
+  created_at              DateTime               @default(now()) @db.Timestamptz()
+  updated_at              DateTime               @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                  Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident                BehaviourIncident                @relation(fields: [incident_id], references: [id])
+  student                 Student                          @relation("bh_sanction_student", fields: [student_id], references: [id])
+  approval_request        ApprovalRequest?                 @relation("bh_sanction_approval", fields: [approval_request_id], references: [id], onDelete: SetNull)
+  scheduled_room          Room?                            @relation("bh_sanction_room", fields: [scheduled_room_id], references: [id], onDelete: SetNull)
+  supervised_by           User?                            @relation("bh_sanction_supervisor", fields: [supervised_by_id], references: [id], onDelete: SetNull)
+  served_by               User?                            @relation("bh_sanction_server", fields: [served_by_id], references: [id], onDelete: SetNull)
+  replaced_by             BehaviourSanction?               @relation("bh_sanction_replacement", fields: [replaced_by_id], references: [id], onDelete: SetNull)
+  replaces                BehaviourSanction[]              @relation("bh_sanction_replacement")
+  parent_acknowledgements BehaviourParentAcknowledgement[]
+  appeals                 BehaviourAppeal[]
+  exclusion_cases         BehaviourExclusionCase[]
+
+  @@unique([tenant_id, sanction_number], name: "idx_behaviour_sanctions_number")
+  @@index([tenant_id, student_id, status], name: "idx_behaviour_sanctions_student")
+  @@index([tenant_id, incident_id], name: "idx_behaviour_sanctions_incident")
+  @@map("behaviour_sanctions")
+}
+
+model BehaviourAppeal {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String          @db.Uuid
+  appeal_number        String          @db.VarChar(20)
+  entity_type          String          @db.VarChar(20)
+  incident_id          String          @db.Uuid
+  sanction_id          String?         @db.Uuid
+  student_id           String          @db.Uuid
+  appellant_type       AppellantType
+  appellant_parent_id  String?         @db.Uuid
+  appellant_staff_id   String?         @db.Uuid
+  status               AppealStatus
+  grounds              String          @db.Text
+  grounds_category     GroundsCategory
+  submitted_at         DateTime        @db.Timestamptz()
+  reviewer_id          String?         @db.Uuid
+  hearing_date         DateTime?       @db.Timestamptz()
+  hearing_attendees    Json?
+  hearing_notes        String?         @db.Text
+  decision             AppealDecision?
+  decision_reasoning   String?         @db.Text
+  decided_by_id        String?         @db.Uuid
+  decided_at           DateTime?       @db.Timestamptz()
+  resulting_amendments Json?
+  retention_status     RetentionStatus @default(active)
+  created_at           DateTime        @default(now()) @db.Timestamptz()
+  updated_at           DateTime        @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident         BehaviourIncident        @relation(fields: [incident_id], references: [id])
+  sanction         BehaviourSanction?       @relation(fields: [sanction_id], references: [id], onDelete: SetNull)
+  student          Student                  @relation("bh_appeal_student", fields: [student_id], references: [id])
+  appellant_parent Parent?                  @relation("bh_appeal_appellant_parent", fields: [appellant_parent_id], references: [id], onDelete: SetNull)
+  appellant_staff  StaffProfile?            @relation("bh_appeal_appellant_staff", fields: [appellant_staff_id], references: [id], onDelete: SetNull)
+  reviewer         User?                    @relation("bh_appeal_reviewer", fields: [reviewer_id], references: [id], onDelete: SetNull)
+  decided_by       User?                    @relation("bh_appeal_decider", fields: [decided_by_id], references: [id], onDelete: SetNull)
+  exclusion_cases  BehaviourExclusionCase[]
+
+  @@unique([tenant_id, appeal_number], name: "idx_behaviour_appeals_number")
+  @@index([tenant_id, student_id], name: "idx_behaviour_appeals_student")
+  @@index([tenant_id, status], name: "idx_behaviour_appeals_status")
+  @@map("behaviour_appeals")
+}
+
+/// Append-only
+model BehaviourAmendmentNotice {
+  id                                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                         String        @db.Uuid
+  entity_type                       String        @db.VarChar(20)
+  entity_id                         String        @db.Uuid
+  amendment_type                    AmendmentType
+  original_notification_id          String?       @db.Uuid
+  original_export_id                String?       @db.Uuid
+  what_changed                      Json
+  change_reason                     String        @db.Text
+  changed_by_id                     String        @db.Uuid
+  authorised_by_id                  String?       @db.Uuid
+  correction_notification_sent      Boolean       @default(false)
+  correction_notification_id        String?       @db.Uuid
+  correction_notification_sent_at   DateTime?     @db.Timestamptz()
+  requires_parent_reacknowledgement Boolean       @default(false)
+  parent_reacknowledged_at          DateTime?     @db.Timestamptz()
+  created_at                        DateTime      @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant                  Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  changed_by              User                             @relation("bh_amendment_changer", fields: [changed_by_id], references: [id], onDelete: Restrict)
+  authorised_by           User?                            @relation("bh_amendment_authoriser", fields: [authorised_by_id], references: [id], onDelete: SetNull)
+  original_notification   Notification?                    @relation("bh_amendment_original_notif", fields: [original_notification_id], references: [id], onDelete: SetNull)
+  correction_notification Notification?                    @relation("bh_amendment_correction_notif", fields: [correction_notification_id], references: [id], onDelete: SetNull)
+  parent_acknowledgements BehaviourParentAcknowledgement[]
+
+  @@index([tenant_id, entity_type, entity_id], name: "idx_behaviour_amendments_entity")
+  @@map("behaviour_amendment_notices")
+}
+
+model BehaviourExclusionCase {
+  id                          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String             @db.Uuid
+  case_number                 String             @db.VarChar(20)
+  sanction_id                 String             @db.Uuid
+  incident_id                 String             @db.Uuid
+  student_id                  String             @db.Uuid
+  type                        ExclusionType
+  status                      ExclusionStatus
+  formal_notice_issued_at     DateTime?          @db.Timestamptz()
+  formal_notice_document_id   String?            @db.Uuid
+  hearing_date                DateTime?          @db.Timestamptz()
+  hearing_attendees           Json?
+  hearing_minutes_document_id String?            @db.Uuid
+  student_representation      String?            @db.Text
+  board_pack_generated_at     DateTime?          @db.Timestamptz()
+  board_pack_document_id      String?            @db.Uuid
+  decision                    ExclusionDecision?
+  decision_date               DateTime?          @db.Timestamptz()
+  decision_letter_document_id String?            @db.Uuid
+  decision_reasoning          String?            @db.Text
+  decided_by_id               String?            @db.Uuid
+  conditions_for_return       String?            @db.Text
+  conditions_for_transfer     String?            @db.Text
+  appeal_deadline             DateTime?          @db.Date
+  appeal_id                   String?            @db.Uuid
+  statutory_timeline          Json?
+  linked_evidence_ids         String[]           @db.Uuid
+  created_at                  DateTime           @default(now()) @db.Timestamptz()
+  updated_at                  DateTime           @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  sanction   BehaviourSanction @relation(fields: [sanction_id], references: [id])
+  incident   BehaviourIncident @relation(fields: [incident_id], references: [id])
+  student    Student           @relation("bh_exclusion_student", fields: [student_id], references: [id])
+  decided_by User?             @relation("bh_exclusion_decider", fields: [decided_by_id], references: [id], onDelete: SetNull)
+  appeal     BehaviourAppeal?  @relation(fields: [appeal_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, case_number], name: "idx_behaviour_exclusions_number")
+  @@index([tenant_id, student_id], name: "idx_behaviour_exclusions_student")
+  @@index([tenant_id, status], name: "idx_behaviour_exclusions_status")
+  @@map("behaviour_exclusion_cases")
+}
+
+/// Append-only
+model BehaviourAttachment {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String                   @db.Uuid
+  entity_type      String                   @db.VarChar(50)
+  entity_id        String                   @db.Uuid
+  uploaded_by_id   String                   @db.Uuid
+  file_name        String                   @db.VarChar(255)
+  file_key         String                   @db.VarChar(500)
+  file_size_bytes  BigInt
+  mime_type        String                   @db.VarChar(100)
+  sha256_hash      String                   @db.VarChar(64)
+  classification   AttachmentClassification
+  description      String?                  @db.VarChar(500)
+  visibility       AttachmentVisibility     @default(staff_all)
+  is_redactable    Boolean                  @default(false)
+  retention_status RetentionStatus          @default(active)
+  retained_until   DateTime?                @db.Date
+  scan_status      ScanStatus               @default(pending_scan)
+  scanned_at       DateTime?                @db.Timestamptz()
+  version          Int                      @default(1)
+  replaced_by_id   String?                  @db.Uuid
+  created_at       DateTime                 @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  uploaded_by User                  @relation("bh_attachment_uploader", fields: [uploaded_by_id], references: [id], onDelete: Restrict)
+  replaced_by BehaviourAttachment?  @relation("bh_attachment_replacement", fields: [replaced_by_id], references: [id], onDelete: SetNull)
+  replaces    BehaviourAttachment[] @relation("bh_attachment_replacement")
+
+  @@index([tenant_id, entity_type, entity_id], name: "idx_behaviour_attachments_entity")
+  @@map("behaviour_attachments")
+}
+
+model BehaviourIntervention {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String               @db.Uuid
+  intervention_number   String               @db.VarChar(20)
+  student_id            String               @db.Uuid
+  title                 String               @db.VarChar(200)
+  type                  InterventionType
+  status                InterventionStatus
+  trigger_description   String               @db.Text
+  goals                 Json                 @default("[]")
+  strategies            Json                 @default("[]")
+  assigned_to_id        String               @db.Uuid
+  start_date            DateTime             @db.Date
+  target_end_date       DateTime?            @db.Date
+  actual_end_date       DateTime?            @db.Date
+  review_frequency_days Int                  @default(14)
+  next_review_date      DateTime?            @db.Date
+  outcome               InterventionOutcome?
+  outcome_notes         String?              @db.Text
+  send_aware            Boolean              @default(false)
+  send_notes            String?              @db.Text
+  retention_status      RetentionStatus      @default(active)
+  created_at            DateTime             @default(now()) @db.Timestamptz()
+  updated_at            DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                 Tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student                Student                         @relation("bh_intervention_student", fields: [student_id], references: [id])
+  assigned_to            User                            @relation("bh_intervention_assignee", fields: [assigned_to_id], references: [id], onDelete: Restrict)
+  intervention_incidents BehaviourInterventionIncident[]
+  reviews                BehaviourInterventionReview[]
+
+  @@unique([tenant_id, intervention_number], name: "idx_behaviour_interventions_number")
+  @@index([tenant_id, student_id], name: "idx_behaviour_interventions_student")
+  @@index([tenant_id, status], name: "idx_behaviour_interventions_status")
+  @@map("behaviour_interventions")
+}
+
+model BehaviourInterventionIncident {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  intervention_id String   @db.Uuid
+  incident_id     String   @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  intervention BehaviourIntervention @relation(fields: [intervention_id], references: [id], onDelete: Cascade)
+  incident     BehaviourIncident     @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+
+  @@unique([intervention_id, incident_id], name: "idx_behaviour_intervention_incidents_pair")
+  @@map("behaviour_intervention_incidents")
+}
+
+/// Append-only
+model BehaviourInterventionReview {
+  id                          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String               @db.Uuid
+  intervention_id             String               @db.Uuid
+  reviewed_by_id              String               @db.Uuid
+  review_date                 DateTime             @db.Date
+  progress                    InterventionProgress
+  goal_updates                Json                 @default("[]")
+  notes                       String               @db.Text
+  next_review_date            DateTime?            @db.Date
+  behaviour_points_since_last Int?
+  attendance_rate_since_last  Decimal?             @db.Decimal(5, 2)
+  created_at                  DateTime             @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  intervention BehaviourIntervention @relation(fields: [intervention_id], references: [id], onDelete: Cascade)
+  reviewed_by  User                  @relation("bh_intervention_reviewer", fields: [reviewed_by_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, intervention_id], name: "idx_behaviour_intervention_reviews_intervention")
+  @@map("behaviour_intervention_reviews")
+}
+
+/// Append-only
+model BehaviourRecognitionAward {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String    @db.Uuid
+  student_id               String    @db.Uuid
+  award_type_id            String    @db.Uuid
+  points_at_award          Int
+  awarded_by_id            String    @db.Uuid
+  awarded_at               DateTime  @db.Timestamptz()
+  academic_year_id         String    @db.Uuid
+  triggered_by_incident_id String?   @db.Uuid
+  superseded_by_id         String?   @db.Uuid
+  notes                    String?   @db.Text
+  parent_notified_at       DateTime? @db.Timestamptz()
+  created_at               DateTime  @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant                Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student               Student                     @relation("bh_award_student", fields: [student_id], references: [id])
+  award_type            BehaviourAwardType          @relation(fields: [award_type_id], references: [id])
+  awarded_by            User                        @relation("bh_award_giver", fields: [awarded_by_id], references: [id], onDelete: Restrict)
+  academic_year         AcademicYear                @relation("bh_award_academic_year", fields: [academic_year_id], references: [id])
+  triggered_by_incident BehaviourIncident?          @relation("bh_award_trigger_incident", fields: [triggered_by_incident_id], references: [id], onDelete: SetNull)
+  superseded_by         BehaviourRecognitionAward?  @relation("bh_award_supersession", fields: [superseded_by_id], references: [id], onDelete: SetNull)
+  supersedes            BehaviourRecognitionAward[] @relation("bh_award_supersession")
+
+  @@index([tenant_id, student_id], name: "idx_behaviour_awards_student")
+  @@index([tenant_id, academic_year_id], name: "idx_behaviour_awards_year")
+  @@map("behaviour_recognition_awards")
+}
+
+model BehaviourAwardType {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  name                   String   @db.VarChar(100)
+  name_ar                String?  @db.VarChar(100)
+  description            String?  @db.Text
+  points_threshold       Int?
+  repeat_mode            String   @db.VarChar(30)
+  repeat_max_per_year    Int?
+  tier_group             String?  @db.VarChar(50)
+  tier_level             Int?
+  supersedes_lower_tiers Boolean  @default(false)
+  icon                   String?  @db.VarChar(50)
+  color                  String?  @db.VarChar(7)
+  display_order          Int      @default(0)
+  is_active              Boolean  @default(true)
+  created_at             DateTime @default(now()) @db.Timestamptz()
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  awards BehaviourRecognitionAward[]
+
+  @@index([tenant_id], name: "idx_behaviour_award_types_tenant")
+  @@map("behaviour_award_types")
+}
+
+model BehaviourHouseTeam {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  name          String   @db.VarChar(100)
+  name_ar       String?  @db.VarChar(100)
+  color         String   @db.VarChar(7)
+  icon          String?  @db.VarChar(50)
+  display_order Int      @default(0)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz()
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  memberships BehaviourHouseMembership[]
+
+  @@index([tenant_id], name: "idx_behaviour_house_teams_tenant")
+  @@map("behaviour_house_teams")
+}
+
+model BehaviourHouseMembership {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  student_id       String   @db.Uuid
+  house_id         String   @db.Uuid
+  academic_year_id String   @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student       Student            @relation("bh_house_member_student", fields: [student_id], references: [id])
+  house         BehaviourHouseTeam @relation(fields: [house_id], references: [id], onDelete: Cascade)
+  academic_year AcademicYear       @relation("bh_house_member_year", fields: [academic_year_id], references: [id])
+
+  @@unique([tenant_id, student_id, academic_year_id], name: "idx_behaviour_house_memberships_student_year")
+  @@map("behaviour_house_memberships")
+}
+
+model BehaviourPolicyRule {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String              @db.Uuid
+  name                  String              @db.VarChar(200)
+  description           String?             @db.Text
+  is_active             Boolean             @default(true)
+  stage                 PolicyStage
+  priority              Int                 @default(100)
+  match_strategy        PolicyMatchStrategy @default(first_match)
+  stop_processing_stage Boolean             @default(false)
+  conditions            Json
+  current_version       Int                 @default(1)
+  last_published_at     DateTime?           @db.Timestamptz()
+  created_at            DateTime            @default(now()) @db.Timestamptz()
+  updated_at            DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant   Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  actions  BehaviourPolicyRuleAction[]
+  versions BehaviourPolicyRuleVersion[]
+
+  @@index([tenant_id, is_active, stage, priority], name: "idx_behaviour_policy_rules_active")
+  @@map("behaviour_policy_rules")
+}
+
+/// Append-only
+model BehaviourPolicyRuleAction {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String           @db.Uuid
+  rule_id         String           @db.Uuid
+  action_type     PolicyActionType
+  action_config   Json
+  execution_order Int              @default(0)
+  created_at      DateTime         @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  rule   BehaviourPolicyRule @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, rule_id], name: "idx_behaviour_policy_rule_actions_rule")
+  @@map("behaviour_policy_rule_actions")
+}
+
+/// Append-only
+model BehaviourPolicyRuleVersion {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String              @db.Uuid
+  rule_id        String              @db.Uuid
+  version        Int
+  name           String              @db.VarChar(200)
+  conditions     Json
+  actions        Json
+  stage          PolicyStage
+  match_strategy PolicyMatchStrategy
+  priority       Int
+  changed_by_id  String              @db.Uuid
+  change_reason  String?             @db.Text
+  created_at     DateTime            @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  rule        BehaviourPolicyRule         @relation(fields: [rule_id], references: [id], onDelete: Cascade)
+  changed_by  User                        @relation("bh_policy_version_changer", fields: [changed_by_id], references: [id], onDelete: Restrict)
+  evaluations BehaviourPolicyEvaluation[]
+
+  @@unique([rule_id, version], name: "idx_behaviour_policy_rule_versions_unique")
+  @@map("behaviour_policy_rule_versions")
+}
+
+/// Append-only
+model BehaviourPolicyEvaluation {
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                 @db.Uuid
+  incident_id            String                 @db.Uuid
+  student_id             String                 @db.Uuid
+  stage                  PolicyStage
+  rule_version_id        String?                @db.Uuid
+  evaluation_result      PolicyEvaluationResult
+  evaluated_input        Json
+  matched_conditions     Json?
+  unmatched_conditions   Json?
+  rules_evaluated_count  Int
+  evaluation_duration_ms Int?
+  created_at             DateTime               @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident          BehaviourIncident                @relation(fields: [incident_id], references: [id])
+  student           Student                          @relation("bh_policy_eval_student", fields: [student_id], references: [id])
+  rule_version      BehaviourPolicyRuleVersion?      @relation(fields: [rule_version_id], references: [id], onDelete: SetNull)
+  action_executions BehaviourPolicyActionExecution[]
+
+  @@index([tenant_id, incident_id], name: "idx_behaviour_policy_evaluations_incident")
+  @@map("behaviour_policy_evaluations")
+}
+
+/// Append-only
+model BehaviourPolicyActionExecution {
+  id                  String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                      @db.Uuid
+  evaluation_id       String                      @db.Uuid
+  action_type         PolicyActionType
+  action_config       Json
+  execution_status    PolicyActionExecutionStatus
+  created_entity_type String?                     @db.VarChar(50)
+  created_entity_id   String?                     @db.Uuid
+  failure_reason      String?                     @db.Text
+  executed_at         DateTime                    @db.Timestamptz()
+  created_at          DateTime                    @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  evaluation BehaviourPolicyEvaluation @relation(fields: [evaluation_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, evaluation_id], name: "idx_behaviour_policy_action_exec_eval")
+  @@map("behaviour_policy_action_executions")
+}
+
+model BehaviourAlert {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String        @db.Uuid
+  alert_type    AlertType
+  severity      AlertSeverity
+  student_id    String?       @db.Uuid
+  subject_id    String?       @db.Uuid
+  staff_id      String?       @db.Uuid
+  title         String        @db.VarChar(300)
+  description   String        @db.Text
+  data_snapshot Json
+  status        AlertStatus   @default(active_alert)
+  resolved_at   DateTime?     @db.Timestamptz()
+  created_at    DateTime      @default(now()) @db.Timestamptz()
+  updated_at    DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student    Student?                  @relation("bh_alert_student", fields: [student_id], references: [id], onDelete: SetNull)
+  subject    Subject?                  @relation("bh_alert_subject", fields: [subject_id], references: [id], onDelete: SetNull)
+  staff      StaffProfile?             @relation("bh_alert_staff", fields: [staff_id], references: [id], onDelete: SetNull)
+  recipients BehaviourAlertRecipient[]
+
+  @@index([tenant_id, status], name: "idx_behaviour_alerts_status")
+  @@index([tenant_id, student_id], name: "idx_behaviour_alerts_student")
+  @@map("behaviour_alerts")
+}
+
+model BehaviourAlertRecipient {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String               @db.Uuid
+  alert_id         String               @db.Uuid
+  recipient_id     String               @db.Uuid
+  recipient_role   String?              @db.VarChar(50)
+  status           AlertRecipientStatus @default(unseen)
+  seen_at          DateTime?            @db.Timestamptz()
+  acknowledged_at  DateTime?            @db.Timestamptz()
+  snoozed_until    DateTime?            @db.Timestamptz()
+  resolved_at      DateTime?            @db.Timestamptz()
+  dismissed_at     DateTime?            @db.Timestamptz()
+  dismissed_reason String?              @db.Text
+  created_at       DateTime             @default(now()) @db.Timestamptz()
+  updated_at       DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  alert     BehaviourAlert @relation(fields: [alert_id], references: [id], onDelete: Cascade)
+  recipient User           @relation("bh_alert_recipient", fields: [recipient_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, alert_id], name: "idx_behaviour_alert_recipients_alert")
+  @@index([tenant_id, recipient_id, status], name: "idx_behaviour_alert_recipients_user")
+  @@map("behaviour_alert_recipients")
+}
+
+/// Append-only
+model BehaviourDocument {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                  @db.Uuid
+  document_type     DocumentType
+  template_id       String?                 @db.Uuid
+  entity_type       String                  @db.VarChar(30)
+  entity_id         String                  @db.Uuid
+  student_id        String                  @db.Uuid
+  generated_by_id   String                  @db.Uuid
+  generated_at      DateTime                @db.Timestamptz()
+  file_key          String                  @db.VarChar(500)
+  file_size_bytes   BigInt
+  sha256_hash       String                  @db.VarChar(64)
+  locale            String                  @default("en") @db.VarChar(5)
+  data_snapshot     Json
+  status            DocumentStatus          @default(draft_doc)
+  sent_at           DateTime?               @db.Timestamptz()
+  sent_via          AcknowledgementChannel?
+  superseded_by_id  String?                 @db.Uuid
+  superseded_reason String?                 @db.Text
+  created_at        DateTime                @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  template      BehaviourDocumentTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  student       Student                    @relation("bh_document_student", fields: [student_id], references: [id])
+  generated_by  User                       @relation("bh_document_generator", fields: [generated_by_id], references: [id], onDelete: Restrict)
+  superseded_by BehaviourDocument?         @relation("bh_document_supersession", fields: [superseded_by_id], references: [id], onDelete: SetNull)
+  supersedes    BehaviourDocument[]        @relation("bh_document_supersession")
+
+  @@index([tenant_id, entity_type, entity_id], name: "idx_behaviour_documents_entity")
+  @@index([tenant_id, student_id], name: "idx_behaviour_documents_student")
+  @@map("behaviour_documents")
+}
+
+model BehaviourDocumentTemplate {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String       @db.Uuid
+  document_type DocumentType
+  name          String       @db.VarChar(200)
+  locale        String       @default("en") @db.VarChar(5)
+  template_body String       @db.Text
+  merge_fields  Json
+  is_active     Boolean      @default(true)
+  is_system     Boolean      @default(false)
+  created_at    DateTime     @default(now()) @db.Timestamptz()
+  updated_at    DateTime     @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  documents BehaviourDocument[]
+
+  @@index([tenant_id, document_type], name: "idx_behaviour_doc_templates_type")
+  @@map("behaviour_document_templates")
+}
+
+model BehaviourGuardianRestriction {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String            @db.Uuid
+  student_id       String            @db.Uuid
+  parent_id        String            @db.Uuid
+  restriction_type RestrictionType
+  legal_basis      String?           @db.VarChar(200)
+  reason           String            @db.Text
+  set_by_id        String            @db.Uuid
+  approved_by_id   String?           @db.Uuid
+  effective_from   DateTime          @db.Date
+  effective_until  DateTime?         @db.Date
+  review_date      DateTime?         @db.Date
+  status           RestrictionStatus @default(active_restriction)
+  revoked_at       DateTime?         @db.Timestamptz()
+  revoked_by_id    String?           @db.Uuid
+  revoke_reason    String?           @db.Text
+  created_at       DateTime          @default(now()) @db.Timestamptz()
+  updated_at       DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student     Student @relation("bh_restriction_student", fields: [student_id], references: [id])
+  parent      Parent  @relation("bh_restriction_parent", fields: [parent_id], references: [id])
+  set_by      User    @relation("bh_restriction_setter", fields: [set_by_id], references: [id], onDelete: Restrict)
+  approved_by User?   @relation("bh_restriction_approver", fields: [approved_by_id], references: [id], onDelete: SetNull)
+  revoked_by  User?   @relation("bh_restriction_revoker", fields: [revoked_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, student_id, status], name: "idx_behaviour_guardian_restrictions_student")
+  @@index([tenant_id, parent_id], name: "idx_behaviour_guardian_restrictions_parent")
+  @@map("behaviour_guardian_restrictions")
+}
+
+model BehaviourPublicationApproval {
+  id                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String                @db.Uuid
+  publication_type        PublicationType
+  entity_type             PublicationEntityType
+  entity_id               String                @db.Uuid
+  student_id              String                @db.Uuid
+  requires_parent_consent Boolean               @default(true)
+  parent_consent_status   ParentConsentStatus   @default(not_requested)
+  parent_consent_at       DateTime?             @db.Timestamptz()
+  admin_approved          Boolean               @default(false)
+  admin_approved_by_id    String?               @db.Uuid
+  published_at            DateTime?             @db.Timestamptz()
+  unpublished_at          DateTime?             @db.Timestamptz()
+  created_at              DateTime              @default(now()) @db.Timestamptz()
+  updated_at              DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student           Student @relation("bh_publication_student", fields: [student_id], references: [id])
+  admin_approved_by User?   @relation("bh_publication_admin", fields: [admin_approved_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, student_id], name: "idx_behaviour_publication_approvals_student")
+  @@map("behaviour_publication_approvals")
+}
+
+model BehaviourLegalHold {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String              @db.Uuid
+  entity_type    LegalHoldEntityType
+  entity_id      String              @db.Uuid
+  hold_reason    String              @db.Text
+  legal_basis    String?             @db.VarChar(300)
+  set_by_id      String              @db.Uuid
+  set_at         DateTime            @default(now()) @db.Timestamptz()
+  status         LegalHoldStatus     @default(active_hold)
+  released_by_id String?             @db.Uuid
+  released_at    DateTime?           @db.Timestamptz()
+  release_reason String?             @db.Text
+  created_at     DateTime            @default(now()) @db.Timestamptz()
+  updated_at     DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  set_by      User   @relation("bh_legal_hold_setter", fields: [set_by_id], references: [id], onDelete: Restrict)
+  released_by User?  @relation("bh_legal_hold_releaser", fields: [released_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, entity_type, entity_id, status], name: "idx_behaviour_legal_holds_entity")
+  @@map("behaviour_legal_holds")
+}
+
+// ─── Safeguarding Models ────────────────────────────────────────────────────
+
+model SafeguardingConcern {
+  id                               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                        String                  @db.Uuid
+  concern_number                   String                  @db.VarChar(20)
+  student_id                       String                  @db.Uuid
+  reported_by_id                   String                  @db.Uuid
+  concern_type                     SafeguardingConcernType
+  severity                         SafeguardingSeverity
+  status                           SafeguardingStatus
+  description                      String                  @db.Text
+  immediate_actions_taken          String?                 @db.Text
+  designated_liaison_id            String?                 @db.Uuid
+  assigned_to_id                   String?                 @db.Uuid
+  is_tusla_referral                Boolean                 @default(false)
+  tusla_reference_number           String?                 @db.VarChar(50)
+  tusla_referred_at                DateTime?               @db.Timestamptz()
+  tusla_outcome                    String?                 @db.Text
+  is_garda_referral                Boolean                 @default(false)
+  garda_reference_number           String?                 @db.VarChar(50)
+  garda_referred_at                DateTime?               @db.Timestamptz()
+  resolution_notes                 String?                 @db.Text
+  resolved_at                      DateTime?               @db.Timestamptz()
+  reporter_acknowledgement_sent_at DateTime?               @db.Timestamptz()
+  reporter_acknowledgement_status  ReporterAckStatus?
+  sla_first_response_due           DateTime?               @db.Timestamptz()
+  sla_first_response_met_at        DateTime?               @db.Timestamptz()
+  sealed_at                        DateTime?               @db.Timestamptz()
+  sealed_by_id                     String?                 @db.Uuid
+  sealed_reason                    String?                 @db.Text
+  seal_approved_by_id              String?                 @db.Uuid
+  retention_until                  DateTime?               @db.Date
+  created_at                       DateTime                @default(now()) @db.Timestamptz()
+  updated_at                       DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant             Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student            Student                       @relation("sg_concern_student", fields: [student_id], references: [id])
+  reported_by        User                          @relation("sg_concern_reporter", fields: [reported_by_id], references: [id], onDelete: Restrict)
+  designated_liaison User?                         @relation("sg_concern_liaison", fields: [designated_liaison_id], references: [id], onDelete: SetNull)
+  assigned_to        User?                         @relation("sg_concern_assignee", fields: [assigned_to_id], references: [id], onDelete: SetNull)
+  sealed_by          User?                         @relation("sg_concern_sealer", fields: [sealed_by_id], references: [id], onDelete: SetNull)
+  seal_approved_by   User?                         @relation("sg_concern_seal_approver", fields: [seal_approved_by_id], references: [id], onDelete: SetNull)
+  actions            SafeguardingAction[]
+  concern_incidents  SafeguardingConcernIncident[]
+
+  @@unique([tenant_id, concern_number], name: "idx_safeguarding_concerns_number")
+  @@index([tenant_id, student_id], name: "idx_safeguarding_concerns_student")
+  @@index([tenant_id, status], name: "idx_safeguarding_concerns_status")
+  @@map("safeguarding_concerns")
+}
+
+/// Append-only
+model SafeguardingAction {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String                 @db.Uuid
+  concern_id   String                 @db.Uuid
+  action_by_id String                 @db.Uuid
+  action_type  SafeguardingActionType
+  description  String                 @db.Text
+  metadata     Json                   @default("{}")
+  due_date     DateTime?              @db.Timestamptz()
+  is_overdue   Boolean                @default(false)
+  created_at   DateTime               @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  concern   SafeguardingConcern @relation(fields: [concern_id], references: [id], onDelete: Cascade)
+  action_by User                @relation("sg_action_performer", fields: [action_by_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, concern_id], name: "idx_safeguarding_actions_concern")
+  @@map("safeguarding_actions")
+}
+
+model SafeguardingConcernIncident {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  concern_id   String   @db.Uuid
+  incident_id  String   @db.Uuid
+  linked_by_id String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  concern   SafeguardingConcern @relation(fields: [concern_id], references: [id], onDelete: Cascade)
+  incident  BehaviourIncident   @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  linked_by User                @relation("sg_concern_incident_linker", fields: [linked_by_id], references: [id], onDelete: Restrict)
+
+  @@unique([concern_id, incident_id], name: "idx_safeguarding_concern_incidents_pair")
+  @@map("safeguarding_concern_incidents")
+}
+
+/// Append-only
+model SafeguardingBreakGlassGrant {
+  id                               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                        String          @db.Uuid
+  granted_to_id                    String          @db.Uuid
+  granted_by_id                    String          @db.Uuid
+  reason                           String          @db.Text
+  scope                            BreakGlassScope @default(all_concerns)
+  scoped_concern_ids               String[]        @db.Uuid
+  granted_at                       DateTime        @db.Timestamptz()
+  expires_at                       DateTime        @db.Timestamptz()
+  revoked_at                       DateTime?       @db.Timestamptz()
+  after_action_review_required     Boolean         @default(true)
+  after_action_review_completed_at DateTime?       @db.Timestamptz()
+  after_action_review_by_id        String?         @db.Uuid
+  after_action_review_notes        String?         @db.Text
+  created_at                       DateTime        @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant                 Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  granted_to             User   @relation("sg_break_glass_grantee", fields: [granted_to_id], references: [id], onDelete: Cascade)
+  granted_by             User   @relation("sg_break_glass_grantor", fields: [granted_by_id], references: [id], onDelete: Cascade)
+  after_action_review_by User?  @relation("sg_break_glass_reviewer", fields: [after_action_review_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, granted_to_id], name: "idx_safeguarding_break_glass_grantee")
+  @@map("safeguarding_break_glass_grants")
 }

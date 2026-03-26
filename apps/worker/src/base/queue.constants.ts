@@ -1,5 +1,6 @@
 export const QUEUE_NAMES = {
   ADMISSIONS: 'admissions',
+  BEHAVIOUR: 'behaviour',
   PAYROLL: 'payroll',
   NOTIFICATIONS: 'notifications',
   SEARCH_SYNC: 'search-sync',

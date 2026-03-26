@@ -109,4 +109,5 @@ export interface TenantSettingsJson {
   scheduling: TenantSettingsScheduling;
   approvals: TenantSettingsApprovals;
   compliance: TenantSettingsCompliance;
+  behaviour: import('../behaviour/schemas/settings.schema').BehaviourSettings;
 }

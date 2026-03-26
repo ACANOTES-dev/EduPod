@@ -129,6 +129,9 @@ export * from './schemas/scheduling-enhanced.schema';
 // Reports World-Class Enhancement Schemas
 export * from './schemas/reports-enhanced.schema';
 
+// Behaviour Management
+export * from './behaviour';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

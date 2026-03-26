@@ -294,7 +294,7 @@ export default function CompetenciesPage() {
           {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length > 0 && (
             <div className="rounded-2xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="text-sm border-collapse">
+                <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-surface-secondary">
                       <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase sticky start-0 bg-surface-secondary z-10 min-w-[180px]">

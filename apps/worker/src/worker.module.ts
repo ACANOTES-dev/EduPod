@@ -11,6 +11,8 @@ import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.p
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
+import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
+import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
 import { InquiryNotificationProcessor } from './processors/communications/inquiry-notification.processor';
@@ -95,6 +97,10 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
         name: QUEUE_NAMES.ADMISSIONS,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
       },
+      {
+        name: QUEUE_NAMES.BEHAVIOUR,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],
@@ -110,6 +116,9 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     },
     // Admissions queue processors
     AdmissionsAutoExpiryProcessor,
+    // Behaviour queue processors
+    BehaviourParentNotificationProcessor,
+    BehaviourTaskRemindersProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

@@ -12,6 +12,7 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BehaviourModule } from './modules/behaviour/behaviour.module';
 import { ClassRequirementsModule } from './modules/class-requirements/class-requirements.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
@@ -92,6 +93,7 @@ import { WebsiteModule } from './modules/website/website.module';
     SchedulesModule,
     SchoolClosuresModule,
     AttendanceModule,
+    BehaviourModule,
     HouseholdsModule,
     ParentsModule,
     SearchModule,
