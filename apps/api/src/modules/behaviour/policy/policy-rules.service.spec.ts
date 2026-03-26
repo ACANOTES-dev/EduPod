@@ -613,7 +613,7 @@ describe('PolicyRulesService', () => {
       ];
 
       mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue(rules);
-      mockPrisma.behaviourCategory.findMany.mockResolvedValue([
+      mockPrisma.behaviourCategory.findMany!.mockResolvedValue([
         { id: CATEGORY_ID, name: 'Verbal Warning' },
       ]);
 
@@ -621,16 +621,13 @@ describe('PolicyRulesService', () => {
 
       expect(result).toHaveLength(1);
       // Category UUID replaced with token
-      expect(
-        (result[0].conditions as Record<string, unknown>).category_ids,
-      ).toEqual(['__VERBAL_WARNING__']);
+      const conditions = result[0]!.conditions as Record<string, unknown>;
+      expect(conditions.category_ids).toEqual(['__VERBAL_WARNING__']);
       // Action config category UUID replaced with token
-      expect(
-        (result[0].actions[0].action_config as Record<string, unknown>)
-          .target_category,
-      ).toBe('__VERBAL_WARNING__');
+      const actionConfig = result[0]!.actions[0]!.action_config as Record<string, unknown>;
+      expect(actionConfig.target_category).toBe('__VERBAL_WARNING__');
       // Stage mapped back to API name
-      expect(result[0].stage).toBe('approval');
+      expect(result[0]!.stage).toBe('approval');
     });
   });
 });
