@@ -14,7 +14,6 @@ import { AlertTriangle, Copy, Star } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -23,7 +22,7 @@ import { apiClient } from '@/lib/api-client';
 interface AcademicYear { id: string; name: string }
 interface YearGroup { id: string; name: string }
 interface Subject { id: string; name: string }
-interface StaffProfile { id: string; name: string }
+interface StaffProfile { id: string; name: string; roles: string[] }
 
 interface Competency {
   id: string;
@@ -50,11 +49,17 @@ export default function CompetenciesPage() {
   const [competencies, setCompetencies] = React.useState<Competency[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // By Teacher view
-  const [selectedTeacher, setSelectedTeacher] = React.useState('');
+  // By Teacher view — filter by year group
+  const [selectedTeacherTabYg, setSelectedTeacherTabYg] = React.useState('');
   // By Subject view
   const [selectedSubject, setSelectedSubject] = React.useState('');
   const [selectedYearGroup, setSelectedYearGroup] = React.useState('');
+
+  // Only staff with "Teacher" role for the matrix columns
+  const teacherRoleStaff = React.useMemo(
+    () => teachers.filter((t) => t.roles.some((r) => r.toLowerCase() === 'teacher')),
+    [teachers],
+  );
 
   // Load reference data
   React.useEffect(() => {
@@ -62,7 +67,7 @@ export default function CompetenciesPage() {
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
       apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
-      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string }; roles?: string[] }> }>('/api/v1/staff-profiles?pageSize=200'),
     ]).then(([yearsRes, ygRes, subRes, staffRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);
@@ -70,20 +75,19 @@ export default function CompetenciesPage() {
       setTeachers((staffRes.data ?? []).map((s) => ({
         id: s.id,
         name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+        roles: s.roles ?? [],
       })));
       if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
-  // Fetch competencies using the correct endpoint for each view
+  // Fetch competencies — load all for byTeacher matrix, filtered for bySubject
   const fetchCompetencies = React.useCallback(async () => {
     if (!selectedYear) return;
     setIsLoading(true);
     try {
       let url: string;
-      if (activeTab === 'byTeacher' && selectedTeacher) {
-        url = `/api/v1/scheduling/teacher-competencies/by-teacher/${selectedTeacher}?academic_year_id=${selectedYear}`;
-      } else if (activeTab === 'bySubject' && selectedSubject && selectedYearGroup) {
+      if (activeTab === 'bySubject' && selectedSubject && selectedYearGroup) {
         url = `/api/v1/scheduling/teacher-competencies/by-subject?academic_year_id=${selectedYear}&subject_id=${selectedSubject}&year_group_id=${selectedYearGroup}`;
       } else {
         url = `/api/v1/scheduling/teacher-competencies?academic_year_id=${selectedYear}`;
@@ -95,39 +99,46 @@ export default function CompetenciesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, activeTab, selectedTeacher, selectedSubject, selectedYearGroup]);
+  }, [selectedYear, activeTab, selectedSubject, selectedYearGroup]);
 
   React.useEffect(() => {
     void fetchCompetencies();
   }, [fetchCompetencies]);
 
-  const hasCompetency = (subjectId: string, yearGroupId: string): Competency | undefined => {
-    return competencies.find(
+  // Toggle competency in the matrix (By Teacher view)
+  const toggleCompetencyMatrix = async (
+    teacherId: string,
+    subjectId: string,
+    yearGroupId: string,
+  ) => {
+    if (!selectedYear) return;
+    const existing = competencies.find(
       (c) =>
+        c.staff_profile_id === teacherId &&
         c.subject_id === subjectId &&
-        c.year_group_id === yearGroupId &&
-        (!selectedTeacher || c.staff_profile_id === selectedTeacher)
+        c.year_group_id === yearGroupId,
     );
-  };
-
-  const toggleCompetency = async (subjectId: string, yearGroupId: string) => {
-    if (!selectedYear || !selectedTeacher) return;
-    const existing = hasCompetency(subjectId, yearGroupId);
     try {
       if (existing) {
-        await apiClient(`/api/v1/scheduling/teacher-competencies/${existing.id}`, { method: 'DELETE' });
+        await apiClient(
+          `/api/v1/scheduling/teacher-competencies/${existing.id}`,
+          { method: 'DELETE' },
+        );
         setCompetencies((prev) => prev.filter((c) => c.id !== existing.id));
       } else {
-        const created = await apiClient<Competency>('/api/v1/scheduling/teacher-competencies', {
-          method: 'POST',
-          body: JSON.stringify({
-            academic_year_id: selectedYear,
-            staff_profile_id: selectedTeacher,
-            subject_id: subjectId,
-            year_group_id: yearGroupId,
-            is_primary: false,
-          }),
-        });
+        const created = await apiClient<Competency>(
+          '/api/v1/scheduling/teacher-competencies',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              academic_year_id: selectedYear,
+              staff_profile_id: teacherId,
+              subject_id: subjectId,
+              year_group_id: yearGroupId,
+              is_primary: false,
+            }),
+          },
+        );
         setCompetencies((prev) => [...prev, created]);
       }
     } catch {
@@ -137,12 +148,17 @@ export default function CompetenciesPage() {
 
   const togglePrimary = async (competency: Competency) => {
     try {
-      await apiClient(`/api/v1/scheduling/teacher-competencies/${competency.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ is_primary: !competency.is_primary }),
-      });
+      await apiClient(
+        `/api/v1/scheduling/teacher-competencies/${competency.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ is_primary: !competency.is_primary }),
+        },
+      );
       setCompetencies((prev) =>
-        prev.map((c) => c.id === competency.id ? { ...c, is_primary: !c.is_primary } : c)
+        prev.map((c) =>
+          c.id === competency.id ? { ...c, is_primary: !c.is_primary } : c,
+        ),
       );
     } catch {
       toast.error(tc('errorGeneric'));
@@ -224,51 +240,74 @@ export default function CompetenciesPage() {
         ))}
       </div>
 
-      {/* By Teacher view */}
+      {/* By Teacher view — matrix: teachers (rows) × subjects (columns), filtered by year group */}
       {activeTab === 'byTeacher' && (
         <div className="space-y-4">
-          <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
-            <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder={tv('selectTeacher')} />
+          <Select value={selectedTeacherTabYg} onValueChange={setSelectedTeacherTabYg}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder={tv('selectYearGroup')} />
             </SelectTrigger>
             <SelectContent>
-              {teachers.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              {yearGroups.map((yg) => (
+                <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          {selectedTeacher && (
+          {selectedTeacherTabYg && teacherRoleStaff.length > 0 && (
             <div className="rounded-2xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="text-sm border-collapse">
                   <thead>
                     <tr className="bg-surface-secondary">
-                      <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase sticky start-0 bg-surface-secondary z-10">{tv('subject')}</th>
-                      {yearGroups.map((yg) => (
-                        <th key={yg.id} className="px-3 py-3 text-center text-xs font-medium text-text-tertiary uppercase">
-                          {yg.name}
+                      <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase sticky start-0 bg-surface-secondary z-10 min-w-[180px]">
+                        {tv('teacherName')}
+                      </th>
+                      {subjects.map((subject) => (
+                        <th key={subject.id} className="px-3 py-3 text-center text-xs font-medium text-text-tertiary uppercase">
+                          {subject.name}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
-                      <tr><td colSpan={yearGroups.length + 1} className="px-4 py-8 text-center text-text-tertiary">{tc('loading')}</td></tr>
+                      <tr>
+                        <td
+                          colSpan={subjects.length + 1}
+                          className="px-4 py-8 text-center text-text-tertiary"
+                        >
+                          {tc('loading')}
+                        </td>
+                      </tr>
                     ) : (
-                      subjects.map((subject) => (
-                        <tr key={subject.id} className="border-t border-border hover:bg-surface-secondary/50">
+                      teacherRoleStaff.map((teacher) => (
+                        <tr
+                          key={teacher.id}
+                          className="border-t border-border hover:bg-surface-secondary/50"
+                        >
                           <td className="px-4 py-2 font-medium text-text-primary sticky start-0 bg-surface z-10">
-                            {subject.name}
+                            {teacher.name}
                           </td>
-                          {yearGroups.map((yg) => {
-                            const comp = hasCompetency(subject.id, yg.id);
+                          {subjects.map((subject) => {
+                            const comp = competencies.find(
+                              (c) =>
+                                c.staff_profile_id === teacher.id &&
+                                c.subject_id === subject.id &&
+                                c.year_group_id === selectedTeacherTabYg,
+                            );
                             return (
-                              <td key={yg.id} className="px-3 py-2 text-center">
+                              <td key={subject.id} className="px-3 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <Checkbox
                                     checked={!!comp}
-                                    onCheckedChange={() => void toggleCompetency(subject.id, yg.id)}
+                                    onCheckedChange={() =>
+                                      void toggleCompetencyMatrix(
+                                        teacher.id,
+                                        subject.id,
+                                        selectedTeacherTabYg,
+                                      )
+                                    }
                                   />
                                   {comp && (
                                     <button
@@ -290,6 +329,12 @@ export default function CompetenciesPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {selectedTeacherTabYg && teacherRoleStaff.length === 0 && (
+            <div className="rounded-2xl border border-border px-4 py-8 text-center text-text-tertiary">
+              {tv('noTeachers')}
             </div>
           )}
         </div>
