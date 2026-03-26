@@ -1,7 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
