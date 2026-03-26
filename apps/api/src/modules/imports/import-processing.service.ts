@@ -772,6 +772,17 @@ export class ImportProcessingService {
     }
   }
 
+  private generateStaffNumber(): string {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letterPart = Array.from(
+      { length: 3 },
+      () => letters[Math.floor(Math.random() * 26)],
+    ).join('');
+    const numberPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const lastDigit = Math.floor(Math.random() * 10);
+    return `${letterPart}${numberPart}-${lastDigit}`;
+  }
+
   private async processStaffRow(
     db: PrismaService,
     tenantId: string,
@@ -782,18 +793,32 @@ export class ImportProcessingService {
     const email = row['email'] ?? '';
     const phone = row['phone'] ?? '';
     const jobTitle = row['job_title'] ?? '';
-    const staffNumber = row['staff_number'] ?? '';
     const department = row['department'] ?? '';
     const employmentTypeRaw = row['employment_type'] ?? '';
 
-    // Create user first (will need to be activated via invitation flow)
+    // Generate unique staff number (same format as staff-profiles.service: ABC1234-5)
+    let staffNumber = this.generateStaffNumber();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const existing = await db.staffProfile.findFirst({
+        where: { tenant_id: tenantId, staff_number: staffNumber },
+        select: { id: true },
+      });
+      if (!existing) break;
+      staffNumber = this.generateStaffNumber();
+    }
+
+    // Hash staff number as initial password (matches staff-profiles.service create flow)
+    const { hash } = await import('bcryptjs');
+    const passwordHash = await hash(staffNumber, 12);
+
+    // Create user first
     const user = await db.user.create({
       data: {
         first_name: firstName,
         last_name: lastName,
         email,
         phone: phone || null,
-        password_hash: '', // Placeholder -- set via invitation flow
+        password_hash: passwordHash,
         global_status: 'active',
       },
     });
@@ -811,7 +836,7 @@ export class ImportProcessingService {
       data: {
         tenant_id: tenantId,
         user_id: user.id,
-        staff_number: staffNumber || null,
+        staff_number: staffNumber,
         job_title: jobTitle || null,
         department: department || null,
         employment_type: employmentType,

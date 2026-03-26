@@ -141,11 +141,10 @@ const STAFF_COLUMNS: TemplateColumn[] = [
   { key: 'first_name', header: 'first_name *', required: true, width: 15, comment: 'Staff first name', example: 'Sarah' },
   { key: 'last_name', header: 'last_name *', required: true, width: 15, comment: 'Staff last name', example: 'Johnson' },
   { key: 'email', header: 'email *', required: true, width: 25, comment: 'Valid email address', example: 'sarah.j@school.edu' },
-  { key: 'phone', header: 'phone', required: false, width: 18, comment: 'With country code', example: '+971501234567' },
-  { key: 'job_title', header: 'job_title *', required: true, width: 22, comment: 'Job title', example: 'Mathematics Teacher' },
+  { key: 'phone', header: 'phone *', required: true, width: 18, comment: 'With country code e.g. +353851234567', example: '+353851234567' },
+  { key: 'job_title', header: 'job_title', required: false, width: 22, comment: 'Job title', example: 'Mathematics Teacher' },
   { key: 'department', header: 'department', required: false, width: 18, comment: 'Department name', example: 'Mathematics' },
-  { key: 'employment_type', header: 'employment_type *', required: true, width: 18, comment: 'Employment type', example: 'full_time', validation: listValidation(['full_time', 'part_time', 'contract']) },
-  { key: 'start_date', header: 'start_date', required: false, width: 14, comment: 'Format: YYYY-MM-DD', example: '2025-09-01', numberFormat: 'yyyy-mm-dd' },
+  { key: 'employment_type', header: 'employment_type *', required: true, width: 18, comment: 'Employment type', example: 'full_time', validation: listValidation(['full_time', 'part_time', 'contract', 'substitute']) },
 ];
 
 const FEES_COLUMNS: TemplateColumn[] = [
