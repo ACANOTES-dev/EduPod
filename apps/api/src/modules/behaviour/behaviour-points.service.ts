@@ -33,7 +33,7 @@ interface LeaderboardEntry {
   rank: number;
 }
 
-interface LeaderboardResult {
+export interface LeaderboardResult {
   data: LeaderboardEntry[];
   meta: { page: number; pageSize: number; total: number };
 }
@@ -45,7 +45,7 @@ interface LeaderboardQuery {
   year_group_id?: string;
 }
 
-interface HouseStanding {
+export interface HouseStanding {
   house_id: string;
   name: string;
   name_ar: string | null;

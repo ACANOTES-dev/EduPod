@@ -34,7 +34,7 @@ interface BulkAssignment {
   house_id: string;
 }
 
-interface HouseMemberWithPoints {
+export interface HouseMemberWithPoints {
   student_id: string;
   first_name: string;
   last_name: string;
