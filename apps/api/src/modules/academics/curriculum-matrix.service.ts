@@ -193,6 +193,94 @@ export class CurriculumMatrixService {
     })) as { enabled: boolean; config_id: string | null };
   }
 
+  async yearGroupAssign(
+    tenantId: string,
+    academicYearId: string,
+    yearGroupId: string,
+    assignments: Array<{ subject_id: string; enabled: boolean }>,
+  ): Promise<{ created: number; removed: number }> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      // Get all homeroom classes in this year group
+      const classes = await db.class.findMany({
+        where: {
+          tenant_id: tenantId,
+          academic_year_id: academicYearId,
+          year_group_id: yearGroupId,
+          subject_id: null, // homeroom only
+          status: 'active',
+        },
+        select: { id: true },
+      });
+
+      if (classes.length === 0) {
+        throw new NotFoundException({
+          code: 'NO_CLASSES_IN_YEAR_GROUP',
+          message: 'No active classes found in this year group',
+        });
+      }
+
+      // Get tenant's default grading scale (needed for creates)
+      const defaultScale = await db.gradingScale.findFirst({
+        where: { tenant_id: tenantId },
+        orderBy: { created_at: 'asc' },
+        select: { id: true },
+      });
+      if (!defaultScale) {
+        throw new BadRequestException({
+          code: 'NO_GRADING_SCALE',
+          message: 'No grading scale configured. Please create one in Settings first.',
+        });
+      }
+
+      let created = 0;
+      let removed = 0;
+      const classIds = classes.map((c) => c.id);
+
+      for (const assignment of assignments) {
+        if (assignment.enabled) {
+          // Create for each class that doesn't already have it
+          for (const classId of classIds) {
+            const existing = await db.classSubjectGradeConfig.findFirst({
+              where: { tenant_id: tenantId, class_id: classId, subject_id: assignment.subject_id },
+              select: { id: true },
+            });
+            if (!existing) {
+              await db.classSubjectGradeConfig.create({
+                data: {
+                  tenant_id: tenantId,
+                  class_id: classId,
+                  subject_id: assignment.subject_id,
+                  grading_scale_id: defaultScale.id,
+                  category_weight_json: {},
+                },
+              });
+              created++;
+            }
+          }
+        } else {
+          // Remove from all classes (but skip if assessments exist)
+          for (const classId of classIds) {
+            const assessmentCount = await db.assessment.count({
+              where: { tenant_id: tenantId, class_id: classId, subject_id: assignment.subject_id },
+            });
+            if (assessmentCount === 0) {
+              const deleteResult = await db.classSubjectGradeConfig.deleteMany({
+                where: { tenant_id: tenantId, class_id: classId, subject_id: assignment.subject_id },
+              });
+              removed += deleteResult.count;
+            }
+          }
+        }
+      }
+
+      return { created, removed };
+    })) as { created: number; removed: number };
+  }
+
   async bulkCreateAssessments(
     tenantId: string,
     userId: string,

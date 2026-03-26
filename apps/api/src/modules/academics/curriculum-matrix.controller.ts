@@ -30,6 +30,19 @@ const toggleSchema = z.object({
   enabled: z.boolean(),
 });
 
+const yearGroupAssignSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  year_group_id: z.string().uuid(),
+  assignments: z
+    .array(
+      z.object({
+        subject_id: z.string().uuid(),
+        enabled: z.boolean(),
+      }),
+    )
+    .min(1),
+});
+
 const bulkAssessmentSchema = z.object({
   class_ids: z.array(z.string().uuid()).min(1),
   subject_ids: z.array(z.string().uuid()).min(1),
@@ -68,6 +81,22 @@ export class CurriculumMatrixController {
       body.class_id,
       body.subject_id,
       body.enabled,
+    );
+  }
+
+  @Post('year-group-assign')
+  @RequiresPermission('curriculum_matrix.manage')
+  @HttpCode(HttpStatus.OK)
+  async yearGroupAssign(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(yearGroupAssignSchema))
+    dto: z.infer<typeof yearGroupAssignSchema>,
+  ) {
+    return this.matrixService.yearGroupAssign(
+      tenant.tenant_id,
+      dto.academic_year_id,
+      dto.year_group_id,
+      dto.assignments,
     );
   }
 
