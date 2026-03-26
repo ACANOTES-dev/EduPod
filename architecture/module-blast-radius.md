@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-25
+> **Last verified**: 2026-03-26
 
 ---
 
@@ -32,13 +32,13 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 ## Tier 2 — Cross-Cutting Services (change = multiple domains break)
 
 ### SequenceService (TenantsModule)
-- **Consumed by**: Admissions, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
-- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references across 13 consumers.
+- **Consumed by**: Admissions, behaviour, credit notes, fee generation, households, imports, invoices, payments, receipts, recurring invoices, refunds, registration, staff profiles, students
+- **Blast radius**: HIGH. Sequence format changes affect receipt numbers, invoice numbers, application IDs, payslip numbers, student IDs, staff IDs, household references, payment references, incident numbers, sanction numbers, appeal numbers across 14 consumers.
 - **Danger**: The `refund` sequence type is used in code but NOT in the canonical `SEQUENCE_TYPES` constant. If you validate against the constant, refunds break silently.
 
 ### SettingsService (ConfigurationModule)
-- **Consumed by**: Attendance (service + upload + pattern + parent notification), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports)
-- **Blast radius**: HIGH. Settings shape changes affect attendance policies, finance billing rules, and payroll calculation.
+- **Consumed by**: Attendance (service + upload + pattern + parent notification), behaviour (parent notification send-gate, quick-log defaults, points settings), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports)
+- **Blast radius**: HIGH. Settings shape changes affect attendance policies, behaviour module policies, finance billing rules, and payroll calculation.
 - **Danger**: Settings are tenant-specific. A schema change requires migrating ALL tenants' stored JSONB settings. The `tenantSettingsSchema` in shared/ is the single source of truth.
 
 ### EncryptionService (ConfigurationModule)
@@ -120,6 +120,19 @@ These modules have NO downstream dependents. Changes are contained:
 
 ---
 
+## Tier 3 — Domain Modules with Cross-Module Dependencies
+
+### BehaviourModule
+- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`
+- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal numbers), `CommonModule` (PermissionCacheService)
+- **Queues**: Enqueues to `notifications` (parent notifications), processes from `behaviour` (task reminders)
+- **Consumed by**: None yet (Phase A — future phases will add consumers: Phase B policy engine evaluates incidents, Phase D safeguarding links incidents, Phase F analytics reads all behaviour data)
+- **Blast radius**: LOW currently (self-contained). Will increase as Phases B-H add consumers.
+- **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, and student data.
+- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker.
+
+---
+
 ## Cross-Module Query Pattern (Prisma Bypass)
 
 **Critical awareness**: Many modules query other modules' tables directly via PrismaService rather than injecting the owning module's service. This means:
@@ -136,5 +149,6 @@ Known Prisma-direct consumers:
 | `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance |
 | `invoices` + `payments` | Finance reports, dashboard, parent portal |
 | `attendance_records` + `attendance_sessions` | Reports, dashboard, gradebook risk detection |
+| `behaviour_incidents` + `behaviour_incident_participants` | Behaviour module reads these via Prisma (owned), future: reports, dashboard, scheduling analytics |
 
 **Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.

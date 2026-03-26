@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-25
+> **Last verified**: 2026-03-26
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **10 queues**, **30 job types**, **2 cron jobs**
+- **11 queues**, **32 job types**, **3 cron jobs**
 
 ---
 
@@ -224,6 +224,56 @@ ComplianceService.approve()
 | payroll | 3 | 5s exponential | |
 | imports | 3 | 5s exponential | Also handles compliance jobs |
 | reports | 3 | 5s exponential | No processors yet (future use) |
+| behaviour | 3 | 5s exponential | Task reminders cron |
+
+---
+
+## Behaviour Module Jobs
+
+### `behaviour:parent-notification` (notifications queue)
+
+**Trigger**: Enqueued by `BehaviourService.createIncident()` when the category has `requires_parent_notification = true` and the incident status is `active`.
+**Payload**: `{ tenant_id, incident_id, student_ids }`
+**Processor**: `apps/worker/src/processors/behaviour/parent-notification.processor.ts`
+
+**Side effects chain**:
+```
+Incident created with parent notification required
+  -> behaviour:parent-notification enqueued to notifications queue
+  -> Worker loads incident + category + tenant settings
+  -> For each student participant:
+    -> Load student's parents via student_parents
+    -> SEND-GATE CHECK: if negative && severity >= threshold
+      -> Must have parent_description, template_id, or explicit empty string
+      -> If blocked: skip, keep parent_notification_status = 'pending'
+    -> Create behaviour_parent_acknowledgements record
+    -> Create in-app notification for parent (if user account exists)
+    -> If parent_description_auto_lock_on_send = true:
+      -> Lock parent_description (parent_description_locked = true)
+    -> Update incident parent_notification_status = 'sent'
+```
+
+**Danger**: The send-gate check means a notification can be SILENTLY BLOCKED if a high-severity negative incident is logged without a parent_description. The incident stays in `parent_notification_status = 'pending'` until a staff member adds a parent_description and the notification is retried.
+
+### `behaviour:task-reminders` (behaviour queue — CRON)
+
+**Trigger**: Daily cron, 08:00 tenant timezone (scheduled per tenant).
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/task-reminders.processor.ts`
+
+**Side effects chain**:
+```
+Cron fires daily at 08:00 tenant TZ
+  -> For each pending task with due_date <= today && reminder_sent_at IS NULL:
+    -> Set reminder_sent_at = now()
+    -> Create in-app notification for assigned_to_id
+  -> For each pending task with due_date < yesterday && overdue_notified_at IS NULL:
+    -> Update status to 'overdue'
+    -> Set overdue_notified_at = now()
+    -> Create in-app notification for assigned_to_id
+```
+
+**Danger**: This is a per-tenant cron job. It needs to be scheduled for each active tenant. Current implementation processes one tenant per job invocation.
 
 ---
 
@@ -238,3 +288,7 @@ ComplianceService.approve()
 4. **Search sync is eventually consistent** — Entity mutations are indexed async. Users may see stale search results for seconds after changes.
 
 5. **No dead-letter monitoring UI** — Failed jobs go to dead-letter queues but there's no admin interface to inspect or replay them. Must use BullMQ Dashboard or direct Redis access.
+
+6. **Behaviour parent notification send-gate** — High-severity negative incidents can have notifications silently blocked if `parent_description` is not set. The incident stays in `parent_notification_status = 'pending'` with no automatic retry. Staff must manually add a parent description to unblock.
+
+7. **Behaviour task reminders iterate per-tenant** — Each tenant needs its own cron trigger. Adding a tenant requires scheduling the `behaviour:task-reminders` job for that tenant.

@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-03-25
+> **Last verified**: 2026-03-26
 
 ---
 
@@ -366,3 +366,46 @@ rejected*
 completed*
 ```
 - **Guarded by**: `compliance.service.ts` (implicit per-method)
+
+---
+
+## Behaviour Module Lifecycles
+
+### IncidentStatus
+```
+draft          -> [active, withdrawn]
+active         -> [investigating, under_review, escalated, resolved, withdrawn]
+investigating  -> [awaiting_approval, awaiting_parent_meeting, resolved, escalated, converted_to_safeguarding]
+awaiting_approval       -> [active, resolved]
+awaiting_parent_meeting -> [resolved, escalated]
+under_review   -> [active, escalated, resolved, withdrawn]
+escalated      -> [investigating, resolved]
+resolved       -> [closed_after_appeal, superseded]
+withdrawn*
+closed_after_appeal*
+superseded*
+converted_to_safeguarding*  (PROJECTED as "closed" for non-safeguarding users)
+```
+- **Guarded by**: `packages/shared/src/behaviour/state-machine.ts` -> `isValidTransition()` (single source of truth) + `behaviour.service.ts` -> `transitionStatus()` which calls it
+- **Side effects**:
+  - `draft -> active`: If `follow_up_required`, auto-creates a `BehaviourTask` of type `follow_up`. If category has `requires_parent_notification`, queues `behaviour:parent-notification` job.
+  - `active -> withdrawn`: Records history with reason. Cascading withdrawal in Phase C (sanctions -> cancelled, tasks -> cancelled, unsent notifications -> cancelled).
+  - `* -> converted_to_safeguarding`: Visible only to `safeguarding.view` users. All other users see this as `closed` with reason "Referred internally". Applied in: API responses, search indexing, entity history rendering, parent notifications.
+  - Any transition: Records `behaviour_entity_history` entry with `change_type = 'status_changed'`, previous status, new status, and optional reason.
+- **Danger**: The status projection for `converted_to_safeguarding` must be applied at EVERY surface: API responses, search results, exports, hover cards, parent portal. Missing one surface leaks safeguarding information.
+- **Note**: `resolved` is terminal UNLESS appealed (-> `closed_after_appeal`) or superseded. This two-stage terminal design is intentional — it allows post-resolution corrections without re-opening.
+
+### BehaviourTaskStatus
+```
+pending     -> [in_progress, completed, cancelled, overdue]
+in_progress -> [completed, cancelled]
+overdue     -> [in_progress, completed, cancelled]
+completed*
+cancelled*
+```
+- **Guarded by**: `behaviour-tasks.service.ts` -> `completeTask()`, `cancelTask()` (per-method validation)
+- **Side effects**:
+  - `* -> completed`: Sets `completed_at`, `completed_by_id`, optional `completion_notes`. Records history.
+  - `* -> cancelled`: Records history with mandatory reason.
+  - `pending -> overdue`: Set automatically by `behaviour:task-reminders` daily cron when `due_date < yesterday`. Sends overdue notification.
+- **Note**: `overdue` is NOT terminal — tasks can still be completed or cancelled after becoming overdue.

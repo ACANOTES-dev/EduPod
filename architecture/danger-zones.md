@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-03-25
+> **Last verified**: 2026-03-26
 
 ---
 
@@ -190,3 +190,59 @@ Unlike other sequences (receipt, invoice, etc.) which use `SELECT ... FOR UPDATE
 At high tenant scale with many concurrent registrations, the collision probability increases. The 10-retry limit could be exhausted.
 
 **Probability**: Very low for current scale. Monitor if a tenant exceeds ~10,000 households.
+
+---
+
+## DZ-13: Behaviour Status Projection Leaks Safeguarding Info If Missed
+
+**Risk**: Non-safeguarding users discovering that a student has a safeguarding concern
+**Location**: `apps/api/src/modules/behaviour/behaviour.service.ts`, search indexing, exports, parent portal
+
+When an incident is `converted_to_safeguarding`, it must appear as `closed` to ALL users without `safeguarding.view` permission. This projection must be applied at EVERY surface:
+
+1. API list responses (`listIncidents`) — ✅ implemented
+2. API detail responses (`getIncident`) — ✅ implemented
+3. Search indexing — must index as `closed`, not `converted_to_safeguarding`
+4. PDF exports / reports — must show `closed`
+5. Parent portal / parent notifications — must show `closed`
+6. Entity history rendering — must not reveal the safeguarding status
+7. Hover cards / previews — must show `closed`
+
+**Mitigation**: Every new surface that renders incident status MUST call `projectIncidentStatus()` from `packages/shared/src/behaviour/state-machine.ts`. Add a code review checklist item for this.
+
+---
+
+## DZ-14: Behaviour Parent Description Send-Gate Silently Blocks Notifications
+
+**Risk**: Parents never notified about a negative incident because staff didn't add a parent-safe description
+**Location**: `apps/worker/src/processors/behaviour/parent-notification.processor.ts`
+
+For negative incidents with `severity >= parent_notification_send_gate_severity` (default 3), the parent notification is BLOCKED unless `parent_description` is set, a template was used, or `parent_description` is explicitly empty string. If blocked, the incident stays at `parent_notification_status = 'pending'` indefinitely with no UI alert to staff.
+
+**Mitigation**: Phase F should add an alert rule that detects incidents stuck in `pending` notification status for >24 hours. Until then, this is a silent failure mode.
+
+---
+
+## DZ-15: Behaviour Domain Constraint — Last Student Participant
+
+**Risk**: Application-level constraint can be bypassed if someone uses raw SQL or a different service
+**Location**: `apps/api/src/modules/behaviour/behaviour.service.ts` -> `removeParticipant()`, database trigger on `behaviour_incident_participants`
+
+Every incident MUST have at least one student participant. This is enforced at two levels:
+1. Application: `removeParticipant()` checks count before DELETE
+2. Database: `trg_prevent_last_student_participant` trigger on `behaviour_incident_participants`
+
+The database trigger is the safety net. If the trigger is ever dropped or disabled (e.g., during a migration), the constraint becomes application-only and can be bypassed.
+
+**Mitigation**: Never drop the `trg_prevent_last_student_participant` trigger without adding an equivalent constraint.
+
+---
+
+## DZ-16: Behaviour Scope Resolution Depends on Class Assignments
+
+**Risk**: Scope filter returns wrong results if class assignments are stale or missing
+**Location**: `apps/api/src/modules/behaviour/behaviour-scope.service.ts`
+
+For users with `class` scope, the service resolves visible students by querying `ClassStaff` (which classes the user teaches) then `ClassEnrolment` (which students are in those classes). If a teacher is not assigned to their classes in the system, or enrolments are not up to date, they will see NO students in the behaviour module.
+
+**Mitigation**: When troubleshooting "teacher can't see any behaviour data", first check `ClassStaff` assignments and `ClassEnrolment` records for that teacher.
