@@ -3,6 +3,12 @@
 import {
   Badge,
   Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Select,
   SelectContent,
   SelectItem,
@@ -10,12 +16,13 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertTriangle, Copy, Star } from 'lucide-react';
+import { AlertTriangle, Copy, Lock, Star, Unlock } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,11 +41,14 @@ interface Competency {
 
 type TabKey = 'byTeacher' | 'bySubject';
 
+const UNLOCK_ROLES = ['school_principal', 'school_owner'] as const;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CompetenciesPage() {
   const tv = useTranslations('scheduling.v2');
   const tc = useTranslations('common');
+  const { user } = useAuth();
 
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
@@ -49,16 +59,39 @@ export default function CompetenciesPage() {
   const [competencies, setCompetencies] = React.useState<Competency[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Lock state
+  const [isLocked, setIsLocked] = React.useState(true);
+  const userRoleKeys = React.useMemo(() => {
+    if (!user?.memberships) return [] as string[];
+    return user.memberships.flatMap(
+      (m) => m.roles?.map((r: { role_key: string }) => r.role_key) ?? [],
+    );
+  }, [user]);
+  const canUnlock = React.useMemo(
+    () => userRoleKeys.some((k) => UNLOCK_ROLES.includes(k as typeof UNLOCK_ROLES[number])),
+    [userRoleKeys],
+  );
+
   // By Teacher view — filter by year group
   const [selectedTeacherTabYg, setSelectedTeacherTabYg] = React.useState('');
   // By Subject view
   const [selectedSubject, setSelectedSubject] = React.useState('');
   const [selectedYearGroup, setSelectedYearGroup] = React.useState('');
 
+  // ─── Copy Wizard State ────────────────────────────────────────────────────
+  const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [wizardStep, setWizardStep] = React.useState<1 | 2>(1);
+  const [wizardTargets, setWizardTargets] = React.useState<Set<string>>(new Set());
+  // Map: yearGroupId -> Set of subjectIds available in that target
+  const [wizardTargetSubjects, setWizardTargetSubjects] = React.useState<Map<string, Set<string>>>(new Map());
+  // Map: "ygId:subjectId" -> checked
+  const [wizardSelections, setWizardSelections] = React.useState<Map<string, boolean>>(new Map());
+  const [wizardLoading, setWizardLoading] = React.useState(false);
+
   // Subjects assigned to the selected year group via the curriculum matrix
   const [curriculumSubjectIds, setCurriculumSubjectIds] = React.useState<Set<string>>(new Set());
 
-  // Only staff with "Teacher" role for the matrix columns
+  // Only staff with "Teacher" role for the matrix rows
   const teacherRoleStaff = React.useMemo(
     () => teachers.filter((t) => t.roles.some((r) => r.toLowerCase() === 'teacher')),
     [teachers],
@@ -72,7 +105,22 @@ export default function CompetenciesPage() {
     [subjects, curriculumSubjectIds],
   );
 
-  // Load reference data
+  // ─── Lock Toggle ──────────────────────────────────────────────────────────
+
+  const handleToggleLock = () => {
+    if (isLocked) {
+      if (!canUnlock) {
+        toast.error(tv('lockPermissionDenied'));
+        return;
+      }
+      setIsLocked(false);
+    } else {
+      setIsLocked(true);
+    }
+  };
+
+  // ─── Data Loading ─────────────────────────────────────────────────────────
+
   React.useEffect(() => {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
@@ -84,7 +132,6 @@ export default function CompetenciesPage() {
       setYearGroups(ygRes.data);
       setSubjects(subRes.data);
 
-      // Fetch all pages of staff profiles if more than 100
       let allStaff = staffRes.data ?? [];
       const total = staffRes.meta?.total ?? allStaff.length;
       if (total > 100) {
@@ -101,7 +148,7 @@ export default function CompetenciesPage() {
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
-  // Fetch subjects assigned to classes in this year group (from curriculum matrix)
+  // Fetch subjects assigned to classes in this year group
   React.useEffect(() => {
     if (!selectedYear || !selectedTeacherTabYg) {
       setCurriculumSubjectIds(new Set());
@@ -117,7 +164,7 @@ export default function CompetenciesPage() {
       .catch(() => setCurriculumSubjectIds(new Set()));
   }, [selectedYear, selectedTeacherTabYg]);
 
-  // Fetch competencies — load all for byTeacher matrix, filtered for bySubject
+  // Fetch competencies
   const fetchCompetencies = React.useCallback(async () => {
     if (!selectedYear) return;
     setIsLoading(true);
@@ -141,13 +188,14 @@ export default function CompetenciesPage() {
     void fetchCompetencies();
   }, [fetchCompetencies]);
 
-  // Toggle competency in the matrix (By Teacher view)
+  // ─── Competency Actions ───────────────────────────────────────────────────
+
   const toggleCompetencyMatrix = async (
     teacherId: string,
     subjectId: string,
     yearGroupId: string,
   ) => {
-    if (!selectedYear) return;
+    if (!selectedYear || isLocked) return;
     const existing = competencies.find(
       (c) =>
         c.staff_profile_id === teacherId &&
@@ -184,6 +232,7 @@ export default function CompetenciesPage() {
   };
 
   const togglePrimary = async (competency: Competency) => {
+    if (isLocked) return;
     try {
       await apiClient(
         `/api/v1/scheduling/teacher-competencies/${competency.id}`,
@@ -218,7 +267,143 @@ export default function CompetenciesPage() {
     }
   };
 
-  // Coverage warnings for "By Subject" view
+  // ─── Copy Wizard Logic ────────────────────────────────────────────────────
+
+  const openWizard = () => {
+    setWizardStep(1);
+    setWizardTargets(new Set());
+    setWizardTargetSubjects(new Map());
+    setWizardSelections(new Map());
+    setWizardOpen(true);
+  };
+
+  const wizardToggleTarget = (ygId: string) => {
+    setWizardTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(ygId)) next.delete(ygId);
+      else next.add(ygId);
+      return next;
+    });
+  };
+
+  const wizardGoToStep2 = async () => {
+    if (wizardTargets.size === 0) return;
+    setWizardLoading(true);
+    try {
+      // Fetch curriculum subjects for each target year group
+      const targetIds = [...wizardTargets];
+      const results = await Promise.all(
+        targetIds.map((ygId) =>
+          apiClient<{ data: Array<{ subject: { id: string } }> }>(
+            `/api/v1/scheduling/curriculum-requirements/matrix-subjects?academic_year_id=${selectedYear}&year_group_id=${ygId}`,
+            { silent: true },
+          ).then((res) => ({
+            ygId,
+            subjectIds: new Set(res.data.map((r) => r.subject.id)),
+          })),
+        ),
+      );
+
+      const targetSubMap = new Map<string, Set<string>>();
+      const selections = new Map<string, boolean>();
+
+      for (const { ygId, subjectIds } of results) {
+        // Only include subjects that are common with the source year group
+        const commonIds = new Set(
+          [...subjectIds].filter((sid) => curriculumSubjectIds.has(sid)),
+        );
+        targetSubMap.set(ygId, commonIds);
+
+        // Default all applicable cells to checked
+        for (const sid of commonIds) {
+          selections.set(`${ygId}:${sid}`, true);
+        }
+      }
+
+      setWizardTargetSubjects(targetSubMap);
+      setWizardSelections(selections);
+      setWizardStep(2);
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setWizardLoading(false);
+    }
+  };
+
+  // Unique subjects across all selected targets (for grid columns)
+  const wizardCommonSubjects = React.useMemo(() => {
+    const allSubjectIds = new Set<string>();
+    for (const subs of wizardTargetSubjects.values()) {
+      for (const sid of subs) allSubjectIds.add(sid);
+    }
+    return subjects.filter((s) => allSubjectIds.has(s.id));
+  }, [wizardTargetSubjects, subjects]);
+
+  const wizardToggleCell = (ygId: string, subjectId: string) => {
+    const key = `${ygId}:${subjectId}`;
+    setWizardSelections((prev) => {
+      const next = new Map(prev);
+      next.set(key, !prev.get(key));
+      return next;
+    });
+  };
+
+  const wizardSelectedCount = React.useMemo(() => {
+    let count = 0;
+    for (const v of wizardSelections.values()) if (v) count++;
+    return count;
+  }, [wizardSelections]);
+
+  const handleWizardCopy = async () => {
+    // Build targets array from selections
+    const targetsMap = new Map<string, string[]>();
+    for (const [key, checked] of wizardSelections) {
+      if (!checked) continue;
+      const idx = key.indexOf(':');
+      const ygId = key.slice(0, idx);
+      const subjectId = key.slice(idx + 1);
+      if (!targetsMap.has(ygId)) targetsMap.set(ygId, []);
+      targetsMap.get(ygId)!.push(subjectId);
+    }
+
+    const targets = [...targetsMap.entries()].map(([year_group_id, subject_ids]) => ({
+      year_group_id,
+      subject_ids,
+    }));
+
+    if (targets.length === 0) return;
+
+    setWizardLoading(true);
+    try {
+      const res = await apiClient<{ data: { copied: number; skipped: number } }>(
+        '/api/v1/scheduling/teacher-competencies/copy-to-years',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            academic_year_id: selectedYear,
+            source_year_group_id: selectedTeacherTabYg,
+            targets,
+          }),
+        },
+      );
+      toast.success(tv('copiedToYears', { copied: res.data.copied, skipped: res.data.skipped }));
+      setWizardOpen(false);
+      void fetchCompetencies();
+    } catch {
+      toast.error(tc('errorGeneric'));
+    } finally {
+      setWizardLoading(false);
+    }
+  };
+
+  // Year groups available as wizard targets (all except the source)
+  const wizardAvailableYearGroups = React.useMemo(
+    () => yearGroups.filter((yg) => yg.id !== selectedTeacherTabYg),
+    [yearGroups, selectedTeacherTabYg],
+  );
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
   const eligibleTeachersForSubjectYg = (subjectId: string, yearGroupId: string) =>
     competencies.filter((c) => c.subject_id === subjectId && c.year_group_id === yearGroupId);
 
@@ -226,6 +411,8 @@ export default function CompetenciesPage() {
     { key: 'byTeacher', label: tv('byTeacher') },
     { key: 'bySubject', label: tv('bySubject') },
   ];
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -277,22 +464,52 @@ export default function CompetenciesPage() {
         ))}
       </div>
 
-      {/* By Teacher view — matrix: teachers (rows) × subjects (columns), filtered by year group */}
+      {/* By Teacher view */}
       {activeTab === 'byTeacher' && (
         <div className="space-y-4">
-          <Select value={selectedTeacherTabYg} onValueChange={setSelectedTeacherTabYg}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder={tv('selectYearGroup')} />
-            </SelectTrigger>
-            <SelectContent>
-              {yearGroups.map((yg) => (
-                <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={selectedTeacherTabYg} onValueChange={setSelectedTeacherTabYg}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder={tv('selectYearGroup')} />
+              </SelectTrigger>
+              <SelectContent>
+                {yearGroups.map((yg) => (
+                  <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Copy to Other Years button — only when unlocked and data exists */}
+            {selectedTeacherTabYg && !isLocked && matrixSubjects.length > 0 && (
+              <button
+                type="button"
+                onClick={openWizard}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {tv('copyToOtherYears')}
+              </button>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Lock/Unlock button */}
+            <button
+              type="button"
+              onClick={handleToggleLock}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                isLocked
+                  ? 'border-border text-text-secondary hover:bg-surface-secondary'
+                  : 'border-primary bg-primary/5 text-primary'
+              }`}
+            >
+              {isLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+              {isLocked ? tv('locked') : tv('unlocked')}
+            </button>
+          </div>
 
           {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length > 0 && (
-            <div className="rounded-2xl border border-border overflow-hidden">
+            <div className={`rounded-2xl border border-border overflow-hidden transition-opacity ${isLocked ? 'opacity-60' : ''}`}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -338,6 +555,7 @@ export default function CompetenciesPage() {
                                 <div className="flex items-center justify-center gap-1">
                                   <Checkbox
                                     checked={!!comp}
+                                    disabled={isLocked}
                                     onCheckedChange={() =>
                                       void toggleCompetencyMatrix(
                                         teacher.id,
@@ -346,7 +564,7 @@ export default function CompetenciesPage() {
                                       )
                                     }
                                   />
-                                  {comp && (
+                                  {comp && !isLocked && (
                                     <button
                                       type="button"
                                       onClick={() => void togglePrimary(comp)}
@@ -355,6 +573,9 @@ export default function CompetenciesPage() {
                                     >
                                       <Star className={`h-3.5 w-3.5 ${comp.is_primary ? 'fill-current' : ''}`} />
                                     </button>
+                                  )}
+                                  {comp && isLocked && comp.is_primary && (
+                                    <Star className="h-3.5 w-3.5 text-amber-500 fill-current" />
                                   )}
                                 </div>
                               </td>
@@ -411,7 +632,6 @@ export default function CompetenciesPage() {
 
           {selectedSubject && selectedYearGroup && (
             <div className="space-y-3">
-              {/* Coverage indicator */}
               {(() => {
                 const eligible = eligibleTeachersForSubjectYg(selectedSubject, selectedYearGroup);
                 const subjectName = subjects.find((s) => s.id === selectedSubject)?.name ?? '';
@@ -446,7 +666,7 @@ export default function CompetenciesPage() {
                       ) : (
                         (() => {
                           const eligible = competencies.filter(
-                            (c) => c.subject_id === selectedSubject && c.year_group_id === selectedYearGroup
+                            (c) => c.subject_id === selectedSubject && c.year_group_id === selectedYearGroup,
                           );
                           if (eligible.length === 0) {
                             return (
@@ -478,6 +698,159 @@ export default function CompetenciesPage() {
           )}
         </div>
       )}
+
+      {/* ─── Copy Wizard Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="sm:max-w-lg">
+          {wizardStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{tv('copyWizardTitle')}</DialogTitle>
+                <DialogDescription>
+                  {tv('copyWizardStep1Desc', {
+                    source: yearGroups.find((yg) => yg.id === selectedTeacherTabYg)?.name ?? '',
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2 py-2 max-h-[40vh] overflow-y-auto">
+                {wizardAvailableYearGroups.map((yg) => {
+                  const isSelected = wizardTargets.has(yg.id);
+                  return (
+                    <label
+                      key={yg.id}
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:bg-surface-secondary'
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => wizardToggleTarget(yg.id)}
+                      />
+                      <span className="text-sm font-medium">{yg.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <DialogFooter>
+                <button
+                  type="button"
+                  onClick={() => setWizardOpen(false)}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-secondary transition-colors"
+                >
+                  {tc('cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={wizardTargets.size === 0 || wizardLoading}
+                  onClick={() => void wizardGoToStep2()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {wizardLoading ? tc('loading') : tv('next')}
+                </button>
+              </DialogFooter>
+            </>
+          )}
+
+          {wizardStep === 2 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{tv('copyWizardStep2Title')}</DialogTitle>
+                <DialogDescription>
+                  {tv('copyWizardStep2Desc', {
+                    source: yearGroups.find((yg) => yg.id === selectedTeacherTabYg)?.name ?? '',
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="overflow-x-auto max-h-[50vh] overflow-y-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-surface-secondary">
+                      <th className="px-3 py-2 text-start text-xs font-medium text-text-tertiary uppercase sticky start-0 bg-surface-secondary z-10">
+                        {tv('targetYear')}
+                      </th>
+                      {wizardCommonSubjects.map((s) => (
+                        <th key={s.id} className="px-3 py-2 text-center text-xs font-medium text-text-tertiary uppercase">
+                          {s.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...wizardTargets].map((ygId) => {
+                      const yg = yearGroups.find((y) => y.id === ygId);
+                      const targetSubs = wizardTargetSubjects.get(ygId) ?? new Set<string>();
+                      return (
+                        <tr key={ygId} className="border-t border-border">
+                          <td className="px-3 py-2 font-medium text-text-primary sticky start-0 bg-surface z-10 whitespace-nowrap">
+                            {yg?.name ?? ''}
+                          </td>
+                          {wizardCommonSubjects.map((s) => {
+                            const isCommon = targetSubs.has(s.id);
+                            if (!isCommon) {
+                              return (
+                                <td key={s.id} className="px-3 py-2 text-center text-text-tertiary bg-surface-secondary/50">
+                                  —
+                                </td>
+                              );
+                            }
+                            const key = `${ygId}:${s.id}`;
+                            return (
+                              <td key={s.id} className="px-3 py-2 text-center">
+                                <Checkbox
+                                  checked={!!wizardSelections.get(key)}
+                                  onCheckedChange={() => wizardToggleCell(ygId, s.id)}
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="rounded-lg bg-surface-secondary px-3 py-2 text-xs text-text-secondary">
+                {tv('mergeNote')}
+              </div>
+
+              <DialogFooter className="flex-row justify-between sm:justify-between">
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(1)}
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-secondary transition-colors"
+                >
+                  {tv('back')}
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWizardOpen(false)}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-secondary transition-colors"
+                  >
+                    {tc('cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={wizardSelectedCount === 0 || wizardLoading}
+                    onClick={() => void handleWizardCopy()}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {wizardLoading
+                      ? tc('loading')
+                      : tv('copyNAssignments', { count: wizardSelectedCount })}
+                  </button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

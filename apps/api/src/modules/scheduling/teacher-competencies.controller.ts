@@ -15,10 +15,12 @@ import {
 import {
   createTeacherCompetencySchema,
   bulkCreateTeacherCompetenciesSchema,
+  copyCompetenciesToYearsSchema,
 } from '@school/shared';
 import type {
   CreateTeacherCompetencyDto,
   BulkCreateTeacherCompetenciesDto,
+  CopyCompetenciesToYearsDto,
 } from '@school/shared';
 import { z } from 'zod';
 
@@ -164,5 +166,15 @@ export class TeacherCompetenciesController {
       dto.source_academic_year_id,
       dto.target_academic_year_id,
     );
+  }
+
+  @Post('copy-to-years')
+  @RequiresPermission('schedule.configure_requirements')
+  async copyToYears(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(copyCompetenciesToYearsSchema))
+    dto: CopyCompetenciesToYearsDto,
+  ) {
+    return this.service.copyToYears(tenant.tenant_id, dto);
   }
 }

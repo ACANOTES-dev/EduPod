@@ -6,6 +6,7 @@ import {
 import type {
   CreateTeacherCompetencyDto,
   BulkCreateTeacherCompetenciesDto,
+  CopyCompetenciesToYearsDto,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -282,6 +283,80 @@ export class TeacherCompetenciesService {
     }) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { copied: result.length } };
+  }
+
+  // ─── Copy to Multiple Year Groups ─────────────────────────────────────────
+
+  async copyToYears(tenantId: string, dto: CopyCompetenciesToYearsDto) {
+    // Fetch source competencies for the requested subjects
+    const allSubjectIds = [
+      ...new Set(dto.targets.flatMap((t) => t.subject_ids)),
+    ];
+
+    const sourceCompetencies = await this.prisma.teacherCompetency.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: dto.academic_year_id,
+        year_group_id: dto.source_year_group_id,
+        subject_id: { in: allSubjectIds },
+      },
+    });
+
+    if (sourceCompetencies.length === 0) {
+      throw new BadRequestException({
+        code: 'NO_SOURCE_DATA',
+        message: 'No teacher competencies found in the source year group for the selected subjects',
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    const result = await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      let copied = 0;
+      let skipped = 0;
+
+      for (const target of dto.targets) {
+        const targetSubjectSet = new Set(target.subject_ids);
+        const relevantSource = sourceCompetencies.filter((c) =>
+          targetSubjectSet.has(c.subject_id),
+        );
+
+        for (const src of relevantSource) {
+          // Check if this exact competency already exists in the target
+          const existing = await db.teacherCompetency.findFirst({
+            where: {
+              tenant_id: tenantId,
+              academic_year_id: dto.academic_year_id,
+              staff_profile_id: src.staff_profile_id,
+              subject_id: src.subject_id,
+              year_group_id: target.year_group_id,
+            },
+            select: { id: true },
+          });
+
+          if (existing) {
+            skipped++;
+          } else {
+            await db.teacherCompetency.create({
+              data: {
+                tenant_id: tenantId,
+                academic_year_id: dto.academic_year_id,
+                staff_profile_id: src.staff_profile_id,
+                subject_id: src.subject_id,
+                year_group_id: target.year_group_id,
+                is_primary: src.is_primary,
+              },
+            });
+            copied++;
+          }
+        }
+      }
+
+      return { copied, skipped };
+    }) as unknown as { copied: number; skipped: number };
+
+    return { data: result };
   }
 
   // ─── Private helpers ───────────────────────────────────────────────────────

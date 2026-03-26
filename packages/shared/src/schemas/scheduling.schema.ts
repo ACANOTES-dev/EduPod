@@ -104,6 +104,24 @@ export type BulkCreateTeacherCompetenciesDto = z.infer<
   typeof bulkCreateTeacherCompetenciesSchema
 >;
 
+export const copyCompetenciesToYearsSchema = z.object({
+  academic_year_id: z.string().uuid(),
+  source_year_group_id: z.string().uuid(),
+  targets: z
+    .array(
+      z.object({
+        year_group_id: z.string().uuid(),
+        subject_ids: z.array(z.string().uuid()).min(1),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+export type CopyCompetenciesToYearsDto = z.infer<
+  typeof copyCompetenciesToYearsSchema
+>;
+
 // ─── Break Groups ───────────────────────────────────────────────────────────
 
 export const createBreakGroupSchema = z.object({
