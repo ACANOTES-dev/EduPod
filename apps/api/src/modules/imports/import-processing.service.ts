@@ -129,38 +129,35 @@ export class ImportProcessingService {
           family_groups: result.family_groups,
         };
       } else {
-        // All other import types process row-by-row
-        // Scale transaction timeout with row count (bcrypt hashing is CPU-intensive)
-        const txTimeout = Math.max(30000, filteredRows.length * 1000);
-        await rlsClient.$transaction(async (tx) => {
-          const db = tx as unknown as PrismaService;
+        // Process each row in its own RLS transaction to avoid timeout issues
+        // (staff imports do bcrypt + multiple DB operations per row)
+        for (let i = 0; i < filteredRows.length; i++) {
+          const rowNumber = i + 2; // 1-indexed, row 1 = headers
 
-          for (let i = 0; i < filteredRows.length; i++) {
-            const rowNumber = i + 2; // 1-indexed, row 1 = headers
-
-            // Skip rows that had validation errors
-            if (errorRows.has(rowNumber)) {
-              failCount++;
-              continue;
-            }
-
-            const row = filteredRows[i];
-            if (!row) {
-              failCount++;
-              continue;
-            }
-
-            try {
-              await this.processRow(db, tenantId, importType, row, createdByUserId);
-              successCount++;
-            } catch (err) {
-              this.logger.warn(
-                `Import job ${jobId} row ${rowNumber} processing error: ${String(err)}`,
-              );
-              failCount++;
-            }
+          if (errorRows.has(rowNumber)) {
+            failCount++;
+            continue;
           }
-        }, { timeout: txTimeout });
+
+          const row = filteredRows[i];
+          if (!row) {
+            failCount++;
+            continue;
+          }
+
+          try {
+            await rlsClient.$transaction(async (tx) => {
+              const db = tx as unknown as PrismaService;
+              await this.processRow(db, tenantId, importType, row, createdByUserId);
+            });
+            successCount++;
+          } catch (err) {
+            this.logger.warn(
+              `Import job ${jobId} row ${rowNumber} processing error: ${String(err)}`,
+            );
+            failCount++;
+          }
+        }
       }
 
       const finalStatus = failCount > 0 && successCount === 0 ? 'failed' : 'completed';
