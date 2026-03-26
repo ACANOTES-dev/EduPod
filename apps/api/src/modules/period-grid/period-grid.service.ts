@@ -2,7 +2,6 @@ import { createHash } from 'crypto';
 
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -173,6 +172,7 @@ export class PeriodGridService {
 
       // Cascade time changes to subsequent periods
       if (dto.end_time !== undefined || dto.start_time !== undefined) {
+        // Re-fetch all periods (the updated one now has new times in DB)
         const allPeriods = await db.schedulePeriodTemplate.findMany({
           where: {
             tenant_id: tenantId,
@@ -183,39 +183,30 @@ export class PeriodGridService {
           orderBy: { period_order: 'asc' },
         });
 
-        // Re-chain: each period's start = previous period's end
+        // Re-chain from period 2 onwards: each starts where previous ends
         for (let i = 1; i < allPeriods.length; i++) {
           const prev = allPeriods[i - 1]!;
           const curr = allPeriods[i]!;
-          const prevEnd = curr.id === updated.id
-            ? this.timeToDate(newEndTime)
-            : prev.id === updated.id
-              ? this.timeToDate(newEndTime)
-              : prev.end_time;
+          const prevEndStr = this.formatTime(prev.end_time);
+          const currStartStr = this.formatTime(curr.start_time);
 
-          // Only cascade if previous period was the one we just updated
-          // or if a previous cascade already shifted things
-          const prevEndMin = this.timeToMinutes(prevEnd);
-          const currStartMin = this.timeToMinutes(curr.start_time);
-
-          if (prev.id === updated.id || prevEndMin !== currStartMin) {
+          if (prevEndStr !== currStartStr) {
             const currDuration = this.timeToMinutes(curr.end_time) - this.timeToMinutes(curr.start_time);
-            const newCurrStart = this.formatTime(prevEnd);
-            const newCurrEnd = this.addMinutesToTime(newCurrStart, currDuration);
+            const newEnd = this.addMinutesToTime(prevEndStr, currDuration);
 
             await db.schedulePeriodTemplate.update({
               where: { id: curr.id },
               data: {
-                start_time: this.timeToDate(newCurrStart),
-                end_time: this.timeToDate(newCurrEnd),
+                start_time: this.timeToDate(prevEndStr),
+                end_time: this.timeToDate(newEnd),
               },
             });
 
-            // Update the in-memory object so the next iteration sees the cascaded time
+            // Update in-memory so next iteration sees cascaded times
             allPeriods[i] = {
               ...curr,
-              start_time: this.timeToDate(newCurrStart),
-              end_time: this.timeToDate(newCurrEnd),
+              start_time: this.timeToDate(prevEndStr),
+              end_time: this.timeToDate(newEnd),
             };
           }
         }

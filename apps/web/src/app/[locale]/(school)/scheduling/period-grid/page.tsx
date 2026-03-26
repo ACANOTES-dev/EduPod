@@ -273,8 +273,8 @@ export default function PeriodGridPage() {
   const handleDelete = async (id: string) => {
     try {
       await apiClient(`/api/v1/period-grid/${id}`, { method: 'DELETE' });
-      setPeriods((prev) => prev.filter((p) => p.id !== id));
       toast.success(tc('delete'));
+      void fetchGrid();
     } catch {
       toast.error(tc('errorGeneric'));
     }

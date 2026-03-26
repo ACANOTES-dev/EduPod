@@ -98,7 +98,7 @@ export class PeriodGridController {
 
   @Delete(':id')
   @RequiresPermission('schedule.configure_period_grid')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async remove(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
