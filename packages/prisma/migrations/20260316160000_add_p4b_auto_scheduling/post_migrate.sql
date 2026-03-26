@@ -106,6 +106,7 @@ ALTER TABLE schedule_period_templates
   EXCLUDE USING gist (
     tenant_id WITH =,
     academic_year_id WITH =,
+    COALESCE(year_group_id, '00000000-0000-0000-0000-000000000000'::uuid) WITH =,
     weekday WITH =,
     timerange(start_time, end_time) WITH &&
   );
