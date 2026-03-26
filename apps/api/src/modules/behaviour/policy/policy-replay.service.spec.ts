@@ -98,8 +98,8 @@ describe('PolicyReplayService', () => {
     };
 
     it('should return correct incident count for the replay period', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue([
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
         MOCK_INCIDENT,
         { ...MOCK_INCIDENT, id: 'inc-002', participants: [] },
       ]);
@@ -135,8 +135,8 @@ describe('PolicyReplayService', () => {
         ],
       };
 
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue([
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
         MOCK_INCIDENT,
         incident2,
       ]);
@@ -160,8 +160,8 @@ describe('PolicyReplayService', () => {
     });
 
     it('should not modify any database rows when dry_run = true', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue([MOCK_INCIDENT]);
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([MOCK_INCIDENT]);
       mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
 
       await service.replayRule(TENANT_ID, baseDto);
@@ -188,7 +188,7 @@ describe('PolicyReplayService', () => {
     });
 
     it('should reject replay windows exceeding 10,000 incidents', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
 
       // Create an array of 10,001 incidents
       const largeIncidentList = Array.from({ length: 10001 }, (_, i) => ({
@@ -196,7 +196,7 @@ describe('PolicyReplayService', () => {
         id: `inc-${String(i).padStart(5, '0')}`,
         participants: [],
       }));
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue(
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue(
         largeIncidentList,
       );
 
@@ -226,8 +226,8 @@ describe('PolicyReplayService', () => {
         ],
       };
 
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue([
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
         snapshotIncident,
       ]);
       mockEvaluationEngine.evaluateConditions.mockReturnValue(true);
@@ -262,8 +262,8 @@ describe('PolicyReplayService', () => {
         ],
       };
 
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(MOCK_RULE);
-      mockPrisma.behaviourIncident.findMany.mockResolvedValue([
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(MOCK_RULE);
+      mockPrisma.behaviourIncident!.findMany!.mockResolvedValue([
         MOCK_INCIDENT,
         incident2,
       ]);
@@ -272,11 +272,11 @@ describe('PolicyReplayService', () => {
       const result = await service.replayRule(TENANT_ID, baseDto);
 
       expect(result.sample_matches).toHaveLength(2);
-      expect(result.sample_matches[0].student_label).toBe('Student A');
-      expect(result.sample_matches[1].student_label).toBe('Student B');
+      expect(result.sample_matches[0]!.student_label).toBe('Student A');
+      expect(result.sample_matches[1]!.student_label).toBe('Student B');
       // Student IDs are still present (for admin linking) but labels are anonymous
-      expect(result.sample_matches[0].student_id).toBe('student-001');
-      expect(result.sample_matches[1].student_id).toBe('student-002');
+      expect(result.sample_matches[0]!.student_id).toBe('student-001');
+      expect(result.sample_matches[1]!.student_id).toBe('student-002');
     });
 
     it('should reject when from is after to', async () => {
@@ -308,10 +308,10 @@ describe('PolicyReplayService', () => {
     };
 
     it('should return all 5 stage results', async () => {
-      mockPrisma.behaviourCategory.findFirst.mockResolvedValue({
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
         name: 'Verbal Warning',
       });
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue([]);
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([]);
 
       const result = await service.dryRun(TENANT_ID, baseDryRunDto);
 
@@ -355,12 +355,12 @@ describe('PolicyReplayService', () => {
         ],
       };
 
-      mockPrisma.behaviourCategory.findFirst.mockResolvedValue({
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
         name: 'Verbal Warning',
       });
 
       // First stage call returns both rules, remaining stages return empty
-      mockPrisma.behaviourPolicyRule.findMany
+      mockPrisma.behaviourPolicyRule!.findMany!
         .mockResolvedValueOnce([matchingRule, nonMatchingRule])
         .mockResolvedValue([]);
 
@@ -370,21 +370,21 @@ describe('PolicyReplayService', () => {
 
       const result = await service.dryRun(TENANT_ID, baseDryRunDto);
 
-      const consequenceStage = result.stage_results[0];
+      const consequenceStage = result.stage_results[0]!;
       expect(consequenceStage.rules_evaluated).toBe(2);
       expect(consequenceStage.matched_rules).toHaveLength(1);
-      expect(consequenceStage.matched_rules[0].rule_id).toBe('rule-match');
+      expect(consequenceStage.matched_rules[0]!.rule_id).toBe('rule-match');
       expect(
-        consequenceStage.matched_rules[0].actions_that_would_fire,
+        consequenceStage.matched_rules[0]!.actions_that_would_fire,
       ).toHaveLength(1);
       expect(
-        consequenceStage.matched_rules[0].actions_that_would_fire[0]
+        consequenceStage.matched_rules[0]!.actions_that_would_fire[0]!
           .action_type,
       ).toBe('flag_for_review');
     });
 
     it('should throw NotFoundException for invalid category_id', async () => {
-      mockPrisma.behaviourCategory.findFirst.mockResolvedValue(null);
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue(null);
 
       await expect(
         service.dryRun(TENANT_ID, baseDryRunDto),
@@ -400,15 +400,15 @@ describe('PolicyReplayService', () => {
         student_year_group_id: 'yg-001',
       };
 
-      mockPrisma.behaviourCategory.findFirst.mockResolvedValue({
+      mockPrisma.behaviourCategory!.findFirst!.mockResolvedValue({
         name: 'Verbal Warning',
       });
-      mockPrisma.yearGroup.findFirst.mockResolvedValue({ name: 'Year 9' });
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue([]);
+      mockPrisma.yearGroup!.findFirst!.mockResolvedValue({ name: 'Year 9' });
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([]);
 
       const result = await service.dryRun(TENANT_ID, dtoWithYearGroup);
 
-      expect(mockPrisma.yearGroup.findFirst).toHaveBeenCalledWith({
+      expect(mockPrisma.yearGroup!.findFirst).toHaveBeenCalledWith({
         where: { id: 'yg-001', tenant_id: TENANT_ID },
         select: { name: true },
       });
@@ -448,7 +448,7 @@ describe('PolicyReplayService', () => {
         },
       ];
 
-      mockPrisma.behaviourPolicyEvaluation.findMany.mockResolvedValue(
+      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(
         mockEvaluations,
       );
 
@@ -458,12 +458,12 @@ describe('PolicyReplayService', () => {
       );
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].action_executions).toHaveLength(1);
-      expect(result.data[0].action_executions[0].action_type).toBe(
+      expect(result.data[0]!.action_executions).toHaveLength(1);
+      expect(result.data[0]!.action_executions[0]!.action_type).toBe(
         'flag_for_review',
       );
-      expect(result.data[0].rule_version).toBeDefined();
-      expect(result.data[0].rule_version?.name).toBe('Test Rule');
+      expect(result.data[0]!.rule_version).toBeDefined();
+      expect(result.data[0]!.rule_version?.name).toBe('Test Rule');
     });
 
     it('should map stage names to API format', async () => {
@@ -492,7 +492,7 @@ describe('PolicyReplayService', () => {
         },
       ];
 
-      mockPrisma.behaviourPolicyEvaluation.findMany.mockResolvedValue(
+      mockPrisma.behaviourPolicyEvaluation!.findMany!.mockResolvedValue(
         mockEvaluations,
       );
 
@@ -501,12 +501,12 @@ describe('PolicyReplayService', () => {
         'inc-001',
       );
 
-      expect(result.data[0].stage).toBe('approval');
-      expect(result.data[0].rule_version?.stage).toBe('notification');
-      expect(result.data[1].stage).toBe('notification');
-      expect(result.data[1].rule_version).toBeNull();
-      expect(result.data[2].stage).toBe('support');
-      expect(result.data[2].rule_version?.stage).toBe('alerting');
+      expect(result.data[0]!.stage).toBe('approval');
+      expect(result.data[0]!.rule_version?.stage).toBe('notification');
+      expect(result.data[1]!.stage).toBe('notification');
+      expect(result.data[1]!.rule_version).toBeNull();
+      expect(result.data[2]!.stage).toBe('support');
+      expect(result.data[2]!.rule_version?.stage).toBe('alerting');
     });
   });
 });

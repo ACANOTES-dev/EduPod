@@ -235,9 +235,9 @@ describe('PolicyRulesService', () => {
 
       // Verify snapshot was created before the rule update by checking call order
       const snapshotOrder =
-        mockTx.behaviourPolicyRuleVersion.create.mock.invocationCallOrder[0];
+        mockTx.behaviourPolicyRuleVersion.create.mock.invocationCallOrder[0]!;
       const updateOrder =
-        mockTx.behaviourPolicyRule.update.mock.invocationCallOrder[0];
+        mockTx.behaviourPolicyRule.update.mock.invocationCallOrder[0]!;
       expect(snapshotOrder).toBeLessThan(updateOrder);
     });
 
@@ -301,19 +301,19 @@ describe('PolicyRulesService', () => {
 
   describe('deleteRule', () => {
     it('should soft-delete by setting is_active to false', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue({
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue({
         id: RULE_ID,
         tenant_id: TENANT_ID,
         is_active: true,
       });
-      mockPrisma.behaviourPolicyRule.update.mockResolvedValue({
+      mockPrisma.behaviourPolicyRule!.update!.mockResolvedValue({
         id: RULE_ID,
         is_active: false,
       });
 
       const result = await service.deleteRule(TENANT_ID, RULE_ID);
 
-      expect(mockPrisma.behaviourPolicyRule.update).toHaveBeenCalledWith({
+      expect(mockPrisma.behaviourPolicyRule!.update).toHaveBeenCalledWith({
         where: { id: RULE_ID },
         data: { is_active: false },
       });
@@ -321,7 +321,7 @@ describe('PolicyRulesService', () => {
     });
 
     it('should throw NotFoundException for non-existent rule', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(null);
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
 
       await expect(
         service.deleteRule(TENANT_ID, 'non-existent-id'),
@@ -346,8 +346,8 @@ describe('PolicyRulesService', () => {
     };
 
     it('should filter by stage', async () => {
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue([sampleRule]);
-      mockPrisma.behaviourPolicyRule.count.mockResolvedValue(1);
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([sampleRule]);
+      mockPrisma.behaviourPolicyRule!.count!.mockResolvedValue(1);
 
       await service.listRules(TENANT_ID, {
         page: 1,
@@ -355,7 +355,7 @@ describe('PolicyRulesService', () => {
         stage: 'approval',
       });
 
-      expect(mockPrisma.behaviourPolicyRule.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.behaviourPolicyRule!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -366,8 +366,8 @@ describe('PolicyRulesService', () => {
     });
 
     it('should filter by is_active', async () => {
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue([sampleRule]);
-      mockPrisma.behaviourPolicyRule.count.mockResolvedValue(1);
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([sampleRule]);
+      mockPrisma.behaviourPolicyRule!.count!.mockResolvedValue(1);
 
       await service.listRules(TENANT_ID, {
         page: 1,
@@ -375,7 +375,7 @@ describe('PolicyRulesService', () => {
         is_active: true,
       });
 
-      expect(mockPrisma.behaviourPolicyRule.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.behaviourPolicyRule!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_ID,
@@ -386,15 +386,15 @@ describe('PolicyRulesService', () => {
     });
 
     it('should paginate results', async () => {
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue([sampleRule]);
-      mockPrisma.behaviourPolicyRule.count.mockResolvedValue(50);
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue([sampleRule]);
+      mockPrisma.behaviourPolicyRule!.count!.mockResolvedValue(50);
 
       const result = await service.listRules(TENANT_ID, {
         page: 3,
         pageSize: 10,
       });
 
-      expect(mockPrisma.behaviourPolicyRule.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.behaviourPolicyRule!.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: 20, // (3 - 1) * 10
           take: 10,
@@ -408,7 +408,7 @@ describe('PolicyRulesService', () => {
 
   describe('getVersionHistory', () => {
     it('should return versions in descending order', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue({
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue({
         id: RULE_ID,
         tenant_id: TENANT_ID,
       });
@@ -448,7 +448,7 @@ describe('PolicyRulesService', () => {
           },
         },
       ];
-      mockPrisma.behaviourPolicyRuleVersion.findMany.mockResolvedValue(
+      mockPrisma.behaviourPolicyRuleVersion!.findMany!.mockResolvedValue(
         versions,
       );
 
@@ -456,7 +456,7 @@ describe('PolicyRulesService', () => {
 
       // Descending order enforced by orderBy
       expect(
-        mockPrisma.behaviourPolicyRuleVersion.findMany,
+        mockPrisma.behaviourPolicyRuleVersion!.findMany,
       ).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { rule_id: RULE_ID, tenant_id: TENANT_ID },
@@ -465,13 +465,13 @@ describe('PolicyRulesService', () => {
       );
 
       // Stages are mapped back to API names
-      expect(result.data[0].stage).toBe('consequence');
-      expect(result.data[1].stage).toBe('approval');
-      expect(result.data[2].stage).toBe('notification');
+      expect(result.data[0]!.stage).toBe('consequence');
+      expect(result.data[1]!.stage).toBe('approval');
+      expect(result.data[2]!.stage).toBe('notification');
     });
 
     it('should throw NotFoundException for non-existent rule', async () => {
-      mockPrisma.behaviourPolicyRule.findFirst.mockResolvedValue(null);
+      mockPrisma.behaviourPolicyRule!.findFirst!.mockResolvedValue(null);
 
       await expect(
         service.getVersionHistory(TENANT_ID, 'non-existent-id'),
@@ -612,8 +612,8 @@ describe('PolicyRulesService', () => {
         },
       ];
 
-      mockPrisma.behaviourPolicyRule.findMany.mockResolvedValue(rules);
-      mockPrisma.behaviourCategory.findMany!.mockResolvedValue([
+      mockPrisma.behaviourPolicyRule!.findMany!.mockResolvedValue(rules);
+      mockPrisma.behaviourCategory!.findMany!.mockResolvedValue([
         { id: CATEGORY_ID, name: 'Verbal Warning' },
       ]);
 

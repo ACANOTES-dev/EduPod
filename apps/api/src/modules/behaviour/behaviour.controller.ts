@@ -27,8 +27,10 @@ import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ModuleEnabled } from '../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -51,7 +53,8 @@ const feedQuerySchema = z.object({
 });
 
 @Controller('v1')
-@UseGuards(AuthGuard, PermissionGuard)
+@ModuleEnabled('behaviour')
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourController {
   constructor(
     private readonly behaviourService: BehaviourService,

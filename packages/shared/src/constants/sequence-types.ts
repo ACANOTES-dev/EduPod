@@ -7,6 +7,12 @@ export const SEQUENCE_TYPES = [
   'staff',
   'household',
   'payment',
+  'behaviour_incident',
+  'behaviour_sanction',
+  'behaviour_intervention',
+  'safeguarding_concern',
+  'behaviour_appeal',
+  'behaviour_exclusion',
 ] as const;
 
 export type SequenceType = (typeof SEQUENCE_TYPES)[number];

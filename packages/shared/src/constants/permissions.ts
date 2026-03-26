@@ -171,6 +171,24 @@ export const PERMISSIONS = {
     manage: 'compliance.manage',
     view: 'compliance.view',
   },
+  // Behaviour (admin + staff tier)
+  behaviour: {
+    log: 'behaviour.log',
+    view: 'behaviour.view',
+    manage: 'behaviour.manage',
+    admin: 'behaviour.admin',
+    view_sensitive: 'behaviour.view_sensitive',
+    view_staff_analytics: 'behaviour.view_staff_analytics',
+    ai_query: 'behaviour.ai_query',
+    appeal: 'behaviour.appeal',
+  },
+  // Safeguarding (admin tier)
+  safeguarding: {
+    report: 'safeguarding.report',
+    view: 'safeguarding.view',
+    manage: 'safeguarding.manage',
+    seal: 'safeguarding.seal',
+  },
   // Parent tier
   parent_portal: {
     view_own_students: 'parent.view_own_students',
@@ -278,6 +296,11 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.curriculum_matrix.manage]: 'admin',
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
+  [PERMISSIONS.behaviour.admin]: 'admin',
+  [PERMISSIONS.behaviour.view_staff_analytics]: 'admin',
+  [PERMISSIONS.safeguarding.view]: 'admin',
+  [PERMISSIONS.safeguarding.manage]: 'admin',
+  [PERMISSIONS.safeguarding.seal]: 'admin',
 
   // Staff tier
   [PERMISSIONS.schedule_staff.view_own]: 'staff',
@@ -287,6 +310,12 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.attendance.take]: 'staff',
   [PERMISSIONS.gradebook.enter_grades]: 'staff',
   [PERMISSIONS.gradebook.manage_ai_grading]: 'staff',
+  [PERMISSIONS.behaviour.log]: 'staff',
+  [PERMISSIONS.behaviour.view]: 'staff',
+  [PERMISSIONS.behaviour.manage]: 'staff',
+  [PERMISSIONS.behaviour.view_sensitive]: 'staff',
+  [PERMISSIONS.behaviour.ai_query]: 'staff',
+  [PERMISSIONS.safeguarding.report]: 'staff',
 
   // Parent tier
   [PERMISSIONS.parent_portal.view_own_students]: 'parent',
@@ -298,6 +327,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.parent_portal.submit_inquiry]: 'parent',
   [PERMISSIONS.parent_portal.view_announcements]: 'parent',
   [PERMISSIONS.parent_portal.view_transcripts]: 'parent',
+  [PERMISSIONS.behaviour.appeal]: 'parent',
 };
 
 /** Default permission assignments for each system role */
@@ -396,6 +426,18 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.curriculum_matrix.manage,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
+    // Behaviour + safeguarding (all)
+    PERMISSIONS.behaviour.log,
+    PERMISSIONS.behaviour.view,
+    PERMISSIONS.behaviour.manage,
+    PERMISSIONS.behaviour.admin,
+    PERMISSIONS.behaviour.view_sensitive,
+    PERMISSIONS.behaviour.view_staff_analytics,
+    PERMISSIONS.behaviour.ai_query,
+    PERMISSIONS.safeguarding.report,
+    PERMISSIONS.safeguarding.view,
+    PERMISSIONS.safeguarding.manage,
+    PERMISSIONS.safeguarding.seal,
   ],
 
   school_admin: [
@@ -459,6 +501,17 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.analytics.manage_compliance,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
+    // Behaviour + safeguarding
+    PERMISSIONS.behaviour.log,
+    PERMISSIONS.behaviour.view,
+    PERMISSIONS.behaviour.manage,
+    PERMISSIONS.behaviour.admin,
+    PERMISSIONS.behaviour.view_sensitive,
+    PERMISSIONS.behaviour.view_staff_analytics,
+    PERMISSIONS.behaviour.ai_query,
+    PERMISSIONS.safeguarding.report,
+    PERMISSIONS.safeguarding.view,
+    PERMISSIONS.safeguarding.manage,
   ],
 
   teacher: [
@@ -472,6 +525,10 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.gradebook.view,
     PERMISSIONS.gradebook.manage_ai_grading,
     PERMISSIONS.students.view,
+    // Behaviour (staff tier)
+    PERMISSIONS.behaviour.log,
+    PERMISSIONS.behaviour.view,
+    PERMISSIONS.safeguarding.report,
   ],
 
   finance_staff: [
@@ -501,5 +558,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.parent_portal.submit_inquiry,
     PERMISSIONS.parent_portal.view_announcements,
     PERMISSIONS.parent_portal.view_transcripts,
+    // Behaviour (parent tier)
+    PERMISSIONS.behaviour.appeal,
   ],
 };

@@ -39,6 +39,7 @@ import {
   Globe,
   Megaphone,
   MessageCircle,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -115,6 +116,13 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: ClipboardCheck, labelKey: 'nav.attendance', href: '/attendance' },
       { icon: ClipboardList, labelKey: 'nav.gradebook', href: '/gradebook' },
       { icon: FileText, labelKey: 'nav.reportCards', href: '/report-cards', roles: ADMIN_ROLES },
+    ],
+  },
+  {
+    labelKey: 'nav.behaviour',
+    roles: STAFF_ROLES,
+    items: [
+      { icon: Shield, labelKey: 'nav.behaviourDashboard', href: '/behaviour' },
     ],
   },
   {

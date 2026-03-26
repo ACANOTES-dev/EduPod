@@ -83,7 +83,9 @@
     "announcements": "الإعلانات",
     "inquiries": "الاستفسارات",
     "applications": "الطلبات",
-    "registerFamily": "تسجيل عائلة"
+    "registerFamily": "تسجيل عائلة",
+    "behaviour": "السلوك",
+    "behaviourDashboard": "السلوك"
   },
   "auth": {
     "login": "تسجيل الدخول",

@@ -11,6 +11,7 @@ export const MODULE_KEYS = [
   'parent_inquiries',
   'auto_scheduling',
   'ai_functions',
+  'behaviour',
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];

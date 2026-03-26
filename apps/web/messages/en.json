@@ -83,7 +83,9 @@
     "announcements": "Announcements",
     "inquiries": "Inquiries",
     "applications": "Applications",
-    "registerFamily": "Register Family"
+    "registerFamily": "Register Family",
+    "behaviour": "Behaviour",
+    "behaviourDashboard": "Behaviour"
   },
   "auth": {
     "login": "Log in",

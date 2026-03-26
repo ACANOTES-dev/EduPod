@@ -222,13 +222,13 @@ describe('SafeguardingAttachmentService', () => {
     });
 
     it('should return 202-style response with attachment_id', async () => {
-      const result = await service.uploadAttachment(
+      const result = (await service.uploadAttachment(
         TENANT_ID,
         USER_ID,
         CONCERN_ID,
         mockFile,
         baseDto,
-      );
+      )) as { data: { attachment_id: string; status: string } };
 
       expect(result.data).toHaveProperty('attachment_id', ATTACHMENT_ID);
       expect(result.data).toHaveProperty('status', 'pending');
