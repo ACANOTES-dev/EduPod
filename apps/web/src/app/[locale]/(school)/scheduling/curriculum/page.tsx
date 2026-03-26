@@ -108,8 +108,8 @@ export default function CurriculumPage() {
         year_group_id: selectedYearGroup,
       });
 
-      const [matrixRes, currRes, gridRes] = await Promise.all([
-        apiClient<MatrixSubject[]>(
+      const [matrixRaw, currRes, gridRes] = await Promise.all([
+        apiClient<{ data: MatrixSubject[] } | MatrixSubject[]>(
           `/api/v1/scheduling/curriculum-requirements/matrix-subjects?${params.toString()}`,
         ),
         apiClient<{ data: ApiCurriculumRow[] }>(
@@ -121,6 +121,11 @@ export default function CurriculumPage() {
       ]);
 
       setTotalTeachingPeriods(gridRes.total_teaching_periods ?? 0);
+
+      // Handle response shape — API may wrap in { data: [...] } or return raw array
+      const matrixRes: MatrixSubject[] = Array.isArray(matrixRaw)
+        ? matrixRaw
+        : (matrixRaw as { data: MatrixSubject[] }).data ?? [];
       setHasMatrixSubjects(matrixRes.length > 0);
 
       if (matrixRes.length === 0) {
