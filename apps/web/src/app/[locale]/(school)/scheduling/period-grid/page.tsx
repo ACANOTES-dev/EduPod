@@ -64,12 +64,12 @@ interface EditState {
   id: string | null;
   weekday: number;
   name: string;
-  name_ar: string;
   start_time: string;
   end_time: string;
   period_type: PeriodType;
   supervision_mode: SupervisionMode;
   break_group_id: string;
+  start_time_locked: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -97,12 +97,12 @@ const EMPTY_EDIT: EditState = {
   id: null,
   weekday: 1,
   name: '',
-  name_ar: '',
   start_time: '08:00',
   end_time: '09:00',
   period_type: 'teaching',
   supervision_mode: 'none',
   break_group_id: '',
+  start_time_locked: false,
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -183,21 +183,42 @@ export default function PeriodGridPage() {
   const breakCount = periods.filter((p) => p.schedule_period_type === 'break_supervision' || p.schedule_period_type === 'lunch_duty').length;
 
   const openAdd = (weekday: number) => {
-    setEditState({ ...EMPTY_EDIT, weekday });
+    const dayPeriods = periodsForDay(weekday);
+    const lastPeriod = dayPeriods[dayPeriods.length - 1];
+    const startTime = lastPeriod ? lastPeriod.end_time : '08:00';
+    const isLocked = !!lastPeriod;
+
+    // Calculate default end time: start + 60 minutes
+    const [h, m] = startTime.split(':').map(Number);
+    const endMinutes = h! * 60 + m! + 60;
+    const endH = String(Math.floor(endMinutes / 60)).padStart(2, '0');
+    const endM = String(endMinutes % 60).padStart(2, '0');
+    const endTime = `${endH}:${endM}`;
+
+    setEditState({
+      ...EMPTY_EDIT,
+      weekday,
+      start_time: startTime,
+      end_time: endTime,
+      start_time_locked: isLocked,
+    });
     setEditOpen(true);
   };
 
   const openEdit = (period: PeriodSlot) => {
+    const dayPeriods = periodsForDay(period.weekday);
+    const isFirstPeriod = dayPeriods[0]?.id === period.id;
+
     setEditState({
       id: period.id,
       weekday: period.weekday,
       name: period.period_name,
-      name_ar: period.period_name_ar ?? '',
       start_time: period.start_time,
       end_time: period.end_time,
       period_type: period.schedule_period_type,
       supervision_mode: period.supervision_mode,
       break_group_id: period.break_group_id ?? '',
+      start_time_locked: !isFirstPeriod,
     });
     setEditOpen(true);
   };
@@ -210,7 +231,6 @@ export default function PeriodGridPage() {
     try {
       const body: Record<string, unknown> = {
         period_name: editState.name,
-        period_name_ar: editState.name_ar || null,
         start_time: editState.start_time,
         end_time: editState.end_time,
         schedule_period_type: editState.period_type,
@@ -263,8 +283,8 @@ export default function PeriodGridPage() {
         body: JSON.stringify({
           academic_year_id: selectedYear,
           year_group_id: selectedYearGroup,
-          from_weekday: 1,
-          to_weekdays: [2, 3, 4, 5],
+          source_weekday: 1,
+          target_weekdays: [2, 3, 4, 5],
         }),
       });
       toast.success(tv('copiedMondayToAll'));
@@ -429,23 +449,13 @@ export default function PeriodGridPage() {
             <DialogTitle>{editState.id ? tc('edit') : t('auto.addPeriod')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t('auto.periodName')}</Label>
-                <Input
-                  value={editState.name}
-                  onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))}
-                  placeholder="e.g. Period 1"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('auto.periodNameAr')}</Label>
-                <Input
-                  value={editState.name_ar}
-                  onChange={(e) => setEditState((s) => ({ ...s, name_ar: e.target.value }))}
-                  dir="rtl"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>{t('auto.periodName')}</Label>
+              <Input
+                value={editState.name}
+                onChange={(e) => setEditState((s) => ({ ...s, name: e.target.value }))}
+                placeholder="e.g. Period 1"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -454,7 +464,12 @@ export default function PeriodGridPage() {
                   type="time"
                   value={editState.start_time}
                   onChange={(e) => setEditState((s) => ({ ...s, start_time: e.target.value }))}
+                  disabled={editState.start_time_locked}
+                  className={editState.start_time_locked ? 'opacity-60' : ''}
                 />
+                {editState.start_time_locked && (
+                  <p className="text-[10px] text-text-tertiary">{tv('linkedToPrevious')}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>{t('endTime')}</Label>
