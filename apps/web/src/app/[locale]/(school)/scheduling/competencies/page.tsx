@@ -101,18 +101,18 @@ export default function CompetenciesPage() {
     }).catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
-  // Fetch curriculum subjects for the selected year group (drives which columns appear)
+  // Fetch subjects assigned to classes in this year group (from curriculum matrix)
   React.useEffect(() => {
     if (!selectedYear || !selectedTeacherTabYg) {
       setCurriculumSubjectIds(new Set());
       return;
     }
-    apiClient<{ data: Array<{ subject_id: string }> }>(
-      `/api/v1/scheduling/curriculum-requirements?academic_year_id=${selectedYear}&year_group_id=${selectedTeacherTabYg}&pageSize=100`,
+    apiClient<{ data: Array<{ subject: { id: string } }> }>(
+      `/api/v1/scheduling/curriculum-requirements/matrix-subjects?academic_year_id=${selectedYear}&year_group_id=${selectedTeacherTabYg}`,
       { silent: true },
     )
       .then((res) => {
-        setCurriculumSubjectIds(new Set(res.data.map((r) => r.subject_id)));
+        setCurriculumSubjectIds(new Set(res.data.map((r) => r.subject.id)));
       })
       .catch(() => setCurriculumSubjectIds(new Set()));
   }, [selectedYear, selectedTeacherTabYg]);
