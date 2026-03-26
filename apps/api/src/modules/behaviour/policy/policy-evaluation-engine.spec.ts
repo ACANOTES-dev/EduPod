@@ -312,7 +312,8 @@ describe('PolicyEvaluationEngine', () => {
 
   describe('evaluateForStudent (integration)', () => {
     let engine: PolicyEvaluationEngine;
-    let mockTx: Record<string, Record<string, jest.Mock>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock with dynamic keys
+    let mockTx: any;
     let mockHistoryService: { recordHistory: jest.Mock };
 
     beforeEach(async () => {
