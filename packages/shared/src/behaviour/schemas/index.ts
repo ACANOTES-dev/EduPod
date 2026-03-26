@@ -10,3 +10,8 @@ export * from './policy-action-config.schema';
 export * from './policy-rules.schema';
 export * from './policy-replay.schema';
 export * from './policy-dry-run.schema';
+export * from './safeguarding.schema';
+export * from './recognition.schema';
+export * from './intervention.schema';
+export * from './guardian-restriction.schema';
+export * from './house.schema';
