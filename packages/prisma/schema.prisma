@@ -2010,6 +2010,7 @@ model CurriculumRequirement {
   preferred_periods_per_week Int?     @db.SmallInt
   requires_double_period     Boolean  @default(false)
   double_period_count        Int?     @db.SmallInt
+  period_duration            Int?     @db.SmallInt
   created_at                 DateTime @default(now()) @db.Timestamptz()
   updated_at                 DateTime @default(now()) @updatedAt @db.Timestamptz()
 
