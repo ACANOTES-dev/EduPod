@@ -94,6 +94,7 @@ export class CurriculumRequirementsService {
           preferred_periods_per_week: dto.preferred_periods_per_week ?? null,
           requires_double_period: dto.requires_double_period,
           double_period_count: dto.double_period_count ?? null,
+          period_duration: dto.period_duration ?? null,
         },
         include: INCLUDE_RELATIONS,
       });
@@ -138,6 +139,9 @@ export class CurriculumRequirementsService {
           }),
           ...(dto.double_period_count !== undefined && {
             double_period_count: dto.double_period_count,
+          }),
+          ...(dto.period_duration !== undefined && {
+            period_duration: dto.period_duration,
           }),
         },
         include: INCLUDE_RELATIONS,
@@ -220,6 +224,7 @@ export class CurriculumRequirementsService {
             preferred_periods_per_week: item.preferred_periods_per_week ?? null,
             requires_double_period: item.requires_double_period,
             double_period_count: item.double_period_count ?? null,
+            period_duration: item.period_duration ?? null,
           },
           include: INCLUDE_RELATIONS,
         });
@@ -294,6 +299,7 @@ export class CurriculumRequirementsService {
             preferred_periods_per_week: src.preferred_periods_per_week,
             requires_double_period: src.requires_double_period,
             double_period_count: src.double_period_count,
+            period_duration: src.period_duration,
           },
         });
         created.push(record);
@@ -303,6 +309,60 @@ export class CurriculumRequirementsService {
     }) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { copied: result.length } };
+  }
+
+  // ─── Matrix Subjects ───────────────────────────────────────────────────────
+
+  async getMatrixSubjects(
+    tenantId: string,
+    academicYearId: string,
+    yearGroupId: string,
+  ) {
+    // Get active classes in this year group for this academic year
+    const classes = await this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        year_group_id: yearGroupId,
+        status: 'active',
+      },
+      select: { id: true, name: true },
+    });
+
+    if (classes.length === 0) return [];
+
+    // Get subjects assigned to these classes via curriculum matrix
+    const configs = await this.prisma.classSubjectGradeConfig.findMany({
+      where: {
+        tenant_id: tenantId,
+        class_id: { in: classes.map((c) => c.id) },
+      },
+      include: {
+        subject: { select: { id: true, name: true } },
+        class_entity: { select: { id: true, name: true } },
+      },
+    });
+
+    // Group by subject, listing classes
+    const subjectMap = new Map<
+      string,
+      { subject: { id: string; name: string }; classes: string[] }
+    >();
+    for (const config of configs) {
+      const existing = subjectMap.get(config.subject_id);
+      if (existing) {
+        existing.classes.push(config.class_entity.name);
+      } else {
+        subjectMap.set(config.subject_id, {
+          subject: config.subject,
+          classes: [config.class_entity.name],
+        });
+      }
+    }
+
+    return Array.from(subjectMap.values()).sort((a, b) =>
+      a.subject.name.localeCompare(b.subject.name),
+    );
   }
 
   // ─── Private helpers ───────────────────────────────────────────────────────

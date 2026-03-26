@@ -65,6 +65,27 @@ export class CurriculumRequirementsController {
     });
   }
 
+  @Get('matrix-subjects')
+  @RequiresPermission('schedule.configure_requirements')
+  async getMatrixSubjects(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(
+      new ZodValidationPipe(
+        z.object({
+          academic_year_id: z.string().uuid(),
+          year_group_id: z.string().uuid(),
+        }),
+      ),
+    )
+    query: { academic_year_id: string; year_group_id: string },
+  ) {
+    return this.service.getMatrixSubjects(
+      tenant.tenant_id,
+      query.academic_year_id,
+      query.year_group_id,
+    );
+  }
+
   @Get(':id')
   @RequiresPermission('schedule.configure_requirements')
   async getById(

@@ -24,6 +24,7 @@ export const createCurriculumRequirementSchema = z
       .max(10)
       .nullable()
       .optional(),
+    period_duration: z.number().int().min(10).max(180).nullable().optional(),
   })
   .refine(
     (data) =>
@@ -63,6 +64,7 @@ export const updateCurriculumRequirementSchema = z.object({
     .optional(),
   requires_double_period: z.boolean().optional(),
   double_period_count: z.number().int().min(1).max(10).nullable().optional(),
+  period_duration: z.number().int().min(10).max(180).nullable().optional(),
 });
 
 export type UpdateCurriculumRequirementDto = z.infer<
