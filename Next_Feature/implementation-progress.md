@@ -8,7 +8,7 @@
 | B | Policy Engine | completed | 2026-03-26 | 2026-03-26 | 5-stage evaluation pipeline, 12 endpoints, 1 page, 1 worker job |
 | C | Sanctions + Exclusions + Appeals | not_started | — | — | |
 | D | Safeguarding | completed | 2026-03-26 | 2026-03-26 | 21 endpoints, 6 pages, 4 worker jobs |
-| E | Recognition + Interventions | not_started | — | — | |
+| E | Recognition + Interventions | completed | 2026-03-26 | 2026-03-26 | 30 endpoints, 6 services, 6 pages, 2 worker jobs |
 | F | Analytics + AI | not_started | — | — | |
 | G | Documents + Comms | not_started | — | — | |
 | H | Hardening + Ops + Scale | not_started | — | — | |
@@ -53,3 +53,10 @@ A + B + C + D + E + F + G -> H
 **Key patterns established**: Effective permission check combining normal permissions + break-glass grants, Prisma enum mapping for safeguarding types (low_sev→low, sg_monitoring→monitoring, etc.), append-only action log pattern, dual-control seal via two-step initiate+approve, SLA computation using wall-clock hours (not school days), reporter view with zero case detail exposure
 **Known limitations**: Case file PDF generation (endpoints 14-15) returns not_implemented — requires Puppeteer integration. ClamAV auto-approves as clean when daemon unavailable (dev fallback). S3 Object Lock not enforced in upload. Translation files not yet created. Sidebar nav not yet updated. Notification template rendering depends on comms module.
 **Results file**: Plans/phases-results/BH-D-results.md
+
+### Phase E: Recognition + Interventions — Completed 2026-03-26
+**What was built**: Points system as computed-not-stored aggregate with Redis caching (5min TTL), configurable award types with 4 repeat modes (once_ever/once_per_year/once_per_period/unlimited) and tier supersession, auto-award worker triggered on positive incidents with dedup guards, house teams with member point aggregation and leaderboard, recognition wall with dual-gate publication (parent consent + admin approval), intervention plans with SEND awareness and goal/strategy tracking, intervention review cycles with auto-populated behaviour points since last review, guardian visibility restrictions with effective dates, legal basis, auto-expiry worker, and review reminder task creation. 30 API endpoints across 3 controllers, 6 backend services, 2 BullMQ worker jobs, 6 frontend pages, 5 shared Zod schemas, intervention state machine.
+**Key files created**: `apps/api/src/modules/behaviour/behaviour-{points,award,recognition,house,interventions,guardian-restrictions}.service.ts`, `behaviour-{recognition,interventions,guardian-restrictions}.controller.ts`, `packages/shared/src/behaviour/schemas/{recognition,intervention,guardian-restriction,house}.schema.ts`, `state-machine-intervention.ts`, `apps/worker/src/processors/behaviour/{check-awards,guardian-restriction-check}.processor.ts`, 6 frontend pages at `/behaviour/recognition`, `/behaviour/interventions/*`, `/settings/behaviour-{awards,houses}`
+**Key patterns established**: Computed points via aggregate (no stored total), Redis cache invalidation on participant/incident changes, repeat mode eligibility check before award creation, tier supersession marking lower-tier awards, dual-gate publication (consent + admin) with auto-pass when gates disabled, intervention state machine (planned -> active -> monitoring -> completed/abandoned), SEND-aware data classification (send_notes stripped without behaviour.view_sensitive), guardian restriction effective date range query pattern, auto-task creation on intervention lifecycle events
+**Known limitations**: Public recognition feed requires behaviour.view (no @Public decorator). attendance_rate_since_last always null (attendance integration deferred). Sidebar nav and translation files not yet updated. Guardian restriction cron not yet registered in CronSchedulerService.
+**Results file**: Plans/phases-results/BH-E-results.md
