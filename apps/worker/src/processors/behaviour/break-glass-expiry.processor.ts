@@ -95,6 +95,7 @@ class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
             'Emergency break-glass access has expired. Review the accessed records and complete the after-action review.',
           priority: 'high',
           status: 'pending',
+          assigned_to_id: grant.granted_by_id,
           due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
           created_by_id: grant.granted_by_id,
         },

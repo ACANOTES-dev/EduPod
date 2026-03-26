@@ -6121,6 +6121,9 @@ model SafeguardingConcern {
   @@unique([tenant_id, concern_number], name: "idx_safeguarding_concerns_number")
   @@index([tenant_id, student_id], name: "idx_safeguarding_concerns_student")
   @@index([tenant_id, status], name: "idx_safeguarding_concerns_status")
+  @@index([tenant_id, severity, status], name: "idx_safeguarding_concerns_severity_status")
+  @@index([tenant_id, reported_by_id], name: "idx_safeguarding_concerns_reporter")
+  @@index([tenant_id, assigned_to_id, status], name: "idx_safeguarding_concerns_assignee")
   @@map("safeguarding_concerns")
 }
 
@@ -6142,7 +6145,8 @@ model SafeguardingAction {
   concern   SafeguardingConcern @relation(fields: [concern_id], references: [id], onDelete: Cascade)
   action_by User                @relation("sg_action_performer", fields: [action_by_id], references: [id], onDelete: Restrict)
 
-  @@index([tenant_id, concern_id], name: "idx_safeguarding_actions_concern")
+  @@index([tenant_id, concern_id, created_at(sort: Desc)], name: "idx_safeguarding_actions_concern_chrono")
+  @@index([tenant_id, action_by_id, created_at(sort: Desc)], name: "idx_safeguarding_actions_staff")
   @@map("safeguarding_actions")
 }
 

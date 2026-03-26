@@ -118,7 +118,7 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
           concern_id,
           action_type: 'note_added',
           description: `Critical escalation chain exhausted at step ${escalation_step}. No further contacts available. Manual intervention required.`,
-          performed_by_id: escalationChain[0] ?? concern.reported_by_id,
+          action_by_id: escalationChain[0] ?? concern.reported_by_id,
         },
       });
 
@@ -127,6 +127,10 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
 
     // 6. Record escalation action
     const targetUserId = escalationChain[escalation_step];
+    if (!targetUserId) {
+      this.logger.warn(`No target user at escalation step ${escalation_step} — skipping`);
+      return;
+    }
 
     await tx.safeguardingAction.create({
       data: {
@@ -134,7 +138,7 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
         concern_id,
         action_type: 'note_added',
         description: `Critical escalation step ${escalation_step} — notified user ${targetUserId}`,
-        performed_by_id: targetUserId,
+        action_by_id: targetUserId,
       },
     });
 

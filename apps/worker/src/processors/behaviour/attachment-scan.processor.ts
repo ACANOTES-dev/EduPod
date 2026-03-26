@@ -94,13 +94,6 @@ class AttachmentScanJob extends TenantAwareJob<AttachmentScanPayload> {
         data: {
           scan_status: 'clean',
           scanned_at: new Date(),
-          metadata: {
-            ...(typeof attachment.metadata === 'object' &&
-            attachment.metadata !== null
-              ? (attachment.metadata as Record<string, unknown>)
-              : {}),
-            scan_note: 'Auto-approved: ClamAV not available (development fallback)',
-          },
         },
       });
 

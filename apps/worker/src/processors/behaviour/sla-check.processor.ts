@@ -93,6 +93,8 @@ class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
       }
 
       // 2b. Create breach task
+      const assigneeId =
+        concern.designated_liaison_id ?? concern.reported_by_id;
       await tx.behaviourTask.create({
         data: {
           tenant_id,
@@ -104,6 +106,9 @@ class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
             'The first response SLA for this safeguarding concern has been breached. Immediate action is required.',
           priority: 'urgent',
           status: 'pending',
+          assigned_to_id: assigneeId,
+          due_date: new Date(),
+          created_by_id: assigneeId,
         },
       });
 
