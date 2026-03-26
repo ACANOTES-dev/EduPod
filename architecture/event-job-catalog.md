@@ -224,7 +224,7 @@ ComplianceService.approve()
 | payroll | 3 | 5s exponential | |
 | imports | 3 | 5s exponential | Also handles compliance jobs |
 | reports | 3 | 5s exponential | No processors yet (future use) |
-| behaviour | 3 | 5s exponential | Task reminders cron |
+| behaviour | 3 | 5s exponential | Task reminders cron, policy evaluation |
 
 ---
 
@@ -292,3 +292,44 @@ Cron fires daily at 08:00 tenant TZ
 6. **Behaviour parent notification send-gate** — High-severity negative incidents can have notifications silently blocked if `parent_description` is not set. The incident stays in `parent_notification_status = 'pending'` with no automatic retry. Staff must manually add a parent description to unblock.
 
 7. **Behaviour task reminders iterate per-tenant** — Each tenant needs its own cron trigger. Adding a tenant requires scheduling the `behaviour:task-reminders` job for that tenant.
+
+8. **Behaviour policy evaluation runs inside a single transaction** — The entire 5-stage evaluation for all student participants runs in one Prisma $transaction. If a tenant has many rules (>50 per stage), the transaction may approach the 30s timeout. Rule hygiene warnings are logged at 50+ rules per stage.
+
+---
+
+### `behaviour:evaluate-policy` (behaviour queue)
+
+**Trigger**: Enqueued by `BehaviourService.createIncident()` when status is `active`, and by `BehaviourService.addParticipant()` when participant type is `student`.
+**Payload**: `{ tenant_id, incident_id, trigger: 'incident_created' | 'participant_added', triggered_at }`
+**Processor**: `apps/worker/src/processors/behaviour/evaluate-policy.processor.ts`
+**Retries**: 3 with exponential backoff (5s, 10s, 20s)
+**Timeout**: 30s
+
+**Side effects chain**:
+```
+Incident created / participant added
+  -> behaviour:evaluate-policy enqueued to behaviour queue
+  -> Worker loads incident + student participants
+  -> Skip if incident status is withdrawn/draft
+  -> For each student participant:
+    -> Check existing evaluations (idempotency: skip already-evaluated stages)
+    -> For each of 5 stages (consequence -> approval -> notification -> support -> alerting):
+      -> Load active rules for stage, sorted by priority ASC
+      -> For each rule: parse conditions, build evaluated input from snapshots, evaluate
+      -> Record evaluation in behaviour_policy_evaluations (append-only)
+      -> Execute matched rule actions with dedup guards:
+        -> auto_escalate: create new escalated incident, transition original to 'escalated'
+        -> create_sanction: create behaviour_sanctions record
+        -> require_approval: set incident.approval_status = 'pending'
+        -> require_parent_meeting: create behaviour_tasks (parent_meeting type)
+        -> require_parent_notification: set incident.parent_notification_status = 'pending'
+        -> create_task: create behaviour_tasks record
+        -> create_intervention: create behaviour_interventions record
+        -> flag_for_review: set incident.status = 'under_review'
+        -> block_without_approval: set incident.approval_status = 'pending'
+        -> notify_roles / notify_users: recorded as success (actual dispatch deferred)
+      -> Record action execution in behaviour_policy_action_executions (append-only)
+    -> Link consequence stage evaluation ID to incident.policy_evaluation_id
+```
+
+**Danger**: A single failed action does NOT abort the pipeline — it's recorded as `execution_status = 'failed'` and processing continues. The pipeline runs entirely within one Prisma transaction, so if the transaction times out, ALL evaluations for that incident are lost and the job will retry from scratch (idempotent — already-evaluated stages are skipped).

@@ -36,6 +36,7 @@ import { PermissionCacheService } from '../../common/services/permission-cache.s
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourService } from './behaviour.service';
+import { PolicyReplayService } from './policy/policy-replay.service';
 
 // ─── Local Query Schemas ─────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ export class BehaviourController {
     private readonly quickLogService: BehaviourQuickLogService,
     private readonly historyService: BehaviourHistoryService,
     private readonly permissionCacheService: PermissionCacheService,
+    private readonly policyReplayService: PolicyReplayService,
   ) {}
 
   // ─── Incident CRUD ──────────────────────────────────────────────────────────
@@ -324,18 +326,18 @@ export class BehaviourController {
     );
   }
 
-  // ─── Policy Evaluation (STUB) ─────────────────────────────────────────────
+  // ─── Policy Evaluation Trace ────────────────────────────────────────────────
 
   @Get('behaviour/incidents/:id/policy-evaluation')
   @RequiresPermission('behaviour.manage')
   async getPolicyEvaluation(
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
-    // STUB: Policy evaluation -- will be implemented in a later phase
-    return {
-      data: null,
-      message: 'Policy evaluation not yet implemented',
-    };
+    return this.policyReplayService.getIncidentEvaluationTrace(
+      tenant.tenant_id,
+      id,
+    );
   }
 
   // ─── Quick-Log Context ─────────────────────────────────────────────────────

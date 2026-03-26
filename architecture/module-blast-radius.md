@@ -123,11 +123,11 @@ These modules have NO downstream dependents. Changes are contained:
 ## Tier 3 — Domain Modules with Cross-Module Dependencies
 
 ### BehaviourModule
-- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`
-- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal numbers), `CommonModule` (PermissionCacheService)
-- **Queues**: Enqueues to `notifications` (parent notifications), processes from `behaviour` (task reminders)
-- **Consumed by**: None yet (Phase A — future phases will add consumers: Phase B policy engine evaluates incidents, Phase D safeguarding links incidents, Phase F analytics reads all behaviour data)
-- **Blast radius**: LOW currently (self-contained). Will increase as Phases B-H add consumers.
+- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`
+- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService)
+- **Queues**: Enqueues to `notifications` (parent notifications) and `behaviour` (policy evaluation on incident creation/participant addition), processes from `behaviour` (task reminders, policy evaluation)
+- **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions, and approval requests via policy actions.
+- **Blast radius**: MEDIUM. ApprovalsModule changes now affect behaviour policy actions. Policy engine creates entities across behaviour_sanctions, behaviour_tasks, behaviour_interventions.
 - **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, and student data.
 - **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker.
 

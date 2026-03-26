@@ -11,7 +11,14 @@ import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.p
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
+import { AttachmentScanProcessor } from './processors/behaviour/attachment-scan.processor';
+import { BreakGlassExpiryProcessor } from './processors/behaviour/break-glass-expiry.processor';
+import { SafeguardingCriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
+import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
+import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
+import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
+import { SafeguardingSlaCheckProcessor } from './processors/behaviour/sla-check.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
@@ -119,6 +126,14 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Behaviour queue processors
     BehaviourParentNotificationProcessor,
     BehaviourTaskRemindersProcessor,
+    BehaviourCheckAwardsProcessor,
+    BehaviourGuardianRestrictionCheckProcessor,
+    EvaluatePolicyProcessor,
+    // Safeguarding processors (Phase D)
+    AttachmentScanProcessor,
+    BreakGlassExpiryProcessor,
+    SafeguardingSlaCheckProcessor,
+    SafeguardingCriticalEscalationProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

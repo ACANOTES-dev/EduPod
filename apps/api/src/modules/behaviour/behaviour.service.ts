@@ -55,6 +55,7 @@ export class BehaviourService {
     private readonly historyService: BehaviourHistoryService,
     private readonly scopeService: BehaviourScopeService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
   ) {}
 
   // ─── Create Incident ────────────────────────────────────────────────────
@@ -293,6 +294,44 @@ export class BehaviourService {
                 tenant_id: tenantId,
                 incident_id: incident.id,
                 student_ids: dto.student_ids,
+              },
+            );
+          } catch {
+            // Don't fail the incident creation if queue add fails
+          }
+        }
+
+        // Queue policy evaluation
+        if (initialStatus === 'active') {
+          try {
+            await this.behaviourQueue.add(
+              'behaviour:evaluate-policy',
+              {
+                tenant_id: tenantId,
+                incident_id: incident.id,
+                trigger: 'incident_created',
+                triggered_at: new Date().toISOString(),
+              },
+            );
+          } catch {
+            // Don't fail the incident creation if queue add fails
+          }
+        }
+
+        // Queue auto-award check for positive incidents
+        if (
+          initialStatus === 'active' &&
+          category.polarity === 'positive'
+        ) {
+          try {
+            await this.behaviourQueue.add(
+              'behaviour:check-awards',
+              {
+                tenant_id: tenantId,
+                incident_id: incident.id,
+                student_ids: dto.student_ids,
+                academic_year_id: dto.academic_year_id,
+                academic_period_id: dto.academic_period_id ?? null,
               },
             );
           } catch {
@@ -793,6 +832,23 @@ export class BehaviourService {
           student_id: dto.student_id ?? null,
         },
       );
+
+      // Queue policy evaluation for the new participant
+      if (dto.participant_type === 'student') {
+        try {
+          await this.behaviourQueue.add(
+            'behaviour:evaluate-policy',
+            {
+              tenant_id: tenantId,
+              incident_id: incidentId,
+              trigger: 'participant_added',
+              triggered_at: new Date().toISOString(),
+            },
+          );
+        } catch {
+          // Don't fail the participant creation if queue add fails
+        }
+      }
 
       return participant;
     });

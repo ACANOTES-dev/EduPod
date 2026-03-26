@@ -247,4 +247,260 @@ export async function seedBehaviourData(
       update: {},
     });
   }
+
+  // 5. Seed default policy rules
+  await seedDefaultPolicyRules(prisma, tenantId, categoryMap);
+}
+
+// ─── Default Policy Rules ──────────────────────────────────────────────────
+
+interface PolicyRuleSeedAction {
+  action_type: string;
+  action_config: Record<string, unknown>;
+  execution_order: number;
+}
+
+interface PolicyRuleSeed {
+  name: string;
+  description: string;
+  stage: string;
+  priority: number;
+  match_strategy: string;
+  stop_processing_stage: boolean;
+  conditionsFn: (catMap: Map<string, string>) => Record<string, unknown>;
+  actionsFn: (catMap: Map<string, string>) => PolicyRuleSeedAction[];
+}
+
+const DEFAULT_POLICY_RULES: PolicyRuleSeed[] = [
+  {
+    name: '3 verbal warnings in 30 days → written warning',
+    description:
+      'Automatically escalates to a written warning when a student receives 3 or more verbal warnings within a 30-day rolling window.',
+    stage: 'consequence',
+    priority: 100,
+    match_strategy: 'first_match',
+    stop_processing_stage: false,
+    conditionsFn: (catMap) => ({
+      polarity: 'negative',
+      repeat_count_min: 3,
+      repeat_window_days: 30,
+      repeat_category_ids: [catMap.get('Verbal Warning')].filter(Boolean),
+    }),
+    actionsFn: (catMap) => [
+      {
+        action_type: 'auto_escalate',
+        action_config: {
+          target_category_id: catMap.get('Written Warning') ?? '',
+          reason: 'Auto-escalated: 3 verbal warnings in 30 days',
+        },
+        execution_order: 0,
+      },
+      {
+        action_type: 'notify_roles',
+        action_config: {
+          roles: ['year_head'],
+          message_template:
+            'Student has received a third verbal warning in 30 days and has been escalated to a written warning.',
+          priority: 'normal',
+        },
+        execution_order: 1,
+      },
+    ],
+  },
+  {
+    name: 'Suspension for SEND students requires deputy approval',
+    description:
+      'Any suspension-level incident involving a student with SEND requires deputy principal approval before proceeding.',
+    stage: 'approval',
+    priority: 100,
+    match_strategy: 'first_match',
+    stop_processing_stage: false,
+    conditionsFn: () => ({
+      severity_min: 7,
+      student_has_send: true,
+      polarity: 'negative',
+    }),
+    actionsFn: () => [
+      {
+        action_type: 'require_approval',
+        action_config: {
+          approver_role: 'deputy_principal',
+          reason: 'SEND student suspension requires deputy approval',
+        },
+        execution_order: 0,
+      },
+      {
+        action_type: 'create_task',
+        action_config: {
+          task_type: 'follow_up',
+          title:
+            'SENCO review required — SEND student suspension pending approval',
+          assigned_to_role: 'senco',
+          due_in_school_days: 2,
+          priority: 'high',
+        },
+        execution_order: 1,
+      },
+    ],
+  },
+  {
+    name: 'Expulsion requires principal approval',
+    description:
+      'All expulsion-level incidents must be approved by the principal before any consequence is applied.',
+    stage: 'approval',
+    priority: 50,
+    match_strategy: 'first_match',
+    stop_processing_stage: true,
+    conditionsFn: (catMap) => ({
+      category_ids: [catMap.get('Expulsion')].filter(Boolean),
+    }),
+    actionsFn: () => [
+      {
+        action_type: 'require_approval',
+        action_config: {
+          approver_role: 'principal',
+          reason: 'Expulsion requires principal approval',
+        },
+        execution_order: 0,
+      },
+    ],
+  },
+  {
+    name: 'Negative incident above severity threshold → notify parent',
+    description:
+      'Sends a parent notification for all negative incidents with severity 3 or above.',
+    stage: 'notification',
+    priority: 100,
+    match_strategy: 'all_matching',
+    stop_processing_stage: false,
+    conditionsFn: () => ({
+      polarity: 'negative',
+      severity_min: 3,
+    }),
+    actionsFn: () => [
+      {
+        action_type: 'require_parent_notification',
+        action_config: { priority: 'immediate' },
+        execution_order: 0,
+      },
+    ],
+  },
+  {
+    name: 'High-severity negative incident → flag for management review',
+    description:
+      'Flags any high-severity negative incident for management review and notifies the year head.',
+    stage: 'alerting',
+    priority: 100,
+    match_strategy: 'all_matching',
+    stop_processing_stage: false,
+    conditionsFn: () => ({
+      polarity: 'negative',
+      severity_min: 7,
+    }),
+    actionsFn: () => [
+      {
+        action_type: 'flag_for_review',
+        action_config: {
+          reason: 'High-severity incident flagged for management review',
+          priority: 'high',
+        },
+        execution_order: 0,
+      },
+      {
+        action_type: 'notify_roles',
+        action_config: {
+          roles: ['year_head', 'deputy_principal'],
+          message_template:
+            'A high-severity incident has been logged and requires review.',
+          priority: 'urgent',
+        },
+        execution_order: 1,
+      },
+    ],
+  },
+];
+
+const STAGE_TO_PRISMA_SEED: Record<string, string> = {
+  consequence: 'consequence',
+  approval: 'approval_stage',
+  notification: 'notification_stage',
+  support: 'support',
+  alerting: 'alerting',
+};
+
+async function seedDefaultPolicyRules(
+  prisma: PrismaClient,
+  tenantId: string,
+  categoryMap: Map<string, string>,
+) {
+  // Check if rules already exist for this tenant
+  const existingCount = await prisma.behaviourPolicyRule.count({
+    where: { tenant_id: tenantId },
+  });
+  if (existingCount > 0) return;
+
+  // Get a system user for changed_by_id (first user in the tenant)
+  const systemUser = await prisma.tenantMembership.findFirst({
+    where: { tenant_id: tenantId },
+    select: { user_id: true },
+  });
+  const changedById = systemUser?.user_id ?? '00000000-0000-0000-0000-000000000000';
+
+  for (const ruleSeed of DEFAULT_POLICY_RULES) {
+    const conditions = ruleSeed.conditionsFn(categoryMap);
+    const actions = ruleSeed.actionsFn(categoryMap);
+
+    const rule = await prisma.behaviourPolicyRule.create({
+      data: {
+        tenant_id: tenantId,
+        name: ruleSeed.name,
+        description: ruleSeed.description,
+        is_active: true,
+        stage: (STAGE_TO_PRISMA_SEED[ruleSeed.stage] ??
+          ruleSeed.stage) as never,
+        priority: ruleSeed.priority,
+        match_strategy: ruleSeed.match_strategy as never,
+        stop_processing_stage: ruleSeed.stop_processing_stage,
+        conditions: conditions as never,
+        current_version: 1,
+      },
+    });
+
+    // Create actions
+    if (actions.length > 0) {
+      for (const action of actions) {
+        await prisma.behaviourPolicyRuleAction.create({
+          data: {
+            tenant_id: tenantId,
+            rule_id: rule.id,
+            action_type: action.action_type as never,
+            action_config: action.action_config as never,
+            execution_order: action.execution_order,
+          },
+        });
+      }
+    }
+
+    // Snapshot version 1
+    await prisma.behaviourPolicyRuleVersion.create({
+      data: {
+        tenant_id: tenantId,
+        rule_id: rule.id,
+        version: 1,
+        name: ruleSeed.name,
+        conditions: conditions as never,
+        actions: actions.map((a) => ({
+          action_type: a.action_type,
+          action_config: a.action_config,
+          execution_order: a.execution_order,
+        })) as never,
+        stage: (STAGE_TO_PRISMA_SEED[ruleSeed.stage] ??
+          ruleSeed.stage) as never,
+        match_strategy: ruleSeed.match_strategy as never,
+        priority: ruleSeed.priority,
+        changed_by_id: changedById,
+        change_reason: 'Default policy rule — seeded on tenant creation',
+      },
+    });
+  }
 }
