@@ -4,10 +4,14 @@ import { $Enums, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
-/** Statuses excluded from point aggregations. */
-const EXCLUDED_STATUSES: $Enums.IncidentStatus[] = ['draft', 'withdrawn'];
+/** Statuses excluded from point aggregations per spec. */
+const EXCLUDED_STATUSES: $Enums.IncidentStatus[] = [
+  'draft',
+  'withdrawn',
+  'converted_to_safeguarding' as $Enums.IncidentStatus,
+];
 
-/** Shared incident filter for active, non-draft/withdrawn incidents. */
+/** Shared incident filter for active, non-excluded incidents. */
 const ACTIVE_INCIDENT_FILTER: Prisma.BehaviourIncidentWhereInput = {
   status: { notIn: EXCLUDED_STATUSES },
   retention_status: 'active' as $Enums.RetentionStatus,
@@ -66,11 +70,20 @@ export class BehaviourPointsService {
 
   // ─── Student Points ────────────────────────────────────────────────────
 
+  /**
+   * Get student points with scope-aware filtering driven by tenant settings.
+   * Scope is determined by `points_reset_frequency`:
+   *  - 'never': all-time total
+   *  - 'academic_year': filtered to current academic year
+   *  - 'academic_period': filtered to current academic period
+   */
   async getStudentPoints(
     tenantId: string,
     studentId: string,
   ): Promise<PointsResult> {
-    const cacheKey = `behaviour:points:${tenantId}:${studentId}`;
+    // Resolve scope from tenant behaviour settings
+    const scope = await this.resolvePointsScope(tenantId);
+    const cacheKey = `behaviour:points:${tenantId}:${studentId}:${scope.key}`;
     const client = this.redis.getClient();
 
     // Check cache
@@ -79,18 +92,11 @@ export class BehaviourPointsService {
       return { total: Number(cached), fromCache: true };
     }
 
-    // Compute from DB
-    const aggregate =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-      });
-
-    const total = aggregate._sum.points_awarded ?? 0;
+    const total = await this.computeStudentPoints(
+      tenantId,
+      studentId,
+      scope.filter,
+    );
 
     // Write to cache
     await client.set(cacheKey, String(total), 'EX', CACHE_TTL);
@@ -98,12 +104,102 @@ export class BehaviourPointsService {
     return { total, fromCache: false };
   }
 
+  /**
+   * Compute fresh student points without cache — used by award worker
+   * where stale cache must never be served.
+   */
+  async computeStudentPointsFresh(
+    tenantId: string,
+    studentId: string,
+  ): Promise<number> {
+    const scope = await this.resolvePointsScope(tenantId);
+    return this.computeStudentPoints(tenantId, studentId, scope.filter);
+  }
+
   async invalidateStudentPointsCache(
     tenantId: string,
     studentId: string,
   ): Promise<void> {
-    const cacheKey = `behaviour:points:${tenantId}:${studentId}`;
-    await this.redis.getClient().del(cacheKey);
+    // Delete all possible scope keys for this student
+    const client = this.redis.getClient();
+    const pattern = `behaviour:points:${tenantId}:${studentId}:*`;
+    const keys = await client.keys(pattern);
+    if (keys.length > 0) {
+      await client.del(...keys);
+    }
+  }
+
+  private async computeStudentPoints(
+    tenantId: string,
+    studentId: string,
+    scopeFilter: Prisma.BehaviourIncidentWhereInput,
+  ): Promise<number> {
+    const aggregate =
+      await this.prisma.behaviourIncidentParticipant.aggregate({
+        where: {
+          student_id: studentId,
+          tenant_id: tenantId,
+          incident: {
+            ...ACTIVE_INCIDENT_FILTER,
+            ...scopeFilter,
+          },
+        },
+        _sum: { points_awarded: true },
+      });
+
+    return aggregate._sum.points_awarded ?? 0;
+  }
+
+  private async resolvePointsScope(
+    tenantId: string,
+  ): Promise<{
+    key: string;
+    filter: Prisma.BehaviourIncidentWhereInput;
+  }> {
+    const tenantSettings = await this.prisma.tenantSetting.findFirst({
+      where: { tenant_id: tenantId },
+      select: { settings: true },
+    });
+    const settings =
+      (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const behaviourSettings =
+      (settings?.behaviour as Record<string, unknown>) ?? {};
+    const resetFrequency =
+      (behaviourSettings?.points_reset_frequency as string) ??
+      'academic_year';
+
+    if (resetFrequency === 'never') {
+      return { key: 'all_time', filter: {} };
+    }
+
+    if (resetFrequency === 'academic_period') {
+      const currentPeriod = await this.prisma.academicPeriod.findFirst({
+        where: { tenant_id: tenantId, status: 'active' },
+        orderBy: { start_date: 'desc' },
+        select: { id: true },
+      });
+      if (currentPeriod) {
+        return {
+          key: `period:${currentPeriod.id}`,
+          filter: { academic_period_id: currentPeriod.id },
+        };
+      }
+    }
+
+    // Default: academic_year
+    const currentYear = await this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, status: 'active' },
+      select: { id: true },
+    });
+    if (currentYear) {
+      return {
+        key: `year:${currentYear.id}`,
+        filter: { academic_year_id: currentYear.id },
+      };
+    }
+
+    // Fallback: all-time if no active year/period found
+    return { key: 'all_time', filter: {} };
   }
 
   // ─── House Points ─────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { $Enums, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+import { BehaviourPointsService } from './behaviour-points.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
 
 /** Common incident status filter for active, non-withdrawn incidents. */
@@ -21,6 +22,7 @@ export class BehaviourStudentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scopeService: BehaviourScopeService,
+    private readonly pointsService: BehaviourPointsService,
   ) {}
 
   /**
@@ -140,45 +142,45 @@ export class BehaviourStudentsService {
       });
     }
 
-    // Points summary
-    const pointsSummary =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-        _count: true,
-      });
-
-    // Polarity counts
-    const positiveCounts =
-      await this.prisma.behaviourIncidentParticipant.count({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'positive' },
-        },
-      });
-
-    const negativeCounts =
-      await this.prisma.behaviourIncidentParticipant.count({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'negative' },
-        },
-      });
+    // Points via scope-aware service (respects points_reset_frequency)
+    const [pointsResult, incidentCount, positiveCounts, negativeCounts] =
+      await Promise.all([
+        this.pointsService.getStudentPoints(tenantId, studentId),
+        this.prisma.behaviourIncidentParticipant.count({
+          where: {
+            student_id: studentId,
+            tenant_id: tenantId,
+            participant_type: 'student',
+            incident: ACTIVE_INCIDENT_FILTER,
+          },
+        }),
+        this.prisma.behaviourIncidentParticipant.count({
+          where: {
+            student_id: studentId,
+            tenant_id: tenantId,
+            participant_type: 'student',
+            incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'positive' },
+          },
+        }),
+        this.prisma.behaviourIncidentParticipant.count({
+          where: {
+            student_id: studentId,
+            tenant_id: tenantId,
+            participant_type: 'student',
+            incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'negative' },
+          },
+        }),
+      ]);
 
     return {
       student,
+      points: {
+        total: pointsResult.total,
+        fromCache: pointsResult.fromCache,
+      },
       summary: {
-        total_points: pointsSummary._sum.points_awarded ?? 0,
-        total_incidents: pointsSummary._count,
+        total_points: pointsResult.total,
+        total_incidents: incidentCount,
         positive_count: positiveCounts,
         negative_count: negativeCounts,
       },
