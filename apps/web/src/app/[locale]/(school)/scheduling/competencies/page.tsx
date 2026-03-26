@@ -67,12 +67,21 @@ export default function CompetenciesPage() {
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
       apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
-      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string }; roles?: string[] }> }>('/api/v1/staff-profiles?pageSize=200'),
-    ]).then(([yearsRes, ygRes, subRes, staffRes]) => {
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string }; roles?: string[] }>; meta: { total: number } }>('/api/v1/staff-profiles?pageSize=100'),
+    ]).then(async ([yearsRes, ygRes, subRes, staffRes]) => {
       setAcademicYears(yearsRes.data);
       setYearGroups(ygRes.data);
       setSubjects(subRes.data);
-      setTeachers((staffRes.data ?? []).map((s) => ({
+
+      // Fetch all pages of staff profiles if more than 100
+      let allStaff = staffRes.data ?? [];
+      const total = staffRes.meta?.total ?? allStaff.length;
+      if (total > 100) {
+        const remaining = await apiClient<{ data: typeof allStaff }>('/api/v1/staff-profiles?pageSize=100&page=2');
+        allStaff = [...allStaff, ...(remaining.data ?? [])];
+      }
+
+      setTeachers(allStaff.map((s) => ({
         id: s.id,
         name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
         roles: s.roles ?? [],
