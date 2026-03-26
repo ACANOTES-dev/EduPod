@@ -144,8 +144,6 @@ const PARTICIPANT_ROLES = [
   'subject', 'witness', 'bystander', 'reporter', 'victim', 'instigator', 'mediator',
 ];
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function conditionSummary(conds: Record<string, unknown>): string {
