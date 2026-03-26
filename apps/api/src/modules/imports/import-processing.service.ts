@@ -130,6 +130,8 @@ export class ImportProcessingService {
         };
       } else {
         // All other import types process row-by-row
+        // Scale transaction timeout with row count (bcrypt hashing is CPU-intensive)
+        const txTimeout = Math.max(30000, filteredRows.length * 1000);
         await rlsClient.$transaction(async (tx) => {
           const db = tx as unknown as PrismaService;
 
@@ -158,7 +160,7 @@ export class ImportProcessingService {
               failCount++;
             }
           }
-        });
+        }, { timeout: txTimeout });
       }
 
       const finalStatus = failCount > 0 && successCount === 0 ? 'failed' : 'completed';

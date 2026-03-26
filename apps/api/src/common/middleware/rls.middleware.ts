@@ -32,7 +32,7 @@ export function createRlsClient(prisma: PrismaClient, tenant: { tenant_id: strin
       },
     },
     client: {
-      async $transaction(fn: (tx: PrismaClient) => Promise<unknown>) {
+      async $transaction(fn: (tx: PrismaClient) => Promise<unknown>, options?: { timeout?: number; maxWait?: number }) {
         return prisma.$transaction(async (tx) => {
           // Set RLS context for this transaction using parameterised set_config()
           await (tx as unknown as { $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown> })
@@ -41,7 +41,7 @@ export function createRlsClient(prisma: PrismaClient, tenant: { tenant_id: strin
               tenant.tenant_id,
             );
           return fn(tx as unknown as PrismaClient);
-        });
+        }, options);
       },
     },
   });
