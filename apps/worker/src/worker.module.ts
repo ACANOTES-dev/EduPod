@@ -14,11 +14,11 @@ import { AttendanceSessionGenerationProcessor } from './processors/attendance-se
 import { AttachmentScanProcessor } from './processors/behaviour/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/behaviour/break-glass-expiry.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
-import { SafeguardingCriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
+import { CriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
-import { SafeguardingSlaCheckProcessor } from './processors/behaviour/sla-check.processor';
+import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
@@ -132,8 +132,8 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Safeguarding processors (Phase D)
     AttachmentScanProcessor,
     BreakGlassExpiryProcessor,
-    SafeguardingSlaCheckProcessor,
-    SafeguardingCriticalEscalationProcessor,
+    SlaCheckProcessor,
+    CriticalEscalationProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,
