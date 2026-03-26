@@ -36,12 +36,6 @@ import { BehaviourExclusionsController } from './behaviour-exclusions.controller
 import { BehaviourExclusionCasesService } from './behaviour-exclusion-cases.service';
 import { BehaviourSanctionsController } from './behaviour-sanctions.controller';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
-import { BehaviourAIService } from './behaviour-ai.service';
-import { BehaviourAlertsController } from './behaviour-alerts.controller';
-import { BehaviourAlertsService } from './behaviour-alerts.service';
-import { BehaviourAnalyticsController } from './behaviour-analytics.controller';
-import { BehaviourAnalyticsService } from './behaviour-analytics.service';
-import { BehaviourPulseService } from './behaviour-pulse.service';
 import { SafeguardingAttachmentService } from './safeguarding-attachment.service';
 import { SafeguardingBreakGlassService } from './safeguarding-break-glass.service';
 import { SafeguardingController } from './safeguarding.controller';
@@ -68,8 +62,6 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourAppealsController,
     BehaviourExclusionsController,
     BehaviourAmendmentsController,
-    BehaviourAnalyticsController,
-    BehaviourAlertsController,
   ],
   providers: [
     BehaviourHistoryService,
@@ -95,10 +87,6 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourAppealsService,
     BehaviourExclusionCasesService,
     BehaviourAmendmentsService,
-    BehaviourPulseService,
-    BehaviourAnalyticsService,
-    BehaviourAlertsService,
-    BehaviourAIService,
   ],
   exports: [
     BehaviourService,
@@ -124,10 +112,6 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourAppealsService,
     BehaviourExclusionCasesService,
     BehaviourAmendmentsService,
-    BehaviourPulseService,
-    BehaviourAnalyticsService,
-    BehaviourAlertsService,
-    BehaviourAIService,
   ],
 })
 export class BehaviourModule {}

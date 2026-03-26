@@ -9,6 +9,3 @@ export * from './state-machine-exclusion';
 export * from './state-machine-appeal';
 export * from './school-calendar';
 export * from './schemas';
-
-// AI utilities
-export * from '../ai';

@@ -19,5 +19,3 @@ export * from './sanction.schema';
 export * from './appeal.schema';
 export * from './exclusion.schema';
 export * from './amendment.schema';
-export * from './analytics.schema';
-export * from './alert.schema';
