@@ -14,12 +14,16 @@ import {
 } from '@nestjs/common';
 import {
   copyDaySchema,
+  copyYearGroupSchema,
   createPeriodTemplateSchema,
+  replaceDaySchema,
   updatePeriodTemplateSchema,
 } from '@school/shared';
 import type {
   CopyDayDto,
+  CopyYearGroupDto,
   CreatePeriodTemplateDto,
+  ReplaceDayDto,
   UpdatePeriodTemplateDto,
 } from '@school/shared';
 import { z } from 'zod';
@@ -49,7 +53,7 @@ export class PeriodGridController {
     @Query(new ZodValidationPipe(listPeriodGridQuerySchema))
     query: z.infer<typeof listPeriodGridQuerySchema>,
   ) {
-    return this.periodGridService.findAll(tenant.tenant_id, query.academic_year_id);
+    return this.periodGridService.findAll(tenant.tenant_id, query.academic_year_id, query.year_group_id);
   }
 
   @Post()
@@ -60,6 +64,26 @@ export class PeriodGridController {
     @Body(new ZodValidationPipe(createPeriodTemplateSchema)) dto: CreatePeriodTemplateDto,
   ) {
     return this.periodGridService.create(tenant.tenant_id, dto);
+  }
+
+  @Post('replace-day')
+  @RequiresPermission('schedule.configure_period_grid')
+  @HttpCode(HttpStatus.OK)
+  async replaceDay(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(replaceDaySchema)) dto: ReplaceDayDto,
+  ) {
+    return this.periodGridService.replaceDay(tenant.tenant_id, dto);
+  }
+
+  @Post('copy-year-group')
+  @RequiresPermission('schedule.configure_period_grid')
+  @HttpCode(HttpStatus.OK)
+  async copyYearGroup(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Body(new ZodValidationPipe(copyYearGroupSchema)) dto: CopyYearGroupDto,
+  ) {
+    return this.periodGridService.copyYearGroup(tenant.tenant_id, dto);
   }
 
   @Patch(':id')

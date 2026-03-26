@@ -27,6 +27,7 @@ describe('PeriodGridService', () => {
       create: jest.Mock;
       update: jest.Mock;
       delete: jest.Mock;
+      deleteMany: jest.Mock;
     };
   };
 
@@ -39,6 +40,7 @@ describe('PeriodGridService', () => {
         create: jest.fn().mockResolvedValue({}),
         update: jest.fn().mockResolvedValue({}),
         delete: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -231,6 +233,121 @@ describe('PeriodGridService', () => {
         year_group_id: YEAR_GROUP_ID,
         source_weekday: 1,
         target_weekdays: [2, 3],
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── replaceDay ─────────────────────────────────────────────────────────────
+
+  it('should delete existing periods and create new ones for a day', async () => {
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    const mockTx = {
+      schedulePeriodTemplate: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+        create: jest.fn()
+          .mockResolvedValueOnce({
+            id: 'new-1', weekday: 1, period_order: 1,
+            start_time: new Date('1970-01-01T08:00:00.000Z'),
+            end_time: new Date('1970-01-01T09:00:00.000Z'),
+          })
+          .mockResolvedValueOnce({
+            id: 'new-2', weekday: 1, period_order: 2,
+            start_time: new Date('1970-01-01T09:00:00.000Z'),
+            end_time: new Date('1970-01-01T10:00:00.000Z'),
+          }),
+      },
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    });
+
+    const result = await service.replaceDay(TENANT_ID, {
+      academic_year_id: ACADEMIC_YEAR_ID,
+      year_group_id: YEAR_GROUP_ID,
+      weekday: 1,
+      periods: [
+        { period_name: 'Period 1', start_time: '08:00', end_time: '09:00', schedule_period_type: 'teaching' },
+        { period_name: 'Period 2', start_time: '09:00', end_time: '10:00', schedule_period_type: 'teaching' },
+      ],
+    }) as { created: unknown[]; count: number };
+
+    expect(mockTx.schedulePeriodTemplate.deleteMany).toHaveBeenCalled();
+    expect(result.count).toBe(2);
+  });
+
+  it('should throw BadRequestException when replace-day period has invalid time range', async () => {
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    const mockTx = {
+      schedulePeriodTemplate: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    });
+
+    await expect(
+      service.replaceDay(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        year_group_id: YEAR_GROUP_ID,
+        weekday: 1,
+        periods: [
+          { period_name: 'Bad', start_time: '10:00', end_time: '09:00', schedule_period_type: 'teaching' },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // ─── copyYearGroup ──────────────────────────────────────────────────────────
+
+  it('should copy periods from one year group to others', async () => {
+    const TARGET_YG = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+    mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([
+      {
+        id: 'src-1', weekday: 1, period_order: 1, period_name: 'Period 1',
+        period_name_ar: null,
+        start_time: new Date('1970-01-01T08:00:00.000Z'),
+        end_time: new Date('1970-01-01T09:00:00.000Z'),
+        schedule_period_type: 'teaching', supervision_mode: 'none', break_group_id: null,
+      },
+    ]);
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    const mockTx = {
+      schedulePeriodTemplate: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        create: jest.fn().mockResolvedValue({ id: 'new-1' }),
+      },
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    });
+
+    const result = await service.copyYearGroup(TENANT_ID, {
+      academic_year_id: ACADEMIC_YEAR_ID,
+      source_year_group_id: YEAR_GROUP_ID,
+      target_year_group_ids: [TARGET_YG],
+    }) as { copied: number; target_year_groups: number };
+
+    expect(result.copied).toBe(1);
+    expect(result.target_year_groups).toBe(1);
+  });
+
+  it('should throw NotFoundException when source year group has no periods', async () => {
+    mockPrisma.schedulePeriodTemplate.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.copyYearGroup(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        source_year_group_id: YEAR_GROUP_ID,
+        target_year_group_ids: ['eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'],
       }),
     ).rejects.toThrow(NotFoundException);
   });
