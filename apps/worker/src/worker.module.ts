@@ -66,6 +66,7 @@ import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-che
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
+import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 
 @Module({
   imports: [
@@ -228,6 +229,7 @@ import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-no
     SurveyClosingReminderProcessor,
     CleanupParticipationTokensProcessor,
     EapRefreshCheckProcessor,
+    WorkloadMetricsProcessor,
   ],
 })
 export class WorkerModule implements OnModuleDestroy {

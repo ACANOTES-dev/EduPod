@@ -29,7 +29,7 @@ A ──→ D ──────→ E ────────┘
 | A | Foundation & Shared Infrastructure | `phase-a-foundation.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | B | Anonymous Survey Engine | `phase-b-survey-engine.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | C | Survey Results & Trust Layer | `phase-c-trust-layer.md` | NOT STARTED | — | — |
-| D | Workload Intelligence | `phase-d-workload-intelligence.md` | NOT STARTED | — | — |
+| D | Workload Intelligence | `phase-d-workload-intelligence.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | E | Frontend — Staff Experience | `phase-e-frontend-staff.md` | NOT STARTED | — | — |
 | F | Frontend — Principal/Board + Reports | `phase-f-frontend-admin.md` | NOT STARTED | — | — |
 | G | Security Verification & Hardening | `phase-g-hardening.md` | NOT STARTED | — | — |
@@ -76,3 +76,21 @@ A ──→ D ──────→ E ────────┘
 **Tests:** 248 passing across API (181) + worker (67). All Phase B suites green. Pre-existing Phase D failures unaffected.
 **Issues:** None.
 **Next:** Phase C (Survey Results & Trust Layer) and/or Phase D (Workload Intelligence) — both unblocked.
+
+### Session 3 — 2026-03-27
+**Phase(s):** D
+**Work done:**
+- D1: WorkloadComputeService — core read-only computation engine (1900+ lines): teaching period count, cover duty count, consecutive period detection, free period distribution, split timetable detection, room change analysis, Gini coefficient, timetable quality composite (D4), substitution pressure index, correlation analysis, personal and aggregate workload methods
+- D2: PersonalWorkloadController — 3 self-only endpoints (`/my-workload/summary`, `/my-workload/cover-history`, `/my-workload/timetable-quality`) with `@BlockImpersonation()`, no permission needed beyond auth, cache-aside pattern with 5-min TTL
+- D3: AggregateWorkloadController — 6 permission-gated endpoints (`/aggregate/workload-summary`, `/aggregate/cover-fairness`, `/aggregate/timetable-quality`, `/aggregate/absence-trends`, `/aggregate/substitution-pressure`, `/aggregate/correlation`) requiring `wellbeing.view_aggregate`, cache-aside with 24-hour TTL
+- D4: Timetable quality composite score (30% free distribution, 30% consecutive, 20% split, 20% room changes) — embedded in D1
+- D5: WorkloadCacheService (Redis, personal 5min/aggregate 24h TTL) + WorkloadMetricsProcessor daily cron at 04:00 UTC pre-computing aggregate metrics for all tenants
+- D6: BoardReportService + BoardReportController — `/reports/termly-summary` endpoint requiring `wellbeing.view_board_report`, compiles all aggregate metrics into board-level summary
+- Zod schemas for all workload request/response types in `packages/shared`
+- Module wired with RedisModule import, 3 new controllers, 3 new services
+- architecture/event-job-catalog.md updated (1 new cron job)
+- architecture/module-blast-radius.md updated (new exports)
+**Execution:** 7 parallel agents (5 Opus, 2 Sonnet). 4 agents hit rate limits but all target files were created before cutoff. Orchestrator filled gaps (board-report controller/specs, worker processor/spec), fixed type errors, and wired integration files.
+**Tests:** 188 passing across 11 suites (all Phase D suites green). Pre-existing failures in other modules unaffected.
+**Issues:** None.
+**Next:** Phase E (Frontend — Staff Experience) requires B + D (both complete). Phase C (Survey Results & Trust Layer) is unblocked.

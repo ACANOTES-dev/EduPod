@@ -20,6 +20,7 @@ import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued
 import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
 import { EAP_REFRESH_CHECK_JOB } from '../processors/wellbeing/eap-refresh-check.processor';
 import { SURVEY_CLOSING_REMINDER_JOB } from '../processors/wellbeing/survey-closing-reminder.processor';
+import { WORKLOAD_METRICS_JOB } from '../processors/wellbeing/workload-metrics.processor';
 
 /**
  * Registers BullMQ repeatable (cron) jobs on module startup.
@@ -238,5 +239,20 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${SURVEY_CLOSING_REMINDER_JOB} (daily 08:00 UTC)`);
+
+    // ── wellbeing:compute-workload-metrics ─────────────────────────────────
+    // Runs daily at 04:00 UTC. Pre-computes all aggregate workload metrics
+    // for each tenant with staff_wellbeing enabled and caches in Redis (24h TTL).
+    await this.wellbeingQueue.add(
+      WORKLOAD_METRICS_JOB,
+      {},
+      {
+        repeat: { pattern: '0 4 * * *' },
+        jobId: `cron:${WORKLOAD_METRICS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${WORKLOAD_METRICS_JOB} (daily 04:00 UTC)`);
   }
 }

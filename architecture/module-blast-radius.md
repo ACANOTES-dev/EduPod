@@ -193,7 +193,7 @@ Known Prisma-direct consumers:
 
 ## StaffWellbeingModule
 
-- **Exports**: None — no other module depends on it
+- **Exports**: `HmacService`, `WorkloadComputeService`, `WorkloadCacheService`
 - **Reads from** (read-only, no writes):
   - `SchedulingModule` → Schedule, SchedulePeriodTemplate (teaching load, timetable quality, room changes)
   - `SubstitutionModule` / Scheduling → SubstitutionRecord (cover duties, absence proxy, fairness analysis)
