@@ -1,7 +1,17 @@
 'use client';
 
 import { Badge } from '@school/ui';
-import { ClipboardList, Heart, LayoutGrid, NotebookPen, Users } from 'lucide-react';
+import {
+  Activity,
+  ClipboardList,
+  Heart,
+  LayoutGrid,
+  ListChecks,
+  NotebookPen,
+  Send,
+  ShieldAlert,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -25,9 +35,29 @@ const ITEMS = [
     icon: ClipboardList,
   },
   {
+    href: '/pastoral/interventions',
+    labelKey: 'interventions',
+    icon: ListChecks,
+  },
+  {
+    href: '/pastoral/referrals',
+    labelKey: 'referrals',
+    icon: Send,
+  },
+  {
     href: '/pastoral/sst',
     labelKey: 'sst',
     icon: Users,
+  },
+  {
+    href: '/pastoral/checkins',
+    labelKey: 'checkins',
+    icon: Activity,
+  },
+  {
+    href: '/pastoral/critical-incidents',
+    labelKey: 'criticalIncidents',
+    icon: ShieldAlert,
   },
 ] as const;
 

@@ -30,17 +30,13 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const makeTenantSettingsRecord = (
-  checkinOverrides: Record<string, unknown> = {},
-) => ({
+const makeTenantSettingsRecord = (checkinOverrides: Record<string, unknown> = {}) => ({
   id: 'settings-1',
   tenant_id: TENANT_ID,
   settings: {
@@ -141,12 +137,7 @@ describe('CheckinService', () => {
       });
       mockRlsTx.studentCheckin.create.mockResolvedValue(record);
 
-      const result = await service.submitCheckin(
-        TENANT_ID,
-        STUDENT_ID,
-        USER_ID,
-        { mood_score: 4 },
-      );
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, { mood_score: 4 });
 
       expect(result.id).toBe(CHECKIN_ID);
       expect(result.mood_score).toBe(4);
@@ -171,12 +162,7 @@ describe('CheckinService', () => {
       });
       mockRlsTx.studentCheckin.create.mockResolvedValue(record);
 
-      const result = await service.submitCheckin(
-        TENANT_ID,
-        STUDENT_ID,
-        USER_ID,
-        { mood_score: 3 },
-      );
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, { mood_score: 3 });
 
       // checkin_date should be YYYY-MM-DD format
       expect(result.checkin_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -196,12 +182,10 @@ describe('CheckinService', () => {
       });
       mockRlsTx.studentCheckin.create.mockResolvedValue(record);
 
-      const result = await service.submitCheckin(
-        TENANT_ID,
-        STUDENT_ID,
-        USER_ID,
-        { mood_score: 4, freeform_text: 'Feeling good today' },
-      );
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
+        mood_score: 4,
+        freeform_text: 'Feeling good today',
+      });
 
       expect(result.freeform_text).toBe('Feeling good today');
       expect(mockRlsTx.studentCheckin.create).toHaveBeenCalledWith({
@@ -212,10 +196,11 @@ describe('CheckinService', () => {
     });
 
     it('should return 409 when duplicate same day (P2002)', async () => {
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Unique constraint failed',
-        { code: 'P2002', clientVersion: '5.0.0', meta: { target: ['tenant_id', 'student_id', 'checkin_date'] } },
-      );
+      const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+        meta: { target: ['tenant_id', 'student_id', 'checkin_date'] },
+      });
       mockRlsTx.studentCheckin.create.mockRejectedValue(prismaError);
 
       await expect(
@@ -241,9 +226,7 @@ describe('CheckinService', () => {
       );
 
       // Existing checkin in same week
-      mockRlsTx.studentCheckin.findFirst.mockResolvedValue(
-        makeCheckinRecord(),
-      );
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue(makeCheckinRecord());
 
       await expect(
         service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
@@ -275,12 +258,7 @@ describe('CheckinService', () => {
       });
       mockRlsTx.studentCheckin.create.mockResolvedValue(record);
 
-      const result = await service.submitCheckin(
-        TENANT_ID,
-        STUDENT_ID,
-        USER_ID,
-        { mood_score: 4 },
-      );
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, { mood_score: 4 });
 
       expect(result.id).toBe(CHECKIN_ID);
       expect(mockRlsTx.studentCheckin.create).toHaveBeenCalled();
@@ -300,12 +278,10 @@ describe('CheckinService', () => {
         generated_concern_id: 'some-concern-id',
       });
 
-      const result = await service.submitCheckin(
-        TENANT_ID,
-        STUDENT_ID,
-        USER_ID,
-        { mood_score: 1, freeform_text: 'I want to end it all' },
-      );
+      const result = await service.submitCheckin(TENANT_ID, STUDENT_ID, USER_ID, {
+        mood_score: 1,
+        freeform_text: 'I want to end it all',
+      });
 
       // Student response should have was_flagged but NOT flag_reason or auto_concern_id
       expect(result.was_flagged).toBe(true);
@@ -413,12 +389,7 @@ describe('CheckinService', () => {
       mockRlsTx.studentCheckin.findMany.mockResolvedValue(records);
       mockRlsTx.studentCheckin.count.mockResolvedValue(1);
 
-      const result = await service.getStudentCheckins(
-        TENANT_ID,
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await service.getStudentCheckins(TENANT_ID, STUDENT_ID, 1, 20);
 
       expect(result.data[0]!.flag_reason).toBe('consecutive_low');
       expect(result.data[0]!.auto_concern_id).toBe('concern-123');
@@ -435,24 +406,29 @@ describe('CheckinService', () => {
           flagged: true,
           flag_reason: 'keyword_match',
           checkin_date: new Date('2026-03-27'),
+          student: {
+            first_name: 'Sara',
+            last_name: 'Riley',
+          },
         }),
       ];
       mockRlsTx.studentCheckin.findMany.mockResolvedValue(records);
       mockRlsTx.studentCheckin.count.mockResolvedValue(1);
 
-      const result = await service.getFlaggedCheckins(
-        TENANT_ID,
-        {},
-        1,
-        20,
-      );
+      const result = await service.getFlaggedCheckins(TENANT_ID, {}, 1, 20);
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]!.was_flagged).toBe(true);
+      expect(result.data[0]!.student_name).toBe('Sara Riley');
 
       // Verify the where clause includes flagged: true
       expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          include: {
+            student: {
+              select: { first_name: true, last_name: true },
+            },
+          },
           where: expect.objectContaining({ flagged: true }),
         }),
       );
@@ -471,6 +447,11 @@ describe('CheckinService', () => {
 
       expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          include: {
+            student: {
+              select: { first_name: true, last_name: true },
+            },
+          },
           where: expect.objectContaining({
             checkin_date: expect.objectContaining({
               gte: expect.any(Date),
@@ -485,15 +466,15 @@ describe('CheckinService', () => {
       mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
       mockRlsTx.studentCheckin.count.mockResolvedValue(0);
 
-      await service.getFlaggedCheckins(
-        TENANT_ID,
-        { flag_reason: 'keyword_match' },
-        1,
-        20,
-      );
+      await service.getFlaggedCheckins(TENANT_ID, { flag_reason: 'keyword_match' }, 1, 20);
 
       expect(mockRlsTx.studentCheckin.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          include: {
+            student: {
+              select: { first_name: true, last_name: true },
+            },
+          },
           where: expect.objectContaining({
             flag_reason: 'keyword_match',
           }),
@@ -545,13 +526,9 @@ describe('CheckinService', () => {
 
       // findFirst for last checkin (ordering by desc)
       mockRlsTx.studentCheckin.findFirst
-        .mockResolvedValueOnce(
-          makeCheckinRecord({ checkin_date: new Date() }),
-        )
+        .mockResolvedValueOnce(makeCheckinRecord({ checkin_date: new Date() }))
         // findFirst for week check
-        .mockResolvedValueOnce(
-          makeCheckinRecord({ checkin_date: new Date() }),
-        );
+        .mockResolvedValueOnce(makeCheckinRecord({ checkin_date: new Date() }));
 
       const result = await service.getCheckinStatus(TENANT_ID, STUDENT_ID);
 

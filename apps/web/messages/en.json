@@ -5127,7 +5127,11 @@
         "overview": "Overview",
         "concerns": "Concerns",
         "cases": "Cases",
-        "sst": "SST"
+        "interventions": "Interventions",
+        "referrals": "Referrals",
+        "sst": "SST",
+        "checkins": "Check-ins",
+        "criticalIncidents": "Critical incidents"
       }
     },
     "shared": {
@@ -5156,6 +5160,42 @@
         "active": "Active",
         "monitoring": "Monitoring",
         "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "interventionStatus": {
+        "active": "Active",
+        "achieved": "Achieved",
+        "partially_achieved": "Partially achieved",
+        "not_achieved": "Not achieved",
+        "escalated": "Escalated",
+        "withdrawn": "Withdrawn"
+      },
+      "actionStatus": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "overdue": "Overdue"
+      },
+      "referralStatus": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "acknowledged": "Acknowledged",
+        "assessment_scheduled": "Assessment scheduled",
+        "assessment_complete": "Assessment complete",
+        "report_received": "Report received",
+        "recommendations_implemented": "Recommendations implemented",
+        "withdrawn": "Withdrawn"
+      },
+      "recommendationStatus": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "implemented": "Implemented",
+        "not_applicable": "Not applicable"
+      },
+      "criticalIncidentStatus": {
+        "active": "Active",
+        "monitoring": "Monitoring",
         "closed": "Closed"
       }
     },
@@ -5581,6 +5621,609 @@
       },
       "errors": {
         "generic": "The meeting action could not be completed. Please try again."
+      }
+    },
+    "interventions": {
+      "title": "Interventions",
+      "description": "Structured support plans with outcomes, review cycles, and tracked actions.",
+      "create": "Create intervention",
+      "filters": {
+        "status": "Status",
+        "all": "All",
+        "student": "Student",
+        "studentPlaceholder": "Search for a student"
+      },
+      "columns": {
+        "student": "Student",
+        "interventionType": "Intervention",
+        "status": "Status",
+        "review": "Next review",
+        "actions": "Progress"
+      },
+      "types": {
+        "academic_support": "Academic support",
+        "behavioural_support": "Behavioural support",
+        "social_emotional": "Social-emotional support",
+        "attendance_support": "Attendance support",
+        "external_referral": "External referral",
+        "reasonable_accommodation": "Reasonable accommodation",
+        "safety_plan": "Safety plan"
+      },
+      "status": {
+        "active": "Active",
+        "achieved": "Achieved",
+        "partially_achieved": "Partially achieved",
+        "not_achieved": "Not achieved",
+        "escalated": "Escalated",
+        "withdrawn": "Withdrawn"
+      },
+      "notesRecorded": "Notes recorded",
+      "reviewDate": "Review due {date}",
+      "empty": "No interventions matched the current filters."
+    },
+    "newIntervention": {
+      "title": "Create intervention",
+      "description": "Open a practical support plan linked to a case and student.",
+      "caseSection": "Case and student",
+      "planSection": "Plan setup",
+      "outcomesSection": "Target outcomes",
+      "outcomesDescription": "Define concrete outcomes that can be reviewed later.",
+      "engagementSection": "Family and student engagement",
+      "primaryStudent": "Primary student",
+      "fields": {
+        "case": "Case",
+        "casePlaceholder": "Choose a case",
+        "noCase": "No case selected",
+        "student": "Student",
+        "studentPlaceholder": "Choose a student on the case",
+        "noStudent": "No student selected",
+        "type": "Intervention type",
+        "typePlaceholder": "Choose an intervention type",
+        "noType": "No type selected",
+        "continuumLevel": "Continuum level",
+        "reviewCycle": "Review cycle (weeks)",
+        "outcomeDescription": "Outcome",
+        "outcomeDescriptionPlaceholder": "What change are you aiming for?",
+        "outcomeTarget": "How will it be measured?",
+        "outcomeTargetPlaceholder": "Describe the evidence or target.",
+        "parentInformed": "Parent informed",
+        "parentConsented": "Parent consent recorded",
+        "parentInput": "Parent input",
+        "parentInputPlaceholder": "Record relevant parent perspective or contact.",
+        "studentVoice": "Student voice",
+        "studentVoicePlaceholder": "Record the student perspective in their own terms where possible."
+      },
+      "continuum": {
+        "level1": "Level 1",
+        "level2": "Level 2",
+        "level3": "Level 3"
+      },
+      "consent": {
+        "yes": "Yes",
+        "no": "No"
+      },
+      "addOutcome": "Add outcome",
+      "errors": {
+        "case": "Select a case before creating the intervention.",
+        "student": "Select a student on the case.",
+        "type": "Select an intervention type.",
+        "reviewCycle": "Enter a valid review cycle.",
+        "outcomes": "Add at least one complete target outcome.",
+        "generic": "The intervention could not be created. Please try again."
+      },
+      "saving": "Saving...",
+      "submit": "Create intervention"
+    },
+    "interventionDetail": {
+      "title": "Intervention · {student}",
+      "description": "Linked case: {caseNumber}",
+      "notFound": "Intervention not found or not visible to your account.",
+      "openCase": "Open case",
+      "student": "Student",
+      "interventionType": "Intervention type",
+      "nextReview": "Next review",
+      "created": "Created",
+      "planSection": "Plan",
+      "planDescription": "Update the live support plan while the intervention remains active.",
+      "readOnly": "This intervention is no longer editable.",
+      "actionsSection": "Actions",
+      "actionsDescription": "Operational actions linked to the plan.",
+      "noActions": "No intervention actions have been added yet.",
+      "actionMeta": "Due {due} · {frequency}",
+      "completeAction": "Mark complete",
+      "progressSection": "Recent progress",
+      "noProgress": "No progress notes have been recorded yet.",
+      "statusSection": "Close or escalate plan",
+      "reviewSection": "Review note",
+      "savePlan": "Save plan",
+      "createAction": "Create action",
+      "addProgress": "Add progress note",
+      "changeStatus": "Change status",
+      "recordReview": "Record review",
+      "types": {
+        "academic_support": "Academic support",
+        "behavioural_support": "Behavioural support",
+        "social_emotional": "Social-emotional support",
+        "attendance_support": "Attendance support",
+        "external_referral": "External referral",
+        "reasonable_accommodation": "Reasonable accommodation",
+        "safety_plan": "Safety plan"
+      },
+      "continuum": {
+        "level1": "Level 1",
+        "level2": "Level 2",
+        "level3": "Level 3"
+      },
+      "consent": {
+        "yes": "Yes",
+        "no": "No"
+      },
+      "frequency": {
+        "once": "One-off",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "fortnightly": "Fortnightly",
+        "as_needed": "As needed"
+      },
+      "status": {
+        "active": "Active",
+        "achieved": "Achieved",
+        "partially_achieved": "Partially achieved",
+        "not_achieved": "Not achieved",
+        "escalated": "Escalated",
+        "withdrawn": "Withdrawn"
+      },
+      "fields": {
+        "type": "Intervention type",
+        "noType": "No type selected",
+        "continuumLevel": "Continuum level",
+        "reviewCycle": "Review cycle (weeks)",
+        "parentInformed": "Parent informed",
+        "parentConsented": "Parent consent recorded",
+        "parentInput": "Parent input",
+        "studentVoice": "Student voice",
+        "outcomes": "Target outcomes",
+        "outcomeDescription": "Outcome",
+        "outcomeTarget": "Measurement",
+        "actionDescription": "Action",
+        "actionDescriptionPlaceholder": "Describe the operational step to assign.",
+        "actionOwner": "Assign to",
+        "actionOwnerPlaceholder": "Search for a staff member",
+        "actionFrequency": "Frequency",
+        "actionDueDate": "Due date",
+        "progressNote": "Progress note",
+        "progressNotePlaceholder": "Record what changed, what was observed, or what still needs review.",
+        "statusTarget": "Outcome status",
+        "statusTargetPlaceholder": "Choose a closing or escalation outcome",
+        "noStatus": "No status selected",
+        "statusNotes": "Outcome notes",
+        "statusNotesPlaceholder": "Record the evidence supporting this outcome.",
+        "reviewNotes": "Review notes",
+        "reviewNotesPlaceholder": "Record what was reviewed and what should happen next."
+      },
+      "errors": {
+        "generic": "The intervention action could not be completed. Please try again."
+      }
+    },
+    "referrals": {
+      "title": "Referrals",
+      "description": "External referrals with tracked submission, assessment, and recommendations.",
+      "create": "Create referral",
+      "filters": {
+        "status": "Status",
+        "all": "All",
+        "type": "Referral type",
+        "allTypes": "All types",
+        "student": "Student",
+        "studentPlaceholder": "Search for a student"
+      },
+      "columns": {
+        "student": "Student",
+        "type": "Referral",
+        "status": "Status",
+        "submitted": "Submitted"
+      },
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla family support",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "Other external support"
+      },
+      "status": {
+        "draft": "Draft",
+        "submitted": "Submitted",
+        "acknowledged": "Acknowledged",
+        "assessment_scheduled": "Assessment scheduled",
+        "assessment_complete": "Assessment complete",
+        "report_received": "Report received",
+        "recommendations_implemented": "Recommendations implemented",
+        "withdrawn": "Withdrawn"
+      },
+      "noCase": "No linked case",
+      "draftOnly": "Draft only",
+      "empty": "No referrals matched the current filters."
+    },
+    "newReferral": {
+      "title": "Create referral",
+      "description": "Open a real referral draft linked to a student and, where relevant, a pastoral case.",
+      "studentSection": "Student and case",
+      "referralSection": "Referral details",
+      "submitSection": "Save draft",
+      "fields": {
+        "student": "Student",
+        "studentPlaceholder": "Search for a student",
+        "case": "Case",
+        "casePlaceholder": "Choose a case",
+        "noCase": "No linked case",
+        "type": "Referral type",
+        "referralBodyName": "Referral body",
+        "referralBodyNamePlaceholder": "Enter the agency, team, or provider name."
+      },
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla family support",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "Other external support"
+      },
+      "errors": {
+        "student": "Select a student before creating the referral.",
+        "body": "Enter the referral body or agency name.",
+        "generic": "The referral could not be created. Please try again."
+      },
+      "saving": "Saving...",
+      "submit": "Create draft"
+    },
+    "referralDetail": {
+      "title": "Referral · {student}",
+      "description": "Referral type: {type}",
+      "notFound": "Referral not found or not visible to your account.",
+      "openCase": "Open case",
+      "student": "Student",
+      "type": "Referral type",
+      "submitted": "Submitted",
+      "draftOnly": "Draft only",
+      "assessmentDate": "Assessment date",
+      "draftSection": "Referral draft",
+      "draftDescription": "Prepare and amend the operational referral pack while the record is still a draft.",
+      "draftLocked": "This referral is no longer in draft.",
+      "prePopulate": "Pre-populate snapshot",
+      "saveDraft": "Save draft",
+      "recommendationsSection": "Recommendations",
+      "recommendationsDescription": "Track the actions that came back from the external service.",
+      "noRecommendations": "No recommendations have been recorded yet.",
+      "saveRecommendation": "Save update",
+      "createRecommendation": "Create recommendation",
+      "workflowSection": "Workflow",
+      "submitReferral": "Submit referral",
+      "acknowledge": "Acknowledge referral",
+      "scheduleAssessment": "Schedule assessment",
+      "completeAssessment": "Mark assessment complete",
+      "receiveReport": "Record report received",
+      "markComplete": "Mark recommendations implemented",
+      "withdraw": "Withdraw referral",
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla family support",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "Other external support"
+      },
+      "recommendationStatus": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "implemented": "Implemented",
+        "not_applicable": "Not applicable"
+      },
+      "fields": {
+        "referralBodyName": "Referral body",
+        "externalReference": "External reference",
+        "prePopulatedData": "Pre-populated data",
+        "manualAdditions": "Manual additions",
+        "reportSummary": "Report summary",
+        "recommendationStatus": "Recommendation status",
+        "recommendationNote": "Status note",
+        "newRecommendation": "Recommendation",
+        "newRecommendationPlaceholder": "Record the action or adjustment recommended by the provider.",
+        "recommendationOwner": "Assign to",
+        "recommendationOwnerPlaceholder": "Search for a staff member",
+        "recommendationReviewDate": "Review date",
+        "assessmentDate": "Assessment date",
+        "withdrawReason": "Withdrawal reason"
+      },
+      "errors": {
+        "generic": "The referral action could not be completed. Please try again."
+      }
+    },
+    "checkins": {
+      "title": "Check-in monitoring",
+      "description": "Configure the student check-in process, monitor flagged responses, and review aggregate trends.",
+      "configSection": "Monitoring configuration",
+      "configDescription": "Operational settings only. Use this to define when check-ins run and what triggers a review.",
+      "saveConfig": "Save configuration",
+      "refreshFlagged": "Refresh flagged responses",
+      "noFlagged": "No flagged check-ins matched the current view.",
+      "flaggedMeta": "{date} · {reason}",
+      "moodScore": "Mood score {score}",
+      "prerequisitesSection": "Operational prerequisites",
+      "studentHistorySection": "Student history",
+      "noHistory": "Select a student to review recent check-in history.",
+      "analyticsSection": "Aggregate analytics",
+      "trendTitle": "Mood trend",
+      "noTrendData": "No aggregate mood trend data is available for the selected period.",
+      "dayPatternTitle": "Day-of-week pattern",
+      "noPatternData": "No day-of-week pattern data is available for the selected period.",
+      "examTitle": "Exam-period comparison",
+      "refreshAnalytics": "Refresh analytics",
+      "met": "Met",
+      "missing": "Missing",
+      "frequency": {
+        "daily": "Daily",
+        "weekly": "Weekly"
+      },
+      "filters": {
+        "dateFrom": "From",
+        "dateTo": "To",
+        "flagReason": "Flag reason",
+        "all": "All"
+      },
+      "flagReason": {
+        "keyword_match": "Keyword match",
+        "consecutive_low": "Consecutive low mood"
+      },
+      "prerequisites": {
+        "owner": "Monitoring ownership is defined",
+        "hours": "Monitoring hours are defined",
+        "escalation": "Escalation protocol is defined",
+        "acknowledgement": "Prerequisites acknowledged"
+      },
+      "fields": {
+        "enabled": "Enable student check-ins",
+        "frequency": "Frequency",
+        "threshold": "Consecutive low threshold",
+        "hoursStart": "Monitoring opens",
+        "hoursEnd": "Monitoring closes",
+        "keywords": "Flagged keywords",
+        "keywordsPlaceholder": "Separate keywords with commas.",
+        "acknowledged": "Operational prerequisites have been checked and acknowledged",
+        "historyStudent": "Student",
+        "historyStudentPlaceholder": "Search for a student",
+        "examStart": "Exam start",
+        "examEnd": "Exam end"
+      },
+      "days": {
+        "0": "Sunday",
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday"
+      },
+      "exam": {
+        "before": "Before",
+        "during": "During",
+        "after": "After"
+      },
+      "errors": {
+        "load": "The check-in workspace could not be loaded. Please try again.",
+        "generic": "The check-in action could not be completed. Please try again."
+      }
+    },
+    "criticalIncidents": {
+      "title": "Critical incidents",
+      "description": "Operational handling for major events affecting students, staff, or the wider school community.",
+      "declare": "Declare incident",
+      "filters": {
+        "status": "Status",
+        "all": "All statuses",
+        "type": "Incident type",
+        "allTypes": "All types"
+      },
+      "columns": {
+        "incident": "Incident",
+        "status": "Status",
+        "scope": "Scope",
+        "date": "Date"
+      },
+      "types": {
+        "bereavement": "Bereavement",
+        "serious_accident": "Serious accident",
+        "community_trauma": "Community trauma",
+        "other": "Other"
+      },
+      "scope": {
+        "whole_school": "Whole school",
+        "year_group": "Year group",
+        "class": "Class",
+        "individual": "Individual"
+      },
+      "status": {
+        "active": "Active",
+        "monitoring": "Monitoring",
+        "closed": "Closed"
+      },
+      "empty": "No critical incidents matched the current filters."
+    },
+    "newCriticalIncident": {
+      "title": "Declare critical incident",
+      "description": "Open a critical incident record and start structured response planning immediately.",
+      "incidentSection": "Incident record",
+      "scopeSection": "Scope",
+      "submitSection": "Declare incident",
+      "fields": {
+        "type": "Incident type",
+        "date": "Incident date",
+        "otherType": "Other incident type",
+        "otherTypePlaceholder": "Describe the incident type used locally.",
+        "description": "Operational description",
+        "descriptionPlaceholder": "Record the known facts and immediate operating context.",
+        "scope": "Scope"
+      },
+      "types": {
+        "bereavement": "Bereavement",
+        "serious_accident": "Serious accident",
+        "community_trauma": "Community trauma",
+        "other": "Other"
+      },
+      "scope": {
+        "whole_school": "Whole school",
+        "year_group": "Year group",
+        "class": "Class",
+        "individual": "Individual"
+      },
+      "errors": {
+        "date": "Enter the date of the incident.",
+        "description": "Enter a clear incident description.",
+        "otherType": "Describe the incident type when using Other.",
+        "yearGroups": "Select at least one year group for a year-group incident.",
+        "classes": "Select at least one class for a class incident.",
+        "generic": "The incident could not be declared. Please try again."
+      },
+      "saving": "Saving...",
+      "submit": "Declare incident"
+    },
+    "criticalIncidentDetail": {
+      "title": "Critical incident · {type}",
+      "description": "Occurred {date}",
+      "notFound": "Critical incident not found or not visible to your account.",
+      "occurred": "Occurred",
+      "scope": "Scope",
+      "scopeCount": "{count, plural, one {# linked scope} other {# linked scopes}}",
+      "affectedCount": "Affected records",
+      "updated": "Last updated",
+      "recordSection": "Incident record",
+      "recordDescription": "Maintain the factual operational description without turning the record into a risk label.",
+      "saveRecord": "Save incident record",
+      "responsePlanSection": "Response plan",
+      "responsePlanDescription": "Track the immediate and longer-term operational response by phase.",
+      "phaseProgress": "{percentage}% complete",
+      "noPlanItems": "No plan items are recorded for this phase yet.",
+      "completed": "Completed",
+      "pending": "Pending",
+      "assignedTo": "Assigned to {name}",
+      "assignedToId": "Assigned user ID: {id}",
+      "unassigned": "Unassigned",
+      "savePlanItem": "Save item",
+      "markDone": "Mark done",
+      "markPending": "Reopen item",
+      "addPlanItem": "Add plan item",
+      "createPlanItem": "Create plan item",
+      "externalSupportSection": "External support",
+      "externalSupportDescription": "Record external teams, providers, and support visits linked to this incident.",
+      "noExternalSupport": "No external support has been recorded yet.",
+      "visitMeta": "Visit on {date}",
+      "visitPending": "Visit timing not yet recorded",
+      "studentsSeenCount": "{count, plural, one {# student noted} other {# students noted}}",
+      "addExternalSupport": "Record external support",
+      "recordExternalSupport": "Save external support entry",
+      "statusSection": "Status change",
+      "changeStatus": "Change status",
+      "affectedSummarySection": "Affected summary",
+      "affectedSection": "Affected people",
+      "affectedDescription": "Track who was directly or indirectly affected and whether support has been offered.",
+      "noAffectedPeople": "No affected students or staff have been added yet.",
+      "supportOffered": "Support offered",
+      "supportPending": "Support pending",
+      "saveAffected": "Save affected update",
+      "recordSupport": "Record support",
+      "removeAffected": "Remove",
+      "addAffected": "Add affected person",
+      "addAffectedAction": "Add affected person",
+      "operatingContext": "Operating context",
+      "staffFallback": "Staff profile {id}",
+      "supportPrompt": "Record the support that was offered.",
+      "removePrompt": "Explain why this affected person is being removed.",
+      "types": {
+        "bereavement": "Bereavement",
+        "serious_accident": "Serious accident",
+        "community_trauma": "Community trauma",
+        "other": "Other"
+      },
+      "scopeOptions": {
+        "whole_school": "Whole school",
+        "year_group": "Year group",
+        "class": "Class",
+        "individual": "Individual"
+      },
+      "status": {
+        "active": "Active",
+        "monitoring": "Monitoring",
+        "closed": "Closed"
+      },
+      "personType": {
+        "student": "Student",
+        "staff": "Staff"
+      },
+      "impact": {
+        "directly_affected": "Directly affected",
+        "indirectly_affected": "Indirectly affected"
+      },
+      "providerTypes": {
+        "neps_ci_team": "NEPS critical incident team",
+        "external_counsellor": "External counsellor",
+        "other": "Other external support"
+      },
+      "phases": {
+        "immediate": "Immediate",
+        "short_term": "Short term",
+        "medium_term": "Medium term",
+        "long_term": "Long term"
+      },
+      "summary": {
+        "students": "Students",
+        "staff": "Staff",
+        "direct": "Directly affected",
+        "supportPending": "Support pending"
+      },
+      "context": {
+        "visibility": "Use this workspace for operational coordination and factual record-keeping only.",
+        "workflow": "Keep affected lists, support offers, and response-plan progress current so staff can act on the same picture.",
+        "childProtection": "Tier 3 child-protection access rules still apply where related records exist."
+      },
+      "fields": {
+        "description": "Operational description",
+        "statusTarget": "New status",
+        "statusTargetPlaceholder": "Choose the next status",
+        "noStatus": "No status selected",
+        "statusReason": "Reason for change",
+        "statusReasonPlaceholder": "Explain why the incident is moving to this status.",
+        "closureNotes": "Closure notes",
+        "closureNotesPlaceholder": "Record why active management is closing and what remains in monitoring or follow-up.",
+        "planNotes": "Plan notes",
+        "phase": "Phase",
+        "assignee": "Assign to",
+        "assigneePlaceholder": "Search for a staff member",
+        "planLabel": "Plan item",
+        "planLabelPlaceholder": "Describe the action to add to the response plan.",
+        "planDescription": "Plan item description",
+        "planDescriptionPlaceholder": "Optional operating detail for the new plan item.",
+        "providerType": "Provider type",
+        "providerName": "Provider name",
+        "contactPerson": "Contact person",
+        "contactDetails": "Contact details",
+        "visitDate": "Visit date",
+        "visitTimeStart": "Visit starts",
+        "visitTimeEnd": "Visit ends",
+        "studentsSeen": "Students seen",
+        "studentsSeenPlaceholder": "Search for students connected to this support entry",
+        "availabilityNotes": "Availability notes",
+        "outcomeNotes": "Outcome notes",
+        "impactLevel": "Impact level",
+        "notes": "Notes",
+        "notesPlaceholder": "Record factual context about this person in relation to the incident.",
+        "personType": "Person type",
+        "student": "Student",
+        "studentPlaceholder": "Search for a student",
+        "staff": "Staff member",
+        "staffPlaceholder": "Search for a staff member"
+      },
+      "errors": {
+        "generic": "The critical incident action could not be completed. Please try again."
       }
     }
   },

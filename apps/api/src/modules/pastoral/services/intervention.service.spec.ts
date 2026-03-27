@@ -1,9 +1,5 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -58,9 +54,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -355,7 +349,10 @@ describe('InterventionService', () => {
     it('should emit intervention_updated with previous_snapshot and changed_fields', async () => {
       const existing = makeIntervention();
       mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
-      const updated = makeIntervention({ parent_informed: true, student_voice: 'I feel supported' });
+      const updated = makeIntervention({
+        parent_informed: true,
+        student_voice: 'I feel supported',
+      });
       mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
 
       await service.updateIntervention(
@@ -376,6 +373,47 @@ describe('InterventionService', () => {
             }),
             changed_fields: expect.arrayContaining(['parent_informed', 'student_voice']),
           }),
+        }),
+      );
+    });
+  });
+
+  // ─── listInterventions ───────────────────────────────────────────────────
+
+  describe('listInterventions', () => {
+    it('should include student_name and case_number in list results', async () => {
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([
+        {
+          ...makeIntervention(),
+          student: { first_name: 'Sam', last_name: 'Learner' },
+          case: { case_number: 'CASE-202603-0001' },
+        },
+      ]);
+      mockRlsTx.pastoralIntervention.count.mockResolvedValue(1);
+
+      const result = await service.listInterventions(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at',
+        order: 'desc',
+      });
+
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({
+          student_name: 'Sam Learner',
+          case_number: 'CASE-202603-0001',
+        }),
+      );
+      expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: {
+            student: {
+              select: { first_name: true, last_name: true },
+            },
+            case: {
+              select: { case_number: true },
+            },
+          },
         }),
       );
     });
@@ -414,7 +452,10 @@ describe('InterventionService', () => {
     it('should update case next_review_date to today when status is escalated', async () => {
       const existing = makeIntervention();
       mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
-      const updated = makeIntervention({ status: 'escalated', outcome_notes: 'Needs higher support' });
+      const updated = makeIntervention({
+        status: 'escalated',
+        outcome_notes: 'Needs higher support',
+      });
       mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
       mockRlsTx.pastoralCase.update.mockResolvedValue({});
       mockPrisma.pastoralIntervention.findUnique.mockResolvedValue(updated);
@@ -542,12 +583,7 @@ describe('InterventionService', () => {
       });
       mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
 
-      await service.recordReview(
-        TENANT_ID,
-        INTERVENTION_ID,
-        {},
-        ACTOR_USER_ID,
-      );
+      await service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID);
 
       const updateCall = mockRlsTx.pastoralIntervention.update.mock.calls[0][0] as {
         data: { next_review_date: Date };
@@ -569,12 +605,7 @@ describe('InterventionService', () => {
       });
       mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
 
-      await service.recordReview(
-        TENANT_ID,
-        INTERVENTION_ID,
-        {},
-        ACTOR_USER_ID,
-      );
+      await service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID);
 
       expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
         'pastoral:intervention-review-reminder',
@@ -623,12 +654,7 @@ describe('InterventionService', () => {
       const updated = makeIntervention();
       mockRlsTx.pastoralIntervention.update.mockResolvedValue(updated);
 
-      await service.recordReview(
-        TENANT_ID,
-        INTERVENTION_ID,
-        {},
-        ACTOR_USER_ID,
-      );
+      await service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID);
 
       expect(mockRlsTx.pastoralInterventionProgress.create).not.toHaveBeenCalled();
     });
@@ -638,12 +664,7 @@ describe('InterventionService', () => {
       mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue(existing);
 
       await expect(
-        service.recordReview(
-          TENANT_ID,
-          INTERVENTION_ID,
-          {},
-          ACTOR_USER_ID,
-        ),
+        service.recordReview(TENANT_ID, INTERVENTION_ID, {}, ACTOR_USER_ID),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -688,41 +709,41 @@ describe('InterventionService', () => {
     it('should throw ConflictException for achieved status', () => {
       const intervention = makeIntervention({ status: 'achieved' });
 
-      expect(() =>
-        service.assertInterventionEditable(intervention as InterventionRow),
-      ).toThrow(ConflictException);
+      expect(() => service.assertInterventionEditable(intervention as InterventionRow)).toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException for partially_achieved status', () => {
       const intervention = makeIntervention({ status: 'partially_achieved' });
 
-      expect(() =>
-        service.assertInterventionEditable(intervention as InterventionRow),
-      ).toThrow(ConflictException);
+      expect(() => service.assertInterventionEditable(intervention as InterventionRow)).toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException for not_achieved status', () => {
       const intervention = makeIntervention({ status: 'not_achieved' });
 
-      expect(() =>
-        service.assertInterventionEditable(intervention as InterventionRow),
-      ).toThrow(ConflictException);
+      expect(() => service.assertInterventionEditable(intervention as InterventionRow)).toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException for escalated status', () => {
       const intervention = makeIntervention({ status: 'escalated' });
 
-      expect(() =>
-        service.assertInterventionEditable(intervention as InterventionRow),
-      ).toThrow(ConflictException);
+      expect(() => service.assertInterventionEditable(intervention as InterventionRow)).toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw ConflictException for withdrawn status', () => {
       const intervention = makeIntervention({ status: 'withdrawn' });
 
-      expect(() =>
-        service.assertInterventionEditable(intervention as InterventionRow),
-      ).toThrow(ConflictException);
+      expect(() => service.assertInterventionEditable(intervention as InterventionRow)).toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -796,12 +817,7 @@ describe('InterventionService', () => {
         created_at: new Date(),
       });
 
-      await service.addProgressNote(
-        TENANT_ID,
-        INTERVENTION_ID,
-        { note: longNote },
-        ACTOR_USER_ID,
-      );
+      await service.addProgressNote(TENANT_ID, INTERVENTION_ID, { note: longNote }, ACTOR_USER_ID);
 
       expect(mockEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({

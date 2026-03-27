@@ -5126,7 +5126,11 @@
         "overview": "نظرة عامة",
         "concerns": "المخاوف",
         "cases": "القضايا",
-        "sst": "فريق الدعم الطلابي"
+        "interventions": "التدخلات",
+        "referrals": "الإحالات",
+        "sst": "فريق الدعم الطلابي",
+        "checkins": "تسجيلات المتابعة",
+        "criticalIncidents": "الحوادث الحرجة"
       }
     },
     "shared": {
@@ -5156,6 +5160,42 @@
         "monitoring": "قيد المتابعة",
         "resolved": "تمت المعالجة",
         "closed": "مغلقة"
+      },
+      "interventionStatus": {
+        "active": "نشطة",
+        "achieved": "تم تحقيقها",
+        "partially_achieved": "تم تحقيقها جزئياً",
+        "not_achieved": "لم تتحقق",
+        "escalated": "تم تصعيدها",
+        "withdrawn": "تم سحبها"
+      },
+      "actionStatus": {
+        "pending": "معلق",
+        "in_progress": "جارٍ",
+        "completed": "مكتمل",
+        "cancelled": "ملغي",
+        "overdue": "متأخر"
+      },
+      "referralStatus": {
+        "draft": "مسودة",
+        "submitted": "تم الإرسال",
+        "acknowledged": "تم الاستلام",
+        "assessment_scheduled": "تمت جدولة التقييم",
+        "assessment_complete": "اكتمل التقييم",
+        "report_received": "تم استلام التقرير",
+        "recommendations_implemented": "تم تنفيذ التوصيات",
+        "withdrawn": "تم السحب"
+      },
+      "recommendationStatus": {
+        "pending": "معلق",
+        "in_progress": "جارٍ",
+        "implemented": "تم التنفيذ",
+        "not_applicable": "غير منطبق"
+      },
+      "criticalIncidentStatus": {
+        "active": "نشط",
+        "monitoring": "قيد المتابعة",
+        "closed": "مغلق"
       }
     },
     "overview": {
@@ -5580,6 +5620,609 @@
       },
       "errors": {
         "generic": "تعذر إكمال إجراء الاجتماع. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "interventions": {
+      "title": "التدخلات",
+      "description": "خطط دعم عملية مع أهداف واضحة ودورات مراجعة وإجراءات قابلة للمتابعة.",
+      "create": "إنشاء تدخل",
+      "filters": {
+        "status": "الحالة",
+        "all": "الكل",
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب"
+      },
+      "columns": {
+        "student": "الطالب",
+        "interventionType": "التدخل",
+        "status": "الحالة",
+        "review": "المراجعة القادمة",
+        "actions": "التقدم"
+      },
+      "types": {
+        "academic_support": "دعم أكاديمي",
+        "behavioural_support": "دعم سلوكي",
+        "social_emotional": "دعم اجتماعي وانفعالي",
+        "attendance_support": "دعم الحضور",
+        "external_referral": "إحالة خارجية",
+        "reasonable_accommodation": "تكييف مناسب",
+        "safety_plan": "خطة أمان"
+      },
+      "status": {
+        "active": "نشطة",
+        "achieved": "تم تحقيقها",
+        "partially_achieved": "تم تحقيقها جزئياً",
+        "not_achieved": "لم تتحقق",
+        "escalated": "تم تصعيدها",
+        "withdrawn": "تم سحبها"
+      },
+      "notesRecorded": "تم تسجيل ملاحظات",
+      "reviewDate": "المراجعة في {date}",
+      "empty": "لا توجد تدخلات تطابق عوامل التصفية الحالية."
+    },
+    "newIntervention": {
+      "title": "إنشاء تدخل",
+      "description": "افتح خطة دعم عملية مرتبطة بقضية وطالب محددين.",
+      "caseSection": "القضية والطالب",
+      "planSection": "إعداد الخطة",
+      "outcomesSection": "الأهداف المستهدفة",
+      "outcomesDescription": "حدد نتائج ملموسة يمكن مراجعتها لاحقاً.",
+      "engagementSection": "إشراك الأسرة والطالب",
+      "primaryStudent": "الطالب الأساسي",
+      "fields": {
+        "case": "القضية",
+        "casePlaceholder": "اختر قضية",
+        "noCase": "لم يتم اختيار قضية",
+        "student": "الطالب",
+        "studentPlaceholder": "اختر طالباً من القضية",
+        "noStudent": "لم يتم اختيار طالب",
+        "type": "نوع التدخل",
+        "typePlaceholder": "اختر نوع التدخل",
+        "noType": "لم يتم اختيار نوع",
+        "continuumLevel": "مستوى التدخل",
+        "reviewCycle": "دورة المراجعة (بالأسابيع)",
+        "outcomeDescription": "النتيجة",
+        "outcomeDescriptionPlaceholder": "ما التغيير الذي تسعى إليه؟",
+        "outcomeTarget": "كيف سيتم قياسه؟",
+        "outcomeTargetPlaceholder": "صف الدليل أو المؤشر المستهدف.",
+        "parentInformed": "تم إبلاغ ولي الأمر",
+        "parentConsented": "تم تسجيل موافقة ولي الأمر",
+        "parentInput": "مساهمة ولي الأمر",
+        "parentInputPlaceholder": "سجل الملاحظات أو السياق المهم من ولي الأمر.",
+        "studentVoice": "صوت الطالب",
+        "studentVoicePlaceholder": "سجل رأي الطالب بصياغته قدر الإمكان."
+      },
+      "continuum": {
+        "level1": "المستوى 1",
+        "level2": "المستوى 2",
+        "level3": "المستوى 3"
+      },
+      "consent": {
+        "yes": "نعم",
+        "no": "لا"
+      },
+      "addOutcome": "إضافة نتيجة",
+      "errors": {
+        "case": "يرجى اختيار قضية قبل إنشاء التدخل.",
+        "student": "يرجى اختيار طالب من القضية.",
+        "type": "يرجى اختيار نوع التدخل.",
+        "reviewCycle": "يرجى إدخال دورة مراجعة صحيحة.",
+        "outcomes": "أضف نتيجة مستهدفة واحدة كاملة على الأقل.",
+        "generic": "تعذر إنشاء التدخل. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "submit": "إنشاء تدخل"
+    },
+    "interventionDetail": {
+      "title": "تدخل · {student}",
+      "description": "القضية المرتبطة: {caseNumber}",
+      "notFound": "التدخل غير موجود أو غير مرئي لحسابك.",
+      "openCase": "فتح القضية",
+      "student": "الطالب",
+      "interventionType": "نوع التدخل",
+      "nextReview": "المراجعة القادمة",
+      "created": "تاريخ الإنشاء",
+      "planSection": "الخطة",
+      "planDescription": "حدّث خطة الدعم الحالية ما دام التدخل نشطاً.",
+      "readOnly": "لم يعد هذا التدخل قابلاً للتعديل.",
+      "actionsSection": "الإجراءات",
+      "actionsDescription": "خطوات تشغيلية مرتبطة بالخطة.",
+      "noActions": "لم تتم إضافة إجراءات لهذا التدخل بعد.",
+      "actionMeta": "الاستحقاق {due} · {frequency}",
+      "completeAction": "وضع كمكتمل",
+      "progressSection": "التقدم الأخير",
+      "noProgress": "لم يتم تسجيل ملاحظات تقدم بعد.",
+      "statusSection": "إغلاق الخطة أو تصعيدها",
+      "reviewSection": "ملاحظة مراجعة",
+      "savePlan": "حفظ الخطة",
+      "createAction": "إنشاء إجراء",
+      "addProgress": "إضافة ملاحظة تقدم",
+      "changeStatus": "تغيير الحالة",
+      "recordReview": "تسجيل المراجعة",
+      "types": {
+        "academic_support": "دعم أكاديمي",
+        "behavioural_support": "دعم سلوكي",
+        "social_emotional": "دعم اجتماعي وانفعالي",
+        "attendance_support": "دعم الحضور",
+        "external_referral": "إحالة خارجية",
+        "reasonable_accommodation": "تكييف مناسب",
+        "safety_plan": "خطة أمان"
+      },
+      "continuum": {
+        "level1": "المستوى 1",
+        "level2": "المستوى 2",
+        "level3": "المستوى 3"
+      },
+      "consent": {
+        "yes": "نعم",
+        "no": "لا"
+      },
+      "frequency": {
+        "once": "مرة واحدة",
+        "daily": "يومي",
+        "weekly": "أسبوعي",
+        "fortnightly": "كل أسبوعين",
+        "as_needed": "عند الحاجة"
+      },
+      "status": {
+        "active": "نشطة",
+        "achieved": "تم تحقيقها",
+        "partially_achieved": "تم تحقيقها جزئياً",
+        "not_achieved": "لم تتحقق",
+        "escalated": "تم تصعيدها",
+        "withdrawn": "تم سحبها"
+      },
+      "fields": {
+        "type": "نوع التدخل",
+        "noType": "لم يتم اختيار نوع",
+        "continuumLevel": "مستوى التدخل",
+        "reviewCycle": "دورة المراجعة (بالأسابيع)",
+        "parentInformed": "تم إبلاغ ولي الأمر",
+        "parentConsented": "تم تسجيل موافقة ولي الأمر",
+        "parentInput": "مساهمة ولي الأمر",
+        "studentVoice": "صوت الطالب",
+        "outcomes": "الأهداف المستهدفة",
+        "outcomeDescription": "النتيجة",
+        "outcomeTarget": "القياس",
+        "actionDescription": "الإجراء",
+        "actionDescriptionPlaceholder": "صف الخطوة التشغيلية المطلوب إسنادها.",
+        "actionOwner": "إسناد إلى",
+        "actionOwnerPlaceholder": "ابحث عن موظف",
+        "actionFrequency": "التكرار",
+        "actionDueDate": "تاريخ الاستحقاق",
+        "progressNote": "ملاحظة تقدم",
+        "progressNotePlaceholder": "سجل ما تغيّر أو ما لوحظ أو ما يحتاج مراجعة.",
+        "statusTarget": "حالة النتيجة",
+        "statusTargetPlaceholder": "اختر نتيجة الإغلاق أو التصعيد",
+        "noStatus": "لم يتم اختيار حالة",
+        "statusNotes": "ملاحظات النتيجة",
+        "statusNotesPlaceholder": "وثّق الأدلة التي تدعم هذه النتيجة.",
+        "reviewNotes": "ملاحظات المراجعة",
+        "reviewNotesPlaceholder": "سجل ما تمت مراجعته وما الذي يجب أن يحدث لاحقاً."
+      },
+      "errors": {
+        "generic": "تعذر إكمال إجراء التدخل. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "referrals": {
+      "title": "الإحالات",
+      "description": "إحالات خارجية مع تتبع الإرسال والتقييم والتوصيات.",
+      "create": "إنشاء إحالة",
+      "filters": {
+        "status": "الحالة",
+        "all": "الكل",
+        "type": "نوع الإحالة",
+        "allTypes": "جميع الأنواع",
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب"
+      },
+      "columns": {
+        "student": "الطالب",
+        "type": "الإحالة",
+        "status": "الحالة",
+        "submitted": "تاريخ الإرسال"
+      },
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla لدعم الأسرة",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "دعم خارجي آخر"
+      },
+      "status": {
+        "draft": "مسودة",
+        "submitted": "تم الإرسال",
+        "acknowledged": "تم الاستلام",
+        "assessment_scheduled": "تمت جدولة التقييم",
+        "assessment_complete": "اكتمل التقييم",
+        "report_received": "تم استلام التقرير",
+        "recommendations_implemented": "تم تنفيذ التوصيات",
+        "withdrawn": "تم السحب"
+      },
+      "noCase": "لا توجد قضية مرتبطة",
+      "draftOnly": "مسودة فقط",
+      "empty": "لا توجد إحالات تطابق عوامل التصفية الحالية."
+    },
+    "newReferral": {
+      "title": "إنشاء إحالة",
+      "description": "افتح مسودة إحالة فعلية مرتبطة بطالب، وبقضية رعوية عند الحاجة.",
+      "studentSection": "الطالب والقضية",
+      "referralSection": "تفاصيل الإحالة",
+      "submitSection": "حفظ المسودة",
+      "fields": {
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب",
+        "case": "القضية",
+        "casePlaceholder": "اختر قضية",
+        "noCase": "لا توجد قضية مرتبطة",
+        "type": "نوع الإحالة",
+        "referralBodyName": "الجهة المحال إليها",
+        "referralBodyNamePlaceholder": "أدخل اسم الجهة أو الفريق أو المزود."
+      },
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla لدعم الأسرة",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "دعم خارجي آخر"
+      },
+      "errors": {
+        "student": "يرجى اختيار طالب قبل إنشاء الإحالة.",
+        "body": "يرجى إدخال اسم الجهة أو الوكالة.",
+        "generic": "تعذر إنشاء الإحالة. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "submit": "إنشاء مسودة"
+    },
+    "referralDetail": {
+      "title": "إحالة · {student}",
+      "description": "نوع الإحالة: {type}",
+      "notFound": "الإحالة غير موجودة أو غير مرئية لحسابك.",
+      "openCase": "فتح القضية",
+      "student": "الطالب",
+      "type": "نوع الإحالة",
+      "submitted": "تم الإرسال",
+      "draftOnly": "مسودة فقط",
+      "assessmentDate": "تاريخ التقييم",
+      "draftSection": "مسودة الإحالة",
+      "draftDescription": "أعد الحزمة التشغيلية وعدلها ما دام السجل في مرحلة المسودة.",
+      "draftLocked": "لم تعد هذه الإحالة في مرحلة المسودة.",
+      "prePopulate": "تعبئة أولية للملف",
+      "saveDraft": "حفظ المسودة",
+      "recommendationsSection": "التوصيات",
+      "recommendationsDescription": "تابع الإجراءات التي عادت من الجهة الخارجية.",
+      "noRecommendations": "لم يتم تسجيل توصيات بعد.",
+      "saveRecommendation": "حفظ التحديث",
+      "createRecommendation": "إنشاء توصية",
+      "workflowSection": "سير العمل",
+      "submitReferral": "إرسال الإحالة",
+      "acknowledge": "تأكيد الاستلام",
+      "scheduleAssessment": "جدولة التقييم",
+      "completeAssessment": "وضع التقييم كمكتمل",
+      "receiveReport": "تسجيل استلام التقرير",
+      "markComplete": "وضع التوصيات كمنفذة",
+      "withdraw": "سحب الإحالة",
+      "types": {
+        "neps": "NEPS",
+        "camhs": "CAMHS",
+        "tusla_family_support": "Tusla لدعم الأسرة",
+        "jigsaw": "Jigsaw",
+        "pieta_house": "Pieta House",
+        "other_external": "دعم خارجي آخر"
+      },
+      "recommendationStatus": {
+        "pending": "معلق",
+        "in_progress": "جارٍ",
+        "implemented": "تم التنفيذ",
+        "not_applicable": "غير منطبق"
+      },
+      "fields": {
+        "referralBodyName": "الجهة المحال إليها",
+        "externalReference": "مرجع خارجي",
+        "prePopulatedData": "بيانات التعبئة الأولية",
+        "manualAdditions": "إضافات يدوية",
+        "reportSummary": "ملخص التقرير",
+        "recommendationStatus": "حالة التوصية",
+        "recommendationNote": "ملاحظة الحالة",
+        "newRecommendation": "التوصية",
+        "newRecommendationPlaceholder": "سجل الإجراء أو التعديل الذي أوصت به الجهة الخارجية.",
+        "recommendationOwner": "إسناد إلى",
+        "recommendationOwnerPlaceholder": "ابحث عن موظف",
+        "recommendationReviewDate": "تاريخ المراجعة",
+        "assessmentDate": "تاريخ التقييم",
+        "withdrawReason": "سبب السحب"
+      },
+      "errors": {
+        "generic": "تعذر إكمال إجراء الإحالة. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "checkins": {
+      "title": "مراقبة تسجيلات المتابعة",
+      "description": "هيئ عملية تسجيل المتابعة للطلاب، وراجع الردود المعلّمة، واطلع على الاتجاهات المجمعة.",
+      "configSection": "إعدادات المراقبة",
+      "configDescription": "إعدادات تشغيلية فقط. استخدم هذا لتحديد وقت تشغيل تسجيلات المتابعة وما الذي يوجب المراجعة.",
+      "saveConfig": "حفظ الإعدادات",
+      "refreshFlagged": "تحديث الردود المعلّمة",
+      "noFlagged": "لا توجد تسجيلات متابعة معلّمة تطابق هذا العرض.",
+      "flaggedMeta": "{date} · {reason}",
+      "moodScore": "درجة المزاج {score}",
+      "prerequisitesSection": "المتطلبات التشغيلية",
+      "studentHistorySection": "سجل الطالب",
+      "noHistory": "اختر طالباً لمراجعة سجل تسجيلات المتابعة الحديثة.",
+      "analyticsSection": "التحليلات المجمعة",
+      "trendTitle": "اتجاه المزاج",
+      "noTrendData": "لا تتوفر بيانات اتجاه مجمعة للفترة المحددة.",
+      "dayPatternTitle": "نمط أيام الأسبوع",
+      "noPatternData": "لا تتوفر بيانات أنماط أيام الأسبوع للفترة المحددة.",
+      "examTitle": "مقارنة فترة الامتحانات",
+      "refreshAnalytics": "تحديث التحليلات",
+      "met": "متحقق",
+      "missing": "غير متحقق",
+      "frequency": {
+        "daily": "يومي",
+        "weekly": "أسبوعي"
+      },
+      "filters": {
+        "dateFrom": "من",
+        "dateTo": "إلى",
+        "flagReason": "سبب التمييز",
+        "all": "الكل"
+      },
+      "flagReason": {
+        "keyword_match": "مطابقة كلمة مفتاحية",
+        "consecutive_low": "انخفاض متتالٍ في المزاج"
+      },
+      "prerequisites": {
+        "owner": "تم تحديد مسؤول المراقبة",
+        "hours": "تم تحديد ساعات المراقبة",
+        "escalation": "تم تحديد بروتوكول التصعيد",
+        "acknowledgement": "تم تأكيد المتطلبات"
+      },
+      "fields": {
+        "enabled": "تفعيل تسجيلات المتابعة للطلاب",
+        "frequency": "التكرار",
+        "threshold": "حد الانخفاض المتتالي",
+        "hoursStart": "بداية نافذة المراقبة",
+        "hoursEnd": "نهاية نافذة المراقبة",
+        "keywords": "الكلمات المفتاحية المعلّمة",
+        "keywordsPlaceholder": "افصل الكلمات المفتاحية بفواصل.",
+        "acknowledged": "تم التحقق من المتطلبات التشغيلية وتأكيدها",
+        "historyStudent": "الطالب",
+        "historyStudentPlaceholder": "ابحث عن طالب",
+        "examStart": "بداية الامتحانات",
+        "examEnd": "نهاية الامتحانات"
+      },
+      "days": {
+        "0": "الأحد",
+        "1": "الإثنين",
+        "2": "الثلاثاء",
+        "3": "الأربعاء",
+        "4": "الخميس",
+        "5": "الجمعة",
+        "6": "السبت"
+      },
+      "exam": {
+        "before": "قبل",
+        "during": "أثناء",
+        "after": "بعد"
+      },
+      "errors": {
+        "load": "تعذر تحميل مساحة متابعة التسجيلات. يرجى المحاولة مرة أخرى.",
+        "generic": "تعذر إكمال إجراء تسجيل المتابعة. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "criticalIncidents": {
+      "title": "الحوادث الحرجة",
+      "description": "إدارة تشغيلية للأحداث الكبرى التي تؤثر في الطلاب أو الموظفين أو المجتمع المدرسي الأوسع.",
+      "declare": "إعلان حادث",
+      "filters": {
+        "status": "الحالة",
+        "all": "جميع الحالات",
+        "type": "نوع الحادث",
+        "allTypes": "جميع الأنواع"
+      },
+      "columns": {
+        "incident": "الحادث",
+        "status": "الحالة",
+        "scope": "النطاق",
+        "date": "التاريخ"
+      },
+      "types": {
+        "bereavement": "وفاة أو فاجعة",
+        "serious_accident": "حادث خطير",
+        "community_trauma": "صدمة مجتمعية",
+        "other": "أخرى"
+      },
+      "scope": {
+        "whole_school": "المدرسة كاملة",
+        "year_group": "مجموعة صفية",
+        "class": "صف",
+        "individual": "فردي"
+      },
+      "status": {
+        "active": "نشط",
+        "monitoring": "قيد المتابعة",
+        "closed": "مغلق"
+      },
+      "empty": "لا توجد حوادث حرجة تطابق عوامل التصفية الحالية."
+    },
+    "newCriticalIncident": {
+      "title": "إعلان حادث حرج",
+      "description": "افتح سجلاً لحادث حرج وابدأ تخطيط الاستجابة المنظم فوراً.",
+      "incidentSection": "سجل الحادث",
+      "scopeSection": "النطاق",
+      "submitSection": "إعلان الحادث",
+      "fields": {
+        "type": "نوع الحادث",
+        "date": "تاريخ الحادث",
+        "otherType": "نوع حادث آخر",
+        "otherTypePlaceholder": "صف نوع الحادث المستخدم محلياً.",
+        "description": "الوصف التشغيلي",
+        "descriptionPlaceholder": "سجّل الحقائق المعروفة والسياق التشغيلي المباشر.",
+        "scope": "النطاق"
+      },
+      "types": {
+        "bereavement": "وفاة أو فاجعة",
+        "serious_accident": "حادث خطير",
+        "community_trauma": "صدمة مجتمعية",
+        "other": "أخرى"
+      },
+      "scope": {
+        "whole_school": "المدرسة كاملة",
+        "year_group": "مجموعة صفية",
+        "class": "صف",
+        "individual": "فردي"
+      },
+      "errors": {
+        "date": "أدخل تاريخ الحادث.",
+        "description": "أدخل وصفاً واضحاً للحادث.",
+        "otherType": "صف نوع الحادث عند اختيار أخرى.",
+        "yearGroups": "اختر مجموعة صفية واحدة على الأقل عندما يكون النطاق مجموعة صفية.",
+        "classes": "اختر صفاً واحداً على الأقل عندما يكون النطاق صفاً.",
+        "generic": "تعذر إعلان الحادث. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "submit": "إعلان الحادث"
+    },
+    "criticalIncidentDetail": {
+      "title": "حادث حرج · {type}",
+      "description": "وقع في {date}",
+      "notFound": "الحادث الحرج غير موجود أو غير مرئي لحسابك.",
+      "occurred": "تاريخ الوقوع",
+      "scope": "النطاق",
+      "scopeCount": "{count, plural, one {# نطاق مرتبط} other {# نطاقات مرتبطة}}",
+      "affectedCount": "السجلات المتأثرة",
+      "updated": "آخر تحديث",
+      "recordSection": "سجل الحادث",
+      "recordDescription": "حافظ على الوصف التشغيلي الواقعي دون تحويل السجل إلى وسم مخاطر.",
+      "saveRecord": "حفظ سجل الحادث",
+      "responsePlanSection": "خطة الاستجابة",
+      "responsePlanDescription": "تابع الاستجابة التشغيلية عبر المراحل الفورية واللاحقة.",
+      "phaseProgress": "{percentage}% مكتمل",
+      "noPlanItems": "لا توجد عناصر خطة مسجلة لهذه المرحلة بعد.",
+      "completed": "مكتمل",
+      "pending": "معلق",
+      "assignedTo": "مسند إلى {name}",
+      "assignedToId": "معرّف المستخدم المكلّف: {id}",
+      "unassigned": "غير مسند",
+      "savePlanItem": "حفظ العنصر",
+      "markDone": "وضع كمكتمل",
+      "markPending": "إعادة فتح العنصر",
+      "addPlanItem": "إضافة عنصر خطة",
+      "createPlanItem": "إنشاء عنصر خطة",
+      "externalSupportSection": "الدعم الخارجي",
+      "externalSupportDescription": "سجّل الفرق والجهات الخارجية والزيارات المرتبطة بهذا الحادث.",
+      "noExternalSupport": "لم يتم تسجيل دعم خارجي بعد.",
+      "visitMeta": "زيارة في {date}",
+      "visitPending": "لم يتم تسجيل توقيت الزيارة بعد",
+      "studentsSeenCount": "{count, plural, one {# طالب مذكور} other {# طلاب مذكورون}}",
+      "addExternalSupport": "تسجيل دعم خارجي",
+      "recordExternalSupport": "حفظ سجل الدعم الخارجي",
+      "statusSection": "تغيير الحالة",
+      "changeStatus": "تغيير الحالة",
+      "affectedSummarySection": "ملخص المتأثرين",
+      "affectedSection": "الأشخاص المتأثرون",
+      "affectedDescription": "تابع من تأثر بشكل مباشر أو غير مباشر وما إذا تم تقديم الدعم.",
+      "noAffectedPeople": "لم تتم إضافة طلاب أو موظفين متأثرين بعد.",
+      "supportOffered": "تم تقديم الدعم",
+      "supportPending": "الدعم قيد الانتظار",
+      "saveAffected": "حفظ التحديث",
+      "recordSupport": "تسجيل الدعم",
+      "removeAffected": "إزالة",
+      "addAffected": "إضافة شخص متأثر",
+      "addAffectedAction": "إضافة شخص متأثر",
+      "operatingContext": "السياق التشغيلي",
+      "staffFallback": "ملف موظف {id}",
+      "supportPrompt": "سجّل الدعم الذي تم تقديمه.",
+      "removePrompt": "اشرح سبب إزالة هذا الشخص المتأثر.",
+      "types": {
+        "bereavement": "وفاة أو فاجعة",
+        "serious_accident": "حادث خطير",
+        "community_trauma": "صدمة مجتمعية",
+        "other": "أخرى"
+      },
+      "scopeOptions": {
+        "whole_school": "المدرسة كاملة",
+        "year_group": "مجموعة صفية",
+        "class": "صف",
+        "individual": "فردي"
+      },
+      "status": {
+        "active": "نشط",
+        "monitoring": "قيد المتابعة",
+        "closed": "مغلق"
+      },
+      "personType": {
+        "student": "طالب",
+        "staff": "موظف"
+      },
+      "impact": {
+        "directly_affected": "متأثر مباشرة",
+        "indirectly_affected": "متأثر بشكل غير مباشر"
+      },
+      "providerTypes": {
+        "neps_ci_team": "فريق NEPS للحوادث الحرجة",
+        "external_counsellor": "مرشد خارجي",
+        "other": "دعم خارجي آخر"
+      },
+      "phases": {
+        "immediate": "فوري",
+        "short_term": "قصير المدى",
+        "medium_term": "متوسط المدى",
+        "long_term": "طويل المدى"
+      },
+      "summary": {
+        "students": "الطلاب",
+        "staff": "الموظفون",
+        "direct": "المتأثرون مباشرة",
+        "supportPending": "الدعم المنتظر"
+      },
+      "context": {
+        "visibility": "استخدم هذه المساحة للتنسيق التشغيلي وحفظ السجل الواقعي فقط.",
+        "workflow": "أبقِ قوائم المتأثرين وعروض الدعم وتقدم خطة الاستجابة محدثة ليعمل الموظفون على صورة واحدة.",
+        "childProtection": "تظل قواعد الوصول الخاصة بحماية الطفل في المستوى 3 سارية حيثما وُجدت سجلات ذات صلة."
+      },
+      "fields": {
+        "description": "الوصف التشغيلي",
+        "statusTarget": "الحالة الجديدة",
+        "statusTargetPlaceholder": "اختر الحالة التالية",
+        "noStatus": "لم يتم اختيار حالة",
+        "statusReason": "سبب التغيير",
+        "statusReasonPlaceholder": "اشرح لماذا ينتقل الحادث إلى هذه الحالة.",
+        "closureNotes": "ملاحظات الإغلاق",
+        "closureNotesPlaceholder": "سجل سبب إغلاق الإدارة النشطة وما الذي يبقى للمتابعة اللاحقة.",
+        "planNotes": "ملاحظات الخطة",
+        "phase": "المرحلة",
+        "assignee": "إسناد إلى",
+        "assigneePlaceholder": "ابحث عن موظف",
+        "planLabel": "عنصر الخطة",
+        "planLabelPlaceholder": "صف الإجراء الذي سيُضاف إلى خطة الاستجابة.",
+        "planDescription": "وصف عنصر الخطة",
+        "planDescriptionPlaceholder": "تفصيل تشغيلي اختياري لعنصر الخطة الجديد.",
+        "providerType": "نوع الجهة",
+        "providerName": "اسم الجهة",
+        "contactPerson": "الشخص المسؤول",
+        "contactDetails": "بيانات الاتصال",
+        "visitDate": "تاريخ الزيارة",
+        "visitTimeStart": "بداية الزيارة",
+        "visitTimeEnd": "نهاية الزيارة",
+        "studentsSeen": "الطلاب الذين تمت مقابلتهم",
+        "studentsSeenPlaceholder": "ابحث عن طلاب مرتبطين بسجل الدعم هذا",
+        "availabilityNotes": "ملاحظات التوفر",
+        "outcomeNotes": "ملاحظات النتائج",
+        "impactLevel": "مستوى التأثر",
+        "notes": "ملاحظات",
+        "notesPlaceholder": "سجل السياق الواقعي لهذا الشخص بالنسبة إلى الحادث.",
+        "personType": "نوع الشخص",
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب",
+        "staff": "الموظف",
+        "staffPlaceholder": "ابحث عن موظف"
+      },
+      "errors": {
+        "generic": "تعذر إكمال إجراء الحادث الحرج. يرجى المحاولة مرة أخرى."
       }
     }
   },

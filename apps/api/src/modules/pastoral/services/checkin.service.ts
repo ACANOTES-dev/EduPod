@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { pastoralTenantSettingsSchema } from '@school/shared';
 
@@ -37,6 +32,7 @@ export interface MonitoringCheckinResponse extends CheckinResponse {
   flag_reason: string | null;
   auto_concern_id: string | null;
   student_id: string;
+  student_name?: string | null;
 }
 
 export interface FlaggedCheckinFilters {
@@ -128,10 +124,7 @@ export class CheckinService {
         return created;
       } catch (err) {
         // Daily frequency: unique constraint (tenant_id, student_id, checkin_date) handles duplicate
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException({
             code: 'CHECKIN_ALREADY_SUBMITTED',
             message: 'You have already submitted a check-in today',
@@ -303,6 +296,11 @@ export class CheckinService {
           orderBy: { checkin_date: 'desc' },
           skip,
           take: pageSize,
+          include: {
+            student: {
+              select: { first_name: true, last_name: true },
+            },
+          },
         }),
         db.studentCheckin.count({ where }),
       ]);
@@ -316,6 +314,7 @@ export class CheckinService {
         flag_reason: r.flag_reason,
         auto_concern_id: r.auto_concern_id,
         student_id: r.student_id,
+        student_name: r.student ? `${r.student.first_name} ${r.student.last_name}`.trim() : null,
       }));
 
       return { data, meta: { page, pageSize, total } };
@@ -324,10 +323,7 @@ export class CheckinService {
 
   // ─── GET CHECKIN STATUS ─────────────────────────────────────────────────────
 
-  async getCheckinStatus(
-    tenantId: string,
-    studentId: string,
-  ): Promise<CheckinStatusResponse> {
+  async getCheckinStatus(tenantId: string, studentId: string): Promise<CheckinStatusResponse> {
     const settings = await this.loadCheckinSettings(tenantId);
 
     if (!settings.enabled) {
@@ -353,9 +349,7 @@ export class CheckinService {
         orderBy: { checkin_date: 'desc' },
       });
 
-      const lastCheckinDate = lastCheckin
-        ? this.formatDateOnly(lastCheckin.checkin_date)
-        : null;
+      const lastCheckinDate = lastCheckin ? this.formatDateOnly(lastCheckin.checkin_date) : null;
 
       const today = new Date();
       let canSubmitToday = true;

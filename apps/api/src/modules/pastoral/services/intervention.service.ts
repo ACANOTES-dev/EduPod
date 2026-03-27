@@ -36,6 +36,8 @@ export interface InterventionRow {
   tenant_id: string;
   case_id: string;
   student_id: string;
+  student_name?: string | null;
+  case_number?: string | null;
   intervention_type: string;
   continuum_level: number;
   target_outcomes: unknown;
@@ -179,9 +181,7 @@ export class InterventionService {
 
       // 2. Validate intervention_type against tenant settings
       const interventionTypes = await this.loadInterventionTypes(db, tenantId);
-      const activeTypeKeys = interventionTypes
-        .filter((t) => t.active)
-        .map((t) => t.key);
+      const activeTypeKeys = interventionTypes.filter((t) => t.active).map((t) => t.key);
 
       if (!activeTypeKeys.includes(data.intervention_type)) {
         throw new BadRequestException({
@@ -410,25 +410,44 @@ export class InterventionService {
         orderBy: { created_at: 'desc' },
         skip,
         take: pageSize,
+        include: {
+          student: {
+            select: { first_name: true, last_name: true },
+          },
+          case: {
+            select: { case_number: true },
+          },
+        },
       });
 
       const count = await db.pastoralIntervention.count({ where });
 
       return [items, count];
-    })) as [InterventionRow[], number];
+    })) as [
+      Array<
+        InterventionRow & {
+          student: { first_name: string; last_name: string } | null;
+          case: { case_number: string } | null;
+        }
+      >,
+      number,
+    ];
 
     return {
-      data,
+      data: data.map((item) => ({
+        ...item,
+        student_name: item.student
+          ? `${item.student.first_name} ${item.student.last_name}`.trim()
+          : null,
+        case_number: item.case?.case_number ?? null,
+      })),
       meta: { page, pageSize, total },
     };
   }
 
   // ─── LIST FOR CASE ──────────────────────────────────────────────────────────
 
-  async listInterventionsForCase(
-    tenantId: string,
-    caseId: string,
-  ): Promise<InterventionRow[]> {
+  async listInterventionsForCase(tenantId: string, caseId: string): Promise<InterventionRow[]> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return (await rlsClient.$transaction(async (tx) => {
@@ -810,10 +829,7 @@ export class InterventionService {
     return note;
   }
 
-  async listProgressNotes(
-    tenantId: string,
-    interventionId: string,
-  ): Promise<ProgressNoteRow[]> {
+  async listProgressNotes(tenantId: string, interventionId: string): Promise<ProgressNoteRow[]> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return (await rlsClient.$transaction(async (tx) => {
@@ -885,9 +901,7 @@ export class InterventionService {
         },
       );
 
-      this.logger.log(
-        `Enqueued review reminder ${jobId} with delay ${delayMs}ms`,
-      );
+      this.logger.log(`Enqueued review reminder ${jobId} with delay ${delayMs}ms`);
     } catch (error: unknown) {
       this.logger.error(
         `Failed to enqueue review reminder for intervention ${intervention.id}`,
@@ -906,10 +920,7 @@ export class InterventionService {
       });
 
       if (intervention?.next_review_date) {
-        const jobId = buildReviewJobId(
-          interventionId,
-          toDateString(intervention.next_review_date),
-        );
+        const jobId = buildReviewJobId(interventionId, toDateString(intervention.next_review_date));
         const job = await this.notificationsQueue.getJob(jobId);
         if (job) {
           await job.remove();

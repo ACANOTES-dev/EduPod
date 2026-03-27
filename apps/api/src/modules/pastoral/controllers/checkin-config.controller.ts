@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { pastoralTenantSettingsSchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 import { z } from 'zod';
@@ -47,15 +41,29 @@ export class CheckinConfigController {
 
   // ─── 1. Prerequisite Status ─────────────────────────────────────────────
 
+  @Get('pastoral/checkins/config')
+  @RequiresPermission('pastoral.admin')
+  async getConfig(@CurrentTenant() tenant: TenantContext) {
+    const record = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenant.tenant_id },
+    });
+
+    const existingSettings = (record?.settings as Record<string, unknown>) ?? {};
+    const existingPastoral = (existingSettings.pastoral as Record<string, unknown>) ?? {};
+    const parsed = pastoralTenantSettingsSchema.parse(existingPastoral);
+
+    return { data: parsed.checkins };
+  }
+
+  // ─── 2. Prerequisite Status ─────────────────────────────────────────────
+
   @Get('pastoral/checkins/config/prerequisites')
   @RequiresPermission('pastoral.admin')
-  async prerequisites(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async prerequisites(@CurrentTenant() tenant: TenantContext) {
     return this.prerequisiteService.getPrerequisiteStatus(tenant.tenant_id);
   }
 
-  // ─── 2. Update Checkin Config ───────────────────────────────────────────
+  // ─── 3. Update Checkin Config ───────────────────────────────────────────
 
   @Patch('pastoral/checkins/config')
   @RequiresPermission('pastoral.admin')

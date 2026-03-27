@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -201,7 +196,8 @@ export class AffectedTrackingService {
       let skipped = 0;
 
       for (const person of persons) {
-        const prismaImpactLevel = IMPACT_LEVEL_TO_PRISMA[person.impact_level] ?? person.impact_level;
+        const prismaImpactLevel =
+          IMPACT_LEVEL_TO_PRISMA[person.impact_level] ?? person.impact_level;
 
         try {
           await db.criticalIncidentAffected.create({
@@ -219,10 +215,7 @@ export class AffectedTrackingService {
           added++;
         } catch (error: unknown) {
           // P2002 = unique constraint violation (duplicate)
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
             skipped++;
           } else {
             throw error;
@@ -412,7 +405,15 @@ export class AffectedTrackingService {
             select: { id: true, first_name: true, last_name: true },
           },
           staff_profile: {
-            select: { id: true },
+            select: {
+              id: true,
+              user: {
+                select: {
+                  first_name: true,
+                  last_name: true,
+                },
+              },
+            },
           },
         },
         orderBy: { created_at: 'desc' },
@@ -465,10 +466,7 @@ export class AffectedTrackingService {
 
   // ─── HAS ACTIVE WELLBEING FLAG ────────────────────────────────────────────
 
-  async hasActiveWellbeingFlag(
-    tenantId: string,
-    studentId: string,
-  ): Promise<boolean> {
+  async hasActiveWellbeingFlag(tenantId: string, studentId: string): Promise<boolean> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx) => {

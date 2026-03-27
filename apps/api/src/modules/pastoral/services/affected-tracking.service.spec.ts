@@ -5,10 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AffectedTrackingService } from './affected-tracking.service';
-import type {
-  AddAffectedPersonDto,
-  UpdateAffectedPersonDto,
-} from './affected-tracking.service';
+import type { AddAffectedPersonDto, UpdateAffectedPersonDto } from './affected-tracking.service';
 import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -44,9 +41,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -131,12 +126,7 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       };
 
-      const result = await service.addAffectedPerson(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith({
@@ -168,12 +158,7 @@ describe('AffectedTrackingService', () => {
         impact_level: 'indirectly_affected',
       };
 
-      const result = await service.addAffectedPerson(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        dto,
-      );
+      const result = await service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto);
 
       expect(result.data).toBeDefined();
       expect(mockRlsTx.criticalIncidentAffected.create).toHaveBeenCalledWith({
@@ -192,9 +177,9 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       };
 
-      await expect(
-        service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should require staff_id when person_type is staff', async () => {
@@ -203,9 +188,9 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       };
 
-      await expect(
-        service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should record affected_person_added audit event', async () => {
@@ -249,9 +234,9 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       };
 
-      await expect(
-        service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException for non-existent student', async () => {
@@ -265,9 +250,9 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       };
 
-      await expect(
-        service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.addAffectedPerson(TENANT_ID, INCIDENT_ID, USER_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -280,9 +265,7 @@ describe('AffectedTrackingService', () => {
 
       mockRlsTx.criticalIncidentAffected.create
         .mockResolvedValueOnce(makeAffectedPerson({ student_id: STUDENT_ID }))
-        .mockResolvedValueOnce(
-          makeAffectedPerson({ student_id: STUDENT_ID_B }),
-        );
+        .mockResolvedValueOnce(makeAffectedPerson({ student_id: STUDENT_ID_B }));
 
       const persons: AddAffectedPersonDto[] = [
         {
@@ -297,12 +280,7 @@ describe('AffectedTrackingService', () => {
         },
       ];
 
-      const result = await service.bulkAddAffected(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        persons,
-      );
+      const result = await service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, persons);
 
       expect(result.data.added).toBe(2);
       expect(result.data.skipped).toBe(0);
@@ -312,10 +290,10 @@ describe('AffectedTrackingService', () => {
       const incident = makeIncident();
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(incident);
 
-      const p2002Error = new Prisma.PrismaClientKnownRequestError(
-        'Unique constraint failed',
-        { code: 'P2002', clientVersion: '5.0.0' },
-      );
+      const p2002Error = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+      });
 
       mockRlsTx.criticalIncidentAffected.create
         .mockResolvedValueOnce(makeAffectedPerson())
@@ -334,12 +312,7 @@ describe('AffectedTrackingService', () => {
         },
       ];
 
-      const result = await service.bulkAddAffected(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        persons,
-      );
+      const result = await service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, persons);
 
       expect(result.data.added).toBe(1);
       expect(result.data.skipped).toBe(1);
@@ -348,9 +321,9 @@ describe('AffectedTrackingService', () => {
     it('should throw NotFoundException for non-existent incident', async () => {
       mockRlsTx.criticalIncident.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, []),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.bulkAddAffected(TENANT_ID, INCIDENT_ID, USER_ID, [])).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -418,12 +391,9 @@ describe('AffectedTrackingService', () => {
       mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(existing);
       mockRlsTx.criticalIncidentAffected.update.mockResolvedValue(existing);
 
-      await service.updateAffectedPerson(
-        TENANT_ID,
-        AFFECTED_PERSON_ID,
-        USER_ID,
-        { impact_level: 'indirectly_affected' },
-      );
+      await service.updateAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, {
+        impact_level: 'indirectly_affected',
+      });
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -493,12 +463,7 @@ describe('AffectedTrackingService', () => {
       mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.removeAffectedPerson(
-          TENANT_ID,
-          AFFECTED_PERSON_ID,
-          USER_ID,
-          'test',
-        ),
+        service.removeAffectedPerson(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, 'test'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -512,17 +477,12 @@ describe('AffectedTrackingService', () => {
           created_at: new Date('2026-03-15T10:00:00Z'),
         },
       ];
-      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(
-        affectedRecords,
-      );
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(affectedRecords);
 
-      const result = await service.getStudentWellbeingFlags(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.getStudentWellbeingFlags(TENANT_ID, STUDENT_ID);
 
       expect(result.data).toHaveLength(1);
-      const firstFlag = result.data[0] as NonNullable<typeof result.data[0]>;
+      const firstFlag = result.data[0] as NonNullable<(typeof result.data)[0]>;
       expect(firstFlag.student_id).toBe(STUDENT_ID);
       expect(firstFlag.flag_message).toBe(
         'Be aware this student may be affected by a recent event',
@@ -536,17 +496,12 @@ describe('AffectedTrackingService', () => {
       // so closed incidents are excluded automatically
       mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue([]);
 
-      const result = await service.getStudentWellbeingFlags(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.getStudentWellbeingFlags(TENANT_ID, STUDENT_ID);
 
       expect(result.data).toHaveLength(0);
 
       // Verify the query included the incident status filter
-      expect(
-        mockRlsTx.criticalIncidentAffected.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             student_id: STUDENT_ID,
@@ -565,23 +520,16 @@ describe('AffectedTrackingService', () => {
           created_at: new Date('2026-03-15T10:00:00Z'),
         },
       ];
-      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(
-        affectedRecords,
-      );
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(affectedRecords);
 
-      const result = await service.getStudentWellbeingFlags(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.getStudentWellbeingFlags(TENANT_ID, STUDENT_ID);
 
-      const flag = result.data[0] as NonNullable<typeof result.data[0]>;
+      const flag = result.data[0] as NonNullable<(typeof result.data)[0]>;
       // The flag should NOT contain any incident details
       expect(flag).not.toHaveProperty('incident_id');
       expect(flag).not.toHaveProperty('incident_type');
       expect(flag).not.toHaveProperty('description');
-      expect(flag.flag_message).toBe(
-        'Be aware this student may be affected by a recent event',
-      );
+      expect(flag.flag_message).toBe('Be aware this student may be affected by a recent event');
     });
 
     it('should return multiple flags for multiple incidents', async () => {
@@ -589,14 +537,9 @@ describe('AffectedTrackingService', () => {
         { created_at: new Date('2026-03-15T10:00:00Z') },
         { created_at: new Date('2026-03-20T10:00:00Z') },
       ];
-      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(
-        affectedRecords,
-      );
+      mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(affectedRecords);
 
-      const result = await service.getStudentWellbeingFlags(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.getStudentWellbeingFlags(TENANT_ID, STUDENT_ID);
 
       expect(result.data).toHaveLength(2);
     });
@@ -608,10 +551,7 @@ describe('AffectedTrackingService', () => {
     it('should return true when student has active flags', async () => {
       mockRlsTx.criticalIncidentAffected.count.mockResolvedValue(1);
 
-      const result = await service.hasActiveWellbeingFlag(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.hasActiveWellbeingFlag(TENANT_ID, STUDENT_ID);
 
       expect(result).toBe(true);
     });
@@ -619,10 +559,7 @@ describe('AffectedTrackingService', () => {
     it('should return false when no flags', async () => {
       mockRlsTx.criticalIncidentAffected.count.mockResolvedValue(0);
 
-      const result = await service.hasActiveWellbeingFlag(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      const result = await service.hasActiveWellbeingFlag(TENANT_ID, STUDENT_ID);
 
       expect(result).toBe(false);
     });
@@ -681,12 +618,7 @@ describe('AffectedTrackingService', () => {
         support_offered: true,
       });
 
-      await service.recordSupportOffered(
-        TENANT_ID,
-        AFFECTED_PERSON_ID,
-        USER_ID,
-        'Support offered',
-      );
+      await service.recordSupportOffered(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, 'Support offered');
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -703,12 +635,7 @@ describe('AffectedTrackingService', () => {
       mockRlsTx.criticalIncidentAffected.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.recordSupportOffered(
-          TENANT_ID,
-          AFFECTED_PERSON_ID,
-          USER_ID,
-          'Notes',
-        ),
+        service.recordSupportOffered(TENANT_ID, AFFECTED_PERSON_ID, USER_ID, 'Notes'),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -718,17 +645,14 @@ describe('AffectedTrackingService', () => {
   describe('getAffectedSummary', () => {
     it('should return correct counts', async () => {
       mockRlsTx.criticalIncidentAffected.count
-        .mockResolvedValueOnce(8)  // total_students
-        .mockResolvedValueOnce(3)  // total_staff
-        .mockResolvedValueOnce(5)  // directly_affected
-        .mockResolvedValueOnce(6)  // indirectly_affected
-        .mockResolvedValueOnce(4)  // support_offered
+        .mockResolvedValueOnce(8) // total_students
+        .mockResolvedValueOnce(3) // total_staff
+        .mockResolvedValueOnce(5) // directly_affected
+        .mockResolvedValueOnce(6) // indirectly_affected
+        .mockResolvedValueOnce(4) // support_offered
         .mockResolvedValueOnce(7); // support_pending
 
-      const result = await service.getAffectedSummary(
-        TENANT_ID,
-        INCIDENT_ID,
-      );
+      const result = await service.getAffectedSummary(TENANT_ID, INCIDENT_ID);
 
       expect(result.data).toEqual({
         total_students: 8,
@@ -806,27 +730,30 @@ describe('AffectedTrackingService', () => {
       const persons = [
         makeAffectedPerson({
           student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
+          staff_profile: {
+            id: STAFF_ID,
+            user: { first_name: 'Jane', last_name: 'Smith' },
+          },
         }),
       ];
       mockRlsTx.criticalIncidentAffected.findMany.mockResolvedValue(persons);
 
-      const result = await service.listAffectedPersons(
-        TENANT_ID,
-        INCIDENT_ID,
-        {},
-      );
+      const result = await service.listAffectedPersons(TENANT_ID, INCIDENT_ID, {});
 
       expect(result.data).toHaveLength(1);
-      expect(
-        mockRlsTx.criticalIncidentAffected.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             incident_id: INCIDENT_ID,
           }),
           include: expect.objectContaining({
             student: expect.anything(),
-            staff_profile: expect.anything(),
+            staff_profile: expect.objectContaining({
+              select: expect.objectContaining({
+                id: true,
+                user: expect.anything(),
+              }),
+            }),
           }),
         }),
       );
@@ -839,9 +766,7 @@ describe('AffectedTrackingService', () => {
         person_type: 'staff',
       });
 
-      expect(
-        mockRlsTx.criticalIncidentAffected.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             affected_type: 'staff',
@@ -857,9 +782,7 @@ describe('AffectedTrackingService', () => {
         impact_level: 'directly_affected',
       });
 
-      expect(
-        mockRlsTx.criticalIncidentAffected.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             impact_level: 'direct',
@@ -875,9 +798,7 @@ describe('AffectedTrackingService', () => {
         support_offered: false,
       });
 
-      expect(
-        mockRlsTx.criticalIncidentAffected.findMany,
-      ).toHaveBeenCalledWith(
+      expect(mockRlsTx.criticalIncidentAffected.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             support_offered: false,
