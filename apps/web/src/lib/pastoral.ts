@@ -62,7 +62,7 @@ export interface PastoralCaseListItem {
   id: string;
   case_number: string;
   student_id: string;
-  student_name?: string;
+  student_name: string;
   status: string;
   tier: number;
   owner_user_id: string;
@@ -71,6 +71,85 @@ export interface PastoralCaseListItem {
   created_at: string;
   concern_count: number;
   student_count: number;
+}
+
+export interface PastoralCaseDetail extends PastoralCaseListItem {
+  opened_by_user_id: string;
+  opened_by_name: string | null;
+  opened_reason: string;
+  legal_hold: boolean;
+  resolved_at: string | null;
+  closed_at: string | null;
+  updated_at: string;
+  days_open: number;
+  concerns: Array<{
+    id: string;
+    category: string;
+    severity: string;
+    tier: number;
+    created_at: string;
+    latest_narrative: string | null;
+  }>;
+  students: Array<{
+    student_id: string;
+    name: string;
+    added_at: string;
+    is_primary: boolean;
+  }>;
+}
+
+export interface SstMeetingAttendee {
+  user_id: string;
+  name: string;
+  present: boolean | null;
+}
+
+export interface SstAgendaItem {
+  id: string;
+  meeting_id: string;
+  source: string;
+  student_id: string | null;
+  case_id: string | null;
+  concern_id: string | null;
+  description: string;
+  discussion_notes: string | null;
+  decisions: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SstMeetingAction {
+  id: string;
+  meeting_id: string;
+  agenda_item_id: string | null;
+  student_id: string | null;
+  case_id: string | null;
+  description: string;
+  assigned_to_user_id: string;
+  due_date: string;
+  completed_at: string | null;
+  completed_by_user_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SstMeetingListItem {
+  id: string;
+  scheduled_at: string;
+  status: string;
+  attendees: SstMeetingAttendee[] | null;
+  general_notes: string | null;
+  agenda_precomputed_at: string | null;
+  created_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SstMeetingDetail extends SstMeetingListItem {
+  agenda_items: SstAgendaItem[];
+  actions: SstMeetingAction[];
 }
 
 export interface PastoralApiListResponse<T> {
@@ -130,6 +209,16 @@ export const PASTORAL_CASE_STATUSES = [
   'closed',
 ] as const;
 
+export const PASTORAL_CASE_TRANSITIONS: Record<string, string[]> = {
+  open: ['active'],
+  active: ['monitoring', 'resolved'],
+  monitoring: ['active', 'resolved'],
+  resolved: ['closed'],
+  closed: ['open'],
+};
+
+export const SST_MEETING_STATUSES = ['scheduled', 'in_progress', 'completed', 'cancelled'] as const;
+
 export const PASTORAL_EDITABLE_TIERS = [1, 2] as const;
 
 export function getLocaleFromPathname(pathname: string | null): string {
@@ -138,6 +227,13 @@ export function getLocaleFromPathname(pathname: string | null): string {
 
 export function formatPastoralValue(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function normalizeMeetingStatus(value: string): string {
+  if (value === 'sst_in_progress') return 'in_progress';
+  if (value === 'sst_completed') return 'completed';
+  if (value === 'sst_cancelled') return 'cancelled';
+  return value;
 }
 
 export function formatShortId(value: string): string {

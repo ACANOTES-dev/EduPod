@@ -33,9 +33,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -49,6 +47,10 @@ const makeMember = (overrides: Record<string, unknown> = {}): Record<string, unk
   active: true,
   created_at: new Date('2026-03-20T10:00:00Z'),
   updated_at: new Date('2026-03-20T10:00:00Z'),
+  user: {
+    first_name: 'Jane',
+    last_name: 'Doe',
+  },
   ...overrides,
 });
 
@@ -348,14 +350,21 @@ describe('SstService', () => {
       expect(result).toHaveLength(2);
       expect(mockRlsTx.sstMember.findMany).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID },
+        include: {
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
         orderBy: { created_at: 'asc' },
       });
+      expect(result[0]?.user_name).toBeDefined();
     });
 
     it('should list only active members when filter active=true', async () => {
-      const activeMembers = [
-        makeMember({ id: 'member-1', user_id: USER_ID_A, active: true }),
-      ];
+      const activeMembers = [makeMember({ id: 'member-1', user_id: USER_ID_A, active: true })];
       mockRlsTx.sstMember.findMany.mockResolvedValue(activeMembers);
 
       const result = await service.listMembers(TENANT_ID, { active: true });
@@ -363,14 +372,20 @@ describe('SstService', () => {
       expect(result).toHaveLength(1);
       expect(mockRlsTx.sstMember.findMany).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, active: true },
+        include: {
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
         orderBy: { created_at: 'asc' },
       });
     });
 
     it('should list only inactive members when filter active=false', async () => {
-      const inactiveMembers = [
-        makeMember({ id: 'member-2', user_id: USER_ID_B, active: false }),
-      ];
+      const inactiveMembers = [makeMember({ id: 'member-2', user_id: USER_ID_B, active: false })];
       mockRlsTx.sstMember.findMany.mockResolvedValue(inactiveMembers);
 
       const result = await service.listMembers(TENANT_ID, { active: false });
@@ -378,8 +393,38 @@ describe('SstService', () => {
       expect(result).toHaveLength(1);
       expect(mockRlsTx.sstMember.findMany).toHaveBeenCalledWith({
         where: { tenant_id: TENANT_ID, active: false },
+        include: {
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
         orderBy: { created_at: 'asc' },
       });
+    });
+  });
+
+  describe('getActiveMembers', () => {
+    it('should return user ids with resolved names for active members', async () => {
+      const activeMembers = [
+        makeMember({ id: 'member-1', user_id: USER_ID_A, active: true }),
+        makeMember({
+          id: 'member-2',
+          user_id: USER_ID_B,
+          active: true,
+          user: { first_name: 'John', last_name: 'Smith' },
+        }),
+      ];
+      mockRlsTx.sstMember.findMany.mockResolvedValue(activeMembers);
+
+      const result = await service.getActiveMembers(TENANT_ID);
+
+      expect(result).toEqual([
+        { user_id: USER_ID_A, name: 'Jane Doe' },
+        { user_id: USER_ID_B, name: 'John Smith' },
+      ]);
     });
   });
 
@@ -430,9 +475,7 @@ describe('SstService', () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
-      mockPermissionCacheService.getPermissions.mockResolvedValue([
-        'pastoral.view_tier2',
-      ]);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier2']);
 
       const result = await service.ensureTierAccess(TENANT_ID, USER_ID_A);
 
@@ -454,9 +497,7 @@ describe('SstService', () => {
       mockPrisma.tenantMembership.findFirst.mockResolvedValue({
         id: MEMBERSHIP_ID,
       });
-      mockPermissionCacheService.getPermissions.mockResolvedValue([
-        'pastoral.view_tier1',
-      ]);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
 
       const result = await service.ensureTierAccess(TENANT_ID, USER_ID_A);
 

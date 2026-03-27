@@ -1,16 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
-import type {
-  CreateMeetingDto,
-  MeetingAttendeeDto,
-  MeetingFilterDto,
-} from '@school/shared';
+import type { CreateMeetingDto, MeetingAttendeeDto, MeetingFilterDto } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
 import { Queue } from 'bullmq';
 
@@ -125,16 +116,17 @@ export class SstMeetingService {
     data: CreateMeetingDto,
     actorUserId: string,
   ): Promise<SstMeetingRow> {
-    // 1. Get active SST member user IDs for auto-populating attendees
-    const memberUserIds = await this.sstService.getActiveMemberUserIds(tenantId);
+    // 1. Get active SST members for auto-populating attendees
+    const members = await this.sstService.getActiveMembers(tenantId);
 
     // 2. Build attendees JSONB (present: null — to be marked during the meeting)
-    const attendees: Array<{ user_id: string; name: string; present: null }> =
-      memberUserIds.map((userId) => ({
-        user_id: userId,
-        name: userId, // Name will be resolved by the controller/frontend
+    const attendees: Array<{ user_id: string; name: string; present: null }> = members.map(
+      (member) => ({
+        user_id: member.user_id,
+        name: member.name,
         present: null,
-      }));
+      }),
+    );
 
     const scheduledAt = new Date(data.scheduled_at);
 
@@ -182,10 +174,7 @@ export class SstMeetingService {
 
   // ─── GET MEETING ──────────────────────────────────────────────────────────────
 
-  async getMeeting(
-    tenantId: string,
-    meetingId: string,
-  ): Promise<SstMeetingWithDetails> {
+  async getMeeting(tenantId: string, meetingId: string): Promise<SstMeetingWithDetails> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -527,7 +516,10 @@ export class SstMeetingService {
     });
   }
 
-  async listAllActions(tenantId: string, filter: { status?: string; assigned_to_user_id?: string; page?: number; pageSize?: number }) {
+  async listAllActions(
+    tenantId: string,
+    filter: { status?: string; assigned_to_user_id?: string; page?: number; pageSize?: number },
+  ) {
     const page = filter.page ?? 1;
     const pageSize = filter.pageSize ?? 20;
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -537,18 +529,39 @@ export class SstMeetingService {
       if (filter.status) where.status = filter.status;
       if (filter.assigned_to_user_id) where.assigned_to_user_id = filter.assigned_to_user_id;
       const [actions, total] = await Promise.all([
-        db.sstMeetingAction.findMany({ where, skip: (page - 1) * pageSize, take: pageSize, orderBy: { created_at: 'desc' } }),
+        db.sstMeetingAction.findMany({
+          where,
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          orderBy: { created_at: 'desc' },
+        }),
         db.sstMeetingAction.count({ where }),
       ]);
       return { data: actions, meta: { page, pageSize, total } };
     });
   }
 
-  async listMyActions(tenantId: string, userId: string, filter?: { status?: string; page?: number; pageSize?: number }) {
+  async listMyActions(
+    tenantId: string,
+    userId: string,
+    filter?: { status?: string; page?: number; pageSize?: number },
+  ) {
     return this.listAllActions(tenantId, { ...filter, assigned_to_user_id: userId });
   }
 
-  async createAction(tenantId: string, meetingId: string, dto: { agenda_item_id?: string; student_id?: string; case_id?: string; description: string; assigned_to_user_id: string; due_date: string }, actorUserId: string) {
+  async createAction(
+    tenantId: string,
+    meetingId: string,
+    dto: {
+      agenda_item_id?: string;
+      student_id?: string;
+      case_id?: string;
+      description: string;
+      assigned_to_user_id: string;
+      due_date: string;
+    },
+    actorUserId: string,
+  ) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
@@ -566,15 +579,33 @@ export class SstMeetingService {
         },
       });
       void this.eventService.write({
-        tenant_id: tenantId, event_type: 'action_assigned', entity_type: 'meeting',
-        entity_id: meetingId, student_id: dto.student_id ?? null, actor_user_id: actorUserId,
-        tier: 1, payload: { action_id: action.id, source: 'meeting', meeting_id: meetingId, assigned_to_user_id: dto.assigned_to_user_id, description: dto.description, due_date: dto.due_date }, ip_address: null,
+        tenant_id: tenantId,
+        event_type: 'action_assigned',
+        entity_type: 'meeting',
+        entity_id: meetingId,
+        student_id: dto.student_id ?? null,
+        actor_user_id: actorUserId,
+        tier: 1,
+        payload: {
+          action_id: action.id,
+          source: 'meeting',
+          meeting_id: meetingId,
+          assigned_to_user_id: dto.assigned_to_user_id,
+          description: dto.description,
+          due_date: dto.due_date,
+        },
+        ip_address: null,
       });
       return { data: action };
     });
   }
 
-  async updateAction(tenantId: string, actionId: string, dto: { description?: string; status?: string; due_date?: string }, _actorUserId: string) {
+  async updateAction(
+    tenantId: string,
+    actionId: string,
+    dto: { description?: string; status?: string; due_date?: string },
+    _actorUserId: string,
+  ) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
@@ -593,12 +624,22 @@ export class SstMeetingService {
       const db = tx as unknown as PrismaService;
       const action = await db.sstMeetingAction.update({
         where: { id: actionId },
-        data: { status: 'pc_completed' as $Enums.PastoralActionStatus, completed_at: new Date(), completed_by_user_id: actorUserId },
+        data: {
+          status: 'pc_completed' as $Enums.PastoralActionStatus,
+          completed_at: new Date(),
+          completed_by_user_id: actorUserId,
+        },
       });
       void this.eventService.write({
-        tenant_id: tenantId, event_type: 'action_completed', entity_type: 'meeting',
-        entity_id: action.meeting_id, student_id: null, actor_user_id: actorUserId,
-        tier: 1, payload: { action_id: actionId, completed_by_user_id: actorUserId }, ip_address: null,
+        tenant_id: tenantId,
+        event_type: 'action_completed',
+        entity_type: 'meeting',
+        entity_id: action.meeting_id,
+        student_id: null,
+        actor_user_id: actorUserId,
+        tier: 1,
+        payload: { action_id: actionId, completed_by_user_id: actorUserId },
+        ip_address: null,
       });
       return { data: action };
     });

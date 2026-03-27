@@ -45,9 +45,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -83,7 +81,7 @@ const makeMeetingWithDetails = (overrides: Record<string, unknown> = {}) => ({
 describe('SstMeetingService', () => {
   let service: SstMeetingService;
   let mockPastoralEventService: { write: jest.Mock };
-  let mockSstService: { getActiveMemberUserIds: jest.Mock };
+  let mockSstService: { getActiveMembers: jest.Mock; getActiveMemberUserIds: jest.Mock };
   let mockPastoralQueue: { add: jest.Mock };
   let mockPrisma: {
     tenantSetting: { findUnique: jest.Mock };
@@ -95,9 +93,11 @@ describe('SstMeetingService', () => {
     };
 
     mockSstService = {
-      getActiveMemberUserIds: jest
-        .fn()
-        .mockResolvedValue([ACTOR_USER_ID, USER_ID_B]),
+      getActiveMembers: jest.fn().mockResolvedValue([
+        { user_id: ACTOR_USER_ID, name: 'Amina Lead' },
+        { user_id: USER_ID_B, name: 'John Smith' },
+      ]),
+      getActiveMemberUserIds: jest.fn().mockResolvedValue([ACTOR_USER_ID, USER_ID_B]),
     };
 
     mockPastoralQueue = {
@@ -157,15 +157,23 @@ describe('SstMeetingService', () => {
       );
 
       expect(result.id).toBe(MEETING_ID);
-      expect(mockSstService.getActiveMemberUserIds).toHaveBeenCalledWith(TENANT_ID);
+      expect(mockSstService.getActiveMembers).toHaveBeenCalledWith(TENANT_ID);
       expect(mockRlsTx.sstMeeting.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: TENANT_ID,
           status: 'scheduled',
           created_by_user_id: ACTOR_USER_ID,
           attendees: expect.arrayContaining([
-            expect.objectContaining({ user_id: ACTOR_USER_ID, present: null }),
-            expect.objectContaining({ user_id: USER_ID_B, present: null }),
+            expect.objectContaining({
+              user_id: ACTOR_USER_ID,
+              name: 'Amina Lead',
+              present: null,
+            }),
+            expect.objectContaining({
+              user_id: USER_ID_B,
+              name: 'John Smith',
+              present: null,
+            }),
           ]),
         }),
       });
@@ -294,9 +302,9 @@ describe('SstMeetingService', () => {
     it('should throw NotFoundException for non-existent meeting', async () => {
       mockRlsTx.sstMeeting.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.getMeeting(TENANT_ID, 'nonexistent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getMeeting(TENANT_ID, 'nonexistent-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -359,12 +367,8 @@ describe('SstMeetingService', () => {
 
   describe('startMeeting', () => {
     it('should transition scheduled -> in_progress', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'scheduled' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
 
       const result = await service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
@@ -376,12 +380,8 @@ describe('SstMeetingService', () => {
     });
 
     it('should record meeting_status_changed audit event on start', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'scheduled' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
 
       await service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
@@ -403,12 +403,8 @@ describe('SstMeetingService', () => {
 
   describe('completeMeeting', () => {
     it('should transition in_progress -> completed', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
       const result = await service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
@@ -420,12 +416,8 @@ describe('SstMeetingService', () => {
     });
 
     it('should record meeting_status_changed audit event on complete', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
       await service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
@@ -443,12 +435,8 @@ describe('SstMeetingService', () => {
 
   describe('cancelMeeting', () => {
     it('should transition scheduled -> cancelled', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'scheduled' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_cancelled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
 
       const result = await service.cancelMeeting(
         TENANT_ID,
@@ -461,36 +449,19 @@ describe('SstMeetingService', () => {
     });
 
     it('should transition in_progress -> cancelled', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_cancelled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
 
-      const result = await service.cancelMeeting(
-        TENANT_ID,
-        MEETING_ID,
-        ACTOR_USER_ID,
-      );
+      const result = await service.cancelMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID);
 
       expect(result.status).toBe('sst_cancelled');
     });
 
     it('should include reason in audit event payload when cancelling', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'scheduled' }),
-      );
-      mockRlsTx.sstMeeting.update.mockResolvedValue(
-        makeMeeting({ status: 'sst_cancelled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
+      mockRlsTx.sstMeeting.update.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
 
-      await service.cancelMeeting(
-        TENANT_ID,
-        MEETING_ID,
-        ACTOR_USER_ID,
-        'Insufficient attendance',
-      );
+      await service.cancelMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID, 'Insufficient attendance');
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -509,66 +480,54 @@ describe('SstMeetingService', () => {
 
   describe('invalid transitions', () => {
     it('should reject completed -> in_progress (terminal state)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
-      await expect(
-        service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject completed -> cancelled (terminal state)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
-      await expect(
-        service.cancelMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.cancelMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject cancelled -> in_progress (terminal state)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_cancelled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
 
-      await expect(
-        service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject cancelled -> completed (terminal state)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_cancelled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_cancelled' }));
 
-      await expect(
-        service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject scheduled -> completed (must go through in_progress)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'scheduled' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'scheduled' }));
 
-      await expect(
-        service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.completeMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject in_progress -> scheduled (backward transition)', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
 
       // No direct method for transitioning to "scheduled",
       // but calling startMeeting on an in_progress meeting should fail
       // since in_progress -> in_progress is not valid
-      await expect(
-        service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.startMeeting(TENANT_ID, MEETING_ID, ACTOR_USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should throw NotFoundException for transition on non-existent meeting', async () => {
@@ -584,9 +543,7 @@ describe('SstMeetingService', () => {
 
   describe('edit lockout', () => {
     it('should throw ConflictException when updating attendees on completed meeting', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
       await expect(
         service.updateAttendees(
@@ -599,17 +556,10 @@ describe('SstMeetingService', () => {
     });
 
     it('should throw ConflictException when updating general notes on completed meeting', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_completed' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_completed' }));
 
       await expect(
-        service.updateGeneralNotes(
-          TENANT_ID,
-          MEETING_ID,
-          'Updated notes',
-          ACTOR_USER_ID,
-        ),
+        service.updateGeneralNotes(TENANT_ID, MEETING_ID, 'Updated notes', ACTOR_USER_ID),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -683,9 +633,7 @@ describe('SstMeetingService', () => {
 
   describe('updateAttendees', () => {
     it('should update attendees JSONB and write audit event', async () => {
-      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(
-        makeMeeting({ status: 'sst_in_progress' }),
-      );
+      mockRlsTx.sstMeeting.findUnique.mockResolvedValue(makeMeeting({ status: 'sst_in_progress' }));
 
       const updatedAttendees = [
         { user_id: ACTOR_USER_ID, name: 'Actor User', present: true },
@@ -700,12 +648,7 @@ describe('SstMeetingService', () => {
         }),
       );
 
-      await service.updateAttendees(
-        TENANT_ID,
-        MEETING_ID,
-        updatedAttendees,
-        ACTOR_USER_ID,
-      );
+      await service.updateAttendees(TENANT_ID, MEETING_ID, updatedAttendees, ACTOR_USER_ID);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -764,12 +707,7 @@ describe('SstMeetingService', () => {
       mockRlsTx.sstMeeting.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateGeneralNotes(
-          TENANT_ID,
-          'nonexistent-id',
-          'Some notes',
-          ACTOR_USER_ID,
-        ),
+        service.updateGeneralNotes(TENANT_ID, 'nonexistent-id', 'Some notes', ACTOR_USER_ID),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -778,22 +716,30 @@ describe('SstMeetingService', () => {
 
   describe('assertMeetingEditable', () => {
     it('should not throw for scheduled meeting', () => {
-      const meeting = makeMeeting({ status: 'scheduled' }) as Parameters<typeof service.assertMeetingEditable>[0];
+      const meeting = makeMeeting({ status: 'scheduled' }) as Parameters<
+        typeof service.assertMeetingEditable
+      >[0];
       expect(() => service.assertMeetingEditable(meeting)).not.toThrow();
     });
 
     it('should not throw for in_progress meeting', () => {
-      const meeting = makeMeeting({ status: 'sst_in_progress' }) as Parameters<typeof service.assertMeetingEditable>[0];
+      const meeting = makeMeeting({ status: 'sst_in_progress' }) as Parameters<
+        typeof service.assertMeetingEditable
+      >[0];
       expect(() => service.assertMeetingEditable(meeting)).not.toThrow();
     });
 
     it('should throw ConflictException for completed meeting', () => {
-      const meeting = makeMeeting({ status: 'sst_completed' }) as Parameters<typeof service.assertMeetingEditable>[0];
+      const meeting = makeMeeting({ status: 'sst_completed' }) as Parameters<
+        typeof service.assertMeetingEditable
+      >[0];
       expect(() => service.assertMeetingEditable(meeting)).toThrow(ConflictException);
     });
 
     it('should not throw for cancelled meeting (editable for administrative purposes)', () => {
-      const meeting = makeMeeting({ status: 'sst_cancelled' }) as Parameters<typeof service.assertMeetingEditable>[0];
+      const meeting = makeMeeting({ status: 'sst_cancelled' }) as Parameters<
+        typeof service.assertMeetingEditable
+      >[0];
       expect(() => service.assertMeetingEditable(meeting)).not.toThrow();
     });
   });
@@ -804,12 +750,7 @@ describe('SstMeetingService', () => {
     it('should enqueue with correct job name and payload', async () => {
       const scheduledAt = new Date('2026-04-15T10:00:00Z');
 
-      await service.enqueueAgendaPrecompute(
-        TENANT_ID,
-        MEETING_ID,
-        scheduledAt,
-        ACTOR_USER_ID,
-      );
+      await service.enqueueAgendaPrecompute(TENANT_ID, MEETING_ID, scheduledAt, ACTOR_USER_ID);
 
       expect(mockPastoralQueue.add).toHaveBeenCalledWith(
         'pastoral:precompute-agenda',

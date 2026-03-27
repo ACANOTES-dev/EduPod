@@ -5125,7 +5125,9 @@
       "privacyBadge": "Tier 3 child-protection records remain access-controlled and undiscoverable.",
       "tabs": {
         "overview": "Overview",
-        "concerns": "Concerns"
+        "concerns": "Concerns",
+        "cases": "Cases",
+        "sst": "SST"
       }
     },
     "shared": {
@@ -5299,6 +5301,7 @@
       "title": "Concern {id}",
       "description": "{student} · {category}",
       "edit": "Update concern",
+      "openCase": "Open case",
       "notFound": "Concern not found or not visible to your account.",
       "authorMasked": "Author hidden from general viewers",
       "followUpNeeded": "Follow-up needed",
@@ -5373,6 +5376,212 @@
       },
       "saving": "Saving...",
       "save": "Save updates"
+    },
+    "cases": {
+      "title": "Pastoral cases",
+      "description": "Coordinated support processes with ownership, review dates, and linked concerns.",
+      "openCase": "Open case",
+      "filters": {
+        "status": "Status",
+        "all": "All",
+        "student": "Student",
+        "studentPlaceholder": "Search for a student"
+      },
+      "columns": {
+        "caseNumber": "Case",
+        "status": "Status",
+        "tier": "Tier",
+        "owner": "Owner",
+        "scope": "Scope",
+        "reviewDate": "Next review"
+      },
+      "status": {
+        "open": "Open",
+        "active": "Active",
+        "monitoring": "Monitoring",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "scope": "{concerns, plural, one {# concern} other {# concerns}} · {students, plural, one {# student} other {# students}}",
+      "reviewNotSet": "Review not set",
+      "empty": "No pastoral cases matched the current filters."
+    },
+    "newCase": {
+      "title": "Open pastoral case",
+      "description": "Link one or more concerns, assign ownership, and set the initial review rhythm for coordinated support.",
+      "studentsSection": "Students",
+      "concernsSection": "Linked concerns",
+      "workflowSection": "Ownership and review",
+      "fields": {
+        "primaryStudent": "Primary student",
+        "primaryStudentPlaceholder": "Search for the primary student",
+        "additionalStudents": "Additional students",
+        "additionalStudentsPlaceholder": "Search for another student linked to this case",
+        "owner": "Case owner",
+        "ownerPlaceholder": "Search for the staff member who will coordinate this case",
+        "tier": "Tier",
+        "nextReviewDate": "Next review date",
+        "openedReason": "Why is this case being opened?",
+        "openedReasonPlaceholder": "Record the rationale for opening a coordinated case now."
+      },
+      "tier": {
+        "tier1": "Tier 1",
+        "tier2": "Tier 2"
+      },
+      "emptyConcerns": "Choose a primary student to load their unlinked concerns.",
+      "errors": {
+        "student": "Select the primary student for the case.",
+        "owner": "Select the staff member who will own this case.",
+        "concerns": "Link at least one concern before opening the case.",
+        "reason": "Record why this case is being opened.",
+        "generic": "The case could not be opened. Please try again."
+      },
+      "saving": "Saving...",
+      "submit": "Open case"
+    },
+    "caseDetail": {
+      "description": "Primary student: {student}",
+      "notFound": "Case not found or not visible to your account.",
+      "legalHold": "Legal hold",
+      "primaryStudent": "Primary student",
+      "owner": "Case owner",
+      "nextReview": "Next review",
+      "reviewNotSet": "Review not set",
+      "daysOpen": "Days open",
+      "caseSummary": "Case summary",
+      "openedReason": "Opened because",
+      "openedBy": "Opened by",
+      "lastUpdated": "Last updated {date}",
+      "linkedConcerns": "Linked concerns",
+      "linkedConcernsDescription": "Concerns already included in this support process.",
+      "openConcern": "Open concern",
+      "unlinkConcern": "Unlink",
+      "linkConcern": "Link another concern",
+      "linkConcernPlaceholder": "Choose an unlinked concern from a student on this case",
+      "noConcernSelected": "No concern selected",
+      "linkConcernAction": "Link concern",
+      "students": "Students on this case",
+      "primaryStudentFlag": "Primary student",
+      "removeStudent": "Remove",
+      "addStudent": "Add student to case",
+      "addStudentPlaceholder": "Search for a student to add",
+      "addStudentAction": "Add student",
+      "statusSection": "Status transition",
+      "nextStatus": "Next status",
+      "nextStatusPlaceholder": "Choose a valid next step",
+      "noStatusSelected": "No status selected",
+      "statusReason": "Reason for status change",
+      "statusReasonPlaceholder": "Record why the case is moving to the next state.",
+      "changeStatus": "Change status",
+      "ownerTransfer": "Transfer ownership",
+      "newOwner": "New owner",
+      "newOwnerPlaceholder": "Search for the next case owner",
+      "ownerTransferReason": "Reason for transfer",
+      "ownerTransferReasonPlaceholder": "Explain why ownership is changing.",
+      "transferOwner": "Transfer owner",
+      "status": {
+        "open": "Open",
+        "active": "Active",
+        "monitoring": "Monitoring",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "errors": {
+        "generic": "The case action could not be completed. Please try again."
+      }
+    },
+    "sst": {
+      "title": "SST meetings",
+      "description": "Schedule student support team meetings, keep agendas current, and move agreed actions into tracking.",
+      "filters": {
+        "status": "Status",
+        "all": "All"
+      },
+      "scheduleMeeting": "Schedule meeting",
+      "creating": "Creating...",
+      "createMeeting": "Create meeting",
+      "columns": {
+        "scheduledAt": "Scheduled",
+        "status": "Status",
+        "attendees": "Attendees",
+        "precomputed": "Agenda precomputed"
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "notPrecomputed": "Not precomputed",
+      "errors": {
+        "generic": "The meeting could not be created. Please try again."
+      }
+    },
+    "sstDetail": {
+      "title": "SST meeting · {date}",
+      "description": "Meeting status: {status}",
+      "notFound": "Meeting not found or not visible to your account.",
+      "refreshAgenda": "Refresh agenda",
+      "startMeeting": "Start meeting",
+      "completeMeeting": "Complete meeting",
+      "statusLabel": "Status",
+      "attendees": "Attendees",
+      "agendaPrecomputed": "Agenda precomputed",
+      "notPrecomputed": "Not precomputed",
+      "agendaTitle": "Agenda",
+      "agendaDescription": "Auto-generated and manual agenda items for the meeting.",
+      "emptyAgenda": "No agenda items are available yet.",
+      "actionsTitle": "Meeting actions",
+      "emptyActions": "No meeting actions have been created yet.",
+      "actionMeta": "Due {due} · {status}",
+      "completeAction": "Mark complete",
+      "manualAgendaTitle": "Add manual agenda item",
+      "manualAgendaDescription": "Agenda description",
+      "manualAgendaPlaceholder": "Describe the student, case, or operational matter to discuss.",
+      "manualAgendaStudent": "Linked student",
+      "manualAgendaStudentPlaceholder": "Search for a student (optional)",
+      "addAgendaItem": "Add agenda item",
+      "meetingActionsTitle": "Create meeting action",
+      "meetingActionDescription": "Action description",
+      "meetingActionPlaceholder": "What needs to happen after the meeting?",
+      "meetingActionOwner": "Assign to",
+      "meetingActionOwnerPlaceholder": "Search for a staff member",
+      "meetingActionAgendaItem": "Agenda item",
+      "meetingActionAgendaItemPlaceholder": "Optionally link to an agenda item",
+      "meetingActionNoAgendaItem": "No agenda item",
+      "meetingActionDueDate": "Due date",
+      "createAction": "Create action",
+      "notesTitle": "General notes",
+      "notesPlaceholder": "Record whole-meeting notes, reminders, and follow-up context.",
+      "saveNotes": "Save notes",
+      "discussionNotes": "Discussion notes",
+      "decisions": "Decisions",
+      "saveAgendaItem": "Save agenda item",
+      "agendaSource": {
+        "auto_new_concern": "New concern",
+        "auto_case_review": "Case review",
+        "auto_overdue_action": "Overdue action",
+        "auto_early_warning": "Early warning review",
+        "auto_neps": "NEPS",
+        "auto_intervention_review": "Intervention review",
+        "manual": "Manual item"
+      },
+      "actionStatus": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "overdue": "Overdue"
+      },
+      "status": {
+        "scheduled": "Scheduled",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "errors": {
+        "generic": "The meeting action could not be completed. Please try again."
+      }
     }
   },
   "behaviourSettings": {

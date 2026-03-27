@@ -5124,7 +5124,9 @@
       "privacyBadge": "تبقى سجلات حماية الطفل من المستوى الثالث مقيّدة الوصول وغير قابلة للاكتشاف.",
       "tabs": {
         "overview": "نظرة عامة",
-        "concerns": "المخاوف"
+        "concerns": "المخاوف",
+        "cases": "القضايا",
+        "sst": "فريق الدعم الطلابي"
       }
     },
     "shared": {
@@ -5298,6 +5300,7 @@
       "title": "المخاوف {id}",
       "description": "{student} · {category}",
       "edit": "تحديث المخاوف",
+      "openCase": "فتح قضية",
       "notFound": "المخاوف غير موجودة أو غير مرئية لحسابك.",
       "authorMasked": "هوية الكاتب مخفية عن المشاهدين العامين",
       "followUpNeeded": "تحتاج متابعة",
@@ -5372,6 +5375,212 @@
       },
       "saving": "جارٍ الحفظ...",
       "save": "حفظ التحديثات"
+    },
+    "cases": {
+      "title": "القضايا الرعوية",
+      "description": "مسارات دعم منسقة مع مالك للقضية ومواعيد مراجعة ومخاوف مرتبطة.",
+      "openCase": "فتح قضية",
+      "filters": {
+        "status": "الحالة",
+        "all": "الكل",
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب"
+      },
+      "columns": {
+        "caseNumber": "القضية",
+        "status": "الحالة",
+        "tier": "المستوى",
+        "owner": "المالك",
+        "scope": "النطاق",
+        "reviewDate": "المراجعة القادمة"
+      },
+      "status": {
+        "open": "مفتوحة",
+        "active": "نشطة",
+        "monitoring": "قيد المتابعة",
+        "resolved": "تمت المعالجة",
+        "closed": "مغلقة"
+      },
+      "scope": "{concerns, plural, one {# مخاوف} other {# مخاوف}} · {students, plural, one {# طالب} other {# طلاب}}",
+      "reviewNotSet": "لم يُحدد موعد مراجعة",
+      "empty": "لا توجد قضايا رعوية تطابق عوامل التصفية الحالية."
+    },
+    "newCase": {
+      "title": "فتح قضية رعوية",
+      "description": "اربط مخاوف واحدة أو أكثر، وحدد مالك القضية، واضبط إيقاع المراجعة الأولي للدعم المنسق.",
+      "studentsSection": "الطلاب",
+      "concernsSection": "المخاوف المرتبطة",
+      "workflowSection": "الملكية والمراجعة",
+      "fields": {
+        "primaryStudent": "الطالب الأساسي",
+        "primaryStudentPlaceholder": "ابحث عن الطالب الأساسي",
+        "additionalStudents": "طلاب إضافيون",
+        "additionalStudentsPlaceholder": "ابحث عن طالب آخر مرتبط بهذه القضية",
+        "owner": "مالك القضية",
+        "ownerPlaceholder": "ابحث عن الموظف الذي سيتولى تنسيق القضية",
+        "tier": "المستوى",
+        "nextReviewDate": "تاريخ المراجعة القادمة",
+        "openedReason": "لماذا تُفتح هذه القضية؟",
+        "openedReasonPlaceholder": "وثّق سبب فتح قضية دعم منسقة في هذا الوقت."
+      },
+      "tier": {
+        "tier1": "المستوى 1",
+        "tier2": "المستوى 2"
+      },
+      "emptyConcerns": "اختر الطالب الأساسي لتحميل المخاوف غير المرتبطة لديه.",
+      "errors": {
+        "student": "يرجى اختيار الطالب الأساسي للقضية.",
+        "owner": "يرجى اختيار الموظف الذي سيتولى هذه القضية.",
+        "concerns": "اربط مخاوف واحدة على الأقل قبل فتح القضية.",
+        "reason": "وثّق سبب فتح هذه القضية.",
+        "generic": "تعذر فتح القضية. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "submit": "فتح القضية"
+    },
+    "caseDetail": {
+      "description": "الطالب الأساسي: {student}",
+      "notFound": "القضية غير موجودة أو غير مرئية لحسابك.",
+      "legalHold": "إيقاف قانوني",
+      "primaryStudent": "الطالب الأساسي",
+      "owner": "مالك القضية",
+      "nextReview": "المراجعة القادمة",
+      "reviewNotSet": "لم يُحدد موعد مراجعة",
+      "daysOpen": "أيام الفتح",
+      "caseSummary": "ملخص القضية",
+      "openedReason": "سبب الفتح",
+      "openedBy": "فُتحت بواسطة",
+      "lastUpdated": "آخر تحديث {date}",
+      "linkedConcerns": "المخاوف المرتبطة",
+      "linkedConcernsDescription": "المخاوف المدرجة بالفعل ضمن مسار الدعم هذا.",
+      "openConcern": "فتح المخاوف",
+      "unlinkConcern": "فصل",
+      "linkConcern": "ربط مخاوف أخرى",
+      "linkConcernPlaceholder": "اختر مخاوف غير مرتبطة من طالب ضمن هذه القضية",
+      "noConcernSelected": "لم يتم اختيار مخاوف",
+      "linkConcernAction": "ربط المخاوف",
+      "students": "الطلاب في هذه القضية",
+      "primaryStudentFlag": "الطالب الأساسي",
+      "removeStudent": "إزالة",
+      "addStudent": "إضافة طالب إلى القضية",
+      "addStudentPlaceholder": "ابحث عن طالب لإضافته",
+      "addStudentAction": "إضافة طالب",
+      "statusSection": "تغيير الحالة",
+      "nextStatus": "الحالة التالية",
+      "nextStatusPlaceholder": "اختر الخطوة التالية المسموح بها",
+      "noStatusSelected": "لم يتم اختيار حالة",
+      "statusReason": "سبب تغيير الحالة",
+      "statusReasonPlaceholder": "وثّق سبب انتقال القضية إلى الحالة التالية.",
+      "changeStatus": "تغيير الحالة",
+      "ownerTransfer": "نقل الملكية",
+      "newOwner": "المالك الجديد",
+      "newOwnerPlaceholder": "ابحث عن مالك القضية التالي",
+      "ownerTransferReason": "سبب النقل",
+      "ownerTransferReasonPlaceholder": "اشرح سبب تغيير الملكية.",
+      "transferOwner": "نقل المالك",
+      "status": {
+        "open": "مفتوحة",
+        "active": "نشطة",
+        "monitoring": "قيد المتابعة",
+        "resolved": "تمت المعالجة",
+        "closed": "مغلقة"
+      },
+      "errors": {
+        "generic": "تعذر إكمال إجراء القضية. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "sst": {
+      "title": "اجتماعات فريق الدعم الطلابي",
+      "description": "جدولة اجتماعات فريق الدعم، وإبقاء الأجندة محدثة، وتحويل القرارات إلى إجراءات قابلة للمتابعة.",
+      "filters": {
+        "status": "الحالة",
+        "all": "الكل"
+      },
+      "scheduleMeeting": "جدولة اجتماع",
+      "creating": "جارٍ الإنشاء...",
+      "createMeeting": "إنشاء اجتماع",
+      "columns": {
+        "scheduledAt": "الموعد",
+        "status": "الحالة",
+        "attendees": "الحضور",
+        "precomputed": "الأجندة المحسوبة مسبقاً"
+      },
+      "status": {
+        "scheduled": "مجدول",
+        "in_progress": "جارٍ",
+        "completed": "مكتمل",
+        "cancelled": "ملغي"
+      },
+      "notPrecomputed": "غير محسوبة مسبقاً",
+      "errors": {
+        "generic": "تعذر إنشاء الاجتماع. يرجى المحاولة مرة أخرى."
+      }
+    },
+    "sstDetail": {
+      "title": "اجتماع فريق الدعم · {date}",
+      "description": "حالة الاجتماع: {status}",
+      "notFound": "الاجتماع غير موجود أو غير مرئي لحسابك.",
+      "refreshAgenda": "تحديث الأجندة",
+      "startMeeting": "بدء الاجتماع",
+      "completeMeeting": "إنهاء الاجتماع",
+      "statusLabel": "الحالة",
+      "attendees": "الحضور",
+      "agendaPrecomputed": "الأجندة المحسوبة مسبقاً",
+      "notPrecomputed": "غير محسوبة مسبقاً",
+      "agendaTitle": "الأجندة",
+      "agendaDescription": "عناصر الأجندة المولدة تلقائياً والمضافة يدوياً للاجتماع.",
+      "emptyAgenda": "لا توجد عناصر أجندة بعد.",
+      "actionsTitle": "إجراءات الاجتماع",
+      "emptyActions": "لم تُنشأ إجراءات لهذا الاجتماع بعد.",
+      "actionMeta": "الاستحقاق {due} · {status}",
+      "completeAction": "وضع كمكتمل",
+      "manualAgendaTitle": "إضافة عنصر أجندة يدوي",
+      "manualAgendaDescription": "وصف عنصر الأجندة",
+      "manualAgendaPlaceholder": "صف الطالب أو القضية أو الموضوع التشغيلي الذي يجب مناقشته.",
+      "manualAgendaStudent": "طالب مرتبط",
+      "manualAgendaStudentPlaceholder": "ابحث عن طالب (اختياري)",
+      "addAgendaItem": "إضافة عنصر أجندة",
+      "meetingActionsTitle": "إنشاء إجراء للاجتماع",
+      "meetingActionDescription": "وصف الإجراء",
+      "meetingActionPlaceholder": "ما الذي يجب أن يحدث بعد الاجتماع؟",
+      "meetingActionOwner": "إسناد إلى",
+      "meetingActionOwnerPlaceholder": "ابحث عن موظف",
+      "meetingActionAgendaItem": "عنصر الأجندة",
+      "meetingActionAgendaItemPlaceholder": "اربطه بعنصر أجندة إن لزم",
+      "meetingActionNoAgendaItem": "من دون عنصر أجندة",
+      "meetingActionDueDate": "تاريخ الاستحقاق",
+      "createAction": "إنشاء إجراء",
+      "notesTitle": "ملاحظات عامة",
+      "notesPlaceholder": "سجّل ملاحظات الاجتماع العامة والتذكيرات وسياق المتابعة.",
+      "saveNotes": "حفظ الملاحظات",
+      "discussionNotes": "ملاحظات النقاش",
+      "decisions": "القرارات",
+      "saveAgendaItem": "حفظ عنصر الأجندة",
+      "agendaSource": {
+        "auto_new_concern": "مخاوف جديدة",
+        "auto_case_review": "مراجعة قضية",
+        "auto_overdue_action": "إجراء متأخر",
+        "auto_early_warning": "مراجعة إنذار مبكر",
+        "auto_neps": "NEPS",
+        "auto_intervention_review": "مراجعة تدخل",
+        "manual": "عنصر يدوي"
+      },
+      "actionStatus": {
+        "pending": "معلق",
+        "in_progress": "جارٍ",
+        "completed": "مكتمل",
+        "cancelled": "ملغي",
+        "overdue": "متأخر"
+      },
+      "status": {
+        "scheduled": "مجدول",
+        "in_progress": "جارٍ",
+        "completed": "مكتمل",
+        "cancelled": "ملغي"
+      },
+      "errors": {
+        "generic": "تعذر إكمال إجراء الاجتماع. يرجى المحاولة مرة أخرى."
+      }
     }
   },
   "behaviourSettings": {

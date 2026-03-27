@@ -122,12 +122,19 @@ export default function PastoralConcernDetailPage() {
           category: formatPastoralValue(concern.category),
         })}
         actions={
-          <Link href={`/${locale}/pastoral/concerns/${concern.id}/edit`}>
-            <Button>
-              <Edit3 className="me-2 h-4 w-4" />
-              {t('edit')}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {!concern.case_id ? (
+              <Link href={`/${locale}/pastoral/cases/new?concernId=${concern.id}`}>
+                <Button variant="outline">{t('openCase')}</Button>
+              </Link>
+            ) : null}
+            <Link href={`/${locale}/pastoral/concerns/${concern.id}/edit`}>
+              <Button>
+                <Edit3 className="me-2 h-4 w-4" />
+                {t('edit')}
+              </Button>
+            </Link>
+          </div>
         }
       />
 

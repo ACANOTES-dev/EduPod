@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { AddSstMemberDto, UpdateSstMemberDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -22,6 +17,8 @@ export interface SstMemberRow {
   active: boolean;
   created_at: Date;
   updated_at: Date;
+  user?: { first_name: string; last_name: string } | null;
+  user_name?: string | null;
 }
 
 export interface TierAccessResult {
@@ -184,11 +181,7 @@ export class SstService {
 
   // ─── REMOVE MEMBER ───────────────────────────────────────────────────────────
 
-  async removeMember(
-    tenantId: string,
-    memberId: string,
-    actorUserId: string,
-  ): Promise<void> {
+  async removeMember(tenantId: string, memberId: string, actorUserId: string): Promise<void> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -236,10 +229,7 @@ export class SstService {
 
   // ─── LIST MEMBERS ────────────────────────────────────────────────────────────
 
-  async listMembers(
-    tenantId: string,
-    filter?: { active?: boolean },
-  ): Promise<SstMemberRow[]> {
+  async listMembers(tenantId: string, filter?: { active?: boolean }): Promise<SstMemberRow[]> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -255,26 +245,45 @@ export class SstService {
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      return db.sstMember.findMany({
+      const members = await db.sstMember.findMany({
         where,
+        include: {
+          user: {
+            select: {
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
         orderBy: { created_at: 'asc' },
       });
+
+      return (members as SstMemberRow[]).map((member) => ({
+        ...member,
+        user_name: member.user ? `${member.user.first_name} ${member.user.last_name}` : null,
+      }));
     }) as Promise<SstMemberRow[]>;
   }
 
   // ─── GET ACTIVE MEMBER USER IDS ─────────────────────────────────────────────
 
-  async getActiveMemberUserIds(tenantId: string): Promise<string[]> {
+  async getActiveMembers(tenantId: string): Promise<Array<{ user_id: string; name: string }>> {
     const members = await this.listMembers(tenantId, { active: true });
-    return members.map((m) => m.user_id);
+
+    return members.map((member) => ({
+      user_id: member.user_id,
+      name: member.user_name ?? member.user_id,
+    }));
+  }
+
+  async getActiveMemberUserIds(tenantId: string): Promise<string[]> {
+    const members = await this.getActiveMembers(tenantId);
+    return members.map((member) => member.user_id);
   }
 
   // ─── ENSURE TIER ACCESS ──────────────────────────────────────────────────────
 
-  async ensureTierAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<TierAccessResult> {
+  async ensureTierAccess(tenantId: string, userId: string): Promise<TierAccessResult> {
     // Find the user's membership for this tenant
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
@@ -285,9 +294,7 @@ export class SstService {
     });
 
     if (!membership) {
-      this.logger.warn(
-        `SST member user_id=${userId} has no membership in tenant_id=${tenantId}`,
-      );
+      this.logger.warn(`SST member user_id=${userId} has no membership in tenant_id=${tenantId}`);
 
       // Log warning event
       void this.eventService.write({
@@ -309,9 +316,7 @@ export class SstService {
       return { hasTier1: false, hasTier2: false };
     }
 
-    const permissions = await this.permissionCacheService.getPermissions(
-      membership.id,
-    );
+    const permissions = await this.permissionCacheService.getPermissions(membership.id);
 
     const hasTier1 = permissions.includes('pastoral.view_tier1');
     const hasTier2 = permissions.includes('pastoral.view_tier2');
@@ -321,9 +326,7 @@ export class SstService {
       if (!hasTier1) missing.push('pastoral.view_tier1');
       if (!hasTier2) missing.push('pastoral.view_tier2');
 
-      this.logger.warn(
-        `SST member user_id=${userId} missing permissions: ${missing.join(', ')}`,
-      );
+      this.logger.warn(`SST member user_id=${userId} missing permissions: ${missing.join(', ')}`);
 
       // Log warning event
       void this.eventService.write({

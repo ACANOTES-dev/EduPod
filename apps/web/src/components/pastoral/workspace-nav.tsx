@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge } from '@school/ui';
-import { Heart, LayoutGrid, NotebookPen } from 'lucide-react';
+import { ClipboardList, Heart, LayoutGrid, NotebookPen, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -18,6 +18,16 @@ const ITEMS = [
     href: '/pastoral/concerns',
     labelKey: 'concerns',
     icon: NotebookPen,
+  },
+  {
+    href: '/pastoral/cases',
+    labelKey: 'cases',
+    icon: ClipboardList,
+  },
+  {
+    href: '/pastoral/sst',
+    labelKey: 'sst',
+    icon: Users,
   },
 ] as const;
 

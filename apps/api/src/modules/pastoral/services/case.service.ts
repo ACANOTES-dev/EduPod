@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import type {
   AddStudentToCaseDto,
@@ -73,6 +69,7 @@ export interface CaseListItemDto {
   id: string;
   case_number: string;
   student_id: string;
+  student_name: string;
   status: string;
   tier: number;
   owner_user_id: string;
@@ -149,11 +146,7 @@ export class CaseService {
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
 
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateCaseDto,
-  ): Promise<{ data: CaseRow }> {
+  async create(tenantId: string, userId: string, dto: CreateCaseDto): Promise<{ data: CaseRow }> {
     if (dto.concern_ids.length < 1) {
       throw new BadRequestException({
         code: 'MIN_ONE_CONCERN',
@@ -199,12 +192,7 @@ export class CaseService {
       const effectiveTier = Math.max(dto.tier ?? 1, maxConcernTier);
 
       // 3. Generate case number via SequenceService
-      const caseNumber = await this.sequenceService.nextNumber(
-        tenantId,
-        'pastoral_case',
-        tx,
-        'PC',
-      );
+      const caseNumber = await this.sequenceService.nextNumber(tenantId, 'pastoral_case', tx, 'PC');
 
       // 4. Create case record
       const caseRecord = await db.pastoralCase.create({
@@ -216,9 +204,7 @@ export class CaseService {
           owner_user_id: dto.owner_user_id,
           opened_by_user_id: userId,
           opened_reason: dto.opened_reason,
-          next_review_date: dto.next_review_date
-            ? new Date(dto.next_review_date)
-            : null,
+          next_review_date: dto.next_review_date ? new Date(dto.next_review_date) : null,
           tier: effectiveTier,
         },
       });
@@ -339,6 +325,7 @@ export class CaseService {
         db.pastoralCase.findMany({
           where,
           include: {
+            student: { select: { id: true, first_name: true, last_name: true } },
             owner: { select: { first_name: true, last_name: true } },
             concerns: { select: { id: true } },
             case_students: { select: { student_id: true } },
@@ -445,9 +432,7 @@ export class CaseService {
       const updateData: Prisma.PastoralCaseUpdateInput = {};
 
       if (dto.next_review_date !== undefined) {
-        updateData.next_review_date = dto.next_review_date
-          ? new Date(dto.next_review_date)
-          : null;
+        updateData.next_review_date = dto.next_review_date ? new Date(dto.next_review_date) : null;
       }
       if (dto.tier !== undefined) {
         updateData.tier = dto.tier;
@@ -640,7 +625,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    const eventContext = await rlsClient.$transaction(async (tx) => {
+    const eventContext = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -691,7 +676,7 @@ export class CaseService {
         student_id: concern.student_id,
         tier: Math.max(caseRecord.tier, concern.tier, recalculatedTier),
       };
-    }) as { student_id: string; tier: number } | null;
+    })) as { student_id: string; tier: number } | null;
 
     if (!eventContext) {
       return;
@@ -727,7 +712,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    const eventContext = await rlsClient.$transaction(async (tx) => {
+    const eventContext = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -777,7 +762,7 @@ export class CaseService {
         student_id: concern.student_id,
         tier: Math.max(caseRecord.tier, concern.tier, recalculatedTier),
       };
-    }) as { student_id: string; tier: number };
+    })) as { student_id: string; tier: number };
 
     void this.eventService.write({
       tenant_id: tenantId,
@@ -809,7 +794,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    const eventContext = await rlsClient.$transaction(async (tx) => {
+    const eventContext = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -859,7 +844,7 @@ export class CaseService {
         student_id: dto.student_id,
         tier: caseRecord.tier,
       };
-    }) as { student_id: string; tier: number } | null;
+    })) as { student_id: string; tier: number } | null;
 
     if (!eventContext) {
       return;
@@ -894,7 +879,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    const eventContext = await rlsClient.$transaction(async (tx) => {
+    const eventContext = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -944,7 +929,7 @@ export class CaseService {
         student_id: studentId,
         tier: caseRecord.tier,
       };
-    }) as { student_id: string; tier: number };
+    })) as { student_id: string; tier: number };
 
     void this.eventService.write({
       tenant_id: tenantId,
@@ -964,10 +949,7 @@ export class CaseService {
 
   // ─── MY CASES ───────────────────────────────────────────────────────────────
 
-  async findMyCases(
-    tenantId: string,
-    userId: string,
-  ): Promise<{ data: CaseListItemDto[] }> {
+  async findMyCases(tenantId: string, userId: string): Promise<{ data: CaseListItemDto[] }> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: userId,
@@ -996,9 +978,7 @@ export class CaseService {
 
   // ─── ORPHAN DETECTION ───────────────────────────────────────────────────────
 
-  async findOrphans(
-    tenantId: string,
-  ): Promise<{ data: OrphanedCaseDto[] }> {
+  async findOrphans(tenantId: string): Promise<{ data: OrphanedCaseDto[] }> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -1055,9 +1035,7 @@ export class CaseService {
       select: { tier: true },
     });
 
-    const maxTier = concerns.length > 0
-      ? Math.max(...concerns.map((c) => c.tier))
-      : 1;
+    const maxTier = concerns.length > 0 ? Math.max(...concerns.map((c) => c.tier)) : 1;
 
     await db.pastoralCase.update({
       where: { id: caseId },
@@ -1079,6 +1057,9 @@ export class CaseService {
       id: caseRecord.id,
       case_number: caseRecord.case_number,
       student_id: caseRecord.student_id,
+      student_name: caseRecord.student
+        ? `${caseRecord.student.first_name} ${caseRecord.student.last_name}`
+        : 'Unknown',
       status: caseRecord.status as string,
       tier: caseRecord.tier,
       owner_user_id: caseRecord.owner_user_id,
@@ -1103,9 +1084,7 @@ export class CaseService {
     // Calculate days open (calendar days since creation)
     const now = new Date();
     const created = new Date(caseRecord.created_at);
-    const daysOpen = Math.floor(
-      (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const daysOpen = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
 
     // Map concerns with latest narrative
     const concerns = (caseRecord.concerns ?? []).map((c) => ({
@@ -1120,9 +1099,7 @@ export class CaseService {
     // Map students with primary indicator
     const students = (caseRecord.case_students ?? []).map((cs) => ({
       student_id: cs.student_id,
-      name: cs.student
-        ? `${cs.student.first_name} ${cs.student.last_name}`
-        : 'Unknown',
+      name: cs.student ? `${cs.student.first_name} ${cs.student.last_name}` : 'Unknown',
       added_at: cs.added_at,
       is_primary: cs.student_id === caseRecord.student_id,
     }));
