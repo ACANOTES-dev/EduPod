@@ -20,7 +20,6 @@ import { PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import {
-  formatStudentName,
   getLocaleFromPathname,
   type InterventionTypeOption,
   type PastoralApiDetailResponse,

@@ -26,7 +26,6 @@ import {
   type PastoralApiDetailResponse,
   type SearchOption,
   type SstAgendaItem,
-  type SstMeetingAction,
   type SstMeetingDetail,
 } from '@/lib/pastoral';
 import { formatDate, formatDateTime } from '@/lib/format-date';
