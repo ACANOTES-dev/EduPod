@@ -651,7 +651,7 @@ export default function ExclusionDetailPage() {
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  Not yet issued
+                  {t('notYetIssued')}
                 </Badge>
               )}
               <Button
@@ -660,7 +660,7 @@ export default function ExclusionDetailPage() {
                 disabled={generating === 'notice'}
                 onClick={handleGenerateNotice}
               >
-                {generating === 'notice' ? 'Generating...' : 'Generate Notice'}
+                {generating === 'notice' ? t('generating') : t('generateNotice')}
               </Button>
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function ExclusionDetailPage() {
             <div className="mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Hearing
+                {t('sections.hearing')}
               </h3>
             </div>
 
@@ -678,7 +678,7 @@ export default function ExclusionDetailPage() {
               {/* Date picker */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-text-primary">
-                  Hearing Date
+                  {t('hearingDate')}
                 </label>
                 <Input
                   type="date"
@@ -705,7 +705,7 @@ export default function ExclusionDetailPage() {
                 </div>
                 {attendees.length === 0 ? (
                   <p className="text-xs text-text-tertiary">
-                    No attendees added yet
+                    {t('noAttendees')}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -759,7 +759,7 @@ export default function ExclusionDetailPage() {
               {/* Student representation */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-text-primary">
-                  Student Representation
+                  {t('studentRepresentation')}
                 </label>
                 <Textarea
                   value={representation}
@@ -775,7 +775,7 @@ export default function ExclusionDetailPage() {
                   disabled={hearingSubmitting}
                   onClick={handleSaveHearing}
                 >
-                  {hearingSubmitting ? 'Saving...' : 'Save Hearing Details'}
+                  {hearingSubmitting ? t('saving') : t('saveHearingDetails')}
                 </Button>
                 {exclusion.status === 'hearing_scheduled' && (
                   <Button
@@ -783,8 +783,8 @@ export default function ExclusionDetailPage() {
                     onClick={handleMarkHearingHeld}
                   >
                     {hearingSubmitting
-                      ? 'Updating...'
-                      : 'Mark Hearing Held'}
+                      ? t('updating')
+                      : t('markHearingHeld')}
                   </Button>
                 )}
               </div>
@@ -796,7 +796,7 @@ export default function ExclusionDetailPage() {
             <div className="mb-3 flex items-center gap-2">
               <FileText className="h-5 w-5 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Board Pack
+                {t('sections.boardPack')}
               </h3>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -807,7 +807,7 @@ export default function ExclusionDetailPage() {
                 </Badge>
               ) : (
                 <Badge variant="secondary" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  Not generated
+                  {t('notGenerated')}
                 </Badge>
               )}
               <Button
@@ -817,8 +817,8 @@ export default function ExclusionDetailPage() {
                 onClick={handleGenerateBoardPack}
               >
                 {generating === 'board-pack'
-                  ? 'Generating...'
-                  : 'Generate Board Pack'}
+                  ? t('generating')
+                  : t('generateBoardPack')}
               </Button>
             </div>
           </div>
@@ -828,7 +828,7 @@ export default function ExclusionDetailPage() {
             <div className="mb-3 flex items-center gap-2">
               <Gavel className="h-5 w-5 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Decision
+                {t('sections.decision')}
               </h3>
             </div>
 
@@ -884,7 +884,7 @@ export default function ExclusionDetailPage() {
             ) : (
               <div>
                 <p className="mb-3 text-sm text-text-tertiary">
-                  No decision recorded yet
+                  {t('noDecision')}
                 </p>
                 <Button
                   onClick={() => setDecisionDialogOpen(true)}
@@ -893,12 +893,12 @@ export default function ExclusionDetailPage() {
                     exclusion.status !== 'decision_made'
                   }
                 >
-                  Record Decision
+                  {t('recordDecision')}
                 </Button>
                 {exclusion.status !== 'hearing_held' &&
                   exclusion.status !== 'decision_made' && (
                     <p className="mt-1 text-xs text-text-tertiary">
-                      Decision can only be recorded after hearing is held
+                      {t('decisionAfterHearing')}
                     </p>
                   )}
               </div>
@@ -908,7 +908,7 @@ export default function ExclusionDetailPage() {
           {/* 6. Entity History */}
           <div className="rounded-xl border border-border bg-surface p-5">
             <h3 className="mb-3 text-sm font-semibold text-text-primary">
-              History
+              {t('sections.history')}
             </h3>
             {historyLoading ? (
               <div className="space-y-2">
@@ -920,7 +920,7 @@ export default function ExclusionDetailPage() {
                 ))}
               </div>
             ) : history.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No history yet</p>
+              <p className="text-sm text-text-tertiary">{t('noHistory')}</p>
             ) : (
               <div className="relative space-y-4 ps-6">
                 <div className="absolute start-2 top-1 h-full w-px bg-border" />
@@ -957,7 +957,7 @@ export default function ExclusionDetailPage() {
             <div className="mb-3 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Appeal
+                {t('sections.appeal')}
               </h3>
             </div>
 
@@ -1013,7 +1013,7 @@ export default function ExclusionDetailPage() {
               </div>
             ) : (
               <div>
-                <p className="text-xs text-text-tertiary">No appeal filed</p>
+                <p className="text-xs text-text-tertiary">{t('noAppeal')}</p>
                 {exclusion.status === 'appeal_window' &&
                   appealDays !== null &&
                   appealDays < 0 && (
@@ -1022,7 +1022,7 @@ export default function ExclusionDetailPage() {
                       size="sm"
                       onClick={handleMarkFinalised}
                     >
-                      Mark Finalised
+                      {t('markFinalised')}
                     </Button>
                   )}
               </div>
@@ -1032,7 +1032,7 @@ export default function ExclusionDetailPage() {
           {/* Case Meta */}
           <div className="rounded-xl border border-border bg-surface p-5">
             <h3 className="mb-3 text-sm font-semibold text-text-primary">
-              Details
+              {t('sections.details')}
             </h3>
             <dl className="space-y-3 text-sm">
               <div className="flex items-start gap-2">
@@ -1072,7 +1072,7 @@ export default function ExclusionDetailPage() {
       <Dialog open={decisionDialogOpen} onOpenChange={setDecisionDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Record Exclusion Decision</DialogTitle>
+            <DialogTitle>{t('recordExclusionDecision')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">

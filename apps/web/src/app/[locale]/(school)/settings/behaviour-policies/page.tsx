@@ -40,6 +40,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -171,6 +172,7 @@ function actionSummary(actions: PolicyAction[]): string {
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function BehaviourPoliciesPage() {
+  const t = useTranslations('behaviourSettings.policies');
   const [rules, setRules] = React.useState<PolicyRule[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeStage, setActiveStage] = React.useState('consequence');
@@ -470,30 +472,30 @@ export default function BehaviourPoliciesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Policy Rules"
-        description="Configure automated responses to behaviour incidents across 5 evaluation stages"
+        title={t('title')}
+        description={t('description')}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={() => setDryRunOpen(true)}>
               <FlaskConical className="me-2 h-4 w-4" />
-              Test Mode
+              {t('testMode')}
             </Button>
             <Button variant="secondary" size="sm" onClick={handleExport}>
               <Download className="me-2 h-4 w-4" />
-              Export
+              {t('export')}
             </Button>
             <label>
               <Button variant="secondary" size="sm" asChild>
                 <span>
                   <Upload className="me-2 h-4 w-4" />
-                  Import
+                  {t('import')}
                 </span>
               </Button>
               <input type="file" accept=".json" className="hidden" onChange={handleImport} />
             </label>
             <Button onClick={openCreate}>
               <Plus className="me-2 h-4 w-4" />
-              Add Rule
+              {t('addRule')}
             </Button>
           </div>
         }

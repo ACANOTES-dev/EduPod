@@ -181,7 +181,7 @@ export default function DocumentsPage() {
   // Generate document handler
   const handleGenerate = async () => {
     if (!generateForm.entity_id.trim()) {
-      setGenerateError('Entity ID is required');
+      setGenerateError(t('entityIdRequired'));
       return;
     }
     setGenerating(true);
@@ -281,7 +281,7 @@ export default function DocumentsPage() {
             }}
           >
             <Eye className="h-3.5 w-3.5" />
-            <span className="ms-1 hidden sm:inline">View</span>
+            <span className="ms-1 hidden sm:inline">{t('view')}</span>
           </Button>
           {row.download_url && (
             <a
@@ -292,7 +292,7 @@ export default function DocumentsPage() {
             >
               <Button variant="ghost" size="sm">
                 <Download className="h-3.5 w-3.5" />
-                <span className="ms-1 hidden sm:inline">Download</span>
+                <span className="ms-1 hidden sm:inline">{t('download')}</span>
               </Button>
             </a>
           )}
@@ -364,7 +364,7 @@ export default function DocumentsPage() {
           <p className="truncate text-sm font-medium text-text-primary">
             {row.student
               ? `${row.student.first_name} ${row.student.last_name}`
-              : 'Unknown Student'}
+              : t('unknownStudent')}
           </p>
           <p className="mt-0.5 text-xs text-text-secondary">
             {DOCUMENT_TYPE_LABELS[row.document_type] ?? row.document_type}
@@ -393,7 +393,7 @@ export default function DocumentsPage() {
           onClick={() => router.push(`/${locale}/behaviour/documents/${row.id}`)}
         >
           <Eye className="me-1.5 h-3.5 w-3.5" />
-          View
+          {t('view')}
         </Button>
         {row.download_url && (
           <a
@@ -404,7 +404,7 @@ export default function DocumentsPage() {
           >
             <Button variant="outline" size="sm" className="w-full">
               <Download className="me-1.5 h-3.5 w-3.5" />
-              Download
+              {t('download')}
             </Button>
           </a>
         )}
@@ -445,7 +445,7 @@ export default function DocumentsPage() {
           </div>
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+              <span>{t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -453,7 +453,7 @@ export default function DocumentsPage() {
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -461,7 +461,7 @@ export default function DocumentsPage() {
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

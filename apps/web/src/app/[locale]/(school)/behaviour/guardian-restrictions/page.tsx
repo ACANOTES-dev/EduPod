@@ -25,6 +25,7 @@ import {
   ShieldAlert,
   X,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
@@ -204,6 +205,7 @@ function getParentDisplayName(
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function GuardianRestrictionsPage() {
+  const t = useTranslations('behaviour.guardianRestrictions');
   // ─── List State ───────────────────────────────────────────────────
   const [data, setData] = React.useState<RestrictionRow[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -616,8 +618,8 @@ export default function GuardianRestrictionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Guardian Restrictions"
-        description="Manage restrictions on guardian access to behaviour data"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button
             onClick={() => {
@@ -626,7 +628,7 @@ export default function GuardianRestrictionsPage() {
             }}
           >
             <Plus className="me-1.5 h-4 w-4" />
-            Add Restriction
+            {t('addRestriction')}
           </Button>
         }
       />

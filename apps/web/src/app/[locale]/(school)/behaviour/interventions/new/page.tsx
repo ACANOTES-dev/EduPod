@@ -14,6 +14,7 @@ import {
 } from '@school/ui';
 import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -57,6 +58,7 @@ const INTERVENTION_TYPES = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CreateInterventionPage() {
+  const t = useTranslations('behaviour.newIntervention');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -160,11 +162,11 @@ export default function CreateInterventionPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) {
-      setError('Please select a student');
+      setError(t('errors.selectStudent'));
       return;
     }
     if (!title.trim()) {
-      setError('Please enter a title');
+      setError(t('errors.enterTitle'));
       return;
     }
 
@@ -206,7 +208,7 @@ export default function CreateInterventionPage() {
       router.push(`/${locale}/behaviour/interventions/${res.data.id}`);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      setError(ex?.error?.message ?? 'Failed to create intervention');
+      setError(ex?.error?.message ?? t('errors.createFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -215,12 +217,12 @@ export default function CreateInterventionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="New Intervention"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/behaviour/interventions`}>
             <Button variant="outline">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Back
+              {t('back')}
             </Button>
           </Link>
         }
@@ -229,7 +231,7 @@ export default function CreateInterventionPage() {
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6">
         {/* 1. Student Search */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Student *</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.student')}</Label>
 
           {selectedStudent ? (
             <div className="flex items-center gap-2">
@@ -249,7 +251,7 @@ export default function CreateInterventionPage() {
               <Input
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Search students..."
+                placeholder={t('placeholders.searchStudents')}
                 className="ps-9 text-base"
               />
               {studentResults.length > 0 && (
@@ -280,7 +282,7 @@ export default function CreateInterventionPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Intervention Type *</Label>
+              <Label className="text-sm font-semibold">{t('labels.interventionType')}</Label>
               <Select value={interventionType} onValueChange={setInterventionType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -295,7 +297,7 @@ export default function CreateInterventionPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm font-semibold">Title *</Label>
+              <Label className="text-sm font-semibold">{t('labels.titleField')}</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -309,7 +311,7 @@ export default function CreateInterventionPage() {
 
         {/* 3. Trigger Description */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Trigger / Reason</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.triggerReason')}</Label>
           <Textarea
             value={triggerDescription}
             onChange={(e) => setTriggerDescription(e.target.value)}
@@ -323,9 +325,9 @@ export default function CreateInterventionPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">SEND Awareness</Label>
+              <Label className="text-sm font-medium">{t('labels.sendAwareness')}</Label>
               <p className="text-xs text-text-tertiary">
-                Flag if the student has special educational needs
+                {t('labels.sendAwarenessDescription')}
               </p>
             </div>
             <Switch checked={sendAwareness} onCheckedChange={setSendAwareness} />
@@ -531,11 +533,11 @@ export default function CreateInterventionPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link href={`/${locale}/behaviour/interventions`}>
             <Button type="button" variant="outline" className="w-full sm:w-auto">
-              Cancel
+              {t('cancel')}
             </Button>
           </Link>
           <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-            {submitting ? 'Creating...' : 'Create Intervention'}
+            {submitting ? t('creating') : t('createIntervention')}
           </Button>
         </div>
       </form>

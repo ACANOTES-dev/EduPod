@@ -614,7 +614,7 @@ export default function InterventionDetailPage() {
             }`}
           >
             <h3 className="mb-1 text-sm font-semibold text-text-primary">
-              Next Review
+              {t('sections.nextReview')}
             </h3>
             <p className="font-mono text-lg font-bold text-text-primary">
               {formatDate(intervention.next_review_date)}
@@ -641,7 +641,7 @@ export default function InterventionDetailPage() {
 
         {/* Details */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-3 text-sm font-semibold text-text-primary">Details</h3>
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.details')}</h3>
           <dl className="space-y-3 text-sm">
             <div className="flex items-start gap-2">
               <User className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
@@ -707,7 +707,7 @@ export default function InterventionDetailPage() {
         {/* Status actions */}
         {availableTransitions.length > 0 && (
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">Actions</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.actions')}</h3>
             <div className="flex flex-col gap-2">
               {availableTransitions.map((t) => (
                 <Button
@@ -750,7 +750,7 @@ export default function InterventionDetailPage() {
         </h3>
         <Button size="sm" onClick={openAddReview}>
           <Plus className="me-1.5 h-3.5 w-3.5" />
-          Add Review
+          {t('addReview')}
         </Button>
       </div>
 
@@ -762,7 +762,7 @@ export default function InterventionDetailPage() {
         </div>
       ) : reviews.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-tertiary">
-          No reviews yet. Add the first review to track progress.
+          {t('noReviews')}
         </p>
       ) : (
         <div className="space-y-4">
@@ -880,7 +880,7 @@ export default function InterventionDetailPage() {
         </div>
       ) : tasks.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-tertiary">
-          No tasks linked to this intervention.
+          {t('noTasks')}
         </p>
       ) : (
         <div className="space-y-2">
@@ -938,7 +938,7 @@ export default function InterventionDetailPage() {
         </div>
       ) : linkedIncidents.length === 0 ? (
         <p className="py-8 text-center text-sm text-text-tertiary">
-          No incidents linked to this intervention.
+          {t('noLinkedIncidents')}
         </p>
       ) : (
         <div className="space-y-2">
@@ -998,7 +998,7 @@ export default function InterventionDetailPage() {
 
   const renderHistory = () => (
     <div className="space-y-4">
-      <h3 className="text-sm font-semibold text-text-primary">History</h3>
+      <h3 className="text-sm font-semibold text-text-primary">{t('sections.history')}</h3>
 
       {historyLoading ? (
         <div className="space-y-2">
@@ -1007,7 +1007,7 @@ export default function InterventionDetailPage() {
           ))}
         </div>
       ) : history.length === 0 ? (
-        <p className="py-8 text-center text-sm text-text-tertiary">No history yet</p>
+        <p className="py-8 text-center text-sm text-text-tertiary">{t('noHistory')}</p>
       ) : (
         <div className="relative space-y-4 ps-6">
           {/* Timeline line */}
@@ -1118,7 +1118,7 @@ export default function InterventionDetailPage() {
       <Dialog open={transitionOpen} onOpenChange={setTransitionOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Intervention Status</DialogTitle>
+            <DialogTitle>{t('dialog.changeStatus')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -1170,13 +1170,13 @@ export default function InterventionDetailPage() {
               onClick={() => setTransitionOpen(false)}
               disabled={transitioning}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               onClick={handleStatusTransition}
               disabled={transitioning || !newStatus}
             >
-              {transitioning ? 'Updating...' : 'Update Status'}
+              {transitioning ? t('updating') : t('updateStatus')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1186,7 +1186,7 @@ export default function InterventionDetailPage() {
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Add Review</DialogTitle>
+            <DialogTitle>{t('dialog.addReview')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {/* Auto-populated stats (read only) */}
@@ -1338,10 +1338,10 @@ export default function InterventionDetailPage() {
               onClick={() => setReviewDialogOpen(false)}
               disabled={reviewSubmitting}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleReviewSubmit} disabled={reviewSubmitting}>
-              {reviewSubmitting ? 'Saving...' : 'Save Review'}
+              {reviewSubmitting ? t('saving') : t('saveReview')}
             </Button>
           </DialogFooter>
         </DialogContent>

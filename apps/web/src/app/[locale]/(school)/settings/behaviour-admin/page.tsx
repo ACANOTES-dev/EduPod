@@ -30,6 +30,7 @@ import {
   Shield,
   Users,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -96,13 +97,14 @@ interface ScopeAuditResult {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function BehaviourAdminPage() {
+  const t = useTranslations('behaviourSettings.admin');
   const [activeTab, setActiveTab] = React.useState('health');
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Behaviour Admin"
-        description="System health, operations, and data management"
+        title={t('title')}
+        description={t('description')}
       />
 
       {/* Tab Navigation */}

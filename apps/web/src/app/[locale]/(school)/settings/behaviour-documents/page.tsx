@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@school/ui';
 import { ChevronDown, ChevronRight, Eye, Lock, Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -133,6 +134,7 @@ const DEFAULT_FORM: TemplateForm = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourDocumentTemplatesPage() {
+  const t = useTranslations('behaviourSettings.documents');
   const [templates, setTemplates] = React.useState<DocumentTemplate[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -448,12 +450,12 @@ export default function BehaviourDocumentTemplatesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Document Templates"
-        description="Configure templates for generated notices, letters, and packs"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button onClick={openCreate}>
             <Plus className="me-2 h-4 w-4" />
-            New Template
+            {t('newTemplate')}
           </Button>
         }
       />

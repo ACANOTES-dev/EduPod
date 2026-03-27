@@ -19,6 +19,7 @@ import {
   Switch,
 } from '@school/ui';
 import { Pencil, Plus, Shield, Trash2, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -84,13 +85,14 @@ type TabKey = (typeof TABS)[number]['key'];
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourHousesPage() {
+  const t = useTranslations('behaviourSettings.houses');
   const [activeTab, setActiveTab] = React.useState<TabKey>('houses');
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="House Teams"
-        description="Configure house teams and manage student membership"
+        title={t('title')}
+        description={t('description')}
       />
 
       {/* Tabs */}

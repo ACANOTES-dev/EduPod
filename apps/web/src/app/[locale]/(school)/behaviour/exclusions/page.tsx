@@ -3,6 +3,7 @@
 import { Button } from '@school/ui';
 import { AlertTriangle, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -108,6 +109,7 @@ type TabKey = (typeof TABS)[number]['key'];
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ExclusionListPage() {
+  const t = useTranslations('behaviour.exclusions');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -190,7 +192,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'case_number',
-      header: 'Case #',
+      header: t('columns.caseNumber'),
       render: (row: ExclusionRow) => (
         <span className="font-mono text-xs font-medium text-text-primary">
           {row.case_number}
@@ -199,7 +201,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'student',
-      header: 'Student',
+      header: t('columns.student'),
       render: (row: ExclusionRow) =>
         row.student ? (
           <span className="text-sm text-text-primary">
@@ -211,7 +213,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'type',
-      header: 'Type',
+      header: t('columns.type'),
       render: (row: ExclusionRow) => (
         <span
           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[row.type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
@@ -222,7 +224,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: ExclusionRow) => (
         <span
           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[row.status] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
@@ -233,7 +235,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'notice_issued',
-      header: 'Notice Issued',
+      header: t('columns.noticeIssued'),
       render: (row: ExclusionRow) => (
         <span className="text-xs text-text-secondary">
           {row.formal_notice_issued_at
@@ -244,7 +246,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'hearing_date',
-      header: 'Hearing',
+      header: t('columns.hearing'),
       render: (row: ExclusionRow) => (
         <span className="text-xs text-text-secondary">
           {row.hearing_date ? formatDate(row.hearing_date) : '--'}
@@ -253,7 +255,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'decision',
-      header: 'Decision',
+      header: t('columns.decision'),
       render: (row: ExclusionRow) =>
         row.decision ? (
           <span
@@ -267,7 +269,7 @@ export default function ExclusionListPage() {
     },
     {
       key: 'appeal_deadline',
-      header: 'Appeal Deadline',
+      header: t('columns.appealDeadline'),
       render: (row: ExclusionRow) => {
         if (!row.appeal_deadline) {
           return <span className="text-text-tertiary">--</span>;
@@ -374,13 +376,13 @@ export default function ExclusionListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Exclusion Cases"
-        description="Formal exclusion proceedings and statutory compliance"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Link href={`/${locale}/behaviour`}>
             <Button variant="ghost">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Behaviour
+              {t('backToBehaviour')}
             </Button>
           </Link>
         }
@@ -421,7 +423,7 @@ export default function ExclusionListPage() {
               <div className="rounded-xl border border-border bg-surface py-12 text-center">
                 <ShieldAlert className="mx-auto h-8 w-8 text-text-tertiary" />
                 <p className="mt-2 text-sm text-text-tertiary">
-                  No exclusion cases found
+                  {t('noResults')}
                 </p>
               </div>
             ) : (
@@ -432,7 +434,7 @@ export default function ExclusionListPage() {
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>
-                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+                {t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -441,7 +443,7 @@ export default function ExclusionListPage() {
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -449,7 +451,7 @@ export default function ExclusionListPage() {
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

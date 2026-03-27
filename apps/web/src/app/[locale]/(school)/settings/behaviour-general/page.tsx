@@ -296,85 +296,85 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Sanctions */}
-        <SectionCard title="Sanctions" description="Sanction-related settings">
+        <SectionCard title={t('sections.sanctions')} description={t('sections.sanctionsDesc')}>
           <NumberRow
-            label="Default Detention Duration (minutes)"
+            label={t('labels.detentionDuration')}
             value={settings.detention_default_duration_minutes}
             onChange={(v) => update('detention_default_duration_minutes', v)}
             min={5}
             max={480}
           />
           <BooleanRow
-            label="Suspension Requires Approval"
+            label={t('labels.suspensionRequiresApproval')}
             value={settings.suspension_requires_approval}
             onChange={(v) => update('suspension_requires_approval', v)}
           />
           <BooleanRow
-            label="Expulsion Requires Approval"
+            label={t('labels.expulsionRequiresApproval')}
             value={settings.expulsion_requires_approval}
             onChange={(v) => update('expulsion_requires_approval', v)}
           />
         </SectionCard>
 
         {/* Parent Visibility */}
-        <SectionCard title="Parent Visibility" description="What parents can see and when they are notified">
+        <SectionCard title={t('sections.parentVisibility')} description={t('sections.parentVisibilityDesc')}>
           <BooleanRow
-            label="Behaviour Visible in Parent Portal"
+            label={t('labels.parentPortalEnabled')}
             value={settings.parent_portal_behaviour_enabled}
             onChange={(v) => update('parent_portal_behaviour_enabled', v)}
           />
           <NumberRow
-            label="Negative Severity Notification Threshold"
-            description="Severity level at or above which parents are notified (1-10)"
+            label={t('labels.negativeThreshold')}
+            description={t('descriptions.negativeThreshold')}
             value={settings.parent_notification_negative_severity_threshold}
             onChange={(v) => update('parent_notification_negative_severity_threshold', v)}
             min={1}
             max={10}
           />
           <BooleanRow
-            label="Always Notify for Positive"
-            description="Send parent notifications for all positive incidents"
+            label={t('labels.notifyPositiveAlways')}
+            description={t('descriptions.notifyPositiveAlways')}
             value={settings.parent_notification_positive_always}
             onChange={(v) => update('parent_notification_positive_always', v)}
           />
           <BooleanRow
-            label="Digest Notifications"
-            description="Send daily digest instead of per-incident notifications"
+            label={t('labels.digestNotifications')}
+            description={t('descriptions.digestNotifications')}
             value={settings.parent_notification_digest_enabled}
             onChange={(v) => update('parent_notification_digest_enabled', v)}
           />
           <NumberRow
-            label="Acknowledgement Required Severity"
-            description="Severity at or above which parent acknowledgement is required (1-10)"
+            label={t('labels.ackRequiredSeverity')}
+            description={t('descriptions.ackRequiredSeverity')}
             value={settings.parent_acknowledgement_required_severity}
             onChange={(v) => update('parent_acknowledgement_required_severity', v)}
             min={1}
             max={10}
           />
           <BooleanRow
-            label="Show Teacher Name to Parents"
+            label={t('labels.showTeacherName')}
             value={settings.parent_visibility_show_teacher_name}
             onChange={(v) => update('parent_visibility_show_teacher_name', v)}
           />
         </SectionCard>
 
         {/* Recognition Wall */}
-        <SectionCard title="Recognition Wall" description="Public display of positive achievements">
+        <SectionCard title={t('sections.recognitionWall')} description={t('sections.recognitionWallDesc')}>
           <BooleanRow
-            label="Recognition Wall Enabled"
+            label={t('labels.recognitionWallEnabled')}
             value={settings.recognition_wall_enabled}
             onChange={(v) => update('recognition_wall_enabled', v)}
           />
           {settings.recognition_wall_enabled && (
             <>
               <BooleanRow
-                label="Public"
-                description="Accessible to visitors (non-authenticated)"
+                label={t('labels.recognitionWallPublic')}
+                description={t('descriptions.recognitionWallPublic')}
                 value={settings.recognition_wall_public}
                 onChange={(v) => update('recognition_wall_public', v)}
               />
               <BooleanRow
-                label="Requires Student Consent"
+                label={t('labels.requiresStudentConsent')}
                 value={settings.recognition_wall_requires_consent}
                 onChange={(v) => update('recognition_wall_requires_consent', v)}
               />
@@ -383,30 +383,30 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Safeguarding */}
-        <SectionCard title="Safeguarding" description="SLA timeframes for safeguarding concerns">
+        <SectionCard title={t('sections.safeguarding')} description={t('sections.safeguardingDesc')}>
           <NumberRow
-            label="Critical SLA (hours)"
+            label={t('labels.criticalSla')}
             value={settings.safeguarding_sla_critical_hours}
             onChange={(v) => update('safeguarding_sla_critical_hours', v)}
             min={1}
             max={168}
           />
           <NumberRow
-            label="High SLA (hours)"
+            label={t('labels.highSla')}
             value={settings.safeguarding_sla_high_hours}
             onChange={(v) => update('safeguarding_sla_high_hours', v)}
             min={1}
             max={168}
           />
           <NumberRow
-            label="Medium SLA (hours)"
+            label={t('labels.mediumSla')}
             value={settings.safeguarding_sla_medium_hours}
             onChange={(v) => update('safeguarding_sla_medium_hours', v)}
             min={1}
             max={336}
           />
           <NumberRow
-            label="Low SLA (hours)"
+            label={t('labels.lowSla')}
             value={settings.safeguarding_sla_low_hours}
             onChange={(v) => update('safeguarding_sla_low_hours', v)}
             min={1}
@@ -415,33 +415,33 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Analytics & AI */}
-        <SectionCard title="Analytics & AI" description="Behaviour analytics and AI features">
+        <SectionCard title={t('sections.analyticsAi')} description={t('sections.analyticsAiDesc')}>
           <BooleanRow
-            label="Behaviour Pulse Dashboard"
+            label={t('labels.behaviourPulse')}
             value={settings.behaviour_pulse_enabled}
             onChange={(v) => update('behaviour_pulse_enabled', v)}
           />
           <BooleanRow
-            label="AI Insights"
-            description="AI-powered pattern detection and trend analysis"
+            label={t('labels.aiInsights')}
+            description={t('descriptions.aiInsights')}
             value={settings.ai_insights_enabled}
             onChange={(v) => update('ai_insights_enabled', v)}
           />
           <BooleanRow
-            label="AI Narrative Generation"
-            description="AI-generated summaries for reports and profiles"
+            label={t('labels.aiNarrative')}
+            description={t('descriptions.aiNarrative')}
             value={settings.ai_narrative_enabled}
             onChange={(v) => update('ai_narrative_enabled', v)}
           />
           <BooleanRow
-            label="Natural Language Queries"
-            description="Allow querying behaviour data with natural language"
+            label={t('labels.nlQueries')}
+            description={t('descriptions.nlQueries')}
             value={settings.ai_nl_query_enabled}
             onChange={(v) => update('ai_nl_query_enabled', v)}
           />
           <BooleanRow
-            label="Block Diagnostic Language"
-            description="Prevent AI from using medical/diagnostic terminology"
+            label={t('labels.blockDiagnosticLanguage')}
+            description={t('descriptions.blockDiagnosticLanguage')}
             value={settings.ai_diagnostic_language_blocked}
             onChange={(v) => update('ai_diagnostic_language_blocked', v)}
           />
@@ -450,7 +450,7 @@ export default function BehaviourGeneralSettingsPage() {
 
       <div className="mt-6 flex justify-end">
         <Button type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
+          {saving ? t('saving') : t('saveChanges')}
         </Button>
       </div>
     </form>

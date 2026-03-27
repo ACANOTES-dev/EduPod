@@ -18,6 +18,7 @@ import {
   Switch,
 } from '@school/ui';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -103,6 +104,7 @@ const DEFAULT_FORM: FormValues = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourCategoriesPage() {
+  const t = useTranslations('behaviourSettings.categories');
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -236,12 +238,12 @@ export default function BehaviourCategoriesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Behaviour Categories"
-        description="Manage incident categories for your school"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button onClick={openCreate}>
             <Plus className="me-2 h-4 w-4" />
-            Add Category
+            {t('addCategory')}
           </Button>
         }
       />

@@ -159,7 +159,7 @@ export default function MyReportsPage() {
                   </span>
                   {report.acknowledgement_status ? (
                     <Badge className={ACK_COLORS[report.acknowledgement_status] ?? 'bg-gray-100 text-gray-800'}>
-                      {ACK_LABELS[report.acknowledgement_status] ?? report.acknowledgement_status}
+                      {t(`ackStatuses.${report.acknowledgement_status}` as Parameters<typeof t>[0])}
                     </Badge>
                   ) : (
                     <Badge className="bg-gray-100 text-gray-600">Pending</Badge>
