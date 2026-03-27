@@ -30,7 +30,7 @@
 |-----------|------|--------|---------|-----------|-------|
 | SW-3A | NEPS Referrals | completed | 2026-03-27 | 2026-03-27 | ReferralService (13 methods, 8-state lifecycle), ReferralPrepopulateService (5 cross-module snapshots), ReferralRecommendationService (4 methods), NepsVisitService (8 methods), ReferralsController (24 endpoints), 2 NEPS tables + migration, 14 event payloads, 86 tests |
 | SW-3B | Reports & Exports | completed | 2026-03-27 | 2026-03-27 | PastoralReportService (5 report types), PastoralExportService (Tier 1/2 + Tier 3 delegation), PastoralReportsController (14 endpoints), 10 PDF templates (5 types × EN/AR), 3 schema files, 87 tests |
-| SW-3C | DSAR & Historical Import | NOT STARTED | — | — | — |
+| SW-3C | DSAR & Historical Import | completed | 2026-03-27 | 2026-03-27 | PastoralDsarService (7 methods), PastoralImportService (validate/confirm/template), 2 controllers (8 endpoints), compliance module integration, import_hash migration, 3 new event types, 154 tests (43 new) |
 
 ### Phase 4 — Predictive Signals
 
@@ -88,6 +88,7 @@ Every sub-phase execution follows `/SW` command protocol:
 | 2026-03-27 | SW-2A+2C+2D | Wave 4 parallel: SST meetings, parent engagement, behaviour facade |
 | 2026-03-27 | SW-2B+4A+5A | Wave 5 parallel (8 agents): Interventions, self-check-ins, critical incidents. 36 files, 11,358 lines, 420 tests (182 new) |
 | 2026-03-27 | SW-3A+3B | Wave 6 parallel (11 agents): NEPS referrals, reports & exports. 40 files, 11,019 lines, 593 pastoral tests (173 new) |
+| 2026-03-27 | SW-3C | Wave 7 (6 agents): DSAR review workflow, historical CSV import, compliance integration. 18 files, 3,239 lines, 154 tests (43 new). **FINAL SUB-PHASE — Student Wellbeing module complete.** |
 
 ## Completed Sub-Phase Summaries
 
