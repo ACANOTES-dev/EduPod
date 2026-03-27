@@ -129,6 +129,9 @@ export * from './schemas/scheduling-enhanced.schema';
 // Reports World-Class Enhancement Schemas
 export * from './schemas/reports-enhanced.schema';
 
+// AI Utilities
+export * from './ai';
+
 // Behaviour Management
 export * from './behaviour';
 

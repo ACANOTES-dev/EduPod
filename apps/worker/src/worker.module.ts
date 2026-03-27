@@ -15,9 +15,11 @@ import { AttachmentScanProcessor } from './processors/behaviour/attachment-scan.
 import { BreakGlassExpiryProcessor } from './processors/behaviour/break-glass-expiry.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
 import { CriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
+import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
+import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
