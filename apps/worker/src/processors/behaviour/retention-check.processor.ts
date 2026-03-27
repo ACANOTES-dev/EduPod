@@ -66,7 +66,7 @@ interface EntityRetentionConfig {
   skipLegalHoldCheck?: boolean;
 }
 
-const ENTITY_CONFIGS: EntityRetentionConfig[] = [
+const _ENTITY_CONFIGS: EntityRetentionConfig[] = [
   { model: 'behaviourIncident', retentionSettingsKey: 'incident_retention_years', entityType: 'incident', dateField: 'occurred_at' },
   { model: 'behaviourSanction', retentionSettingsKey: 'sanction_retention_years', entityType: 'sanction', dateField: 'scheduled_date' },
   { model: 'behaviourIntervention', retentionSettingsKey: 'intervention_retention_years', entityType: 'intervention', dateField: 'created_at' },
@@ -303,7 +303,7 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
     dryRun: boolean,
   ): Promise<void> {
     // Anonymise archived incidents that are past the full retention deadline
-    const incidentRetention = (settings.incident_retention_years as number) ?? 7;
+    const _incidentRetention = (settings.incident_retention_years as number) ?? 7;
 
     const archivedIncidents = await tx.behaviourIncident.findMany({
       where: {
@@ -318,7 +318,7 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
       if (!incident.archived_at) continue;
 
       // Check if enough time has passed since archival
-      const archivalDate = new Date(incident.archived_at);
+      const _archivalDate = new Date(incident.archived_at);
       // Full retention has elapsed if archived_at is in the past (archival already checked retention period)
       // The anonymisation happens after the archival pass on subsequent runs
 

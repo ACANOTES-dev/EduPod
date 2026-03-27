@@ -9,6 +9,7 @@ import { QUEUE_NAMES } from '../../base/queue.constants';
 
 export const BEHAVIOUR_PARTITION_MAINTENANCE_JOB = 'behaviour:partition-maintenance';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PartitionMaintenancePayload {
   // Not tenant-aware — this manages DB schema, not tenant data
 }
@@ -104,6 +105,7 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
     rangeEnd: string,
   ): Promise<void> {
     // Check if partition already exists
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- partition DDL requires raw SQL
     const exists = await this.prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
       `SELECT EXISTS (
         SELECT 1 FROM pg_tables WHERE tablename = $1
@@ -118,6 +120,7 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
     // Create the partition
     // Note: Using $executeRawUnsafe here is safe because partition/table names are
     // derived from our own constants, not user input
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- partition DDL requires raw SQL
     await this.prisma.$executeRawUnsafe(
       `CREATE TABLE IF NOT EXISTS ${partitionName}
        PARTITION OF ${parentTable}
