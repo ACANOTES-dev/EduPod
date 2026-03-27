@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
@@ -48,7 +49,7 @@ describe('BoardReportController', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should call service with correct tenant_id', async () => {
-    const tenant = { tenant_id: TENANT_ID };
+    const tenant = { tenant_id: TENANT_ID } as TenantContext;
 
     await controller.getTermlySummary(tenant);
 
@@ -56,7 +57,7 @@ describe('BoardReportController', () => {
   });
 
   it('should return the service result', async () => {
-    const tenant = { tenant_id: TENANT_ID };
+    const tenant = { tenant_id: TENANT_ID } as TenantContext;
 
     const result = await controller.getTermlySummary(tenant);
 

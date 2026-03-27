@@ -83,7 +83,7 @@ function findHighestAbsenceDay(
 ): string | null {
   if (dayOfWeek.length === 0) return null;
 
-  let highest = dayOfWeek[0];
+  let highest = dayOfWeek[0]!;
   for (const entry of dayOfWeek) {
     if (entry.rate > highest.rate) {
       highest = entry;
@@ -274,6 +274,6 @@ export class BoardReportService {
         termName: currentPeriod?.name ?? 'Current Term',
         academicYearName: academicYear.name,
       };
-    });
+    }) as Promise<{ termName: string; academicYearName: string }>;
   }
 }

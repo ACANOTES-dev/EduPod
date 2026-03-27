@@ -143,7 +143,14 @@ const ENDPOINTS: MetricEndpoint[] = [
 
 describe('AggregateWorkloadController', () => {
   let controller: AggregateWorkloadController;
-  let mockComputeService: Record<string, jest.Mock>;
+  let mockComputeService: Record<string, jest.Mock | undefined> & {
+    getAggregateWorkloadSummary: jest.Mock;
+    getCoverFairness: jest.Mock;
+    getAggregateTimetableQuality: jest.Mock;
+    getAbsenceTrends: jest.Mock;
+    getSubstitutionPressure: jest.Mock;
+    getCorrelation: jest.Mock;
+  };
   let mockCacheService: {
     getCachedAggregate: jest.Mock;
     setCachedAggregate: jest.Mock;
@@ -220,14 +227,14 @@ describe('AggregateWorkloadController', () => {
     ({ method, metricType, computeMethod, mockData }) => {
       it(`should compute and cache when cache miss`, async () => {
         mockCacheService.getCachedAggregate.mockResolvedValue(null);
-        mockComputeService[computeMethod].mockResolvedValue(mockData);
+        mockComputeService[computeMethod]!.mockResolvedValue(mockData);
 
         const result = await (
           controller[method] as (t: TenantContext) => Promise<unknown>
         )(TENANT);
 
         expect(result).toEqual(mockData);
-        expect(mockComputeService[computeMethod]).toHaveBeenCalledWith(
+        expect(mockComputeService[computeMethod]!).toHaveBeenCalledWith(
           TENANT_ID,
         );
         expect(mockCacheService.setCachedAggregate).toHaveBeenCalledWith(
