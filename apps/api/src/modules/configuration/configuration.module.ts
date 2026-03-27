@@ -5,6 +5,7 @@ import { S3Module } from '../s3/s3.module';
 import { BrandingController } from './branding.controller';
 import { BrandingService } from './branding.service';
 import { EncryptionService } from './encryption.service';
+import { KeyRotationService } from './key-rotation.service';
 import { NotificationSettingsController } from './notification-settings.controller';
 import { NotificationSettingsService } from './notification-settings.service';
 import { SettingsController } from './settings.controller';
@@ -26,6 +27,7 @@ import { StripeConfigService } from './stripe-config.service';
     StripeConfigService,
     NotificationSettingsService,
     EncryptionService,
+    KeyRotationService,
   ],
   exports: [
     BrandingService,
@@ -33,6 +35,7 @@ import { StripeConfigService } from './stripe-config.service';
     StripeConfigService,
     NotificationSettingsService,
     EncryptionService,
+    KeyRotationService,
   ],
 })
 export class ConfigurationModule {}

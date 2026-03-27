@@ -180,6 +180,11 @@ export default function PublicContactPage() {
             {submitting ? 'Sending...' : 'Send Message'}
           </Button>
         </div>
+
+        <p className="text-xs leading-relaxed text-text-secondary">
+          Your IP address is recorded with this submission for security purposes and will be
+          automatically deleted after 90 days.
+        </p>
       </form>
     </div>
   );

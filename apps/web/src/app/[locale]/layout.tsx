@@ -6,6 +6,7 @@ import * as React from 'react';
 import '@/styles/globals.css';
 import { fonts } from '@/lib/fonts';
 import { AuthProvider } from '@/providers/auth-provider';
+import { CookieConsentProvider } from '@/providers/cookie-consent-provider';
 import { DirectionProvider } from '@/providers/direction-provider';
 import { ShortcutProvider } from '@/providers/shortcut-provider';
 import { SwRegister } from '@/providers/sw-register';
@@ -31,14 +32,16 @@ export default async function LocaleLayout({ children, params: { locale } }: Loc
       <body className="bg-background text-text-primary antialiased">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
-            <DirectionProvider locale={locale}>
-              <AuthProvider>
-                <ShortcutProvider>
-                  <SwRegister />
-                  {children}
-                </ShortcutProvider>
-              </AuthProvider>
-            </DirectionProvider>
+            <CookieConsentProvider>
+              <DirectionProvider locale={locale}>
+                <AuthProvider>
+                  <ShortcutProvider>
+                    <SwRegister />
+                    {children}
+                  </ShortcutProvider>
+                </AuthProvider>
+              </DirectionProvider>
+            </CookieConsentProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

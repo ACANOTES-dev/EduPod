@@ -60,6 +60,7 @@ import { SchedulingSolverProcessor } from './processors/scheduling-solver.proces
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
+import { KeyRotationProcessor } from './processors/security/key-rotation.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 import { CleanupParticipationTokensProcessor } from './processors/wellbeing/cleanup-participation-tokens.processor';
 import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-check.processor';
@@ -133,6 +134,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
       {
         name: QUEUE_NAMES.PASTORAL,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.SECURITY,
+        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
       },
       {
         name: QUEUE_NAMES.WELLBEING,
@@ -223,6 +228,8 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     InterventionReviewReminderProcessor,
     CheckinAlertProcessor,
     WellbeingFlagExpiryProcessor,
+    // Security queue processors
+    KeyRotationProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

@@ -1,16 +1,17 @@
 export const QUEUE_NAMES = {
   ADMISSIONS: 'admissions',
+  ATTENDANCE: 'attendance',
   BEHAVIOUR: 'behaviour',
-  PAYROLL: 'payroll',
+  FINANCE: 'finance',
+  GRADEBOOK: 'gradebook',
+  IMPORTS: 'imports',
   NOTIFICATIONS: 'notifications',
   PASTORAL: 'pastoral',
-  SEARCH_SYNC: 'search-sync',
+  PAYROLL: 'payroll',
   REPORTS: 'reports',
-  ATTENDANCE: 'attendance',
   SCHEDULING: 'scheduling',
-  GRADEBOOK: 'gradebook',
-  FINANCE: 'finance',
-  IMPORTS: 'imports',
+  SEARCH_SYNC: 'search-sync',
+  SECURITY: 'security',
   WELLBEING: 'wellbeing',
 } as const;
 

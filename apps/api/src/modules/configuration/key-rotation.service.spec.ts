@@ -1,0 +1,288 @@
+import { Test, TestingModule } from '@nestjs/testing';
+
+import { PrismaService } from '../prisma/prisma.service';
+
+import { EncryptionService } from './encryption.service';
+import { KeyRotationService } from './key-rotation.service';
+
+// ─── Fixtures ───────────────────────────────────────────────────────────────
+
+const CURRENT_KEY_REF = 'v2';
+const CURRENT_VERSION = 2;
+
+const mockStripeConfig = (
+  id: string,
+  keyRef: string,
+) => ({
+  id,
+  tenant_id: `tenant-${id}`,
+  stripe_secret_key_encrypted: `iv:tag:cipher_secret_${id}`,
+  stripe_publishable_key: 'pk_test_abc',
+  stripe_webhook_secret_encrypted: `iv:tag:cipher_webhook_${id}`,
+  encryption_key_ref: keyRef,
+  key_last_rotated_at: null,
+  created_by_user_id: null,
+  created_at: new Date(),
+  updated_at: new Date(),
+});
+
+const mockStaffProfile = (
+  id: string,
+  keyRef: string | null,
+  accountEncrypted: string | null,
+  ibanEncrypted: string | null,
+) => ({
+  id,
+  tenant_id: `tenant-${id}`,
+  bank_name: 'Test Bank',
+  bank_account_number_encrypted: accountEncrypted,
+  bank_iban_encrypted: ibanEncrypted,
+  bank_encryption_key_ref: keyRef,
+});
+
+// ─── Test suite ─────────────────────────────────────────────────────────────
+
+describe('KeyRotationService', () => {
+  let service: KeyRotationService;
+  let mockPrisma: {
+    tenantStripeConfig: {
+      findMany: jest.Mock;
+      update: jest.Mock;
+    };
+    staffProfile: {
+      findMany: jest.Mock;
+      update: jest.Mock;
+    };
+  };
+  let mockEncryption: {
+    getCurrentVersion: jest.Mock;
+    getKeyRef: jest.Mock;
+    encrypt: jest.Mock;
+    decrypt: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      tenantStripeConfig: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      staffProfile: {
+        findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    mockEncryption = {
+      getCurrentVersion: jest.fn().mockReturnValue(CURRENT_VERSION),
+      getKeyRef: jest.fn().mockReturnValue(CURRENT_KEY_REF),
+      encrypt: jest.fn().mockImplementation((plaintext: string) => ({
+        encrypted: `new_iv:new_tag:new_cipher_${plaintext}`,
+        keyRef: CURRENT_KEY_REF,
+      })),
+      decrypt: jest.fn().mockImplementation((encrypted: string) => {
+        // Return the original "plaintext" derived from the cipher
+        return `decrypted_${encrypted}`;
+      }),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        KeyRotationService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: EncryptionService, useValue: mockEncryption },
+      ],
+    }).compile();
+
+    service = module.get<KeyRotationService>(KeyRotationService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  // ─── Stripe Configs ───────────────────────────────────────────────────────
+
+  describe('rotateAll — stripe configs', () => {
+    it('should re-encrypt records with old keyRef', async () => {
+      const oldRecord = mockStripeConfig('sc-1', 'local');
+      mockPrisma.tenantStripeConfig.findMany
+        .mockResolvedValueOnce([oldRecord])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.stripeConfigs.total).toBe(1);
+      expect(result.stripeConfigs.rotated).toBe(1);
+      expect(result.stripeConfigs.failed).toBe(0);
+      expect(result.dryRun).toBe(false);
+
+      // Should have decrypted both fields with old keyRef
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith(
+        oldRecord.stripe_secret_key_encrypted,
+        'local',
+      );
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith(
+        oldRecord.stripe_webhook_secret_encrypted,
+        'local',
+      );
+
+      // Should have re-encrypted both fields
+      expect(mockEncryption.encrypt).toHaveBeenCalledTimes(2);
+
+      // Should have updated the record
+      expect(mockPrisma.tenantStripeConfig.update).toHaveBeenCalledWith({
+        where: { id: 'sc-1' },
+        data: expect.objectContaining({
+          encryption_key_ref: CURRENT_KEY_REF,
+        }),
+      });
+    });
+
+    it('should skip records already on current version', async () => {
+      // findMany with NOT currentKeyRef returns nothing — all records already rotated
+      mockPrisma.tenantStripeConfig.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.stripeConfigs.total).toBe(0);
+      expect(result.stripeConfigs.rotated).toBe(0);
+      expect(mockPrisma.tenantStripeConfig.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Staff Bank Details ───────────────────────────────────────────────────
+
+  describe('rotateAll — staff bank details', () => {
+    it('should re-encrypt records with old keyRef', async () => {
+      const oldRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:cipher_acct', 'iv:tag:cipher_iban');
+      mockPrisma.staffProfile.findMany
+        .mockResolvedValueOnce([oldRecord])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.total).toBe(1);
+      expect(result.staffProfiles.rotated).toBe(1);
+      expect(result.staffProfiles.failed).toBe(0);
+
+      // Should have decrypted both bank fields
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher_acct', 'aws');
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher_iban', 'aws');
+
+      // Should have updated the record
+      expect(mockPrisma.staffProfile.update).toHaveBeenCalledWith({
+        where: { id: 'sp-1' },
+        data: expect.objectContaining({
+          bank_encryption_key_ref: CURRENT_KEY_REF,
+        }),
+      });
+    });
+
+    it('should handle null encrypted fields gracefully', async () => {
+      // Has keyRef but no encrypted fields — should be skipped
+      const nullFieldsRecord = mockStaffProfile('sp-2', 'local', null, null);
+      mockPrisma.staffProfile.findMany
+        .mockResolvedValueOnce([nullFieldsRecord])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.total).toBe(1);
+      expect(result.staffProfiles.skipped).toBe(1);
+      expect(result.staffProfiles.rotated).toBe(0);
+      expect(mockPrisma.staffProfile.update).not.toHaveBeenCalled();
+    });
+
+    it('should handle record with only account number encrypted', async () => {
+      const partialRecord = mockStaffProfile('sp-3', 'local', 'iv:tag:cipher_acct', null);
+      mockPrisma.staffProfile.findMany
+        .mockResolvedValueOnce([partialRecord])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.rotated).toBe(1);
+      // Only one decrypt call for this record (account only, no IBAN)
+      expect(mockEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher_acct', 'local');
+    });
+  });
+
+  // ─── Dry run ──────────────────────────────────────────────────────────────
+
+  describe('rotateAll — dry run', () => {
+    it('should count records but not update them', async () => {
+      const stripeRecord = mockStripeConfig('sc-1', 'local');
+      const staffRecord = mockStaffProfile('sp-1', 'aws', 'iv:tag:acct', 'iv:tag:iban');
+
+      mockPrisma.tenantStripeConfig.findMany
+        .mockResolvedValueOnce([stripeRecord])
+        .mockResolvedValueOnce([]);
+      mockPrisma.staffProfile.findMany
+        .mockResolvedValueOnce([staffRecord])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(true);
+
+      expect(result.dryRun).toBe(true);
+      expect(result.stripeConfigs.rotated).toBe(1);
+      expect(result.staffProfiles.rotated).toBe(1);
+
+      // No updates should have been made
+      expect(mockPrisma.tenantStripeConfig.update).not.toHaveBeenCalled();
+      expect(mockPrisma.staffProfile.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Error handling ───────────────────────────────────────────────────────
+
+  describe('rotateAll — error handling', () => {
+    it('should continue rotation when individual record fails', async () => {
+      const good = mockStripeConfig('sc-good', 'local');
+      const bad = mockStripeConfig('sc-bad', 'local');
+
+      // Make decrypt throw for the bad record's secret key
+      mockEncryption.decrypt.mockImplementation(
+        (encrypted: string, _keyRef: string) => {
+          if (encrypted.includes('sc-bad')) {
+            throw new Error('Corrupt data');
+          }
+          return `decrypted_${encrypted}`;
+        },
+      );
+
+      mockPrisma.tenantStripeConfig.findMany
+        .mockResolvedValueOnce([bad, good])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.stripeConfigs.total).toBe(2);
+      expect(result.stripeConfigs.rotated).toBe(1);
+      expect(result.stripeConfigs.failed).toBe(1);
+
+      // The good record should still have been updated
+      expect(mockPrisma.tenantStripeConfig.update).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.tenantStripeConfig.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'sc-good' } }),
+      );
+    });
+
+    it('should log and count staff profile failures without stopping', async () => {
+      const bad = mockStaffProfile('sp-bad', 'local', 'iv:tag:acct', null);
+
+      mockEncryption.decrypt.mockImplementation(() => {
+        throw new Error('Key mismatch');
+      });
+
+      mockPrisma.staffProfile.findMany
+        .mockResolvedValueOnce([bad])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.rotateAll(false);
+
+      expect(result.staffProfiles.total).toBe(1);
+      expect(result.staffProfiles.failed).toBe(1);
+      expect(result.staffProfiles.rotated).toBe(0);
+      expect(mockPrisma.staffProfile.update).not.toHaveBeenCalled();
+    });
+  });
+});
