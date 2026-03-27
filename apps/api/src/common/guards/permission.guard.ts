@@ -3,12 +3,14 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { JwtPayload } from '@school/shared';
 
 import { REQUIRES_PERMISSION_KEY } from '../decorators/requires-permission.decorator';
 import { PermissionCacheService } from '../services/permission-cache.service';
+import { SecurityAuditService } from '../../modules/audit-log/security-audit.service';
 
 /**
  * Permission guard.
@@ -29,6 +31,8 @@ export class PermissionGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly permissionCacheService: PermissionCacheService,
+    @Optional()
+    private readonly securityAuditService?: SecurityAuditService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,6 +58,8 @@ export class PermissionGuard implements CanActivate {
     }
 
     if (!user.membership_id) {
+      await this.logPermissionDenied(request, user, requiredPermission, 'NO_ACTIVE_MEMBERSHIP');
+
       throw new ForbiddenException({
         error: {
           code: 'PERMISSION_DENIED',
@@ -67,6 +73,8 @@ export class PermissionGuard implements CanActivate {
     // permission checks when accessing Tenant B's domain.
     const tenantContext = request['tenantContext'] as { tenant_id: string } | null | undefined;
     if (tenantContext && tenantContext.tenant_id !== user.tenant_id) {
+      await this.logPermissionDenied(request, user, requiredPermission, 'TOKEN_TENANT_MISMATCH');
+
       throw new ForbiddenException({
         error: {
           code: 'PERMISSION_DENIED',
@@ -75,9 +83,7 @@ export class PermissionGuard implements CanActivate {
       });
     }
 
-    const permissions = await this.permissionCacheService.getPermissions(
-      user.membership_id,
-    );
+    const permissions = await this.permissionCacheService.getPermissions(user.membership_id);
 
     // Support single permission (string) or multiple (OR logic — any one grants access)
     const requiredPerms = Array.isArray(requiredPermission)
@@ -86,6 +92,8 @@ export class PermissionGuard implements CanActivate {
 
     const hasPermission = requiredPerms.some((perm) => permissions.includes(perm));
     if (!hasPermission) {
+      await this.logPermissionDenied(request, user, requiredPerms);
+
       throw new ForbiddenException({
         error: {
           code: 'PERMISSION_DENIED',
@@ -95,5 +103,35 @@ export class PermissionGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private async logPermissionDenied(
+    request: Record<string, unknown>,
+    user: JwtPayload,
+    requiredPermissions: string | string[],
+    reason?: string,
+  ): Promise<void> {
+    const endpoint =
+      typeof request['originalUrl'] === 'string'
+        ? ((request['originalUrl'] as string).split('?')[0] ?? (request['originalUrl'] as string))
+        : 'unknown';
+    const ipAddress = typeof request['ip'] === 'string' ? request['ip'] : 'unknown';
+    const userAgent =
+      typeof request['headers'] === 'object' && request['headers'] !== null
+        ? (() => {
+            const headerValue = (request['headers'] as Record<string, unknown>)['user-agent'];
+            return typeof headerValue === 'string' ? headerValue : undefined;
+          })()
+        : undefined;
+
+    await this.securityAuditService?.logPermissionDenied(
+      user.sub,
+      requiredPermissions,
+      endpoint,
+      ipAddress,
+      user.tenant_id,
+      userAgent,
+      reason,
+    );
   }
 }

@@ -23,6 +23,7 @@ import * as QRCode from 'qrcode';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 
 export interface LoginResult {
   access_token: string;
@@ -69,6 +70,7 @@ export class AuthService {
     private configService: ConfigService,
     private redis: RedisService,
     private prisma: PrismaService,
+    private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   // ─── Token signing / verification ──────────────────────────────────────────
@@ -158,11 +160,29 @@ export class AuthService {
     return { blocked: false, retryAfterSeconds: 0 };
   }
 
-  async recordFailedLogin(email: string): Promise<void> {
+  async recordFailedLogin(email: string, ipAddress?: string, userAgent?: string): Promise<void> {
     const client = this.redis.getClient();
     const key = `brute_force:${email}`;
-    await client.incr(key);
+    const failureCount = await client.incr(key);
     await client.expire(key, BRUTE_FORCE_WINDOW_SECONDS);
+
+    if (!ipAddress) {
+      return;
+    }
+
+    const threshold = BRUTE_FORCE_THRESHOLDS.find(
+      (candidate) => candidate.failures === failureCount,
+    );
+
+    if (threshold) {
+      await this.securityAuditService.logBruteForceLockout(
+        email,
+        ipAddress,
+        threshold.delaySeconds / 60,
+        null,
+        userAgent,
+      );
+    }
   }
 
   async clearBruteForce(email: string): Promise<void> {
@@ -183,6 +203,14 @@ export class AuthService {
     // 1. Check brute force protection
     const bruteForce = await this.checkBruteForce(email);
     if (bruteForce.blocked) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'BRUTE_FORCE_BLOCKED',
+        tenantId ?? null,
+        userAgent,
+      );
+
       throw new UnauthorizedException({
         code: 'BRUTE_FORCE_BLOCKED',
         message: `Too many failed attempts. Try again in ${bruteForce.retryAfterSeconds} seconds`,
@@ -195,7 +223,14 @@ export class AuthService {
     });
 
     if (!user) {
-      await this.recordFailedLogin(email);
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        tenantId ?? null,
+        userAgent,
+      );
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -205,7 +240,14 @@ export class AuthService {
     // 3. Compare password with bcrypt
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
-      await this.recordFailedLogin(email);
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        tenantId ?? null,
+        userAgent,
+      );
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -214,12 +256,26 @@ export class AuthService {
 
     // 4. Check user.global_status
     if (user.global_status === 'suspended') {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'USER_SUSPENDED',
+        tenantId ?? null,
+        userAgent,
+      );
       throw new ForbiddenException({
         code: 'USER_SUSPENDED',
         message: 'Your account has been suspended',
       });
     }
     if (user.global_status === 'disabled') {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'USER_DISABLED',
+        tenantId ?? null,
+        userAgent,
+      );
       throw new ForbiddenException({
         code: 'USER_DISABLED',
         message: 'Your account has been disabled',
@@ -240,6 +296,13 @@ export class AuthService {
       });
 
       if (!membership || membership.membership_status !== 'active') {
+        await this.securityAuditService.logLoginFailure(
+          email,
+          ipAddress,
+          'MEMBERSHIP_NOT_ACTIVE',
+          tenantId ?? null,
+          userAgent,
+        );
         throw new ForbiddenException({
           code: 'MEMBERSHIP_NOT_ACTIVE',
           message: 'You do not have an active membership at this school',
@@ -248,12 +311,26 @@ export class AuthService {
 
       // Check tenant status
       if (membership.tenant.status === 'suspended') {
+        await this.securityAuditService.logLoginFailure(
+          email,
+          ipAddress,
+          'TENANT_SUSPENDED',
+          tenantId ?? null,
+          userAgent,
+        );
         throw new ForbiddenException({
           code: 'TENANT_SUSPENDED',
           message: 'This school account has been suspended',
         });
       }
       if (membership.tenant.status === 'archived') {
+        await this.securityAuditService.logLoginFailure(
+          email,
+          ipAddress,
+          'TENANT_ARCHIVED',
+          tenantId ?? null,
+          userAgent,
+        );
         throw new ForbiddenException({
           code: 'TENANT_ARCHIVED',
           message: 'This school account has been archived',
@@ -287,6 +364,13 @@ export class AuthService {
 
       // Verify TOTP
       if (!user.mfa_secret) {
+        await this.securityAuditService.logLoginFailure(
+          email,
+          ipAddress,
+          'MFA_NOT_CONFIGURED',
+          tenantId ?? null,
+          userAgent,
+        );
         throw new UnauthorizedException({
           code: 'MFA_NOT_CONFIGURED',
           message: 'MFA is enabled but not configured properly',
@@ -300,6 +384,13 @@ export class AuthService {
       const isValid = verifyResult.valid;
 
       if (!isValid) {
+        await this.securityAuditService.logLoginFailure(
+          email,
+          ipAddress,
+          'INVALID_MFA_CODE',
+          tenantId ?? null,
+          userAgent,
+        );
         throw new UnauthorizedException({
           code: 'INVALID_MFA_CODE',
           message: 'Invalid MFA code',
@@ -330,6 +421,13 @@ export class AuthService {
       last_active_at: now,
     };
     await this.createSession(session);
+    await this.securityAuditService.logLoginSuccess(
+      user.id,
+      ipAddress,
+      userAgent,
+      tenantId ?? null,
+      sessionId,
+    );
 
     // 10. Generate tokens
     const accessToken = this.signAccessToken({
@@ -448,6 +546,7 @@ export class AuthService {
 
     // Always return success to avoid leaking user existence
     if (!user) {
+      await this.securityAuditService.logPasswordReset(null, 'email', email);
       return { message: 'If email exists, reset link sent' };
     }
 
@@ -461,6 +560,7 @@ export class AuthService {
     });
 
     if (activeTokenCount >= 3) {
+      await this.securityAuditService.logPasswordReset(user.id, 'email', email);
       return { message: 'If email exists, reset link sent' };
     }
 
@@ -476,6 +576,8 @@ export class AuthService {
         expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
       },
     });
+
+    await this.securityAuditService.logPasswordReset(user.id, 'email', email);
 
     // Note: actual email sending deferred to Phase 7
     // In a real implementation, rawToken would be sent via email
@@ -529,6 +631,7 @@ export class AuthService {
 
     // 7. Delete all Redis sessions for this user
     await this.deleteAllUserSessions(resetToken.user_id);
+    await this.securityAuditService.logPasswordChange(resetToken.user_id);
 
     return { message: 'Password reset successfully' };
   }
@@ -634,6 +737,8 @@ export class AuthService {
       data: codeHashes,
     });
 
+    await this.securityAuditService.logMfaSetup(userId);
+
     return { recovery_codes: recoveryCodes };
   }
 
@@ -671,6 +776,13 @@ export class AuthService {
     // 1. Check brute force
     const bruteForce = await this.checkBruteForce(email);
     if (bruteForce.blocked) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'BRUTE_FORCE_BLOCKED',
+        null,
+        userAgent,
+      );
       throw new UnauthorizedException({
         code: 'BRUTE_FORCE_BLOCKED',
         message: `Too many failed attempts. Try again in ${bruteForce.retryAfterSeconds} seconds`,
@@ -680,7 +792,14 @@ export class AuthService {
     // 2. Find user
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      await this.recordFailedLogin(email);
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        null,
+        userAgent,
+      );
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -690,7 +809,14 @@ export class AuthService {
     // 3. Check password
     const passwordValid = await bcrypt.compare(password, user.password_hash);
     if (!passwordValid) {
-      await this.recordFailedLogin(email);
+      await this.recordFailedLogin(email, ipAddress, userAgent);
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_CREDENTIALS',
+        null,
+        userAgent,
+      );
       throw new UnauthorizedException({
         code: 'INVALID_CREDENTIALS',
         message: 'Invalid email or password',
@@ -699,6 +825,13 @@ export class AuthService {
 
     // 4. Check user status
     if (user.global_status !== 'active') {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'USER_NOT_ACTIVE',
+        null,
+        userAgent,
+      );
       throw new ForbiddenException({
         code: 'USER_NOT_ACTIVE',
         message: 'Your account is not active',
@@ -706,13 +839,25 @@ export class AuthService {
     }
 
     // 5. Verify and use recovery code
-    await this.useRecoveryCode(user.id, recoveryCode);
+    try {
+      await this.useRecoveryCode(user.id, recoveryCode);
+    } catch (error: unknown) {
+      await this.securityAuditService.logLoginFailure(
+        email,
+        ipAddress,
+        'INVALID_RECOVERY_CODE',
+        null,
+        userAgent,
+      );
+      throw error;
+    }
 
     // 6. Disable MFA
     await this.prisma.user.update({
       where: { id: user.id },
       data: { mfa_enabled: false, mfa_secret: null },
     });
+    await this.securityAuditService.logMfaDisable(user.id, null, 'recovery_code');
 
     // 7. Delete all recovery codes
     await this.prisma.mfaRecoveryCode.deleteMany({
@@ -742,6 +887,7 @@ export class AuthService {
       last_active_at: now,
     };
     await this.createSession(session);
+    await this.securityAuditService.logLoginSuccess(user.id, ipAddress, userAgent, null, sessionId);
 
     // 11. Generate tokens
     const accessToken = this.signAccessToken({
@@ -806,7 +952,9 @@ export class AuthService {
         session.tenant_id = targetTenantId;
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
-      } catch { /* skip malformed sessions */ }
+      } catch {
+        /* skip malformed sessions */
+      }
     }
 
     // 4. Generate new access token
@@ -929,6 +1077,7 @@ export class AuthService {
     }
 
     await this.deleteSession(sessionId, userId);
+    await this.securityAuditService.logSessionRevocation(userId, userId, sessionId);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

@@ -1,9 +1,13 @@
 import { z } from 'zod';
 
+import { AUDIT_LOG_CATEGORIES, AUDIT_LOG_SENSITIVITIES } from '../types/audit-log';
+
 export const auditLogFilterSchema = z.object({
   entity_type: z.string().optional(),
   actor_user_id: z.string().uuid().optional(),
   action: z.string().optional(),
+  category: z.enum(AUDIT_LOG_CATEGORIES).optional(),
+  sensitivity: z.enum(AUDIT_LOG_SENSITIVITIES).optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),

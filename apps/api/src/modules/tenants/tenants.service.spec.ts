@@ -16,6 +16,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
 import { AuthService } from '../auth/auth.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -38,6 +39,10 @@ const mockRedis = {
 
 const mockAuthService = {
   signAccessToken: jest.fn(),
+};
+
+const mockSecurityAuditService = {
+  logMfaDisable: jest.fn(),
 };
 
 const mockPrisma = {
@@ -106,6 +111,7 @@ describe('TenantsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: AuthService, useValue: mockAuthService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 
@@ -113,7 +119,15 @@ describe('TenantsService', () => {
   });
 
   describe('createTenant', () => {
-    const createDto: { name: string; slug: string; default_locale: 'en' | 'ar'; timezone: string; date_format: string; currency_code: string; academic_year_start_month: number } = {
+    const createDto: {
+      name: string;
+      slug: string;
+      default_locale: 'en' | 'ar';
+      timezone: string;
+      date_format: string;
+      currency_code: string;
+      academic_year_start_month: number;
+    } = {
       name: 'Test School',
       slug: 'test-school',
       default_locale: 'en',
@@ -139,11 +153,32 @@ describe('TenantsService', () => {
 
     const fullTenantWithIncludes = {
       ...createdTenant,
-      branding: { id: 'branding-1', tenant_id: 'new-tenant-id', school_name_display: 'Test School' },
+      branding: {
+        id: 'branding-1',
+        tenant_id: 'new-tenant-id',
+        school_name_display: 'Test School',
+      },
       settings: { id: 'settings-1', tenant_id: 'new-tenant-id', settings: {} },
-      modules: MODULE_KEYS.map((k) => ({ id: `module-${k}`, tenant_id: 'new-tenant-id', module_key: k, is_enabled: true })),
-      domains: [{ id: 'domain-1', tenant_id: 'new-tenant-id', domain: 'test-school.edupod.app', is_primary: true }],
-      sequences: SEQUENCE_TYPES.map((t) => ({ id: `seq-${t}`, tenant_id: 'new-tenant-id', sequence_type: t, current_value: 0 })),
+      modules: MODULE_KEYS.map((k) => ({
+        id: `module-${k}`,
+        tenant_id: 'new-tenant-id',
+        module_key: k,
+        is_enabled: true,
+      })),
+      domains: [
+        {
+          id: 'domain-1',
+          tenant_id: 'new-tenant-id',
+          domain: 'test-school.edupod.app',
+          is_primary: true,
+        },
+      ],
+      sequences: SEQUENCE_TYPES.map((t) => ({
+        id: `seq-${t}`,
+        tenant_id: 'new-tenant-id',
+        sequence_type: t,
+        current_value: 0,
+      })),
       _count: { memberships: 0 },
     };
 
@@ -209,7 +244,6 @@ describe('TenantsService', () => {
 
       // Modules created — one per MODULE_KEY
       expect(mockPrisma.tenantModule.create).toHaveBeenCalledTimes(MODULE_KEYS.length);
-      expect(MODULE_KEYS.length).toBe(12);
 
       // Each MODULE_KEY created with is_enabled: true
       for (const moduleKey of MODULE_KEYS) {

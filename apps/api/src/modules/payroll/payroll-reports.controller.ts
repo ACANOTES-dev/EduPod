@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@nestjs/common';
 import { payrollReportQuerySchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 import type { Response } from 'express';
@@ -14,6 +6,7 @@ import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -32,6 +25,7 @@ const paginationQuerySchema = z.object({
 
 @Controller('v1/payroll/reports')
 @UseGuards(AuthGuard, PermissionGuard)
+@SensitiveDataAccess('analytics')
 export class PayrollReportsController {
   constructor(private readonly payrollReportsService: PayrollReportsService) {}
 

@@ -21,6 +21,7 @@ import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -33,9 +34,7 @@ import { StudentsService } from './students.service';
 // ─── Query schemas ────────────────────────────────────────────────────────────
 
 const listStudentsQuerySchema = paginationQuerySchema.extend({
-  status: z
-    .enum(['applicant', 'active', 'withdrawn', 'graduated', 'archived'])
-    .optional(),
+  status: z.enum(['applicant', 'active', 'withdrawn', 'graduated', 'archived']).optional(),
   year_group_id: z.string().uuid().optional(),
   household_id: z.string().uuid().optional(),
   has_allergy: z
@@ -60,11 +59,14 @@ const allergyReportQuerySchema = z.object({
 const studentExportQuerySchema = z.object({
   status: z.enum(['applicant', 'active', 'withdrawn', 'graduated', 'archived']).optional(),
   year_group_id: z.string().uuid().optional(),
-  has_allergy: z.string().optional().transform((v) => {
-    if (v === 'true') return true;
-    if (v === 'false') return false;
-    return undefined;
-  }),
+  has_allergy: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (v === 'true') return true;
+      if (v === 'false') return false;
+      return undefined;
+    }),
   search: z.string().optional(),
 });
 
@@ -111,6 +113,7 @@ export class StudentsController {
   // Note: Must be declared before :id route to avoid being captured as an id
   @Get('allergy-report')
   @RequiresPermission('students.view')
+  @SensitiveDataAccess('special_category')
   async allergyReport(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(allergyReportQuerySchema))
@@ -141,6 +144,7 @@ export class StudentsController {
   // GET /v1/students/:id
   @Get(':id')
   @RequiresPermission('students.view')
+  @SensitiveDataAccess('special_category')
   async findOne(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
@@ -185,6 +189,7 @@ export class StudentsController {
   // GET /v1/students/:id/export-pack
   @Get(':id/export-pack')
   @RequiresPermission('students.manage')
+  @SensitiveDataAccess('full_export')
   async exportPack(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,

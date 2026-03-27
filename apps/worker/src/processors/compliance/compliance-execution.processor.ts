@@ -1,12 +1,16 @@
-import { randomUUID } from 'crypto';
-
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import {
+  ComplianceAnonymisationCore,
+} from '@school/prisma';
 import { Job } from 'bullmq';
+import type { AnonymisationCleanupPlan } from '@school/prisma';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
-import { uploadToS3 } from '../../base/s3.helpers';
+import { getRedisClient } from '../../base/redis.helpers';
+import { deleteSearchDocument } from '../../base/search.helpers';
+import { deleteFromS3, uploadToS3 } from '../../base/s3.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -51,8 +55,15 @@ export class ComplianceExecutionProcessor extends WorkerHost {
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
-class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> {
+export class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> {
   private readonly logger = new Logger(ComplianceExecutionJob.name);
+
+  constructor(
+    prisma: PrismaClient,
+    private readonly anonymisationCore = new ComplianceAnonymisationCore(),
+  ) {
+    super(prisma);
+  }
 
   protected async processJob(
     data: ComplianceExecutionPayload,
@@ -162,32 +173,17 @@ class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> 
       return;
     }
 
-    // Both 'erase' and 'anonymise' classifications trigger anonymisation
-    const anonymisedTag = `ANONYMISED-${randomUUID().slice(0, 8)}`;
+    const result = await this.anonymisationCore.anonymiseSubject(
+      tenantId,
+      request.subject_type,
+      request.subject_id,
+      tx,
+    );
 
-    switch (request.subject_type) {
-      case 'student':
-        await this.anonymiseStudent(tx, tenantId, request.subject_id, anonymisedTag);
-        break;
-      case 'parent':
-        await this.anonymiseParent(tx, tenantId, request.subject_id, anonymisedTag);
-        break;
-      case 'household':
-        await this.anonymiseHousehold(tx, tenantId, request.subject_id, anonymisedTag);
-        break;
-      case 'user':
-        // User anonymisation is more complex — handled at the platform level.
-        // Mark the fields we can within the tenant scope.
-        this.logger.log(
-          `User anonymisation for ${request.subject_id} — limited tenant-scoped anonymisation`,
-        );
-        break;
-      default:
-        throw new Error(`Unknown subject_type for erasure: ${request.subject_type}`);
-    }
+    await this.runCleanupPlan(tenantId, result.cleanup, tx);
 
     this.logger.log(
-      `Erasure (${classification ?? 'default'}) applied for ${request.subject_type} ${request.subject_id}, tag ${anonymisedTag}`,
+      `Erasure (${classification ?? 'default'}) applied for ${request.subject_type} ${request.subject_id}. Entities: ${result.anonymised_entities.join(', ')}`,
     );
   }
 
@@ -260,61 +256,121 @@ class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPayload> 
     return result;
   }
 
-  private async anonymiseStudent(
-    tx: PrismaClient,
-    tenantId: string,
-    studentId: string,
-    tag: string,
-  ): Promise<void> {
-    await tx.student.updateMany({
-      where: { id: studentId, tenant_id: tenantId },
-      data: {
-        first_name: tag,
-        last_name: tag,
-        full_name: tag,
-        first_name_ar: null,
-        last_name_ar: null,
-        full_name_ar: null,
-        medical_notes: null,
-        allergy_details: null,
-        has_allergy: false,
-      },
-    });
-  }
-
-  private async anonymiseParent(
-    tx: PrismaClient,
-    tenantId: string,
-    parentId: string,
-    tag: string,
-  ): Promise<void> {
-    await tx.parent.updateMany({
-      where: { id: parentId, tenant_id: tenantId },
-      data: {
-        first_name: tag,
-        last_name: tag,
-        email: `${tag}@anonymised.local`,
-        phone: null,
-        whatsapp_phone: null,
-      },
-    });
-  }
-
-  private async anonymiseHousehold(
-    tx: PrismaClient,
-    tenantId: string,
-    householdId: string,
-    tag: string,
-  ): Promise<void> {
-    await tx.household.updateMany({
-      where: { id: householdId, tenant_id: tenantId },
-      data: {
-        household_name: tag,
-      },
-    });
-  }
-
   private async uploadExportToS3(fileKey: string, content: string): Promise<void> {
     await uploadToS3(fileKey, content);
+  }
+
+  private async runCleanupPlan(
+    tenantId: string,
+    cleanup: AnonymisationCleanupPlan,
+    tx: PrismaClient,
+  ): Promise<void> {
+    await this.removeSearchEntries(cleanup, tx);
+    await this.deleteComplianceExports(cleanup, tx);
+    await this.clearRedisArtifacts(tenantId, cleanup);
+  }
+
+  private async removeSearchEntries(
+    cleanup: AnonymisationCleanupPlan,
+    tx: PrismaClient,
+  ): Promise<void> {
+    for (const removal of cleanup.searchRemovals) {
+      await deleteSearchDocument(removal.entityType, removal.entityId);
+      await tx.searchIndexStatus.deleteMany({
+        where: {
+          entity_type: removal.entityType,
+          entity_id: removal.entityId,
+        },
+      });
+    }
+  }
+
+  private async deleteComplianceExports(
+    cleanup: AnonymisationCleanupPlan,
+    tx: PrismaClient,
+  ): Promise<void> {
+    for (const key of cleanup.s3ObjectKeys) {
+      try {
+        await deleteFromS3(key);
+      } catch (error) {
+        this.logger.warn(
+          `[deleteComplianceExports] ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    if (cleanup.complianceRequestIdsToClear.length > 0) {
+      await tx.complianceRequest.updateMany({
+        where: {
+          id: { in: cleanup.complianceRequestIdsToClear },
+        },
+        data: {
+          export_file_key: null,
+        },
+      });
+    }
+  }
+
+  private async clearRedisArtifacts(
+    tenantId: string,
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    const redis = getRedisClient();
+    const keys = new Set<string>(cleanup.previewKeys);
+
+    for (const userId of cleanup.unreadNotificationUserIds) {
+      keys.add(`tenant:${tenantId}:user:${userId}:unread_notifications`);
+    }
+
+    for (const pattern of cleanup.cachePatterns) {
+      const matchedKeys = await this.findKeysByPattern(pattern);
+      for (const key of matchedKeys) {
+        keys.add(key);
+      }
+    }
+
+    if (keys.size > 0 || cleanup.permissionMembershipIds.length > 0) {
+      const pipeline = redis.pipeline();
+
+      for (const key of keys) {
+        pipeline.del(key);
+      }
+
+      for (const membershipId of cleanup.permissionMembershipIds) {
+        pipeline.del(`permissions:${membershipId}`);
+      }
+
+      await pipeline.exec();
+    }
+
+    for (const userId of cleanup.sessionUserIds) {
+      const sessionIds = await redis.smembers(`user_sessions:${userId}`);
+      if (sessionIds.length > 0) {
+        await redis.del(...sessionIds.map((sessionId) => `session:${sessionId}`));
+      }
+      await redis.del(`user_sessions:${userId}`);
+    }
+  }
+
+  private async findKeysByPattern(pattern: string): Promise<string[]> {
+    const redis = getRedisClient();
+    const keys = new Set<string>();
+    let cursor = '0';
+
+    do {
+      const [nextCursor, foundKeys] = await redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        '100',
+      );
+      cursor = nextCursor;
+      for (const key of foundKeys) {
+        keys.add(key);
+      }
+    } while (cursor !== '0');
+
+    return Array.from(keys);
   }
 }

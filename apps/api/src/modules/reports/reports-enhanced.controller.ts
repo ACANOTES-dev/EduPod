@@ -40,6 +40,7 @@ import type { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -63,6 +64,7 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
 
 @Controller('v1/reports')
 @UseGuards(AuthGuard, PermissionGuard)
+@SensitiveDataAccess('analytics')
 export class ReportsEnhancedController {
   constructor(
     private readonly unifiedDashboard: UnifiedDashboardService,
@@ -97,7 +99,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async attendanceVsGrades(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
     return this.crossModuleInsights.attendanceVsGrades(
       tenant.tenant_id,
@@ -130,7 +133,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async chronicAbsenteeism(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema)) query: z.infer<typeof attendanceAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema))
+    query: z.infer<typeof attendanceAnalyticsQuerySchema>,
   ) {
     return this.attendanceAnalytics.chronicAbsenteeism(
       tenant.tenant_id,
@@ -144,7 +148,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async dayOfWeekHeatmap(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema)) query: z.infer<typeof attendanceAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema))
+    query: z.infer<typeof attendanceAnalyticsQuerySchema>,
   ) {
     return this.attendanceAnalytics.dayOfWeekHeatmap(
       tenant.tenant_id,
@@ -163,7 +168,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async attendanceTrends(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema)) query: z.infer<typeof attendanceAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema))
+    query: z.infer<typeof attendanceAnalyticsQuerySchema>,
   ) {
     return this.attendanceAnalytics.attendanceTrends(
       tenant.tenant_id,
@@ -176,7 +182,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async excusedVsUnexcused(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema)) query: z.infer<typeof attendanceAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema))
+    query: z.infer<typeof attendanceAnalyticsQuerySchema>,
   ) {
     return this.attendanceAnalytics.excusedVsUnexcused(
       tenant.tenant_id,
@@ -191,7 +198,8 @@ export class ReportsEnhancedController {
   async classComparison(
     @CurrentTenant() tenant: TenantContext,
     @Param('yearGroupId', ParseUUIDPipe) yearGroupId: string,
-    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema)) query: z.infer<typeof attendanceAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(attendanceAnalyticsQuerySchema))
+    query: z.infer<typeof attendanceAnalyticsQuerySchema>,
   ) {
     return this.attendanceAnalytics.classComparison(
       tenant.tenant_id,
@@ -207,7 +215,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async passFailRates(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
     return this.gradeAnalytics.passFailRates(
       tenant.tenant_id,
@@ -221,7 +230,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async gradeDistribution(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
     return this.gradeAnalytics.gradeDistribution(
       tenant.tenant_id,
@@ -235,7 +245,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async topBottomPerformers(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
     return this.gradeAnalytics.topBottomPerformers(
       tenant.tenant_id,
@@ -249,20 +260,18 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async gradeTrends(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
-    return this.gradeAnalytics.gradeTrends(
-      tenant.tenant_id,
-      query.year_group_id,
-      query.subject_id,
-    );
+    return this.gradeAnalytics.gradeTrends(tenant.tenant_id, query.year_group_id, query.subject_id);
   }
 
   @Get('analytics/grades/subject-difficulty')
   @RequiresPermission('analytics.view')
   async subjectDifficulty(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
     return this.gradeAnalytics.subjectDifficulty(tenant.tenant_id, query.year_group_id);
   }
@@ -271,7 +280,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async gpaDistribution(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema)) query: z.infer<typeof gradeAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(gradeAnalyticsQuerySchema))
+    query: z.infer<typeof gradeAnalyticsQuerySchema>,
   ) {
     return this.gradeAnalytics.gpaDistribution(tenant.tenant_id, query.year_group_id);
   }
@@ -282,7 +292,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async nationalityBreakdown(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(demographicsQuerySchema)) query: z.infer<typeof demographicsQuerySchema>,
+    @Query(new ZodValidationPipe(demographicsQuerySchema))
+    query: z.infer<typeof demographicsQuerySchema>,
   ) {
     return this.demographics.nationalityBreakdown(tenant.tenant_id, query.year_group_id);
   }
@@ -297,7 +308,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async ageDistribution(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(demographicsQuerySchema)) query: z.infer<typeof demographicsQuerySchema>,
+    @Query(new ZodValidationPipe(demographicsQuerySchema))
+    query: z.infer<typeof demographicsQuerySchema>,
   ) {
     return this.demographics.ageDistribution(tenant.tenant_id, query.year_group_id);
   }
@@ -326,7 +338,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async getStudentProgress(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(studentProgressQuerySchema)) query: z.infer<typeof studentProgressQuerySchema>,
+    @Query(new ZodValidationPipe(studentProgressQuerySchema))
+    query: z.infer<typeof studentProgressQuerySchema>,
   ) {
     return this.studentProgress.getStudentProgress(tenant.tenant_id, query.student_id);
   }
@@ -337,45 +350,70 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view')
   async admissionsFunnel(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
-    return this.admissionsAnalytics.pipelineFunnel(tenant.tenant_id, query.start_date, query.end_date);
+    return this.admissionsAnalytics.pipelineFunnel(
+      tenant.tenant_id,
+      query.start_date,
+      query.end_date,
+    );
   }
 
   @Get('analytics/admissions/processing-time')
   @RequiresPermission('analytics.view')
   async admissionsProcessingTime(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
-    return this.admissionsAnalytics.processingTime(tenant.tenant_id, query.start_date, query.end_date);
+    return this.admissionsAnalytics.processingTime(
+      tenant.tenant_id,
+      query.start_date,
+      query.end_date,
+    );
   }
 
   @Get('analytics/admissions/rejection-reasons')
   @RequiresPermission('analytics.view')
   async rejectionReasons(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
-    return this.admissionsAnalytics.rejectionReasons(tenant.tenant_id, query.start_date, query.end_date);
+    return this.admissionsAnalytics.rejectionReasons(
+      tenant.tenant_id,
+      query.start_date,
+      query.end_date,
+    );
   }
 
   @Get('analytics/admissions/monthly')
   @RequiresPermission('analytics.view')
   async monthlyApplications(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
-    return this.admissionsAnalytics.monthlyApplications(tenant.tenant_id, query.start_date, query.end_date);
+    return this.admissionsAnalytics.monthlyApplications(
+      tenant.tenant_id,
+      query.start_date,
+      query.end_date,
+    );
   }
 
   @Get('analytics/admissions/year-group-demand')
   @RequiresPermission('analytics.view')
   async yearGroupDemand(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema)) query: z.infer<typeof admissionsAnalyticsQuerySchema>,
+    @Query(new ZodValidationPipe(admissionsAnalyticsQuerySchema))
+    query: z.infer<typeof admissionsAnalyticsQuerySchema>,
   ) {
-    return this.admissionsAnalytics.yearGroupDemand(tenant.tenant_id, query.start_date, query.end_date);
+    return this.admissionsAnalytics.yearGroupDemand(
+      tenant.tenant_id,
+      query.start_date,
+      query.end_date,
+    );
   }
 
   // ─── Staff Analytics ──────────────────────────────────────────────────────
@@ -423,7 +461,8 @@ export class ReportsEnhancedController {
   async listSavedReports(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Query(new ZodValidationPipe(savedReportsQuerySchema)) query: z.infer<typeof savedReportsQuerySchema>,
+    @Query(new ZodValidationPipe(savedReportsQuerySchema))
+    query: z.infer<typeof savedReportsQuerySchema>,
   ) {
     return this.customReportBuilder.listSavedReports(
       tenant.tenant_id,
@@ -448,7 +487,8 @@ export class ReportsEnhancedController {
   async createSavedReport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createSavedReportSchema)) body: z.infer<typeof createSavedReportSchema>,
+    @Body(new ZodValidationPipe(createSavedReportSchema))
+    body: z.infer<typeof createSavedReportSchema>,
   ) {
     return this.customReportBuilder.createSavedReport(tenant.tenant_id, user.sub, body);
   }
@@ -458,7 +498,8 @@ export class ReportsEnhancedController {
   async updateSavedReport(
     @CurrentTenant() tenant: TenantContext,
     @Param('reportId', ParseUUIDPipe) reportId: string,
-    @Body(new ZodValidationPipe(updateSavedReportSchema)) body: z.infer<typeof updateSavedReportSchema>,
+    @Body(new ZodValidationPipe(updateSavedReportSchema))
+    body: z.infer<typeof updateSavedReportSchema>,
   ) {
     return this.customReportBuilder.updateSavedReport(tenant.tenant_id, reportId, body);
   }
@@ -477,9 +518,15 @@ export class ReportsEnhancedController {
   async executeReport(
     @CurrentTenant() tenant: TenantContext,
     @Param('reportId', ParseUUIDPipe) reportId: string,
-    @Query(new ZodValidationPipe(executeSavedReportSchema)) query: z.infer<typeof executeSavedReportSchema>,
+    @Query(new ZodValidationPipe(executeSavedReportSchema))
+    query: z.infer<typeof executeSavedReportSchema>,
   ) {
-    return this.customReportBuilder.executeReport(tenant.tenant_id, reportId, query.page, query.pageSize);
+    return this.customReportBuilder.executeReport(
+      tenant.tenant_id,
+      reportId,
+      query.page,
+      query.pageSize,
+    );
   }
 
   // ─── Board Reports ────────────────────────────────────────────────────────
@@ -488,7 +535,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.view_board_reports')
   async listBoardReports(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(boardReportsQuerySchema)) query: z.infer<typeof boardReportsQuerySchema>,
+    @Query(new ZodValidationPipe(boardReportsQuerySchema))
+    query: z.infer<typeof boardReportsQuerySchema>,
   ) {
     return this.boardReport.listBoardReports(tenant.tenant_id, query.page, query.pageSize);
   }
@@ -507,7 +555,8 @@ export class ReportsEnhancedController {
   async generateBoardReport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createBoardReportSchema)) body: z.infer<typeof createBoardReportSchema>,
+    @Body(new ZodValidationPipe(createBoardReportSchema))
+    body: z.infer<typeof createBoardReportSchema>,
   ) {
     return this.boardReport.generateBoardReport(tenant.tenant_id, user.sub, body);
   }
@@ -542,7 +591,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.manage_compliance')
   async createComplianceTemplate(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createComplianceTemplateSchema)) body: z.infer<typeof createComplianceTemplateSchema>,
+    @Body(new ZodValidationPipe(createComplianceTemplateSchema))
+    body: z.infer<typeof createComplianceTemplateSchema>,
   ) {
     return this.complianceReport.createTemplate(tenant.tenant_id, body);
   }
@@ -552,7 +602,8 @@ export class ReportsEnhancedController {
   async updateComplianceTemplate(
     @CurrentTenant() tenant: TenantContext,
     @Param('templateId', ParseUUIDPipe) templateId: string,
-    @Body(new ZodValidationPipe(updateComplianceTemplateSchema)) body: z.infer<typeof updateComplianceTemplateSchema>,
+    @Body(new ZodValidationPipe(updateComplianceTemplateSchema))
+    body: z.infer<typeof updateComplianceTemplateSchema>,
   ) {
     return this.complianceReport.updateTemplate(tenant.tenant_id, templateId, body);
   }
@@ -581,7 +632,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.manage_reports')
   async listScheduledReports(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(scheduledReportsQuerySchema)) query: z.infer<typeof scheduledReportsQuerySchema>,
+    @Query(new ZodValidationPipe(scheduledReportsQuerySchema))
+    query: z.infer<typeof scheduledReportsQuerySchema>,
   ) {
     return this.scheduledReports.list(tenant.tenant_id, query.page, query.pageSize);
   }
@@ -600,7 +652,8 @@ export class ReportsEnhancedController {
   async createScheduledReport(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createScheduledReportSchema)) body: z.infer<typeof createScheduledReportSchema>,
+    @Body(new ZodValidationPipe(createScheduledReportSchema))
+    body: z.infer<typeof createScheduledReportSchema>,
   ) {
     return this.scheduledReports.create(tenant.tenant_id, user.sub, body);
   }
@@ -610,7 +663,8 @@ export class ReportsEnhancedController {
   async updateScheduledReport(
     @CurrentTenant() tenant: TenantContext,
     @Param('reportId', ParseUUIDPipe) reportId: string,
-    @Body(new ZodValidationPipe(updateScheduledReportSchema)) body: z.infer<typeof updateScheduledReportSchema>,
+    @Body(new ZodValidationPipe(updateScheduledReportSchema))
+    body: z.infer<typeof updateScheduledReportSchema>,
   ) {
     return this.scheduledReports.update(tenant.tenant_id, reportId, body);
   }
@@ -630,7 +684,8 @@ export class ReportsEnhancedController {
   @RequiresPermission('analytics.manage_reports')
   async listReportAlerts(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(reportAlertsQuerySchema)) query: z.infer<typeof reportAlertsQuerySchema>,
+    @Query(new ZodValidationPipe(reportAlertsQuerySchema))
+    query: z.infer<typeof reportAlertsQuerySchema>,
   ) {
     return this.reportAlerts.list(tenant.tenant_id, query.page, query.pageSize);
   }
@@ -649,7 +704,8 @@ export class ReportsEnhancedController {
   async createReportAlert(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(createReportAlertSchema)) body: z.infer<typeof createReportAlertSchema>,
+    @Body(new ZodValidationPipe(createReportAlertSchema))
+    body: z.infer<typeof createReportAlertSchema>,
   ) {
     return this.reportAlerts.create(tenant.tenant_id, user.sub, body);
   }
@@ -659,7 +715,8 @@ export class ReportsEnhancedController {
   async updateReportAlert(
     @CurrentTenant() tenant: TenantContext,
     @Param('alertId', ParseUUIDPipe) alertId: string,
-    @Body(new ZodValidationPipe(updateReportAlertSchema)) body: z.infer<typeof updateReportAlertSchema>,
+    @Body(new ZodValidationPipe(updateReportAlertSchema))
+    body: z.infer<typeof updateReportAlertSchema>,
   ) {
     return this.reportAlerts.update(tenant.tenant_id, alertId, body);
   }
@@ -690,7 +747,11 @@ export class ReportsEnhancedController {
     @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(aiPredictSchema)) body: z.infer<typeof aiPredictSchema>,
   ) {
-    return this.aiPredictions.predictTrend(tenant.tenant_id, body.historical_data, body.report_type);
+    return this.aiPredictions.predictTrend(
+      tenant.tenant_id,
+      body.historical_data,
+      body.report_type,
+    );
   }
 
   // ─── Export ───────────────────────────────────────────────────────────────
@@ -698,8 +759,10 @@ export class ReportsEnhancedController {
   @Post('export/excel')
   @RequiresPermission('analytics.view')
   async exportExcel(
-    @Query(new ZodValidationPipe(reportExportQuerySchema)) _query: z.infer<typeof reportExportQuerySchema>,
-    @Body() body: { data: unknown[]; config: { title: string; school_name?: string; date_range?: string } },
+    @Query(new ZodValidationPipe(reportExportQuerySchema))
+    _query: z.infer<typeof reportExportQuerySchema>,
+    @Body()
+    body: { data: unknown[]; config: { title: string; school_name?: string; date_range?: string } },
   ) {
     return this.reportExport.generateFormattedExcel(body.data, body.config);
   }

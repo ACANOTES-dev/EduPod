@@ -22,6 +22,7 @@ import type { JwtPayload } from '@school/shared';
 import { z } from 'zod';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -59,10 +60,7 @@ export class TenantsController {
     query: z.infer<typeof listTenantsQuerySchema>,
   ) {
     const { page, pageSize, sort, order, status, search } = query;
-    return this.tenantsService.listTenants(
-      { page, pageSize, sort, order },
-      { status, search },
-    );
+    return this.tenantsService.listTenants({ page, pageSize, sort, order }, { status, search });
   }
 
   @Get('tenants/:id')
@@ -103,6 +101,10 @@ export class TenantsController {
 
   @Post('impersonate')
   @HttpCode(HttpStatus.OK)
+  @SensitiveDataAccess('cross_tenant', {
+    entityIdField: 'user_id',
+    entityType: 'impersonation',
+  })
   async impersonate(
     @Body(new ZodValidationPipe(impersonateSchema)) dto: ImpersonateDto,
     @CurrentUser() user: JwtPayload,
@@ -112,8 +114,8 @@ export class TenantsController {
 
   @Post('users/:id/reset-mfa')
   @HttpCode(HttpStatus.OK)
-  async resetUserMfa(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantsService.resetUserMfa(id);
+  async resetUserMfa(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.tenantsService.resetUserMfa(id, user.sub);
   }
 
   @Get('tenants/:id/modules')

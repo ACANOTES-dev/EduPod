@@ -13,6 +13,7 @@ import {
 } from '@school/shared';
 
 import { AuthService } from '../auth/auth.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -111,6 +112,7 @@ export class TenantsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly authService: AuthService,
+    private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   /**
@@ -455,21 +457,16 @@ export class TenantsService {
    * Get platform dashboard statistics.
    */
   async getDashboard() {
-    const [
-      activeTenants,
-      suspendedTenants,
-      archivedTenants,
-      totalUsers,
-      totalMemberships,
-    ] = await Promise.all([
-      this.prisma.tenant.count({ where: { status: 'active' } }),
-      this.prisma.tenant.count({ where: { status: 'suspended' } }),
-      this.prisma.tenant.count({ where: { status: 'archived' } }),
-      this.prisma.user.count(),
-      this.prisma.tenantMembership.count({
-        where: { membership_status: 'active' },
-      }),
-    ]);
+    const [activeTenants, suspendedTenants, archivedTenants, totalUsers, totalMemberships] =
+      await Promise.all([
+        this.prisma.tenant.count({ where: { status: 'active' } }),
+        this.prisma.tenant.count({ where: { status: 'suspended' } }),
+        this.prisma.tenant.count({ where: { status: 'archived' } }),
+        this.prisma.user.count(),
+        this.prisma.tenantMembership.count({
+          where: { membership_status: 'active' },
+        }),
+      ]);
 
     return {
       tenants: {
@@ -488,11 +485,7 @@ export class TenantsService {
   /**
    * Impersonate a user at a specific tenant. Returns a read-only JWT.
    */
-  async impersonate(
-    targetTenantId: string,
-    targetUserId: string,
-    platformUserId: string,
-  ) {
+  async impersonate(targetTenantId: string, targetUserId: string, platformUserId: string) {
     // Verify the target tenant exists and is active
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: targetTenantId },
@@ -550,7 +543,7 @@ export class TenantsService {
   /**
    * Reset MFA for a user. Disables MFA and deletes recovery codes.
    */
-  async resetUserMfa(userId: string) {
+  async resetUserMfa(userId: string, actorUserId?: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -575,6 +568,8 @@ export class TenantsService {
     await this.prisma.mfaRecoveryCode.deleteMany({
       where: { user_id: userId },
     });
+
+    await this.securityAuditService.logMfaDisable(userId, null, 'admin_reset', actorUserId);
 
     return {
       user_id: userId,

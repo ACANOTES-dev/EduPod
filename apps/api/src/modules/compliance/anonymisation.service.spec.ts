@@ -1,6 +1,10 @@
 import { Test } from '@nestjs/testing';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
+import { SearchIndexService } from '../search/search-index.service';
 
 import { AnonymisationService } from './anonymisation.service';
 
@@ -13,9 +17,6 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   })),
 }));
 
-// eslint-disable-next-line import/order -- must come after jest.mock
-import { createRlsClient } from '../../common/middleware/rls.middleware';
-
 describe('AnonymisationService', () => {
   let service: AnonymisationService;
 
@@ -25,16 +26,23 @@ describe('AnonymisationService', () => {
   const HOUSEHOLD_ID = '44444444-4444-4444-4444-444444444444';
   const STAFF_PROFILE_ID = '55555555-5555-5555-5555-555555555555';
   const USER_ID = '66666666-6666-6666-6666-666666666666';
+  const MEMBERSHIP_ID = '77777777-7777-7777-7777-777777777777';
 
-  const mockPrisma = {};
+  const mockPrisma = {
+    complianceRequest: {
+      updateMany: jest.fn(),
+    },
+  };
 
   const mockParent = {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
   };
 
   const mockStudent = {
     findFirst: jest.fn(),
+    findMany: jest.fn(),
     update: jest.fn(),
   };
 
@@ -60,12 +68,124 @@ describe('AnonymisationService', () => {
   const mockReportCard = {
     findMany: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
+  };
+
+  const mockAttendanceRecord = {
+    findMany: jest.fn(),
+    updateMany: jest.fn(),
+  };
+
+  const mockGrade = {
+    updateMany: jest.fn(),
+  };
+
+  const mockPeriodGradeSnapshot = {
+    updateMany: jest.fn(),
+  };
+
+  const mockApplication = {
+    findMany: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockApplicationNote = {
+    findMany: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockNotification = {
+    updateMany: jest.fn(),
+  };
+
+  const mockParentInquiry = {
+    findMany: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockParentInquiryMessage = {
+    findMany: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockHouseholdParent = {
+    findMany: jest.fn(),
+  };
+
+  const mockTenantMembership = {
+    findMany: jest.fn(),
+  };
+
+  const mockGdprAnonymisationToken = {
+    deleteMany: jest.fn(),
+  };
+
+  const mockComplianceRequestTx = {
+    findMany: jest.fn(),
+  };
+
+  const mockSearchIndexService = {
+    removeEntity: jest.fn(),
+  };
+
+  const mockS3Service = {
+    delete: jest.fn(),
+  };
+
+  const mockPipeline = {
+    del: jest.fn().mockReturnThis(),
+    exec: jest.fn(),
+  };
+
+  const mockRedisClient = {
+    pipeline: jest.fn(),
+    scan: jest.fn(),
+    smembers: jest.fn(),
+    del: jest.fn(),
+  };
+
+  const mockRedisService = {
+    getClient: jest.fn(),
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
-    // Wire mockTx models
+    mockParent.findMany.mockResolvedValue([]);
+    mockStudent.findMany.mockResolvedValue([]);
+    mockHouseholdParent.findMany.mockResolvedValue([]);
+    mockTenantMembership.findMany.mockResolvedValue([]);
+    mockAttendanceRecord.findMany.mockResolvedValue([]);
+    mockAttendanceRecord.updateMany.mockResolvedValue({ count: 0 });
+    mockGrade.updateMany.mockResolvedValue({ count: 0 });
+    mockPeriodGradeSnapshot.updateMany.mockResolvedValue({ count: 0 });
+    mockApplication.findMany.mockResolvedValue([]);
+    mockApplication.update.mockResolvedValue({});
+    mockApplicationNote.findMany.mockResolvedValue([]);
+    mockApplicationNote.update.mockResolvedValue({});
+    mockNotification.updateMany.mockResolvedValue({ count: 0 });
+    mockParentInquiry.findMany.mockResolvedValue([]);
+    mockParentInquiry.update.mockResolvedValue({});
+    mockParentInquiryMessage.findMany.mockResolvedValue([]);
+    mockParentInquiryMessage.update.mockResolvedValue({});
+    mockReportCard.findMany.mockResolvedValue([]);
+    mockReportCard.update.mockResolvedValue({});
+    mockReportCard.updateMany.mockResolvedValue({ count: 0 });
+    mockPayslip.findMany.mockResolvedValue([]);
+    mockPayslip.update.mockResolvedValue({});
+    mockPayrollEntry.updateMany.mockResolvedValue({ count: 0 });
+    mockGdprAnonymisationToken.deleteMany.mockResolvedValue({ count: 0 });
+    mockComplianceRequestTx.findMany.mockResolvedValue([]);
+    mockPrisma.complianceRequest.updateMany.mockResolvedValue({ count: 0 });
+    mockSearchIndexService.removeEntity.mockResolvedValue(undefined);
+    mockS3Service.delete.mockResolvedValue(undefined);
+    mockPipeline.exec.mockResolvedValue([]);
+    mockRedisClient.pipeline.mockReturnValue(mockPipeline);
+    mockRedisClient.scan.mockResolvedValue(['0', []]);
+    mockRedisClient.smembers.mockResolvedValue([]);
+    mockRedisClient.del.mockResolvedValue(0);
+    mockRedisService.getClient.mockReturnValue(mockRedisClient);
+
     mockTx['parent'] = mockParent;
     mockTx['student'] = mockStudent;
     mockTx['household'] = mockHousehold;
@@ -73,304 +193,344 @@ describe('AnonymisationService', () => {
     mockTx['payrollEntry'] = mockPayrollEntry;
     mockTx['payslip'] = mockPayslip;
     mockTx['reportCard'] = mockReportCard;
+    mockTx['attendanceRecord'] = mockAttendanceRecord;
+    mockTx['grade'] = mockGrade;
+    mockTx['periodGradeSnapshot'] = mockPeriodGradeSnapshot;
+    mockTx['application'] = mockApplication;
+    mockTx['applicationNote'] = mockApplicationNote;
+    mockTx['notification'] = mockNotification;
+    mockTx['parentInquiry'] = mockParentInquiry;
+    mockTx['parentInquiryMessage'] = mockParentInquiryMessage;
+    mockTx['householdParent'] = mockHouseholdParent;
+    mockTx['tenantMembership'] = mockTenantMembership;
+    mockTx['gdprAnonymisationToken'] = mockGdprAnonymisationToken;
+    mockTx['complianceRequest'] = mockComplianceRequestTx;
 
     const module = await Test.createTestingModule({
       providers: [
         AnonymisationService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SearchIndexService, useValue: mockSearchIndexService },
+        { provide: S3Service, useValue: mockS3Service },
+        { provide: RedisService, useValue: mockRedisService },
       ],
     }).compile();
 
     service = module.get<AnonymisationService>(AnonymisationService);
   });
 
-  // ─── anonymiseSubject() dispatch ───────────────────────────────
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-  describe('anonymiseSubject() dispatch', () => {
-    it('should dispatch to anonymiseParent for parent subject within RLS transaction', async () => {
-      mockParent.findFirst.mockResolvedValue({
-        id: PARENT_ID,
-        first_name: 'John',
-      });
-      mockParent.update.mockResolvedValue({});
-
-      const result = await service.anonymiseSubject(TENANT_ID, 'parent', PARENT_ID);
-
-      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      expect(mockParent.findFirst).toHaveBeenCalledWith({
-        where: { id: PARENT_ID },
-        select: { id: true, first_name: true },
-      });
-      expect(mockParent.update).toHaveBeenCalled();
-      expect(result.anonymised_entities).toEqual(['parent']);
-    });
-
-    it('should dispatch to anonymiseStudent for student subject', async () => {
-      mockStudent.findFirst.mockResolvedValue({
-        id: STUDENT_ID,
-        first_name: 'Alice',
-      });
-      mockStudent.update.mockResolvedValue({});
-      mockReportCard.findMany.mockResolvedValue([]);
-
-      const result = await service.anonymiseSubject(TENANT_ID, 'student', STUDENT_ID);
-
-      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      expect(mockStudent.findFirst).toHaveBeenCalled();
-      expect(result.anonymised_entities).toEqual(['student']);
-    });
-
-    it('should dispatch to anonymiseHousehold for household subject', async () => {
-      mockHousehold.findFirst.mockResolvedValue({
-        id: HOUSEHOLD_ID,
-        household_name: 'The Smiths',
-      });
-      mockHousehold.update.mockResolvedValue({});
-
-      const result = await service.anonymiseSubject(TENANT_ID, 'household', HOUSEHOLD_ID);
-
-      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      expect(mockHousehold.findFirst).toHaveBeenCalled();
-      expect(result.anonymised_entities).toEqual(['household']);
-    });
-
-    it('should dispatch to anonymiseStaff for user subject with staff profile', async () => {
-      mockStaffProfile.findFirst.mockResolvedValueOnce({
-        id: STAFF_PROFILE_ID,
-      });
-      mockStaffProfile.findFirst.mockResolvedValueOnce({
-        id: STAFF_PROFILE_ID,
-        job_title: 'Teacher',
-      });
-      mockStaffProfile.update.mockResolvedValue({});
-      mockPayrollEntry.updateMany.mockResolvedValue({ count: 0 });
-      mockPayslip.findMany.mockResolvedValue([]);
+  describe('AnonymisationService — anonymiseSubject', () => {
+    it('runs secondary cleanup after user anonymisation', async () => {
+      mockParent.findMany.mockResolvedValue([]);
+      mockStaffProfile.findFirst
+        .mockResolvedValueOnce({ id: STAFF_PROFILE_ID })
+        .mockResolvedValueOnce({ id: STAFF_PROFILE_ID, job_title: 'Teacher' });
+      mockTenantMembership.findMany.mockResolvedValue([{ id: MEMBERSHIP_ID }]);
+      mockComplianceRequestTx.findMany.mockResolvedValue([
+        {
+          id: 'request-1',
+          export_file_key: `${TENANT_ID}/compliance-exports/request-1.json`,
+        },
+      ]);
+      mockRedisClient.smembers.mockResolvedValue(['session-1']);
 
       const result = await service.anonymiseSubject(TENANT_ID, 'user', USER_ID);
 
       expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
-      // First call finds the staff profile by user_id
-      expect(mockStaffProfile.findFirst).toHaveBeenCalledWith({
-        where: { user_id: USER_ID, tenant_id: TENANT_ID },
-        select: { id: true },
+      expect(result).toEqual({ anonymised_entities: ['staff_profile'] });
+      expect(mockSearchIndexService.removeEntity).toHaveBeenCalledWith('staff', STAFF_PROFILE_ID);
+      expect(mockS3Service.delete).toHaveBeenCalledWith(
+        `${TENANT_ID}/compliance-exports/request-1.json`,
+      );
+      expect(mockPrisma.complianceRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['request-1'] } },
+        data: { export_file_key: null },
       });
-      expect(result.anonymised_entities).toEqual(['staff_profile']);
-    });
-
-    it('should skip anonymisation for user with no staff profile', async () => {
-      mockStaffProfile.findFirst.mockResolvedValue(null);
-
-      const result = await service.anonymiseSubject(TENANT_ID, 'user', USER_ID);
-
-      expect(result.anonymised_entities).toEqual([]);
-    });
-
-    it('should return list of anonymised entity types', async () => {
-      mockParent.findFirst.mockResolvedValue({
-        id: PARENT_ID,
-        first_name: 'Jane',
-      });
-      mockParent.update.mockResolvedValue({});
-
-      const result = await service.anonymiseSubject(TENANT_ID, 'parent', PARENT_ID);
-
-      expect(result).toEqual({ anonymised_entities: ['parent'] });
+      expect(mockPipeline.del).toHaveBeenCalledWith(`preview:staff:${STAFF_PROFILE_ID}`);
+      expect(mockPipeline.del).toHaveBeenCalledWith(
+        `tenant:${TENANT_ID}:user:${USER_ID}:unread_notifications`,
+      );
+      expect(mockPipeline.del).toHaveBeenCalledWith(`permissions:${MEMBERSHIP_ID}`);
+      expect(mockRedisClient.del).toHaveBeenCalledWith('session:session-1');
+      expect(mockRedisClient.del).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
     });
   });
 
-  // ─── anonymiseParent() ─────────────────────────────────────────
-
-  describe('anonymiseParent()', () => {
-    it('should replace first_name, last_name, email, phone with ANONYMISED-{id}', async () => {
+  describe('AnonymisationService — anonymiseParent', () => {
+    it('anonymises parent fields and related inquiry/application records', async () => {
       mockParent.findFirst.mockResolvedValue({
         id: PARENT_ID,
         first_name: 'John',
+        user_id: USER_ID,
       });
       mockParent.update.mockResolvedValue({});
+      mockParentInquiry.findMany.mockResolvedValue([{ id: 'inq-1' }]);
+      mockParentInquiryMessage.findMany.mockResolvedValue([{ id: 'msg-1' }]);
+      mockApplication.findMany
+        .mockResolvedValueOnce([{ id: 'app-1' }])
+        .mockResolvedValueOnce([{ id: 'app-1', date_of_birth: new Date('2018-05-20') }]);
+      mockApplicationNote.findMany.mockResolvedValue([{ id: 'note-1' }]);
 
       await service.anonymiseParent(TENANT_ID, PARENT_ID, mockTx as never);
 
-      const anonValue = `ANONYMISED-${PARENT_ID}`;
+      const tag = `ANONYMISED-${PARENT_ID}`;
       expect(mockParent.update).toHaveBeenCalledWith({
         where: { id: PARENT_ID },
         data: {
-          first_name: anonValue,
-          last_name: anonValue,
-          email: `${anonValue}@anonymised.local`,
-          phone: anonValue,
-          whatsapp_phone: anonValue,
+          first_name: tag,
+          last_name: tag,
+          email: `${tag}@anonymised.local`,
+          phone: tag,
+          whatsapp_phone: tag,
         },
       });
-    });
-
-    it('should also anonymise whatsapp_phone', async () => {
-      mockParent.findFirst.mockResolvedValue({
-        id: PARENT_ID,
-        first_name: 'John',
+      expect(mockParentInquiry.update).toHaveBeenCalledWith({
+        where: { id: 'inq-1' },
+        data: { subject: 'ANONYMISED-inq-1' },
       });
-      mockParent.update.mockResolvedValue({});
-
-      await service.anonymiseParent(TENANT_ID, PARENT_ID, mockTx as never);
-
-      const updateCall = mockParent.update.mock.calls[0][0];
-      expect(updateCall.data.whatsapp_phone).toBe(`ANONYMISED-${PARENT_ID}`);
-    });
-
-    it('should be idempotent (skip if first_name starts with ANONYMISED-)', async () => {
-      mockParent.findFirst.mockResolvedValue({
-        id: PARENT_ID,
-        first_name: `ANONYMISED-${PARENT_ID}`,
+      expect(mockParentInquiryMessage.update).toHaveBeenCalledWith({
+        where: { id: 'msg-1' },
+        data: { message: 'ANONYMISED-msg-1' },
       });
-
-      await service.anonymiseParent(TENANT_ID, PARENT_ID, mockTx as never);
-
-      expect(mockParent.update).not.toHaveBeenCalled();
-    });
-
-    it('should handle non-existent parent gracefully (no error)', async () => {
-      mockParent.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.anonymiseParent(TENANT_ID, PARENT_ID, mockTx as never),
-      ).resolves.toBeUndefined();
-
-      expect(mockParent.update).not.toHaveBeenCalled();
+      expect(mockNotification.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          source_entity_type: 'parent_inquiry',
+          source_entity_id: { in: ['inq-1'] },
+        },
+        data: {
+          payload_json: {
+            anonymised: true,
+            anonymisation_tag: tag,
+          },
+          failure_reason: null,
+        },
+      });
+      expect(mockApplication.update).toHaveBeenCalledWith({
+        where: { id: 'app-1' },
+        data: {
+          submitted_by: { disconnect: true },
+          payload_json: {
+            anonymised: true,
+            anonymisation_scope: 'parent',
+            anonymisation_tag: 'ANONYMISED-app-1',
+          },
+          rejection_reason: null,
+        },
+      });
+      expect(mockApplicationNote.update).toHaveBeenCalledWith({
+        where: { id: 'note-1' },
+        data: { note: 'ANONYMISED-note-1' },
+      });
     });
   });
 
-  // ─── anonymiseStudent() ────────────────────────────────────────
+  describe('AnonymisationService — anonymiseStudent', () => {
+    it('strips quasi-identifiers and cascades to related records', async () => {
+      const originalDob = new Date('2012-05-23T00:00:00.000Z');
 
-  describe('anonymiseStudent()', () => {
-    it('should replace first_name, last_name, full_name, student_number', async () => {
       mockStudent.findFirst.mockResolvedValue({
         id: STUDENT_ID,
         first_name: 'Alice',
+        last_name: 'Smith',
+        date_of_birth: originalDob,
+        student_parents: [{ parent_id: PARENT_ID }],
       });
       mockStudent.update.mockResolvedValue({});
-      mockReportCard.findMany.mockResolvedValue([]);
-
-      await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
-
-      const anonValue = `ANONYMISED-${STUDENT_ID}`;
-      expect(mockStudent.update).toHaveBeenCalledWith({
-        where: { id: STUDENT_ID },
-        data: expect.objectContaining({
-          first_name: anonValue,
-          last_name: anonValue,
-          student_number: anonValue,
-        }),
-      });
-    });
-
-    it('should anonymise Arabic name fields (first_name_ar, last_name_ar) but not generated full_name_ar', async () => {
-      mockStudent.findFirst.mockResolvedValue({
-        id: STUDENT_ID,
-        first_name: 'Alice',
-      });
-      mockStudent.update.mockResolvedValue({});
-      mockReportCard.findMany.mockResolvedValue([]);
-
-      await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
-
-      const anonValue = `ANONYMISED-${STUDENT_ID}`;
-      const updateCall = mockStudent.update.mock.calls[0][0];
-      expect(updateCall.data.first_name_ar).toBe(anonValue);
-      expect(updateCall.data.last_name_ar).toBe(anonValue);
-      expect(updateCall.data).not.toHaveProperty('full_name_ar');
-    });
-
-    it('should anonymise report card snapshot student_name', async () => {
-      mockStudent.findFirst.mockResolvedValue({
-        id: STUDENT_ID,
-        first_name: 'Alice',
-      });
-      mockStudent.update.mockResolvedValue({});
+      mockAttendanceRecord.findMany.mockResolvedValue([{ id: 'att-1' }]);
       mockReportCard.findMany.mockResolvedValue([
         {
           id: 'rc-1',
           snapshot_payload_json: {
-            student_name: 'Alice Smith',
-            grade: 'A',
+            student: {
+              full_name: 'Alice Smith',
+              student_number: 'STU-001',
+            },
+            teacher_comment: 'Alice has improved',
+            principal_comment: 'Well done Alice',
           },
         },
       ]);
-      mockReportCard.update.mockResolvedValue({});
+      mockApplication.findMany
+        .mockResolvedValueOnce([{ id: 'app-2' }])
+        .mockResolvedValueOnce([{ id: 'app-2', date_of_birth: originalDob }]);
+      mockParentInquiry.findMany.mockResolvedValue([{ id: 'inq-2' }]);
+      mockParentInquiryMessage.findMany.mockResolvedValue([{ id: 'msg-2' }]);
 
       await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
 
-      const anonValue = `ANONYMISED-${STUDENT_ID}`;
+      const tag = `ANONYMISED-${STUDENT_ID}`;
+      expect(mockStudent.update).toHaveBeenCalledWith({
+        where: { id: STUDENT_ID },
+        data: {
+          first_name: tag,
+          middle_name: tag,
+          last_name: tag,
+          full_name: tag,
+          first_name_ar: tag,
+          last_name_ar: tag,
+          full_name_ar: tag,
+          student_number: tag,
+          date_of_birth: new Date(Date.UTC(2012, 0, 1)),
+          national_id: null,
+          gender: null,
+          nationality: null,
+          city_of_birth: null,
+          medical_notes: null,
+          allergy_details: null,
+          has_allergy: false,
+        },
+      });
+      expect(mockAttendanceRecord.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        data: { reason: null, amendment_reason: null },
+      });
+      expect(mockGrade.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        data: { comment: null },
+      });
+      expect(mockPeriodGradeSnapshot.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        data: { override_reason: null },
+      });
+      expect(mockNotification.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          source_entity_type: 'attendance_record',
+          source_entity_id: { in: ['att-1'] },
+        },
+        data: {
+          payload_json: {
+            anonymised: true,
+            anonymisation_tag: tag,
+          },
+          failure_reason: null,
+        },
+      });
+      expect(mockReportCard.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        data: { teacher_comment: null, principal_comment: null },
+      });
       expect(mockReportCard.update).toHaveBeenCalledWith({
         where: { id: 'rc-1' },
         data: {
-          snapshot_payload_json: expect.objectContaining({
-            student_name: anonValue,
-            grade: 'A',
-          }),
-        },
-      });
-    });
-
-    it('should anonymise report card snapshot student_first_name and student_last_name', async () => {
-      mockStudent.findFirst.mockResolvedValue({
-        id: STUDENT_ID,
-        first_name: 'Alice',
-      });
-      mockStudent.update.mockResolvedValue({});
-      mockReportCard.findMany.mockResolvedValue([
-        {
-          id: 'rc-2',
           snapshot_payload_json: {
-            student_first_name: 'Alice',
-            student_last_name: 'Smith',
+            student: {
+              full_name: tag,
+              student_number: tag,
+              first_name: tag,
+              last_name: tag,
+            },
+            teacher_comment: null,
+            principal_comment: null,
           },
         },
-      ]);
-      mockReportCard.update.mockResolvedValue({});
-
-      await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
-
-      const anonValue = `ANONYMISED-${STUDENT_ID}`;
-      expect(mockReportCard.update).toHaveBeenCalledWith({
-        where: { id: 'rc-2' },
+      });
+      expect(mockParentInquiry.update).toHaveBeenCalledWith({
+        where: { id: 'inq-2' },
         data: {
-          snapshot_payload_json: expect.objectContaining({
-            student_first_name: anonValue,
-            student_last_name: anonValue,
-          }),
+          subject: 'ANONYMISED-inq-2',
+          student: { disconnect: true },
+        },
+      });
+      expect(mockNotification.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          source_entity_type: 'parent_inquiry',
+          source_entity_id: { in: ['inq-2'] },
+        },
+        data: {
+          payload_json: {
+            anonymised: true,
+            anonymisation_tag: tag,
+          },
+          failure_reason: null,
+        },
+      });
+      expect(mockApplication.update).toHaveBeenCalledWith({
+        where: { id: 'app-2' },
+        data: {
+          submitted_by: { disconnect: true },
+          payload_json: {
+            anonymised: true,
+            anonymisation_scope: 'student',
+            anonymisation_tag: 'ANONYMISED-app-2',
+          },
+          rejection_reason: null,
+          student_first_name: 'ANONYMISED-app-2',
+          student_last_name: 'ANONYMISED-app-2',
+          date_of_birth: new Date(Date.UTC(2012, 0, 1)),
         },
       });
     });
 
-    it('should be idempotent', async () => {
+    it('is idempotent when the student is already anonymised', async () => {
       mockStudent.findFirst.mockResolvedValue({
         id: STUDENT_ID,
         first_name: `ANONYMISED-${STUDENT_ID}`,
+        last_name: `ANONYMISED-${STUDENT_ID}`,
+        date_of_birth: new Date('2012-01-01T00:00:00.000Z'),
+        student_parents: [],
       });
 
       await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
 
       expect(mockStudent.update).not.toHaveBeenCalled();
+      expect(mockAttendanceRecord.updateMany).not.toHaveBeenCalled();
       expect(mockReportCard.findMany).not.toHaveBeenCalled();
+      expect(mockGdprAnonymisationToken.deleteMany).not.toHaveBeenCalled();
     });
 
-    it('should handle non-existent student gracefully', async () => {
-      mockStudent.findFirst.mockResolvedValue(null);
+    it('keeps writes scoped to the requested tenant and student only', async () => {
+      mockStudent.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+        date_of_birth: new Date('2012-05-23T00:00:00.000Z'),
+        student_parents: [],
+      });
+      mockStudent.update.mockResolvedValue({});
 
-      await expect(
-        service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never),
-      ).resolves.toBeUndefined();
+      await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
 
-      expect(mockStudent.update).not.toHaveBeenCalled();
+      expect(mockStudent.findFirst).toHaveBeenCalledWith({
+        where: { id: STUDENT_ID, tenant_id: TENANT_ID },
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          date_of_birth: true,
+          student_parents: {
+            select: { parent_id: true },
+          },
+        },
+      });
+      expect(mockAttendanceRecord.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          student_id: STUDENT_ID,
+        },
+        select: { id: true },
+      });
+      expect(mockReportCard.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        select: {
+          id: true,
+          snapshot_payload_json: true,
+        },
+      });
     });
   });
 
-  // ─── anonymiseHousehold() ──────────────────────────────────────
-
-  describe('anonymiseHousehold()', () => {
-    it('should replace household_name with ANONYMISED-{id}', async () => {
+  describe('AnonymisationService — anonymiseHousehold', () => {
+    it('clears household address fields', async () => {
       mockHousehold.findFirst.mockResolvedValue({
         id: HOUSEHOLD_ID,
-        household_name: 'The Smiths',
+        household_name: 'Smith Family',
       });
       mockHousehold.update.mockResolvedValue({});
 
@@ -380,133 +540,71 @@ describe('AnonymisationService', () => {
         where: { id: HOUSEHOLD_ID },
         data: {
           household_name: `ANONYMISED-${HOUSEHOLD_ID}`,
+          address_line_1: null,
+          address_line_2: null,
+          city: null,
+          country: null,
+          postal_code: null,
         },
       });
-    });
-
-    it('should be idempotent', async () => {
-      mockHousehold.findFirst.mockResolvedValue({
-        id: HOUSEHOLD_ID,
-        household_name: `ANONYMISED-${HOUSEHOLD_ID}`,
-      });
-
-      await service.anonymiseHousehold(TENANT_ID, HOUSEHOLD_ID, mockTx as never);
-
-      expect(mockHousehold.update).not.toHaveBeenCalled();
-    });
-
-    it('should handle non-existent household gracefully', async () => {
-      mockHousehold.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.anonymiseHousehold(TENANT_ID, HOUSEHOLD_ID, mockTx as never),
-      ).resolves.toBeUndefined();
-
-      expect(mockHousehold.update).not.toHaveBeenCalled();
     });
   });
 
-  // ─── anonymiseStaff() ──────────────────────────────────────────
-
-  describe('anonymiseStaff()', () => {
-    it('should replace job_title and department', async () => {
+  describe('AnonymisationService — anonymiseStaff', () => {
+    it('clears bank details, staff number, payroll notes, and payslip snapshots', async () => {
       mockStaffProfile.findFirst.mockResolvedValue({
         id: STAFF_PROFILE_ID,
         job_title: 'Teacher',
       });
       mockStaffProfile.update.mockResolvedValue({});
-      mockPayrollEntry.updateMany.mockResolvedValue({ count: 0 });
-      mockPayslip.findMany.mockResolvedValue([]);
-
-      await service.anonymiseStaff(TENANT_ID, STAFF_PROFILE_ID, mockTx as never);
-
-      const anonValue = `ANONYMISED-${STAFF_PROFILE_ID}`;
-      expect(mockStaffProfile.update).toHaveBeenCalledWith({
-        where: { id: STAFF_PROFILE_ID },
-        data: {
-          job_title: anonValue,
-          department: anonValue,
-        },
-      });
-    });
-
-    it('should anonymise payroll entry notes via updateMany', async () => {
-      mockStaffProfile.findFirst.mockResolvedValue({
-        id: STAFF_PROFILE_ID,
-        job_title: 'Teacher',
-      });
-      mockStaffProfile.update.mockResolvedValue({});
-      mockPayrollEntry.updateMany.mockResolvedValue({ count: 3 });
-      mockPayslip.findMany.mockResolvedValue([]);
-
-      await service.anonymiseStaff(TENANT_ID, STAFF_PROFILE_ID, mockTx as never);
-
-      const anonValue = `ANONYMISED-${STAFF_PROFILE_ID}`;
-      expect(mockPayrollEntry.updateMany).toHaveBeenCalledWith({
-        where: { staff_profile_id: STAFF_PROFILE_ID, tenant_id: TENANT_ID },
-        data: { notes: anonValue },
-      });
-    });
-
-    it('should anonymise payslip snapshot staff_name, employee_name, job_title, department', async () => {
-      mockStaffProfile.findFirst.mockResolvedValue({
-        id: STAFF_PROFILE_ID,
-        job_title: 'Teacher',
-      });
-      mockStaffProfile.update.mockResolvedValue({});
-      mockPayrollEntry.updateMany.mockResolvedValue({ count: 0 });
       mockPayslip.findMany.mockResolvedValue([
         {
           id: 'ps-1',
           snapshot_payload_json: {
-            staff_name: 'John Doe',
-            employee_name: 'John Doe',
-            job_title: 'Teacher',
-            department: 'Maths',
-            base_salary: 5000,
+            staff: {
+              full_name: 'John Doe',
+              staff_number: 'STF-001',
+              department: 'Math',
+              job_title: 'Teacher',
+              bank_account_last4: '1234',
+              bank_iban_last4: '5678',
+            },
           },
         },
       ]);
-      mockPayslip.update.mockResolvedValue({});
 
       await service.anonymiseStaff(TENANT_ID, STAFF_PROFILE_ID, mockTx as never);
 
-      const anonValue = `ANONYMISED-${STAFF_PROFILE_ID}`;
+      const tag = `ANONYMISED-${STAFF_PROFILE_ID}`;
+      expect(mockStaffProfile.update).toHaveBeenCalledWith({
+        where: { id: STAFF_PROFILE_ID },
+        data: {
+          staff_number: tag,
+          job_title: tag,
+          department: tag,
+          bank_account_number_encrypted: null,
+          bank_iban_encrypted: null,
+        },
+      });
+      expect(mockPayrollEntry.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, staff_profile_id: STAFF_PROFILE_ID },
+        data: { notes: tag, override_note: tag },
+      });
       expect(mockPayslip.update).toHaveBeenCalledWith({
         where: { id: 'ps-1' },
         data: {
-          snapshot_payload_json: expect.objectContaining({
-            staff_name: anonValue,
-            employee_name: anonValue,
-            job_title: anonValue,
-            department: anonValue,
-            base_salary: 5000,
-          }),
+          snapshot_payload_json: {
+            staff: {
+              full_name: tag,
+              staff_number: tag,
+              department: tag,
+              job_title: tag,
+              bank_account_last4: null,
+              bank_iban_last4: null,
+            },
+          },
         },
       });
-    });
-
-    it('should be idempotent (job_title starts with ANONYMISED-)', async () => {
-      mockStaffProfile.findFirst.mockResolvedValue({
-        id: STAFF_PROFILE_ID,
-        job_title: `ANONYMISED-${STAFF_PROFILE_ID}`,
-      });
-
-      await service.anonymiseStaff(TENANT_ID, STAFF_PROFILE_ID, mockTx as never);
-
-      expect(mockStaffProfile.update).not.toHaveBeenCalled();
-      expect(mockPayrollEntry.updateMany).not.toHaveBeenCalled();
-      expect(mockPayslip.findMany).not.toHaveBeenCalled();
-    });
-
-    it('should handle non-existent staff profile gracefully', async () => {
-      mockStaffProfile.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.anonymiseStaff(TENANT_ID, STAFF_PROFILE_ID, mockTx as never),
-      ).resolves.toBeUndefined();
-
-      expect(mockStaffProfile.update).not.toHaveBeenCalled();
     });
   });
 });

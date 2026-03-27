@@ -81,7 +81,13 @@ describe('TenantsController', () => {
   });
 
   it('should delegate listTenants with pagination and filters', async () => {
-    const query = { page: 1, pageSize: 20, order: 'asc' as const, status: 'active' as const, search: undefined };
+    const query = {
+      page: 1,
+      pageSize: 20,
+      order: 'asc' as const,
+      status: 'active' as const,
+      search: undefined,
+    };
     const response = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockService.listTenants.mockResolvedValueOnce(response);
 
@@ -158,9 +164,9 @@ describe('TenantsController', () => {
   it('should delegate resetUserMfa to the service', async () => {
     mockService.resetUserMfa.mockResolvedValueOnce({ success: true });
 
-    const result = await controller.resetUserMfa(USER_ID);
+    const result = await controller.resetUserMfa(USER_ID, mockUser);
     expect(result).toEqual({ success: true });
-    expect(mockService.resetUserMfa).toHaveBeenCalledWith(USER_ID);
+    expect(mockService.resetUserMfa).toHaveBeenCalledWith(USER_ID, mockUser.sub);
   });
 
   it('should delegate listModules to the service', async () => {

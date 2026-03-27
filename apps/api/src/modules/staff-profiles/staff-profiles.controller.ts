@@ -23,6 +23,7 @@ import type {
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -56,10 +57,7 @@ export class StaffProfilesController {
 
   @Get(':id')
   @RequiresPermission('users.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.staffProfilesService.findOne(tenant.tenant_id, id);
   }
 
@@ -76,6 +74,7 @@ export class StaffProfilesController {
 
   @Get(':id/bank-details')
   @RequiresPermission('payroll.view_bank_details')
+  @SensitiveDataAccess('financial')
   async getBankDetails(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -85,10 +84,7 @@ export class StaffProfilesController {
 
   @Get(':id/preview')
   @RequiresPermission('users.view')
-  async preview(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async preview(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.staffProfilesService.preview(tenant.tenant_id, id);
   }
 }

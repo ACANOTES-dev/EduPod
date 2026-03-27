@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type { AuditLogFilterDto, PlatformAuditLogFilterDto, AuditLogEntry } from '@school/shared';
+import type {
+  AuditLogCategory,
+  AuditLogEntry,
+  AuditLogFilterDto,
+  AuditLogSensitivity,
+  PlatformAuditLogFilterDto,
+} from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -50,23 +56,29 @@ export class AuditLogService {
     tenantId: string,
     filters: AuditLogFilterDto,
   ): Promise<{ data: AuditLogEntry[]; meta: { page: number; pageSize: number; total: number } }> {
-    const { page, pageSize, entity_type, actor_user_id, action, start_date, end_date } = filters;
+    const {
+      page,
+      pageSize,
+      entity_type,
+      actor_user_id,
+      action,
+      category,
+      sensitivity,
+      start_date,
+      end_date,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.AuditLogWhereInput = {
+    const where = this.buildWhere({
       tenant_id: tenantId,
-      ...(entity_type ? { entity_type } : {}),
-      ...(actor_user_id ? { actor_user_id } : {}),
-      ...(action ? { action } : {}),
-      ...(start_date || end_date
-        ? {
-            created_at: {
-              ...(start_date ? { gte: new Date(start_date) } : {}),
-              ...(end_date ? { lte: new Date(end_date) } : {}),
-            },
-          }
-        : {}),
-    };
+      entity_type,
+      actor_user_id,
+      action,
+      category,
+      sensitivity,
+      start_date,
+      end_date,
+    });
 
     const [logs, total] = await Promise.all([
       this.prisma.auditLog.findMany({
@@ -91,12 +103,16 @@ export class AuditLogService {
       id: log.id,
       tenant_id: log.tenant_id,
       actor_user_id: log.actor_user_id,
-      actor_name: log.actor
-        ? `${log.actor.first_name} ${log.actor.last_name}`
-        : undefined,
+      actor_name: log.actor ? `${log.actor.first_name} ${log.actor.last_name}` : undefined,
       entity_type: log.entity_type,
       entity_id: log.entity_id,
       action: log.action,
+      category: this.getMetadataString(log.metadata_json, 'category') as
+        | AuditLogCategory
+        | undefined,
+      sensitivity: this.getMetadataString(log.metadata_json, 'sensitivity') as
+        | AuditLogSensitivity
+        | undefined,
       metadata_json: log.metadata_json as Record<string, unknown>,
       ip_address: log.ip_address,
       created_at: log.created_at.toISOString(),
@@ -111,24 +127,34 @@ export class AuditLogService {
    */
   async listPlatform(
     filters: PlatformAuditLogFilterDto,
-  ): Promise<{ data: (AuditLogEntry & { tenant_name?: string })[]; meta: { page: number; pageSize: number; total: number } }> {
-    const { page, pageSize, entity_type, actor_user_id, action, start_date, end_date, tenant_id } = filters;
+  ): Promise<{
+    data: (AuditLogEntry & { tenant_name?: string })[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
+    const {
+      page,
+      pageSize,
+      entity_type,
+      actor_user_id,
+      action,
+      category,
+      sensitivity,
+      start_date,
+      end_date,
+      tenant_id,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.AuditLogWhereInput = {
-      ...(tenant_id ? { tenant_id } : {}),
-      ...(entity_type ? { entity_type } : {}),
-      ...(actor_user_id ? { actor_user_id } : {}),
-      ...(action ? { action } : {}),
-      ...(start_date || end_date
-        ? {
-            created_at: {
-              ...(start_date ? { gte: new Date(start_date) } : {}),
-              ...(end_date ? { lte: new Date(end_date) } : {}),
-            },
-          }
-        : {}),
-    };
+    const where = this.buildWhere({
+      tenant_id,
+      entity_type,
+      actor_user_id,
+      action,
+      category,
+      sensitivity,
+      start_date,
+      end_date,
+    });
 
     const [logs, total] = await Promise.all([
       this.prisma.auditLog.findMany({
@@ -160,12 +186,16 @@ export class AuditLogService {
       tenant_id: log.tenant_id,
       tenant_name: log.tenant?.name ?? undefined,
       actor_user_id: log.actor_user_id,
-      actor_name: log.actor
-        ? `${log.actor.first_name} ${log.actor.last_name}`
-        : undefined,
+      actor_name: log.actor ? `${log.actor.first_name} ${log.actor.last_name}` : undefined,
       entity_type: log.entity_type,
       entity_id: log.entity_id,
       action: log.action,
+      category: this.getMetadataString(log.metadata_json, 'category') as
+        | AuditLogCategory
+        | undefined,
+      sensitivity: this.getMetadataString(log.metadata_json, 'sensitivity') as
+        | AuditLogSensitivity
+        | undefined,
       metadata_json: log.metadata_json as Record<string, unknown>,
       ip_address: log.ip_address,
       created_at: log.created_at.toISOString(),
@@ -194,5 +224,61 @@ export class AuditLogService {
       { tracking: true },
       ip,
     );
+  }
+
+  private buildWhere(filters: {
+    tenant_id?: string;
+    entity_type?: string;
+    actor_user_id?: string;
+    action?: string;
+    category?: AuditLogCategory;
+    sensitivity?: AuditLogSensitivity;
+    start_date?: string;
+    end_date?: string;
+  }): Prisma.AuditLogWhereInput {
+    const metadataFilters: Prisma.AuditLogWhereInput[] = [];
+
+    if (filters.category) {
+      metadataFilters.push({
+        metadata_json: {
+          path: ['category'],
+          equals: filters.category,
+        },
+      });
+    }
+
+    if (filters.sensitivity) {
+      metadataFilters.push({
+        metadata_json: {
+          path: ['sensitivity'],
+          equals: filters.sensitivity,
+        },
+      });
+    }
+
+    return {
+      ...(filters.tenant_id ? { tenant_id: filters.tenant_id } : {}),
+      ...(filters.entity_type ? { entity_type: filters.entity_type } : {}),
+      ...(filters.actor_user_id ? { actor_user_id: filters.actor_user_id } : {}),
+      ...(filters.action ? { action: filters.action } : {}),
+      ...(filters.start_date || filters.end_date
+        ? {
+            created_at: {
+              ...(filters.start_date ? { gte: new Date(filters.start_date) } : {}),
+              ...(filters.end_date ? { lte: new Date(filters.end_date) } : {}),
+            },
+          }
+        : {}),
+      ...(metadataFilters.length > 0 ? { AND: metadataFilters } : {}),
+    };
+  }
+
+  private getMetadataString(metadata: Prisma.JsonValue, key: string): string | undefined {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return undefined;
+    }
+
+    const value = (metadata as Record<string, unknown>)[key];
+    return typeof value === 'string' ? value : undefined;
   }
 }

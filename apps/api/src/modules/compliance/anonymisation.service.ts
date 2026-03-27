@@ -1,265 +1,209 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import type { PrismaClient } from '@prisma/client';
+import {
+  ComplianceAnonymisationCore,
+} from '@school/prisma';
+import type {
+  AnonymisationCleanupPlan,
+  AnonymisationResult,
+} from '@school/prisma';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { S3Service } from '../s3/s3.service';
+import { SearchIndexService } from '../search/search-index.service';
 
 @Injectable()
 export class AnonymisationService {
   private readonly logger = new Logger(AnonymisationService.name);
+  private readonly core = new ComplianceAnonymisationCore();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly searchIndexService: SearchIndexService,
+    private readonly s3Service: S3Service,
+    private readonly redis: RedisService,
+  ) {}
 
-  /**
-   * Anonymise a subject's personal data. Dispatches to type-specific methods.
-   * Each entity type is processed independently so a failure in one doesn't block others.
-   * Idempotent: already-anonymised records are skipped.
-   */
   async anonymiseSubject(
     tenantId: string,
     subjectType: string,
     subjectId: string,
   ): Promise<{ anonymised_entities: string[] }> {
-    const anonymised: string[] = [];
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const result = await rlsClient.$transaction(async (tx: PrismaClient) => {
+      return this.core.anonymiseSubject(tenantId, subjectType, subjectId, tx);
+    }) as AnonymisationResult;
 
-    switch (subjectType) {
-      case 'parent': {
-        const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-        await rlsClient.$transaction(async (tx: PrismaClient) => {
-          await this.anonymiseParent(tenantId, subjectId, tx);
-          anonymised.push('parent');
-        });
-        break;
-      }
-      case 'student': {
-        const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-        await rlsClient.$transaction(async (tx: PrismaClient) => {
-          await this.anonymiseStudent(tenantId, subjectId, tx);
-          anonymised.push('student');
-        });
-        break;
-      }
-      case 'household': {
-        const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-        await rlsClient.$transaction(async (tx: PrismaClient) => {
-          await this.anonymiseHousehold(tenantId, subjectId, tx);
-          anonymised.push('household');
-        });
-        break;
-      }
-      case 'user': {
-        // For user subject type, anonymise the associated staff profile if it exists
-        const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-        await rlsClient.$transaction(async (tx: PrismaClient) => {
-          const staffProfile = await tx.staffProfile.findFirst({
-            where: { user_id: subjectId, tenant_id: tenantId },
-            select: { id: true },
-          });
-          if (staffProfile) {
-            await this.anonymiseStaff(tenantId, staffProfile.id, tx);
-            anonymised.push('staff_profile');
-          }
-        });
-        break;
-      }
-    }
+    await this.runCleanupPlan(tenantId, result.cleanup);
 
     this.logger.log(
-      `Anonymised subject ${subjectType}:${subjectId} in tenant ${tenantId}. Entities: ${anonymised.join(', ')}`,
+      `Anonymised subject ${subjectType}:${subjectId} in tenant ${tenantId}. Entities: ${result.anonymised_entities.join(', ')}`,
     );
 
-    return { anonymised_entities: anonymised };
+    return { anonymised_entities: result.anonymised_entities };
   }
 
-  /**
-   * Anonymise a parent record.
-   * Replaces first_name, last_name, email, phone with ANONYMISED-{parentId}.
-   * Idempotent: checks if already anonymised.
-   */
   async anonymiseParent(
-    _tenantId: string,
+    tenantId: string,
     parentId: string,
     tx: PrismaClient,
   ): Promise<void> {
-    const parent = await tx.parent.findFirst({
-      where: { id: parentId },
-      select: { id: true, first_name: true },
-    });
-
-    if (!parent) return;
-
-    // Idempotency check
-    if (parent.first_name.startsWith('ANONYMISED-')) return;
-
-    const anonValue = `ANONYMISED-${parentId}`;
-
-    await tx.parent.update({
-      where: { id: parentId },
-      data: {
-        first_name: anonValue,
-        last_name: anonValue,
-        email: `${anonValue}@anonymised.local`,
-        phone: anonValue,
-        whatsapp_phone: anonValue,
-      },
-    });
+    await this.core.anonymiseParent(tenantId, parentId, tx);
   }
 
-  /**
-   * Anonymise a student record.
-   * Replaces first_name, last_name, student_number with ANONYMISED-{studentId}.
-   * Also anonymises student name in report_cards snapshot_payload_json.
-   */
   async anonymiseStudent(
     tenantId: string,
     studentId: string,
     tx: PrismaClient,
   ): Promise<void> {
-    const student = await tx.student.findFirst({
-      where: { id: studentId },
-      select: { id: true, first_name: true },
-    });
-
-    if (!student) return;
-
-    // Idempotency check
-    if (student.first_name.startsWith('ANONYMISED-')) return;
-
-    const anonValue = `ANONYMISED-${studentId}`;
-
-    await tx.student.update({
-      where: { id: studentId },
-      data: {
-        first_name: anonValue,
-        last_name: anonValue,
-        first_name_ar: anonValue,
-        last_name_ar: anonValue,
-        student_number: anonValue,
-      },
-    });
-
-    // Anonymise student name in report card snapshots
-    const reportCards = await tx.reportCard.findMany({
-      where: { student_id: studentId, tenant_id: tenantId },
-      select: { id: true, snapshot_payload_json: true },
-    });
-
-    for (const rc of reportCards) {
-      const payload = rc.snapshot_payload_json as Record<string, unknown>;
-      if (payload && typeof payload === 'object') {
-        const anonymisedPayload = { ...payload };
-        if ('student_name' in anonymisedPayload) {
-          anonymisedPayload.student_name = anonValue;
-        }
-        if ('student_first_name' in anonymisedPayload) {
-          anonymisedPayload.student_first_name = anonValue;
-        }
-        if ('student_last_name' in anonymisedPayload) {
-          anonymisedPayload.student_last_name = anonValue;
-        }
-        await tx.reportCard.update({
-          where: { id: rc.id },
-          data: { snapshot_payload_json: anonymisedPayload as unknown as Prisma.InputJsonValue },
-        });
-      }
-    }
+    await this.core.anonymiseStudent(tenantId, studentId, tx);
   }
 
-  /**
-   * Anonymise a household record.
-   * Replaces household_name with ANONYMISED-{householdId}.
-   */
   async anonymiseHousehold(
-    _tenantId: string,
+    tenantId: string,
     householdId: string,
     tx: PrismaClient,
   ): Promise<void> {
-    const household = await tx.household.findFirst({
-      where: { id: householdId },
-      select: { id: true, household_name: true },
-    });
-
-    if (!household) return;
-
-    // Idempotency check
-    if (household.household_name.startsWith('ANONYMISED-')) return;
-
-    const anonValue = `ANONYMISED-${householdId}`;
-
-    await tx.household.update({
-      where: { id: householdId },
-      data: {
-        household_name: anonValue,
-      },
-    });
+    await this.core.anonymiseHousehold(tenantId, householdId, tx);
   }
 
-  /**
-   * Anonymise a staff profile.
-   * Replaces job_title, department with ANONYMISED-{staffProfileId}.
-   * Also anonymises payroll_entries and payslips snapshot_payload_json.
-   */
   async anonymiseStaff(
     tenantId: string,
     staffProfileId: string,
     tx: PrismaClient,
   ): Promise<void> {
-    const staffProfile = await tx.staffProfile.findFirst({
-      where: { id: staffProfileId },
-      select: { id: true, job_title: true },
-    });
+    await this.core.anonymiseStaff(tenantId, staffProfileId, tx);
+  }
 
-    if (!staffProfile) return;
+  // ─── Secondary cleanup ────────────────────────────────────────────────────
 
-    // Idempotency check
-    if (staffProfile.job_title?.startsWith('ANONYMISED-')) return;
+  private async runCleanupPlan(
+    tenantId: string,
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    const results = await Promise.allSettled([
+      this.removeSearchEntries(cleanup),
+      this.deleteComplianceExports(cleanup),
+      this.clearExportPointers(cleanup),
+      this.clearRedisArtifacts(tenantId, cleanup),
+    ]);
 
-    const anonValue = `ANONYMISED-${staffProfileId}`;
+    this.logSettledFailures(results, 'runCleanupPlan');
+  }
 
-    await tx.staffProfile.update({
-      where: { id: staffProfileId },
-      data: {
-        job_title: anonValue,
-        department: anonValue,
-      },
-    });
+  private async removeSearchEntries(
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      cleanup.searchRemovals.map((removal) =>
+        this.searchIndexService.removeEntity(removal.entityType, removal.entityId),
+      ),
+    );
 
-    // Anonymise payroll entries notes
-    await tx.payrollEntry.updateMany({
-      where: { staff_profile_id: staffProfileId, tenant_id: tenantId },
-      data: { notes: anonValue },
-    });
+    this.logSettledFailures(results, 'removeSearchEntries');
+  }
 
-    // Anonymise payslip snapshot payloads
-    const payslips = await tx.payslip.findMany({
+  private async deleteComplianceExports(
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      cleanup.s3ObjectKeys.map((key) => this.s3Service.delete(key)),
+    );
+
+    this.logSettledFailures(results, 'deleteComplianceExports');
+  }
+
+  private async clearExportPointers(
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    if (cleanup.complianceRequestIdsToClear.length === 0) {
+      return;
+    }
+
+    await this.prisma.complianceRequest.updateMany({
       where: {
-        tenant_id: tenantId,
-        payroll_entry: { staff_profile_id: staffProfileId },
+        id: { in: cleanup.complianceRequestIdsToClear },
       },
-      select: { id: true, snapshot_payload_json: true },
+      data: {
+        export_file_key: null,
+      },
     });
+  }
 
-    for (const payslip of payslips) {
-      const payload = payslip.snapshot_payload_json as Record<string, unknown>;
-      if (payload && typeof payload === 'object') {
-        const anonymisedPayload = { ...payload };
-        if ('staff_name' in anonymisedPayload) {
-          anonymisedPayload.staff_name = anonValue;
-        }
-        if ('employee_name' in anonymisedPayload) {
-          anonymisedPayload.employee_name = anonValue;
-        }
-        if ('job_title' in anonymisedPayload) {
-          anonymisedPayload.job_title = anonValue;
-        }
-        if ('department' in anonymisedPayload) {
-          anonymisedPayload.department = anonValue;
-        }
-        await tx.payslip.update({
-          where: { id: payslip.id },
-          data: { snapshot_payload_json: anonymisedPayload as unknown as Prisma.InputJsonValue },
-        });
+  private async clearRedisArtifacts(
+    tenantId: string,
+    cleanup: AnonymisationCleanupPlan,
+  ): Promise<void> {
+    const client = this.redis.getClient();
+    const directKeys = new Set<string>(cleanup.previewKeys);
+
+    for (const userId of cleanup.unreadNotificationUserIds) {
+      directKeys.add(`tenant:${tenantId}:user:${userId}:unread_notifications`);
+    }
+
+    for (const pattern of cleanup.cachePatterns) {
+      const keys = await this.findKeysByPattern(pattern);
+      for (const key of keys) {
+        directKeys.add(key);
+      }
+    }
+
+    if (directKeys.size > 0 || cleanup.permissionMembershipIds.length > 0) {
+      const pipeline = client.pipeline();
+
+      for (const key of directKeys) {
+        pipeline.del(key);
+      }
+
+      for (const membershipId of cleanup.permissionMembershipIds) {
+        pipeline.del(`permissions:${membershipId}`);
+      }
+
+      await pipeline.exec();
+    }
+
+    for (const userId of cleanup.sessionUserIds) {
+      const sessionIds = await client.smembers(`user_sessions:${userId}`);
+      if (sessionIds.length > 0) {
+        await client.del(...sessionIds.map((sessionId) => `session:${sessionId}`));
+      }
+      await client.del(`user_sessions:${userId}`);
+    }
+  }
+
+  private async findKeysByPattern(pattern: string): Promise<string[]> {
+    const client = this.redis.getClient();
+    const keys = new Set<string>();
+    let cursor = '0';
+
+    do {
+      const [nextCursor, foundKeys] = await client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        '100',
+      );
+      cursor = nextCursor;
+      for (const key of foundKeys) {
+        keys.add(key);
+      }
+    } while (cursor !== '0');
+
+    return Array.from(keys);
+  }
+
+  private logSettledFailures(
+    results: PromiseSettledResult<unknown>[],
+    label: string,
+  ): void {
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        this.logger.error(
+          `[${label}] ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+        );
       }
     }
   }

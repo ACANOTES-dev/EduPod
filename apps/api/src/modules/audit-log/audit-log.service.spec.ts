@@ -30,10 +30,7 @@ describe('AuditLogService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AuditLogService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AuditLogService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AuditLogService>(AuditLogService);
@@ -73,15 +70,7 @@ describe('AuditLogService', () => {
     });
 
     it('should accept null tenantId for platform-level events', async () => {
-      await service.write(
-        null,
-        ACTOR_USER_ID,
-        'platform',
-        ENTITY_ID,
-        'login',
-        {},
-        '10.0.0.1',
-      );
+      await service.write(null, ACTOR_USER_ID, 'platform', ENTITY_ID, 'login', {}, '10.0.0.1');
 
       expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -92,15 +81,7 @@ describe('AuditLogService', () => {
     });
 
     it('should accept null actorUserId for system events', async () => {
-      await service.write(
-        TENANT_ID,
-        null,
-        'system',
-        ENTITY_ID,
-        'cron_run',
-        {},
-        null,
-      );
+      await service.write(TENANT_ID, null, 'system', ENTITY_ID, 'cron_run', {}, null);
 
       expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -111,15 +92,7 @@ describe('AuditLogService', () => {
     });
 
     it('should accept null entityId', async () => {
-      await service.write(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        'auth',
-        null,
-        'logout',
-        {},
-        '1.2.3.4',
-      );
+      await service.write(TENANT_ID, ACTOR_USER_ID, 'auth', null, 'logout', {}, '1.2.3.4');
 
       expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -138,33 +111,15 @@ describe('AuditLogService', () => {
       mockPrisma.auditLog.create.mockRejectedValue(prismaError);
 
       await expect(
-        service.write(
-          TENANT_ID,
-          ACTOR_USER_ID,
-          'student',
-          ENTITY_ID,
-          'create',
-          {},
-          '1.2.3.4',
-        ),
+        service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'create', {}, '1.2.3.4'),
       ).resolves.toBeUndefined();
     });
 
     it('should never throw on unknown errors', async () => {
-      mockPrisma.auditLog.create.mockRejectedValue(
-        new Error('Something unexpected'),
-      );
+      mockPrisma.auditLog.create.mockRejectedValue(new Error('Something unexpected'));
 
       await expect(
-        service.write(
-          TENANT_ID,
-          ACTOR_USER_ID,
-          'student',
-          ENTITY_ID,
-          'update',
-          {},
-          '1.2.3.4',
-        ),
+        service.write(TENANT_ID, ACTOR_USER_ID, 'student', ENTITY_ID, 'update', {}, '1.2.3.4'),
       ).resolves.toBeUndefined();
     });
   });
@@ -267,6 +222,38 @@ describe('AuditLogService', () => {
       );
     });
 
+    it('should apply category and sensitivity filters from metadata_json', async () => {
+      mockPrisma.auditLog.findMany.mockResolvedValue([]);
+      mockPrisma.auditLog.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, {
+        ...baseFilters,
+        category: 'read_access',
+        sensitivity: 'financial',
+      });
+
+      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: [
+              {
+                metadata_json: {
+                  path: ['category'],
+                  equals: 'read_access',
+                },
+              },
+              {
+                metadata_json: {
+                  path: ['sensitivity'],
+                  equals: 'financial',
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
     it('should apply date range filter with start_date only', async () => {
       mockPrisma.auditLog.findMany.mockResolvedValue([]);
       mockPrisma.auditLog.count.mockResolvedValue(0);
@@ -350,6 +337,24 @@ describe('AuditLogService', () => {
       const result = await service.list(TENANT_ID, baseFilters);
 
       expect(result.data[0]!.created_at).toBe('2026-03-15T10:00:00.000Z');
+    });
+
+    it('should map category and sensitivity from metadata_json into the response shape', async () => {
+      const mockLog = makeMockLog({
+        metadata_json: {
+          category: 'security_event',
+          sensitivity: 'normal',
+        },
+      });
+      mockPrisma.auditLog.findMany.mockResolvedValue([mockLog]);
+      mockPrisma.auditLog.count.mockResolvedValue(1);
+
+      const result = await service.list(TENANT_ID, baseFilters);
+
+      expect(result.data[0]).toMatchObject({
+        category: 'security_event',
+        sensitivity: 'normal',
+      });
     });
   });
 
@@ -449,6 +454,8 @@ describe('AuditLogService', () => {
         entity_type: 'student',
         actor_user_id: ACTOR_USER_ID,
         action: 'create',
+        category: 'mutation',
+        sensitivity: 'cross_tenant',
         start_date: '2026-03-01T00:00:00.000Z',
         end_date: '2026-03-31T23:59:59.999Z',
         tenant_id: TENANT_ID,
@@ -464,6 +471,20 @@ describe('AuditLogService', () => {
           gte: new Date('2026-03-01T00:00:00.000Z'),
           lte: new Date('2026-03-31T23:59:59.999Z'),
         },
+        AND: [
+          {
+            metadata_json: {
+              path: ['category'],
+              equals: 'mutation',
+            },
+          },
+          {
+            metadata_json: {
+              path: ['sensitivity'],
+              equals: 'cross_tenant',
+            },
+          },
+        ],
       });
       expect(calledArgs.skip).toBe(10); // (page 2 - 1) * pageSize 10
       expect(calledArgs.take).toBe(10);
@@ -500,14 +521,7 @@ describe('AuditLogService', () => {
     it("should default entity_type to 'engagement' when null", async () => {
       const writeSpy = jest.spyOn(service, 'write');
 
-      await service.track(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        'session_start',
-        null,
-        null,
-        '10.0.0.1',
-      );
+      await service.track(TENANT_ID, ACTOR_USER_ID, 'session_start', null, null, '10.0.0.1');
 
       expect(writeSpy).toHaveBeenCalledWith(
         TENANT_ID,
@@ -523,14 +537,7 @@ describe('AuditLogService', () => {
     it('should pass tracking: true in metadata', async () => {
       const writeSpy = jest.spyOn(service, 'write');
 
-      await service.track(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        'click',
-        'button',
-        ENTITY_ID,
-        '1.2.3.4',
-      );
+      await service.track(TENANT_ID, ACTOR_USER_ID, 'click', 'button', ENTITY_ID, '1.2.3.4');
 
       expect(writeSpy).toHaveBeenCalledWith(
         expect.any(String),

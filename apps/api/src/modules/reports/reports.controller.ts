@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import {
   promotionRolloverQuerySchema,
   feeGenerationRunsQuerySchema,
@@ -17,6 +10,7 @@ import type { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -25,6 +19,7 @@ import { ReportsService } from './reports.service';
 
 @Controller('v1/reports')
 @UseGuards(AuthGuard, PermissionGuard)
+@SensitiveDataAccess('analytics')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
@@ -86,6 +81,7 @@ export class ReportsController {
 
   @Get('student-export/:studentId')
   @RequiresPermission('students.view')
+  @SensitiveDataAccess('full_export')
   async studentExportPack(
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -95,6 +91,7 @@ export class ReportsController {
 
   @Get('household-export/:householdId')
   @RequiresPermission('finance.view')
+  @SensitiveDataAccess('full_export')
   async householdExportPack(
     @CurrentTenant() tenant: TenantContext,
     @Param('householdId', ParseUUIDPipe) householdId: string,

@@ -28,6 +28,7 @@ import type {
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -62,10 +63,7 @@ export class ComplianceController {
 
   @Get(':id')
   @RequiresPermission('compliance.view')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.complianceService.get(tenant.tenant_id, id);
   }
 
@@ -108,15 +106,13 @@ export class ComplianceController {
   @Post(':id/execute')
   @HttpCode(HttpStatus.OK)
   @RequiresPermission('compliance.manage')
-  async execute(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async execute(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.complianceService.execute(tenant.tenant_id, id);
   }
 
   @Get(':id/export')
   @RequiresPermission('compliance.view')
+  @SensitiveDataAccess('dsar_response')
   async getExportUrl(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,

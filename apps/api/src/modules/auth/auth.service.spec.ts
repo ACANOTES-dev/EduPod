@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as bcrypt from 'bcryptjs';
 
 // Mock otplib and qrcode before any imports that pull them in
 jest.mock('otplib', () => ({
@@ -18,6 +19,7 @@ jest.mock('qrcode', () => ({
 
 import { verify as otpVerify } from 'otplib';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -41,6 +43,17 @@ const mockPrisma = {
     update: jest.fn(),
   },
   tenantMembership: { findUnique: jest.fn() },
+};
+
+const mockSecurityAuditService = {
+  logBruteForceLockout: jest.fn(),
+  logLoginFailure: jest.fn(),
+  logLoginSuccess: jest.fn(),
+  logMfaDisable: jest.fn(),
+  logMfaSetup: jest.fn(),
+  logPasswordChange: jest.fn(),
+  logPasswordReset: jest.fn(),
+  logSessionRevocation: jest.fn(),
 };
 
 describe('AuthService', () => {
@@ -95,6 +108,7 @@ describe('AuthService', () => {
           },
         },
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 
@@ -167,20 +181,14 @@ describe('AuthService', () => {
         'EX',
         604800, // 7 days
       );
-      expect(redisClient.sadd).toHaveBeenCalledWith(
-        'user_sessions:user-123',
-        'session-456',
-      );
+      expect(redisClient.sadd).toHaveBeenCalledWith('user_sessions:user-123', 'session-456');
     });
 
     it('should delete session from Redis', async () => {
       await service.deleteSession('session-456', 'user-123');
 
       expect(redisClient.del).toHaveBeenCalledWith('session:session-456');
-      expect(redisClient.srem).toHaveBeenCalledWith(
-        'user_sessions:user-123',
-        'session-456',
-      );
+      expect(redisClient.srem).toHaveBeenCalledWith('user_sessions:user-123', 'session-456');
     });
   });
 
@@ -218,15 +226,85 @@ describe('AuthService', () => {
     it('should increment failed login counter', async () => {
       await service.recordFailedLogin('test@school.com');
       expect(redisClient.incr).toHaveBeenCalledWith('brute_force:test@school.com');
-      expect(redisClient.expire).toHaveBeenCalledWith(
-        'brute_force:test@school.com',
-        3600,
+      expect(redisClient.expire).toHaveBeenCalledWith('brute_force:test@school.com', 3600);
+    });
+
+    it('should log lockout when a threshold is reached', async () => {
+      redisClient.incr.mockResolvedValue(5);
+
+      await service.recordFailedLogin('test@school.com', '1.2.3.4', 'jest-agent');
+
+      expect(mockSecurityAuditService.logBruteForceLockout).toHaveBeenCalledWith(
+        'test@school.com',
+        '1.2.3.4',
+        0.5,
+        null,
+        'jest-agent',
       );
     });
 
     it('should reset failed login counter on success', async () => {
       await service.clearBruteForce('test@school.com');
       expect(redisClient.del).toHaveBeenCalledWith('brute_force:test@school.com');
+    });
+  });
+
+  // ─── Section 1.3b: Login audit logging ───────────────────────────────────
+
+  describe('login audit logging', () => {
+    const passwordHash = bcrypt.hashSync('CorrectPassword123!', 10);
+    const mockUser = {
+      id: 'user-login-1',
+      email: 'login@school.com',
+      password_hash: passwordHash,
+      first_name: 'Login',
+      last_name: 'User',
+      phone: null,
+      preferred_locale: null,
+      global_status: 'active',
+      mfa_enabled: false,
+      mfa_secret: null,
+      last_login_at: null,
+      created_at: new Date('2026-03-27T10:00:00.000Z'),
+    };
+
+    it('should log login success after creating a session', async () => {
+      redisClient.get.mockResolvedValue('0');
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.user.update.mockResolvedValue({ ...mockUser, last_login_at: new Date() });
+
+      const result = await service.login(
+        'login@school.com',
+        'CorrectPassword123!',
+        '127.0.0.1',
+        'jest-agent',
+      );
+
+      expect(result).toHaveProperty('access_token');
+      expect(mockSecurityAuditService.logLoginSuccess).toHaveBeenCalledWith(
+        mockUser.id,
+        '127.0.0.1',
+        'jest-agent',
+        null,
+        expect.any(String),
+      );
+    });
+
+    it('should log login failure when credentials are invalid', async () => {
+      redisClient.get.mockResolvedValue('0');
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(
+        service.login('login@school.com', 'WrongPassword123!', '127.0.0.1', 'jest-agent'),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockSecurityAuditService.logLoginFailure).toHaveBeenCalledWith(
+        'login@school.com',
+        '127.0.0.1',
+        'INVALID_CREDENTIALS',
+        null,
+        'jest-agent',
+      );
     });
   });
 
@@ -313,8 +391,10 @@ describe('AuthService', () => {
             ]),
           }),
         );
-        const createManyCall = (mockPrisma.mfaRecoveryCode.createMany as jest.Mock).mock.calls[0][0];
+        const createManyCall = (mockPrisma.mfaRecoveryCode.createMany as jest.Mock).mock
+          .calls[0][0];
         expect(createManyCall.data).toHaveLength(10);
+        expect(mockSecurityAuditService.logMfaSetup).toHaveBeenCalledWith('user-mfa-1');
       });
 
       it('should reject incorrect TOTP code with UnauthorizedException', async () => {
@@ -404,6 +484,11 @@ describe('AuthService', () => {
         const result = await service.requestPasswordReset('reset@school.com');
 
         expect(result).toEqual({ message: 'If email exists, reset link sent' });
+        expect(mockSecurityAuditService.logPasswordReset).toHaveBeenCalledWith(
+          'user-reset-1',
+          'email',
+          'reset@school.com',
+        );
 
         // Token record created with a hashed token and 1-hour expiry
         expect(mockPrisma.passwordResetToken.create).toHaveBeenCalledWith(
@@ -428,6 +513,11 @@ describe('AuthService', () => {
 
         expect(result).toEqual({ message: 'If email exists, reset link sent' });
         expect(mockPrisma.passwordResetToken.create).not.toHaveBeenCalled();
+        expect(mockSecurityAuditService.logPasswordReset).toHaveBeenCalledWith(
+          null,
+          'email',
+          'nobody@school.com',
+        );
       });
 
       it('should limit to 3 active tokens and not create a fourth', async () => {
@@ -483,6 +573,7 @@ describe('AuthService', () => {
             data: { used_at: expect.any(Date) },
           }),
         );
+        expect(mockSecurityAuditService.logPasswordChange).toHaveBeenCalledWith('user-reset-1');
       });
 
       it('should reject an expired token (findFirst returns null)', async () => {
@@ -507,6 +598,32 @@ describe('AuthService', () => {
           service.confirmPasswordReset('already-used-token', 'NewPassword123!'),
         ).rejects.toThrow(BadRequestException);
       });
+    });
+  });
+
+  // ─── Section 1.6: Session revocation audit logging ───────────────────────
+
+  describe('revokeSession', () => {
+    it('should delete the session and log revocation', async () => {
+      jest.spyOn(service, 'getSession').mockResolvedValue({
+        user_id: 'user-123',
+        session_id: 'session-456',
+        tenant_id: null,
+        membership_id: null,
+        ip_address: '127.0.0.1',
+        user_agent: 'jest-agent',
+        created_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      });
+
+      await service.revokeSession('user-123', 'session-456');
+
+      expect(redisClient.del).toHaveBeenCalledWith('session:session-456');
+      expect(mockSecurityAuditService.logSessionRevocation).toHaveBeenCalledWith(
+        'user-123',
+        'user-123',
+        'session-456',
+      );
     });
   });
 });

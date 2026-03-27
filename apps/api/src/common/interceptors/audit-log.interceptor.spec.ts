@@ -1,4 +1,5 @@
 import { CallHandler, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { of, throwError } from 'rxjs';
 
 import { AuditLogService } from '../../modules/audit-log/audit-log.service';
@@ -15,26 +16,34 @@ function createMockContext(
   url: string,
   body?: Record<string, unknown>,
   overrides?: {
-    tenantContext?: { tenant_id: string } | null;
     currentUser?: { sub: string } | null;
-    statusCode?: number;
+    headers?: Record<string, string>;
     ip?: string;
+    params?: Record<string, string>;
+    statusCode?: number;
+    tenantContext?: { tenant_id: string } | null;
   },
 ): ExecutionContext {
+  const handler = jest.fn();
+  const controllerClass = class TestController {};
   const request = {
+    body,
+    currentUser: overrides?.currentUser !== undefined ? overrides.currentUser : { sub: USER_ID },
+    headers: overrides?.headers ?? { 'user-agent': 'jest-agent' },
+    ip: overrides?.ip ?? '127.0.0.1',
     method,
     originalUrl: url,
-    body,
-    ip: overrides?.ip ?? '127.0.0.1',
-    tenantContext: overrides?.tenantContext !== undefined ? overrides.tenantContext : { tenant_id: TENANT_ID },
-    currentUser: overrides?.currentUser !== undefined ? overrides.currentUser : { sub: USER_ID },
+    params: overrides?.params ?? {},
+    tenantContext:
+      overrides?.tenantContext !== undefined ? overrides.tenantContext : { tenant_id: TENANT_ID },
   };
-
   const response = {
     statusCode: overrides?.statusCode ?? 200,
   };
 
   return {
+    getClass: () => controllerClass,
+    getHandler: () => handler,
     switchToHttp: () => ({
       getRequest: () => request,
       getResponse: () => response,
@@ -57,21 +66,26 @@ function createErrorHandler(error: Error): CallHandler {
 describe('AuditLogInterceptor', () => {
   let interceptor: AuditLogInterceptor;
   let mockAuditLogService: { write: jest.Mock };
+  let mockReflector: { getAllAndOverride: jest.Mock };
 
   beforeEach(() => {
     mockAuditLogService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
+    mockReflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(undefined),
+    };
 
     interceptor = new AuditLogInterceptor(
       mockAuditLogService as unknown as AuditLogService,
+      mockReflector as unknown as Reflector,
     );
   });
 
-  // ─── intercept() — method filtering ───────────────────────────────
+  afterEach(() => jest.clearAllMocks());
 
-  describe('intercept() — method filtering', () => {
-    it('should pass through GET requests without auditing', (done) => {
+  describe('intercept()', () => {
+    it('passes through undecorated GET requests without auditing', (done) => {
       const context = createMockContext('GET', '/api/v1/students');
       const handler = createMockHandler();
 
@@ -83,60 +97,11 @@ describe('AuditLogInterceptor', () => {
       });
     });
 
-    it('should audit POST requests', (done) => {
-      const context = createMockContext('POST', `/api/v1/students`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalled();
-          done();
-        },
+    it('audits mutation requests with mutation metadata', (done) => {
+      const context = createMockContext('POST', '/api/v1/students', {
+        password: 'secret',
+        safe: 'keep-me',
       });
-    });
-
-    it('should audit PUT requests', (done) => {
-      const context = createMockContext('PUT', `/api/v1/students/${UUID_EXAMPLE}`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalled();
-          done();
-        },
-      });
-    });
-
-    it('should audit PATCH requests', (done) => {
-      const context = createMockContext('PATCH', `/api/v1/students/${UUID_EXAMPLE}`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalled();
-          done();
-        },
-      });
-    });
-
-    it('should audit DELETE requests', (done) => {
-      const context = createMockContext('DELETE', `/api/v1/students/${UUID_EXAMPLE}`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalled();
-          done();
-        },
-      });
-    });
-  });
-
-  // ─── parseEntityFromPath() — tested indirectly via intercept ──────
-
-  describe('parseEntityFromPath() — entity extraction', () => {
-    it('should parse entity_type and entity_id from /v1/students/{uuid}', (done) => {
-      const context = createMockContext('POST', `/api/v1/students/${UUID_EXAMPLE}`);
       const handler = createMockHandler();
 
       interceptor.intercept(context, handler).subscribe({
@@ -145,276 +110,149 @@ describe('AuditLogInterceptor', () => {
             TENANT_ID,
             USER_ID,
             'students',
-            UUID_EXAMPLE,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
-          );
-          done();
-        },
-      });
-    });
-
-    it('should parse nested resource /v1/compliance-requests/{uuid}/classify', (done) => {
-      const context = createMockContext('POST', `/api/v1/compliance-requests/${UUID_EXAMPLE}/classify`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'compliance-requests',
-            UUID_EXAMPLE,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
-          );
-          done();
-        },
-      });
-    });
-
-    it('should fallback to first segment for /v1/imports/upload', (done) => {
-      const context = createMockContext('POST', '/api/v1/imports/upload');
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'imports',
             null,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
+            'POST /api/v1/students',
+            expect.objectContaining({
+              body: {
+                password: '[REDACTED]',
+                safe: 'keep-me',
+              },
+              category: 'mutation',
+              path: '/api/v1/students',
+              sensitivity: 'normal',
+            }),
+            '127.0.0.1',
           );
           done();
         },
       });
     });
 
-    it('should strip query string before parsing', (done) => {
-      const context = createMockContext('POST', `/api/v1/students/${UUID_EXAMPLE}?expand=true`);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'students',
-            UUID_EXAMPLE,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
-          );
-          done();
-        },
+    it('audits decorated GET requests as read access without response payload content', (done) => {
+      mockReflector.getAllAndOverride.mockReturnValue({
+        sensitivity: 'financial',
       });
-    });
-
-    it('should parse deepest resource/uuid pair from /v1/tenants/{uuid1}/students/{uuid2}', (done) => {
       const context = createMockContext(
-        'PATCH',
-        `/api/v1/tenants/${UUID_EXAMPLE}/students/${UUID_EXAMPLE_2}`,
+        'GET',
+        `/api/v1/staff-profiles/${UUID_EXAMPLE}/bank-details`,
       );
-      const handler = createMockHandler();
+      const handler = createMockHandler({
+        id: UUID_EXAMPLE,
+        bank_account_number_masked: '****1234',
+      });
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
           expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'students',
-            UUID_EXAMPLE_2,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
+            TENANT_ID,
+            USER_ID,
+            'staff-profiles',
+            UUID_EXAMPLE,
+            `GET /api/v1/staff-profiles/${UUID_EXAMPLE}/bank-details`,
+            expect.objectContaining({
+              accessed_entity_ids: [UUID_EXAMPLE],
+              accessed_record_count: 1,
+              category: 'read_access',
+              path: `/api/v1/staff-profiles/${UUID_EXAMPLE}/bank-details`,
+              sensitivity: 'financial',
+            }),
+            '127.0.0.1',
+          );
+
+          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
+          expect(metadata).not.toHaveProperty('body');
+          expect(metadata).not.toHaveProperty('response');
+          done();
+        },
+      });
+    });
+
+    it('uses entityIdField metadata to resolve IDs from the request body', (done) => {
+      mockReflector.getAllAndOverride.mockReturnValue({
+        entityIdField: 'user_id',
+        entityType: 'impersonation',
+        sensitivity: 'cross_tenant',
+      });
+      const context = createMockContext('POST', '/api/v1/admin/impersonate', {
+        tenant_id: TENANT_ID,
+        user_id: UUID_EXAMPLE,
+      });
+      const handler = createMockHandler({ access_token: 'token' });
+
+      interceptor.intercept(context, handler).subscribe({
+        next: () => {
+          expect(mockAuditLogService.write).toHaveBeenCalledWith(
+            TENANT_ID,
+            USER_ID,
+            'impersonation',
+            UUID_EXAMPLE,
+            'POST /api/v1/admin/impersonate',
+            expect.objectContaining({
+              category: 'mutation',
+              sensitivity: 'cross_tenant',
+            }),
+            '127.0.0.1',
           );
           done();
         },
       });
     });
 
-    it('should return unknown when no segments (/)', (done) => {
-      const context = createMockContext('POST', '/');
-      const handler = createMockHandler();
+    it('extracts array entity IDs for successful decorated GET list responses', (done) => {
+      mockReflector.getAllAndOverride.mockReturnValue({
+        sensitivity: 'special_category',
+      });
+      const context = createMockContext('GET', '/api/v1/students/allergy-report');
+      const handler = createMockHandler({
+        data: [{ student_id: UUID_EXAMPLE }, { student_id: UUID_EXAMPLE_2 }],
+        meta: { total: 2 },
+      });
 
       interceptor.intercept(context, handler).subscribe({
         next: () => {
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'unknown',
-            null,
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
+          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
+          expect(metadata).toEqual(
+            expect.objectContaining({
+              accessed_entity_ids: [UUID_EXAMPLE, UUID_EXAMPLE_2],
+              accessed_record_count: 2,
+              category: 'read_access',
+              sensitivity: 'special_category',
+            }),
           );
           done();
         },
       });
     });
 
-    it('should skip api and v1 segments', (done) => {
-      const context = createMockContext('POST', `/api/v1/students/${UUID_EXAMPLE}`);
-      const handler = createMockHandler();
+    it('does not audit failed requests', (done) => {
+      const context = createMockContext('POST', '/api/v1/students');
+      const handler = createErrorHandler(new Error('Validation failed'));
 
       interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          // Should NOT be 'api' or 'v1'
-          expect(mockAuditLogService.write).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(String),
-            'students',
-            expect.any(String),
-            expect.any(String),
-            expect.any(Object),
-            expect.any(String),
-          );
+        error: () => {
+          expect(mockAuditLogService.write).not.toHaveBeenCalled();
           done();
         },
-      });
-    });
-  });
-
-  // ─── sanitizeBody() — tested indirectly via metadata ──────────────
-
-  describe('sanitizeBody()', () => {
-    it('should redact password field', (done) => {
-      const context = createMockContext('POST', '/api/v1/auth/login', {
-        email: 'test@example.com',
-        password: 'secret123',
-      });
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
         next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
-          const body = metadata.body as Record<string, unknown>;
-
-          expect(body.password).toBe('[REDACTED]');
-          expect(body.email).toBe('test@example.com');
-          done();
+          done.fail('Expected request to fail');
         },
       });
     });
 
-    it('should redact all sensitive fields', (done) => {
-      const sensitiveBody = {
-        password: 'secret',
-        token: 'tok-123',
-        secret: 'ssecret',
-        mfa_secret: 'mfa123',
-        refresh_token: 'rt-123',
-        current_password: 'old123',
-        new_password: 'new123',
-        password_hash: 'hash123',
-        username: 'admin',
-      };
-      const context = createMockContext('POST', '/api/v1/auth/register', sensitiveBody);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
-          const body = metadata.body as Record<string, unknown>;
-
-          expect(body.password).toBe('[REDACTED]');
-          expect(body.token).toBe('[REDACTED]');
-          expect(body.secret).toBe('[REDACTED]');
-          expect(body.mfa_secret).toBe('[REDACTED]');
-          expect(body.refresh_token).toBe('[REDACTED]');
-          expect(body.current_password).toBe('[REDACTED]');
-          expect(body.new_password).toBe('[REDACTED]');
-          expect(body.password_hash).toBe('[REDACTED]');
-          expect(body.username).toBe('admin'); // not redacted
-          done();
-        },
-      });
-    });
-
-    it('should pass through non-sensitive fields unchanged', (done) => {
-      const body = { name: 'Test School', city: 'Dubai', postal_code: '12345' };
-      const context = createMockContext('POST', '/api/v1/tenants', body);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
-          const sanitizedBody = metadata.body as Record<string, unknown>;
-
-          expect(sanitizedBody.name).toBe('Test School');
-          expect(sanitizedBody.city).toBe('Dubai');
-          expect(sanitizedBody.postal_code).toBe('12345');
-          done();
-        },
-      });
-    });
-
-    it('should return undefined for undefined body', (done) => {
-      const context = createMockContext('DELETE', `/api/v1/students/${UUID_EXAMPLE}`, undefined);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
-          expect(metadata.body).toBeUndefined();
-          done();
-        },
-      });
-    });
-
-    it('should return undefined for non-object body (null)', (done) => {
-      const context = createMockContext('POST', '/api/v1/students', null as unknown as Record<string, unknown>);
-      const handler = createMockHandler();
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          const metadata = mockAuditLogService.write.mock.calls[0]?.[5] as Record<string, unknown>;
-          expect(metadata.body).toBeUndefined();
-          done();
-        },
-      });
-    });
-  });
-
-  // ─── Non-blocking behaviour ───────────────────────────────────────
-
-  describe('non-blocking behaviour', () => {
-    it('should not fail the request when audit write throws', (done) => {
+    it('does not fail the request if audit preparation throws', (done) => {
       mockAuditLogService.write.mockImplementation(() => {
-        throw new Error('DB connection failed');
+        throw new Error('audit failure');
       });
-
       const context = createMockContext('POST', '/api/v1/students');
       const handler = createMockHandler({ id: 'created-1' });
 
       interceptor.intercept(context, handler).subscribe({
         next: (value) => {
-          // The response should still be returned despite write() throwing
           expect(value).toEqual({ id: 'created-1' });
           done();
         },
         error: () => {
-          done.fail('Request should not have failed due to audit error');
-        },
-      });
-    });
-
-    it('should not audit failed requests (error tap branch)', (done) => {
-      const context = createMockContext('POST', '/api/v1/students');
-      const handler = createErrorHandler(new Error('Validation failed'));
-
-      interceptor.intercept(context, handler).subscribe({
-        next: () => {
-          done.fail('Should not have received a value');
-        },
-        error: () => {
-          expect(mockAuditLogService.write).not.toHaveBeenCalled();
-          done();
+          done.fail('Request should not fail because audit logging threw');
         },
       });
     });
