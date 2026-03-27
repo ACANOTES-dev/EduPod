@@ -74,6 +74,59 @@ export const sstConfigSchema = z.object({
 
 export type SstConfig = z.infer<typeof sstConfigSchema>;
 
+// ─── Response Plan Template Item Config ────────────────────────────────────
+
+export const responsePlanTemplateItemSchema = z.object({
+  label: z.string(),
+  description: z.string().optional(),
+  default_assignee_role: z.string().optional(),
+});
+
+export type ResponsePlanTemplateItem = z.infer<typeof responsePlanTemplateItemSchema>;
+
+// ─── Critical Incident Response Plan Template ─────────────────────────────
+
+export const criticalIncidentResponsePlanTemplateSchema = z.object({
+  immediate: z.array(responsePlanTemplateItemSchema).default([
+    { label: 'Convene Critical Incident Management Team' },
+    { label: 'Gather and verify facts' },
+    { label: 'Contact bereaved/affected family' },
+    { label: 'Designate staff room and support room' },
+    { label: 'Prepare statement for staff briefing' },
+    { label: 'Brief all staff before school starts' },
+    { label: 'Identify high-risk students' },
+    { label: 'Assign staff to support identified students' },
+    { label: 'Contact NEPS for support' },
+    { label: 'Prepare parent notification' },
+  ]),
+  short_term: z.array(responsePlanTemplateItemSchema).default([
+    { label: 'Daily CI Management Team briefing' },
+    { label: 'Monitor affected students' },
+    { label: 'Arrange external counselling support' },
+    { label: 'Coordinate media response (if applicable)' },
+    { label: 'Follow up with bereaved/affected family' },
+    { label: 'Monitor staff wellbeing' },
+    { label: 'Review and adjust support arrangements' },
+  ]),
+  medium_term: z.array(responsePlanTemplateItemSchema).default([
+    { label: 'Review ongoing support needs' },
+    { label: 'Identify students needing continued support' },
+    { label: 'Liaise with external agencies' },
+    { label: 'Plan memorial/commemoration (if appropriate)' },
+    { label: 'Review staff support needs' },
+    { label: 'Document lessons learned' },
+  ]),
+  long_term: z.array(responsePlanTemplateItemSchema).default([
+    { label: 'Anniversary planning' },
+    { label: 'Review at 3-month mark' },
+    { label: 'Review at 6-month mark' },
+    { label: 'Review at 12-month mark' },
+    { label: 'Update CI Management Plan based on learnings' },
+  ]),
+});
+
+export type CriticalIncidentResponsePlanTemplate = z.infer<typeof criticalIncidentResponsePlanTemplateSchema>;
+
 // ─── Full Pastoral Tenant Settings Schema ──────────────────────────────────
 
 export const pastoralTenantSettingsSchema = z.object({
@@ -111,6 +164,8 @@ export const pastoralTenantSettingsSchema = z.object({
   checkins: checkinConfigSchema.default({}),
 
   sst: sstConfigSchema.default({}),
+
+  critical_incident_response_plan_template: criticalIncidentResponsePlanTemplateSchema.default({}),
 });
 
 export type PastoralTenantSettings = z.infer<typeof pastoralTenantSettingsSchema>;

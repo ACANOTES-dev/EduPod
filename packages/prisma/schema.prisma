@@ -987,6 +987,8 @@ model User {
   pc_events_acted                   PastoralEvent[]                  @relation("pc_event_actor")
   pc_dsar_reviews_done              PastoralDsarReview[]             @relation("pc_dsar_review_reviewed_by")
   pc_critical_incidents_declared    CriticalIncident[]               @relation("pc_critical_incident_declared_by")
+  pc_critical_incident_status_changed_by CriticalIncident[]          @relation("pc_critical_incident_status_changed_by")
+  pc_critical_affected_support_by CriticalIncidentAffected[]        @relation("pc_critical_affected_support_by")
 
   @@map("users")
 }
@@ -6898,64 +6900,89 @@ model PastoralDsarReview {
 }
 
 model CriticalIncident {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String                 @db.Uuid
-  incident_type        CriticalIncidentType
-  description          String                 @db.Text
-  occurred_at          DateTime               @db.Timestamptz()
-  scope                CriticalIncidentScope
-  scope_ids            Json?
-  declared_by_user_id  String                 @db.Uuid
-  status               CriticalIncidentStatus @default(ci_active)
-  response_plan        Json?
-  external_support_log Json?
-  created_at           DateTime               @default(now()) @db.Timestamptz()
-  updated_at           DateTime               @default(now()) @updatedAt @db.Timestamptz()
+  id                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                String                 @db.Uuid
+  incident_type            CriticalIncidentType
+  incident_number          String?                @db.VarChar(20)
+  incident_type_other      String?                @db.VarChar(200)
+  description              String                 @db.Text
+  occurred_at              DateTime               @db.Timestamptz()
+  incident_date            DateTime?              @db.Date
+  declared_at              DateTime               @default(now()) @db.Timestamptz()
+  scope                    CriticalIncidentScope
+  scope_ids                Json?
+  scope_year_group_ids     Json?
+  scope_class_ids          Json?
+  declared_by_user_id      String                 @db.Uuid
+  status                   CriticalIncidentStatus @default(ci_active)
+  status_changed_at        DateTime?              @db.Timestamptz()
+  status_changed_by_id     String?                @db.Uuid
+  response_plan            Json?
+  external_support_log     Json?
+  communication_notes      String?                @db.Text
+  linked_communication_ids Json?
+  closure_notes            String?                @db.Text
+  closed_at                DateTime?              @db.Timestamptz()
+  academic_year_id         String?                @db.Uuid
+  created_at               DateTime               @default(now()) @db.Timestamptz()
+  updated_at               DateTime               @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant      Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  declared_by User                       @relation("pc_critical_incident_declared_by", fields: [declared_by_user_id], references: [id], onDelete: Restrict)
-  affected    CriticalIncidentAffected[]
+  tenant            Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  declared_by       User                       @relation("pc_critical_incident_declared_by", fields: [declared_by_user_id], references: [id], onDelete: Restrict)
+  status_changed_by User?                      @relation("pc_critical_incident_status_changed_by", fields: [status_changed_by_id], references: [id], onDelete: SetNull)
+  affected          CriticalIncidentAffected[]
 
   @@index([tenant_id, status], map: "idx_critical_incidents_tenant_status")
+  @@index([tenant_id, incident_date], map: "idx_critical_incidents_tenant_date")
+  @@index([tenant_id, academic_year_id], map: "idx_critical_incidents_tenant_year")
   @@map("critical_incidents")
 }
 
 model CriticalIncidentAffected {
-  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id        String                      @db.Uuid
-  incident_id      String                      @db.Uuid
-  affected_type    String                      @db.VarChar(10)
-  student_id       String?                     @db.Uuid
-  staff_profile_id String?                     @db.Uuid
-  impact_level     CriticalIncidentImpactLevel
-  notes            String?                     @db.Text
-  support_offered  Boolean                     @default(false)
-  created_at       DateTime                    @default(now()) @db.Timestamptz()
-  updated_at       DateTime                    @default(now()) @updatedAt @db.Timestamptz()
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String                      @db.Uuid
+  incident_id               String                      @db.Uuid
+  affected_type             String                      @db.VarChar(10)
+  student_id                String?                     @db.Uuid
+  staff_profile_id          String?                     @db.Uuid
+  impact_level              CriticalIncidentImpactLevel
+  notes                     String?                     @db.Text
+  support_offered           Boolean                     @default(false)
+  wellbeing_flag_active     Boolean                     @default(true)
+  wellbeing_flag_expires_at DateTime?                   @db.Date
+  support_offered_at        DateTime?                   @db.Timestamptz()
+  support_offered_by_id     String?                     @db.Uuid
+  support_notes             String?                     @db.Text
+  created_at                DateTime                    @default(now()) @db.Timestamptz()
+  updated_at                DateTime                    @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  incident      CriticalIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
-  student       Student?         @relation("pc_critical_affected_student", fields: [student_id], references: [id], onDelete: SetNull)
-  staff_profile StaffProfile?    @relation("pc_critical_affected_staff", fields: [staff_profile_id], references: [id], onDelete: SetNull)
+  tenant             Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  incident           CriticalIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  student            Student?         @relation("pc_critical_affected_student", fields: [student_id], references: [id], onDelete: SetNull)
+  staff_profile      StaffProfile?    @relation("pc_critical_affected_staff", fields: [staff_profile_id], references: [id], onDelete: SetNull)
+  support_offered_by User?            @relation("pc_critical_affected_support_by", fields: [support_offered_by_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, incident_id], map: "idx_critical_incident_affected_tenant_incident")
+  @@index([tenant_id, student_id], map: "idx_critical_incident_affected_tenant_student")
+  @@index([tenant_id, wellbeing_flag_expires_at], map: "idx_critical_incident_affected_flag_expiry")
   @@map("critical_incident_affected")
 }
 
 /// Student check-in -- append-only, no updated_at
 model StudentCheckin {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id       String   @db.Uuid
-  student_id      String   @db.Uuid
-  mood_score      Int      @db.SmallInt
-  freeform_text   String?  @db.Text
-  flagged         Boolean  @default(false)
-  flag_reason     String?  @db.VarChar(50)
-  auto_concern_id String?  @db.Uuid
-  checkin_date    DateTime @db.Date
-  created_at      DateTime @default(now()) @db.Timestamptz()
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String   @db.Uuid
+  student_id       String   @db.Uuid
+  mood_score       Int      @db.SmallInt
+  freeform_text    String?  @db.Text
+  flagged          Boolean  @default(false)
+  flag_reason      String?  @db.VarChar(50)
+  auto_concern_id  String?  @db.Uuid
+  checkin_date     DateTime @db.Date
+  academic_year_id String?  @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz()
 
   // Relations
   tenant       Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -6963,5 +6990,8 @@ model StudentCheckin {
   auto_concern PastoralConcern? @relation("pc_checkin_auto_concern", fields: [auto_concern_id], references: [id], onDelete: SetNull)
 
   @@unique([tenant_id, student_id, checkin_date])
+  @@index([tenant_id, student_id, checkin_date(sort: Desc)], map: "idx_student_checkins_tenant_student_date")
+  @@index([tenant_id, checkin_date, mood_score], map: "idx_student_checkins_tenant_date_mood")
+  @@index([tenant_id, flagged], map: "idx_student_checkins_tenant_flagged")
   @@map("student_checkins")
 }

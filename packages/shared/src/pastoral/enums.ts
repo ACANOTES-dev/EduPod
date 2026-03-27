@@ -167,6 +167,9 @@ export const PASTORAL_EVENT_TYPES = [
   'intervention_created',
   'intervention_status_changed',
   'intervention_updated',
+  'intervention_reviewed',
+  'intervention_progress_added',
+  'intervention_review_reminder_sent',
   'action_assigned',
   'action_completed',
   'action_overdue',
@@ -181,6 +184,18 @@ export const PASTORAL_EVENT_TYPES = [
   'dsar_review_completed',
   'checkin_alert_generated',
   'critical_concern_unacknowledged',
+  'critical_incident_declared',
+  'critical_incident_status_changed',
+  'critical_incident_updated',
+  'response_plan_item_updated',
+  'response_plan_item_added',
+  'affected_person_added',
+  'affected_person_updated',
+  'affected_person_removed',
+  'external_support_added',
+  'external_support_updated',
+  'support_offered',
+  'wellbeing_flag_expired',
 ] as const;
 export const pastoralEventTypeSchema = z.enum(PASTORAL_EVENT_TYPES);
 export type PastoralEventType = z.infer<typeof pastoralEventTypeSchema>;

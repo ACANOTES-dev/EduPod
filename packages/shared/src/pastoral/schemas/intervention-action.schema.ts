@@ -11,7 +11,10 @@ export const createInterventionActionSchema = z.object({
   frequency: actionFrequencySchema.optional(),
   start_date: z.string(),
   due_date: z.string().optional(),
-});
+}).refine(
+  (data) => data.frequency !== 'once' || data.due_date !== undefined,
+  { message: 'due_date is required when frequency is "once"', path: ['due_date'] },
+);
 
 export type CreateInterventionActionDto = z.infer<typeof createInterventionActionSchema>;
 

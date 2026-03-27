@@ -78,3 +78,11 @@ export const pastoralInterventionFiltersSchema = z.object({
 });
 
 export type PastoralInterventionFilters = z.infer<typeof pastoralInterventionFiltersSchema>;
+
+// ─── Record Review ────────────────────────────────────────────────────────
+
+export const recordReviewSchema = z.object({
+  review_notes: z.string().optional(),
+});
+
+export type RecordReviewDto = z.infer<typeof recordReviewSchema>;

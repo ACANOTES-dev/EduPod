@@ -321,6 +321,124 @@ export const criticalConcernUnacknowledgedPayloadSchema = z.object({
 
 export type CriticalConcernUnacknowledgedPayload = z.infer<typeof criticalConcernUnacknowledgedPayloadSchema>;
 
+// ─── 29. intervention_reviewed ────────────────────────────────────────────
+
+export const interventionReviewedPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  old_next_review_date: z.string(),
+  new_next_review_date: z.string(),
+  review_notes: z.string().optional(),
+});
+
+export type InterventionReviewedPayload = z.infer<typeof interventionReviewedPayloadSchema>;
+
+// ─── 30. intervention_progress_added ──────────────────────────────────────
+
+export const interventionProgressAddedPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  progress_id: z.string().uuid(),
+  recorded_by_user_id: z.string().uuid(),
+  note_preview: z.string(),
+});
+
+export type InterventionProgressAddedPayload = z.infer<typeof interventionProgressAddedPayloadSchema>;
+
+// ─── 31. intervention_review_reminder_sent ────────────────────────────────
+
+export const interventionReviewReminderSentPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  case_id: z.string().uuid(),
+  next_review_date: z.string(),
+  recipients_count: z.number().int(),
+});
+
+export type InterventionReviewReminderSentPayload = z.infer<typeof interventionReviewReminderSentPayloadSchema>;
+
+// ─── 32. critical_incident_declared ───────────────────────────────────────
+
+export const criticalIncidentDeclaredPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  incident_number: z.string(),
+  incident_type: z.string(),
+  scope: z.string(),
+});
+
+export type CriticalIncidentDeclaredPayload = z.infer<typeof criticalIncidentDeclaredPayloadSchema>;
+
+// ─── 33. critical_incident_status_changed ─────────────────────────────────
+
+export const criticalIncidentStatusChangedPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  from_status: z.string(),
+  to_status: z.string(),
+  reason: z.string(),
+});
+
+export type CriticalIncidentStatusChangedPayload = z.infer<typeof criticalIncidentStatusChangedPayloadSchema>;
+
+// ─── 34. critical_incident_updated ────────────────────────────────────────
+
+export const criticalIncidentUpdatedPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  changed_fields: z.array(z.string()),
+});
+
+export type CriticalIncidentUpdatedPayload = z.infer<typeof criticalIncidentUpdatedPayloadSchema>;
+
+// ─── 35. response_plan_item_updated / response_plan_item_added ────────────
+
+export const responsePlanItemEventPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  phase: z.string(),
+  item_id: z.string().uuid(),
+  action: z.string(),
+});
+
+export type ResponsePlanItemEventPayload = z.infer<typeof responsePlanItemEventPayloadSchema>;
+
+// ─── 36. affected_person_added / updated / removed ────────────────────────
+
+export const affectedPersonEventPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  affected_person_id: z.string().uuid(),
+  person_type: z.string(),
+  impact_level: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export type AffectedPersonEventPayload = z.infer<typeof affectedPersonEventPayloadSchema>;
+
+// ─── 37. external_support_added / external_support_updated ────────────────
+
+export const externalSupportEventPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  entry_id: z.string().uuid(),
+  provider_type: z.string(),
+  provider_name: z.string(),
+});
+
+export type ExternalSupportEventPayload = z.infer<typeof externalSupportEventPayloadSchema>;
+
+// ─── 38. support_offered ──────────────────────────────────────────────────
+
+export const supportOfferedPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  affected_person_id: z.string().uuid(),
+  offered_by_user_id: z.string().uuid(),
+});
+
+export type SupportOfferedPayload = z.infer<typeof supportOfferedPayloadSchema>;
+
+// ─── 39. wellbeing_flag_expired ───────────────────────────────────────────
+
+export const wellbeingFlagExpiredPayloadSchema = z.object({
+  incident_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  expired_at: z.string(),
+});
+
+export type WellbeingFlagExpiredPayload = z.infer<typeof wellbeingFlagExpiredPayloadSchema>;
+
 // ─── Discriminated union of all event payloads ─────────────────────────────
 
 export const pastoralEventPayloadMap = {
@@ -338,6 +456,9 @@ export const pastoralEventPayloadMap = {
   intervention_created: interventionCreatedPayloadSchema,
   intervention_status_changed: interventionStatusChangedPayloadSchema,
   intervention_updated: interventionUpdatedPayloadSchema,
+  intervention_reviewed: interventionReviewedPayloadSchema,
+  intervention_progress_added: interventionProgressAddedPayloadSchema,
+  intervention_review_reminder_sent: interventionReviewReminderSentPayloadSchema,
   action_assigned: actionAssignedPayloadSchema,
   action_completed: actionCompletedPayloadSchema,
   action_overdue: actionOverduePayloadSchema,
@@ -352,6 +473,18 @@ export const pastoralEventPayloadMap = {
   dsar_review_completed: dsarReviewCompletedPayloadSchema,
   checkin_alert_generated: checkinAlertGeneratedPayloadSchema,
   critical_concern_unacknowledged: criticalConcernUnacknowledgedPayloadSchema,
+  critical_incident_declared: criticalIncidentDeclaredPayloadSchema,
+  critical_incident_status_changed: criticalIncidentStatusChangedPayloadSchema,
+  critical_incident_updated: criticalIncidentUpdatedPayloadSchema,
+  response_plan_item_updated: responsePlanItemEventPayloadSchema,
+  response_plan_item_added: responsePlanItemEventPayloadSchema,
+  affected_person_added: affectedPersonEventPayloadSchema,
+  affected_person_updated: affectedPersonEventPayloadSchema,
+  affected_person_removed: affectedPersonEventPayloadSchema,
+  external_support_added: externalSupportEventPayloadSchema,
+  external_support_updated: externalSupportEventPayloadSchema,
+  support_offered: supportOfferedPayloadSchema,
+  wellbeing_flag_expired: wellbeingFlagExpiredPayloadSchema,
 } as const;
 
 export type PastoralEventPayloadMap = {
