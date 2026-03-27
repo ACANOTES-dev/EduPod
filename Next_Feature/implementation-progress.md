@@ -10,7 +10,7 @@
 | D | Safeguarding | completed | 2026-03-26 | 2026-03-26 | 21 endpoints, 6 pages, 4 worker jobs |
 | E | Recognition + Interventions | completed | 2026-03-26 | 2026-03-26 | 30 endpoints, 6 services, 6 pages, 2 worker jobs |
 | F | Analytics + AI | completed | 2026-03-27 | 2026-03-27 | 24 endpoints, 4 services, 3 pages, 4 worker jobs, 27 tests |
-| G | Documents + Comms | not_started | — | — | |
+| G | Documents + Comms | completed | 2026-03-27 | 2026-03-27 | 15 endpoints, 3 services, 4 pages, 1 worker job, 30 tests |
 | H | Hardening + Ops + Scale | not_started | — | — | |
 
 ## Dependency Map
@@ -74,3 +74,10 @@ A + B + C + D + E + F + G -> H
 **Key patterns established**: Pulse computation with confidence gate (composite hidden below 50% reporting confidence), exposure-adjusted analytics via MV join with period-effective snapshots, AI anonymisation pipeline with ephemeral tokenMap (never logged/persisted), pattern detection with alert dedup and auto-resolve when all recipients done, CONCURRENTLY MV refresh to avoid read locks
 **Known limitations**: ETB panel database role not created (platform admin scope). Pattern detection routes all alerts to behaviour.admin users (year-head/pastoral routing deferred). Cron jobs not yet registered in CronSchedulerService. OpenAI GPT fallback not implemented (SDK not installed). Trend percent calculations stubbed as null.
 **Results file**: Plans/phases-results/BH-F-results.md
+
+### Phase G: Documents + Comms — Completed 2026-03-27
+**What was built**: Document generation engine with Handlebars templates rendered to PDF via Puppeteer, stored in S3 with SHA-256 integrity hashes, tracked in `behaviour_documents` with draft→finalised→sent→superseded lifecycle. Document template management (20 system templates seeded, 10 types × 2 locales) with school customisation and merge field reference. Parent behaviour portal with hardened parent-safe content rendering (3-priority chain: parent_description → template text → category+date fallback), guardian restriction enforcement, per-child summary, incident list, sanctions, points/awards, acknowledgement workflow. Notification digest worker for batched daily parent notifications. Amendment correction chain wiring with re-acknowledgement tracking. 15 API endpoints across 2 new controllers + 3 config endpoints, 3 backend services, 1 worker job, 4 frontend pages, 30 unit tests.
+**Key files created**: `apps/api/src/modules/behaviour/behaviour-document{,-template}.service.ts`, `behaviour-documents.controller.ts`, `behaviour-parent.{service,controller}.ts`, `packages/shared/src/behaviour/schemas/{document,parent-behaviour}.schema.ts`, `apps/worker/src/processors/behaviour/digest-notifications.processor.ts`, 4 frontend pages at `/behaviour/documents`, `/behaviour/parent-portal`, `/behaviour/parent-portal/recognition`, `/settings/behaviour-documents`
+**Key patterns established**: Handlebars template compilation with merge field resolution per entity type, parent-safe rendering priority chain (never exposes raw description/context_notes/other participants), guardian restriction check before every parent-facing data return (empty result set, no error), document supersession on amendment, `require()` for handlebars import (pnpm strict mode workaround), `category.parent_visible` filter (field lives on category, not incident)
+**Known limitations**: Document generation is synchronous in API transaction (not offloaded to worker). Notification dispatch from sendDocument doesn't trigger full comms pipeline. Recognition wall consent check is stub. Translation files not created. Sidebar nav not updated.
+**Results file**: Plans/phases-results/BH-G-results.md
