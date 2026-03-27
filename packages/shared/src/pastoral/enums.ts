@@ -182,6 +182,9 @@ export const PASTORAL_EVENT_TYPES = [
   'mandated_report_submitted',
   'dsar_review_routed',
   'dsar_review_completed',
+  'dsar_review_decided',
+  'historical_import_validated',
+  'historical_import_executed',
   'checkin_alert_generated',
   'critical_concern_unacknowledged',
   'critical_incident_declared',
@@ -272,3 +275,18 @@ export const DEFAULT_FLAGGED_KEYWORDS = [
   'suicide', 'kill myself', 'end it all', 'want to die', 'self-harm',
   'cutting', 'hurt myself', 'no point', 'not worth it', 'nobody cares',
 ] as const;
+
+// ─── DSAR Exclusion Legal Basis ───────────────────────────────────────────
+
+export const EXCLUSION_LEGAL_BASES = [
+  'third_party_rights',
+  'child_protection_proceedings',
+  'children_first_act',
+  'dpa_2018_section_60',
+  'legal_professional_privilege',
+  'ongoing_investigation',
+  'harm_to_subject',
+  'other',
+] as const;
+export const exclusionLegalBasisSchema = z.enum(EXCLUSION_LEGAL_BASES);
+export type ExclusionLegalBasis = z.infer<typeof exclusionLegalBasisSchema>;

@@ -681,6 +681,10 @@ model Tenant {
   critical_incident_affected        CriticalIncidentAffected[]
   student_checkins                  StudentCheckin[]
 
+  // Staff Wellbeing Relations
+  staff_surveys    StaffSurvey[]
+  survey_questions SurveyQuestion[]
+
   @@map("tenants")
 }
 
@@ -993,6 +997,9 @@ model User {
   pc_critical_incidents_declared         CriticalIncident[]               @relation("pc_critical_incident_declared_by")
   pc_critical_incident_status_changed_by CriticalIncident[]               @relation("pc_critical_incident_status_changed_by")
   pc_critical_affected_support_by        CriticalIncidentAffected[]       @relation("pc_critical_affected_support_by")
+
+  // Staff Wellbeing Relations
+  staff_surveys_created StaffSurvey[] @relation("staff_survey_creator")
 
   @@map("users")
 }
@@ -6454,6 +6461,7 @@ model PastoralConcern {
   shared_at               DateTime?               @db.Timestamptz()
   legal_hold              Boolean                 @default(false)
   imported                Boolean                 @default(false)
+  import_hash             String?                 @db.Text
   acknowledged_at         DateTime?               @db.Timestamptz()
   acknowledged_by_user_id String?                 @db.Uuid
   created_at              DateTime                @default(now()) @db.Timestamptz()
@@ -6478,6 +6486,7 @@ model PastoralConcern {
   @@index([tenant_id, tier, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_tier_created")
   @@index([tenant_id, case_id], map: "idx_pastoral_concerns_tenant_case")
   @@index([tenant_id, severity, acknowledged_at], map: "idx_pastoral_concerns_tenant_severity_ack")
+  @@index([tenant_id, import_hash], map: "idx_pastoral_concerns_import_hash")
   @@map("pastoral_concerns")
 }
 
@@ -7046,4 +7055,89 @@ model StudentCheckin {
   @@index([tenant_id, checkin_date, mood_score], map: "idx_student_checkins_tenant_date_mood")
   @@index([tenant_id, flagged], map: "idx_student_checkins_tenant_flagged")
   @@map("student_checkins")
+}
+
+// ─── Staff Wellbeing ──────────────────────────────────────────────────────────
+
+model StaffSurvey {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String   @db.Uuid
+  title                   String   @db.VarChar(255)
+  description             String?  @db.Text
+  status                  String   @default("draft") @db.VarChar(20)
+  frequency               String   @default("fortnightly") @db.VarChar(20)
+  window_opens_at         DateTime @db.Timestamptz()
+  window_closes_at        DateTime @db.Timestamptz()
+  results_released        Boolean  @default(false)
+  min_response_threshold  Int
+  dept_drill_down_threshold Int
+  moderation_enabled      Boolean  @default(true)
+  created_by              String   @db.Uuid
+  created_at              DateTime @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant        Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  createdByUser User   @relation("staff_survey_creator", fields: [created_by], references: [id], onDelete: Restrict)
+
+  questions            SurveyQuestion[]
+  responses            SurveyResponse[]
+  participation_tokens SurveyParticipationToken[]
+
+  @@index([tenant_id, status], map: "idx_staff_surveys_tenant_status")
+  @@map("staff_surveys")
+}
+
+model SurveyQuestion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String   @db.Uuid
+  survey_id     String   @db.Uuid
+  question_text String   @db.Text
+  question_type String   @db.VarChar(20)
+  display_order Int
+  options       Json?
+  is_required   Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant    Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  survey    StaffSurvey @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+  responses SurveyResponse[]
+
+  @@index([survey_id, display_order], map: "idx_survey_questions_survey")
+  @@map("survey_questions")
+}
+
+/// Anonymous response table — NO tenant_id, NO user reference, NO RLS.
+/// Anonymity by architecture for staff wellbeing surveys.
+model SurveyResponse {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  survey_id         String   @db.Uuid
+  question_id       String   @db.Uuid
+  answer_value      Int?
+  answer_text       String?  @db.Text
+  submitted_date    DateTime @db.Date
+  moderation_status String   @default("pending") @db.VarChar(20)
+
+  // Relations
+  survey   StaffSurvey    @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [question_id], references: [id], onDelete: Cascade)
+
+  @@index([survey_id], map: "idx_survey_responses_survey")
+  @@index([question_id], map: "idx_survey_responses_question")
+  @@map("survey_responses")
+}
+
+/// Anonymous participation token — NO tenant_id, NO RLS.
+/// Composite PK on (survey_id, token_hash).
+model SurveyParticipationToken {
+  survey_id    String   @db.Uuid
+  token_hash   String   @db.VarChar(128)
+  created_date DateTime @db.Date
+
+  // Relations
+  survey StaffSurvey @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+
+  @@id([survey_id, token_hash])
+  @@map("survey_participation_tokens")
 }

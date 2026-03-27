@@ -299,6 +299,40 @@ export const dsarReviewCompletedPayloadSchema = z.object({
 
 export type DsarReviewCompletedPayload = z.infer<typeof dsarReviewCompletedPayloadSchema>;
 
+// ─── 26b. dsar_review_decided ─────────────────────────────────────────────
+
+export const dsarReviewDecidedPayloadSchema = z.object({
+  review_id: z.string().uuid(),
+  compliance_request_id: z.string().uuid(),
+  entity_type: pastoralEntityTypeSchema,
+  entity_id: z.string().uuid(),
+  decision: dsarDecisionSchema,
+  legal_basis: z.string().optional(),
+});
+
+export type DsarReviewDecidedPayload = z.infer<typeof dsarReviewDecidedPayloadSchema>;
+
+// ─── 26c. historical_import_validated ─────────────────────────────────────
+
+export const historicalImportValidatedPayloadSchema = z.object({
+  user_id: z.string().uuid(),
+  total_rows: z.number().int(),
+  valid_rows: z.number().int(),
+  error_rows: z.number().int(),
+});
+
+export type HistoricalImportValidatedPayload = z.infer<typeof historicalImportValidatedPayloadSchema>;
+
+// ─── 26d. historical_import_executed ──────────────────────────────────────
+
+export const historicalImportExecutedPayloadSchema = z.object({
+  user_id: z.string().uuid(),
+  total_imported: z.number().int(),
+  skipped_duplicates: z.number().int(),
+});
+
+export type HistoricalImportExecutedPayload = z.infer<typeof historicalImportExecutedPayloadSchema>;
+
 // ─── 27. checkin_alert_generated ───────────────────────────────────────────
 
 export const checkinAlertGeneratedPayloadSchema = z.object({
@@ -607,6 +641,9 @@ export const pastoralEventPayloadMap = {
   mandated_report_submitted: mandatedReportSubmittedPayloadSchema,
   dsar_review_routed: dsarReviewRoutedPayloadSchema,
   dsar_review_completed: dsarReviewCompletedPayloadSchema,
+  dsar_review_decided: dsarReviewDecidedPayloadSchema,
+  historical_import_validated: historicalImportValidatedPayloadSchema,
+  historical_import_executed: historicalImportExecutedPayloadSchema,
   checkin_alert_generated: checkinAlertGeneratedPayloadSchema,
   critical_concern_unacknowledged: criticalConcernUnacknowledgedPayloadSchema,
   critical_incident_declared: criticalIncidentDeclaredPayloadSchema,

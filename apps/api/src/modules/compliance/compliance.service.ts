@@ -11,6 +11,7 @@ import type {
   CreateComplianceRequestDto,
 } from '@school/shared';
 
+import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AccessExportService } from './access-export.service';
@@ -22,6 +23,7 @@ export class ComplianceService {
     private readonly prisma: PrismaService,
     private readonly anonymisationService: AnonymisationService,
     private readonly accessExportService: AccessExportService,
+    private readonly pastoralDsarService: PastoralDsarService,
   ) {}
 
   /**
@@ -278,6 +280,16 @@ export class ComplianceService {
         tenantId,
         request.subject_type,
         request.subject_id,
+      );
+    }
+
+    // Route pastoral records for DSAR review if subject is a student
+    if (request.request_type === 'access_export' && request.subject_type === 'student') {
+      await this.pastoralDsarService.routeForReview(
+        tenantId,
+        requestId,
+        request.subject_id,
+        request.requested_by_user_id,
       );
     }
 

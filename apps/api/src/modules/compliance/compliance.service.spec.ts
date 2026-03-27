@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AccessExportService } from './access-export.service';
@@ -60,6 +61,7 @@ describe('ComplianceService', () => {
   };
   let mockAccessExport: { exportSubjectData: jest.Mock };
   let mockAnonymisation: { anonymiseSubject: jest.Mock };
+  let mockPastoralDsar: { routeForReview: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -84,16 +86,23 @@ describe('ComplianceService', () => {
       anonymiseSubject: jest.fn(),
     };
 
+    mockPastoralDsar = {
+      routeForReview: jest.fn().mockResolvedValue({ reviewCount: 0, tier3Count: 0 }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComplianceService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AccessExportService, useValue: mockAccessExport },
         { provide: AnonymisationService, useValue: mockAnonymisation },
+        { provide: PastoralDsarService, useValue: mockPastoralDsar },
       ],
     }).compile();
 
     service = module.get<ComplianceService>(ComplianceService);
+
+    mockPastoralDsar.routeForReview.mockReset().mockResolvedValue({ reviewCount: 0, tier3Count: 0 });
   });
 
   afterEach(() => {
@@ -817,6 +826,63 @@ describe('ComplianceService', () => {
           }),
         }),
       );
+    });
+
+    it('should route pastoral records for DSAR review when executing student access_export', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+        requested_by_user_id: USER_ID,
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        subject_type: 'student',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockAccessExport.exportSubjectData.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      await service.execute(TENANT_ID, REQUEST_ID);
+
+      expect(mockPastoralDsar.routeForReview).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+        SUBJECT_ID,
+        USER_ID,
+      );
+    });
+
+    it('should not route pastoral DSAR for non-student subjects', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        requested_by_user_id: USER_ID,
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        subject_type: 'parent',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockAccessExport.exportSubjectData.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      await service.execute(TENANT_ID, REQUEST_ID);
+
+      expect(mockPastoralDsar.routeForReview).not.toHaveBeenCalled();
     });
   });
 

@@ -17,6 +17,8 @@ import { InterventionsController } from './controllers/interventions.controller'
 import { ParentContactsController } from './controllers/parent-contacts.controller';
 import { ParentPastoralController } from './controllers/parent-pastoral.controller';
 import { PastoralAdminController } from './controllers/pastoral-admin.controller';
+import { PastoralDsarController } from './controllers/pastoral-dsar.controller';
+import { PastoralImportController } from './controllers/pastoral-import.controller';
 import { PastoralReportsController } from './controllers/pastoral-reports.controller';
 import { ReferralsController } from './controllers/referrals.controller';
 import { SstController } from './controllers/sst.controller';
@@ -35,8 +37,10 @@ import { InterventionService } from './services/intervention.service';
 import { NepsVisitService } from './services/neps-visit.service';
 import { ParentContactService } from './services/parent-contact.service';
 import { ParentPastoralService } from './services/parent-pastoral.service';
+import { PastoralDsarService } from './services/pastoral-dsar.service';
 import { PastoralEventService } from './services/pastoral-event.service';
 import { PastoralExportService } from './services/pastoral-export.service';
+import { PastoralImportService } from './services/pastoral-import.service';
 import { PastoralNotificationService } from './services/pastoral-notification.service';
 import { PastoralReportService } from './services/pastoral-report.service';
 import { ReferralPrepopulateService } from './services/referral-prepopulate.service';
@@ -68,6 +72,8 @@ import { StudentChronologyService } from './services/student-chronology.service'
     ParentContactsController,
     ParentPastoralController,
     PastoralAdminController,
+    PastoralDsarController,
+    PastoralImportController,
     PastoralReportsController,
     ReferralsController,
     SstController,
@@ -88,8 +94,10 @@ import { StudentChronologyService } from './services/student-chronology.service'
     NepsVisitService,
     ParentContactService,
     ParentPastoralService,
+    PastoralDsarService,
     PastoralEventService,
     PastoralExportService,
+    PastoralImportService,
     PastoralNotificationService,
     PastoralReportService,
     ReferralPrepopulateService,
@@ -110,6 +118,7 @@ import { StudentChronologyService } from './services/student-chronology.service'
     InterventionService,
     NepsVisitService,
     ParentContactService,
+    PastoralDsarService,
     PastoralEventService,
     PastoralNotificationService,
     PastoralReportService,

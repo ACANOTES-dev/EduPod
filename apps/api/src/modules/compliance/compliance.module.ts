@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
+import { PastoralModule } from '../pastoral/pastoral.module';
 import { S3Module } from '../s3/s3.module';
 
 import { AccessExportService } from './access-export.service';
@@ -8,7 +9,7 @@ import { ComplianceController } from './compliance.controller';
 import { ComplianceService } from './compliance.service';
 
 @Module({
-  imports: [S3Module],
+  imports: [S3Module, forwardRef(() => PastoralModule)],
   controllers: [ComplianceController],
   providers: [ComplianceService, AnonymisationService, AccessExportService],
   exports: [ComplianceService],

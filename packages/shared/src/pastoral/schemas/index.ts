@@ -19,4 +19,5 @@ export * from './mandated-report.schema';
 export * from './parent-engagement.schema';
 export * from './escalation-settings.schema';
 export * from './neps-visit.schema';
+export * from './pastoral-import.schema';
 export * from './pastoral-report.schema';
