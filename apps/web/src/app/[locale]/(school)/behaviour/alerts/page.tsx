@@ -109,7 +109,7 @@ export default function BehaviourAlertsPage() {
 
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
-      <PageHeader title="Behaviour Alerts" subtitle="Pattern alerts and notifications" />
+      <PageHeader title="Behaviour Alerts" description="Pattern alerts and notifications" />
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">

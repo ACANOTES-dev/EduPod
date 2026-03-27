@@ -85,7 +85,7 @@ export default function BehaviourAIQueryPage() {
       <div className="flex-1 space-y-6">
         <PageHeader
           title="AI Analytics"
-          subtitle="Ask questions about behaviour data in plain language"
+          description="Ask questions about behaviour data in plain language"
         />
 
         {/* Query input */}
