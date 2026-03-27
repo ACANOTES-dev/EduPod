@@ -61,6 +61,11 @@ import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-re
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
+import { CleanupParticipationTokensProcessor } from './processors/wellbeing/cleanup-participation-tokens.processor';
+import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-check.processor';
+import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
+import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
+import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
 
 @Module({
   imports: [
@@ -126,6 +131,10 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
       },
       {
         name: QUEUE_NAMES.PASTORAL,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.WELLBEING,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
       },
     ),
@@ -213,6 +222,12 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     InterventionReviewReminderProcessor,
     CheckinAlertProcessor,
     WellbeingFlagExpiryProcessor,
+    // Staff Wellbeing queue processors
+    ModerationScanProcessor,
+    SurveyOpenNotifyProcessor,
+    SurveyClosingReminderProcessor,
+    CleanupParticipationTokensProcessor,
+    EapRefreshCheckProcessor,
   ],
 })
 export class WorkerModule implements OnModuleDestroy {

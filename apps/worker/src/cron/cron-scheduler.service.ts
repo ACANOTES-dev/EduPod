@@ -17,6 +17,9 @@ import {
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
+import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
+import { EAP_REFRESH_CHECK_JOB } from '../processors/wellbeing/eap-refresh-check.processor';
+import { SURVEY_CLOSING_REMINDER_JOB } from '../processors/wellbeing/survey-closing-reminder.processor';
 
 /**
  * Registers BullMQ repeatable (cron) jobs on module startup.
@@ -31,12 +34,14 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
     @InjectQueue(QUEUE_NAMES.GRADEBOOK) private readonly gradebookQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.WELLBEING) private readonly wellbeingQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.registerGradebookCronJobs();
     await this.registerBehaviourCronJobs();
     await this.registerNotificationsCronJobs();
+    await this.registerWellbeingCronJobs();
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -188,5 +193,50 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${DISPATCH_QUEUED_JOB} (every 30s)`);
+  }
+
+  private async registerWellbeingCronJobs(): Promise<void> {
+    // ── wellbeing:cleanup-participation-tokens ──────────────────────────────
+    // Runs daily at 05:00 UTC. Deletes participation tokens for surveys
+    // closed >7 days ago — makes anonymity architectural.
+    await this.wellbeingQueue.add(
+      CLEANUP_PARTICIPATION_TOKENS_JOB,
+      {},
+      {
+        repeat: { pattern: '0 5 * * *' },
+        jobId: `cron:${CLEANUP_PARTICIPATION_TOKENS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${CLEANUP_PARTICIPATION_TOKENS_JOB} (daily 05:00 UTC)`);
+
+    // ── wellbeing:eap-refresh-check ─────────────────────────────────────────
+    // Runs daily at 06:00 UTC. Notifies managers if EAP details are >90 days stale.
+    await this.wellbeingQueue.add(
+      EAP_REFRESH_CHECK_JOB,
+      {},
+      {
+        repeat: { pattern: '0 6 * * *' },
+        jobId: `cron:${EAP_REFRESH_CHECK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${EAP_REFRESH_CHECK_JOB} (daily 06:00 UTC)`);
+
+    // ── wellbeing:survey-closing-reminder ────────────────────────────────────
+    // Runs daily at 08:00 UTC. Reminds staff when a survey closes within 24h.
+    await this.wellbeingQueue.add(
+      SURVEY_CLOSING_REMINDER_JOB,
+      {},
+      {
+        repeat: { pattern: '0 8 * * *' },
+        jobId: `cron:${SURVEY_CLOSING_REMINDER_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${SURVEY_CLOSING_REMINDER_JOB} (daily 08:00 UTC)`);
   }
 }

@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **12 queues**, **57 job types**, **10 cron jobs**
+- **13 queues**, **62 job types**, **13 cron jobs**
 
 ---
 
@@ -224,6 +224,7 @@ ComplianceService.approve()
 | payroll | 3 | 5s exponential | |
 | imports | 3 | 5s exponential | Also handles compliance jobs |
 | reports | 3 | 5s exponential | No processors yet (future use) |
+| wellbeing | 3 | 5s exponential | 5 job types: moderation-scan (on submit), survey-open-notify (on activate), survey-closing-reminder (cron 08:00), cleanup-participation-tokens (cron 05:00), eap-refresh-check (cron 06:00) |
 | behaviour | 3 | 5s exponential | 23 job types: cron dispatch (daily/SLA/monthly), policy evaluation, pattern detection, MV refreshes (3), parent notification, digest notifications, task reminders, suspension return, check awards, attachment scan, break-glass expiry, SLA check, critical escalation, guardian restriction check, retention check, partition maintenance |
 
 ---
@@ -274,6 +275,47 @@ Cron fires daily at 08:00 tenant TZ
 ```
 
 **Danger**: This is a per-tenant cron job. It needs to be scheduled for each active tenant. Current implementation processes one tenant per job invocation.
+
+---
+
+## Staff Wellbeing Module Jobs
+
+### `wellbeing:moderation-scan` (wellbeing queue)
+
+**Trigger**: Enqueued by `SurveyService.submitResponse()` for each freeform response when moderation is enabled.
+**Payload**: `{ tenant_id, survey_id, response_id }`
+**Processor**: `apps/worker/src/processors/wellbeing/moderation-scan.processor.ts`
+**Side effects**: Flags response (`moderation_status = 'flagged'`) if staff names, room codes, or subject names are detected in freeform text. Does NOT auto-redact.
+**Danger**: `survey_responses` has NO tenant_id — response is accessed via base client, while staff/room/subject lookups use RLS-scoped tx.
+
+### `wellbeing:survey-open-notify` (wellbeing queue)
+
+**Trigger**: Enqueued by `SurveyService.activate()` when a survey is activated.
+**Payload**: `{ tenant_id, survey_id }`
+**Processor**: `apps/worker/src/processors/wellbeing/survey-open-notify.processor.ts`
+**Side effects**: Creates in-app notifications for all active tenant members.
+
+### `wellbeing:survey-closing-reminder` (wellbeing queue — CRON)
+
+**Trigger**: Daily cron at 08:00 UTC.
+**Payload**: `{}` (cross-tenant)
+**Processor**: `apps/worker/src/processors/wellbeing/survey-closing-reminder.processor.ts`
+**Side effects**: Sends in-app reminders to all staff for surveys closing within 24 hours. Iterates all tenants with active surveys.
+
+### `wellbeing:cleanup-participation-tokens` (wellbeing queue — CRON)
+
+**Trigger**: Daily cron at 05:00 UTC.
+**Payload**: `{}` (cross-tenant)
+**Processor**: `apps/worker/src/processors/wellbeing/cleanup-participation-tokens.processor.ts`
+**Side effects**: Deletes `survey_participation_tokens` for surveys closed >7 days ago. After cleanup, anonymity is architectural — even the server cannot determine who participated.
+**Danger**: Irreversible. Once tokens are deleted, double-vote detection is no longer possible for those surveys.
+
+### `wellbeing:eap-refresh-check` (wellbeing queue — CRON)
+
+**Trigger**: Daily cron at 06:00 UTC.
+**Payload**: `{}` (cross-tenant)
+**Processor**: `apps/worker/src/processors/wellbeing/eap-refresh-check.processor.ts`
+**Side effects**: Sends in-app notifications to users with `wellbeing.manage_resources` permission when EAP details are >90 days stale or unverified.
 
 ---
 
