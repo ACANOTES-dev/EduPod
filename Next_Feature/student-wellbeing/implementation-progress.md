@@ -28,8 +28,8 @@
 
 | Sub-Phase | Name | Status | Started | Completed | Notes |
 |-----------|------|--------|---------|-----------|-------|
-| SW-3A | NEPS Referrals | NOT STARTED | — | — | — |
-| SW-3B | Reports & Exports | NOT STARTED | — | — | — |
+| SW-3A | NEPS Referrals | completed | 2026-03-27 | 2026-03-27 | ReferralService (13 methods, 8-state lifecycle), ReferralPrepopulateService (5 cross-module snapshots), ReferralRecommendationService (4 methods), NepsVisitService (8 methods), ReferralsController (24 endpoints), 2 NEPS tables + migration, 14 event payloads, 86 tests |
+| SW-3B | Reports & Exports | completed | 2026-03-27 | 2026-03-27 | PastoralReportService (5 report types), PastoralExportService (Tier 1/2 + Tier 3 delegation), PastoralReportsController (14 endpoints), 10 PDF templates (5 types × EN/AR), 3 schema files, 87 tests |
 | SW-3C | DSAR & Historical Import | NOT STARTED | — | — | — |
 
 ### Phase 4 — Predictive Signals
@@ -87,6 +87,7 @@ Every sub-phase execution follows `/SW` command protocol:
 | 2026-03-27 | SW-1C+1D+1E | Wave 3 parallel (16 agents, 14min): CP fortress, cases & chronology, tiered notifications. 45 files, 14,428 lines, 242 tests |
 | 2026-03-27 | SW-2A+2C+2D | Wave 4 parallel: SST meetings, parent engagement, behaviour facade |
 | 2026-03-27 | SW-2B+4A+5A | Wave 5 parallel (8 agents): Interventions, self-check-ins, critical incidents. 36 files, 11,358 lines, 420 tests (182 new) |
+| 2026-03-27 | SW-3A+3B | Wave 6 parallel (11 agents): NEPS referrals, reports & exports. 40 files, 11,019 lines, 593 pastoral tests (173 new) |
 
 ## Completed Sub-Phase Summaries
 
