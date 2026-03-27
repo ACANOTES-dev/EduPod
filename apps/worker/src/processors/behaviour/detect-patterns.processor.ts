@@ -1,5 +1,5 @@
-import { Inject, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
@@ -368,7 +368,7 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
   private async determineRecipients(
     tx: PrismaClient,
     tenantId: string,
-    alertType: $Enums.AlertType,
+    _alertType: $Enums.AlertType,
     _data: { student_id?: string; staff_id?: string },
   ): Promise<Array<{ userId: string; role?: string }>> {
     // For now, route all alerts to users with behaviour.admin permission

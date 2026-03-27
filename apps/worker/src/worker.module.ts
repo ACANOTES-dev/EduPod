@@ -138,6 +138,9 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     BreakGlassExpiryProcessor,
     SlaCheckProcessor,
     CriticalEscalationProcessor,
+    // Phase F: Analytics + AI processors
+    DetectPatternsProcessor,
+    RefreshMVProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

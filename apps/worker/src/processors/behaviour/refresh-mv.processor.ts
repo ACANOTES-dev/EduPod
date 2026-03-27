@@ -1,6 +1,6 @@
-import { Inject, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import type { PrismaClient } from '@prisma/client';
+import { Inject, Logger } from '@nestjs/common';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -43,8 +43,8 @@ export class RefreshMVProcessor extends WorkerHost {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary',
+      await this.prisma.$executeRaw(
+        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`,
       );
       this.logger.log(
         `mv_student_behaviour_summary refreshed in ${Date.now() - start}ms`,
@@ -62,8 +62,8 @@ export class RefreshMVProcessor extends WorkerHost {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks',
+      await this.prisma.$executeRaw(
+        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks`,
       );
       this.logger.log(
         `mv_behaviour_benchmarks refreshed in ${Date.now() - start}ms`,
@@ -81,8 +81,8 @@ export class RefreshMVProcessor extends WorkerHost {
     const start = Date.now();
 
     try {
-      await this.prisma.$executeRawUnsafe(
-        'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates',
+      await this.prisma.$executeRaw(
+        Prisma.sql`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`,
       );
       this.logger.log(
         `mv_behaviour_exposure_rates refreshed in ${Date.now() - start}ms`,
