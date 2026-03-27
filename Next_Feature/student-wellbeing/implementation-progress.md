@@ -11,18 +11,18 @@
 |-----------|------|--------|---------|-----------|-------|
 | SW-1A | Infrastructure & Foundation | completed | 2026-03-27 | 2026-03-27 | 20 tables, 14 enums, 18 permissions, 17 schemas, 5 modules, 6 processors, 6 tests |
 | SW-1B | Concern Logging & Audit Events | completed | 2026-03-27 | 2026-03-27 | 11 endpoints, 3 services, 36 tests (26 unit + 10 E2E) |
-| SW-1C | Child Protection Fortress | NOT STARTED | — | — | — |
-| SW-1D | Cases & Student Chronology | NOT STARTED | — | — | — |
-| SW-1E | Tiered Notifications | NOT STARTED | — | — | — |
+| SW-1C | Child Protection Fortress | completed | 2026-03-27 | 2026-03-27 | CpAccessGuard (zero-discoverability), CpAccessService, CpRecordService (dual RLS), MandatedReportService (4-state), CpExportService (watermarked PDF, Redis tokens), 3 controllers, constants, 26 RLS integration tests, 126 total tests |
+| SW-1D | Cases & Student Chronology | completed | 2026-03-27 | 2026-03-27 | Case state machine (5 states, 7 transitions), CaseService (12 methods), CasesController (12 endpoints), StudentChronologyService, AuthorMaskingInterceptor, 83 tests |
+| SW-1E | Tiered Notifications | completed | 2026-03-27 | 2026-03-27 | PastoralNotificationService (4-tier dispatch), escalation timeout processor, notify concern processor, ConcernService integration, 33 tests |
 
 ### Phase 2 — Operational Workflow
 
 | Sub-Phase | Name | Status | Started | Completed | Notes |
 |-----------|------|--------|---------|-----------|-------|
-| SW-2A | SST & Meeting Management | NOT STARTED | — | — | — |
-| SW-2B | Intervention Plans | NOT STARTED | — | — | — |
-| SW-2C | Parent Engagement | NOT STARTED | — | — | — |
-| SW-2D | Behaviour Facade & Escalation | NOT STARTED | — | — | — |
+| SW-2A | SST & Meeting Management | completed | 2026-03-27 | 2026-03-27 | SST members, meetings, agenda generator, overdue actions cron |
+| SW-2B | Intervention Plans | completed | 2026-03-27 | 2026-03-27 | InterventionService (13 methods), InterventionActionService (6 methods), 16 endpoints, review reminder worker, 58 tests |
+| SW-2C | Parent Engagement | completed | 2026-03-27 | 2026-03-27 | Parent contact logging, parent pastoral portal |
+| SW-2D | Behaviour Facade & Escalation | completed | 2026-03-27 | 2026-03-27 | Behaviour-safeguarding sync processor |
 
 ### Phase 3 — Evidence Packs
 
@@ -36,13 +36,13 @@
 
 | Sub-Phase | Name | Status | Started | Completed | Notes |
 |-----------|------|--------|---------|-----------|-------|
-| SW-4A | Self-Check-Ins | NOT STARTED | — | — | — |
+| SW-4A | Self-Check-Ins | completed | 2026-03-27 | 2026-03-27 | CheckinService, CheckinPrerequisiteService, CheckinAlertService (keyword + consecutive-low), CheckinAnalyticsService (cohort-enforced), 10 endpoints, 3 controllers, checkin-alert worker, 53 tests |
 
 ### Phase 5 — Critical Incident Management
 
 | Sub-Phase | Name | Status | Started | Completed | Notes |
 |-----------|------|--------|---------|-----------|-------|
-| SW-5A | Critical Incidents | NOT STARTED | — | — | — |
+| SW-5A | Critical Incidents | completed | 2026-03-27 | 2026-03-27 | CriticalIncidentService (11 methods), AffectedTrackingService (9 methods), NEPS response plan templates, wellbeing flags, 19 endpoints, flag expiry worker, 71 tests |
 
 ## Dependency Map
 
@@ -84,6 +84,9 @@ Every sub-phase execution follows `/SW` command protocol:
 |------|-----------|---------|
 | 2026-03-27 | SW-1A | Infrastructure foundation: 20 tables, 14 enums, RLS (standard + tiered + CP), immutability triggers, 18 permissions, 17 Zod schemas, 5 NestJS modules, 6 worker stubs |
 | 2026-03-27 | SW-1B | Concern logging: ConcernService (8 methods), ConcernVersionService (3), PastoralEventService (3), ConcernsController (11 endpoints), 36 tests |
+| 2026-03-27 | SW-1C+1D+1E | Wave 3 parallel (16 agents, 14min): CP fortress, cases & chronology, tiered notifications. 45 files, 14,428 lines, 242 tests |
+| 2026-03-27 | SW-2A+2C+2D | Wave 4 parallel: SST meetings, parent engagement, behaviour facade |
+| 2026-03-27 | SW-2B+4A+5A | Wave 5 parallel (8 agents): Interventions, self-check-ins, critical incidents. 36 files, 11,358 lines, 420 tests (182 new) |
 
 ## Completed Sub-Phase Summaries
 
