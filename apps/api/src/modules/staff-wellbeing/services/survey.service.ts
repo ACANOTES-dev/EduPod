@@ -31,7 +31,7 @@ export interface SurveyListQuery {
   sortOrder?: 'asc' | 'desc';
 }
 
-interface SurveyRow {
+export interface SurveyRow {
   id: string;
   tenant_id: string;
   title: string;
@@ -49,11 +49,11 @@ interface SurveyRow {
   updated_at: Date;
 }
 
-interface SurveyListItem extends SurveyRow {
+export interface SurveyListItem extends SurveyRow {
   _count?: { responses: number };
 }
 
-interface QuestionRow {
+export interface QuestionRow {
   id: string;
   tenant_id: string;
   survey_id: string;
@@ -65,17 +65,17 @@ interface QuestionRow {
   created_at: Date;
 }
 
-interface SurveyWithQuestions extends SurveyRow {
+export interface SurveyWithQuestions extends SurveyRow {
   questions: QuestionRow[];
 }
 
-interface SurveyDetail extends SurveyWithQuestions {
+export interface SurveyDetail extends SurveyWithQuestions {
   response_count?: number;
   eligible_staff_count?: number;
   response_rate?: number;
 }
 
-interface ActiveSurveyResult extends SurveyWithQuestions {
+export interface ActiveSurveyResult extends SurveyWithQuestions {
   hasResponded: boolean;
 }
 
