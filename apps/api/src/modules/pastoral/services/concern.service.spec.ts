@@ -16,6 +16,8 @@ const USER_ID_A = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'; // author
 const USER_ID_B = 'cccccccc-cccc-cccc-cccc-cccccccccccc'; // viewer (non-DLP)
 const USER_ID_DLP = 'dddddddd-dddd-dddd-dddd-dddddddddddd'; // DLP user
 const STUDENT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+const STUDENT_ID_2 = '12121212-1212-1212-1212-121212121212';
+const STUDENT_ID_3 = '34343434-3434-3434-3434-343434343434';
 const CONCERN_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const CP_RECORD_ID = '99999999-9999-9999-9999-999999999999';
 const MEMBERSHIP_ID_A = '11111111-1111-1111-1111-111111111111'; // author membership
@@ -37,8 +39,16 @@ const mockRlsTx = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
   },
+  pastoralConcernInvolvedStudent: {
+    createMany: jest.fn(),
+    findMany: jest.fn(),
+    deleteMany: jest.fn(),
+  },
   cpRecord: {
     create: jest.fn(),
+  },
+  student: {
+    findMany: jest.fn(),
   },
 };
 
@@ -46,9 +56,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -67,9 +75,7 @@ const DEFAULT_CATEGORIES = [
  * `this.prisma.tenantSetting.findUnique({ where: { tenant_id } })`.
  * The service accesses `record?.settings.pastoral`, then parses with Zod.
  */
-const makeTenantSettingsRecord = (
-  pastoralOverrides: Record<string, unknown> = {},
-) => ({
+const makeTenantSettingsRecord = (pastoralOverrides: Record<string, unknown> = {}) => ({
   id: 'settings-1',
   tenant_id: TENANT_ID,
   settings: {
@@ -111,6 +117,7 @@ const makeConcern = (overrides: Record<string, unknown> = {}) => ({
   created_at: new Date('2026-03-01T10:00:00Z'),
   updated_at: new Date('2026-03-01T10:00:00Z'),
   logged_by: { first_name: 'Jane', last_name: 'Teacher' },
+  involved_students: [],
   ...overrides,
 });
 
@@ -175,6 +182,9 @@ describe('ConcernService', () => {
       }
     }
 
+    mockRlsTx.pastoralConcernInvolvedStudent.findMany.mockResolvedValue([]);
+    mockRlsTx.student.findMany.mockResolvedValue([{ id: STUDENT_ID }]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ConcernService,
@@ -194,7 +204,10 @@ describe('ConcernService', () => {
         },
         {
           provide: getQueueToken('pastoral'),
-          useValue: { add: jest.fn().mockResolvedValue(undefined), getJob: jest.fn().mockResolvedValue(null) },
+          useValue: {
+            add: jest.fn().mockResolvedValue(undefined),
+            getJob: jest.fn().mockResolvedValue(null),
+          },
         },
       ],
     }).compile();
@@ -227,12 +240,7 @@ describe('ConcernService', () => {
     it('creates a concern with valid data', async () => {
       setupCreateMocks();
 
-      const result = await service.create(
-        TENANT_ID,
-        USER_ID_A,
-        baseDto,
-        '127.0.0.1',
-      );
+      const result = await service.create(TENANT_ID, USER_ID_A, baseDto, '127.0.0.1');
 
       // Verify concern was created
       expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledTimes(1);
@@ -247,12 +255,8 @@ describe('ConcernService', () => {
       });
 
       // Verify v1 version was created
-      expect(
-        mockConcernVersionService.createInitialVersion,
-      ).toHaveBeenCalledTimes(1);
-      expect(
-        mockConcernVersionService.createInitialVersion,
-      ).toHaveBeenCalledWith(
+      expect(mockConcernVersionService.createInitialVersion).toHaveBeenCalledTimes(1);
+      expect(mockConcernVersionService.createInitialVersion).toHaveBeenCalledWith(
         expect.anything(), // tx client
         TENANT_ID,
         expect.any(String), // concern ID
@@ -273,25 +277,52 @@ describe('ConcernService', () => {
       expect(result.data).toBeDefined();
     });
 
+    it('creates structured additional students involved links', async () => {
+      const concern = makeConcern({
+        involved_students: [
+          {
+            student_id: STUDENT_ID_2,
+            added_at: new Date('2026-03-01T10:01:00Z'),
+            student: { id: STUDENT_ID_2, first_name: 'Noah', last_name: 'Peer' },
+          },
+        ],
+      });
+
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: STUDENT_ID_2 }]);
+      mockRlsTx.pastoralConcern.create.mockResolvedValue(concern);
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+
+      const result = await service.create(
+        TENANT_ID,
+        USER_ID_A,
+        {
+          ...baseDto,
+          students_involved: [{ student_id: STUDENT_ID_2 }],
+        },
+        null,
+      );
+
+      expect(mockRlsTx.pastoralConcernInvolvedStudent.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            concern_id: CONCERN_ID,
+            student_id: STUDENT_ID_2,
+            tenant_id: TENANT_ID,
+          },
+        ],
+      });
+      expect(result.data.involved_students).toHaveLength(1);
+    });
+
     it('validates category against tenant settings', async () => {
       // Invalid category (not in tenant settings)
       await expect(
-        service.create(
-          TENANT_ID,
-          USER_ID_A,
-          { ...baseDto, category: 'nonexistent' },
-          null,
-        ),
+        service.create(TENANT_ID, USER_ID_A, { ...baseDto, category: 'nonexistent' }, null),
       ).rejects.toThrow(BadRequestException);
 
       // Inactive category
       await expect(
-        service.create(
-          TENANT_ID,
-          USER_ID_A,
-          { ...baseDto, category: 'inactive_cat' },
-          null,
-        ),
+        service.create(TENANT_ID, USER_ID_A, { ...baseDto, category: 'inactive_cat' }, null),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -368,12 +399,7 @@ describe('ConcernService', () => {
     it('creates a CP record when the concern is explicitly tier 3', async () => {
       setupCreateMocks({ category: 'academic', tier: 3 });
 
-      const result = await service.create(
-        TENANT_ID,
-        USER_ID_A,
-        { ...baseDto, tier: 3 },
-        null,
-      );
+      const result = await service.create(TENANT_ID, USER_ID_A, { ...baseDto, tier: 3 }, null);
 
       expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -399,12 +425,7 @@ describe('ConcernService', () => {
       );
 
       await expect(
-        service.create(
-          TENANT_ID,
-          USER_ID_A,
-          { ...baseDto, author_masked: true },
-          null,
-        ),
+        service.create(TENANT_ID, USER_ID_A, { ...baseDto, author_masked: true }, null),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -497,9 +518,7 @@ describe('ConcernService', () => {
       );
 
       // Tier 2 concerns should be filtered out for tier 1 only viewers
-      const tiers = result.data.map(
-        (c: { tier: number }) => c.tier,
-      );
+      const tiers = result.data.map((c: { tier: number }) => c.tier);
       expect(tiers).not.toContain(2);
     });
 
@@ -507,10 +526,7 @@ describe('ConcernService', () => {
       const tier1Concern = makeConcern({ id: 'concern-tier1', tier: 1 });
       const tier2Concern = makeConcern({ id: 'concern-tier2', tier: 2 });
 
-      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([
-        tier1Concern,
-        tier2Concern,
-      ]);
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([tier1Concern, tier2Concern]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(2);
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
@@ -522,9 +538,7 @@ describe('ConcernService', () => {
       );
 
       expect(result.data).toHaveLength(2);
-      const tiers = result.data.map(
-        (c: { tier: number }) => c.tier,
-      );
+      const tiers = result.data.map((c: { tier: number }) => c.tier);
       expect(tiers).toContain(1);
       expect(tiers).toContain(2);
     });
@@ -555,6 +569,46 @@ describe('ConcernService', () => {
       );
       expect(result.data).toHaveLength(10);
     });
+
+    it('filters by primary or involved student when student_id is provided', async () => {
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([
+        makeConcern({
+          id: 'concern-involved-student',
+          student_id: STUDENT_ID,
+          involved_students: [
+            {
+              student_id: STUDENT_ID_2,
+              added_at: new Date('2026-03-01T10:05:00Z'),
+              student: { id: STUDENT_ID_2, first_name: 'Noah', last_name: 'Peer' },
+            },
+          ],
+        }),
+      ]);
+      mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
+
+      await service.list(TENANT_ID, USER_ID_B, ['pastoral.view_tier1', 'pastoral.view_tier2'], {
+        ...defaultQuery,
+        student_id: STUDENT_ID_2,
+      });
+
+      expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { student_id: STUDENT_ID_2 },
+              {
+                involved_students: {
+                  some: {
+                    tenant_id: TENANT_ID,
+                    student_id: STUDENT_ID_2,
+                  },
+                },
+              },
+            ],
+          }),
+        }),
+      );
+    });
   });
 
   // ─── escalateTier ─────────────────────────────────────────────────────────
@@ -562,12 +616,8 @@ describe('ConcernService', () => {
   describe('escalateTier', () => {
     it('escalates tier one-way only', async () => {
       // Tier 1 -> 2: should succeed
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        makeConcern({ tier: 1 }),
-      );
-      mockRlsTx.pastoralConcern.update.mockResolvedValue(
-        makeConcern({ tier: 2 }),
-      );
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(makeConcern({ tier: 1 }));
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(makeConcern({ tier: 2 }));
 
       const result = await service.escalateTier(
         TENANT_ID,
@@ -579,9 +629,7 @@ describe('ConcernService', () => {
       expect(result.data.tier).toBe(2);
 
       // Tier 2 -> 1: should fail (downgrade)
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        makeConcern({ tier: 2 }),
-      );
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(makeConcern({ tier: 2 }));
 
       await expect(
         service.escalateTier(
@@ -595,12 +643,8 @@ describe('ConcernService', () => {
     });
 
     it('writes concern_tier_escalated event on escalation', async () => {
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        makeConcern({ tier: 1 }),
-      );
-      mockRlsTx.pastoralConcern.update.mockResolvedValue(
-        makeConcern({ tier: 2 }),
-      );
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(makeConcern({ tier: 1 }));
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(makeConcern({ tier: 2 }));
 
       await service.escalateTier(
         TENANT_ID,
@@ -640,12 +684,10 @@ describe('ConcernService', () => {
         }),
       );
 
-      const result = await service.markShareable(
-        TENANT_ID,
-        USER_ID_A,
-        CONCERN_ID,
-        { share_level: 'category_summary', notify_parent: false },
-      );
+      const result = await service.markShareable(TENANT_ID, USER_ID_A, CONCERN_ID, {
+        share_level: 'category_summary',
+        notify_parent: false,
+      });
 
       // Verify update was called with correct fields
       expect(mockRlsTx.pastoralConcern.update).toHaveBeenCalledWith(
@@ -681,19 +723,14 @@ describe('ConcernService', () => {
 
   describe('updateMetadata', () => {
     it('updates metadata without touching narrative', async () => {
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        makeConcern({ severity: 'routine' }),
-      );
-      mockRlsTx.pastoralConcern.update.mockResolvedValue(
-        makeConcern({ severity: 'elevated' }),
-      );
+      mockRlsTx.pastoralConcern.findUnique
+        .mockResolvedValueOnce(makeConcern({ severity: 'routine' }))
+        .mockResolvedValueOnce(makeConcern({ severity: 'elevated' }));
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(makeConcern({ severity: 'elevated' }));
 
-      const result = await service.updateMetadata(
-        TENANT_ID,
-        USER_ID_A,
-        CONCERN_ID,
-        { severity: 'elevated' },
-      );
+      const result = await service.updateMetadata(TENANT_ID, USER_ID_A, CONCERN_ID, {
+        severity: 'elevated',
+      });
 
       expect(result.data.severity).toBe('elevated');
 
@@ -705,9 +742,50 @@ describe('ConcernService', () => {
       expect(updateCall.data).not.toHaveProperty('narrative');
 
       // No version service call — metadata update does not create narrative version
-      expect(
-        mockConcernVersionService.createInitialVersion,
-      ).not.toHaveBeenCalled();
+      expect(mockConcernVersionService.createInitialVersion).not.toHaveBeenCalled();
+    });
+
+    it('replaces the structured students involved set', async () => {
+      mockRlsTx.pastoralConcern.findUnique
+        .mockResolvedValueOnce(makeConcern())
+        .mockResolvedValueOnce(
+          makeConcern({
+            involved_students: [
+              {
+                student_id: STUDENT_ID_3,
+                added_at: new Date('2026-03-02T10:00:00Z'),
+                student: { id: STUDENT_ID_3, first_name: 'Mia', last_name: 'Peer' },
+              },
+            ],
+          }),
+        );
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(makeConcern());
+      mockRlsTx.student.findMany.mockResolvedValue([{ id: STUDENT_ID_3 }]);
+      mockRlsTx.pastoralConcernInvolvedStudent.findMany.mockResolvedValue([
+        { student_id: STUDENT_ID_2 },
+      ]);
+
+      const result = await service.updateMetadata(TENANT_ID, USER_ID_A, CONCERN_ID, {
+        students_involved: [{ student_id: STUDENT_ID_3 }],
+      });
+
+      expect(mockRlsTx.pastoralConcernInvolvedStudent.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          concern_id: CONCERN_ID,
+          student_id: { in: [STUDENT_ID_2] },
+        },
+      });
+      expect(mockRlsTx.pastoralConcernInvolvedStudent.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            concern_id: CONCERN_ID,
+            student_id: STUDENT_ID_3,
+            tenant_id: TENANT_ID,
+          },
+        ],
+      });
+      expect(result.data.involved_students?.[0]?.student_id).toBe(STUDENT_ID_3);
     });
   });
 
@@ -723,9 +801,7 @@ describe('ConcernService', () => {
       });
 
       // getById fetches the concern via RLS
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(
-        unacknowledgedConcern,
-      );
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(unacknowledgedConcern);
 
       // acknowledge() creates its own RLS client and runs a separate tx,
       // which also calls findUnique + update on mockRlsTx
@@ -740,13 +816,7 @@ describe('ConcernService', () => {
       mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
 
       // User B views the concern (not the author)
-      await service.getById(
-        TENANT_ID,
-        USER_ID_B,
-        ['pastoral.view_tier1'],
-        CONCERN_ID,
-        '127.0.0.1',
-      );
+      await service.getById(TENANT_ID, USER_ID_B, ['pastoral.view_tier1'], CONCERN_ID, '127.0.0.1');
 
       // Wait for fire-and-forget acknowledge to settle
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -871,13 +941,10 @@ describe('ConcernService', () => {
       mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier2']);
 
       await expect(
-        service.shareConcernWithParent(
-          TENANT_ID,
-          USER_ID_A,
-          MEMBERSHIP_ID_A,
-          CONCERN_ID,
-          { share_level: 'category_only', notify_parent: false },
-        ),
+        service.shareConcernWithParent(TENANT_ID, USER_ID_A, MEMBERSHIP_ID_A, CONCERN_ID, {
+          share_level: 'category_only',
+          notify_parent: false,
+        }),
       ).rejects.toThrow(ForbiddenException);
 
       // Verify no update was attempted
@@ -935,13 +1002,10 @@ describe('ConcernService', () => {
       mockPrisma.membershipRole.findFirst.mockResolvedValue(null); // not year head
 
       await expect(
-        service.shareConcernWithParent(
-          TENANT_ID,
-          USER_ID_B,
-          MEMBERSHIP_ID_B,
-          CONCERN_ID,
-          { share_level: 'category_only', notify_parent: false },
-        ),
+        service.shareConcernWithParent(TENANT_ID, USER_ID_B, MEMBERSHIP_ID_B, CONCERN_ID, {
+          share_level: 'category_only',
+          notify_parent: false,
+        }),
       ).rejects.toThrow(ForbiddenException);
 
       expect(mockRlsTx.pastoralConcern.update).not.toHaveBeenCalled();
@@ -957,15 +1021,9 @@ describe('ConcernService', () => {
         shared_at: new Date('2026-03-27T12:00:00Z'),
       });
       mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(sharedConcern);
-      mockRlsTx.pastoralConcern.update.mockResolvedValue(
-        makeConcern({ parent_shareable: false }),
-      );
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(makeConcern({ parent_shareable: false }));
 
-      const result = await service.unshareConcernFromParent(
-        TENANT_ID,
-        USER_ID_B,
-        CONCERN_ID,
-      );
+      const result = await service.unshareConcernFromParent(TENANT_ID, USER_ID_B, CONCERN_ID);
 
       expect(result.data.parent_shareable).toBe(false);
 

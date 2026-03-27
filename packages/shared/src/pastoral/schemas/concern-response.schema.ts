@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { concernSeveritySchema, parentShareLevelSchema } from '../enums';
 
-import { witnessSchema } from './concern.schema';
+import { concernInvolvedStudentResponseSchema, witnessSchema } from './concern.schema';
 
 // ─── Concern Version (nested in detail response) ───────────────────────────
 
@@ -30,6 +30,7 @@ export const concernListItemSchema = z.object({
   created_at: z.string().datetime(),
   follow_up_needed: z.boolean(),
   case_id: z.string().uuid().nullable(),
+  students_involved: z.array(concernInvolvedStudentResponseSchema),
   author_name: z.string().nullable(),
   author_masked_for_viewer: z.boolean(),
 });

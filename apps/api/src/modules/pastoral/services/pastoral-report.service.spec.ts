@@ -60,9 +60,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -187,18 +185,11 @@ describe('PastoralReportService', () => {
       mockRlsTx.student.findFirst.mockResolvedValue(makeStudent());
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([makeConcern()]);
       mockRlsTx.pastoralCase.findMany.mockResolvedValue([makeCase()]);
-      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([
-        makeIntervention(),
-      ]);
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([makeIntervention()]);
       mockRlsTx.pastoralReferral.findMany.mockResolvedValue([makeReferral()]);
 
       // Act
-      const result = await service.getStudentSummary(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        {},
-      );
+      const result = await service.getStudentSummary(TENANT_ID, USER_ID, STUDENT_ID, {});
 
       // Assert
       expect(result.student.full_name).toBe('Alice Smith');
@@ -233,6 +224,17 @@ describe('PastoralReportService', () => {
       // Assert — tier filter applied (only tiers 1 and 2)
       const concernQuery = mockRlsTx.pastoralConcern.findMany.mock.calls[0][0];
       expect(concernQuery.where.tier).toEqual({ in: [1, 2] });
+      expect(concernQuery.where.OR).toEqual([
+        { student_id: STUDENT_ID },
+        {
+          involved_students: {
+            some: {
+              tenant_id: TENANT_ID,
+              student_id: STUDENT_ID,
+            },
+          },
+        },
+      ]);
     });
 
     it('should include Tier 3 concerns when user has cp_access', async () => {
@@ -252,12 +254,7 @@ describe('PastoralReportService', () => {
       mockRlsTx.cpRecord.count.mockResolvedValue(2);
 
       // Act
-      const result = await service.getStudentSummary(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        {},
-      );
+      const result = await service.getStudentSummary(TENANT_ID, USER_ID, STUDENT_ID, {});
 
       // Assert — no tier restriction
       const concernQuery = mockRlsTx.pastoralConcern.findMany.mock.calls[0][0];
@@ -355,9 +352,7 @@ describe('PastoralReportService', () => {
 
     it('should handle empty data (no cases, no concerns)', async () => {
       // Arrange
-      mockRlsTx.pastoralCase.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockRlsTx.pastoralCase.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
       mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
@@ -390,11 +385,10 @@ describe('PastoralReportService', () => {
       mockRlsTx.staffProfile.count.mockResolvedValue(20);
 
       // Act
-      const result = await service.getSafeguardingCompliance(
-        TENANT_ID,
-        USER_ID,
-        { from_date: '2026-01-01', to_date: '2026-03-31' },
-      );
+      const result = await service.getSafeguardingCompliance(TENANT_ID, USER_ID, {
+        from_date: '2026-01-01',
+        to_date: '2026-03-31',
+      });
 
       // Assert
       expect(result.concern_counts.tier_1).toBe(10);
@@ -424,11 +418,10 @@ describe('PastoralReportService', () => {
       mockRlsTx.pastoralCase.count.mockResolvedValue(2);
 
       // Act
-      const result = await service.getSafeguardingCompliance(
-        TENANT_ID,
-        USER_ID,
-        { from_date: '2026-01-01', to_date: '2026-03-31' },
-      );
+      const result = await service.getSafeguardingCompliance(TENANT_ID, USER_ID, {
+        from_date: '2026-01-01',
+        to_date: '2026-03-31',
+      });
 
       // Assert
       expect(result.concern_counts.tier_1).toBe(10);
@@ -554,9 +547,7 @@ describe('PastoralReportService', () => {
       // Assert
       expect(result.sst_composition).toHaveLength(2);
       expect(result.sst_composition[0]!.user_name).toBe('Alice DLP');
-      expect(result.sst_composition[0]!.role).toBe(
-        'Designated Liaison Person',
-      );
+      expect(result.sst_composition[0]!.role).toBe('Designated Liaison Person');
 
       expect(result.meeting_frequency.total_meetings).toBe(3);
       expect(result.meeting_frequency.average_per_month).toBe(1);
@@ -565,12 +556,8 @@ describe('PastoralReportService', () => {
       expect(result.concern_logging.by_category['academic']).toBe(2);
       expect(result.concern_logging.by_category['bullying']).toBe(1);
 
-      expect(result.intervention_quality.with_measurable_targets_percent).toBe(
-        67,
-      ); // 2/3
-      expect(
-        result.intervention_quality.with_documented_outcomes_percent,
-      ).toBe(67); // 2/3
+      expect(result.intervention_quality.with_measurable_targets_percent).toBe(67); // 2/3
+      expect(result.intervention_quality.with_documented_outcomes_percent).toBe(67); // 2/3
 
       expect(result.referral_pathways.total).toBe(3);
       expect(result.referral_pathways.by_type['neps']).toBe(2);
@@ -602,12 +589,7 @@ describe('PastoralReportService', () => {
       mockRlsTx.cpRecord.count.mockResolvedValue(0);
 
       // Act
-      const result = await service.getStudentSummary(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        {},
-      );
+      const result = await service.getStudentSummary(TENANT_ID, USER_ID, STUDENT_ID, {});
 
       // Assert — query had no tier filter (all tiers included)
       const query = mockRlsTx.pastoralConcern.findMany.mock.calls[0][0];
@@ -633,12 +615,7 @@ describe('PastoralReportService', () => {
       mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
 
       // Act
-      const result = await service.getStudentSummary(
-        TENANT_ID,
-        USER_ID,
-        STUDENT_ID,
-        {},
-      );
+      const result = await service.getStudentSummary(TENANT_ID, USER_ID, STUDENT_ID, {});
 
       // Assert — tier filter restricted to 1, 2
       const query = mockRlsTx.pastoralConcern.findMany.mock.calls[0][0];

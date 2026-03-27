@@ -43,6 +43,12 @@ interface ValidatedCategory {
   auto_tier?: number;
 }
 
+interface ConcernInvolvedStudentRow {
+  student_id: string;
+  added_at: Date;
+  student?: { id: string; first_name: string; last_name: string } | null;
+}
+
 export interface ConcernRow {
   id: string;
   tenant_id: string;
@@ -71,6 +77,7 @@ export interface ConcernRow {
   created_at: Date;
   updated_at: Date;
   logged_by?: { first_name: string; last_name: string } | null;
+  involved_students?: ConcernInvolvedStudentRow[];
   versions?: Array<{
     id: string;
     concern_id: string;
@@ -92,6 +99,11 @@ export interface ConcernListItemDto {
   created_at: Date;
   follow_up_needed: boolean;
   case_id: string | null;
+  students_involved: Array<{
+    student_id: string;
+    student_name: string;
+    added_at: Date;
+  }>;
   author_name: string | null;
   author_masked_for_viewer: boolean;
   logged_by_user_id: string | null;
@@ -143,6 +155,7 @@ export class ConcernService {
   ): Promise<{ data: ConcernRow }> {
     // 1. Validate category against tenant settings
     const categoryResult = await this.validateCategory(tenantId, dto.category);
+    const involvedStudentIds = this.extractInvolvedStudentIds(dto.students_involved);
 
     // 2. Compute effective tier
     const dtoTier = dto.tier ?? 1;
@@ -168,6 +181,7 @@ export class ConcernService {
 
     const { concern, cpRecordId } = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
+      await this.assertInvolvedStudentsExist(db, tenantId, dto.student_id, involvedStudentIds);
 
       // Create the concern row
       const created = await db.pastoralConcern.create({
@@ -191,6 +205,16 @@ export class ConcernService {
           behaviour_incident_id: dto.behaviour_incident_id ?? null,
         },
       });
+
+      if (involvedStudentIds.length > 0) {
+        await db.pastoralConcernInvolvedStudent.createMany({
+          data: involvedStudentIds.map((studentId) => ({
+            concern_id: created.id,
+            student_id: studentId,
+            tenant_id: tenantId,
+          })),
+        });
+      }
 
       // Create initial v1 narrative version within the same transaction
       await this.versionService.createInitialVersion(
@@ -221,8 +245,17 @@ export class ConcernService {
         createdCpRecordId = cpRecord.id;
       }
 
+      const concernWithRelations = await this.loadConcernWithRelations(db, created.id);
+
+      if (!concernWithRelations) {
+        throw new NotFoundException({
+          code: 'CONCERN_NOT_FOUND',
+          message: `Concern "${created.id}" not found`,
+        });
+      }
+
       return {
-        concern: created,
+        concern: concernWithRelations,
         cpRecordId: createdCpRecordId,
       };
     })) as { concern: ConcernRow; cpRecordId: string | null };
@@ -280,7 +313,7 @@ export class ConcernService {
     if (dto.severity === 'urgent' || dto.severity === 'critical') {
       const delayMs =
         dto.severity === 'critical'
-          ? 30 * 60 * 1000   // 30 minutes (critical default)
+          ? 30 * 60 * 1000 // 30 minutes (critical default)
           : 120 * 60 * 1000; // 120 minutes (urgent default)
       const escalationType =
         dto.severity === 'critical' ? 'critical_second_round' : 'urgent_to_critical';
@@ -342,7 +375,19 @@ export class ConcernService {
       }
     }
 
-    if (query.student_id) where.student_id = query.student_id;
+    if (query.student_id) {
+      where.OR = [
+        { student_id: query.student_id },
+        {
+          involved_students: {
+            some: {
+              tenant_id: tenantId,
+              student_id: query.student_id,
+            },
+          },
+        },
+      ];
+    }
     if (query.category) where.category = query.category;
     if (query.severity) where.severity = query.severity;
     if (query.case_id) where.case_id = query.case_id;
@@ -368,6 +413,12 @@ export class ConcernService {
           where,
           include: {
             logged_by: { select: { first_name: true, last_name: true } },
+            involved_students: {
+              include: {
+                student: { select: { id: true, first_name: true, last_name: true } },
+              },
+              orderBy: { added_at: 'asc' },
+            },
           },
           orderBy,
           skip,
@@ -376,9 +427,7 @@ export class ConcernService {
         db.pastoralConcern.count({ where }),
       ]);
 
-      const data = (concerns as ConcernRow[]).map((c) =>
-        this.toConcernListItem(c, hasCpAccess),
-      );
+      const data = (concerns as ConcernRow[]).map((c) => this.toConcernListItem(c, hasCpAccess));
 
       return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
     }) as Promise<{ data: ConcernListItemDto[]; meta: PaginationMeta }>;
@@ -408,6 +457,12 @@ export class ConcernService {
         where: { id: concernId },
         include: {
           logged_by: { select: { first_name: true, last_name: true } },
+          involved_students: {
+            include: {
+              student: { select: { id: true, first_name: true, last_name: true } },
+            },
+            orderBy: { added_at: 'asc' },
+          },
           versions: { orderBy: { version_number: 'asc' } },
         },
       });
@@ -470,6 +525,11 @@ export class ConcernService {
     concernId: string,
     dto: UpdateConcernMetadataDto,
   ): Promise<{ data: ConcernRow }> {
+    const involvedStudentIds =
+      dto.students_involved !== undefined
+        ? this.extractInvolvedStudentIds(dto.students_involved)
+        : undefined;
+
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: userId,
@@ -492,15 +552,39 @@ export class ConcernService {
       const updateData: Prisma.PastoralConcernUpdateInput = {};
       if (dto.severity !== undefined) updateData.severity = dto.severity;
       if (dto.follow_up_needed !== undefined) updateData.follow_up_needed = dto.follow_up_needed;
-      if (dto.follow_up_suggestion !== undefined) updateData.follow_up_suggestion = dto.follow_up_suggestion;
+      if (dto.follow_up_suggestion !== undefined)
+        updateData.follow_up_suggestion = dto.follow_up_suggestion;
       if (dto.case_id !== undefined) {
         updateData.case = dto.case_id ? { connect: { id: dto.case_id } } : { disconnect: true };
       }
 
-      return db.pastoralConcern.update({
+      if (involvedStudentIds !== undefined) {
+        await this.assertInvolvedStudentsExist(
+          db,
+          tenantId,
+          existing.student_id,
+          involvedStudentIds,
+        );
+      }
+
+      await db.pastoralConcern.update({
         where: { id: concernId },
         data: updateData,
       });
+
+      if (involvedStudentIds !== undefined) {
+        await this.syncInvolvedStudents(db, tenantId, concernId, involvedStudentIds);
+      }
+
+      const updatedConcern = await this.loadConcernWithRelations(db, concernId);
+      if (!updatedConcern) {
+        throw new NotFoundException({
+          code: 'CONCERN_NOT_FOUND',
+          message: `Concern "${concernId}" not found`,
+        });
+      }
+
+      return updatedConcern;
     })) as ConcernRow;
 
     return { data: updated };
@@ -651,7 +735,9 @@ export class ConcernService {
     membershipId: string,
     concernId: string,
     dto: ShareConcernWithParentDto,
-  ): Promise<{ data: { id: string; parent_shareable: boolean; parent_share_level: string; shared_at: string } }> {
+  ): Promise<{
+    data: { id: string; parent_shareable: boolean; parent_share_level: string; shared_at: string };
+  }> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: userId,
@@ -813,14 +899,10 @@ export class ConcernService {
 
   // ─── GET CATEGORIES ─────────────────────────────────────────────────────────
 
-  async getCategories(
-    tenantId: string,
-  ): Promise<{ data: ConcernCategory[] }> {
+  async getCategories(tenantId: string): Promise<{ data: ConcernCategory[] }> {
     const settings = await this.loadPastoralSettings(tenantId);
 
-    const activeCategories = settings.concern_categories.filter(
-      (c) => c.active,
-    );
+    const activeCategories = settings.concern_categories.filter((c) => c.active);
 
     return { data: activeCategories };
   }
@@ -905,9 +987,7 @@ export class ConcernService {
   ): Promise<ValidatedCategory> {
     const settings = await this.loadPastoralSettings(tenantId);
 
-    const category = settings.concern_categories.find(
-      (c) => c.key === categoryKey && c.active,
-    );
+    const category = settings.concern_categories.find((c) => c.key === categoryKey && c.active);
 
     if (!category) {
       throw new BadRequestException({
@@ -927,7 +1007,11 @@ export class ConcernService {
   private applyAuthorMasking(
     concern: ConcernRow,
     hasCpAccess: boolean,
-  ): { author_name: string | null; logged_by_user_id: string | null; author_masked_for_viewer: boolean } {
+  ): {
+    author_name: string | null;
+    logged_by_user_id: string | null;
+    author_masked_for_viewer: boolean;
+  } {
     if (!concern.author_masked) {
       const authorName = concern.logged_by
         ? `${concern.logged_by.first_name} ${concern.logged_by.last_name}`
@@ -965,10 +1049,7 @@ export class ConcernService {
    * - pastoral.view_tier2 -> max tier 2
    * - CP access grant -> max tier 3 (handled by RLS, but useful for app-layer)
    */
-  private resolveCallerTierAccess(
-    permissions: string[],
-    hasCpAccess: boolean,
-  ): number {
+  private resolveCallerTierAccess(permissions: string[], hasCpAccess: boolean): number {
     if (hasCpAccess) return 3;
     if (permissions.includes('pastoral.view_tier2')) return 2;
     if (permissions.includes('pastoral.view_tier1')) return 1;
@@ -995,10 +1076,7 @@ export class ConcernService {
   /**
    * Checks whether a user has an active (non-revoked) CP access grant.
    */
-  private async checkCpAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
     const grant = await this.prisma.cpAccessGrant.findFirst({
       where: {
         tenant_id: tenantId,
@@ -1014,10 +1092,7 @@ export class ConcernService {
   /**
    * Checks whether the user (by membership) has the 'year_head' role in this tenant.
    */
-  private async checkIsYearHead(
-    tenantId: string,
-    membershipId: string,
-  ): Promise<boolean> {
+  private async checkIsYearHead(tenantId: string, membershipId: string): Promise<boolean> {
     const role = await this.prisma.membershipRole.findFirst({
       where: {
         membership_id: membershipId,
@@ -1030,13 +1105,124 @@ export class ConcernService {
     return !!role;
   }
 
+  private extractInvolvedStudentIds(
+    studentsInvolved:
+      | CreateConcernDto['students_involved']
+      | UpdateConcernMetadataDto['students_involved'],
+  ): string[] {
+    return studentsInvolved?.map((student) => student.student_id) ?? [];
+  }
+
+  private async assertInvolvedStudentsExist(
+    db: PrismaService,
+    tenantId: string,
+    primaryStudentId: string,
+    involvedStudentIds: string[],
+  ): Promise<void> {
+    const uniqueStudentIds = [...new Set(involvedStudentIds)];
+
+    if (uniqueStudentIds.length === 0) {
+      return;
+    }
+
+    if (uniqueStudentIds.includes(primaryStudentId)) {
+      throw new BadRequestException({
+        code: 'PRIMARY_STUDENT_DUPLICATED',
+        message: 'students_involved cannot include the primary student',
+      });
+    }
+
+    const students = await db.student.findMany({
+      where: {
+        tenant_id: tenantId,
+        id: { in: uniqueStudentIds },
+      },
+      select: { id: true },
+    });
+
+    if (students.length !== uniqueStudentIds.length) {
+      const existingIds = new Set(students.map((student) => student.id));
+      const missingIds = uniqueStudentIds.filter((id) => !existingIds.has(id));
+
+      throw new BadRequestException({
+        code: 'INVALID_INVOLVED_STUDENT_IDS',
+        message: `One or more students involved were not found: ${missingIds.join(', ')}`,
+      });
+    }
+  }
+
+  private async syncInvolvedStudents(
+    db: PrismaService,
+    tenantId: string,
+    concernId: string,
+    nextStudentIds: string[],
+  ): Promise<void> {
+    const existingLinks = await db.pastoralConcernInvolvedStudent.findMany({
+      where: {
+        tenant_id: tenantId,
+        concern_id: concernId,
+      },
+      select: { student_id: true },
+    });
+
+    const existingStudentIds = existingLinks.map((link) => link.student_id);
+    const toCreate = nextStudentIds.filter((studentId) => !existingStudentIds.includes(studentId));
+    const toDelete = existingStudentIds.filter((studentId) => !nextStudentIds.includes(studentId));
+
+    if (toDelete.length > 0) {
+      await db.pastoralConcernInvolvedStudent.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          concern_id: concernId,
+          student_id: { in: toDelete },
+        },
+      });
+    }
+
+    if (toCreate.length > 0) {
+      await db.pastoralConcernInvolvedStudent.createMany({
+        data: toCreate.map((studentId) => ({
+          concern_id: concernId,
+          student_id: studentId,
+          tenant_id: tenantId,
+        })),
+      });
+    }
+  }
+
+  private async loadConcernWithRelations(
+    db: PrismaService,
+    concernId: string,
+  ): Promise<ConcernRow | null> {
+    return (await db.pastoralConcern.findUnique({
+      where: { id: concernId },
+      include: {
+        logged_by: { select: { first_name: true, last_name: true } },
+        involved_students: {
+          include: {
+            student: { select: { id: true, first_name: true, last_name: true } },
+          },
+          orderBy: { added_at: 'asc' },
+        },
+        versions: { orderBy: { version_number: 'asc' } },
+      },
+    })) as ConcernRow | null;
+  }
+
+  private toConcernInvolvedStudents(concern: ConcernRow): ConcernListItemDto['students_involved'] {
+    return (concern.involved_students ?? []).map((studentLink) => ({
+      student_id: studentLink.student_id,
+      student_name: studentLink.student
+        ? `${studentLink.student.first_name} ${studentLink.student.last_name}`
+        : 'Unknown',
+      added_at: studentLink.added_at,
+    }));
+  }
+
   /**
    * Maps a raw concern row to a list item DTO with author masking applied.
    */
-  private toConcernListItem(
-    concern: ConcernRow,
-    hasCpAccess: boolean,
-  ): ConcernListItemDto {
+  private toConcernListItem(concern: ConcernRow, hasCpAccess: boolean): ConcernListItemDto {
     const masking = this.applyAuthorMasking(concern, hasCpAccess);
 
     return {
@@ -1049,6 +1235,7 @@ export class ConcernService {
       created_at: concern.created_at,
       follow_up_needed: concern.follow_up_needed,
       case_id: concern.case_id,
+      students_involved: this.toConcernInvolvedStudents(concern),
       author_name: masking.author_name,
       author_masked_for_viewer: masking.author_masked_for_viewer,
       logged_by_user_id: masking.logged_by_user_id,
@@ -1058,10 +1245,7 @@ export class ConcernService {
   /**
    * Maps a raw concern row (with versions) to a detail DTO with author masking.
    */
-  private toConcernDetail(
-    concern: ConcernRow,
-    hasCpAccess: boolean,
-  ): ConcernDetailDto {
+  private toConcernDetail(concern: ConcernRow, hasCpAccess: boolean): ConcernDetailDto {
     const listItem = this.toConcernListItem(concern, hasCpAccess);
 
     return {

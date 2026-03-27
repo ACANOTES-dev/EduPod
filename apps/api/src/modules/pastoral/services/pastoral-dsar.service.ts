@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -156,8 +151,7 @@ export class PastoralDsarService {
     reviewerUserId: string,
   ): Promise<{ reviewCount: number; tier3Count: number }> {
     const queryUserId =
-      (await this.resolveDsarQueryUserId(tenantId, reviewerUserId)) ??
-      reviewerUserId;
+      (await this.resolveDsarQueryUserId(tenantId, reviewerUserId)) ?? reviewerUserId;
     const canQueryTier3 = await this.checkCpAccess(tenantId, queryUserId);
 
     const rlsClient = createRlsClient(this.prisma, {
@@ -170,7 +164,20 @@ export class PastoralDsarService {
 
       // Fetch all concerns for the student
       const concerns = (await db.pastoralConcern.findMany({
-        where: { tenant_id: tenantId, student_id: studentId },
+        where: {
+          tenant_id: tenantId,
+          OR: [
+            { student_id: studentId },
+            {
+              involved_students: {
+                some: {
+                  tenant_id: tenantId,
+                  student_id: studentId,
+                },
+              },
+            },
+          ],
+        },
       })) as ConcernRecord[];
 
       const cases = (await db.pastoralCase.findMany({
@@ -516,10 +523,7 @@ export class PastoralDsarService {
 
   // ─── 6. allReviewsComplete ─────────────────────────────────────────────
 
-  async allReviewsComplete(
-    tenantId: string,
-    complianceRequestId: string,
-  ): Promise<boolean> {
+  async allReviewsComplete(tenantId: string, complianceRequestId: string): Promise<boolean> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -595,10 +599,7 @@ export class PastoralDsarService {
    * Uses the direct Prisma client (not RLS-scoped) because cp_access_grants
    * is a platform-level security check.
    */
-  private async checkCpAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
     const grant = await this.prisma.cpAccessGrant.findFirst({
       where: { tenant_id: tenantId, user_id: userId, revoked_at: null },
     });
@@ -693,19 +694,12 @@ export class PastoralDsarService {
 
     if (dto.decision === 'exclude') {
       if (!dto.legal_basis || dto.legal_basis.trim().length === 0) {
-        throw new BadRequestException(
-          'Legal basis is required for exclude decisions',
-        );
+        throw new BadRequestException('Legal basis is required for exclude decisions');
       }
       if (!dto.justification || dto.justification.trim().length === 0) {
-        throw new BadRequestException(
-          'Justification is required for exclude decisions',
-        );
+        throw new BadRequestException('Justification is required for exclude decisions');
       }
-      if (
-        dto.legal_basis === 'other' &&
-        dto.justification.trim().length <= 20
-      ) {
+      if (dto.legal_basis === 'other' && dto.justification.trim().length <= 20) {
         throw new BadRequestException(
           'Justification must be more than 20 characters when legal basis is "other"',
         );
@@ -879,9 +873,7 @@ export class PastoralDsarService {
       };
     }
 
-    this.logger.warn(
-      `Unknown entity type "${entityType}" in DSAR review for entity ${entityId}`,
-    );
+    this.logger.warn(`Unknown entity type "${entityType}" in DSAR review for entity ${entityId}`);
     return null;
   }
 
@@ -907,8 +899,7 @@ export class PastoralDsarService {
         versions: Array<{ narrative: string; version_number: number }>;
       };
       const narrative = row.versions[0]?.narrative ?? '';
-      const preview =
-        narrative.length > 100 ? narrative.slice(0, 100) + '...' : narrative;
+      const preview = narrative.length > 100 ? narrative.slice(0, 100) + '...' : narrative;
       return `Concern (${row.category}, ${row.severity}): ${preview}`;
     }
 
@@ -919,9 +910,7 @@ export class PastoralDsarService {
       if (!cpRecord) return 'CP record not found';
       const row = cpRecord as unknown as CpRecordRow;
       const preview =
-        row.narrative.length > 100
-          ? row.narrative.slice(0, 100) + '...'
-          : row.narrative;
+        row.narrative.length > 100 ? row.narrative.slice(0, 100) + '...' : row.narrative;
       return `CP Record (${row.record_type}): ${preview}`;
     }
 
@@ -951,12 +940,9 @@ export class PastoralDsarService {
       });
       if (!intervention) return 'Intervention record not found';
       const row = intervention as unknown as InterventionRecord;
-      const summarySource =
-        row.outcome_notes?.trim() || `Continuum level ${row.continuum_level}`;
+      const summarySource = row.outcome_notes?.trim() || `Continuum level ${row.continuum_level}`;
       const preview =
-        summarySource.length > 100
-          ? summarySource.slice(0, 100) + '...'
-          : summarySource;
+        summarySource.length > 100 ? summarySource.slice(0, 100) + '...' : summarySource;
       return `Intervention (${row.intervention_type}${row.case?.case_number ? `, ${row.case.case_number}` : ''}): ${preview}`;
     }
 
@@ -975,9 +961,7 @@ export class PastoralDsarService {
       const row = referral as unknown as ReferralRecord;
       const summarySource = row.report_summary?.trim() || row.reason?.trim() || row.status;
       const preview =
-        summarySource.length > 100
-          ? summarySource.slice(0, 100) + '...'
-          : summarySource;
+        summarySource.length > 100 ? summarySource.slice(0, 100) + '...' : summarySource;
       return `Referral (${row.referral_type}${row.case?.case_number ? `, ${row.case.case_number}` : ''}): ${preview}`;
     }
 
@@ -991,9 +975,7 @@ export class PastoralDsarService {
         row.freeform_text?.trim() ||
         `Mood ${row.mood_score}${row.flagged ? `, flagged ${row.flag_reason ?? ''}` : ''}`;
       const preview =
-        summarySource.length > 100
-          ? summarySource.slice(0, 100) + '...'
-          : summarySource;
+        summarySource.length > 100 ? summarySource.slice(0, 100) + '...' : summarySource;
       return `Check-in (${row.checkin_date.toISOString().slice(0, 10)}): ${preview}`;
     }
 
@@ -1013,26 +995,16 @@ export class PastoralDsarService {
 
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
-      ...(review.reviewed_by_user_id
-        ? { user_id: review.reviewed_by_user_id }
-        : {}),
+      ...(review.reviewed_by_user_id ? { user_id: review.reviewed_by_user_id } : {}),
     });
 
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
-      return this.fetchEntityRecord(
-        db,
-        review.entity_type,
-        review.entity_id,
-        tenantId,
-      );
+      return this.fetchEntityRecord(db, review.entity_type, review.entity_id, tenantId);
     }) as Promise<Record<string, unknown> | null>;
   }
 
-  private applyRedactions(
-    record: Record<string, unknown>,
-    entityType: string,
-  ): void {
+  private applyRedactions(record: Record<string, unknown>, entityType: string): void {
     for (const field of this.getRedactionFields(entityType)) {
       if (field in record && typeof record[field] === 'string') {
         record[field] = '[REDACTED]';

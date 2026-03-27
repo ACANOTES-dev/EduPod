@@ -61,9 +61,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -161,21 +159,14 @@ describe('PastoralDsarService', () => {
       const concern1 = makeConcern({ id: 'c1', tier: 1 });
       const concern2 = makeConcern({ id: 'c2', tier: 2 });
 
-      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([
-        concern1,
-        concern2,
-      ]);
+      mockRlsTx.pastoralConcern.findMany.mockResolvedValue([concern1, concern2]);
       mockRlsTx.cpRecord.findMany.mockResolvedValue([]);
       // No duplicates
       mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(null);
       // Created reviews
       mockRlsTx.pastoralDsarReview.create
-        .mockResolvedValueOnce(
-          makeReview({ id: 'r1', entity_id: 'c1', tier: 1 }),
-        )
-        .mockResolvedValueOnce(
-          makeReview({ id: 'r2', entity_id: 'c2', tier: 2 }),
-        );
+        .mockResolvedValueOnce(makeReview({ id: 'r1', entity_id: 'c1', tier: 1 }))
+        .mockResolvedValueOnce(makeReview({ id: 'r2', entity_id: 'c2', tier: 2 }));
 
       const result = await service.routeForReview(
         TENANT_ID,
@@ -187,6 +178,22 @@ describe('PastoralDsarService', () => {
       expect(result.reviewCount).toBe(2);
       expect(result.tier3Count).toBe(0);
       expect(mockRlsTx.pastoralDsarReview.create).toHaveBeenCalledTimes(2);
+      expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          OR: [
+            { student_id: STUDENT_ID },
+            {
+              involved_students: {
+                some: {
+                  tenant_id: TENANT_ID,
+                  student_id: STUDENT_ID,
+                },
+              },
+            },
+          ],
+        },
+      });
     });
 
     it('should create review rows for cases, interventions, referrals, and check-ins', async () => {
@@ -240,10 +247,18 @@ describe('PastoralDsarService', () => {
       ]);
       mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(null);
       mockRlsTx.pastoralDsarReview.create
-        .mockResolvedValueOnce(makeReview({ id: 'r-case', entity_type: 'case', entity_id: 'case-1', tier: 2 }))
-        .mockResolvedValueOnce(makeReview({ id: 'r-int', entity_type: 'intervention', entity_id: 'int-1', tier: 2 }))
-        .mockResolvedValueOnce(makeReview({ id: 'r-ref', entity_type: 'referral', entity_id: 'ref-1', tier: 2 }))
-        .mockResolvedValueOnce(makeReview({ id: 'r-checkin', entity_type: 'checkin', entity_id: 'chk-1', tier: 1 }));
+        .mockResolvedValueOnce(
+          makeReview({ id: 'r-case', entity_type: 'case', entity_id: 'case-1', tier: 2 }),
+        )
+        .mockResolvedValueOnce(
+          makeReview({ id: 'r-int', entity_type: 'intervention', entity_id: 'int-1', tier: 2 }),
+        )
+        .mockResolvedValueOnce(
+          makeReview({ id: 'r-ref', entity_type: 'referral', entity_id: 'ref-1', tier: 2 }),
+        )
+        .mockResolvedValueOnce(
+          makeReview({ id: 'r-checkin', entity_type: 'checkin', entity_id: 'chk-1', tier: 1 }),
+        );
 
       const result = await service.routeForReview(
         TENANT_ID,
@@ -346,12 +361,9 @@ describe('PastoralDsarService', () => {
       mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(review);
       mockRlsTx.pastoralDsarReview.update.mockResolvedValue(updated);
 
-      const result = await service.submitDecision(
-        TENANT_ID,
-        ACTOR_USER_ID,
-        REVIEW_ID,
-        { decision: 'include' },
-      );
+      const result = await service.submitDecision(TENANT_ID, ACTOR_USER_ID, REVIEW_ID, {
+        decision: 'include',
+      });
 
       expect(result.decision).toBe('include');
       expect(mockRlsTx.pastoralDsarReview.update).toHaveBeenCalledWith(
@@ -442,10 +454,7 @@ describe('PastoralDsarService', () => {
     it('should return false when pending reviews exist', async () => {
       mockRlsTx.pastoralDsarReview.count.mockResolvedValue(3);
 
-      const result = await service.allReviewsComplete(
-        TENANT_ID,
-        COMPLIANCE_REQUEST_ID,
-      );
+      const result = await service.allReviewsComplete(TENANT_ID, COMPLIANCE_REQUEST_ID);
 
       expect(result).toBe(false);
     });
@@ -453,10 +462,7 @@ describe('PastoralDsarService', () => {
     it('should return true when all reviews are decided', async () => {
       mockRlsTx.pastoralDsarReview.count.mockResolvedValue(0);
 
-      const result = await service.allReviewsComplete(
-        TENANT_ID,
-        COMPLIANCE_REQUEST_ID,
-      );
+      const result = await service.allReviewsComplete(TENANT_ID, COMPLIANCE_REQUEST_ID);
 
       expect(result).toBe(true);
     });
@@ -483,10 +489,7 @@ describe('PastoralDsarService', () => {
         reviewed_by_user_id: ACTOR_USER_ID,
       });
 
-      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([
-        includedReview,
-        redactedReview,
-      ]);
+      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([includedReview, redactedReview]);
 
       // Mock fetching underlying records
       mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({
@@ -504,10 +507,7 @@ describe('PastoralDsarService', () => {
         created_at: NOW,
       });
 
-      const results = await service.getReviewedRecords(
-        TENANT_ID,
-        COMPLIANCE_REQUEST_ID,
-      );
+      const results = await service.getReviewedRecords(TENANT_ID, COMPLIANCE_REQUEST_ID);
 
       expect(results).toHaveLength(2);
       // First is included concern
@@ -528,9 +528,7 @@ describe('PastoralDsarService', () => {
         reviewed_by_user_id: ACTOR_USER_ID,
       });
 
-      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([
-        redactedReview,
-      ]);
+      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([redactedReview]);
       mockRlsTx.cpRecord.findFirst.mockResolvedValue({
         id: 'cp1',
         record_type: 'concern',
@@ -538,16 +536,11 @@ describe('PastoralDsarService', () => {
         created_at: NOW,
       });
 
-      const results = await service.getReviewedRecords(
-        TENANT_ID,
-        COMPLIANCE_REQUEST_ID,
-      );
+      const results = await service.getReviewedRecords(TENANT_ID, COMPLIANCE_REQUEST_ID);
 
       expect(results).toHaveLength(1);
       expect(results[0]!.record_data.narrative).toBe('[REDACTED]');
-      expect(results[0]!.redaction_note).toBe(
-        'Names of third parties removed',
-      );
+      expect(results[0]!.redaction_note).toBe('Names of third parties removed');
       expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, {
         tenant_id: TENANT_ID,
         user_id: ACTOR_USER_ID,

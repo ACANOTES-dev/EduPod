@@ -180,9 +180,7 @@ function getISOWeek(date: Date): string {
  */
 function monthsBetween(from: Date, to: Date): number {
   const months =
-    (to.getFullYear() - from.getFullYear()) * 12 +
-    (to.getMonth() - from.getMonth()) +
-    1;
+    (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth()) + 1;
   return Math.max(months, 1);
 }
 
@@ -199,11 +197,7 @@ export class PastoralReportService {
 
   // ─── CP Access Check ───────────────────────────────────────────────────────
 
-  private async hasCpAccess(
-    db: PrismaService,
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  private async hasCpAccess(db: PrismaService, tenantId: string, userId: string): Promise<boolean> {
     const grant = await db.cpAccessGrant.findFirst({
       where: {
         tenant_id: tenantId,
@@ -262,7 +256,21 @@ export class PastoralReportService {
       // 3. Concerns — filter by tier based on CP access
       const tierFilter = cpAccess ? {} : { tier: { in: [1, 2] } };
       const concerns = await db.pastoralConcern.findMany({
-        where: { tenant_id: tenantId, student_id: studentId, ...tierFilter },
+        where: {
+          tenant_id: tenantId,
+          OR: [
+            { student_id: studentId },
+            {
+              involved_students: {
+                some: {
+                  tenant_id: tenantId,
+                  student_id: studentId,
+                },
+              },
+            },
+          ],
+          ...tierFilter,
+        },
         include: {
           logged_by: { select: { first_name: true, last_name: true } },
           versions: {
@@ -317,9 +325,7 @@ export class PastoralReportService {
       return {
         student: {
           id: student.id,
-          full_name:
-            student.full_name ??
-            `${student.first_name} ${student.last_name}`,
+          full_name: student.full_name ?? `${student.first_name} ${student.last_name}`,
           student_number: student.student_number ?? '',
           year_group: student.year_group?.name ?? '',
           class_name: student.homeroom_class?.name ?? '',
@@ -331,9 +337,7 @@ export class PastoralReportService {
           severity: String(c.severity),
           tier: c.tier,
           narrative:
-            c.versions.length > 0
-              ? (c.versions[c.versions.length - 1]?.narrative ?? '')
-              : '',
+            c.versions.length > 0 ? (c.versions[c.versions.length - 1]?.narrative ?? '') : '',
           versions: c.versions.map((v) => ({
             version: v.version_number,
             text: v.narrative,
@@ -347,13 +351,9 @@ export class PastoralReportService {
         cases: cases.map((cs) => ({
           id: cs.id,
           status: String(cs.status),
-          case_owner: cs.owner
-            ? `${cs.owner.first_name} ${cs.owner.last_name}`
-            : 'Unknown',
+          case_owner: cs.owner ? `${cs.owner.first_name} ${cs.owner.last_name}` : 'Unknown',
           opened_at: cs.created_at.toISOString(),
-          review_date: cs.next_review_date
-            ? toISODate(cs.next_review_date)
-            : null,
+          review_date: cs.next_review_date ? toISODate(cs.next_review_date) : null,
           linked_concern_count: cs.concerns.length,
         })),
         interventions: interventions.map((i) => ({
@@ -381,9 +381,7 @@ export class PastoralReportService {
             id: r.id,
             referral_type: r.referral_type,
             status: String(r.status),
-            submitted_at: r.submitted_at
-              ? r.submitted_at.toISOString()
-              : null,
+            submitted_at: r.submitted_at ? r.submitted_at.toISOString() : null,
             wait_days: waitDays,
           };
         }),
@@ -473,9 +471,7 @@ export class PastoralReportService {
         where: {
           tenant_id: tenantId,
           created_at: { gte: from, lte: to },
-          ...(filters.year_group_id
-            ? { student: { year_group_id: filters.year_group_id } }
-            : {}),
+          ...(filters.year_group_id ? { student: { year_group_id: filters.year_group_id } } : {}),
         },
         select: {
           category: true,
@@ -496,8 +492,7 @@ export class PastoralReportService {
       const weeklyMap: Record<string, number> = {};
 
       for (const concern of concerns) {
-        byCategory[concern.category] =
-          (byCategory[concern.category] ?? 0) + 1;
+        byCategory[concern.category] = (byCategory[concern.category] ?? 0) + 1;
         const sevKey = String(concern.severity);
         bySeverity[sevKey] = (bySeverity[sevKey] ?? 0) + 1;
         const week = getISOWeek(concern.created_at);
@@ -528,8 +523,7 @@ export class PastoralReportService {
       for (const intervention of interventions) {
         const status = String(intervention.status);
         if (status === 'achieved') interventionOutcomes.achieved++;
-        else if (status === 'partially_achieved')
-          interventionOutcomes.partially_achieved++;
+        else if (status === 'partially_achieved') interventionOutcomes.partially_achieved++;
         else if (status === 'not_achieved') interventionOutcomes.not_achieved++;
         else if (status === 'escalated') interventionOutcomes.escalated++;
         else interventionOutcomes.in_progress++;
@@ -544,13 +538,9 @@ export class PastoralReportService {
         select: { status: true, due_date: true, completed_at: true },
       });
 
-      const completedActions = allActions.filter(
-        (a) => String(a.status) === 'pc_completed',
-      ).length;
+      const completedActions = allActions.filter((a) => String(a.status) === 'pc_completed').length;
       const actionCompletionRate =
-        allActions.length > 0
-          ? Math.round((completedActions / allActions.length) * 100)
-          : 0;
+        allActions.length > 0 ? Math.round((completedActions / allActions.length) * 100) : 0;
       const overdueActions = allActions.filter(
         (a) =>
           String(a.status) !== 'pc_completed' &&
@@ -585,9 +575,7 @@ export class PastoralReportService {
         student_count: yg.students.size,
         concern_count: yg.concernCount,
         concerns_per_student:
-          yg.students.size > 0
-            ? Math.round((yg.concernCount / yg.students.size) * 100) / 100
-            : 0,
+          yg.students.size > 0 ? Math.round((yg.concernCount / yg.students.size) * 100) / 100 : 0,
       }));
 
       return {
@@ -660,8 +648,7 @@ export class PastoralReportService {
       }
 
       // 3. Mandated reports (CP access only)
-      let mandatedReports: { total: number; by_status: Record<string, number> } | null =
-        null;
+      let mandatedReports: { total: number; by_status: Record<string, number> } | null = null;
       if (cpAccess) {
         const cpRecords = await db.cpRecord.findMany({
           where: {
@@ -778,9 +765,7 @@ export class PastoralReportService {
       const totalStudents = await db.student.count({
         where: {
           tenant_id: tenantId,
-          ...(filters.year_group_id
-            ? { year_group_id: filters.year_group_id }
-            : {}),
+          ...(filters.year_group_id ? { year_group_id: filters.year_group_id } : {}),
         },
       });
 
@@ -801,9 +786,7 @@ export class PastoralReportService {
 
       const interventionCoveragePercent =
         totalStudents > 0
-          ? Math.round(
-              (uniqueStudentsWithInterventions.size / totalStudents) * 100 * 100,
-            ) / 100
+          ? Math.round((uniqueStudentsWithInterventions.size / totalStudents) * 100 * 100) / 100
           : 0;
 
       // 3. Continuum distribution
@@ -831,10 +814,8 @@ export class PastoralReportService {
 
       for (const intervention of allInterventions) {
         if (intervention.continuum_level === 1) continuumDistribution.level_1++;
-        else if (intervention.continuum_level === 2)
-          continuumDistribution.level_2++;
-        else if (intervention.continuum_level === 3)
-          continuumDistribution.level_3++;
+        else if (intervention.continuum_level === 2) continuumDistribution.level_2++;
+        else if (intervention.continuum_level === 3) continuumDistribution.level_3++;
 
         interventionTypeMap[intervention.intervention_type] =
           (interventionTypeMap[intervention.intervention_type] ?? 0) + 1;
@@ -845,25 +826,19 @@ export class PastoralReportService {
         where: {
           tenant_id: tenantId,
           created_at: { gte: from, lte: to },
-          ...(filters.year_group_id
-            ? { student: { year_group_id: filters.year_group_id } }
-            : {}),
+          ...(filters.year_group_id ? { student: { year_group_id: filters.year_group_id } } : {}),
         },
       });
 
       const referralRate =
-        totalStudents > 0
-          ? Math.round((referralCount / totalStudents) * 100 * 100) / 100
-          : 0;
+        totalStudents > 0 ? Math.round((referralCount / totalStudents) * 100 * 100) / 100 : 0;
 
       // 5. Concern-to-case conversion rate
       const concernTotal = await db.pastoralConcern.count({
         where: {
           tenant_id: tenantId,
           created_at: { gte: from, lte: to },
-          ...(filters.year_group_id
-            ? { student: { year_group_id: filters.year_group_id } }
-            : {}),
+          ...(filters.year_group_id ? { student: { year_group_id: filters.year_group_id } } : {}),
         },
       });
       const concernsWithCase = await db.pastoralConcern.count({
@@ -871,15 +846,11 @@ export class PastoralReportService {
           tenant_id: tenantId,
           created_at: { gte: from, lte: to },
           case_id: { not: null },
-          ...(filters.year_group_id
-            ? { student: { year_group_id: filters.year_group_id } }
-            : {}),
+          ...(filters.year_group_id ? { student: { year_group_id: filters.year_group_id } } : {}),
         },
       });
       const conversionRate =
-        concernTotal > 0
-          ? Math.round((concernsWithCase / concernTotal) * 100 * 100) / 100
-          : 0;
+        concernTotal > 0 ? Math.round((concernsWithCase / concernTotal) * 100 * 100) / 100 : 0;
 
       // 6. By year group
       const yearGroupInterventionMap: Record<
@@ -981,8 +952,7 @@ export class PastoralReportService {
 
       const totalMeetings = meetings.length;
       const months = monthsBetween(from, to);
-      const averagePerMonth =
-        Math.round((totalMeetings / months) * 100) / 100;
+      const averagePerMonth = Math.round((totalMeetings / months) * 100) / 100;
 
       // 3. Concern logging
       const concerns = await db.pastoralConcern.findMany({
@@ -999,8 +969,7 @@ export class PastoralReportService {
       const concernByCategory: Record<string, number> = {};
       const distinctStaffSet = new Set<string>();
       for (const c of concerns) {
-        concernByCategory[c.category] =
-          (concernByCategory[c.category] ?? 0) + 1;
+        concernByCategory[c.category] = (concernByCategory[c.category] ?? 0) + 1;
         distinctStaffSet.add(c.logged_by_user_id);
       }
 
@@ -1033,23 +1002,16 @@ export class PastoralReportService {
           }
         }
 
-        if (
-          intervention.outcome_notes &&
-          String(intervention.outcome_notes).trim().length > 0
-        ) {
+        if (intervention.outcome_notes && String(intervention.outcome_notes).trim().length > 0) {
           withDocumentedOutcomes++;
         }
       }
 
       const interventionTotal = interventions.length;
       const measurablePercent =
-        interventionTotal > 0
-          ? Math.round((withMeasurableTargets / interventionTotal) * 100)
-          : 0;
+        interventionTotal > 0 ? Math.round((withMeasurableTargets / interventionTotal) * 100) : 0;
       const documentedPercent =
-        interventionTotal > 0
-          ? Math.round((withDocumentedOutcomes / interventionTotal) * 100)
-          : 0;
+        interventionTotal > 0 ? Math.round((withDocumentedOutcomes / interventionTotal) * 100) : 0;
 
       // 5. Referral pathways
       const referrals = await db.pastoralReferral.findMany({
@@ -1062,18 +1024,15 @@ export class PastoralReportService {
 
       const referralByType: Record<string, number> = {};
       for (const r of referrals) {
-        referralByType[r.referral_type] =
-          (referralByType[r.referral_type] ?? 0) + 1;
+        referralByType[r.referral_type] = (referralByType[r.referral_type] ?? 0) + 1;
       }
 
       // 6. Continuum coverage
       const continuumCoverage = { level_1: 0, level_2: 0, level_3: 0 };
       for (const intervention of interventions) {
         if (intervention.continuum_level === 1) continuumCoverage.level_1++;
-        else if (intervention.continuum_level === 2)
-          continuumCoverage.level_2++;
-        else if (intervention.continuum_level === 3)
-          continuumCoverage.level_3++;
+        else if (intervention.continuum_level === 2) continuumCoverage.level_2++;
+        else if (intervention.continuum_level === 3) continuumCoverage.level_3++;
       }
 
       return {

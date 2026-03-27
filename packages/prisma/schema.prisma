@@ -657,29 +657,30 @@ model Tenant {
   safeguarding_break_glass_grants    SafeguardingBreakGlassGrant[]
 
   // Pastoral Care Relations
-  pastoral_concerns                 PastoralConcern[]
-  pastoral_concern_versions         PastoralConcernVersion[]
-  cp_records                        CpRecord[]
-  cp_access_grants                  CpAccessGrant[]
-  pastoral_cases                    PastoralCase[]
-  pastoral_case_students            PastoralCaseStudent[]
-  pastoral_interventions            PastoralIntervention[]
-  pastoral_intervention_actions     PastoralInterventionAction[]
-  pastoral_intervention_progress    PastoralInterventionProgress[]
-  pastoral_referrals                PastoralReferral[]
-  pastoral_referral_recommendations PastoralReferralRecommendation[]
-  pastoral_neps_visits              PastoralNepsVisit[]
-  pastoral_neps_visit_students      PastoralNepsVisitStudent[]
-  sst_members                       SstMember[]
-  sst_meetings                      SstMeeting[]
-  sst_meeting_agenda_items          SstMeetingAgendaItem[]
-  sst_meeting_actions               SstMeetingAction[]
-  pastoral_parent_contacts          PastoralParentContact[]
-  pastoral_events                   PastoralEvent[]
-  pastoral_dsar_reviews             PastoralDsarReview[]
-  critical_incidents                CriticalIncident[]
-  critical_incident_affected        CriticalIncidentAffected[]
-  student_checkins                  StudentCheckin[]
+  pastoral_concerns                  PastoralConcern[]
+  pastoral_concern_involved_students PastoralConcernInvolvedStudent[]
+  pastoral_concern_versions          PastoralConcernVersion[]
+  cp_records                         CpRecord[]
+  cp_access_grants                   CpAccessGrant[]
+  pastoral_cases                     PastoralCase[]
+  pastoral_case_students             PastoralCaseStudent[]
+  pastoral_interventions             PastoralIntervention[]
+  pastoral_intervention_actions      PastoralInterventionAction[]
+  pastoral_intervention_progress     PastoralInterventionProgress[]
+  pastoral_referrals                 PastoralReferral[]
+  pastoral_referral_recommendations  PastoralReferralRecommendation[]
+  pastoral_neps_visits               PastoralNepsVisit[]
+  pastoral_neps_visit_students       PastoralNepsVisitStudent[]
+  sst_members                        SstMember[]
+  sst_meetings                       SstMeeting[]
+  sst_meeting_agenda_items           SstMeetingAgendaItem[]
+  sst_meeting_actions                SstMeetingAction[]
+  pastoral_parent_contacts           PastoralParentContact[]
+  pastoral_events                    PastoralEvent[]
+  pastoral_dsar_reviews              PastoralDsarReview[]
+  critical_incidents                 CriticalIncident[]
+  critical_incident_affected         CriticalIncidentAffected[]
+  student_checkins                   StudentCheckin[]
 
   // Staff Wellbeing Relations
   staff_surveys    StaffSurvey[]
@@ -1415,19 +1416,20 @@ model Student {
   sg_concerns              SafeguardingConcern[]          @relation("sg_concern_student")
 
   // Pastoral Care Relations
-  pc_concerns            PastoralConcern[]          @relation("pc_concern_student")
-  pc_cp_records          CpRecord[]                 @relation("pc_cp_record_student")
-  pc_cases               PastoralCase[]             @relation("pc_case_student")
-  pc_case_students       PastoralCaseStudent[]      @relation("pc_case_student_link")
-  pc_interventions       PastoralIntervention[]     @relation("pc_intervention_student")
-  pc_referrals           PastoralReferral[]         @relation("pc_referral_student")
-  pc_neps_visit_students PastoralNepsVisitStudent[] @relation("pc_neps_visit_student")
-  pc_parent_contacts     PastoralParentContact[]    @relation("pc_parent_contact_student")
-  pc_events              PastoralEvent[]            @relation("pc_event_student")
-  pc_sst_agenda_items    SstMeetingAgendaItem[]     @relation("pc_sst_agenda_student")
-  pc_sst_meeting_actions SstMeetingAction[]         @relation("pc_sst_action_student")
-  pc_critical_affected   CriticalIncidentAffected[] @relation("pc_critical_affected_student")
-  pc_checkins            StudentCheckin[]           @relation("pc_checkin_student")
+  pc_concerns                  PastoralConcern[]                @relation("pc_concern_student")
+  pc_concern_involved_students PastoralConcernInvolvedStudent[] @relation("pc_concern_involved_student")
+  pc_cp_records                CpRecord[]                       @relation("pc_cp_record_student")
+  pc_cases                     PastoralCase[]                   @relation("pc_case_student")
+  pc_case_students             PastoralCaseStudent[]            @relation("pc_case_student_link")
+  pc_interventions             PastoralIntervention[]           @relation("pc_intervention_student")
+  pc_referrals                 PastoralReferral[]               @relation("pc_referral_student")
+  pc_neps_visit_students       PastoralNepsVisitStudent[]       @relation("pc_neps_visit_student")
+  pc_parent_contacts           PastoralParentContact[]          @relation("pc_parent_contact_student")
+  pc_events                    PastoralEvent[]                  @relation("pc_event_student")
+  pc_sst_agenda_items          SstMeetingAgendaItem[]           @relation("pc_sst_agenda_student")
+  pc_sst_meeting_actions       SstMeetingAction[]               @relation("pc_sst_action_student")
+  pc_critical_affected         CriticalIncidentAffected[]       @relation("pc_critical_affected_student")
+  pc_checkins                  StudentCheckin[]                 @relation("pc_checkin_student")
 
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
@@ -6468,18 +6470,19 @@ model PastoralConcern {
   updated_at              DateTime                @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student              Student                  @relation("pc_concern_student", fields: [student_id], references: [id], onDelete: Restrict)
-  logged_by            User                     @relation("pc_concern_logged_by", fields: [logged_by_user_id], references: [id], onDelete: Restrict)
-  case                 PastoralCase?            @relation(fields: [case_id], references: [id], onDelete: SetNull)
-  behaviour_incident   BehaviourIncident?       @relation("pc_concern_behaviour_incident", fields: [behaviour_incident_id], references: [id], onDelete: SetNull)
-  shared_by            User?                    @relation("pc_concern_shared_by", fields: [shared_by_user_id], references: [id], onDelete: SetNull)
-  acknowledged_by      User?                    @relation("pc_concern_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
+  tenant               Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student              Student                          @relation("pc_concern_student", fields: [student_id], references: [id], onDelete: Restrict)
+  logged_by            User                             @relation("pc_concern_logged_by", fields: [logged_by_user_id], references: [id], onDelete: Restrict)
+  case                 PastoralCase?                    @relation(fields: [case_id], references: [id], onDelete: SetNull)
+  behaviour_incident   BehaviourIncident?               @relation("pc_concern_behaviour_incident", fields: [behaviour_incident_id], references: [id], onDelete: SetNull)
+  shared_by            User?                            @relation("pc_concern_shared_by", fields: [shared_by_user_id], references: [id], onDelete: SetNull)
+  acknowledged_by      User?                            @relation("pc_concern_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
+  involved_students    PastoralConcernInvolvedStudent[]
   versions             PastoralConcernVersion[]
   cp_records           CpRecord[]
-  parent_contacts      PastoralParentContact[]  @relation("pc_parent_contact_concern")
-  sst_agenda_items     SstMeetingAgendaItem[]   @relation("pc_sst_agenda_concern")
-  student_checkins     StudentCheckin[]         @relation("pc_checkin_auto_concern")
+  parent_contacts      PastoralParentContact[]          @relation("pc_parent_contact_concern")
+  sst_agenda_items     SstMeetingAgendaItem[]           @relation("pc_sst_agenda_concern")
+  student_checkins     StudentCheckin[]                 @relation("pc_checkin_auto_concern")
   safeguardingConcerns SafeguardingConcern[]
 
   @@index([tenant_id, student_id, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_student_created")
@@ -6488,6 +6491,21 @@ model PastoralConcern {
   @@index([tenant_id, severity, acknowledged_at], map: "idx_pastoral_concerns_tenant_severity_ack")
   @@index([tenant_id, import_hash], map: "idx_pastoral_concerns_import_hash")
   @@map("pastoral_concerns")
+}
+
+model PastoralConcernInvolvedStudent {
+  concern_id String   @db.Uuid
+  student_id String   @db.Uuid
+  tenant_id  String   @db.Uuid
+  added_at   DateTime @default(now()) @db.Timestamptz()
+
+  tenant  Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  concern PastoralConcern @relation(fields: [concern_id], references: [id], onDelete: Cascade)
+  student Student         @relation("pc_concern_involved_student", fields: [student_id], references: [id], onDelete: Restrict)
+
+  @@id([concern_id, student_id])
+  @@index([tenant_id, student_id], map: "idx_pastoral_concern_involved_students_tenant_student")
+  @@map("pastoral_concern_involved_students")
 }
 
 /// Append-only -- no updated_at
