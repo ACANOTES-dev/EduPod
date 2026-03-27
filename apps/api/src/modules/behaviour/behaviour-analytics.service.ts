@@ -706,7 +706,6 @@ export class BehaviourAnalyticsService {
       },
     });
 
-    const ruleMap = new Map(rules.map((r) => [r.id, r.name]));
     const evalMap = new Map<string, { match: number; fire: number }>();
 
     for (const row of evaluations) {
