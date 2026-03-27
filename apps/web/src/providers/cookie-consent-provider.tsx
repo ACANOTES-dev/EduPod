@@ -2,6 +2,7 @@
 
 import { Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import {
@@ -14,6 +15,7 @@ import {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function CookieConsentProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations('cookieConsent');
   const [visible, setVisible] = React.useState(false);
   const [showPreferences, setShowPreferences] = React.useState(false);
   const [analyticsEnabled, setAnalyticsEnabled] = React.useState(false);
@@ -55,15 +57,14 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 <Shield className="h-4 w-4 text-brand" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-text-primary">Cookie Preferences</h2>
+                <h2 className="text-sm font-semibold text-text-primary">{t('title')}</h2>
                 <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                  We use cookies to ensure our site works properly. Some cookies help us improve
-                  your experience.{' '}
+                  {t('description')}{' '}
                   <Link
                     href="/cookie-policy"
                     className="text-brand underline underline-offset-2 hover:text-brand/80"
                   >
-                    Cookie Policy
+                    {t('cookiePolicy')}
                   </Link>
                 </p>
               </div>
@@ -75,15 +76,15 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 {/* Essential — always on */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-text-primary">Essential</p>
+                    <p className="text-xs font-medium text-text-primary">{t('essentialTitle')}</p>
                     <p className="text-xs text-text-secondary">
-                      Required for site functionality. Cannot be disabled.
+                      {t('essentialDescription')}
                     </p>
                   </div>
                   <button
                     type="button"
                     disabled
-                    aria-label="Essential cookies are always enabled"
+                    aria-label={t('essentialAlwaysOn')}
                     className="relative inline-flex h-5 w-9 shrink-0 cursor-not-allowed items-center rounded-full bg-brand opacity-60"
                   >
                     <span className="inline-block h-3.5 w-3.5 translate-x-[18px] rounded-full bg-white transition-transform" />
@@ -93,16 +94,16 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 {/* Analytics / Monitoring — toggleable */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium text-text-primary">Analytics / Monitoring</p>
+                    <p className="text-xs font-medium text-text-primary">{t('analyticsTitle')}</p>
                     <p className="text-xs text-text-secondary">
-                      Error tracking and session replay to help us improve stability.
+                      {t('analyticsDescription')}
                     </p>
                   </div>
                   <button
                     type="button"
                     role="switch"
                     aria-checked={analyticsEnabled}
-                    aria-label="Toggle analytics cookies"
+                    aria-label={t('analyticsToggle')}
                     onClick={() => setAnalyticsEnabled((prev) => !prev)}
                     className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
                       analyticsEnabled ? 'bg-brand' : 'bg-border'
@@ -128,12 +129,12 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                 {showPreferences ? (
                   <>
                     <ChevronUp className="h-3.5 w-3.5" />
-                    Hide Preferences
+                    {t('hidePreferences')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-3.5 w-3.5" />
-                    Manage Preferences
+                    {t('managePreferences')}
                   </>
                 )}
               </button>
@@ -145,7 +146,7 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                     onClick={handleSavePreferences}
                     className="rounded-lg bg-brand px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-brand/90"
                   >
-                    Save Preferences
+                    {t('savePreferences')}
                   </button>
                 ) : (
                   <>
@@ -154,14 +155,14 @@ export function CookieConsentProvider({ children }: { children: React.ReactNode 
                       onClick={handleEssentialOnly}
                       className="rounded-lg border border-border bg-surface px-4 py-2 text-xs font-medium text-text-primary transition-colors hover:bg-background"
                     >
-                      Essential Only
+                      {t('essentialOnly')}
                     </button>
                     <button
                       type="button"
                       onClick={handleAcceptAll}
                       className="rounded-lg bg-brand px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-brand/90"
                     >
-                      Accept All
+                      {t('acceptAll')}
                     </button>
                   </>
                 )}

@@ -35,12 +35,16 @@ function writeCookie(name: string, value: string, days: number): void {
   if (typeof document === 'undefined') return;
   const expires = new Date();
   expires.setDate(expires.getDate() + days);
-  document.cookie = [
+  const parts = [
     `${name}=${encodeURIComponent(value)}`,
     `expires=${expires.toUTCString()}`,
     'path=/',
     'SameSite=Lax',
-  ].join('; ');
+  ];
+  if (typeof location !== 'undefined' && location.protocol === 'https:') {
+    parts.push('Secure');
+  }
+  document.cookie = parts.join('; ');
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -64,7 +68,8 @@ export function getConsent(): StoredConsent | null {
       return parsed as StoredConsent;
     }
     return null;
-  } catch {
+  } catch (error: unknown) {
+    console.error('[cookie-consent] Failed to parse consent cookie:', error);
     return null;
   }
 }

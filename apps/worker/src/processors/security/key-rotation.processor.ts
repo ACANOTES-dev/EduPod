@@ -93,6 +93,10 @@ export class KeyRotationProcessor extends WorkerHost {
   ): Promise<RotationStats> {
     const stats: RotationStats = { total: 0, rotated: 0, skipped: 0, failed: 0 };
     const batchSize = 50;
+    // In non-dry-run mode, updated records drop out of the WHERE clause, so we
+    // always query from offset 0 — the next batch automatically contains the next
+    // unprocessed records. In dry-run mode, records are never updated and would
+    // loop infinitely at offset 0, so we increment offset only for dry runs.
     let offset = 0;
 
     for (;;) {
@@ -153,7 +157,9 @@ export class KeyRotationProcessor extends WorkerHost {
         }
       }
 
-      offset += batchSize;
+      if (dryRun) {
+        offset += batchSize;
+      }
     }
 
     return stats;
@@ -169,6 +175,10 @@ export class KeyRotationProcessor extends WorkerHost {
   ): Promise<RotationStats> {
     const stats: RotationStats = { total: 0, rotated: 0, skipped: 0, failed: 0 };
     const batchSize = 50;
+    // In non-dry-run mode, updated records drop out of the WHERE clause, so we
+    // always query from offset 0 — the next batch automatically contains the next
+    // unprocessed records. In dry-run mode, records are never updated and would
+    // loop infinitely at offset 0, so we increment offset only for dry runs.
     let offset = 0;
 
     for (;;) {
@@ -224,13 +234,20 @@ export class KeyRotationProcessor extends WorkerHost {
           }
 
           if (!dryRun) {
+            // Build update data dynamically — only include fields that were
+            // originally non-null to avoid writing explicit nulls for missing fields.
+            const updateData: Record<string, string | null> = {
+              bank_encryption_key_ref: currentKeyRef,
+            };
+            if (newAccountNumberEncrypted !== null) {
+              updateData['bank_account_number_encrypted'] = newAccountNumberEncrypted;
+            }
+            if (newIbanEncrypted !== null) {
+              updateData['bank_iban_encrypted'] = newIbanEncrypted;
+            }
             await this.prisma.staffProfile.update({
               where: { id: row.id },
-              data: {
-                bank_account_number_encrypted: newAccountNumberEncrypted,
-                bank_iban_encrypted: newIbanEncrypted,
-                bank_encryption_key_ref: currentKeyRef,
-              },
+              data: updateData,
             });
           }
 
@@ -242,13 +259,22 @@ export class KeyRotationProcessor extends WorkerHost {
         }
       }
 
-      offset += batchSize;
+      if (dryRun) {
+        offset += batchSize;
+      }
     }
 
     return stats;
   }
 
   // ─── Encryption helpers ───────────────────────────────────────────────────
+  //
+  // MAINTENANCE NOTE: These encrypt/decrypt methods duplicate the logic from
+  // apps/api/src/modules/configuration/encryption.service.ts.
+  // The worker cannot import the API's EncryptionService due to module boundaries.
+  // If the encryption format (AES-256-GCM, iv:authTag:ciphertext hex) changes,
+  // BOTH implementations must be updated in lockstep.
+  //
 
   /**
    * AES-256-GCM encrypt. Returns format: {iv_hex}:{authTag_hex}:{ciphertext_hex}

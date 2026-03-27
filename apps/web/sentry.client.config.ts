@@ -35,18 +35,14 @@ function getReplayOnErrorSampleRate(): number {
   try {
     const raw = readCookie('cookie_consent');
     if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        'analytics' in parsed &&
-        (parsed as Record<string, unknown>)['analytics'] === true
-      ) {
+      const parsed = JSON.parse(raw) as Record<string, unknown> | null;
+      const categories = parsed?.categories as Record<string, unknown> | undefined;
+      if (categories?.analytics === true) {
         return 0.1;
       }
     }
-  } catch {
-    // If cookie is missing or malformed, default to no replay
+  } catch (error: unknown) {
+    console.error('[Sentry] Failed to read cookie consent:', error);
   }
   return 0;
 }

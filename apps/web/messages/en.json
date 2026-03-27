@@ -1068,6 +1068,22 @@
     "all": "All",
     "noRequests": "No compliance requests found."
   },
+  "cookieConsent": {
+    "title": "Cookie Preferences",
+    "description": "We use cookies to ensure our site works properly. Some cookies help us improve your experience.",
+    "cookiePolicy": "Cookie Policy",
+    "essentialTitle": "Essential",
+    "essentialDescription": "Required for site functionality. Cannot be disabled.",
+    "essentialAlwaysOn": "Essential cookies are always enabled",
+    "analyticsTitle": "Analytics / Monitoring",
+    "analyticsDescription": "Error tracking and session replay to help us improve stability.",
+    "analyticsToggle": "Toggle analytics cookies",
+    "managePreferences": "Manage Preferences",
+    "hidePreferences": "Hide Preferences",
+    "savePreferences": "Save Preferences",
+    "essentialOnly": "Essential Only",
+    "acceptAll": "Accept All"
+  },
   "imports": {
     "title": "Bulk Import",
     "description": "Import data from Excel or CSV files into the system.",

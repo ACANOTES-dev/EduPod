@@ -68,6 +68,10 @@ export class KeyRotationService {
     dryRun: boolean,
     stats: RotationStats,
   ): Promise<void> {
+    // In non-dry-run mode, updated records drop out of the WHERE clause, so we
+    // always query from offset 0 — the next batch automatically contains the next
+    // unprocessed records. In dry-run mode, records are never updated and would
+    // loop infinitely at offset 0, so we increment skip only for dry runs.
     let skip = 0;
     let hasMore = true;
 
@@ -130,8 +134,10 @@ export class KeyRotationService {
         `Stripe configs batch: processed ${stats.total} records (rotated: ${stats.rotated}, failed: ${stats.failed})`,
       );
 
+      if (dryRun) {
+        skip += BATCH_SIZE;
+      }
       hasMore = batch.length >= BATCH_SIZE;
-      skip += BATCH_SIZE;
     }
   }
 
@@ -142,6 +148,10 @@ export class KeyRotationService {
     dryRun: boolean,
     stats: RotationStats,
   ): Promise<void> {
+    // In non-dry-run mode, updated records drop out of the WHERE clause, so we
+    // always query from offset 0 — the next batch automatically contains the next
+    // unprocessed records. In dry-run mode, records are never updated and would
+    // loop infinitely at offset 0, so we increment skip only for dry runs.
     let skip = 0;
     let hasMore = true;
 
@@ -222,8 +232,10 @@ export class KeyRotationService {
         `Staff profiles batch: processed ${stats.total} records (rotated: ${stats.rotated}, failed: ${stats.failed})`,
       );
 
+      if (dryRun) {
+        skip += BATCH_SIZE;
+      }
       hasMore = batch.length >= BATCH_SIZE;
-      skip += BATCH_SIZE;
     }
   }
 }
