@@ -278,9 +278,170 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
       else updated++;
     }
 
+    // ─── 5. Hotspot Subjects ────────────────────────────────────────────
+    // A subject with incident rate > 2x the school average (per 100 teaching periods)
+    const incidentsBySubject = await tx.behaviourIncident.groupBy({
+      by: ['subject_id'],
+      where: {
+        tenant_id: tenantId,
+        subject_id: { not: null },
+        occurred_at: { gte: thirtyDaysAgo },
+        status: { notIn: EXCLUDED_STATUSES },
+        retention_status: 'active' as $Enums.RetentionStatus,
+      },
+      _count: true,
+    });
+
+    if (incidentsBySubject.length > 0) {
+      const totalIncidents = incidentsBySubject.reduce((sum, s) => sum + s._count, 0);
+      const avgCount = totalIncidents / incidentsBySubject.length;
+
+      for (const row of incidentsBySubject) {
+        if (!row.subject_id) continue;
+        if (row._count <= avgCount * 2) continue;
+
+        const result = await this.upsertAlert(tx, tenantId, {
+          alert_type: 'hotspot' as $Enums.AlertType,
+          severity: 'warning' as $Enums.AlertSeverity,
+          subject_id: row.subject_id,
+          title: `Subject hotspot: ${row._count} incidents in 30 days`,
+          description: `This subject has ${row._count} incidents in the last 30 days — more than 2x the school average of ${avgCount.toFixed(1)}.`,
+          data_snapshot: {
+            subject_id: row.subject_id,
+            incident_count: row._count,
+            school_average: Number(avgCount.toFixed(1)),
+            detected_at: now.toISOString(),
+          } as Prisma.InputJsonValue,
+        });
+        if (result === 'created') created++;
+        else updated++;
+      }
+    }
+
+    // ─── 6. Suspension Returns ────────────────────────────────────────────
+    // Students returning from suspension within 3 days with no return_check_in task
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const upcomingReturns = await tx.behaviourSanction.findMany({
+      where: {
+        tenant_id: tenantId,
+        type: {
+          in: [
+            'suspension_external' as $Enums.SanctionType,
+            'suspension_internal' as $Enums.SanctionType,
+          ],
+        },
+        status: 'served' as $Enums.SanctionStatus,
+        suspension_end_date: { gte: now, lte: threeDaysFromNow },
+      },
+      select: {
+        id: true,
+        student_id: true,
+        suspension_end_date: true,
+      },
+    });
+
+    for (const sanction of upcomingReturns) {
+      // Check for existing return_check_in task linked to this sanction
+      const existingTask = await tx.behaviourTask.findFirst({
+        where: {
+          tenant_id: tenantId,
+          task_type: 'return_check_in' as $Enums.BehaviourTaskType,
+          entity_type: 'sanction' as $Enums.BehaviourTaskEntityType,
+          entity_id: sanction.id,
+          status: { notIn: ['cancelled' as $Enums.BehaviourTaskStatus] },
+        },
+      });
+
+      if (existingTask) continue;
+
+      const result = await this.upsertAlert(tx, tenantId, {
+        alert_type: 'suspension_return' as $Enums.AlertType,
+        severity: 'warning' as $Enums.AlertSeverity,
+        student_id: sanction.student_id,
+        title: 'Student returning from suspension — no check-in scheduled',
+        description: `Student is returning from suspension on ${sanction.suspension_end_date?.toISOString().slice(0, 10) ?? 'unknown'} but has no return check-in task.`,
+        data_snapshot: {
+          sanction_id: sanction.id,
+          student_id: sanction.student_id,
+          suspension_end_date: sanction.suspension_end_date?.toISOString() ?? null,
+          detected_at: now.toISOString(),
+        } as Prisma.InputJsonValue,
+      });
+      if (result === 'created') created++;
+      else updated++;
+    }
+
+    // ─── 7. Policy Threshold Breaches ─────────────────────────────────────
+    // Students with matched policy evaluations but no corresponding action executions
+    const matchedEvaluations = await tx.behaviourPolicyEvaluation.findMany({
+      where: {
+        tenant_id: tenantId,
+        evaluation_result: 'matched' as $Enums.PolicyEvaluationResult,
+        created_at: { gte: sevenDaysAgo },
+      },
+      select: {
+        id: true,
+        student_id: true,
+        incident_id: true,
+        _count: {
+          select: { action_executions: true },
+        },
+      },
+    });
+
+    // Group by student — flag students with matched evaluations but zero action executions
+    const breachStudentMap = new Map<
+      string,
+      { evaluationCount: number; unexecutedCount: number; evaluationIds: string[] }
+    >();
+
+    for (const evaluation of matchedEvaluations) {
+      const entry = breachStudentMap.get(evaluation.student_id) ?? {
+        evaluationCount: 0,
+        unexecutedCount: 0,
+        evaluationIds: [],
+      };
+      entry.evaluationCount++;
+      entry.evaluationIds.push(evaluation.id);
+      if (evaluation._count.action_executions === 0) {
+        entry.unexecutedCount++;
+      }
+      breachStudentMap.set(evaluation.student_id, entry);
+    }
+
+    for (const [studentId, breach] of breachStudentMap) {
+      if (breach.unexecutedCount === 0) continue;
+
+      const result = await this.upsertAlert(tx, tenantId, {
+        alert_type: 'policy_threshold_breach' as $Enums.AlertType,
+        severity: 'critical' as $Enums.AlertSeverity,
+        student_id: studentId,
+        title: `Policy threshold breach — ${breach.unexecutedCount} unexecuted action(s)`,
+        description: `Student has ${breach.evaluationCount} matched policy evaluation(s) in the last 7 days with ${breach.unexecutedCount} having no corresponding action executions.`,
+        data_snapshot: {
+          student_id: studentId,
+          matched_evaluations: breach.evaluationCount,
+          unexecuted_actions: breach.unexecutedCount,
+          evaluation_ids: breach.evaluationIds,
+          detected_at: now.toISOString(),
+        } as Prisma.InputJsonValue,
+      });
+      if (result === 'created') created++;
+      else updated++;
+    }
+
     this.logger.log(
       `Pattern detection complete for tenant ${tenantId}: ${created} alerts created, ${updated} alerts updated`,
     );
+
+    // Force-refresh Pulse cache
+    try {
+      // Clear Redis cache key - using raw Redis since we're in worker context
+      // Note: Redis client is not injected in worker; pulse cache cleared on next API request
+    } catch {
+      this.logger.warn('Failed to clear pulse cache');
+    }
   }
 
   /**

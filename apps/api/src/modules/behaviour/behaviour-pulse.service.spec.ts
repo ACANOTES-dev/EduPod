@@ -1,5 +1,7 @@
 import type { PulseDimension } from '@school/shared';
 
+import { PrismaService } from '../prisma/prisma.service';
+
 import { BehaviourPulseService } from './behaviour-pulse.service';
 
 describe('BehaviourPulseService', () => {
@@ -117,6 +119,96 @@ describe('BehaviourPulseService', () => {
     it('should handle mid-range value (rate = 1.0)', () => {
       // rate 1.0: 0.8 - ((1.0-0.5)/1.5) * 0.4 = 0.8 - 0.1333 = 0.6667
       expect(scoreRate(1.0)).toBeCloseTo(0.6667, 3);
+    });
+  });
+
+  // ─── Dimension computations (Prisma-mocked) ─────────────────────────────
+
+  describe('dimension computations', () => {
+    let dimService: BehaviourPulseService;
+    let mockPrisma: {
+      behaviourIncident: {
+        groupBy: jest.Mock;
+        aggregate: jest.Mock;
+        count: jest.Mock;
+        findMany: jest.Mock;
+      };
+      tenantMembership: { count: jest.Mock };
+      student: { count: jest.Mock };
+    };
+
+    const TENANT = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const FROM = new Date('2026-03-19T00:00:00Z');
+    const TO = new Date('2026-03-26T00:00:00Z');
+
+    beforeEach(() => {
+      mockPrisma = {
+        behaviourIncident: {
+          groupBy: jest.fn().mockResolvedValue([]),
+          aggregate: jest.fn().mockResolvedValue({ _avg: { severity: null }, _count: 0 }),
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        tenantMembership: { count: jest.fn().mockResolvedValue(0) },
+        student: { count: jest.fn().mockResolvedValue(0) },
+      };
+
+      dimService = new BehaviourPulseService(
+        mockPrisma as unknown as PrismaService,
+        {} as never, // RedisService (not needed for dimension methods)
+      );
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('should compute positive_ratio as positive / (positive + negative)', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([
+        { polarity: 'positive', _count: 3 },
+        { polarity: 'negative', _count: 7 },
+      ]);
+
+      const result = await dimService.computePositiveRatio(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(0.3, 5);
+    });
+
+    it('should return positive_ratio = null when zero positive+negative incidents', async () => {
+      mockPrisma.behaviourIncident.groupBy.mockResolvedValue([]);
+
+      const result = await dimService.computePositiveRatio(TENANT, FROM, TO);
+
+      expect(result).toBeNull();
+    });
+
+    it('should compute severity_index = 1.0 when no negative incidents', async () => {
+      mockPrisma.behaviourIncident.aggregate.mockResolvedValue({
+        _avg: { severity: null },
+        _count: 0,
+      });
+
+      const result = await dimService.computeSeverityIndex(TENANT, FROM, TO);
+
+      expect(result).toBe(1.0);
+    });
+
+    it('should compute severity_index from weighted average severity', async () => {
+      // avg severity = 5, count = 10 => 1 - (5-1)/9 = 1 - 4/9 = 0.5556
+      mockPrisma.behaviourIncident.aggregate.mockResolvedValue({
+        _avg: { severity: 5 },
+        _count: 10,
+      });
+
+      const result = await dimService.computeSeverityIndex(TENANT, FROM, TO);
+
+      expect(result).toBeCloseTo(1 - (5 - 1) / 9, 4); // ~0.5556
+    });
+
+    it('should compute resolution_rate = 1.0 when zero follow_ups_required', async () => {
+      mockPrisma.behaviourIncident.count.mockResolvedValue(0);
+
+      const result = await dimService.computeResolutionRate(TENANT, FROM, TO);
+
+      expect(result).toBe(1.0);
     });
   });
 });

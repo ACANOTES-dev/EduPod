@@ -98,6 +98,11 @@ WHERE bi.status NOT IN ('withdrawn', 'converted_to_safeguarding')
   AND bi_p.participant_type = 'student'
   AND bi.academic_period_id IS NOT NULL
 GROUP BY bi.tenant_id, bi.academic_year_id, bi.academic_period_id, bc.benchmark_category
+HAVING COUNT(DISTINCT bi_p.student_id) >= COALESCE(
+  (SELECT (ts.settings->'behaviour'->>'benchmark_min_cohort_size')::int
+   FROM tenant_settings ts WHERE ts.tenant_id = bi.tenant_id),
+  10
+)
 WITH DATA;
 
 CREATE UNIQUE INDEX uq_mv_behaviour_benchmarks

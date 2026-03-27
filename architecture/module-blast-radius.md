@@ -123,13 +123,20 @@ These modules have NO downstream dependents. Changes are contained:
 ## Tier 3 — Domain Modules with Cross-Module Dependencies
 
 ### BehaviourModule
-- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`
+- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`
+- **Controllers**: `BehaviourController`, `BehaviourAnalyticsController` (16 endpoints), `BehaviourAlertsController` (8 endpoints)
 - **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService)
-- **Queues**: Enqueues to `notifications` (parent notifications, sanction notices, appeal outcomes, correction notices) and `behaviour` (policy evaluation, suspension return checks), processes from `behaviour` (task reminders, policy evaluation, suspension-return)
-- **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions. SanctionService auto-creates exclusion cases. AppealService cascades decisions to sanctions/incidents.
-- **Blast radius**: MEDIUM-HIGH. ApprovalsModule changes affect behaviour policy actions. Sanction lifecycle creates exclusion cases, legal holds, amendment notices. Appeal decisions cascade to sanctions, incidents, and exclusion cases.
+- **Internal dependencies**:
+  - `BehaviourPulseService` -> PrismaService, RedisService
+  - `BehaviourAnalyticsService` -> PrismaService, BehaviourScopeService, BehaviourPulseService
+  - `BehaviourAlertsService` -> PrismaService
+  - `BehaviourAIService` -> PrismaService, BehaviourScopeService, BehaviourAnalyticsService, ConfigService, `@anthropic-ai/sdk` (Claude API)
+- **External dependencies**: `@anthropic-ai/sdk` (Anthropic Claude API for AI-powered behaviour queries in BehaviourAIService)
+- **Queues**: Enqueues to `notifications` (parent notifications, sanction notices, appeal outcomes, correction notices) and `behaviour` (policy evaluation, suspension return checks, pattern detection, materialized view refreshes), processes from `behaviour` (task reminders, policy evaluation, suspension-return, detect-patterns, refresh-mv-student-summary, refresh-mv-benchmarks, refresh-mv-exposure-rates)
+- **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions. SanctionService auto-creates exclusion cases. AppealService cascades decisions to sanctions/incidents. BehaviourAnalyticsService reads from materialized views refreshed by cron jobs.
+- **Blast radius**: MEDIUM-HIGH. ApprovalsModule changes affect behaviour policy actions. Sanction lifecycle creates exclusion cases, legal holds, amendment notices. Appeal decisions cascade to sanctions, incidents, and exclusion cases. Materialized view refreshes depend on underlying tables (behaviour_incidents, behaviour_incident_participants, behaviour_sanctions).
 - **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, and student data.
-- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker.
+- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker. The `@anthropic-ai/sdk` dependency requires an API key configured per tenant via ConfigService — missing key = AI queries fail with a clear error, not a crash.
 
 ---
 

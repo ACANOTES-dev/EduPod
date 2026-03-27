@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **11 queues**, **32 job types**, **3 cron jobs**
+- **11 queues**, **36 job types**, **7 cron jobs**
 
 ---
 
@@ -224,7 +224,7 @@ ComplianceService.approve()
 | payroll | 3 | 5s exponential | |
 | imports | 3 | 5s exponential | Also handles compliance jobs |
 | reports | 3 | 5s exponential | No processors yet (future use) |
-| behaviour | 3 | 5s exponential | Task reminders cron, policy evaluation |
+| behaviour | 3 | 5s exponential | Task reminders cron, policy evaluation, pattern detection cron, 3 materialized view refresh crons |
 
 ---
 
@@ -295,6 +295,12 @@ Cron fires daily at 08:00 tenant TZ
 
 8. **Behaviour policy evaluation runs inside a single transaction** — The entire 5-stage evaluation for all student participants runs in one Prisma $transaction. If a tenant has many rules (>50 per stage), the transaction may approach the 30s timeout. Rule hygiene warnings are logged at 50+ rules per stage.
 
+9. **Behaviour materialized view refresh crons overlap with gradebook crons** — `behaviour:refresh-mv-exposure-rates` runs at 02:00, `gradebook:detect-risks` runs at 02:00, and `behaviour:refresh-mv-benchmarks` runs at 03:00 alongside `report-cards:auto-generate`. If PostgreSQL is under memory pressure, concurrent heavy aggregations may cause issues.
+
+10. **Behaviour pattern detection creates alerts that accumulate** — `behaviour:detect-patterns` creates `behaviour_alerts` records daily. Without periodic cleanup or auto-resolution of stale alerts, the alerts table can grow unbounded. Patterns that no longer match are auto-resolved, but resolved records remain in the table.
+
+11. **Behaviour AI service depends on external API** — `BehaviourAIService` calls the Anthropic Claude API via `@anthropic-ai/sdk`. External API downtime, rate limits, or missing API key configuration will cause AI query endpoints to fail. These are non-critical — all other analytics endpoints work without AI.
+
 ---
 
 ### `behaviour:evaluate-policy` (behaviour queue)
@@ -361,3 +367,85 @@ Daily cron fires at 07:00
 ```
 
 **Danger**: The 3 school day lookahead uses `addSchoolDays()` from shared package, which queries `school_closures`. If closures are not up-to-date, tasks may be created on wrong dates. Idempotent — safe to retry.
+
+---
+
+### `behaviour:detect-patterns` (behaviour queue — CRON)
+
+**Trigger**: Daily cron at 05:00 UTC.
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/detect-patterns.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase F
+
+**Side effects chain**:
+```
+Daily cron fires at 05:00 UTC
+  -> behaviour:detect-patterns enqueued per tenant
+  -> Worker runs 7 pattern detection algorithms:
+    -> frequency spike, escalation trajectory, peer cluster,
+       time-of-day concentration, category shift, response effectiveness, chronic low-level
+  -> For each detected pattern:
+    -> Upsert behaviour_alerts record (idempotent by pattern signature)
+    -> Create behaviour_alert_recipients for relevant staff
+  -> Patterns that no longer match are auto-resolved (status -> resolved)
+```
+
+**Danger**: Runs 7 algorithms sequentially per tenant. For tenants with large incident volumes (>1000 active incidents), this job may approach timeout. Each algorithm queries behaviour_incidents and related tables — performance depends on proper indexing.
+
+---
+
+### `behaviour:refresh-mv-student-summary` (behaviour queue — CRON)
+
+**Trigger**: Cron every 15 minutes (`*/15 * * * *`).
+**Payload**: None (runs for all tenants — materialized view is cross-tenant, filtered by RLS at query time).
+**Processor**: `apps/worker/src/processors/behaviour/refresh-mv-student-summary.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase F
+
+**Side effects chain**:
+```
+Cron fires every 15 minutes
+  -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary
+  -> No other side effects (read-only refresh)
+```
+
+**Danger**: `CONCURRENTLY` requires a unique index on the materialized view. If the unique index is missing, the refresh will fail. The 15-minute interval means analytics data can be up to 15 minutes stale.
+
+---
+
+### `behaviour:refresh-mv-benchmarks` (behaviour queue — CRON)
+
+**Trigger**: Daily cron at 03:00 UTC (`0 3 * * *`).
+**Payload**: None (runs for all tenants).
+**Processor**: `apps/worker/src/processors/behaviour/refresh-mv-benchmarks.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase F
+
+**Side effects chain**:
+```
+Daily cron fires at 03:00 UTC
+  -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks
+  -> No other side effects (read-only refresh)
+```
+
+**Danger**: Runs at 03:00, one hour after `behaviour:refresh-mv-exposure-rates` (02:00). Both are heavy aggregations — stagger is intentional to avoid concurrent load on PostgreSQL.
+
+---
+
+### `behaviour:refresh-mv-exposure-rates` (behaviour queue — CRON)
+
+**Trigger**: Daily cron at 02:00 UTC (`0 2 * * *`).
+**Payload**: None (runs for all tenants).
+**Processor**: `apps/worker/src/processors/behaviour/refresh-mv-exposure-rates.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase F
+
+**Side effects chain**:
+```
+Daily cron fires at 02:00 UTC
+  -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates
+  -> No other side effects (read-only refresh)
+```
+
+**Danger**: Earliest of the nightly behaviour crons (02:00). Must complete before `refresh-mv-benchmarks` at 03:00 if benchmarks depend on exposure rate data.

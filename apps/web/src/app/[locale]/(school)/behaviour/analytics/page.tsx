@@ -26,6 +26,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,16 @@ interface ComparisonEntry {
   student_count: number;
 }
 
+interface StaffEntry {
+  staff_id: string;
+  staff_name: string;
+  last_7_days: number;
+  last_30_days: number;
+  total_year: number;
+  last_logged_at: string | null;
+  inactive_flag: boolean;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BehaviourAnalyticsPage() {
@@ -103,6 +114,7 @@ export default function BehaviourAnalyticsPage() {
   const [subjects, setSubjects] = React.useState<SubjectEntry[]>([]);
   const [heatmap, setHeatmap] = React.useState<HeatmapCell[]>([]);
   const [comparisons, setComparisons] = React.useState<ComparisonEntry[]>([]);
+  const [staffData, setStaffData] = React.useState<StaffEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [dateRange, setDateRange] = React.useState('30');
   const [exposureNormalised, setExposureNormalised] = React.useState(true);
@@ -137,6 +149,17 @@ export default function BehaviourAnalyticsPage() {
       if (compRes?.entries) setComparisons(compRes.entries);
     } catch {
       // Error handling
+    }
+
+    // Staff analytics — separate try/catch; 403 means no permission, silently skip
+    try {
+      const staffRes = await apiClient<{ entries: StaffEntry[] }>(
+        `/behaviour/analytics/staff?${params}`,
+      );
+      if (staffRes?.entries) setStaffData(staffRes.entries);
+    } catch {
+      // 403 or other error — user lacks behaviour.view_staff_analytics permission
+      setStaffData([]);
     } finally {
       setLoading(false);
     }
@@ -386,6 +409,53 @@ export default function BehaviourAnalyticsPage() {
                 <Bar dataKey="negative_rate" fill="#ef4444" name="Negative" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Section 8: Staff Logging Activity */}
+      {staffData.length > 0 && (
+        <div className="rounded-lg border bg-card p-4 md:p-6">
+          <h3 className="mb-4 text-lg font-semibold">Staff Logging Activity</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="pb-2 text-start font-medium">Staff Name</th>
+                  <th className="pb-2 text-end font-medium">Last 7 Days</th>
+                  <th className="pb-2 text-end font-medium">Last 30 Days</th>
+                  <th className="pb-2 text-end font-medium">Total Year</th>
+                  <th className="pb-2 text-end font-medium">Last Logged</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staffData.map((entry) => (
+                  <tr
+                    key={entry.staff_id}
+                    className={`border-b last:border-0 ${
+                      entry.inactive_flag
+                        ? 'bg-danger-fill/20'
+                        : ''
+                    }`}
+                  >
+                    <td className="py-2 text-start">
+                      {entry.staff_name}
+                      {entry.inactive_flag && (
+                        <span className="ms-2 inline-flex items-center rounded-full bg-danger-fill px-3 py-1 text-xs font-medium text-danger-text">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-end">{entry.last_7_days}</td>
+                    <td className="py-2 text-end">{entry.last_30_days}</td>
+                    <td className="py-2 text-end">{entry.total_year}</td>
+                    <td className="py-2 text-end">
+                      {entry.last_logged_at ? formatDate(entry.last_logged_at) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
