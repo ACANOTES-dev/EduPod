@@ -3,11 +3,6 @@
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -20,10 +15,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Textarea,
 } from '@school/ui';
 import {
@@ -37,7 +28,6 @@ import {
   RotateCcw,
   Search,
   Shield,
-  Trash2,
   Users,
 } from 'lucide-react';
 import * as React from 'react';
@@ -115,51 +105,37 @@ export default function BehaviourAdminPage() {
         description="System health, operations, and data management"
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full flex overflow-x-auto">
-          <TabsTrigger value="health" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">System Health</span>
-            <span className="sm:hidden">Health</span>
-          </TabsTrigger>
-          <TabsTrigger value="dead-letter" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="hidden sm:inline">Dead-Letter</span>
-            <span className="sm:hidden">DLQ</span>
-          </TabsTrigger>
-          <TabsTrigger value="operations" className="flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            <span className="hidden sm:inline">Operations</span>
-            <span className="sm:hidden">Ops</span>
-          </TabsTrigger>
-          <TabsTrigger value="scope-audit" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Scope Audit</span>
-            <span className="sm:hidden">Scope</span>
-          </TabsTrigger>
-          <TabsTrigger value="retention" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Retention</span>
-            <span className="sm:hidden">Data</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Tab Navigation */}
+      <div className="flex overflow-x-auto border-b">
+        {[
+          { key: 'health', icon: Activity, label: 'System Health', shortLabel: 'Health' },
+          { key: 'dead-letter', icon: AlertTriangle, label: 'Dead-Letter', shortLabel: 'DLQ' },
+          { key: 'operations', icon: Play, label: 'Operations', shortLabel: 'Ops' },
+          { key: 'scope-audit', icon: Users, label: 'Scope Audit', shortLabel: 'Scope' },
+          { key: 'retention', icon: Database, label: 'Retention', shortLabel: 'Data' },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'border-b-2 border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.shortLabel}</span>
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="health">
-          <SystemHealthTab />
-        </TabsContent>
-        <TabsContent value="dead-letter">
-          <DeadLetterTab />
-        </TabsContent>
-        <TabsContent value="operations">
-          <OperationsTab />
-        </TabsContent>
-        <TabsContent value="scope-audit">
-          <ScopeAuditTab />
-        </TabsContent>
-        <TabsContent value="retention">
-          <RetentionTab />
-        </TabsContent>
-      </Tabs>
+      {/* Tab Content */}
+      {activeTab === 'health' && <SystemHealthTab />}
+      {activeTab === 'dead-letter' && <DeadLetterTab />}
+      {activeTab === 'operations' && <OperationsTab />}
+      {activeTab === 'scope-audit' && <ScopeAuditTab />}
+      {activeTab === 'retention' && <RetentionTab />}
     </div>
   );
 }
@@ -198,50 +174,50 @@ function SystemHealthTab() {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {/* Queue Depths */}
       {Object.entries(health.queue_depths).map(([name, depth]) => (
-        <Card key={name}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium capitalize">{name.replace(/_/g, ' ')}</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div key={name} className="rounded-lg border bg-card p-4">
+          <div className="pb-2">
+            <p className="text-sm font-medium capitalize">{name.replace(/_/g, ' ')}</p>
+          </div>
+          <div className="p-4 pt-0">
             <div className="flex items-center gap-2">
               <div className={`h-3 w-3 rounded-full ${getQueueColor(depth)}`} />
               <span className="text-2xl font-bold">{depth}</span>
               <span className="text-sm text-muted-foreground">jobs</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
 
       {/* Dead Letter */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Dead-Letter Queue</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border bg-card">
+        <div className="pb-2">
+          <p className="text-sm font-medium">Dead-Letter Queue</p>
+        </div>
+        <div className="p-4 pt-0">
           <div className="flex items-center gap-2">
             <div className={`h-3 w-3 rounded-full ${health.dead_letter_depth > 0 ? 'bg-red-500' : 'bg-green-500'}`} />
             <span className="text-2xl font-bold">{health.dead_letter_depth}</span>
             <span className="text-sm text-muted-foreground">failed</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Cache Hit Rate */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Redis Cache Hit Rate</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border bg-card">
+        <div className="pb-2">
+          <p className="text-sm font-medium">Redis Cache Hit Rate</p>
+        </div>
+        <div className="p-4 pt-0">
           <span className="text-2xl font-bold">{(health.cache_hit_rate * 100).toFixed(1)}%</span>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* View Freshness */}
-      <Card className="md:col-span-2 lg:col-span-3">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Materialised View Freshness</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border bg-card md:col-span-2 lg:col-span-3">
+        <div className="pb-2">
+          <p className="text-sm font-medium">Materialised View Freshness</p>
+        </div>
+        <div className="p-4 pt-0">
           <div className="space-y-2">
             {health.view_freshness.map((v) => (
               <div key={v.view_name} className="flex items-center justify-between">
@@ -252,32 +228,32 @@ function SystemHealthTab() {
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Scan Backlog */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Attachment Scan Backlog</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border bg-card">
+        <div className="pb-2">
+          <p className="text-sm font-medium">Attachment Scan Backlog</p>
+        </div>
+        <div className="p-4 pt-0">
           <span className="text-2xl font-bold">{health.scan_backlog}</span>
           <span className="ms-2 text-sm text-muted-foreground">pending</span>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Active Legal Holds */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Active Legal Holds</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="rounded-lg border bg-card">
+        <div className="pb-2">
+          <p className="text-sm font-medium">Active Legal Holds</p>
+        </div>
+        <div className="p-4 pt-0">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-amber-500" />
             <span className="text-2xl font-bold">{health.legal_holds_active}</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <div className="md:col-span-2 lg:col-span-3">
         <Button variant="outline" onClick={loadHealth}>
@@ -324,13 +300,13 @@ function DeadLetterTab() {
 
   if (jobs.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
+      <div className="rounded-lg border bg-card">
+        <div className="p-4 py-12 text-center">
           <Activity className="mx-auto mb-4 h-8 w-8 text-green-500" />
           <p className="font-medium">No failed jobs</p>
           <p className="text-sm text-muted-foreground">All queues healthy</p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -426,15 +402,15 @@ function OperationsTab() {
   return (
     <div className="space-y-4">
       {operations.map((op) => (
-        <Card key={op.key}>
-          <CardHeader>
+        <div key={op.key} className="rounded-lg border bg-card">
+          <div className="p-4 pb-2">
             <div className="flex items-center gap-2">
               <op.icon className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-base">{op.title}</CardTitle>
+              <p className="text-base font-semibold">{op.title}</p>
             </div>
-            <CardDescription>{op.desc}</CardDescription>
-          </CardHeader>
-          <CardContent>
+            <p className="text-sm text-muted-foreground">{op.desc}</p>
+          </div>
+          <div className="p-4 pt-0">
             <div className="flex flex-wrap items-center gap-2">
               {op.hasScope && (
                 <Select value={scope} onValueChange={setScope}>
@@ -463,8 +439,8 @@ function OperationsTab() {
                 Execute
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
 
       {/* Preview Modal */}
@@ -532,14 +508,14 @@ function ScopeAuditTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Staff Scope Audit</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border bg-card">
+        <div className="p-4 pb-2">
+          <p className="text-base font-semibold">Staff Scope Audit</p>
+          <p className="text-sm text-muted-foreground">
             Check which students a specific staff member can see in the behaviour module.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+        <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="Enter staff user ID"
@@ -576,8 +552,8 @@ function ScopeAuditTab() {
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -671,14 +647,14 @@ function RetentionTab() {
   return (
     <div className="space-y-6">
       {/* Retention Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Retention Preview</CardTitle>
-          <CardDescription>
+      <div className="rounded-lg border bg-card">
+        <div className="p-4 pb-2">
+          <p className="text-base font-semibold">Retention Preview</p>
+          <p className="text-sm text-muted-foreground">
             Preview which records would be affected by the next retention run.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </p>
+        </div>
+        <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={previewRetention}>
               <Eye className="me-2 h-4 w-4" />
@@ -708,26 +684,26 @@ function RetentionTab() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Legal Holds */}
-      <Card>
-        <CardHeader>
+      <div className="rounded-lg border bg-card">
+        <div className="p-4 pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Active Legal Holds</CardTitle>
-              <CardDescription>
+              <p className="text-base font-semibold">Active Legal Holds</p>
+              <p className="text-sm text-muted-foreground">
                 Records under legal hold are protected from archival and anonymisation.
-              </CardDescription>
+              </p>
             </div>
             <Button size="sm" onClick={() => setCreateDialog(true)}>
               <Lock className="me-2 h-4 w-4" />
               Create Hold
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="p-4 pt-0">
           {holds.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No active legal holds</p>
           ) : (
@@ -773,8 +749,8 @@ function RetentionTab() {
               </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Release Hold Dialog */}
       <Dialog open={!!releaseDialog} onOpenChange={() => setReleaseDialog(null)}>
