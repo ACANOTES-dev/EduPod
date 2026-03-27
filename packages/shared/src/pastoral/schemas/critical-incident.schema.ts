@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 import {
-  criticalIncidentImpactLevelSchema,
   criticalIncidentScopeSchema,
   criticalIncidentStatusSchema,
   criticalIncidentTypeSchema,
