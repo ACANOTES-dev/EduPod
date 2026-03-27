@@ -149,8 +149,8 @@ function SystemHealthTab() {
   const loadHealth = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/v1/behaviour/admin/health');
-      setHealth(res.data);
+      const res = await apiClient<HealthData>('/api/v1/behaviour/admin/health');
+      setHealth(res);
     } catch {
       // Failed to load health data
     } finally {
@@ -274,8 +274,8 @@ function DeadLetterTab() {
   const loadJobs = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/v1/behaviour/admin/dead-letter');
-      setJobs(Array.isArray(res.data) ? res.data : []);
+      const res = await apiClient<DeadLetterItem[]>('/api/v1/behaviour/admin/dead-letter');
+      setJobs(Array.isArray(res) ? res : []);
     } catch {
       // Failed
     } finally {
@@ -287,7 +287,7 @@ function DeadLetterTab() {
 
   const retryJob = async (jobId: string) => {
     try {
-      await apiClient.post(`/v1/behaviour/admin/dead-letter/${jobId}/retry`);
+      await apiClient(`/api/v1/behaviour/admin/dead-letter/${jobId}/retry`, { method: 'POST' });
       await loadJobs();
     } catch {
       // Failed
@@ -367,8 +367,8 @@ function OperationsTab() {
         : operation === 'backfill-tasks'
           ? { scope: 'tenant' }
           : {};
-      const res = await apiClient.post(`/v1/behaviour/admin/${operation}/preview`, body);
-      setPreviewData(res.data);
+      const res = await apiClient<PreviewResponse>(`/api/v1/behaviour/admin/${operation}/preview`, { method: 'POST', body: JSON.stringify(body) });
+      setPreviewData(res);
       setPreviewOp(operation);
     } catch {
       // Failed
@@ -382,7 +382,7 @@ function OperationsTab() {
         : operation === 'backfill-tasks'
           ? { scope: 'tenant' }
           : {};
-      await apiClient.post(`/v1/behaviour/admin/${operation}`, body);
+      await apiClient(`/api/v1/behaviour/admin/${operation}`, { method: 'POST', body: JSON.stringify(body) });
       setPreviewData(null);
       setPreviewOp(null);
     } catch {
@@ -497,8 +497,8 @@ function ScopeAuditTab() {
     if (!userId.trim()) return;
     setLoading(true);
     try {
-      const res = await apiClient.get(`/v1/behaviour/admin/scope-audit?user_id=${userId}`);
-      setResult(res.data);
+      const res = await apiClient<ScopeAuditResult>(`/api/v1/behaviour/admin/scope-audit?user_id=${userId}`);
+      setResult(res);
     } catch {
       // Failed
     } finally {
@@ -577,10 +577,8 @@ function RetentionTab() {
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [holdsRes] = await Promise.all([
-        apiClient.get('/v1/behaviour/admin/legal-holds?status=active&pageSize=100'),
-      ]);
-      setHolds(holdsRes.data?.data ?? []);
+      const holdsRes = await apiClient<{ data: LegalHold[]; meta: { total: number } }>('/api/v1/behaviour/admin/legal-holds?status=active&pageSize=100');
+      setHolds(holdsRes?.data ?? []);
     } catch {
       // Failed
     } finally {
@@ -592,8 +590,8 @@ function RetentionTab() {
 
   const previewRetention = async () => {
     try {
-      const res = await apiClient.post('/v1/behaviour/admin/retention/preview');
-      setRetentionPreview(res.data);
+      const res = await apiClient<RetentionPreview>('/api/v1/behaviour/admin/retention/preview', { method: 'POST' });
+      setRetentionPreview(res);
     } catch {
       // Failed
     }
@@ -601,7 +599,7 @@ function RetentionTab() {
 
   const executeRetention = async () => {
     try {
-      await apiClient.post('/v1/behaviour/admin/retention/execute');
+      await apiClient('/api/v1/behaviour/admin/retention/execute', { method: 'POST' });
     } catch {
       // Failed
     }
@@ -610,9 +608,9 @@ function RetentionTab() {
   const releaseHold = async (holdId: string) => {
     if (!releaseReason.trim()) return;
     try {
-      await apiClient.post(`/v1/behaviour/admin/legal-holds/${holdId}/release`, {
-        release_reason: releaseReason,
-        release_linked: false,
+      await apiClient(`/api/v1/behaviour/admin/legal-holds/${holdId}/release`, {
+        method: 'POST',
+        body: JSON.stringify({ release_reason: releaseReason, release_linked: false }),
       });
       setReleaseDialog(null);
       setReleaseReason('');
@@ -625,12 +623,15 @@ function RetentionTab() {
   const createHold = async () => {
     if (!newHold.entity_id.trim() || !newHold.hold_reason.trim()) return;
     try {
-      await apiClient.post('/v1/behaviour/admin/legal-holds', {
-        entity_type: newHold.entity_type,
-        entity_id: newHold.entity_id,
-        hold_reason: newHold.hold_reason,
-        legal_basis: newHold.legal_basis || null,
-        propagate: true,
+      await apiClient('/api/v1/behaviour/admin/legal-holds', {
+        method: 'POST',
+        body: JSON.stringify({
+          entity_type: newHold.entity_type,
+          entity_id: newHold.entity_id,
+          hold_reason: newHold.hold_reason,
+          legal_basis: newHold.legal_basis || null,
+          propagate: true,
+        }),
       });
       setCreateDialog(false);
       setNewHold({ entity_type: 'incident', entity_id: '', hold_reason: '', legal_basis: '' });
