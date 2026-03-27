@@ -90,6 +90,7 @@
     "behaviourStudents": "ملفات الطلاب",
     "guardianRestrictions": "قيود ولي الأمر",
     "safeguarding": "الحماية",
+    "pastoral": "الرعاية الطلابية",
     "wellbeing": "الرفاهية",
     "myWorkload": "عبء العمل",
     "supportResources": "الدعم والموارد",
@@ -5113,6 +5114,264 @@
       "retentionSection": "الاحتفاظ بالبيانات",
       "retentionLabel": "فترة الاحتفاظ (سنوات)",
       "retentionDescription": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً."
+    }
+  },
+  "pastoral": {
+    "workspace": {
+      "eyebrow": "مساحة الرفاه والرعاية الطلابية",
+      "title": "الرعاية الطلابية ورفاه الطالب",
+      "description": "سجّل المخاوف، واحفظ التسلسل الزمني بشكل قابل للمراجعة، وانقل الطالب إلى دعم منسّق عندما تستدعي الحالة المراجعة.",
+      "privacyBadge": "تبقى سجلات حماية الطفل من المستوى الثالث مقيّدة الوصول وغير قابلة للاكتشاف.",
+      "tabs": {
+        "overview": "نظرة عامة",
+        "concerns": "المخاوف"
+      }
+    },
+    "shared": {
+      "backToConcerns": "العودة إلى المخاوف",
+      "noStudents": "لم يتم العثور على طلاب.",
+      "noStaff": "لم يتم العثور على موظفين.",
+      "minSearchLength": "اكتب حرفين على الأقل للبحث.",
+      "notAvailable": "غير متاح",
+      "notRecorded": "غير مسجل",
+      "cancel": "إلغاء"
+    },
+    "badges": {
+      "severity": {
+        "routine": "روتيني",
+        "elevated": "مرتفع",
+        "urgent": "عاجل",
+        "critical": "حرج"
+      },
+      "tier": {
+        "tier1": "المستوى 1",
+        "tier2": "المستوى 2",
+        "tier3": "المستوى 3"
+      },
+      "caseStatus": {
+        "open": "مفتوحة",
+        "active": "نشطة",
+        "monitoring": "قيد المتابعة",
+        "resolved": "تمت المعالجة",
+        "closed": "مغلقة"
+      }
+    },
+    "overview": {
+      "title": "مساحة الرعاية الطلابية",
+      "description": "عرض تشغيلي آمن لتسجيل المخاوف، وحفظ التسلسل الزمني، والتصعيد إلى دعم منظم.",
+      "logConcern": "تسجيل مخاوف",
+      "stats": {
+        "recentConcerns": "المخاوف الحديثة المعروضة",
+        "urgentReview": "قائمة المراجعة العاجلة",
+        "immediateAttention": "تحتاج اهتماماً فورياً"
+      },
+      "recentConcernsTitle": "أحدث المخاوف الرعوية",
+      "recentConcernsDescription": "أحدث الملاحظات والإفصاحات المسجلة والمرئية لك.",
+      "viewAllConcerns": "عرض المخاوف",
+      "emptyConcerns": "لا توجد مخاوف رعوية مرئية بعد.",
+      "concernRef": "PC-{id}",
+      "studentsInvolved": "{count, plural, one {الطالب المعني: {names}} other {الطلاب المعنيون: {names}}}",
+      "casePulseTitle": "حالة القضايا",
+      "casePulseDescription": "القضايا الحديثة التي دخلت بالفعل ضمن دعم منسّق.",
+      "emptyCases": "لا توجد قضايا رعوية متاحة من هذا العرض بعد.",
+      "caseSummary": "{concerns, plural, one {# مخاوف} other {# مخاوف}} · {students, plural, one {# طالب} other {# طلاب}}",
+      "reviewNotSet": "لم يُحدد موعد مراجعة",
+      "operatingRulesTitle": "قواعد التشغيل",
+      "operatingRules": {
+        "concern": "المخاوف هي ملاحظة واحدة أو إفصاح واحد في لحظة زمنية محددة. سجّلها حتى عندما يكون المطلوب فقط حفظ السجل.",
+        "case": "تُفتح القضية عندما تحتاج المخاوف إلى مسؤولية منسقة، ومواعيد مراجعة، وإجراءات دعم.",
+        "review": "اعرض الحقائق التشغيلية والتسلسل الزمني والتنبيه إلى المراجعة، من دون تحويل الشاشة إلى تصنيف آلي للمخاطر."
+      }
+    },
+    "concerns": {
+      "title": "المخاوف الرعوية",
+      "description": "ملاحظات وإفصاحات منظمة مع تسلسل زمني ومتابعة وربط بالقضية.",
+      "logConcern": "تسجيل مخاوف",
+      "filters": {
+        "categoryPlaceholder": "التصفية حسب الفئة",
+        "severity": "الشدة",
+        "tier": "المستوى",
+        "all": "الكل",
+        "student": "الطالب",
+        "studentPlaceholder": "ابحث عن طالب",
+        "noStudents": "لا يوجد طلاب مطابقون."
+      },
+      "columns": {
+        "student": "الطالب",
+        "category": "الفئة",
+        "severity": "الشدة",
+        "tier": "المستوى",
+        "studentsInvolved": "الطلاب المعنيون",
+        "occurredAt": "وقت الحدوث"
+      },
+      "severity": {
+        "routine": "روتيني",
+        "elevated": "مرتفع",
+        "urgent": "عاجل",
+        "critical": "حرج"
+      },
+      "tier": {
+        "tier1": "المستوى 1",
+        "tier2": "المستوى 2"
+      },
+      "concernRef": "PC-{id}",
+      "followUpNeeded": "تحتاج متابعة",
+      "recordOnly": "للتوثيق فقط",
+      "none": "لا يوجد",
+      "empty": "لا توجد مخاوف رعوية تطابق عوامل التصفية الحالية."
+    },
+    "newConcern": {
+      "title": "تسجيل مخاوف رعوية",
+      "description": "سجّل الملاحظة بوضوح، ووثّق من كان معنيّاً، وحدد ما إذا كانت المتابعة أو ربط القضية مطلوبين.",
+      "studentSection": "الطلاب",
+      "detailsSection": "تفاصيل المخاوف",
+      "witnessSection": "الشهود",
+      "workflowSection": "سير العمل والظهور",
+      "fields": {
+        "primaryStudent": "الطالب الأساسي",
+        "primaryStudentPlaceholder": "ابحث عن الطالب الأساسي",
+        "studentsInvolved": "طلاب آخرون معنيون",
+        "studentsInvolvedPlaceholder": "ابحث عن طالب آخر معني",
+        "studentsInvolvedHelp": "استخدم هذا الحقل للطلاب غير الأساسيين المشاركين في الحادثة أو الإفصاح نفسه.",
+        "category": "الفئة",
+        "categoryPlaceholder": "أدخل فئة المخاوف المعتمدة في مدرستك",
+        "severity": "الشدة",
+        "tier": "المستوى",
+        "tierHelp": "استخدم المستوى 2 للحالات الرعوية الحساسة. أما المستوى 3 فيبقى خاضعاً لقواعد حماية الطفل.",
+        "occurredAt": "متى حدث ذلك؟",
+        "location": "الموقع",
+        "locationPlaceholder": "الفصل، الساحة، الممر، عبر الإنترنت، الحافلة...",
+        "narrative": "السرد",
+        "narrativePlaceholder": "اكتب الملاحظة أو الإفصاح الوقائعي كما يجب أن يظهر في التسلسل الزمني.",
+        "narrativeCount": "{count} حرفاً",
+        "actionsTaken": "الإجراءات المتخذة فوراً",
+        "actionsTakenPlaceholder": "وثّق أي استجابة فورية أو تواصل أو إشراف تم اتخاذه بالفعل.",
+        "behaviourIncidentId": "حادثة سلوكية مرتبطة",
+        "behaviourIncidentIdPlaceholder": "معرّف UUID اختياري لحادثة سلوكية",
+        "studentWitnesses": "شهود من الطلاب",
+        "studentWitnessesPlaceholder": "ابحث عن شهود من الطلاب",
+        "staffWitnesses": "شهود من الموظفين",
+        "staffWitnessesPlaceholder": "ابحث عن شهود من الموظفين",
+        "followUpNeeded": "توجد حاجة إلى متابعة",
+        "followUpNeededHelp": "فعّل هذا إذا كان يجب أن تعود هذه الملاحظة إلى مسؤول صف أو عضو SST أو مالك القضية للمراجعة.",
+        "followUpSuggestion": "اقتراح المتابعة",
+        "followUpSuggestionPlaceholder": "ما الخطوة التالية المقترحة؟",
+        "linkedCase": "ربط بقضية مفتوحة",
+        "linkedCasePlaceholder": "اختر قضية عندما تكون هذه المخاوف جزءاً من مسار دعم قائم",
+        "noLinkedCase": "من دون قضية مرتبطة",
+        "maskedAuthorship": "إخفاء اسمي عن المشاهدين العامين",
+        "maskedAuthorshipHelp": "هذا ليس إخفاءً كاملاً للهوية. تبقى هوية الكاتب مرئية لأصحاب الوصول الأعلى وللمسؤولين."
+      },
+      "categories": {
+        "academic": "أكاديمي",
+        "social": "اجتماعي",
+        "emotional": "عاطفي",
+        "behavioural": "سلوكي",
+        "attendance": "الحضور",
+        "family_home": "الأسرة / المنزل",
+        "health": "الصحة",
+        "child_protection": "حماية الطفل",
+        "bullying": "التنمر",
+        "self_harm": "إيذاء النفس / أفكار انتحارية",
+        "other": "أخرى"
+      },
+      "severity": {
+        "routine": "روتيني",
+        "elevated": "مرتفع",
+        "urgent": "عاجل",
+        "critical": "حرج"
+      },
+      "tier": {
+        "tier1": "المستوى 1",
+        "tier2": "المستوى 2"
+      },
+      "errors": {
+        "primaryStudent": "يرجى اختيار الطالب الأساسي قبل الإرسال.",
+        "category": "يرجى إدخال فئة هذه المخاوف.",
+        "narrative": "يجب ألا يقل السرد عن 10 أحرف.",
+        "generic": "تعذر حفظ المخاوف. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "submit": "حفظ المخاوف"
+    },
+    "concernDetail": {
+      "title": "المخاوف {id}",
+      "description": "{student} · {category}",
+      "edit": "تحديث المخاوف",
+      "notFound": "المخاوف غير موجودة أو غير مرئية لحسابك.",
+      "authorMasked": "هوية الكاتب مخفية عن المشاهدين العامين",
+      "followUpNeeded": "تحتاج متابعة",
+      "recordOnly": "للتوثيق فقط",
+      "linkedCase": "قضية مرتبطة {id}",
+      "student": "الطالب الأساسي",
+      "studentsInvolved": "الطلاب المعنيون",
+      "occurredAt": "وقت الحدوث",
+      "loggedAt": "وقت التسجيل",
+      "reportedBy": "سجّلها",
+      "location": "الموقع",
+      "latestNarrative": "أحدث سرد",
+      "responseSummary": "ملخص الاستجابة",
+      "actionsTaken": "الإجراءات المتخذة",
+      "followUpSuggestion": "اقتراح المتابعة",
+      "versionHistory": "نسخ السرد",
+      "noVersions": "لم يتم إرجاع نسخ للسرد.",
+      "version": "النسخة {number}",
+      "amendmentReason": "سبب التعديل: {reason}",
+      "recordContext": "سياق السجل",
+      "recordContextDescription": "سياق منظم حول المخاوف من دون كشف السجلات المخفية.",
+      "witnesses": "الشهود",
+      "witnessType": {
+        "student": "شاهد طالب",
+        "staff": "شاهد موظف"
+      },
+      "behaviourLink": "رابط السلوك",
+      "parentSharing": "مشاركة ولي الأمر",
+      "shareLevel": "قابل للمشاركة مع ولي الأمر: {level}",
+      "internalOnly": "سجل داخلي فقط",
+      "chronology": "التسلسل الزمني والتدقيق",
+      "chronologyDescription": "أحدث الأحداث الرعوية المسجلة لهذه المخاوف عندما تسمح صلاحياتك بذلك.",
+      "chronologyUnavailable": "لا توجد أحداث تسلسل زمني متاحة من هذا العرض.",
+      "timelineMeta": "{entity} · المستوى {tier}"
+    },
+    "editConcern": {
+      "title": "تحديث مخاوف رعوية",
+      "description": "عدّل البيانات التشغيلية وأضف نسخة سرد جديدة إذا احتاج التسلسل الزمني إلى تصحيح. الطالب: {student} · {category}",
+      "notFound": "المخاوف غير موجودة أو غير مرئية لحسابك.",
+      "metadataSection": "البيانات التشغيلية",
+      "narrativeSection": "تعديل السرد",
+      "guardrailsTitle": "الضوابط",
+      "guardrails": {
+        "versioning": "نص السرد يُحفظ بإضافة نسخ فقط. حفظ نص مختلف يضيف نسخة جديدة غير قابلة للتعديل.",
+        "tier": "تغيير المستوى يتم من خلال مسار منفصل. هذه الشاشة تحدث التفاصيل التشغيلية فقط.",
+        "caseLink": "استخدم ربط القضية لنقل المخاوف إلى دعم منسق من دون إنشاء سجلات مكررة."
+      },
+      "fields": {
+        "severity": "الشدة",
+        "linkedCase": "القضية المرتبطة",
+        "noLinkedCase": "من دون قضية مرتبطة",
+        "followUpNeeded": "توجد حاجة إلى متابعة",
+        "followUpNeededHelp": "اترك هذا مفعلاً عندما تظل المخاوف بحاجة إلى مراجعة أو إجراء منسق.",
+        "followUpSuggestion": "اقتراح المتابعة",
+        "followUpSuggestionPlaceholder": "حدّث الإجراء التالي أو ملاحظة المراجعة",
+        "studentsInvolved": "طلاب آخرون معنيون",
+        "studentsInvolvedPlaceholder": "ابحث عن طالب آخر معني",
+        "narrative": "السرد",
+        "narrativePlaceholder": "عدّل التسلسل الوقائعي فقط عندما تكون هناك حاجة إلى تصحيح أو توضيح.",
+        "amendmentReason": "سبب التعديل",
+        "amendmentReasonPlaceholder": "اشرح سبب الحاجة إلى تعديل السرد."
+      },
+      "severity": {
+        "routine": "روتيني",
+        "elevated": "مرتفع",
+        "urgent": "عاجل",
+        "critical": "حرج"
+      },
+      "errors": {
+        "amendmentReason": "يرجى إدخال سبب التعديل عند تغيير السرد.",
+        "generic": "تعذر تحديث المخاوف. يرجى المحاولة مرة أخرى."
+      },
+      "saving": "جارٍ الحفظ...",
+      "save": "حفظ التحديثات"
     }
   },
   "behaviourSettings": {

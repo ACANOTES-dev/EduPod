@@ -37,7 +37,6 @@ import {
   Plus,
   Settings,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   TrendingUp,
   UserPlus,
@@ -63,12 +62,27 @@ import { RegistrationWizard } from './_components/registration-wizard/registrati
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
-type RoleKey = 'school_principal' | 'admin' | 'teacher' | 'accounting' | 'front_office' | 'parent' | 'school_vice_principal' | 'student';
+type RoleKey =
+  | 'school_principal'
+  | 'admin'
+  | 'teacher'
+  | 'accounting'
+  | 'front_office'
+  | 'parent'
+  | 'school_vice_principal'
+  | 'student';
 
 /** Roles with full admin access */
 const ADMIN_ROLES: RoleKey[] = ['school_principal', 'admin', 'school_vice_principal'];
 /** Roles that are school staff (not parents) */
-const STAFF_ROLES: RoleKey[] = ['school_principal', 'admin', 'school_vice_principal', 'teacher', 'accounting', 'front_office'];
+const STAFF_ROLES: RoleKey[] = [
+  'school_principal',
+  'admin',
+  'school_vice_principal',
+  'teacher',
+  'accounting',
+  'front_office',
+];
 
 interface NavItem {
   icon: LucideIcon;
@@ -81,9 +95,7 @@ interface NavItem {
 const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] = [
   {
     labelKey: 'nav.overview',
-    items: [
-      { icon: LayoutDashboard, labelKey: 'nav.dashboard', href: '/dashboard' },
-    ],
+    items: [{ icon: LayoutDashboard, labelKey: 'nav.dashboard', href: '/dashboard' }],
   },
   {
     labelKey: 'nav.parentPortal',
@@ -91,7 +103,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: Megaphone, labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
       { icon: MessageCircle, labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
-      { icon: ClipboardList, labelKey: 'nav.applications', href: '/applications', roles: ['parent'] },
+      {
+        icon: ClipboardList,
+        labelKey: 'nav.applications',
+        href: '/applications',
+        roles: ['parent'],
+      },
     ],
   },
   {
@@ -109,8 +126,18 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: BookOpen, labelKey: 'nav.classes', href: '/classes' },
       { icon: LayoutGrid, labelKey: 'nav.subjects', href: '/subjects', roles: ADMIN_ROLES },
-      { icon: Grid3X3, labelKey: 'nav.curriculumMatrix', href: '/curriculum-matrix', roles: ADMIN_ROLES },
-      { icon: UserPlus, labelKey: 'nav.classAssignments', href: '/class-assignments', roles: ADMIN_ROLES },
+      {
+        icon: Grid3X3,
+        labelKey: 'nav.curriculumMatrix',
+        href: '/curriculum-matrix',
+        roles: ADMIN_ROLES,
+      },
+      {
+        icon: UserPlus,
+        labelKey: 'nav.classAssignments',
+        href: '/class-assignments',
+        roles: ADMIN_ROLES,
+      },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
     ],
   },
@@ -130,8 +157,18 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: Shield, labelKey: 'nav.behaviourDashboard', href: '/behaviour' },
       { icon: Activity, labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
       { icon: Users, labelKey: 'nav.behaviourStudents', href: '/behaviour/students' },
-      { icon: Ban, labelKey: 'nav.guardianRestrictions', href: '/behaviour/guardian-restrictions', roles: ADMIN_ROLES },
-      { icon: ShieldAlert, labelKey: 'nav.safeguarding', href: '/safeguarding', roles: ADMIN_ROLES },
+      {
+        icon: Ban,
+        labelKey: 'nav.guardianRestrictions',
+        href: '/behaviour/guardian-restrictions',
+        roles: ADMIN_ROLES,
+      },
+      {
+        icon: Heart,
+        labelKey: 'nav.pastoral',
+        href: '/pastoral',
+        roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+      },
     ],
   },
   {
@@ -141,9 +178,24 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: Heart, labelKey: 'nav.myWorkload', href: '/wellbeing/my-workload' },
       { icon: LifeBuoy, labelKey: 'nav.supportResources', href: '/wellbeing/resources' },
       { icon: MessageSquare, labelKey: 'nav.survey', href: '/wellbeing/survey' },
-      { icon: BarChart3, labelKey: 'nav.wellbeingDashboard', href: '/wellbeing/dashboard', roles: ADMIN_ROLES },
-      { icon: ClipboardList, labelKey: 'nav.surveyManagement', href: '/wellbeing/surveys', roles: ADMIN_ROLES },
-      { icon: FileText, labelKey: 'nav.boardReport', href: '/wellbeing/reports', roles: ADMIN_ROLES },
+      {
+        icon: BarChart3,
+        labelKey: 'nav.wellbeingDashboard',
+        href: '/wellbeing/dashboard',
+        roles: ADMIN_ROLES,
+      },
+      {
+        icon: ClipboardList,
+        labelKey: 'nav.surveyManagement',
+        href: '/wellbeing/surveys',
+        roles: ADMIN_ROLES,
+      },
+      {
+        icon: FileText,
+        labelKey: 'nav.boardReport',
+        href: '/wellbeing/reports',
+        roles: ADMIN_ROLES,
+      },
     ],
   },
   {
@@ -157,7 +209,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
   {
     labelKey: 'nav.operations',
     items: [
-      { icon: UserPlus, labelKey: 'nav.admissions', href: '/admissions', roles: [...ADMIN_ROLES, 'front_office'] },
+      {
+        icon: UserPlus,
+        labelKey: 'nav.admissions',
+        href: '/admissions',
+        roles: [...ADMIN_ROLES, 'front_office'],
+      },
       { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
       { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
     ],
@@ -165,16 +222,19 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
   {
     labelKey: 'nav.financials',
     items: [
-      { icon: Calculator, labelKey: 'nav.finance', href: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
+      {
+        icon: Calculator,
+        labelKey: 'nav.finance',
+        href: '/finance',
+        roles: [...ADMIN_ROLES, 'accounting'],
+      },
       { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_principal'] },
     ],
   },
   {
     labelKey: 'nav.reports',
     roles: STAFF_ROLES,
-    items: [
-      { icon: BarChart3, labelKey: 'nav.reports', href: '/reports' },
-    ],
+    items: [{ icon: BarChart3, labelKey: 'nav.reports', href: '/reports' }],
   },
   {
     labelKey: 'nav.school',
@@ -196,7 +256,9 @@ function filterNavForRoles(userRoleKeys: string[]): { labelKey: string; items: N
     .filter((section) => !section.roles || section.roles.some((r) => userRoleKeys.includes(r)))
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !item.roles || item.roles.some((r) => userRoleKeys.includes(r))),
+      items: section.items.filter(
+        (item) => !item.roles || item.roles.some((r) => userRoleKeys.includes(r)),
+      ),
     }))
     .filter((section) => section.items.length > 0);
 }
@@ -209,7 +271,9 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   const [wizardOpen, setWizardOpen] = React.useState(false);
-  const [activeSurveyBadge, setActiveSurveyBadge] = React.useState<'open' | 'submitted' | null>(null);
+  const [activeSurveyBadge, setActiveSurveyBadge] = React.useState<'open' | 'submitted' | null>(
+    null,
+  );
 
   // Wire global API error toast
   React.useEffect(() => {
@@ -284,19 +348,18 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
 
   const sidebarContent = (collapsed: boolean) => (
     <>
-      {!collapsed &&
-        userRoleKeys.some((r) => ADMIN_ROLES.includes(r as RoleKey)) && (
-          <div className="px-3 mb-4">
-            <Button
-              onClick={() => setWizardOpen(true)}
-              className="w-full justify-start gap-2"
-              size="sm"
-            >
-              <Plus className="h-4 w-4" />
-              {t('registration.registerFamily')}
-            </Button>
-          </div>
-        )}
+      {!collapsed && userRoleKeys.some((r) => ADMIN_ROLES.includes(r as RoleKey)) && (
+        <div className="px-3 mb-4">
+          <Button
+            onClick={() => setWizardOpen(true)}
+            className="w-full justify-start gap-2"
+            size="sm"
+          >
+            <Plus className="h-4 w-4" />
+            {t('registration.registerFamily')}
+          </Button>
+        </div>
+      )}
       {filteredSections.map((section) => (
         <SidebarSection key={section.labelKey} label={t(section.labelKey)} collapsed={collapsed}>
           {section.items.map((item) => (
@@ -328,7 +391,9 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
             expandLabel={t('sidebar.expand')}
             header={
               !sidebarCollapsed ? (
-                <span className="text-sm font-semibold text-text-primary">{t('common.appName')}</span>
+                <span className="text-sm font-semibold text-text-primary">
+                  {t('common.appName')}
+                </span>
               ) : null
             }
           >
@@ -337,17 +402,19 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         }
         topBar={
           <TopBar
-            leading={isSubPage ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.back()}
-                aria-label={t('common.back')}
-                className="p-1.5 -ms-1"
-              >
-                <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
-              </Button>
-            ) : undefined}
+            leading={
+              isSubPage ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.back()}
+                  aria-label={t('common.back')}
+                  className="p-1.5 -ms-1"
+                >
+                  <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
+                </Button>
+              ) : undefined
+            }
             title={pageTitle}
             actions={
               <div className="flex items-center gap-2">

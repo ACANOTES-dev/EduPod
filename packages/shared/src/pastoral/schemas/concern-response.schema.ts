@@ -23,6 +23,7 @@ export type ConcernVersionResponse = z.infer<typeof concernVersionResponseSchema
 export const concernListItemSchema = z.object({
   id: z.string().uuid(),
   student_id: z.string().uuid(),
+  student_name: z.string(),
   category: z.string(),
   severity: concernSeveritySchema,
   tier: z.number().int().min(1).max(3),

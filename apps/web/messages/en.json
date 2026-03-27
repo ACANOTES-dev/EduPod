@@ -90,6 +90,7 @@
     "behaviourStudents": "Student Profiles",
     "guardianRestrictions": "Guardian Restrictions",
     "safeguarding": "Safeguarding",
+    "pastoral": "Pastoral",
     "wellbeing": "Wellbeing",
     "myWorkload": "My Workload",
     "supportResources": "Support & Resources",
@@ -5114,6 +5115,264 @@
       "retentionSection": "Data Retention",
       "retentionLabel": "Retention Period (years)",
       "retentionDescription": "Irish Children First Act requires retention until the child turns 75."
+    }
+  },
+  "pastoral": {
+    "workspace": {
+      "eyebrow": "Student Wellbeing Workspace",
+      "title": "Pastoral care and student wellbeing",
+      "description": "Log concerns, keep chronology defensible, and move students into coordinated support when review is needed.",
+      "privacyBadge": "Tier 3 child-protection records remain access-controlled and undiscoverable.",
+      "tabs": {
+        "overview": "Overview",
+        "concerns": "Concerns"
+      }
+    },
+    "shared": {
+      "backToConcerns": "Back to concerns",
+      "noStudents": "No students found.",
+      "noStaff": "No staff found.",
+      "minSearchLength": "Type at least two characters to search.",
+      "notAvailable": "Not available",
+      "notRecorded": "Not recorded",
+      "cancel": "Cancel"
+    },
+    "badges": {
+      "severity": {
+        "routine": "Routine",
+        "elevated": "Elevated",
+        "urgent": "Urgent",
+        "critical": "Critical"
+      },
+      "tier": {
+        "tier1": "Tier 1",
+        "tier2": "Tier 2",
+        "tier3": "Tier 3"
+      },
+      "caseStatus": {
+        "open": "Open",
+        "active": "Active",
+        "monitoring": "Monitoring",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      }
+    },
+    "overview": {
+      "title": "Pastoral workspace",
+      "description": "A secure operational view for concern intake, chronology, and escalation into structured support.",
+      "logConcern": "Log concern",
+      "stats": {
+        "recentConcerns": "Recent concerns loaded",
+        "urgentReview": "Urgent review queue",
+        "immediateAttention": "Immediate attention"
+      },
+      "recentConcernsTitle": "Recent pastoral concerns",
+      "recentConcernsDescription": "The newest logged observations and disclosures visible to you.",
+      "viewAllConcerns": "View concerns",
+      "emptyConcerns": "No pastoral concerns are visible yet.",
+      "concernRef": "PC-{id}",
+      "studentsInvolved": "{count, plural, one {Student involved: {names}} other {Students involved: {names}}}",
+      "casePulseTitle": "Case pulse",
+      "casePulseDescription": "Recent cases already in coordinated support.",
+      "emptyCases": "No pastoral cases are available from this view yet.",
+      "caseSummary": "{concerns, plural, one {# concern} other {# concerns}} · {students, plural, one {# student} other {# students}}",
+      "reviewNotSet": "Review not set",
+      "operatingRulesTitle": "Operating rules",
+      "operatingRules": {
+        "concern": "A concern is one observation or disclosure at a point in time. Log it even when you only need the record preserved.",
+        "case": "A case is opened when concerns need coordinated ownership, review dates, and support actions.",
+        "review": "Show operational facts, chronology, and review prompts. Do not turn the workspace into a machine-authored risk screen."
+      }
+    },
+    "concerns": {
+      "title": "Pastoral concerns",
+      "description": "Structured observations and disclosures with chronology, follow-up, and case linkage.",
+      "logConcern": "Log concern",
+      "filters": {
+        "categoryPlaceholder": "Filter by category",
+        "severity": "Severity",
+        "tier": "Tier",
+        "all": "All",
+        "student": "Student",
+        "studentPlaceholder": "Search for a student",
+        "noStudents": "No matching students."
+      },
+      "columns": {
+        "student": "Student",
+        "category": "Category",
+        "severity": "Severity",
+        "tier": "Tier",
+        "studentsInvolved": "Students involved",
+        "occurredAt": "Occurred"
+      },
+      "severity": {
+        "routine": "Routine",
+        "elevated": "Elevated",
+        "urgent": "Urgent",
+        "critical": "Critical"
+      },
+      "tier": {
+        "tier1": "Tier 1",
+        "tier2": "Tier 2"
+      },
+      "concernRef": "PC-{id}",
+      "followUpNeeded": "Follow-up needed",
+      "recordOnly": "Record only",
+      "none": "None",
+      "empty": "No pastoral concerns matched the current filters."
+    },
+    "newConcern": {
+      "title": "Log pastoral concern",
+      "description": "Capture the observation clearly, record who was involved, and decide whether follow-up or case linkage is needed.",
+      "studentSection": "Students",
+      "detailsSection": "Concern details",
+      "witnessSection": "Witnesses",
+      "workflowSection": "Workflow and visibility",
+      "fields": {
+        "primaryStudent": "Primary student",
+        "primaryStudentPlaceholder": "Search for the main student",
+        "studentsInvolved": "Additional students involved",
+        "studentsInvolvedPlaceholder": "Search for another student involved",
+        "studentsInvolvedHelp": "Use this for non-primary students involved in the same incident or disclosure.",
+        "category": "Category",
+        "categoryPlaceholder": "Enter the concern category used by your school",
+        "severity": "Severity",
+        "tier": "Tier",
+        "tierHelp": "Use Tier 2 for sensitive pastoral handling. Tier 3 remains controlled through child-protection rules.",
+        "occurredAt": "When did this happen?",
+        "location": "Location",
+        "locationPlaceholder": "Classroom, yard, corridor, online, bus route...",
+        "narrative": "Narrative",
+        "narrativePlaceholder": "Write the factual observation or disclosure exactly as it should appear in the chronology.",
+        "narrativeCount": "{count} characters",
+        "actionsTaken": "Actions taken immediately",
+        "actionsTakenPlaceholder": "Record any immediate response, check-in, notification, or supervision step already taken.",
+        "behaviourIncidentId": "Linked behaviour incident",
+        "behaviourIncidentIdPlaceholder": "Optional behaviour incident UUID",
+        "studentWitnesses": "Student witnesses",
+        "studentWitnessesPlaceholder": "Search for student witnesses",
+        "staffWitnesses": "Staff witnesses",
+        "staffWitnessesPlaceholder": "Search for staff witnesses",
+        "followUpNeeded": "Follow-up is needed",
+        "followUpNeededHelp": "Mark this when the concern should return to a year head, SST member, or case owner for review.",
+        "followUpSuggestion": "Suggested follow-up",
+        "followUpSuggestionPlaceholder": "What should happen next?",
+        "linkedCase": "Link to an open case",
+        "linkedCasePlaceholder": "Choose a case when this concern belongs inside an existing support process",
+        "noLinkedCase": "No linked case",
+        "maskedAuthorship": "Mask my authorship from general viewers",
+        "maskedAuthorshipHelp": "This is not anonymous. Author identity remains visible to higher-tier viewers and administrators."
+      },
+      "categories": {
+        "academic": "Academic",
+        "social": "Social",
+        "emotional": "Emotional",
+        "behavioural": "Behavioural",
+        "attendance": "Attendance",
+        "family_home": "Family / home",
+        "health": "Health",
+        "child_protection": "Child protection",
+        "bullying": "Bullying",
+        "self_harm": "Self-harm / suicidal ideation",
+        "other": "Other"
+      },
+      "severity": {
+        "routine": "Routine",
+        "elevated": "Elevated",
+        "urgent": "Urgent",
+        "critical": "Critical"
+      },
+      "tier": {
+        "tier1": "Tier 1",
+        "tier2": "Tier 2"
+      },
+      "errors": {
+        "primaryStudent": "Select a primary student before submitting.",
+        "category": "Enter the category used for this concern.",
+        "narrative": "Narrative must be at least 10 characters.",
+        "generic": "The concern could not be saved. Please try again."
+      },
+      "saving": "Saving...",
+      "submit": "Save concern"
+    },
+    "concernDetail": {
+      "title": "Concern {id}",
+      "description": "{student} · {category}",
+      "edit": "Update concern",
+      "notFound": "Concern not found or not visible to your account.",
+      "authorMasked": "Author hidden from general viewers",
+      "followUpNeeded": "Follow-up needed",
+      "recordOnly": "Record only",
+      "linkedCase": "Linked case {id}",
+      "student": "Primary student",
+      "studentsInvolved": "Students involved",
+      "occurredAt": "Occurred",
+      "loggedAt": "Logged",
+      "reportedBy": "Reported by",
+      "location": "Location",
+      "latestNarrative": "Latest narrative",
+      "responseSummary": "Response summary",
+      "actionsTaken": "Actions taken",
+      "followUpSuggestion": "Suggested follow-up",
+      "versionHistory": "Narrative versions",
+      "noVersions": "No narrative versions were returned.",
+      "version": "Version {number}",
+      "amendmentReason": "Amendment reason: {reason}",
+      "recordContext": "Record context",
+      "recordContextDescription": "Structured context around the concern without exposing hidden records.",
+      "witnesses": "Witnesses",
+      "witnessType": {
+        "student": "Student witness",
+        "staff": "Staff witness"
+      },
+      "behaviourLink": "Behaviour link",
+      "parentSharing": "Parent sharing",
+      "shareLevel": "Shareable with parents: {level}",
+      "internalOnly": "Internal record only",
+      "chronology": "Chronology and audit",
+      "chronologyDescription": "Recent pastoral events recorded for this concern when your role can access them.",
+      "chronologyUnavailable": "No chronology events are available from this view.",
+      "timelineMeta": "{entity} · Tier {tier}"
+    },
+    "editConcern": {
+      "title": "Update pastoral concern",
+      "description": "Adjust the operational metadata and append a narrative amendment if the chronology needs correction. Student: {student} · {category}",
+      "notFound": "Concern not found or not visible to your account.",
+      "metadataSection": "Operational metadata",
+      "narrativeSection": "Narrative amendment",
+      "guardrailsTitle": "Guardrails",
+      "guardrails": {
+        "versioning": "Narrative text is append-only. Saving a changed narrative adds a new immutable version.",
+        "tier": "Tier changes are controlled separately. This screen updates operational details only.",
+        "caseLink": "Use case linkage to move a concern into coordinated support without creating duplicate records."
+      },
+      "fields": {
+        "severity": "Severity",
+        "linkedCase": "Linked case",
+        "noLinkedCase": "No linked case",
+        "followUpNeeded": "Follow-up is needed",
+        "followUpNeededHelp": "Keep this on when the concern still needs review or coordinated action.",
+        "followUpSuggestion": "Suggested follow-up",
+        "followUpSuggestionPlaceholder": "Update the next action or review note",
+        "studentsInvolved": "Additional students involved",
+        "studentsInvolvedPlaceholder": "Search for another student involved",
+        "narrative": "Narrative",
+        "narrativePlaceholder": "Update the factual chronology only when a correction or clarification is required.",
+        "amendmentReason": "Reason for amendment",
+        "amendmentReasonPlaceholder": "Explain why the narrative needed to be amended."
+      },
+      "severity": {
+        "routine": "Routine",
+        "elevated": "Elevated",
+        "urgent": "Urgent",
+        "critical": "Critical"
+      },
+      "errors": {
+        "amendmentReason": "Provide an amendment reason when changing the narrative.",
+        "generic": "The concern could not be updated. Please try again."
+      },
+      "saving": "Saving...",
+      "save": "Save updates"
     }
   },
   "behaviourSettings": {

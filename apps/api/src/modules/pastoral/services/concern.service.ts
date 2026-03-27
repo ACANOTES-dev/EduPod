@@ -77,6 +77,7 @@ export interface ConcernRow {
   created_at: Date;
   updated_at: Date;
   logged_by?: { first_name: string; last_name: string } | null;
+  student?: { id: string; first_name: string; last_name: string } | null;
   involved_students?: ConcernInvolvedStudentRow[];
   versions?: Array<{
     id: string;
@@ -92,6 +93,7 @@ export interface ConcernRow {
 export interface ConcernListItemDto {
   id: string;
   student_id: string;
+  student_name: string;
   category: string;
   severity: string;
   tier: number;
@@ -412,6 +414,7 @@ export class ConcernService {
         db.pastoralConcern.findMany({
           where,
           include: {
+            student: { select: { id: true, first_name: true, last_name: true } },
             logged_by: { select: { first_name: true, last_name: true } },
             involved_students: {
               include: {
@@ -456,6 +459,7 @@ export class ConcernService {
       return db.pastoralConcern.findUnique({
         where: { id: concernId },
         include: {
+          student: { select: { id: true, first_name: true, last_name: true } },
           logged_by: { select: { first_name: true, last_name: true } },
           involved_students: {
             include: {
@@ -1197,6 +1201,7 @@ export class ConcernService {
     return (await db.pastoralConcern.findUnique({
       where: { id: concernId },
       include: {
+        student: { select: { id: true, first_name: true, last_name: true } },
         logged_by: { select: { first_name: true, last_name: true } },
         involved_students: {
           include: {
@@ -1224,10 +1229,14 @@ export class ConcernService {
    */
   private toConcernListItem(concern: ConcernRow, hasCpAccess: boolean): ConcernListItemDto {
     const masking = this.applyAuthorMasking(concern, hasCpAccess);
+    const studentName = concern.student
+      ? `${concern.student.first_name} ${concern.student.last_name}`
+      : 'Unknown';
 
     return {
       id: concern.id,
       student_id: concern.student_id,
+      student_name: studentName,
       category: concern.category,
       severity: concern.severity,
       tier: concern.tier,
