@@ -12,7 +12,7 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { ArrowUpRight, Link2, Shuffle, UserRoundPlus } from 'lucide-react';
+import { ArrowUpRight, Link2, ListChecks, Send, Shuffle, UserRoundPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
@@ -143,6 +143,22 @@ export default function PastoralCaseDetailPage() {
       <PageHeader
         title={caseRecord.case_number}
         description={t('description', { student: caseRecord.student_name })}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/${locale}/pastoral/interventions/new?caseId=${caseRecord.id}`}>
+              <Button variant="outline">
+                <ListChecks className="me-2 h-4 w-4" />
+                {t('createIntervention')}
+              </Button>
+            </Link>
+            <Link href={`/${locale}/pastoral/referrals/new?caseId=${caseRecord.id}`}>
+              <Button variant="outline">
+                <Send className="me-2 h-4 w-4" />
+                {t('createReferral')}
+              </Button>
+            </Link>
+          </div>
+        }
       />
 
       <section className="rounded-3xl border border-border bg-surface p-5">

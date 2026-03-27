@@ -5203,10 +5203,38 @@
       "title": "Pastoral workspace",
       "description": "A secure operational view for concern intake, chronology, and escalation into structured support.",
       "logConcern": "Log concern",
+      "openCaseAction": "Open case",
+      "declareIncidentAction": "Declare incident",
       "stats": {
         "recentConcerns": "Recent concerns loaded",
         "urgentReview": "Urgent review queue",
         "immediateAttention": "Immediate attention"
+      },
+      "workflowLanesTitle": "Operational lanes",
+      "workflowLanesDescription": "Move from intake into coordinated support, external referrals, student check-in monitoring, and incident response without leaving the pastoral workspace.",
+      "workflowLanes": {
+        "items": {
+          "interventions": {
+            "title": "Interventions",
+            "description": "Open and review targeted support plans with outcomes, actions, and progress notes."
+          },
+          "referrals": {
+            "title": "Referrals",
+            "description": "Manage external referrals from draft through recommendations and follow-through."
+          },
+          "sst": {
+            "title": "SST meetings",
+            "description": "Prepare agendas, run meetings, and capture agreed actions in one place."
+          },
+          "checkins": {
+            "title": "Check-in monitoring",
+            "description": "Review flagged check-ins, student history, and aggregate trends that need follow-up."
+          },
+          "criticalIncidents": {
+            "title": "Critical incidents",
+            "description": "Coordinate incident response plans, affected lists, and external support for major events."
+          }
+        }
       },
       "recentConcernsTitle": "Recent pastoral concerns",
       "recentConcernsDescription": "The newest logged observations and disclosures visible to you.",
@@ -5519,6 +5547,8 @@
       "ownerTransferReason": "Reason for transfer",
       "ownerTransferReasonPlaceholder": "Explain why ownership is changing.",
       "transferOwner": "Transfer owner",
+      "createIntervention": "Create intervention",
+      "createReferral": "Create referral",
       "status": {
         "open": "Open",
         "active": "Active",

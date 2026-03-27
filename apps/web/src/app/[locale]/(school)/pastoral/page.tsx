@@ -1,7 +1,16 @@
 'use client';
 
 import { Button, StatCard } from '@school/ui';
-import { ArrowRight, ClipboardList, NotebookPen } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  ClipboardList,
+  ListChecks,
+  NotebookPen,
+  Send,
+  ShieldAlert,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
@@ -28,6 +37,34 @@ interface EscalationDashboardResponse {
     oldest_unacknowledged_critical: { concern_id: string; created_at: string } | null;
   };
 }
+
+const WORKSPACE_LANES = [
+  {
+    key: 'interventions',
+    href: '/pastoral/interventions',
+    icon: ListChecks,
+  },
+  {
+    key: 'referrals',
+    href: '/pastoral/referrals',
+    icon: Send,
+  },
+  {
+    key: 'sst',
+    href: '/pastoral/sst',
+    icon: Users,
+  },
+  {
+    key: 'checkins',
+    href: '/pastoral/checkins',
+    icon: Activity,
+  },
+  {
+    key: 'criticalIncidents',
+    href: '/pastoral/critical-incidents',
+    icon: ShieldAlert,
+  },
+] as const;
 
 export default function PastoralOverviewPage() {
   const t = useTranslations('pastoral.overview');
@@ -99,12 +136,20 @@ export default function PastoralOverviewPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Link href={`/${locale}/pastoral/concerns/new`}>
-            <Button>
-              <NotebookPen className="me-2 h-4 w-4" />
-              {t('logConcern')}
-            </Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/${locale}/pastoral/concerns/new`}>
+              <Button>
+                <NotebookPen className="me-2 h-4 w-4" />
+                {t('logConcern')}
+              </Button>
+            </Link>
+            <Link href={`/${locale}/pastoral/cases/new`}>
+              <Button variant="outline">{t('openCaseAction')}</Button>
+            </Link>
+            <Link href={`/${locale}/pastoral/critical-incidents/new`}>
+              <Button variant="outline">{t('declareIncidentAction')}</Button>
+            </Link>
+          </div>
         }
       />
 
@@ -125,6 +170,44 @@ export default function PastoralOverviewPage() {
           className="border-rose-200 bg-rose-50/70"
         />
       </div>
+
+      <section className="rounded-3xl border border-border bg-surface p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">{t('workflowLanesTitle')}</h2>
+            <p className="mt-1 text-sm text-text-secondary">{t('workflowLanesDescription')}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {WORKSPACE_LANES.map((lane) => {
+            const Icon = lane.icon;
+
+            return (
+              <Link
+                key={lane.key}
+                href={`/${locale}${lane.href}`}
+                className="group rounded-2xl border border-border bg-surface-secondary/50 p-4 transition-colors hover:bg-surface-secondary"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className="mt-4 text-base font-semibold text-text-primary">
+                      {t(`workflowLanes.items.${lane.key}.title` as never)}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-text-secondary">
+                      {t(`workflowLanes.items.${lane.key}.description` as never)}
+                    </p>
+                  </div>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-text-tertiary transition-transform group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <section className="rounded-3xl border border-border bg-surface p-5">
@@ -215,7 +298,11 @@ export default function PastoralOverviewPage() {
                 </p>
               ) : (
                 recentCases.map((caseItem) => (
-                  <div key={caseItem.id} className="rounded-2xl border border-border px-4 py-3">
+                  <Link
+                    key={caseItem.id}
+                    href={`/${locale}/pastoral/cases/${caseItem.id}`}
+                    className="block rounded-2xl border border-border px-4 py-3 transition-colors hover:bg-surface-secondary"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-text-primary">
@@ -234,7 +321,7 @@ export default function PastoralOverviewPage() {
                           : t('reviewNotSet')}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
