@@ -9,10 +9,12 @@ import { AggregateWorkloadController } from './controllers/aggregate-workload.co
 import { BoardReportController } from './controllers/board-report.controller';
 import { PersonalWorkloadController } from './controllers/personal-workload.controller';
 import { ResourceController } from './controllers/resource.controller';
+import { SurveyResultsController } from './controllers/survey-results.controller';
 import { SurveyController } from './controllers/survey.controller';
 import { BoardReportService } from './services/board-report.service';
 import { HmacService } from './services/hmac.service';
 import { ResourceService } from './services/resource.service';
+import { SurveyResultsService } from './services/survey-results.service';
 import { SurveyService } from './services/survey.service';
 import { WorkloadCacheService } from './services/workload-cache.service';
 import { WorkloadComputeService } from './services/workload-compute.service';
@@ -25,6 +27,7 @@ import { WorkloadComputeService } from './services/workload-compute.service';
   ],
   controllers: [
     SurveyController,
+    SurveyResultsController,
     ResourceController,
     PersonalWorkloadController,
     AggregateWorkloadController,
@@ -34,6 +37,7 @@ import { WorkloadComputeService } from './services/workload-compute.service';
     BlockImpersonationGuard,
     HmacService,
     SurveyService,
+    SurveyResultsService,
     ResourceService,
     WorkloadComputeService,
     WorkloadCacheService,

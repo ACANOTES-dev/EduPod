@@ -43,6 +43,6 @@ export const moderateResponseSchema = z.object({
 export type ModerateResponseDto = z.infer<typeof moderateResponseSchema>;
 
 export const surveyResultsQuerySchema = z.object({
-  department_id: z.string().uuid().optional(),
+  department: z.string().max(150).optional(),
 });
 export type SurveyResultsQueryDto = z.infer<typeof surveyResultsQuerySchema>;
