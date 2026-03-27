@@ -12,7 +12,7 @@ import type {
   ListDocumentsQuery,
   SendDocumentDto,
 } from '@school/shared';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Handlebars requires CommonJS import
 const Handlebars = require('handlebars') as {
   compile: (template: string, options?: { strict?: boolean }) => (data: Record<string, unknown>) => string;
 };

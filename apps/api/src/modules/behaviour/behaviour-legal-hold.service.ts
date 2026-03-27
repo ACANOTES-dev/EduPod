@@ -288,7 +288,7 @@ export class BehaviourLegalHoldService {
     tenantId: string,
     userId: string,
     dto: CreateLegalHoldDto,
-    anchorHoldId: string,
+    _anchorHoldId: string,
   ): Promise<void> {
     const propagatedReason = `${dto.hold_reason} [Propagated from ${dto.entity_type} ${dto.entity_id}]`;
     const linkedEntityIds: Array<{ type: string; id: string }> = [];

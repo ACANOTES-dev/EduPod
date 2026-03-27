@@ -11,13 +11,13 @@
  */
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const _TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_STAFF = 'user-staff-1';
-const USER_SAFEGUARDING = 'user-safeguarding-1';
-const USER_PARENT = 'user-parent-1';
+const _USER_SAFEGUARDING = 'user-safeguarding-1';
+const _USER_PARENT = 'user-parent-1';
 const INCIDENT_ID = 'incident-1';
 const STUDENT_ID = 'student-1';
-const PARENT_ID = 'parent-1';
+const _PARENT_ID = 'parent-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 

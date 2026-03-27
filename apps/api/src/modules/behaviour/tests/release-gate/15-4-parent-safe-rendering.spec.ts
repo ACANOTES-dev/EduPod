@@ -17,7 +17,7 @@ import { PrismaService } from '../../../../modules/prisma/prisma.service';
 import { BehaviourParentService } from '../../behaviour-parent.service';
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const _TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_PARENT = 'user-parent-1';
 const PARENT_ID = 'parent-1';
 const STUDENT_ID = 'student-1';

@@ -3,7 +3,7 @@
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const _TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_ID = 'user-1';
 const INCIDENT_ID = 'incident-1';
 const CATEGORY_ID = 'cat-1';

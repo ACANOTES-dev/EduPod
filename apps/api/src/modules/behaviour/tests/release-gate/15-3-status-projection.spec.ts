@@ -8,7 +8,7 @@
  */
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const _TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const USER_BEHAVIOUR = 'user-behaviour-1';
 const USER_SAFEGUARDING = 'user-safeguarding-1';
 const INCIDENT_ID = 'incident-1';

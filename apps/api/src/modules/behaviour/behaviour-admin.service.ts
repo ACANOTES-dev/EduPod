@@ -260,7 +260,7 @@ export class BehaviourAdminService {
 
   // ─── Refresh Views ────────────────────────────────────────────────────────
 
-  async refreshViews(tenantId: string): Promise<void> {
+  async refreshViews(_tenantId: string): Promise<void> {
     // Materialised views are not tenant-scoped, but we can still refresh them
     await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`;
     await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`;
@@ -503,7 +503,7 @@ export class BehaviourAdminService {
 
       // Create a new acknowledgement row
       const entityId = dto.incident_id ?? dto.sanction_id;
-      const entityType = dto.incident_id ? 'incident' : 'sanction';
+      const _entityType = dto.incident_id ? 'incident' : 'sanction';
 
       if (!entityId) {
         throw new Error('Either incident_id or sanction_id is required');

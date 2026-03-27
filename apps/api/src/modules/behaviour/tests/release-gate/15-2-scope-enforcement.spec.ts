@@ -19,7 +19,7 @@ const USER_TEACHER = 'user-teacher-1';
 const USER_YEAR_HEAD = 'user-year-head-1';
 const USER_ADMIN = 'user-admin-1';
 const STAFF_PROFILE_TEACHER = 'staff-teacher-1';
-const STAFF_PROFILE_YEAR_HEAD = 'staff-year-head-1';
+const _STAFF_PROFILE_YEAR_HEAD = 'staff-year-head-1';
 
 // ─── Mock Prisma ────────────────────────────────────────────────────────────
 

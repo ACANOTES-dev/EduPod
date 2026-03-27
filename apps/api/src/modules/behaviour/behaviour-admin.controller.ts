@@ -107,8 +107,8 @@ export class BehaviourAdminController {
   @HttpCode(HttpStatus.ACCEPTED)
   @RequiresPermission('behaviour.admin')
   async rebuildAwards(
-    @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(rebuildAwardsSchema)) dto: z.infer<typeof rebuildAwardsSchema>,
+    @CurrentTenant() _tenant: TenantContext,
+    @Body(new ZodValidationPipe(rebuildAwardsSchema)) _dto: z.infer<typeof rebuildAwardsSchema>,
   ) {
     // Rebuild awards is a long operation — this would normally be enqueued as a job
     return { success: true, message: 'Award rebuild initiated' };
@@ -140,8 +140,8 @@ export class BehaviourAdminController {
   @HttpCode(HttpStatus.ACCEPTED)
   @RequiresPermission('behaviour.admin')
   async backfillTasks(
-    @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(backfillTasksSchema)) dto: z.infer<typeof backfillTasksSchema>,
+    @CurrentTenant() _tenant: TenantContext,
+    @Body(new ZodValidationPipe(backfillTasksSchema)) _dto: z.infer<typeof backfillTasksSchema>,
   ) {
     return { success: true, message: 'Task backfill initiated' };
   }
@@ -204,7 +204,7 @@ export class BehaviourAdminController {
   @Post('reindex-search')
   @HttpCode(HttpStatus.ACCEPTED)
   @RequiresPermission('behaviour.admin')
-  async reindexSearch(@CurrentTenant() tenant: TenantContext) {
+  async reindexSearch(@CurrentTenant() _tenant: TenantContext) {
     return { success: true, message: 'Search reindex initiated — requires dual approval for tenant-wide scope' };
   }
 
