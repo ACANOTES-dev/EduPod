@@ -12,7 +12,7 @@ import type {
   ListDocumentsQuery,
   SendDocumentDto,
 } from '@school/shared';
-import Handlebars from 'handlebars';
+import * as Handlebars from 'handlebars';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
