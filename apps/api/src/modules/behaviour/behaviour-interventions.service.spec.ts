@@ -17,7 +17,7 @@ const INCIDENT_ID_A = 'incident-a';
 const INCIDENT_ID_B = 'incident-b';
 
 // ─── RLS mock ──────────────────────────────────────────────────────────────
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourIntervention: {
     findFirst: jest.fn(),
     create: jest.fn(),
@@ -178,6 +178,7 @@ describe('BehaviourInterventionsService', () => {
       assigned_to_id: ASSIGNED_TO_ID,
       start_date: '2026-03-01',
       review_frequency_days: 14,
+      send_aware: false,
     };
 
     const setupCreateMocks = () => {
@@ -498,7 +499,7 @@ describe('BehaviourInterventionsService', () => {
 
       const result = await service.transitionStatus(TENANT_ID, INTERVENTION_ID, USER_ID, {
         status: 'active',
-      });
+      }) as { status: string };
 
       expect(mockRlsTx.behaviourIntervention.update).toHaveBeenCalledWith({
         where: { id: INTERVENTION_ID },

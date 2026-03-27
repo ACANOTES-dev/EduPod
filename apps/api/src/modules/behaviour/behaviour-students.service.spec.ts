@@ -100,6 +100,7 @@ describe('BehaviourStudentsService', () => {
     };
     behaviourSanction: {
       findMany: jest.Mock;
+      count: jest.Mock;
     };
     behaviourRecognitionAward: {
       findMany: jest.Mock;
@@ -604,11 +605,11 @@ describe('BehaviourStudentsService', () => {
 
       expect(result.data.student.id).toBe(STUDENT_ID);
       expect(result.data.incidents).toHaveLength(1);
-      expect(result.data.incidents[0].description).toBe(
+      expect(result.data.incidents[0]!.description).toBe(
         'Your child was involved in an incident',
       );
       // Should NOT include raw description or context_notes
-      expect(result.data.incidents[0]).not.toHaveProperty('context_notes');
+      expect(result.data.incidents[0]!).not.toHaveProperty('context_notes');
 
       // Verify parent_visible filter was applied
       expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(

@@ -12,7 +12,7 @@ const PUBLICATION_ID = 'pub-1';
 const STUDENT_ID = 'student-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourPublicationApproval: {
     findFirst: jest.fn(),
     update: jest.fn(),

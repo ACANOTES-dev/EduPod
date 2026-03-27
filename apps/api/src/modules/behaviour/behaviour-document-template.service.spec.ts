@@ -86,7 +86,7 @@ describe('BehaviourDocumentTemplateService', () => {
       mockRlsTx.behaviourDocumentTemplate.findMany.mockResolvedValue(templates);
 
       const query: ListDocumentTemplatesQuery = {};
-      const result = await service.listTemplates(TENANT_ID, query);
+      const result = await service.listTemplates(TENANT_ID, query) as { data: unknown[] };
 
       expect(result.data).toHaveLength(2);
       expect(mockRlsTx.behaviourDocumentTemplate.findMany).toHaveBeenCalledWith(
@@ -150,7 +150,7 @@ describe('BehaviourDocumentTemplateService', () => {
       const created = makeTemplate({ name: baseDto.name });
       mockRlsTx.behaviourDocumentTemplate.create.mockResolvedValue(created);
 
-      const result = await service.createTemplate(TENANT_ID, baseDto);
+      const result = await service.createTemplate(TENANT_ID, baseDto) as { data: unknown };
 
       expect(result.data).toEqual(created);
       expect(mockRlsTx.behaviourDocumentTemplate.create).toHaveBeenCalledWith({
@@ -216,6 +216,7 @@ describe('BehaviourDocumentTemplateService', () => {
       const dtoNoLocale: CreateDocumentTemplateDto = {
         document_type: 'detention_notice',
         name: 'No Locale',
+        locale: 'en',
         template_body: '<p>Test</p>',
       };
       mockRlsTx.behaviourDocumentTemplate.create.mockResolvedValue(makeTemplate());
@@ -241,7 +242,7 @@ describe('BehaviourDocumentTemplateService', () => {
       mockRlsTx.behaviourDocumentTemplate.update.mockResolvedValue(updated);
 
       const dto: UpdateDocumentTemplateDto = { name: 'Updated Name' };
-      const result = await service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto);
+      const result = await service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto) as { data: { name: string } };
 
       expect(result.data.name).toBe('Updated Name');
       expect(mockRlsTx.behaviourDocumentTemplate.update).toHaveBeenCalledWith({

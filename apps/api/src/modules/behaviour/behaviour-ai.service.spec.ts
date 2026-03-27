@@ -204,7 +204,7 @@ describe('BehaviourAIService', () => {
       const callArgs = mockAnthropicCreate.mock.calls[0][0] as {
         messages: { content: string }[];
       };
-      const prompt = callArgs.messages[0].content;
+      const prompt = callArgs.messages[0]!.content;
       expect(prompt).toContain(baseInput.query);
       expect(prompt).toContain('total_incidents');
     });
@@ -418,9 +418,9 @@ describe('BehaviourAIService', () => {
 
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 2 });
       expect(result.entries).toHaveLength(2);
-      expect(result.entries[0].id).toBe('audit-1');
-      expect(result.entries[0].query).toBe('What are the trends?');
-      expect(result.entries[0].created_at).toBe('2026-03-27T10:00:00.000Z');
+      expect(result.entries[0]!.id).toBe('audit-1');
+      expect(result.entries[0]!.query).toBe('What are the trends?');
+      expect(result.entries[0]!.created_at).toBe('2026-03-27T10:00:00.000Z');
     });
 
     it('should filter by tenant_id and user_id', async () => {
