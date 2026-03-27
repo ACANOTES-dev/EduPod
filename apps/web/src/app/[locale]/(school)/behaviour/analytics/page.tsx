@@ -149,7 +149,7 @@ export default function BehaviourAnalyticsPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-6">
-        <PageHeader title="Analytics" subtitle="Behaviour analytics dashboard" />
+        <PageHeader title="Analytics" description="Behaviour analytics dashboard" />
         <div className="mt-6 flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
@@ -160,7 +160,7 @@ export default function BehaviourAnalyticsPage() {
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title="Analytics" subtitle="Behaviour analytics dashboard" />
+        <PageHeader title="Analytics" description="Behaviour analytics dashboard" />
         <div className="flex items-center gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[140px]">
