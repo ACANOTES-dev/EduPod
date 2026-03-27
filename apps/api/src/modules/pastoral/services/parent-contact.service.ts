@@ -9,7 +9,7 @@ import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface PaginationMeta {
+export interface PaginationMeta {
   page: number;
   pageSize: number;
   total: number;
