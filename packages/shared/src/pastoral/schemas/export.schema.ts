@@ -18,10 +18,15 @@ export type ExportTier12RequestDto = z.infer<typeof exportTier12RequestSchema>;
 
 export const cpExportPreviewSchema = z.object({
   student_id: z.string().uuid(),
+  purpose: exportPurposeSchema.optional(),
+  other_reason: z.string().min(1).max(1000).optional(),
   record_types: z.array(cpRecordTypeSchema).optional(),
   date_from: z.string().datetime().optional(),
   date_to: z.string().datetime().optional(),
-});
+}).refine(
+  (data) => data.purpose !== 'other' || (!!data.other_reason && data.other_reason.length > 0),
+  { message: 'other_reason is required when purpose is "other"', path: ['other_reason'] },
+);
 
 export type CpExportPreviewDto = z.infer<typeof cpExportPreviewSchema>;
 
@@ -29,18 +34,43 @@ export type CpExportPreviewDto = z.infer<typeof cpExportPreviewSchema>;
 
 export const cpExportGenerateSchema = z
   .object({
-    student_id: z.string().uuid(),
-    purpose: exportPurposeSchema,
+    preview_token: z.string().uuid().optional(),
+    student_id: z.string().uuid().optional(),
+    purpose: exportPurposeSchema.optional(),
     other_reason: z.string().min(1).max(1000).optional(),
     record_types: z.array(cpRecordTypeSchema).optional(),
     date_from: z.string().datetime().optional(),
     date_to: z.string().datetime().optional(),
     locale: z.enum(['en', 'ar']).default('en'),
   })
-  .refine(
-    (data) => data.purpose !== 'other' || (!!data.other_reason && data.other_reason.length > 0),
-    { message: 'other_reason is required when purpose is "other"', path: ['other_reason'] },
-  );
+  .superRefine((data, ctx) => {
+    if (!data.preview_token && !data.student_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'student_id is required when preview_token is not provided',
+        path: ['student_id'],
+      });
+    }
+
+    if (!data.preview_token && !data.purpose) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'purpose is required when preview_token is not provided',
+        path: ['purpose'],
+      });
+    }
+
+    if (
+      data.purpose === 'other' &&
+      (!data.other_reason || data.other_reason.trim().length === 0)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'other_reason is required when purpose is "other"',
+        path: ['other_reason'],
+      });
+    }
+  });
 
 export type CpExportGenerateDto = z.infer<typeof cpExportGenerateSchema>;
 
@@ -68,7 +98,7 @@ export const exportEventPayloadSchema = z.object({
   entity_type: pastoralEntityTypeSchema,
   entity_ids: z.array(z.string().uuid()),
   purpose: exportPurposeSchema.optional(),
-  export_ref_id: z.string().uuid(),
+  export_ref_id: z.string().min(1),
   watermarked: z.boolean(),
 });
 

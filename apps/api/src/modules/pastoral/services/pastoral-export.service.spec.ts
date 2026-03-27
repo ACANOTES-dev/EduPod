@@ -235,6 +235,7 @@ describe('PastoralExportService', () => {
         ACTOR_USER_ID,
         expect.objectContaining({
           student_id: STUDENT_ID,
+          purpose: 'tusla_request',
           date_from: '2026-01-01',
           date_to: '2026-03-01',
         }),
@@ -258,6 +259,13 @@ describe('PastoralExportService', () => {
 
   describe('confirmTier3Export', () => {
     it('should delegate to cpExportService.generate', async () => {
+      mockRlsTx.cpAccessGrant.findFirst.mockResolvedValue({
+        id: 'grant-1',
+        tenant_id: TENANT_ID,
+        user_id: ACTOR_USER_ID,
+        revoked_at: null,
+      });
+
       const generateResult = {
         data: {
           download_token: 'dl-token-1',
@@ -278,7 +286,7 @@ describe('PastoralExportService', () => {
         TENANT_ID,
         ACTOR_USER_ID,
         expect.objectContaining({
-          student_id: 'some-export-id',
+          preview_token: 'some-export-id',
         }),
         null,
       );
@@ -289,6 +297,13 @@ describe('PastoralExportService', () => {
 
   describe('downloadTier3Export', () => {
     it('should delegate to cpExportService.download', async () => {
+      mockRlsTx.cpAccessGrant.findFirst.mockResolvedValue({
+        id: 'grant-1',
+        tenant_id: TENANT_ID,
+        user_id: ACTOR_USER_ID,
+        revoked_at: null,
+      });
+
       const downloadResult = {
         buffer: Buffer.from('pdf-content'),
         filename: 'CP-Export-John-Doe-CPX-202603-0001.pdf',

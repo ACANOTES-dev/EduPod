@@ -122,7 +122,7 @@ describe('CpExportController', () => {
       student_id: '33333333-3333-3333-3333-333333333333',
       purpose: 'tusla_request',
       locale: 'en',
-    };
+    } as const;
     const generateResult = {
       data: {
         download_token: 'download-token-123',

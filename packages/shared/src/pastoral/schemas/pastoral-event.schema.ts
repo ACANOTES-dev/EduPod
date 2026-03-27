@@ -222,7 +222,7 @@ export const recordExportedPayloadSchema = z.object({
   entity_type: pastoralEntityTypeSchema,
   entity_ids: z.array(z.string().uuid()),
   purpose: exportPurposeSchema.optional(),
-  export_ref_id: z.string().uuid(),
+  export_ref_id: z.string().min(1),
   watermarked: z.boolean(),
 });
 

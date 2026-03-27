@@ -1,5 +1,9 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
@@ -98,6 +102,7 @@ describe('CpExportService', () => {
 
     (createRlsClient as jest.Mock).mockReturnValue(mockRlsClient);
     mockFindMany.mockResolvedValue(SAMPLE_RECORDS);
+    mockRedisClient.get.mockResolvedValue(null);
     mockPrisma.user.findUnique.mockResolvedValue({
       first_name: 'John',
       last_name: 'Teacher',
@@ -144,6 +149,32 @@ describe('CpExportService', () => {
       expect(mockRedisClient.set).toHaveBeenCalledWith(
         expect.stringContaining('cp-export:preview:'),
         expect.any(String),
+        'EX',
+        900,
+      );
+    });
+
+    it('should persist purpose metadata in the preview token when provided', async () => {
+      await service.preview(
+        TENANT_ID,
+        USER_ID,
+        {
+          ...previewDto,
+          purpose: 'other',
+          other_reason: 'Board review',
+        },
+        IP_ADDRESS,
+      );
+
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        expect.stringContaining('cp-export:preview:'),
+        expect.stringContaining('"purpose":"other"'),
+        'EX',
+        900,
+      );
+      expect(mockRedisClient.set).toHaveBeenCalledWith(
+        expect.stringContaining('cp-export:preview:'),
+        expect.stringContaining('"other_reason":"Board review"'),
         'EX',
         900,
       );
@@ -378,6 +409,93 @@ describe('CpExportService', () => {
 
       const result = await service.generate(TENANT_ID, USER_ID, otherDto, IP_ADDRESS);
       expect(result.data.download_token).toBeDefined();
+    });
+
+    it('should generate from preview_token using the preview-bound scope and purpose', async () => {
+      mockRedisClient.get.mockImplementation((key: string) => {
+        if (key === 'cp-export:preview:preview-token-1') {
+          return Promise.resolve(
+            JSON.stringify({
+              tenant_id: TENANT_ID,
+              user_id: USER_ID,
+              student_id: STUDENT_ID,
+              record_ids: [SAMPLE_RECORD.id],
+              record_types: ['concern'],
+              date_from: '2026-03-01T00:00:00Z',
+              date_to: '2026-03-31T23:59:59Z',
+              purpose: 'board_of_management',
+              other_reason: null,
+            }),
+          );
+        }
+
+        return Promise.resolve(null);
+      });
+      mockFindMany.mockResolvedValue([SAMPLE_RECORD]);
+
+      const result = await service.generate(
+        TENANT_ID,
+        USER_ID,
+        {
+          preview_token: 'preview-token-1',
+          locale: 'en',
+        },
+        IP_ADDRESS,
+      );
+
+      expect(result.data.export_ref_id).toBe('CPX-202603-000001');
+      expect(mockFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            id: { in: [SAMPLE_RECORD.id] },
+          }),
+        }),
+      );
+      expect(mockPdfService.renderPdf).toHaveBeenCalledWith(
+        'cp-export',
+        'en',
+        expect.objectContaining({
+          purpose: 'board_of_management',
+        }),
+        expect.any(Object),
+      );
+      expect(mockRedisClient.del).toHaveBeenCalledWith(
+        'cp-export:preview:preview-token-1',
+      );
+    });
+
+    it('should reject a preview_token used by a different user', async () => {
+      mockRedisClient.get.mockImplementation((key: string) => {
+        if (key === 'cp-export:preview:preview-token-1') {
+          return Promise.resolve(
+            JSON.stringify({
+              tenant_id: TENANT_ID,
+              user_id: '99999999-9999-9999-9999-999999999999',
+              student_id: STUDENT_ID,
+              record_ids: [SAMPLE_RECORD.id],
+              record_types: null,
+              date_from: null,
+              date_to: null,
+              purpose: 'tusla_request',
+              other_reason: null,
+            }),
+          );
+        }
+
+        return Promise.resolve(null);
+      });
+
+      await expect(
+        service.generate(
+          TENANT_ID,
+          USER_ID,
+          {
+            preview_token: 'preview-token-1',
+          },
+          IP_ADDRESS,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException when no records match', async () => {

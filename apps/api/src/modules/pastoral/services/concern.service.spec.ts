@@ -17,6 +17,7 @@ const USER_ID_B = 'cccccccc-cccc-cccc-cccc-cccccccccccc'; // viewer (non-DLP)
 const USER_ID_DLP = 'dddddddd-dddd-dddd-dddd-dddddddddddd'; // DLP user
 const STUDENT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const CONCERN_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const CP_RECORD_ID = '99999999-9999-9999-9999-999999999999';
 const MEMBERSHIP_ID_A = '11111111-1111-1111-1111-111111111111'; // author membership
 const MEMBERSHIP_ID_B = '22222222-2222-2222-2222-222222222222'; // viewer membership
 
@@ -35,6 +36,9 @@ const mockRlsTx = {
     create: jest.fn(),
     findFirst: jest.fn(),
     findMany: jest.fn(),
+  },
+  cpRecord: {
+    create: jest.fn(),
   },
 };
 
@@ -217,6 +221,7 @@ describe('ConcernService', () => {
       const concern = makeConcern(overrides);
       mockRlsTx.pastoralConcern.create.mockResolvedValue(concern);
       mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockRlsTx.cpRecord.create.mockResolvedValue({ id: CP_RECORD_ID });
     };
 
     it('creates a concern with valid data', async () => {
@@ -263,6 +268,7 @@ describe('ConcernService', () => {
           entity_type: 'concern',
         }),
       );
+      expect(mockRlsTx.cpRecord.create).not.toHaveBeenCalled();
 
       expect(result.data).toBeDefined();
     });
@@ -306,6 +312,27 @@ describe('ConcernService', () => {
           tier: 3,
         }),
       });
+      expect(mockRlsTx.cpRecord.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: TENANT_ID,
+          student_id: STUDENT_ID,
+          concern_id: CONCERN_ID,
+          record_type: 'concern',
+          logged_by_user_id: USER_ID_A,
+          narrative: baseDto.narrative,
+        },
+        select: {
+          id: true,
+        },
+      });
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'cp_record_accessed',
+          entity_type: 'cp_record',
+          entity_id: CP_RECORD_ID,
+          student_id: STUDENT_ID,
+        }),
+      );
 
       expect(result.data.tier).toBe(3);
     });
@@ -326,7 +353,43 @@ describe('ConcernService', () => {
           tier: 3,
         }),
       });
+      expect(mockRlsTx.cpRecord.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            concern_id: CONCERN_ID,
+            record_type: 'concern',
+          }),
+        }),
+      );
 
+      expect(result.data.tier).toBe(3);
+    });
+
+    it('creates a CP record when the concern is explicitly tier 3', async () => {
+      setupCreateMocks({ category: 'academic', tier: 3 });
+
+      const result = await service.create(
+        TENANT_ID,
+        USER_ID_A,
+        { ...baseDto, tier: 3 },
+        null,
+      );
+
+      expect(mockRlsTx.pastoralConcern.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          category: 'academic',
+          tier: 3,
+        }),
+      });
+      expect(mockRlsTx.cpRecord.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            concern_id: CONCERN_ID,
+            student_id: STUDENT_ID,
+            narrative: baseDto.narrative,
+          }),
+        }),
+      );
       expect(result.data.tier).toBe(3);
     });
 

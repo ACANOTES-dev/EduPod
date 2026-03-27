@@ -166,7 +166,7 @@ export class ConcernService {
       user_id: userId,
     });
 
-    const concern = (await rlsClient.$transaction(async (tx) => {
+    const { concern, cpRecordId } = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Create the concern row
@@ -201,8 +201,31 @@ export class ConcernService {
         dto.narrative,
       );
 
-      return created;
-    })) as ConcernRow;
+      let createdCpRecordId: string | null = null;
+
+      if (effectiveTier === 3) {
+        const cpRecord = await db.cpRecord.create({
+          data: {
+            tenant_id: tenantId,
+            student_id: dto.student_id,
+            concern_id: created.id,
+            record_type: 'concern',
+            logged_by_user_id: userId,
+            narrative: dto.narrative,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        createdCpRecordId = cpRecord.id;
+      }
+
+      return {
+        concern: created,
+        cpRecordId: createdCpRecordId,
+      };
+    })) as { concern: ConcernRow; cpRecordId: string | null };
 
     // 5. Fire-and-forget: write concern_created audit event
     void this.eventService.write({
@@ -225,6 +248,23 @@ export class ConcernService {
       },
       ip_address: ipAddress,
     });
+
+    if (cpRecordId) {
+      void this.eventService.write({
+        tenant_id: tenantId,
+        event_type: 'cp_record_accessed',
+        entity_type: 'cp_record',
+        entity_id: cpRecordId,
+        student_id: concern.student_id,
+        actor_user_id: userId,
+        tier: 3,
+        payload: {
+          cp_record_id: cpRecordId,
+          student_id: concern.student_id,
+        },
+        ip_address: ipAddress,
+      });
+    }
 
     // 6. Enqueue notification dispatch job
     await this.notificationsQueue.add('pastoral:notify-concern', {

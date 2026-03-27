@@ -42,7 +42,7 @@ export class CpExportController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(cpExportPreviewSchema))
-    dto: { student_id: string; record_types?: string[]; date_from?: string; date_to?: string },
+    dto: Parameters<CpExportService['preview']>[2],
     @Req() req: Request,
   ) {
     return this.cpExportService.preview(
@@ -63,21 +63,13 @@ export class CpExportController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(cpExportGenerateSchema))
-    dto: {
-      student_id: string;
-      purpose: string;
-      other_reason?: string;
-      record_types?: string[];
-      date_from?: string;
-      date_to?: string;
-      locale?: string;
-    },
+    dto: Parameters<CpExportService['generate']>[2],
     @Req() req: Request,
   ) {
     return this.cpExportService.generate(
       tenant.tenant_id,
       user.sub,
-      dto as Parameters<CpExportService['generate']>[2],
+      dto,
       req.ip ?? null,
     );
   }

@@ -5,7 +5,7 @@ import {
   Logger,
   forwardRef,
 } from '@nestjs/common';
-import type { ReportFilterDto } from '@school/shared';
+import type { ExportPurpose, ReportFilterDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { CpExportService } from '../../child-protection/services/cp-export.service';
@@ -19,7 +19,7 @@ import { PastoralReportService } from './pastoral-report.service';
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface InitTier3ExportDto {
-  purpose: string;
+  purpose: ExportPurpose;
   purpose_other?: string;
   student_id?: string;
   from_date?: string;
@@ -152,6 +152,8 @@ export class PastoralExportService {
       userId,
       {
         student_id: dto.student_id ?? '',
+        purpose: dto.purpose,
+        other_reason: dto.purpose_other,
         record_types: undefined,
         date_from: dto.from_date,
         date_to: dto.to_date,
@@ -171,12 +173,13 @@ export class PastoralExportService {
     userId: string,
     exportId: string,
   ): Promise<Tier3ExportResult> {
+    await this.assertCpAccess(tenantId, userId);
+
     const result = await this.cpExportService.generate(
       tenantId,
       userId,
       {
-        student_id: exportId,
-        purpose: 'other',
+        preview_token: exportId,
       },
       null,
     );
@@ -189,10 +192,11 @@ export class PastoralExportService {
    * Delegates to CpExportService.download().
    */
   async downloadTier3Export(
-    _tenantId: string,
-    _userId: string,
+    tenantId: string,
+    userId: string,
     exportId: string,
   ): Promise<Tier3DownloadResult> {
+    await this.assertCpAccess(tenantId, userId);
     return this.cpExportService.download(exportId, null);
   }
 
