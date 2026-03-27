@@ -594,6 +594,218 @@ async function main() {
         subject_template: null,
         body_template: 'تم {{decision}} طلبك "{{action_type}}" من قِبَل {{approver_name}}',
       },
+
+      // ─── Phase C: Behaviour Sanctions + Appeals ────────────────────────────
+
+      // behaviour_sanction_parent — email en
+      {
+        template_key: 'behaviour_sanction_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Behaviour Notice: {{sanction_type}} for {{student_name}}',
+        body_template:
+          'Dear Parent/Guardian,\n\nThis is to inform you that a {{sanction_type}} has been issued for {{student_name}} ({{student_year_group}}).\n\n**Date:** {{sanction_date}}\n**Reason:** {{parent_description}}\n\n{{#if suspension_start_date}}**Suspension Period:** {{suspension_start_date}} to {{suspension_end_date}}\n**Return Conditions:** {{return_conditions}}\n{{/if}}\n\nIf you have any questions, please contact the school.\n\nRegards,\n{{school_name}}',
+      },
+      // behaviour_sanction_parent — email ar
+      {
+        template_key: 'behaviour_sanction_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'إشعار سلوكي: {{sanction_type}} لـ {{student_name}}',
+        body_template:
+          'عزيزي ولي الأمر،\n\nنود إعلامكم بأنه تم إصدار {{sanction_type}} بحق {{student_name}} ({{student_year_group}}).\n\n**التاريخ:** {{sanction_date}}\n**السبب:** {{parent_description}}\n\n{{#if suspension_start_date}}**فترة الإيقاف:** {{suspension_start_date}} إلى {{suspension_end_date}}\n**شروط العودة:** {{return_conditions}}\n{{/if}}\n\nللاستفسارات، يرجى التواصل مع المدرسة.\n\nمع التحية،\n{{school_name}}',
+      },
+      // behaviour_sanction_parent — in_app en
+      {
+        template_key: 'behaviour_sanction_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'A {{sanction_type}} has been issued for {{student_name}} on {{sanction_date}}',
+      },
+      // behaviour_sanction_parent — in_app ar
+      {
+        template_key: 'behaviour_sanction_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم إصدار {{sanction_type}} بحق {{student_name}} بتاريخ {{sanction_date}}',
+      },
+
+      // behaviour_appeal_outcome — email en
+      {
+        template_key: 'behaviour_appeal_outcome',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Appeal {{appeal_number}} Decision',
+        body_template:
+          'Dear Appellant,\n\nThe appeal {{appeal_number}} regarding {{student_name}} has been decided.\n\n**Decision:** {{appeal_decision}}\n**Reasoning:** {{appeal_reasoning}}\n\n{{#if resulting_amendments}}**Amendments Made:**\n{{resulting_amendments}}\n{{/if}}\n\nIf you have any questions, please contact the school.\n\nRegards,\n{{school_name}}',
+      },
+      // behaviour_appeal_outcome — email ar
+      {
+        template_key: 'behaviour_appeal_outcome',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'قرار الاستئناف {{appeal_number}}',
+        body_template:
+          'عزيزي مقدم الاستئناف،\n\nتم البت في الاستئناف {{appeal_number}} المتعلق بـ {{student_name}}.\n\n**القرار:** {{appeal_decision}}\n**الأسباب:** {{appeal_reasoning}}\n\n{{#if resulting_amendments}}**التعديلات:**\n{{resulting_amendments}}\n{{/if}}\n\nللاستفسارات، يرجى التواصل مع المدرسة.\n\nمع التحية،\n{{school_name}}',
+      },
+      // behaviour_appeal_outcome — in_app en
+      {
+        template_key: 'behaviour_appeal_outcome',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Appeal {{appeal_number}} decided: {{appeal_decision}}',
+      },
+      // behaviour_appeal_outcome — in_app ar
+      {
+        template_key: 'behaviour_appeal_outcome',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم البت في الاستئناف {{appeal_number}}: {{appeal_decision}}',
+      },
+
+      // behaviour_exclusion_notice_parent — email en
+      {
+        template_key: 'behaviour_exclusion_notice_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Important: Formal Exclusion Notice for {{student_name}}',
+        body_template:
+          'Dear Parent/Guardian,\n\nThis is a formal notice regarding the {{exclusion_type}} of {{student_name}} ({{student_year_group}}) from {{school_name}}.\n\n**Exclusion Type:** {{exclusion_type}}\n**Case Number:** {{exclusion_case_number}}\n**Reason:** {{parent_description}}\n\nYou have the right to make representations and to be accompanied by a friend or representative.\n\n{{#if hearing_date}}**Hearing Date:** {{hearing_date}}\n{{/if}}\n\nFor any queries, please contact {{principal_name}} at {{school_name}}.\n\nRegards,\n{{principal_name}}\n{{school_name}}',
+      },
+      // behaviour_exclusion_notice_parent — email ar
+      {
+        template_key: 'behaviour_exclusion_notice_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'مهم: إشعار فصل رسمي لـ {{student_name}}',
+        body_template:
+          'عزيزي ولي الأمر،\n\nهذا إشعار رسمي بخصوص {{exclusion_type}} للطالب {{student_name}} ({{student_year_group}}) من {{school_name}}.\n\n**نوع الفصل:** {{exclusion_type}}\n**رقم القضية:** {{exclusion_case_number}}\n**السبب:** {{parent_description}}\n\nلديكم الحق في تقديم ملاحظات والحضور برفقة صديق أو ممثل.\n\n{{#if hearing_date}}**تاريخ الجلسة:** {{hearing_date}}\n{{/if}}\n\nللاستفسارات، يرجى التواصل مع {{principal_name}} في {{school_name}}.\n\nمع التحية،\n{{principal_name}}\n{{school_name}}',
+      },
+      // behaviour_exclusion_notice_parent — in_app en
+      {
+        template_key: 'behaviour_exclusion_notice_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Formal exclusion notice issued for {{student_name}} — case {{exclusion_case_number}}',
+      },
+      // behaviour_exclusion_notice_parent — in_app ar
+      {
+        template_key: 'behaviour_exclusion_notice_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم إصدار إشعار فصل رسمي لـ {{student_name}} — القضية {{exclusion_case_number}}',
+      },
+
+      // behaviour_exclusion_decision_parent — email en
+      {
+        template_key: 'behaviour_exclusion_decision_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Exclusion Decision: {{student_name}}',
+        body_template:
+          'Dear Parent/Guardian,\n\nFollowing the hearing regarding the exclusion of {{student_name}}, the decision has been reached.\n\n**Decision:** {{exclusion_decision}}\n**Case Number:** {{exclusion_case_number}}\n\n{{#if appeal_deadline}}You have the right to appeal this decision. The appeal deadline is {{appeal_deadline}}.\n{{/if}}\n\nFor any queries, please contact {{principal_name}} at {{school_name}}.\n\nRegards,\n{{principal_name}}\n{{school_name}}',
+      },
+      // behaviour_exclusion_decision_parent — email ar
+      {
+        template_key: 'behaviour_exclusion_decision_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'قرار الفصل: {{student_name}}',
+        body_template:
+          'عزيزي ولي الأمر،\n\nبعد جلسة الاستماع بخصوص فصل {{student_name}}، تم التوصل إلى القرار.\n\n**القرار:** {{exclusion_decision}}\n**رقم القضية:** {{exclusion_case_number}}\n\n{{#if appeal_deadline}}لديكم الحق في استئناف هذا القرار. الموعد النهائي للاستئناف هو {{appeal_deadline}}.\n{{/if}}\n\nللاستفسارات، يرجى التواصل مع {{principal_name}} في {{school_name}}.\n\nمع التحية،\n{{principal_name}}\n{{school_name}}',
+      },
+      // behaviour_exclusion_decision_parent — in_app en
+      {
+        template_key: 'behaviour_exclusion_decision_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Exclusion decision for {{student_name}}: {{exclusion_decision}}',
+      },
+      // behaviour_exclusion_decision_parent — in_app ar
+      {
+        template_key: 'behaviour_exclusion_decision_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'قرار الفصل لـ {{student_name}}: {{exclusion_decision}}',
+      },
+
+      // behaviour_correction_parent — email en
+      {
+        template_key: 'behaviour_correction_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Correction to Previous Behaviour Notice',
+        body_template:
+          'Dear Parent/Guardian,\n\nA previous behaviour notice regarding {{student_name}} has been corrected.\n\n**What Changed:** {{correction_what_changed}}\n**Original Notice Date:** {{original_notification_date}}\n**Reason for Correction:** {{change_reason}}\n\nWe apologise for any inconvenience.\n\nRegards,\n{{school_name}}',
+      },
+      // behaviour_correction_parent — email ar
+      {
+        template_key: 'behaviour_correction_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'تصحيح على إشعار سلوكي سابق',
+        body_template:
+          'عزيزي ولي الأمر،\n\nتم تصحيح إشعار سلوكي سابق يتعلق بـ {{student_name}}.\n\n**ما تم تغييره:** {{correction_what_changed}}\n**تاريخ الإشعار الأصلي:** {{original_notification_date}}\n**سبب التصحيح:** {{change_reason}}\n\nنعتذر عن أي إزعاج.\n\nمع التحية،\n{{school_name}}',
+      },
+      // behaviour_correction_parent — in_app en
+      {
+        template_key: 'behaviour_correction_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Correction to previous behaviour notice for {{student_name}}: {{correction_what_changed}}',
+      },
+      // behaviour_correction_parent — in_app ar
+      {
+        template_key: 'behaviour_correction_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تصحيح على إشعار سلوكي سابق لـ {{student_name}}: {{correction_what_changed}}',
+      },
+
+      // behaviour_reacknowledgement_request — email en
+      {
+        template_key: 'behaviour_reacknowledgement_request',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Please Re-Confirm: Updated Behaviour Notice for {{student_name}}',
+        body_template:
+          'Dear Parent/Guardian,\n\nAn important update has been made to a behaviour record for {{student_name}}.\n\n**What Changed:** {{correction_what_changed}}\n\nPlease log in to the parent portal to review and re-confirm this notice.\n\nRegards,\n{{school_name}}',
+      },
+      // behaviour_reacknowledgement_request — email ar
+      {
+        template_key: 'behaviour_reacknowledgement_request',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'يرجى إعادة التأكيد: إشعار سلوكي محدث لـ {{student_name}}',
+        body_template:
+          'عزيزي ولي الأمر،\n\nتم إجراء تحديث مهم على سجل سلوكي لـ {{student_name}}.\n\n**ما تم تغييره:** {{correction_what_changed}}\n\nيرجى تسجيل الدخول إلى بوابة أولياء الأمور لمراجعة وإعادة تأكيد هذا الإشعار.\n\nمع التحية،\n{{school_name}}',
+      },
+      // behaviour_reacknowledgement_request — in_app en
+      {
+        template_key: 'behaviour_reacknowledgement_request',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Please re-confirm updated behaviour notice for {{student_name}}',
+      },
+      // behaviour_reacknowledgement_request — in_app ar
+      {
+        template_key: 'behaviour_reacknowledgement_request',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'يرجى إعادة تأكيد الإشعار السلوكي المحدث لـ {{student_name}}',
+      },
     ];
 
     // Delete existing platform templates and recreate (idempotent)

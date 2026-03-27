@@ -246,3 +246,33 @@ The database trigger is the safety net. If the trigger is ever dropped or disabl
 For users with `class` scope, the service resolves visible students by querying `ClassStaff` (which classes the user teaches) then `ClassEnrolment` (which students are in those classes). If a teacher is not assigned to their classes in the system, or enrolments are not up to date, they will see NO students in the behaviour module.
 
 **Mitigation**: When troubleshooting "teacher can't see any behaviour data", first check `ClassStaff` assignments and `ClassEnrolment` records for that teacher.
+
+---
+
+## DZ-17: Appeal Decision Cascades Across 6 Tables in One Transaction
+
+**Risk**: Transaction timeout or partial failure corrupting cross-entity state
+**Location**: `apps/api/src/modules/behaviour/behaviour-appeals.service.ts` → `decide()`
+
+When an appeal decision is recorded, the `decide()` method operates on up to 6 tables in a single interactive Prisma transaction:
+1. `behaviour_appeals` — update decision fields
+2. `behaviour_sanctions` — transition status (appealed → scheduled/cancelled/replaced)
+3. `behaviour_incidents` — transition status (→ closed_after_appeal for overturned)
+4. `behaviour_exclusion_cases` — transition status (→ overturned) if linked
+5. `behaviour_amendment_notices` — create correction records if parent-visible fields changed
+6. `behaviour_entity_history` — create audit entries for every changed entity
+
+A `modified` decision is the worst case: it applies field-level amendments to both incident and sanction, creates a replacement sanction, creates amendment notices, and enqueues notifications — all atomically.
+
+**Mitigation**: If this transaction starts timing out, the first lever is to move notification enqueuing outside the transaction (currently inside with try/catch). The second lever is to move amendment notice creation to an async job triggered after the decision is committed.
+
+---
+
+## DZ-18: Legal Hold Cascading on Exclusion Cases and Appeals
+
+**Risk**: Legal holds prevent GDPR anonymisation from completing
+**Location**: `behaviour-exclusion-cases.service.ts`, `behaviour-appeals.service.ts`
+
+Both exclusion case creation and appeal submission automatically set `behaviour_legal_holds` on the linked incident, sanction, and all related entities. These holds prevent the GDPR retention/anonymisation module (Phase H) from processing those records. If a school creates many exclusion cases or appeals, the legal hold backlog can grow silently.
+
+**Mitigation**: Phase H's GDPR module must check for legal holds before anonymisation and surface them in the admin dashboard. Legal holds should be released when: (1) appeal is decided and no exclusion case remains open, (2) exclusion case is finalised/overturned.
