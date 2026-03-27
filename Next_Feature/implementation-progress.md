@@ -11,7 +11,7 @@
 | E | Recognition + Interventions | completed | 2026-03-26 | 2026-03-26 | 30 endpoints, 6 services, 6 pages, 2 worker jobs |
 | F | Analytics + AI | completed | 2026-03-27 | 2026-03-27 | 24 endpoints, 4 services, 3 pages, 4 worker jobs, 27 tests |
 | G | Documents + Comms | completed | 2026-03-27 | 2026-03-27 | 15 endpoints, 3 services, 4 pages, 1 worker job, 30 tests |
-| H | Hardening + Ops + Scale | not_started | — | — | |
+| H | Hardening + Ops + Scale | completed | 2026-03-27 | 2026-03-27 | 17 endpoints, 2 services, 1 page, 2 worker jobs, 149 tests |
 
 ## Dependency Map
 
@@ -81,3 +81,10 @@ A + B + C + D + E + F + G -> H
 **Key patterns established**: Handlebars template compilation with merge field resolution per entity type, parent-safe rendering priority chain (never exposes raw description/context_notes/other participants), guardian restriction check before every parent-facing data return (empty result set, no error), document supersession on amendment, `require()` for handlebars import (pnpm strict mode workaround), `category.parent_visible` filter (field lives on category, not incident)
 **Known limitations**: Document generation is synchronous in API transaction (not offloaded to worker). Notification dispatch from sendDocument doesn't trigger full comms pipeline. Recognition wall consent check is stub. Translation files not created. Sidebar nav not updated.
 **Results file**: Plans/phases-results/BH-G-results.md
+
+### Phase H: Hardening + Ops + Scale — Completed 2026-03-27
+**What was built**: Legal holds service with create/release/propagation cascade across incident→sanctions/tasks/attachments/documents chains. Monthly retention worker with archival pass (marks left-student records), anonymisation pass (strips PII with legal hold gating), and guardian restriction expiry. 17 admin operations endpoints with preview/execute guardrail pattern (recompute-points, rebuild-awards, recompute-pulse, backfill-tasks, resend-notification, refresh-views, policy-dry-run, dead-letter management, scope-audit, health monitoring, reindex-search, retention preview/execute, legal hold CRUD). Partition maintenance worker for 6 high-volume tables. Admin dashboard page (/settings/behaviour-admin) with 5 tabs. 7 release-gate test suites (129 tests) covering data classification, scope enforcement, status projection, parent-safe rendering, safeguarding isolation, idempotency/dedup, RLS verification across 33 tables. 20 unit tests for legal holds and admin services.
+**Key files created**: `behaviour-legal-hold.service.ts`, `behaviour-admin.{service,controller}.ts`, `retention-check.processor.ts`, `partition-maintenance.processor.ts`, `/settings/behaviour-admin/page.tsx`, `tests/release-gate/15-{1..7}-*.spec.ts`, `schemas/{legal-hold,admin-ops}.schema.ts`
+**Key patterns established**: Legal hold propagation (one-level from anchor, no recursive), `$transaction() as Promise<T>` for typed RLS transaction returns, `behaviourSettingsSchema.parse()` via nested `settings.behaviour` JSON path, preview/execute guardrail for destructive admin ops
+**Known limitations**: Table partitioning is configuration only (actual partition DDL not yet applied — requires migration). Dual approval for destructive ops returns placeholder (ApprovalModule integration deferred). Cron jobs not registered in CronSchedulerService. Scale tests (50k incidents, 250k evaluations) not run (require staging). Translation files not created. Sidebar nav not updated.
+**Results file**: Plans/phases-results/BH-H-results.md
