@@ -26,8 +26,8 @@ export class RetentionCheckProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<RetentionCheckPayload>): Promise<Record<string, unknown>> {
-    if (job.name !== BEHAVIOUR_RETENTION_CHECK_JOB) return {};
+  async process(job: Job<RetentionCheckPayload>): Promise<void> {
+    if (job.name !== BEHAVIOUR_RETENTION_CHECK_JOB) return;
 
     const { tenant_id } = job.data;
     if (!tenant_id) {
@@ -39,7 +39,7 @@ export class RetentionCheckProcessor extends WorkerHost {
     );
 
     const worker = new RetentionCheckJob(this.prisma);
-    return worker.executeAndReturn(job.data);
+    await worker.executeAndReturn(job.data);
   }
 }
 
@@ -109,10 +109,11 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
     // Load tenant settings
     const tenantSettings = await tx.tenantSetting.findFirst({
       where: { tenant_id },
-      select: { behaviour: true },
+      select: { settings: true },
     });
+    const rawSettings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
     const settings = behaviourSettingsSchema.parse(
-      (tenantSettings?.behaviour as Record<string, unknown>) ?? {},
+      (rawSettings?.behaviour as Record<string, unknown>) ?? {},
     );
 
     // ── Pass 1: Archival ────────────────────────────────────────────────
