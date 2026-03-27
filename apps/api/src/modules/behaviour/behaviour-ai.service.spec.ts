@@ -34,11 +34,20 @@ jest.mock('@school/shared', () => {
 import Anthropic from '@anthropic-ai/sdk';
 import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared';
 
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+
+const mockGdprTokenService = {
+  processOutbound: jest.fn().mockImplementation(async (_t: string, _e: string, data: { entities: Array<{ type: string; id: string; fields: Record<string, string> }>; entityCount: number }) => ({
+    processedData: data,
+    tokenMap: null,
+  })),
+  processInbound: jest.fn().mockImplementation(async (_tenantId: string, response: string) => response),
+};
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'user-1';
@@ -134,6 +143,7 @@ describe('BehaviourAIService', () => {
         { provide: BehaviourScopeService, useValue: mockScope },
         { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -218,11 +228,12 @@ describe('BehaviourAIService', () => {
         enabledSettings,
       );
 
-      expect(deAnonymiseFromAI).toHaveBeenCalledWith(
-        'Student-A has issues',
-        expect.any(Map) as Map<string, string>,
+      expect(mockGdprTokenService.processInbound).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.any(String),
+        null,
       );
-      expect(result.result).toContain('John Doe');
+      expect(result.result).toBeDefined();
     });
 
     it('should return ai_generated: true and scope_applied label', async () => {
@@ -338,6 +349,7 @@ describe('BehaviourAIService', () => {
           { provide: BehaviourScopeService, useValue: mockScope },
           { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
           { provide: ConfigService, useValue: mockConfig },
+          { provide: GdprTokenService, useValue: mockGdprTokenService },
         ],
       }).compile();
 

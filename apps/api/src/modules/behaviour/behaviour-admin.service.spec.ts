@@ -62,6 +62,10 @@ const mockNotificationsQueue = {
   add: jest.fn().mockResolvedValue({ id: 'job-2' }),
 };
 
+const mockSearchSyncQueue = {
+  add: jest.fn().mockResolvedValue({ id: 'job-3' }),
+};
+
 // ─── Redis mock ───────────────────────────────────────────────────────────────
 
 const mockRedisClient = {
@@ -87,6 +91,7 @@ describe('BehaviourAdminService', () => {
         { provide: PolicyReplayService, useValue: { dryRun: jest.fn().mockResolvedValue({}) } },
         { provide: getQueueToken('behaviour'), useValue: mockBehaviourQueue },
         { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
+        { provide: getQueueToken('search-sync'), useValue: mockSearchSyncQueue },
       ],
     }).compile();
 

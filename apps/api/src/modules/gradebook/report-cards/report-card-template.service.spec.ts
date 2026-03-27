@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import {
@@ -31,6 +32,14 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
+
+const mockGdprTokenService = {
+  processOutbound: jest.fn().mockResolvedValue({
+    processedData: { entities: [], entityCount: 0 },
+    tokenMap: null,
+  }),
+  processInbound: jest.fn().mockImplementation(async (_tenantId: string, response: string) => response),
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,6 +93,7 @@ describe('ReportCardTemplateService — create', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -158,6 +168,7 @@ describe('ReportCardTemplateService — findAll', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -203,6 +214,7 @@ describe('ReportCardTemplateService — findOne', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -241,6 +253,7 @@ describe('ReportCardTemplateService — update', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -297,6 +310,7 @@ describe('ReportCardTemplateService — remove', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -340,6 +354,7 @@ describe('ReportCardTemplateService — setDefault', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -389,6 +404,7 @@ describe('ReportCardTemplateService — convertFromImage', () => {
       providers: [
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 

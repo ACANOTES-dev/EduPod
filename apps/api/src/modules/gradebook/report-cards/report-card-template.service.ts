@@ -6,8 +6,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { GdprOutboundData } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -51,7 +53,10 @@ export class ReportCardTemplateService {
   private readonly logger = new Logger(ReportCardTemplateService.name);
   private anthropic: AnthropicClient | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gdprTokenService: GdprTokenService,
+  ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -343,6 +348,14 @@ export class ReportCardTemplateService {
         },
       });
     }
+
+    // GDPR audit log — no personal data sent to AI, gateway call is for audit trail only
+    await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_template_conversion',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      userId,
+    );
 
     const base64Image = imageBuffer.toString('base64');
 

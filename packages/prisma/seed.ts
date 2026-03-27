@@ -12,6 +12,7 @@ import {
   hashPassword,
   DEV_PASSWORD,
 } from './seed/dev-data';
+import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
 
 /**
  * Seed script for the School Operating System.
@@ -109,6 +110,26 @@ async function main() {
       });
     }
     console.log(`  ${PERMISSION_SEEDS.length} permissions seeded.`);
+
+    // Step 3b: Seed GDPR export policies (platform-level, no tenant)
+    console.log('Seed: Step 3b — GDPR export policies');
+    for (const policy of GDPR_EXPORT_POLICY_SEEDS) {
+      await prisma.gdprExportPolicy.upsert({
+        where: { export_type: policy.export_type },
+        update: {
+          tokenisation: policy.tokenisation,
+          lawful_basis: policy.lawful_basis,
+          description: policy.description,
+        },
+        create: {
+          export_type: policy.export_type,
+          tokenisation: policy.tokenisation,
+          lawful_basis: policy.lawful_basis,
+          description: policy.description,
+        },
+      });
+    }
+    console.log(`  ${GDPR_EXPORT_POLICY_SEEDS.length} GDPR export policies seeded.`);
 
     // Step 4: Seed global system roles (tenant_id = null)
     console.log('Seed: Step 4 — Global system roles');

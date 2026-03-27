@@ -428,3 +428,25 @@ The `survey_responses` table is the ONLY table in the entire codebase that inten
 - During the 7 days between survey close and token deletion, the HMAC is theoretically reversible by someone with the tenant's HMAC secret AND the full staff list
 - After token cleanup (7-day cron), participation data is permanently unlinkable
 - Per-tenant secrets limit blast radius — compromise of one tenant's secret does not affect others
+
+---
+
+## DZ-28: GDPR Token Mapping Table Must Never Be Exposed
+
+**Risk**: Re-identification of anonymised AI data if token mappings leak
+**Location**: `gdpr_anonymisation_tokens` table, `GdprTokenService`
+**Severity**: CRITICAL
+
+The `gdpr_anonymisation_tokens` table maps random tokens back to real student/staff identifiers. If this table is ever exposed via an API endpoint, query, or export, the entire tokenisation layer is defeated.
+
+**Rules:**
+- No API endpoint may return rows from `gdpr_anonymisation_tokens`
+- No DSAR export may include this table's data
+- The only way to interact with tokens is through `GdprTokenService.processOutbound` / `processInbound`
+- Token deletion (via `deleteTokensForEntity`) is the erasure mechanism for DSAR right-to-erasure
+- The `gdpr_export_policies` table is platform-level with no RLS — policies are shared across all tenants. Do not add tenant_id to it.
+
+**What makes this dangerous:**
+- A well-meaning developer adding a "view tokens" admin endpoint would create a PII exposure
+- Logging the token map (e.g., in audit logs or error traces) would leak the mapping
+- The `processInbound` method operates on the token map in-memory only — it must never be persisted alongside AI responses

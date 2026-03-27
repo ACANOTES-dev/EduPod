@@ -23,6 +23,7 @@ import { ConfigurationModule } from './modules/configuration/configuration.modul
 import { CriticalIncidentsModule } from './modules/critical-incidents/critical-incidents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { GdprModule } from './modules/gdpr/gdpr.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
 import { HealthModule } from './modules/health/health.module';
 import { HouseholdsModule } from './modules/households/households.module';
@@ -118,6 +119,7 @@ import { WebsiteModule } from './modules/website/website.module';
     GradebookModule,
     PdfRenderingModule,
     FinanceModule,
+    GdprModule,
     PayrollModule,
     CommunicationsModule,
     ParentInquiriesModule,

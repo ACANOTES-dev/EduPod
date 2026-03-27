@@ -62,6 +62,7 @@ import { CpRecordService } from '../child-protection/services/cp-record.service'
 import { ConcernVersionService } from '../pastoral/services/concern-version.service';
 import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
+import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
@@ -179,6 +180,10 @@ const mockPastoralEventService = {
   write: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockPdfRenderingService = {
+  renderPdf: jest.fn().mockResolvedValue(Buffer.from('pdf-content')),
+};
+
 // ─── Helper: build a base concern record ────────────────────────────────────
 
 function makeConcern(overrides: Record<string, unknown> = {}) {
@@ -273,6 +278,7 @@ describe('SafeguardingService', () => {
         { provide: CpRecordService, useValue: mockCpRecordService },
         { provide: ConcernVersionService, useValue: mockConcernVersionService },
         { provide: PastoralEventService, useValue: mockPastoralEventService },
+        { provide: PdfRenderingService, useValue: mockPdfRenderingService },
       ],
     }).compile();
 

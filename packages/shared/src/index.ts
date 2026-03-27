@@ -142,6 +142,9 @@ export * from './pastoral';
 // Staff Wellbeing
 export * from './staff-wellbeing';
 
+// GDPR
+export * from './gdpr';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

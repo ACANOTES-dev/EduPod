@@ -686,6 +686,10 @@ model Tenant {
   staff_surveys    StaffSurvey[]
   survey_questions SurveyQuestion[]
 
+  // GDPR Relations
+  gdprAnonymisationTokens GdprAnonymisationToken[]
+  gdprTokenUsageLogs      GdprTokenUsageLog[]
+
   @@map("tenants")
 }
 
@@ -1001,6 +1005,10 @@ model User {
 
   // Staff Wellbeing Relations
   staff_surveys_created StaffSurvey[] @relation("staff_survey_creator")
+
+  // GDPR Relations
+  gdprUsageTriggered GdprTokenUsageLog[] @relation("gdpr_usage_triggered_by")
+  gdprUsageOverrides GdprTokenUsageLog[] @relation("gdpr_usage_override_by")
 
   @@map("users")
 }
@@ -7158,4 +7166,57 @@ model SurveyParticipationToken {
 
   @@id([survey_id, token_hash])
   @@map("survey_participation_tokens")
+}
+
+// ─── GDPR Tokenisation ───────────────────────────────────────────────────────
+
+model GdprAnonymisationToken {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String   @db.Uuid
+  entity_type  String   @db.VarChar(50)
+  entity_id    String   @db.Uuid
+  field_type   String   @db.VarChar(50)
+  token        String   @unique @db.VarChar(20)
+  created_at   DateTime @default(now()) @db.Timestamptz()
+  last_used_at DateTime @default(now()) @db.Timestamptz()
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, entity_type, entity_id, field_type], name: "uq_gdpr_entity_field")
+  @@index([tenant_id], name: "idx_gdpr_tokens_tenant")
+  @@map("gdpr_anonymisation_tokens")
+}
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model GdprExportPolicy {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  export_type  String   @unique @db.VarChar(100)
+  tokenisation String   @default("always") @db.VarChar(20)
+  lawful_basis String   @db.VarChar(100)
+  description  String   @db.Text
+  created_at   DateTime @default(now()) @db.Timestamptz()
+
+  @@map("gdpr_export_policies")
+}
+
+model GdprTokenUsageLog {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String   @db.Uuid
+  export_type     String   @db.VarChar(100)
+  tokenised       Boolean
+  policy_applied  String   @db.VarChar(100)
+  lawful_basis    String?  @db.VarChar(100)
+  tokens_used     String[] @db.Uuid
+  entity_count    Int      @default(0)
+  triggered_by    String   @db.Uuid
+  override_by     String?  @db.Uuid
+  override_reason String?  @db.Text
+  created_at      DateTime @default(now()) @db.Timestamptz()
+
+  tenant    Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  triggerer User   @relation("gdpr_usage_triggered_by", fields: [triggered_by], references: [id])
+  overrider User?  @relation("gdpr_usage_override_by", fields: [override_by], references: [id])
+
+  @@index([tenant_id, created_at], name: "idx_gdpr_usage_tenant")
+  @@map("gdpr_token_usage_log")
 }

@@ -29,6 +29,14 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ---
 
+### GdprTokenService (GdprModule)
+- **Exports**: `GdprTokenService`
+- **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
+- **Blast radius**: HIGH. Every AI service routes through this for tokenisation + audit. Changing the `processOutbound`/`processInbound` interface breaks all AI features.
+- **Rule**: The `gdpr_anonymisation_tokens` mapping table must NEVER be exposed via any API endpoint. Token values are security-sensitive.
+
+---
+
 ## Tier 2 — Cross-Cutting Services (change = multiple domains break)
 
 ### SequenceService (TenantsModule)

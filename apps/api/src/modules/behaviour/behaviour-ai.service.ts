@@ -6,18 +6,16 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import {
-  AI_BEHAVIOUR_SYSTEM_PROMPT,
-  anonymiseForAI,
-  deAnonymiseFromAI,
-  DEFAULT_ANONYMISE_OPTIONS,
-} from '@school/shared';
+import { AI_BEHAVIOUR_SYSTEM_PROMPT, anonymiseForAI } from '@school/shared';
 import type {
   AIQueryHistoryResult,
   AIQueryInput,
   AIQueryResult,
+  AnonymiseOptions,
+  GdprOutboundData,
 } from '@school/shared';
 
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
@@ -36,6 +34,7 @@ export class BehaviourAIService {
     private readonly scopeService: BehaviourScopeService,
     private readonly analyticsService: BehaviourAnalyticsService,
     private readonly configService: ConfigService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {
     const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
     if (apiKey) {
@@ -86,11 +85,30 @@ export class BehaviourAIService {
       top_categories: categories.categories.slice(0, 10),
     };
 
-    // Anonymise
-    const { anonymised, tokenMap } = anonymiseForAI(dataContext, DEFAULT_ANONYMISE_OPTIONS);
+    // Sanitise: strip UUIDs, context notes, SEND details, safeguarding flags.
+    // Name replacement is handled by the GDPR gateway below.
+    const sanitiseOptions: AnonymiseOptions = {
+      replaceStudentNames: false,
+      replaceStaffNames: false,
+      removeUUIDs: true,
+      removeContextNotes: true,
+      removeSendDetails: true,
+      removeSafeguardingFlags: true,
+    };
+    const { anonymised: sanitised } = anonymiseForAI(dataContext, sanitiseOptions);
+
+    // GDPR gateway — aggregate analytics data contains no personal names,
+    // so entity list is empty. The gateway call creates the audit trail.
+    const outbound: GdprOutboundData = { entities: [], entityCount: 0 };
+    const { tokenMap } = await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_behaviour_query',
+      outbound,
+      userId,
+    );
 
     // Build prompt
-    const prompt = `Based on this school behaviour data, answer the following question:\n\n"${input.query}"\n\nData context:\n${JSON.stringify(anonymised, null, 2)}\n\nProvide a clear, concise answer suitable for school management.`;
+    const prompt = `Based on this school behaviour data, answer the following question:\n\n"${input.query}"\n\nData context:\n${JSON.stringify(sanitised, null, 2)}\n\nProvide a clear, concise answer suitable for school management.`;
 
     // Call AI
     const dataAsOf = new Date().toISOString();
@@ -107,8 +125,8 @@ export class BehaviourAIService {
       });
     }
 
-    // De-anonymise
-    const result = deAnonymiseFromAI(aiResponse, tokenMap);
+    // De-tokenise AI response via GDPR gateway
+    const result = await this.gdprTokenService.processInbound(tenantId, aiResponse, tokenMap);
 
     // Audit log (anonymised prompt only)
     if (settings.ai_audit_logging) {

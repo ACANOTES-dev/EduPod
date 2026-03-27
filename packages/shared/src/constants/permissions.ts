@@ -171,6 +171,10 @@ export const PERMISSIONS = {
     manage: 'compliance.manage',
     view: 'compliance.view',
   },
+  // GDPR (admin)
+  gdpr: {
+    view: 'gdpr.view',
+  },
   // Behaviour (admin + staff tier)
   behaviour: {
     log: 'behaviour.log',
@@ -296,6 +300,7 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.curriculum_matrix.manage]: 'admin',
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
+  [PERMISSIONS.gdpr.view]: 'admin',
   [PERMISSIONS.behaviour.admin]: 'admin',
   [PERMISSIONS.behaviour.view_staff_analytics]: 'admin',
   [PERMISSIONS.safeguarding.view]: 'admin',
@@ -426,6 +431,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.curriculum_matrix.manage,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
+    PERMISSIONS.gdpr.view,
     // Behaviour + safeguarding (all)
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
@@ -501,6 +507,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.analytics.manage_compliance,
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
+    PERMISSIONS.gdpr.view,
     // Behaviour + safeguarding
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,

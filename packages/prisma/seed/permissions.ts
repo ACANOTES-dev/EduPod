@@ -123,6 +123,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'curriculum_matrix.manage', description: 'Unlock and modify the curriculum matrix (class-subject assignments)', permission_tier: 'admin' },
   { permission_key: 'compliance.manage', description: 'Manage compliance and GDPR settings', permission_tier: 'admin' },
   { permission_key: 'compliance.view', description: 'View audit logs and compliance reports', permission_tier: 'admin' },
+  { permission_key: 'gdpr.view', description: 'View GDPR export policies and token usage audit logs', permission_tier: 'admin' },
 
   // ─── Staff tier ────────────────────────────────────────────────────────────
   { permission_key: 'attendance.take', description: 'Take attendance for assigned classes', permission_tier: 'staff' },
