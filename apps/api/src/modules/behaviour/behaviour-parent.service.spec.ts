@@ -48,6 +48,9 @@ const mockRlsTx = {
   behaviourRecognitionAward: {
     findMany: jest.fn(),
   },
+  behaviourPublicationApproval: {
+    findMany: jest.fn(),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -68,6 +71,7 @@ const makeParent = (overrides: Record<string, unknown> = {}) => ({
   first_name: 'Jane',
   last_name: 'Smith',
   is_primary_contact: true,
+  user: { preferred_locale: 'en' },
   ...overrides,
 });
 
@@ -362,6 +366,90 @@ describe('BehaviourParentService', () => {
       expect(desc).toContain('Disruption');
       expect(desc).toContain('2026');
     });
+
+    it('priority 1 (ar): returns parent_description_ar for Arabic locale parent', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(
+        makeParent({ user: { preferred_locale: 'ar' } }),
+      );
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: { behaviour: {} } });
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(1);
+      mockRlsTx.behaviourParentAcknowledgement.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({
+          parent_description: 'English description',
+          parent_description_ar: 'الوصف بالعربية',
+        }),
+      ]);
+
+      const result = (await service.getIncidents(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        1,
+        20,
+      )) as IncidentsResult;
+
+      expect(result.data[0]!.incident_description).toBe('الوصف بالعربية');
+    });
+
+    it('priority 1 (ar fallback): returns parent_description when parent_description_ar is null for Arabic locale', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(
+        makeParent({ user: { preferred_locale: 'ar' } }),
+      );
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: { behaviour: {} } });
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(1);
+      mockRlsTx.behaviourParentAcknowledgement.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({
+          parent_description: 'English description',
+          parent_description_ar: null,
+        }),
+      ]);
+
+      const result = (await service.getIncidents(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        1,
+        20,
+      )) as IncidentsResult;
+
+      expect(result.data[0]!.incident_description).toBe('English description');
+    });
+
+    it('priority 3 (ar): returns category name_ar for Arabic locale in fallback', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(
+        makeParent({ user: { preferred_locale: 'ar' } }),
+      );
+      mockRlsTx.studentParent.findFirst.mockResolvedValue(makeStudentLink());
+      mockRlsTx.behaviourGuardianRestriction.findFirst.mockResolvedValue(null);
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({ settings: { behaviour: {} } });
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(1);
+      mockRlsTx.behaviourParentAcknowledgement.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncident.findMany.mockResolvedValue([
+        makeIncident({
+          parent_description: null,
+          parent_description_ar: null,
+          context_snapshot: null,
+          category: { name: 'Disruption', name_ar: 'اضطراب' },
+          occurred_at: new Date('2026-03-15T10:00:00Z'),
+        }),
+      ]);
+
+      const result = (await service.getIncidents(
+        TENANT_ID,
+        USER_ID,
+        STUDENT_ID,
+        1,
+        20,
+      )) as IncidentsResult;
+
+      expect(result.data[0]!.incident_description).toContain('اضطراب');
+    });
   });
 
   // ─── acknowledge ────────────────────────────────────────────────────────
@@ -490,6 +578,73 @@ describe('BehaviourParentService', () => {
       await service.acknowledge(TENANT_ID, USER_ID, ACK_ID);
 
       expect(mockRlsTx.behaviourIncident.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── getRecognitionWall ───────────────────────────────────────────────────
+
+  describe('getRecognitionWall', () => {
+    const makeWallAward = (id: string) => ({
+      id,
+      tenant_id: TENANT_ID,
+      student_id: STUDENT_ID,
+      superseded_by_id: null,
+      awarded_at: new Date('2026-03-20T12:00:00Z'),
+      student: { first_name: 'Alice', last_name: 'Smith' },
+      award_type: { name: 'Star Student', icon: 'star' },
+    });
+
+    it('should filter awards by consent when recognition_wall_requires_consent is true', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
+        settings: { behaviour: { recognition_wall_requires_consent: true } },
+      });
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
+        makeWallAward('award-1'),
+        makeWallAward('award-2'),
+      ]);
+      // Only award-1 has consent granted
+      mockRlsTx.behaviourPublicationApproval.findMany.mockResolvedValue([
+        { entity_id: 'award-1' },
+      ]);
+
+      const result = await service.getRecognitionWall(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]!.award_type_name).toBe('Star Student');
+    });
+
+    it('should return all awards when recognition_wall_requires_consent is false', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
+        settings: { behaviour: { recognition_wall_requires_consent: false } },
+      });
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
+        makeWallAward('award-1'),
+        makeWallAward('award-2'),
+      ]);
+
+      const result = await service.getRecognitionWall(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(2);
+      // Should NOT query publication approvals when consent is not required
+      expect(mockRlsTx.behaviourPublicationApproval.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should return empty when consent is required and no awards are approved', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue(makeParent());
+      mockRlsTx.tenantSetting.findFirst.mockResolvedValue({
+        settings: { behaviour: { recognition_wall_requires_consent: true } },
+      });
+      mockRlsTx.behaviourRecognitionAward.findMany.mockResolvedValue([
+        makeWallAward('award-1'),
+      ]);
+      // No approvals
+      mockRlsTx.behaviourPublicationApproval.findMany.mockResolvedValue([]);
+
+      const result = await service.getRecognitionWall(TENANT_ID, USER_ID);
+
+      expect(result.data).toHaveLength(0);
     });
   });
 });

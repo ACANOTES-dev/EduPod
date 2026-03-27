@@ -26,6 +26,7 @@ export class BehaviourParentService {
   async resolveParent(tenantId: string, userId: string) {
     const parent = await this.prisma.parent.findFirst({
       where: { user_id: userId, tenant_id: tenantId, status: 'active' },
+      include: { user: { select: { preferred_locale: true } } },
     });
 
     if (!parent) {
@@ -168,6 +169,9 @@ export class BehaviourParentService {
         return { data: [], meta: { page, pageSize, total: 0 } };
       }
 
+      // Resolve parent locale from the linked User record
+      const parentLocale = parent.user?.preferred_locale ?? 'en';
+
       // Load tenant settings for teacher name visibility
       const tenantSettings = await db.tenantSetting.findFirst({
         where: { tenant_id: tenantId },
@@ -233,7 +237,7 @@ export class BehaviourParentService {
         category_name_ar: inc.category?.name_ar ?? null,
         polarity: inc.polarity,
         severity: inc.severity,
-        incident_description: this.renderIncidentForParent(inc),
+        incident_description: this.renderIncidentForParent(inc, parentLocale),
         occurred_at: inc.occurred_at.toISOString(),
         reported_by_name: showTeacherName && inc.reported_by
           ? `${inc.reported_by.first_name} ${inc.reported_by.last_name}`
@@ -502,9 +506,22 @@ export class BehaviourParentService {
       // Check consent requirements
       const requiresConsent = (behaviourSettings.recognition_wall_requires_consent as boolean) ?? true;
 
-      const filtered = requiresConsent
-        ? awards.filter(() => true) // Consent check would go here with publication_approvals table
-        : awards;
+      let filtered: WallAward[];
+      if (requiresConsent) {
+        // Only show awards with a granted publication approval
+        const approvedRecords = await db.behaviourPublicationApproval.findMany({
+          where: {
+            tenant_id: tenantId,
+            entity_type: 'award' as $Enums.PublicationEntityType,
+            parent_consent_status: 'granted' as $Enums.ParentConsentStatus,
+          },
+          select: { entity_id: true },
+        });
+        const approvedIds = new Set(approvedRecords.map((a) => a.entity_id));
+        filtered = awards.filter((a) => approvedIds.has(a.id));
+      } else {
+        filtered = awards;
+      }
 
       const data: ParentRecognitionItem[] = filtered.map((a) => ({
         student_first_name: a.student.first_name,
@@ -522,9 +539,9 @@ export class BehaviourParentService {
 
   /**
    * Content priority:
-   * 1. parent_description (or parent_description_ar if locale is ar)
+   * 1. parent_description_ar (if locale is 'ar' and not null), else parent_description
    * 2. Template text from context_snapshot
-   * 3. Category name + date fallback
+   * 3. Category name (name_ar for Arabic locale) + date fallback
    */
   private renderIncidentForParent(
     incident: {
@@ -534,9 +551,15 @@ export class BehaviourParentService {
       category?: { name: string; name_ar?: string | null } | null;
       context_snapshot?: unknown;
     },
+    parentLocale: string = 'en',
   ): string {
-    // Priority 1: parent_description
-    if (incident.parent_description && incident.parent_description.trim()) {
+    const isArabic = parentLocale === 'ar';
+
+    // Priority 1: parent_description (locale-aware)
+    if (isArabic && incident.parent_description_ar?.trim()) {
+      return incident.parent_description_ar;
+    }
+    if (incident.parent_description?.trim()) {
       return incident.parent_description;
     }
 
@@ -546,9 +569,12 @@ export class BehaviourParentService {
       return snapshot.description_template_text as string;
     }
 
-    // Priority 3: category name + date
-    const categoryName = incident.category?.name ?? 'Incident';
-    const dateStr = incident.occurred_at.toLocaleDateString('en-IE', {
+    // Priority 3: category name + date (locale-aware)
+    const categoryName = (isArabic && incident.category?.name_ar?.trim())
+      ? incident.category.name_ar
+      : (incident.category?.name ?? 'Incident');
+    const dateLocale = isArabic ? 'ar-SA' : 'en-IE';
+    const dateStr = incident.occurred_at.toLocaleDateString(dateLocale, {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

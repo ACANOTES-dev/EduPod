@@ -267,10 +267,31 @@ export class BehaviourDocumentService {
         );
       }
 
+      // Print channel: generate download URL and log print event, don't change status
+      if (dto.channel === 'print') {
+        const url = await this.s3Service.getPresignedUrl(document.file_key, 900);
+
+        await this.historyService.recordHistory(
+          db,
+          tenantId,
+          document.entity_type,
+          document.entity_id,
+          userId,
+          'document_printed',
+          null,
+          { document_id: documentId, download_url: url },
+        );
+
+        this.logger.log(
+          `Print requested for document ${documentId} — download URL generated`,
+        );
+
+        return { data: { ...this.serializeDocument(document), download_url: url } };
+      }
+
+      // Normal send flow (email/whatsapp/in_app)
       const now = new Date();
-      const sentVia = dto.channel === 'print'
-        ? ('in_app' as $Enums.AcknowledgementChannel)
-        : (dto.channel as $Enums.AcknowledgementChannel);
+      const sentVia = dto.channel as $Enums.AcknowledgementChannel;
 
       // Update document status to sent
       const updated = await db.behaviourDocument.update({
@@ -427,6 +448,34 @@ export class BehaviourDocumentService {
           status: 'draft_doc' as $Enums.DocumentStatus,
         },
       });
+
+      // Notify staff that document is ready for review
+      try {
+        await db.notification.create({
+          data: {
+            tenant_id: tenantId,
+            recipient_user_id: userId,
+            channel: 'in_app',
+            template_key: 'behaviour.document_ready_for_review',
+            locale: 'en',
+            status: 'delivered',
+            payload_json: {
+              document_id: documentId,
+              document_type: documentType,
+              entity_type: entityType,
+              entity_id: entityId,
+              student_id: studentId,
+            },
+            source_entity_type: 'behaviour_document',
+            source_entity_id: documentId,
+            delivered_at: new Date(),
+          },
+        });
+      } catch (notifyErr) {
+        this.logger.warn(
+          `Failed to create document-ready notification for ${documentId}: ${(notifyErr as Error).message}`,
+        );
+      }
 
       this.logger.log(
         `Auto-generated ${documentType} document ${documentId} for ${entityType}/${entityId}`,

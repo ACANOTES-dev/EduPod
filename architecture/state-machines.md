@@ -473,3 +473,23 @@ withdrawn_appeal*
   - Creates amendment notices for parent-visible field changes. All in single interactive transaction.
   - `* -> withdrawn_appeal`: Restores sanction from `appealed -> scheduled`.
 - **Danger**: The `decide` endpoint's atomic transaction touches up to 6 tables: appeals, sanctions, incidents, exclusion_cases, amendment_notices, entity_history. Transaction timeout risk on complex decisions.
+
+### DocumentStatus (Phase G)
+
+- **Model**: `BehaviourDocument.status`
+- **Prisma enum mapping**: `draft_doc` → DB `"draft"`, `sent_doc` → DB `"sent"`, `finalised` and `superseded` unchanged
+- **Initial state**: `draft_doc` (all documents start here)
+- **Terminal states**: `sent_doc *`, `superseded *`
+- **Transitions**:
+  - `draft_doc -> finalised` (staff reviews and confirms via `PATCH /documents/:id/finalise`)
+  - `finalised -> sent_doc` (dispatched via `POST /documents/:id/send` with channel email/whatsapp/in_app)
+  - `finalised -> superseded` (amendment generates replacement document)
+  - `sent_doc -> superseded` (amendment to a previously sent document)
+- **Side effects**:
+  - `draft_doc -> finalised`: Entity history entry recorded. Staff can now send or print.
+  - `finalised -> sent_doc`: `sent_at` and `sent_via` set. `behaviour_parent_acknowledgements` row created. Notification dispatched.
+  - `* -> superseded`: `superseded_by_id` and `superseded_reason` set. Original document retained for audit.
+  - Print channel: Does NOT transition status. Generates download URL + logs `document_printed` history event.
+- **Auto-generation triggers**: Sanction creation (detention_notice, suspension_letter), exclusion initiation (exclusion_notice), appeal hearing date set (appeal_hearing_invite), appeal decided (appeal_decision_letter). All auto-generated docs start at `draft_doc`.
+- **Guarded by**: `BehaviourDocumentService.finaliseDocument()`, `BehaviourDocumentService.sendDocument()`
+- **Danger**: Document generation runs Puppeteer inside the API transaction — timeout risk for complex board pack templates.

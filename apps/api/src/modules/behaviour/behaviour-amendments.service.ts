@@ -249,16 +249,116 @@ export class BehaviourAmendmentsService {
         });
       }
 
-      // Mark correction as sent
+      // ── Step 2-3: Resolve student_id + incident/sanction IDs from entity ──
+      const entityRefs = await this.resolveEntityReferences(
+        db,
+        tenantId,
+        notice.entity_type,
+        notice.entity_id,
+      );
+
+      // ── Step 4: Find parents for the student ─────────────────────────────
+      const now = new Date();
+      if (entityRefs.studentId) {
+        const studentParents = await db.studentParent.findMany({
+          where: {
+            student_id: entityRefs.studentId,
+            tenant_id: tenantId,
+          },
+          include: {
+            parent: {
+              select: { id: true, user_id: true, status: true },
+            },
+          },
+        });
+
+        for (const sp of studentParents) {
+          if (sp.parent.status !== 'active') continue;
+
+          // ── Step 5: Create acknowledgement row with amendment_notice_id ─
+          try {
+            await db.behaviourParentAcknowledgement.create({
+              data: {
+                tenant_id: tenantId,
+                incident_id: entityRefs.incidentId ?? null,
+                sanction_id: entityRefs.sanctionId ?? null,
+                amendment_notice_id: notice.id,
+                parent_id: sp.parent.id,
+                channel: 'in_app',
+                sent_at: now,
+              },
+            });
+          } catch {
+            // Don't fail the entire correction if a single ack row fails
+          }
+
+          // ── Step 6: Create in-app notification for correction ──────────
+          if (sp.parent.user_id) {
+            try {
+              await db.notification.create({
+                data: {
+                  tenant_id: tenantId,
+                  recipient_user_id: sp.parent.user_id,
+                  channel: 'in_app',
+                  template_key:
+                    notice.requires_parent_reacknowledgement
+                      ? 'behaviour.reacknowledgement_request'
+                      : 'behaviour.correction_parent',
+                  locale: 'en',
+                  status: 'delivered',
+                  payload_json: {
+                    amendment_notice_id: notice.id,
+                    entity_type: notice.entity_type,
+                    entity_id: notice.entity_id,
+                    requires_reacknowledgement:
+                      notice.requires_parent_reacknowledgement,
+                  },
+                  source_entity_type: 'behaviour_amendment_notice',
+                  source_entity_id: notice.id,
+                  delivered_at: now,
+                },
+              });
+            } catch {
+              // Don't fail the correction if notification creation fails
+            }
+          }
+        }
+      }
+
+      // ── Step 7: Update correction_notification_sent flags ───────────────
       const updated = await db.behaviourAmendmentNotice.update({
         where: { id },
         data: {
           correction_notification_sent: true,
-          correction_notification_sent_at: new Date(),
+          correction_notification_sent_at: now,
         },
       });
 
-      // Enqueue correction notification to parent
+      // ── Step 8: Document supersession ──────────────────────────────────
+      try {
+        const existingSentDoc = await db.behaviourDocument.findFirst({
+          where: {
+            tenant_id: tenantId,
+            entity_id: notice.entity_id,
+            status: 'sent_doc',
+          },
+          orderBy: { generated_at: 'desc' },
+        });
+
+        if (existingSentDoc) {
+          await db.behaviourDocument.update({
+            where: { id: existingSentDoc.id },
+            data: {
+              status: 'superseded',
+              superseded_reason: `Amendment: ${notice.change_reason ?? 'Post-notification correction'}`,
+            },
+          });
+        }
+      } catch {
+        // Don't fail the correction if document supersession fails
+      }
+
+      // Enqueue correction notification to parent (async delivery)
       try {
         await this.notificationsQueue.add(
           'behaviour:correction-parent',
@@ -393,6 +493,55 @@ export class BehaviourAmendmentsService {
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * Resolve the student_id, incident_id, and sanction_id from the
+   * amendment notice's entity_type + entity_id. Incidents derive student
+   * from the first 'subject' participant; sanctions have student_id directly.
+   */
+  private async resolveEntityReferences(
+    db: PrismaService,
+    tenantId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<{
+    studentId: string | null;
+    incidentId: string | null;
+    sanctionId: string | null;
+  }> {
+    if (entityType === 'sanction') {
+      const sanction = await db.behaviourSanction.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+        select: { student_id: true, incident_id: true },
+      });
+      return {
+        studentId: sanction?.student_id ?? null,
+        incidentId: sanction?.incident_id ?? null,
+        sanctionId: entityId,
+      };
+    }
+
+    if (entityType === 'incident') {
+      // Incidents don't have a direct student_id; find the subject participant
+      const subjectParticipant =
+        await db.behaviourIncidentParticipant.findFirst({
+          where: {
+            incident_id: entityId,
+            tenant_id: tenantId,
+            role: 'subject',
+            student_id: { not: null },
+          },
+          select: { student_id: true },
+        });
+      return {
+        studentId: subjectParticipant?.student_id ?? null,
+        incidentId: entityId,
+        sanctionId: null,
+      };
+    }
+
+    return { studentId: null, incidentId: null, sanctionId: null };
+  }
 
   private getParentVisibleFields(entityType: string): readonly string[] {
     switch (entityType) {

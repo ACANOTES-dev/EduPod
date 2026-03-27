@@ -408,15 +408,18 @@ Daily cron fires at 05:00 UTC
 Cron fires at tenant digest time
   -> behaviour:digest-notifications enqueued per tenant
   -> Worker loads all incidents with parent_notification_status = 'pending' and category.parent_visible = true
-  -> For each student's parents:
-    -> Guardian restriction check (skip if restricted)
-    -> Dedup check (skip if already sent today)
-    -> Create behaviour_parent_acknowledgements row
-    -> Create in-app notification if parent has user account
-  -> Update incident parent_notification_status to 'sent'
+  -> Groups incidents by student, then builds per-parent digest
+  -> For each parent across all their linked students:
+    -> Guardian restriction check per student (skip restricted)
+    -> Dedup check (skip if ack already exists in last 24h)
+    -> Apply parent-safe rendering priority chain to each incident (parent_description → template text → category+date)
+    -> Compose ONE batch digest with all rendered entries
+    -> Create notifications via parent's preferred channels (in_app always + email/whatsapp from preferred_contact_channels)
+    -> Create behaviour_parent_acknowledgements row per incident in batch
+  -> Update all processed incidents parent_notification_status to 'sent'
 ```
 
-**Danger**: Processes all pending incidents for a tenant in one batch. For tenants with high incident volumes and many parents, this job may be slow. Individual parent failures don't abort the batch — errors are logged and other parents continue.
+**Danger**: Processes all pending incidents for a tenant in one batch. For tenants with high incident volumes and many parents, this job may be slow. Individual parent failures don't abort the batch — errors are logged and other parents continue. The preferred channel resolution reads `preferred_contact_channels` from the parent record — if this field is stale or empty, only in_app notifications are created.
 
 ---
 
