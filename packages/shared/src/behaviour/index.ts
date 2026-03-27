@@ -7,5 +7,6 @@ export * from './state-machine-intervention';
 export * from './state-machine-sanction';
 export * from './state-machine-exclusion';
 export * from './state-machine-appeal';
+export * from './state-machine-task';
 export * from './school-calendar';
 export * from './schemas';

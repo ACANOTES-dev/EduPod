@@ -65,6 +65,19 @@ export type TaskPriority = (typeof TASK_PRIORITY)[number];
 export const BEHAVIOUR_TASK_STATUS = ['pending', 'in_progress', 'completed', 'cancelled', 'overdue'] as const;
 export type BehaviourTaskStatus = (typeof BEHAVIOUR_TASK_STATUS)[number];
 
+export const BEHAVIOUR_CHANGE_TYPE = [
+  'created', 'status_changed', 'updated', 'participant_added',
+  'participant_removed', 'sanction_created', 'follow_up_recorded',
+  'escalated', 'withdrawn', 'attachment_added',
+  'policy_action_applied', 'appeal_outcome', 'parent_description_set',
+  'admin_approved', 'amendment_created', 'cancelled', 'completed',
+  'correction_sent', 'decided', 'decision_recorded',
+  'document_finalised', 'document_generated', 'document_printed',
+  'document_sent', 'expired', 'legal_hold_released', 'legal_hold_set',
+  'rejected', 'revoked', 'anonymised',
+] as const;
+export type BehaviourChangeType = (typeof BEHAVIOUR_CHANGE_TYPE)[number];
+
 export const RETENTION_STATUS = ['active', 'archived', 'anonymised'] as const;
 export type RetentionStatus = (typeof RETENTION_STATUS)[number];
 
