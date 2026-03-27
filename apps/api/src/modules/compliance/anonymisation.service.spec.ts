@@ -116,6 +116,15 @@ describe('AnonymisationService', () => {
     findMany: jest.fn(),
   };
 
+  const mockBehaviourIncidentParticipant = {
+    findMany: jest.fn(),
+    updateMany: jest.fn(),
+  };
+
+  const mockBehaviourIncident = {
+    updateMany: jest.fn(),
+  };
+
   const mockGdprAnonymisationToken = {
     deleteMany: jest.fn(),
   };
@@ -174,6 +183,9 @@ describe('AnonymisationService', () => {
     mockPayslip.findMany.mockResolvedValue([]);
     mockPayslip.update.mockResolvedValue({});
     mockPayrollEntry.updateMany.mockResolvedValue({ count: 0 });
+    mockBehaviourIncidentParticipant.findMany.mockResolvedValue([]);
+    mockBehaviourIncidentParticipant.updateMany.mockResolvedValue({ count: 0 });
+    mockBehaviourIncident.updateMany.mockResolvedValue({ count: 0 });
     mockGdprAnonymisationToken.deleteMany.mockResolvedValue({ count: 0 });
     mockComplianceRequestTx.findMany.mockResolvedValue([]);
     mockPrisma.complianceRequest.updateMany.mockResolvedValue({ count: 0 });
@@ -203,6 +215,8 @@ describe('AnonymisationService', () => {
     mockTx['parentInquiryMessage'] = mockParentInquiryMessage;
     mockTx['householdParent'] = mockHouseholdParent;
     mockTx['tenantMembership'] = mockTenantMembership;
+    mockTx['behaviourIncidentParticipant'] = mockBehaviourIncidentParticipant;
+    mockTx['behaviourIncident'] = mockBehaviourIncident;
     mockTx['gdprAnonymisationToken'] = mockGdprAnonymisationToken;
     mockTx['complianceRequest'] = mockComplianceRequestTx;
 
@@ -523,6 +537,108 @@ describe('AnonymisationService', () => {
           snapshot_payload_json: true,
         },
       });
+    });
+
+    it('should anonymise behaviour incident records when anonymising a student', async () => {
+      const INCIDENT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+      const PARTICIPANT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+      mockStudent.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+        date_of_birth: new Date('2012-05-23T00:00:00.000Z'),
+        student_parents: [],
+      });
+      mockStudent.update.mockResolvedValue({});
+      mockBehaviourIncidentParticipant.findMany.mockResolvedValue([
+        { id: PARTICIPANT_ID, incident_id: INCIDENT_ID },
+      ]);
+      mockBehaviourIncidentParticipant.updateMany.mockResolvedValue({ count: 1 });
+      mockBehaviourIncident.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.anonymiseStudent(TENANT_ID, STUDENT_ID, mockTx as never);
+
+      const tag = `ANONYMISED-${STUDENT_ID}`;
+      expect(mockBehaviourIncidentParticipant.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, student_id: STUDENT_ID },
+        select: { id: true, incident_id: true },
+      });
+      expect(mockBehaviourIncidentParticipant.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [PARTICIPANT_ID] },
+        },
+        data: {
+          notes: null,
+          external_name: null,
+          student_snapshot: expect.anything(),
+        },
+      });
+      expect(mockBehaviourIncident.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          id: { in: [INCIDENT_ID] },
+        },
+        data: {
+          description: tag,
+          parent_description: null,
+          parent_description_ar: null,
+          context_notes: null,
+          context_snapshot: {},
+        },
+      });
+    });
+
+    it('should not allow cross-tenant data access during anonymisation', async () => {
+      const TENANT_A_ID = TENANT_ID;
+      const TENANT_B_ID = '99999999-9999-9999-9999-999999999999';
+
+      mockStudent.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+        date_of_birth: new Date('2012-05-23T00:00:00.000Z'),
+        student_parents: [{ parent_id: PARENT_ID }],
+      });
+      mockStudent.update.mockResolvedValue({});
+
+      await service.anonymiseStudent(TENANT_A_ID, STUDENT_ID, mockTx as never);
+
+      // Verify createRlsClient was called with correct tenant
+      expect(createRlsClient).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tenant_id: TENANT_B_ID }),
+      );
+
+      // Verify every tenant-scoped query uses TENANT_A_ID
+      const allCalls = [
+        ...mockStudent.findFirst.mock.calls,
+        ...mockAttendanceRecord.findMany.mock.calls,
+        ...mockAttendanceRecord.updateMany.mock.calls,
+        ...mockGrade.updateMany.mock.calls,
+        ...mockPeriodGradeSnapshot.updateMany.mock.calls,
+        ...mockReportCard.findMany.mock.calls,
+        ...mockReportCard.updateMany.mock.calls,
+        ...mockParentInquiry.findMany.mock.calls,
+        ...mockNotification.updateMany.mock.calls,
+        ...mockBehaviourIncidentParticipant.findMany.mock.calls,
+      ];
+
+      for (const callArgs of allCalls) {
+        const whereArg = callArgs[0]?.where;
+        if (whereArg && 'tenant_id' in whereArg) {
+          expect(whereArg.tenant_id).toBe(TENANT_A_ID);
+        }
+      }
+
+      // Verify no queries were made with TENANT_B_ID
+      for (const callArgs of allCalls) {
+        const whereArg = callArgs[0]?.where;
+        if (whereArg && 'tenant_id' in whereArg) {
+          expect(whereArg.tenant_id).not.toBe(TENANT_B_ID);
+        }
+      }
     });
   });
 

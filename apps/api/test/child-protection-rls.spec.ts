@@ -1,3 +1,6 @@
+// Set encryption env vars before any module loading
+process.env.ENCRYPTION_KEY_V1 = 'a'.repeat(64); // 32-byte key as 64 hex chars
+
 /**
  * RLS Integration Tests — Child Protection (SW-1C)
  *

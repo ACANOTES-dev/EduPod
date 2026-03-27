@@ -5,6 +5,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { SequenceService } from '../tenants/sequence.service';
@@ -39,8 +40,11 @@ const mockTx = {
   household: { findFirst: jest.fn(), create: jest.fn() },
   householdParent: { create: jest.fn() },
   yearGroup: { findFirst: jest.fn(), findMany: jest.fn() },
-  user: { create: jest.fn() },
-  staffProfile: { create: jest.fn() },
+  user: { create: jest.fn(), findUnique: jest.fn() },
+  staffProfile: { create: jest.fn(), findFirst: jest.fn() },
+  tenantMembership: { findUnique: jest.fn(), create: jest.fn() },
+  membershipRole: { findFirst: jest.fn(), create: jest.fn() },
+  role: { findFirst: jest.fn() },
   importJobRecord: { create: jest.fn() },
 };
 
@@ -96,6 +100,7 @@ describe('ImportProcessingService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
         { provide: SequenceService, useValue: { nextNumber: jest.fn().mockResolvedValue('STU-2026-00001'), generateHouseholdReference: jest.fn().mockResolvedValue('HH-2026-0001') } },
+        { provide: EncryptionService, useValue: { encrypt: jest.fn().mockReturnValue({ encrypted: 'enc', keyRef: 'v1' }), decrypt: jest.fn().mockReturnValue('decrypted') } },
       ],
     }).compile();
 
@@ -276,23 +281,34 @@ describe('ImportProcessingService', () => {
     );
 
     const userRecord = { id: 'usr-001' };
+    // No existing user
+    mockTx.user.findUnique.mockResolvedValue(null);
     mockTx.user.create.mockResolvedValue(userRecord);
+    // No existing staff profile with generated number
+    mockTx.staffProfile.findFirst.mockResolvedValue(null);
+    // No existing membership
+    mockTx.tenantMembership.findUnique.mockResolvedValue(null);
+    mockTx.tenantMembership.create.mockResolvedValue({ id: 'mem-001' });
     mockTx.staffProfile.create.mockResolvedValue({ id: 'sp-001' });
 
     await service.process(TENANT_ID, JOB_ID);
 
-    // User created with placeholder password
+    // User created with bcrypt-hashed staff number as initial password
     expect(mockTx.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           first_name: 'John',
           last_name: 'Doe',
           email: 'john@example.com',
-          password_hash: '',
           global_status: 'active',
         }),
       }),
     );
+
+    // Password must be a bcrypt hash, not empty
+    const createCallData = mockTx.user.create.mock.calls[0][0].data;
+    expect(createCallData.password_hash).toBeTruthy();
+    expect(createCallData.password_hash).not.toBe('');
 
     // Staff profile linked to the created user
     expect(mockTx.staffProfile.create).toHaveBeenCalledWith(

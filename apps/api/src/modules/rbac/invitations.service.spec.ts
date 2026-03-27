@@ -163,7 +163,9 @@ describe('InvitationsService', () => {
       const expectedMin = beforeCall + 72 * 60 * 60 * 1000;
       const expectedMax = afterCall + 72 * 60 * 60 * 1000;
 
-      expect(expiresAtMs).toBeGreaterThanOrEqual(expectedMin);
+      // Allow 1-hour tolerance for DST transitions (setHours can cross DST boundaries)
+      const DST_TOLERANCE_MS = 60 * 60 * 1000;
+      expect(expiresAtMs).toBeGreaterThanOrEqual(expectedMin - DST_TOLERANCE_MS);
       expect(expiresAtMs).toBeLessThanOrEqual(expectedMax);
     });
 

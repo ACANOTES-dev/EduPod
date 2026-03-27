@@ -3,7 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { NotificationDispatchService } from './notification-dispatch.service';
+import { NotificationRateLimitService } from './notification-rate-limit.service';
 import { NotificationTemplatesService } from './notification-templates.service';
+import { ResendEmailProvider } from './providers/resend-email.provider';
+import { TwilioSmsProvider } from './providers/twilio-sms.provider';
+import { TwilioWhatsAppProvider } from './providers/twilio-whatsapp.provider';
+import { TemplateRendererService } from './template-renderer.service';
 
 describe('NotificationDispatchService', () => {
   let service: NotificationDispatchService;
@@ -36,6 +41,11 @@ describe('NotificationDispatchService', () => {
         NotificationDispatchService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationTemplatesService, useValue: templateService },
+        { provide: TemplateRendererService, useValue: { render: jest.fn().mockReturnValue('rendered'), renderSubject: jest.fn().mockReturnValue('subject'), stripHtml: jest.fn().mockReturnValue('stripped') } },
+        { provide: ResendEmailProvider, useValue: { send: jest.fn().mockResolvedValue({ messageId: 'msg-1' }) } },
+        { provide: TwilioWhatsAppProvider, useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-1' }) } },
+        { provide: TwilioSmsProvider, useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) } },
+        { provide: NotificationRateLimitService, useValue: { checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }), recordSent: jest.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
@@ -220,7 +230,7 @@ describe('NotificationDispatchService', () => {
       });
     });
 
-    it('should create email fallback when template not found for locale', async () => {
+    it('should create SMS fallback when template not found for locale', async () => {
       const notification = makeNotification({ channel: 'whatsapp' });
       prisma.notification.findUnique.mockResolvedValue(notification);
       templateService.resolveTemplate.mockResolvedValue(null);
@@ -229,10 +239,10 @@ describe('NotificationDispatchService', () => {
 
       await service.dispatchWithFallback('notif-1');
 
-      // Creates email fallback
+      // Creates SMS fallback (whatsapp → sms in the fallback chain)
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          channel: 'email',
+          channel: 'sms',
           tenant_id: 'tenant-1',
           recipient_user_id: 'user-1',
           status: 'queued',
@@ -251,7 +261,7 @@ describe('NotificationDispatchService', () => {
       });
     });
 
-    it('should skip WhatsApp and create email fallback when phone number invalid', async () => {
+    it('should skip WhatsApp and create SMS fallback when phone number invalid', async () => {
       // In the current implementation, this is handled by template being null
       const notification = makeNotification({ channel: 'whatsapp' });
       prisma.notification.findUnique.mockResolvedValue(notification);
@@ -263,13 +273,13 @@ describe('NotificationDispatchService', () => {
 
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          channel: 'email',
+          channel: 'sms',
           status: 'queued',
         }),
       });
     });
 
-    it('should create email fallback when WhatsApp send fails after max attempts', async () => {
+    it('should create SMS fallback when WhatsApp send fails after max attempts', async () => {
       const notification = makeNotification({
         channel: 'whatsapp',
         attempt_count: 2,
@@ -284,10 +294,10 @@ describe('NotificationDispatchService', () => {
 
       await service.dispatchWithFallback('notif-1');
 
-      // Dead-lettered → creates email fallback
+      // Dead-lettered → creates SMS fallback (whatsapp → sms)
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          channel: 'email',
+          channel: 'sms',
           tenant_id: 'tenant-1',
           status: 'queued',
           delivered_at: null,
@@ -295,10 +305,10 @@ describe('NotificationDispatchService', () => {
       });
     });
 
-    it('edge: both WhatsApp and email unavailable — should create in_app', async () => {
-      // WhatsApp has no template → creates email fallback
-      // We verify the first fallback is email; the cascading fallback
-      // from email→in_app would happen when the email fallback is dispatched
+    it('edge: WhatsApp unavailable — should create SMS fallback', async () => {
+      // WhatsApp has no template → creates SMS fallback
+      // The cascading fallback from sms→email→in_app happens when those
+      // fallback notifications are dispatched and also fail.
       const notification = makeNotification({ channel: 'whatsapp' });
       prisma.notification.findUnique.mockResolvedValue(notification);
       templateService.resolveTemplate.mockResolvedValue(null);
@@ -307,15 +317,15 @@ describe('NotificationDispatchService', () => {
 
       await service.dispatchWithFallback('notif-1');
 
-      // First-level fallback: email
+      // First-level fallback: sms (whatsapp → sms in fallback chain)
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          channel: 'email',
+          channel: 'sms',
           status: 'queued',
         }),
       });
-      // The email→in_app cascade happens when the email fallback notification
-      // is dispatched and also fails. Verify the chain starts correctly.
+      // The sms→email→in_app cascade happens when subsequent fallback
+      // notifications are dispatched and fail. Verify the chain starts correctly.
       expect(prisma.notification.update).toHaveBeenCalled();
     });
   });

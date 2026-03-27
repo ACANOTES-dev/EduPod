@@ -307,6 +307,8 @@ export class ComplianceAnonymisationCore {
     const applicationIds = await this.findApplicationsByParent(tx, tenantId, parentId);
     await this.anonymiseApplications(tx, tenantId, applicationIds, 'parent', tokenEntityIds, cleanup);
 
+    await this.anonymiseBehaviourRecords(tx, tenantId, tag, { parent_id: parentId });
+
     await tx.parent.update({
       where: { id: parentId },
       data: {
@@ -426,6 +428,8 @@ export class ComplianceAnonymisationCore {
       parentIds,
     );
     await this.anonymiseApplications(tx, tenantId, applicationIds, 'student', tokenEntityIds, cleanup);
+
+    await this.anonymiseBehaviourRecords(tx, tenantId, tag, { student_id: studentId });
 
     return { anonymised: true };
   }
@@ -558,6 +562,8 @@ export class ComplianceAnonymisationCore {
     });
 
     await this.anonymisePayslips(tx, tenantId, staffProfileId, tag);
+
+    await this.anonymiseBehaviourRecords(tx, tenantId, tag, { staff_id: staffProfileId });
 
     return { anonymised: true };
   }
@@ -890,6 +896,65 @@ export class ComplianceAnonymisationCore {
         },
       });
     }
+  }
+
+  // ─── Behaviour Records ────────────────────────────────────────────────────
+
+  private async anonymiseBehaviourRecords(
+    tx: PrismaClient,
+    tenantId: string,
+    tag: string,
+    scope: { student_id: string } | { staff_id: string } | { parent_id: string },
+  ): Promise<void> {
+    const isStudentScope = 'student_id' in scope;
+
+    const participants = await tx.behaviourIncidentParticipant.findMany({
+      where: {
+        tenant_id: tenantId,
+        ...scope,
+      },
+      select: { id: true, incident_id: true },
+    });
+
+    if (participants.length === 0) {
+      return;
+    }
+
+    const participantIds = participants.map((p) => p.id);
+    const incidentIds = [...new Set(participants.map((p) => p.incident_id))];
+
+    // Clear PII on the participant records belonging to this subject
+    const participantData: { notes: null; external_name: null; student_snapshot?: typeof Prisma.DbNull } = {
+      notes: null,
+      external_name: null,
+    };
+
+    if (isStudentScope) {
+      participantData.student_snapshot = Prisma.DbNull;
+    }
+
+    await tx.behaviourIncidentParticipant.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: { in: participantIds },
+      },
+      data: participantData,
+    });
+
+    // Clear PII-adjacent text fields on the linked incidents (idempotent via updateMany)
+    await tx.behaviourIncident.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: { in: incidentIds },
+      },
+      data: {
+        description: tag,
+        parent_description: null,
+        parent_description_ar: null,
+        context_notes: null,
+        context_snapshot: {} as Prisma.InputJsonValue,
+      },
+    });
   }
 
   // ─── Staff / Payslips ─────────────────────────────────────────────────────
