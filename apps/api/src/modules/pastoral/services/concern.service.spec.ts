@@ -1,11 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
-import { ConcernService } from './concern.service';
 import { ConcernVersionService } from './concern-version.service';
+import { ConcernService } from './concern.service';
 import { PastoralEventService } from './pastoral-event.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -174,6 +175,14 @@ describe('ConcernService', () => {
           provide: PermissionCacheService,
           useValue: mockPermissionCacheService,
         },
+        {
+          provide: getQueueToken('notifications'),
+          useValue: { add: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: getQueueToken('pastoral'),
+          useValue: { add: jest.fn().mockResolvedValue(undefined), getJob: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
@@ -192,6 +201,7 @@ describe('ConcernService', () => {
       narrative: 'Student is struggling with maths concepts in class.',
       occurred_at: '2026-03-01T10:00:00Z',
       author_masked: false,
+      follow_up_needed: false,
     };
 
     const setupCreateMocks = (overrides: Record<string, unknown> = {}) => {

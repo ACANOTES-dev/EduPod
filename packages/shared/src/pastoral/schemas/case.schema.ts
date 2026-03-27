@@ -72,6 +72,7 @@ export const caseFiltersSchema = z.object({
   tier: pastoralTierSchema.optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
+  search: z.string().max(200).optional(),
   sort: z.enum(['created_at', 'next_review_date', 'status']).default('created_at'),
   order: z.enum(['asc', 'desc']).default('desc'),
 });

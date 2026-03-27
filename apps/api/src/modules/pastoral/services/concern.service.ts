@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   Injectable,
@@ -5,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
 import type {
   CreateConcernDto,
   EscalateConcernTierDto,
@@ -126,6 +128,8 @@ export class ConcernService {
     private readonly versionService: ConcernVersionService,
     private readonly eventService: PastoralEventService,
     private readonly permissionCacheService: PermissionCacheService,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    @InjectQueue('pastoral') private readonly pastoralQueue: Queue,
   ) {}
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
@@ -220,6 +224,39 @@ export class ConcernService {
       },
       ip_address: ipAddress,
     });
+
+    // 6. Enqueue notification dispatch job
+    await this.notificationsQueue.add('pastoral:notify-concern', {
+      tenant_id: tenantId,
+      concern_id: concern.id,
+      severity: dto.severity,
+      student_id: dto.student_id,
+      category: dto.category,
+      logged_by_user_id: userId,
+    });
+
+    // 7. Enqueue delayed escalation timeout for urgent/critical concerns
+    if (dto.severity === 'urgent' || dto.severity === 'critical') {
+      const delayMs =
+        dto.severity === 'critical'
+          ? 30 * 60 * 1000   // 30 minutes (critical default)
+          : 120 * 60 * 1000; // 120 minutes (urgent default)
+      const escalationType =
+        dto.severity === 'critical' ? 'critical_second_round' : 'urgent_to_critical';
+
+      await this.pastoralQueue.add(
+        'pastoral:escalation-timeout',
+        {
+          tenant_id: tenantId,
+          concern_id: concern.id,
+          escalation_type: escalationType,
+        },
+        {
+          delay: delayMs,
+          jobId: `pastoral:escalation:${tenantId}:${concern.id}:${escalationType}`,
+        },
+      );
+    }
 
     return { data: concern };
   }
@@ -600,6 +637,16 @@ export class ConcernService {
             acknowledged_by_user_id: userId,
           },
         });
+
+        // Cancel any pending escalation timeout jobs for this concern
+        const escalationTypes = ['urgent_to_critical', 'critical_second_round'] as const;
+        for (const type of escalationTypes) {
+          const jobId = `pastoral:escalation:${tenantId}:${concernId}:${type}`;
+          const job = await this.pastoralQueue.getJob(jobId);
+          if (job) {
+            await job.remove();
+          }
+        }
 
         // Fire-and-forget: write concern_acknowledged audit event
         void this.eventService.write({

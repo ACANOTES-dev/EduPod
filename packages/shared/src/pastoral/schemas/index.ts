@@ -15,3 +15,4 @@ export * from './dsar-review.schema';
 export * from './critical-incident.schema';
 export * from './checkin.schema';
 export * from './export.schema';
+export * from './mandated-report.schema';

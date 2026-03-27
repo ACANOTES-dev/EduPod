@@ -11,11 +11,18 @@ export type GrantCpAccessDto = z.infer<typeof grantCpAccessSchema>;
 // ─── Revoke Access ─────────────────────────────────────────────────────────
 
 export const revokeCpAccessSchema = z.object({
-  user_id: z.string().uuid(),
-  reason: z.string().min(1),
+  revocation_reason: z.string().min(1).max(1000),
 });
 
 export type RevokeCpAccessDto = z.infer<typeof revokeCpAccessSchema>;
+
+// ─── Access Check ──────────────────────────────────────────────────────────
+
+export const cpAccessCheckSchema = z.object({
+  user_id: z.string().uuid(),
+});
+
+export type CpAccessCheckDto = z.infer<typeof cpAccessCheckSchema>;
 
 // ─── Filters ───────────────────────────────────────────────────────────────
 
