@@ -5,11 +5,13 @@ import {
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import type {
+  BehaviourTaskStatus,
   CancelTaskDto,
   CompleteTaskDto,
   ListTasksQuery,
   UpdateTaskDto,
 } from '@school/shared';
+import { isValidTaskTransition } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -188,10 +190,10 @@ export class BehaviourTasksService {
           message: 'Task not found',
         });
       }
-      if (task.status === 'completed' || task.status === 'cancelled') {
+      if (!isValidTaskTransition(task.status as BehaviourTaskStatus, 'completed')) {
         throw new BadRequestException({
-          code: 'TASK_ALREADY_CLOSED',
-          message: `Task is already ${task.status}`,
+          code: 'INVALID_TASK_TRANSITION',
+          message: `Cannot complete a task with status "${task.status}"`,
         });
       }
 
@@ -243,6 +245,12 @@ export class BehaviourTasksService {
         throw new NotFoundException({
           code: 'TASK_NOT_FOUND',
           message: 'Task not found',
+        });
+      }
+      if (!isValidTaskTransition(task.status as BehaviourTaskStatus, 'cancelled')) {
+        throw new BadRequestException({
+          code: 'INVALID_TASK_TRANSITION',
+          message: `Cannot cancel a task with status "${task.status}"`,
         });
       }
 

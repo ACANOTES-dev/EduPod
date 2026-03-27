@@ -10,16 +10,23 @@ import type {
   ParentPointsAwards,
   ParentRecognitionItem,
   ParentSanctionView,
+  ParentSubmitAppealDto,
+  SubmitAppealDto,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { BehaviourAppealsService } from './behaviour-appeals.service';
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class BehaviourParentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly appealsService: BehaviourAppealsService,
+  ) {}
 
   // ─── Resolve Parent ──────────────────────────────────────────────────
 
@@ -461,6 +468,31 @@ export class BehaviourParentService {
 
       return { data: { acknowledged: true } };
     });
+  }
+
+  // ─── Submit Appeal ─────────────────────────────────────────────────────
+
+  async submitAppeal(tenantId: string, userId: string, dto: ParentSubmitAppealDto) {
+    const parent = await this.resolveParent(tenantId, userId);
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      await this.verifyParentStudentLink(db, tenantId, parent.id, dto.student_id);
+    });
+
+    const fullDto: SubmitAppealDto = {
+      entity_type: dto.entity_type,
+      incident_id: dto.incident_id,
+      sanction_id: dto.sanction_id,
+      student_id: dto.student_id,
+      appellant_type: 'parent',
+      appellant_parent_id: parent.id,
+      grounds: dto.grounds,
+      grounds_category: dto.grounds_category,
+    };
+
+    return this.appealsService.submit(tenantId, userId, fullDto);
   }
 
   // ─── Recognition Wall ────────────────────────────────────────────────

@@ -15,7 +15,7 @@ const STUDENT_ID = 'student-1';
 const SANCTION_ID = 'sanction-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourSanction: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -157,8 +157,10 @@ describe('BehaviourSanctionsService', () => {
     const baseDto = {
       incident_id: INCIDENT_ID,
       student_id: STUDENT_ID,
-      type: 'suspension_internal',
+      type: 'suspension_internal' as const,
       scheduled_date: '2026-03-20',
+      parent_meeting_required: false,
+      acknowledge_conflicts: false,
     };
 
     const setupCreateMocks = (settingsOverrides: Record<string, unknown> = {}) => {
@@ -217,7 +219,7 @@ describe('BehaviourSanctionsService', () => {
       // — conflicts are advisory. Sanction should still be created.
       const detentionDto = {
         ...baseDto,
-        type: 'detention',
+        type: 'detention' as const,
       };
 
       mockRlsTx.behaviourSanction!.create.mockResolvedValue(
@@ -267,7 +269,7 @@ describe('BehaviourSanctionsService', () => {
     it('should trigger exclusion case creation when suspension_days >= 5 on external suspension', async () => {
       const externalDto = {
         ...baseDto,
-        type: 'suspension_external',
+        type: 'suspension_external' as const,
         suspension_start_date: '2026-03-16',
         suspension_end_date: '2026-03-22',
       };
@@ -297,7 +299,7 @@ describe('BehaviourSanctionsService', () => {
     it('should not create duplicate exclusion case if one already exists for sanction', async () => {
       const externalDto = {
         ...baseDto,
-        type: 'suspension_external',
+        type: 'suspension_external' as const,
         suspension_start_date: '2026-03-16',
         suspension_end_date: '2026-03-22',
       };

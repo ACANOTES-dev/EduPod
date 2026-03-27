@@ -16,7 +16,7 @@ const CASE_ID = 'case-1';
 const USER_ID = 'user-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourExclusionCase: {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
@@ -371,7 +371,7 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       const dto = {
-        decision: 'upheld',
+        decision: 'exclusion_confirmed' as const,
         decision_reasoning: 'The evidence supports the exclusion.',
         decided_by_id: USER_ID,
       };

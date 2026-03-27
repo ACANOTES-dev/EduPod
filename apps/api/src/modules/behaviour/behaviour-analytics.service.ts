@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import type {
   BehaviourAnalyticsQuery,
+  BenchmarkQuery,
+  BenchmarkResult,
   CategoryResult,
+  ClassComparisonResult,
   ComparisonResult,
+  CsvExportQuery,
   DataQuality,
   HeatmapResult,
   InterventionOutcomeResult,
@@ -14,6 +18,7 @@ import type {
   StaffResult,
   SubjectResult,
   TaskCompletionResult,
+  TeacherAnalyticsResult,
   TrendPoint,
   TrendResult,
 } from '@school/shared';
@@ -95,6 +100,21 @@ export class BehaviourAnalyticsService {
     };
   }
 
+  /** Check whether the exposure MV has any data for this tenant. */
+  private async checkExposureMvHasData(tenantId: string): Promise<boolean> {
+    try {
+      const rows = await this.prisma.$queryRaw<Array<{ cnt: bigint }>>`
+        SELECT COUNT(*)::bigint AS cnt
+        FROM mv_behaviour_exposure_rates
+        WHERE tenant_id = ${tenantId}::uuid
+        LIMIT 1`;
+      const firstRow = rows[0];
+      return rows.length > 0 && firstRow !== undefined && Number(firstRow.cnt) > 0;
+    } catch {
+      return false;
+    }
+  }
+
   // ─── Overview ──────────────────────────────────────────────────────────────
 
   async getOverview(
@@ -149,6 +169,8 @@ export class BehaviourAnalyticsService {
         ? Math.round(((totalIncidents - priorTotal) / priorTotal) * 100)
         : null;
 
+    const exposureAvailable = await this.checkExposureMvHasData(tenantId);
+
     return {
       total_incidents: totalIncidents,
       prior_period_total: priorTotal,
@@ -157,7 +179,7 @@ export class BehaviourAnalyticsService {
       ratio_trend: this.determineTrend(deltaPercent),
       open_follow_ups: openFollowUps,
       active_alerts: activeAlerts,
-      data_quality: this.makeDataQuality(false),
+      data_quality: this.makeDataQuality(exposureAvailable),
     };
   }
 
@@ -199,23 +221,48 @@ export class BehaviourAnalyticsService {
       cellMap.set(key, existing);
     }
 
+    // Try to get exposure data for rate normalisation (incidents / total_teaching_periods * 100)
+    let exposureNormalised = false;
+    const exposureMap = new Map<string, number>(); // key: "weekday:period_order"
+
+    try {
+      const exposureRows = await this.prisma.$queryRaw<
+        Array<{ weekday: number; period_order: number; total_teaching_periods: bigint }>
+      >`SELECT weekday, period_order, SUM(total_teaching_periods) as total_teaching_periods
+        FROM mv_behaviour_exposure_rates
+        WHERE tenant_id = ${tenantId}::uuid
+        GROUP BY weekday, period_order`;
+
+      for (const row of exposureRows) {
+        exposureMap.set(`${row.weekday}:${row.period_order}`, Number(row.total_teaching_periods));
+      }
+      if (exposureMap.size > 0) exposureNormalised = true;
+    } catch {
+      this.logger.warn('Exposure rate MV not available for heatmap, keeping null rates');
+    }
+
     const cells = Array.from(cellMap.entries()).map(([key, breakdown]) => {
       const parts = key.split(':');
       const weekday = Number(parts[0]) || 0;
       const periodOrder = Number(parts[1]) || 0;
       const rawCount = breakdown.positive + breakdown.negative + breakdown.neutral;
+      const exposure = exposureMap.get(key);
+      const rate =
+        exposureNormalised && exposure && exposure > 0
+          ? Math.round((rawCount / exposure) * 10000) / 100
+          : null;
       return {
         weekday,
         period_order: periodOrder,
         raw_count: rawCount,
-        rate: null as number | null, // Exposure normalisation applied if data available
+        rate,
         polarity_breakdown: breakdown,
       };
     });
 
     return {
       cells,
-      data_quality: this.makeDataQuality(false),
+      data_quality: this.makeDataQuality(exposureNormalised),
     };
   }
 
@@ -261,10 +308,12 @@ export class BehaviourAnalyticsService {
       (a, b) => a.date.localeCompare(b.date),
     );
 
+    const exposureAvailable = await this.checkExposureMvHasData(tenantId);
+
     return {
       points,
       granularity,
-      data_quality: this.makeDataQuality(false),
+      data_quality: this.makeDataQuality(exposureAvailable),
     };
   }
 
@@ -511,7 +560,7 @@ export class BehaviourAnalyticsService {
     const { from, to } = this.buildDateRange(query);
 
     const rawData = await this.prisma.behaviourSanction.groupBy({
-      by: ['type'],
+      by: ['type', 'status'],
       where: {
         tenant_id: tenantId,
         created_at: { gte: from, lte: to },
@@ -519,11 +568,31 @@ export class BehaviourAnalyticsService {
       _count: { _all: true },
     });
 
-    const entries = rawData.map((row) => ({
-      sanction_type: row.type as string,
-      total: row._count._all,
-      served: 0, // Phase C implements served tracking
-      no_show: 0,
+    // Aggregate by type, computing served/no-show from status
+    const typeMap = new Map<
+      string,
+      { total: number; served: number; no_show: number }
+    >();
+
+    for (const row of rawData) {
+      const sanctionType = row.type as string;
+      const existing = typeMap.get(sanctionType) ?? { total: 0, served: 0, no_show: 0 };
+      existing.total += row._count._all;
+      const status = row.status as string;
+      if (status === 'served' || status === 'partially_served') {
+        existing.served += row._count._all;
+      }
+      if (status === 'no_show' || status === 'not_served_absent') {
+        existing.no_show += row._count._all;
+      }
+      typeMap.set(sanctionType, existing);
+    }
+
+    const entries = Array.from(typeMap.entries()).map(([sanctionType, data]) => ({
+      sanction_type: sanctionType,
+      total: data.total,
+      served: data.served,
+      no_show: data.no_show,
       trend_percent: null as number | null,
     }));
 
@@ -539,7 +608,7 @@ export class BehaviourAnalyticsService {
     const { from, to } = this.buildDateRange(query);
 
     const rawData = await this.prisma.behaviourIntervention.groupBy({
-      by: ['outcome'],
+      by: ['outcome', 'send_aware'],
       where: {
         tenant_id: tenantId,
         created_at: { gte: from, lte: to },
@@ -548,11 +617,29 @@ export class BehaviourAnalyticsService {
       _count: true,
     });
 
-    const entries = rawData.map((row) => ({
-      outcome: (row.outcome as string) ?? 'unknown',
-      count: row._count,
-      send_count: 0, // SEND breakdown requires additional query
-      non_send_count: row._count,
+    // Aggregate by outcome, splitting send/non-send counts
+    const outcomeMap = new Map<
+      string,
+      { count: number; send_count: number; non_send_count: number }
+    >();
+
+    for (const row of rawData) {
+      const outcome = (row.outcome as string) ?? 'unknown';
+      const existing = outcomeMap.get(outcome) ?? { count: 0, send_count: 0, non_send_count: 0 };
+      existing.count += row._count;
+      if (row.send_aware) {
+        existing.send_count += row._count;
+      } else {
+        existing.non_send_count += row._count;
+      }
+      outcomeMap.set(outcome, existing);
+    }
+
+    const entries = Array.from(outcomeMap.entries()).map(([outcome, data]) => ({
+      outcome,
+      count: data.count,
+      send_count: data.send_count,
+      non_send_count: data.non_send_count,
     }));
 
     return { entries, data_quality: this.makeDataQuality(false) };
@@ -783,16 +870,471 @@ export class BehaviourAnalyticsService {
       if (existing) existing.overdue = row._count;
     }
 
+    // Compute avg days to complete per task_type for completed tasks
+    const avgDaysRows = await this.prisma.$queryRaw<
+      Array<{ task_type: string; avg_days: number }>
+    >`SELECT task_type::text AS task_type,
+            ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 86400)::numeric, 1) AS avg_days
+       FROM behaviour_tasks
+       WHERE tenant_id = ${tenantId}::uuid
+         AND created_at >= ${from}
+         AND created_at <= ${to}
+         AND completed_at IS NOT NULL
+       GROUP BY task_type`;
+
+    const avgDaysMap = new Map<string, number>();
+    for (const row of avgDaysRows) {
+      avgDaysMap.set(row.task_type, Number(row.avg_days));
+    }
+
     const entries = Array.from(taskTypeMap.entries()).map(([type, data]) => ({
       task_type: type,
       total: data.total,
       completed: data.completed,
       overdue: data.overdue,
       completion_rate: data.total > 0 ? data.completed / data.total : 0,
-      avg_days_to_complete: null, // Requires individual record analysis
+      avg_days_to_complete: avgDaysMap.get(type) ?? null,
     }));
 
     return { entries, data_quality: this.makeDataQuality(false) };
+  }
+
+  // ─── ETB Benchmarks ──────────────────────────────────────────────────────
+
+  async getBenchmarks(
+    tenantId: string,
+    query: BenchmarkQuery,
+  ): Promise<BenchmarkResult> {
+    // Check if cross-school benchmarking is enabled for this tenant
+    const tenantSettings = await this.prisma.tenantSetting.findFirst({
+      where: { tenant_id: tenantId },
+      select: { settings: true },
+    });
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const behaviourSettings = (settings?.behaviour as Record<string, unknown>) ?? {};
+    const benchmarkingEnabled = behaviourSettings?.cross_school_benchmarking_enabled === true;
+
+    if (!benchmarkingEnabled) {
+      return {
+        entries: [],
+        benchmarking_enabled: false,
+        data_quality: this.makeDataQuality(false),
+      };
+    }
+
+    try {
+      const categoryFilter = query.benchmarkCategory
+        ? Prisma.sql`AND benchmark_category = ${query.benchmarkCategory}`
+        : Prisma.empty;
+
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          benchmark_category: string;
+          metric_name: string;
+          tenant_value: number | null;
+          etb_average: number | null;
+          percentile: number | null;
+          sample_size: bigint;
+        }>
+      >`SELECT
+          benchmark_category,
+          metric_name,
+          tenant_value,
+          etb_average,
+          percentile,
+          sample_size
+        FROM mv_behaviour_benchmarks
+        WHERE tenant_id = ${tenantId}::uuid
+        ${categoryFilter}
+        ORDER BY benchmark_category, metric_name`;
+
+      const entries = rows.map((row) => ({
+        benchmark_category: row.benchmark_category,
+        metric_name: row.metric_name,
+        tenant_value: row.tenant_value !== null ? Number(row.tenant_value) : null,
+        etb_average: row.etb_average !== null ? Number(row.etb_average) : null,
+        percentile: row.percentile !== null ? Number(row.percentile) : null,
+        sample_size: Number(row.sample_size),
+      }));
+
+      return {
+        entries,
+        benchmarking_enabled: true,
+        data_quality: this.makeDataQuality(false),
+      };
+    } catch {
+      this.logger.warn('Benchmark MV not available, returning empty');
+      return {
+        entries: [],
+        benchmarking_enabled: true,
+        data_quality: this.makeDataQuality(false),
+      };
+    }
+  }
+
+  // ─── Teacher Analytics ──────────────────────────────────────────────────
+
+  async getTeacherAnalytics(
+    tenantId: string,
+    query: BehaviourAnalyticsQuery,
+  ): Promise<TeacherAnalyticsResult> {
+    const { from, to } = this.buildDateRange(query);
+
+    // Get incidents grouped by reporter (teacher)
+    const rawData = await this.prisma.behaviourIncident.groupBy({
+      by: ['reported_by_id', 'polarity'],
+      where: {
+        tenant_id: tenantId,
+        occurred_at: { gte: from, lte: to },
+        status: { notIn: EXCLUDED_STATUSES },
+        retention_status: 'active' as $Enums.RetentionStatus,
+      },
+      _count: true,
+    });
+
+    // Gather unique teacher IDs
+    const teacherIds = [...new Set(rawData.map((r) => r.reported_by_id))];
+
+    // Get teacher names
+    const teachers = await this.prisma.user.findMany({
+      where: { id: { in: teacherIds } },
+      select: { id: true, first_name: true, last_name: true },
+    });
+    const teacherNameMap = new Map(
+      teachers.map((t) => [t.id, `${t.first_name} ${t.last_name}`]),
+    );
+
+    // Build teacher stats map
+    const teacherMap = new Map<
+      string,
+      { positive: number; negative: number; neutral: number }
+    >();
+
+    for (const row of rawData) {
+      const existing = teacherMap.get(row.reported_by_id) ?? {
+        positive: 0,
+        negative: 0,
+        neutral: 0,
+      };
+      const polarity = row.polarity as string;
+      if (polarity === 'positive') existing.positive += row._count;
+      else if (polarity === 'negative') existing.negative += row._count;
+      else existing.neutral += row._count;
+      teacherMap.set(row.reported_by_id, existing);
+    }
+
+    // Try to get exposure (teaching periods) per teacher from MV
+    let exposureNormalised = false;
+    const exposureTeacherMap = new Map<string, number>();
+
+    try {
+      const exposureRows = await this.prisma.$queryRaw<
+        Array<{ teacher_id: string; total_teaching_periods: bigint }>
+      >`SELECT teacher_id, SUM(total_teaching_periods) as total_teaching_periods
+        FROM mv_behaviour_exposure_rates
+        WHERE tenant_id = ${tenantId}::uuid
+        GROUP BY teacher_id`;
+
+      for (const row of exposureRows) {
+        exposureTeacherMap.set(row.teacher_id, Number(row.total_teaching_periods));
+      }
+      if (exposureTeacherMap.size > 0) exposureNormalised = true;
+    } catch {
+      this.logger.warn('Exposure rate MV not available for teacher analytics');
+    }
+
+    const entries = Array.from(teacherMap.entries()).map(([teacherId, data]) => {
+      const total = data.positive + data.negative + data.neutral;
+      const posNeg = data.positive + data.negative;
+      const exposure = exposureTeacherMap.get(teacherId);
+      return {
+        teacher_id: teacherId,
+        teacher_name: teacherNameMap.get(teacherId) ?? 'Unknown',
+        incident_count: total,
+        positive_count: data.positive,
+        negative_count: data.negative,
+        neutral_count: data.neutral,
+        positive_ratio: posNeg > 0 ? data.positive / posNeg : null,
+        logging_rate_per_period:
+          exposureNormalised && exposure && exposure > 0
+            ? Math.round((total / exposure) * 10000) / 100
+            : null,
+        total_teaching_periods: exposure ?? null,
+      };
+    });
+
+    // Sort by incident count descending
+    entries.sort((a, b) => b.incident_count - a.incident_count);
+
+    return { entries, data_quality: this.makeDataQuality(exposureNormalised) };
+  }
+
+  // ─── Class Comparisons ──────────────────────────────────────────────────
+
+  async getClassComparisons(
+    tenantId: string,
+    userId: string,
+    permissions: string[],
+    query: BehaviourAnalyticsQuery,
+  ): Promise<ClassComparisonResult> {
+    const scope = await this.scopeService.getUserScope(tenantId, userId, permissions);
+    const where = this.buildIncidentWhere(tenantId, query, scope, userId);
+
+    // Get incidents with participant student class enrolment info
+    const incidents = await this.prisma.behaviourIncident.findMany({
+      where,
+      select: {
+        polarity: true,
+        participants: {
+          where: { participant_type: 'student' as $Enums.ParticipantType },
+          select: {
+            student: {
+              select: {
+                class_enrolments: {
+                  where: {
+                    tenant_id: tenantId,
+                    status: 'active' as $Enums.ClassEnrolmentStatus,
+                  },
+                  select: {
+                    class_id: true,
+                    class_entity: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Build class incident map
+    const classMap = new Map<
+      string,
+      { name: string; positive: number; negative: number; total: number }
+    >();
+
+    for (const inc of incidents) {
+      for (const p of inc.participants) {
+        if (!p.student?.class_enrolments) continue;
+        for (const enrolment of p.student.class_enrolments) {
+          const classId = enrolment.class_id;
+          const existing = classMap.get(classId) ?? {
+            name: enrolment.class_entity.name,
+            positive: 0,
+            negative: 0,
+            total: 0,
+          };
+          existing.total++;
+          if (inc.polarity === 'positive') existing.positive++;
+          else if (inc.polarity === 'negative') existing.negative++;
+          classMap.set(classId, existing);
+        }
+      }
+    }
+
+    // Get student count per class
+    const classIds = [...classMap.keys()];
+    const studentCounts = await this.prisma.classEnrolment.groupBy({
+      by: ['class_id'],
+      where: {
+        tenant_id: tenantId,
+        class_id: { in: classIds },
+        status: 'active' as $Enums.ClassEnrolmentStatus,
+      },
+      _count: true,
+    });
+    const studentCountMap = new Map(
+      studentCounts.map((s) => [s.class_id, s._count]),
+    );
+
+    const entries = Array.from(classMap.entries()).map(([classId, data]) => {
+      const studentCount = studentCountMap.get(classId) ?? 0;
+      return {
+        class_id: classId,
+        class_name: data.name,
+        student_count: studentCount,
+        incident_count: data.total,
+        positive_count: data.positive,
+        negative_count: data.negative,
+        incident_rate_per_student:
+          studentCount > 0
+            ? Math.round((data.total / studentCount) * 100) / 100
+            : null,
+        positive_rate_per_student:
+          studentCount > 0
+            ? Math.round((data.positive / studentCount) * 100) / 100
+            : null,
+        negative_rate_per_student:
+          studentCount > 0
+            ? Math.round((data.negative / studentCount) * 100) / 100
+            : null,
+      };
+    });
+
+    // Sort by incident rate descending
+    entries.sort((a, b) => (b.incident_rate_per_student ?? 0) - (a.incident_rate_per_student ?? 0));
+
+    return { entries, data_quality: this.makeDataQuality(false) };
+  }
+
+  // ─── CSV Export ─────────────────────────────────────────────────────────
+
+  async exportCsv(
+    tenantId: string,
+    userId: string,
+    permissions: string[],
+    query: CsvExportQuery,
+  ): Promise<{ content: string; filename: string }> {
+    const { exportType, ...analyticsQuery } = query;
+    const timestamp = new Date().toISOString().slice(0, 10);
+
+    switch (exportType) {
+      case 'incidents': {
+        const scope = await this.scopeService.getUserScope(tenantId, userId, permissions);
+        const where = this.buildIncidentWhere(tenantId, analyticsQuery, scope, userId);
+        const incidents = await this.prisma.behaviourIncident.findMany({
+          where,
+          select: {
+            incident_number: true,
+            polarity: true,
+            severity: true,
+            description: true,
+            occurred_at: true,
+            status: true,
+            category: { select: { name: true } },
+            reported_by: { select: { first_name: true, last_name: true } },
+            participants: {
+              where: { participant_type: 'student' as $Enums.ParticipantType },
+              select: {
+                student: { select: { first_name: true, last_name: true } },
+              },
+            },
+          },
+          orderBy: { occurred_at: 'desc' },
+        });
+
+        const headers = [
+          'Incident Number',
+          'Date',
+          'Category',
+          'Polarity',
+          'Severity',
+          'Status',
+          'Reported By',
+          'Students',
+          'Description',
+        ];
+        const rows = incidents.map((inc) => [
+          inc.incident_number,
+          inc.occurred_at.toISOString(),
+          inc.category.name,
+          inc.polarity as string,
+          String(inc.severity),
+          inc.status as string,
+          `${inc.reported_by.first_name} ${inc.reported_by.last_name}`,
+          inc.participants
+            .map((p) =>
+              p.student ? `${p.student.first_name} ${p.student.last_name}` : '',
+            )
+            .filter(Boolean)
+            .join('; '),
+          inc.description,
+        ]);
+
+        return {
+          content: this.buildCsv(headers, rows),
+          filename: `behaviour-incidents-${timestamp}.csv`,
+        };
+      }
+
+      case 'sanctions': {
+        const sanctionResult = await this.getSanctions(tenantId, userId, permissions, analyticsQuery);
+        const headers = ['Sanction Type', 'Total', 'Served', 'No Show'];
+        const rows = sanctionResult.entries.map((e) => [
+          e.sanction_type,
+          String(e.total),
+          String(e.served),
+          String(e.no_show),
+        ]);
+        return {
+          content: this.buildCsv(headers, rows),
+          filename: `behaviour-sanctions-${timestamp}.csv`,
+        };
+      }
+
+      case 'interventions': {
+        const interventionResult = await this.getInterventionOutcomes(tenantId, analyticsQuery);
+        const headers = ['Outcome', 'Count', 'SEND Count', 'Non-SEND Count'];
+        const rows = interventionResult.entries.map((e) => [
+          e.outcome,
+          String(e.count),
+          String(e.send_count),
+          String(e.non_send_count),
+        ]);
+        return {
+          content: this.buildCsv(headers, rows),
+          filename: `behaviour-interventions-${timestamp}.csv`,
+        };
+      }
+
+      case 'categories': {
+        const categoryResult = await this.getCategories(tenantId, userId, permissions, analyticsQuery);
+        const headers = ['Category', 'Polarity', 'Count', 'Rate per 100 Students'];
+        const rows = categoryResult.categories.map((c) => [
+          c.category_name,
+          c.polarity,
+          String(c.count),
+          c.rate_per_100 !== null ? String(c.rate_per_100) : '',
+        ]);
+        return {
+          content: this.buildCsv(headers, rows),
+          filename: `behaviour-categories-${timestamp}.csv`,
+        };
+      }
+
+      case 'staff_activity': {
+        const staffResult = await this.getStaffActivity(tenantId, analyticsQuery);
+        const headers = [
+          'Staff Name',
+          'Last 7 Days',
+          'Last 30 Days',
+          'Year Total',
+          'Last Logged At',
+          'Inactive',
+        ];
+        const rows = staffResult.staff.map((s) => [
+          s.staff_name,
+          String(s.last_7_days),
+          String(s.last_30_days),
+          String(s.total_year),
+          s.last_logged_at ?? '',
+          s.inactive_flag ? 'Yes' : 'No',
+        ]);
+        return {
+          content: this.buildCsv(headers, rows),
+          filename: `behaviour-staff-activity-${timestamp}.csv`,
+        };
+      }
+
+      default:
+        return { content: '', filename: `behaviour-export-${timestamp}.csv` };
+    }
+  }
+
+  /** Build a CSV string with UTF-8 BOM, proper quoting, and ISO dates. */
+  private buildCsv(headers: string[], rows: string[][]): string {
+    const BOM = '\uFEFF';
+    const escape = (val: string): string => {
+      if (val.includes('"') || val.includes(',') || val.includes('\n') || val.includes('\r')) {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+      return val;
+    };
+    const lines = [
+      headers.map(escape).join(','),
+      ...rows.map((row) => row.map(escape).join(',')),
+    ];
+    return BOM + lines.join('\r\n') + '\r\n';
   }
 
   // ─── Historical Heatmap ────────────────────────────────────────────────────

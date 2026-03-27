@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -12,8 +13,9 @@ import {
 import {
   parentBehaviourIncidentsQuerySchema,
   parentBehaviourStudentQuerySchema,
+  parentSubmitAppealSchema,
 } from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
+import type { JwtPayload, ParentSubmitAppealDto, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -109,5 +111,17 @@ export class BehaviourParentController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.parentService.getRecognitionWall(tenant.tenant_id, user.sub);
+  }
+
+  @Post('appeal')
+  @RequiresPermission('behaviour.appeal')
+  @HttpCode(HttpStatus.CREATED)
+  async submitAppeal(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(parentSubmitAppealSchema))
+    dto: ParentSubmitAppealDto,
+  ) {
+    return this.parentService.submitAppeal(tenant.tenant_id, user.sub, dto);
   }
 }

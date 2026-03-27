@@ -21,7 +21,7 @@ const STUDENT_ID = 'student-1';
 const PARTICIPANT_ID = 'participant-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourIncident: {
     findFirst: jest.fn(),
     findUnique: jest.fn(),
@@ -684,7 +684,7 @@ describe('BehaviourService', () => {
 
       const result = await service.updateIncident(TENANT_ID, INCIDENT_ID, USER_ID, {
         description: 'New desc',
-      });
+      }) as { description: string };
 
       expect(result.description).toBe('New desc');
       expect(mockHistory.recordHistory).toHaveBeenCalledWith(
@@ -746,7 +746,7 @@ describe('BehaviourService', () => {
 
       const result = await service.transitionStatus(
         TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-      );
+      ) as { status: string };
 
       expect(result.status).toBe('active');
     });
@@ -761,7 +761,7 @@ describe('BehaviourService', () => {
 
       const result = await service.transitionStatus(
         TENANT_ID, INCIDENT_ID, USER_ID, { status: 'investigating' },
-      );
+      ) as { status: string };
 
       expect(result.status).toBe('investigating');
     });
@@ -776,7 +776,7 @@ describe('BehaviourService', () => {
 
       const result = await service.transitionStatus(
         TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' },
-      );
+      ) as { status: string };
 
       expect(result.status).toBe('resolved');
     });
@@ -855,7 +855,7 @@ describe('BehaviourService', () => {
 
       const result = await service.withdrawIncident(
         TENANT_ID, INCIDENT_ID, USER_ID, { reason: 'Reported in error' },
-      );
+      ) as { status: string };
 
       expect(result.status).toBe('withdrawn');
       expect(mockRlsTx.behaviourIncident!.update).toHaveBeenCalledWith({
@@ -902,7 +902,7 @@ describe('BehaviourService', () => {
           role: 'subject',
           parent_visible: true,
         },
-      );
+      ) as { id: string };
 
       expect(result.id).toBe(PARTICIPANT_ID);
       expect(mockRlsTx.behaviourIncidentParticipant!.create).toHaveBeenCalledWith({

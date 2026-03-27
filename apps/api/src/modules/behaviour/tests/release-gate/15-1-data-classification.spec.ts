@@ -9,6 +9,7 @@
  * - Parent notification never exposes internal description
  * - Hover card preview contains only STAFF-class fields
  */
+export {};
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const _TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -21,7 +22,7 @@ const _PARENT_ID = 'parent-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourIncident: {
     findFirst: jest.fn(),
     findMany: jest.fn(),

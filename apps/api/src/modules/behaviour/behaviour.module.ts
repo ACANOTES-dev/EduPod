@@ -26,6 +26,7 @@ import { BehaviourDocumentService } from './behaviour-document.service';
 import { BehaviourDocumentsController } from './behaviour-documents.controller';
 import { BehaviourExclusionCasesService } from './behaviour-exclusion-cases.service';
 import { BehaviourExclusionsController } from './behaviour-exclusions.controller';
+import { BehaviourExportService } from './behaviour-export.service';
 import { BehaviourGuardianRestrictionsController } from './behaviour-guardian-restrictions.controller';
 import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restrictions.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
@@ -109,6 +110,7 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourSanctionsService,
     BehaviourAppealsService,
     BehaviourExclusionCasesService,
+    BehaviourExportService,
     BehaviourAmendmentsService,
     BehaviourPulseService,
     BehaviourAnalyticsService,
@@ -143,6 +145,7 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourSanctionsService,
     BehaviourAppealsService,
     BehaviourExclusionCasesService,
+    BehaviourExportService,
     BehaviourAmendmentsService,
     BehaviourPulseService,
     BehaviourAnalyticsService,

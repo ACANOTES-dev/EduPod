@@ -14,7 +14,7 @@ const HOLD_ID = 'hold-1';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourLegalHold: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -104,7 +104,7 @@ describe('BehaviourLegalHoldService', () => {
         hold_reason: 'Active appeal',
         legal_basis: 'Appeal AP-000001',
         propagate: true,
-      });
+      }) as { id: string };
 
       expect(result.id).toBe(HOLD_ID);
       expect(mockRlsTx.behaviourLegalHold.create).toHaveBeenCalledTimes(1);
@@ -138,7 +138,7 @@ describe('BehaviourLegalHoldService', () => {
         hold_reason: 'Active appeal',
         legal_basis: 'Appeal AP-000001',
         propagate: true,
-      });
+      }) as { id: string };
 
       expect(result.id).toBe('existing-hold');
       expect(mockRlsTx.behaviourLegalHold.create).not.toHaveBeenCalled();
@@ -357,10 +357,10 @@ describe('BehaviourLegalHoldService', () => {
         page: 1,
         pageSize: 20,
         status: 'active',
-      });
+      }) as { data: { status: string }[]; meta: { total: number } };
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].status).toBe('active');
+      expect(result.data[0]!.status).toBe('active');
       expect(result.meta.total).toBe(1);
     });
   });

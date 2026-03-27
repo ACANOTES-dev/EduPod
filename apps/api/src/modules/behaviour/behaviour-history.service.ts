@@ -28,7 +28,7 @@ export class BehaviourHistoryService {
         entity_type: entityType as $Enums.BehaviourEntityType,
         entity_id: entityId,
         changed_by_id: changedById,
-        change_type: changeType,
+        change_type: changeType as $Enums.BehaviourChangeType,
         previous_values:
           previousValues !== null
             ? (previousValues as Prisma.InputJsonValue)

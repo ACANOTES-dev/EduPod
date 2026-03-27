@@ -14,7 +14,7 @@ const RECIPIENT_ID = 'recipient-1';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourAlert: {
     findFirst: jest.fn(),
     create: jest.fn(),

@@ -25,7 +25,7 @@ const INCIDENT_ID = 'incident-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   studentParent: {
     findMany: jest.fn(),
     findFirst: jest.fn(),

@@ -11,7 +11,7 @@ const TASK_ID = 'task-1';
 const USER_ID = 'user-1';
 
 // Mock the RLS middleware
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourTask: {
     findFirst: jest.fn(),
     update: jest.fn(),
@@ -77,7 +77,7 @@ describe('BehaviourTasksService', () => {
 
       const result = await service.completeTask(TENANT_ID, TASK_ID, USER_ID, {
         completion_notes: 'Spoke with parents',
-      });
+      }) as { status: string };
 
       expect(result.status).toBe('completed');
       expect(mockRlsTx.behaviourTask!.update).toHaveBeenCalledWith({
@@ -169,7 +169,7 @@ describe('BehaviourTasksService', () => {
 
       const result = await service.cancelTask(TENANT_ID, TASK_ID, USER_ID, {
         reason: 'No longer needed',
-      });
+      }) as { status: string };
 
       expect(result.status).toBe('cancelled');
       expect(mockRlsTx.behaviourTask!.update).toHaveBeenCalledWith({

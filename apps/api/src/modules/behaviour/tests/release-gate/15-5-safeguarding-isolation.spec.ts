@@ -1,4 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
+export {};
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ const GRANT_ID = 'grant-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   safeguardingConcern: {
     findFirst: jest.fn(),
     findMany: jest.fn(),

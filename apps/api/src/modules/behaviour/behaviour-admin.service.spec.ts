@@ -135,8 +135,8 @@ describe('BehaviourAdminService', () => {
       const result = await service.listDeadLetterJobs();
 
       expect(result).toHaveLength(1);
-      expect(result[0].job_name).toBe('behaviour:detect-patterns');
-      expect(result[0].queue).toBe('behaviour');
+      expect(result[0]!.job_name).toBe('behaviour:detect-patterns');
+      expect(result[0]!.queue).toBe('behaviour');
     });
 
     it('should return empty array when no failed jobs', async () => {

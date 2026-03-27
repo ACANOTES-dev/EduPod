@@ -1,3 +1,5 @@
+export {};
+
 /**
  * Release-Gate 15-3: Status Projection
  *
@@ -15,7 +17,7 @@ const INCIDENT_ID = 'incident-1';
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourIncident: {
     findFirst: jest.fn(),
     findMany: jest.fn(),

@@ -3,12 +3,15 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   ParseUUIDPipe,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -21,6 +24,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
+import { BehaviourExportService } from './behaviour-export.service';
 import { BehaviourStudentsService } from './behaviour-students.service';
 
 // ─── Local Query Schemas ─────────────────────────────────────────────────────
@@ -34,8 +38,11 @@ const paginationQuerySchema = z.object({
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourStudentsController {
+  private readonly logger = new Logger(BehaviourStudentsController.name);
+
   constructor(
     private readonly studentsService: BehaviourStudentsService,
+    private readonly exportService: BehaviourExportService,
     private readonly permissionCacheService: PermissionCacheService,
   ) {}
 
@@ -91,15 +98,18 @@ export class BehaviourStudentsController {
     );
   }
 
-  // ─── Student Analytics (STUB) ─────────────────────────────────────────────
+  // ─── Student Analytics ───────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/analytics')
   @RequiresPermission('behaviour.view')
   async getStudentAnalytics(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    // STUB: Analytics -- will be implemented in a later phase
-    return { data: null, message: 'Student analytics not yet implemented' };
+    return this.studentsService.getStudentAnalytics(
+      tenant.tenant_id,
+      studentId,
+    );
   }
 
   // ─── Student Points ───────────────────────────────────────────────────────
@@ -116,48 +126,72 @@ export class BehaviourStudentsController {
     );
   }
 
-  // ─── Student Sanctions (STUB) ─────────────────────────────────────────────
+  // ─── Student Sanctions ───────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/sanctions')
   @RequiresPermission('behaviour.view')
   async getStudentSanctions(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Query(new ZodValidationPipe(paginationQuerySchema))
+    query: z.infer<typeof paginationQuerySchema>,
   ) {
-    // STUB: Sanctions -- will be implemented in a later phase
-    return { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    return this.studentsService.getStudentSanctions(
+      tenant.tenant_id,
+      studentId,
+      query.page,
+      query.pageSize,
+    );
   }
 
-  // ─── Student Interventions (STUB) ─────────────────────────────────────────
+  // ─── Student Interventions ───────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/interventions')
   @RequiresPermission('behaviour.view')
   async getStudentInterventions(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Query(new ZodValidationPipe(paginationQuerySchema))
+    query: z.infer<typeof paginationQuerySchema>,
   ) {
-    // STUB: Interventions -- will be implemented in a later phase
-    return { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    return this.studentsService.getStudentInterventions(
+      tenant.tenant_id,
+      studentId,
+      query.page,
+      query.pageSize,
+    );
   }
 
-  // ─── Student Awards (STUB) ────────────────────────────────────────────────
+  // ─── Student Awards ──────────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/awards')
   @RequiresPermission('behaviour.view')
   async getStudentAwards(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Query(new ZodValidationPipe(paginationQuerySchema))
+    query: z.infer<typeof paginationQuerySchema>,
   ) {
-    // STUB: Awards -- will be implemented in a later phase
-    return { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    return this.studentsService.getStudentAwards(
+      tenant.tenant_id,
+      studentId,
+      query.page,
+      query.pageSize,
+    );
   }
 
-  // ─── Student AI Summary (STUB) ────────────────────────────────────────────
+  // ─── Student AI Summary ──────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/ai-summary')
   @RequiresPermission('behaviour.ai_query')
   async getStudentAiSummary(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    // STUB: AI summary -- will be implemented in a later phase
-    return { data: null, message: 'AI summary not yet implemented' };
+    return this.studentsService.getStudentAiSummary(
+      tenant.tenant_id,
+      studentId,
+    );
   }
 
   // ─── Student Hover Card Preview ───────────────────────────────────────────
@@ -174,27 +208,39 @@ export class BehaviourStudentsController {
     );
   }
 
-  // ─── Student PDF Export (STUB) ────────────────────────────────────────────
+  // ─── Student PDF Export ──────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/export')
   @RequiresPermission('behaviour.manage')
   @HttpCode(HttpStatus.OK)
   async exportStudentPdf(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Res() res: Response,
   ) {
-    // STUB: PDF export -- will be implemented in a later phase
-    return { data: null, message: 'PDF export not yet implemented' };
+    const buffer = await this.exportService.generateStudentPackPdf(
+      tenant.tenant_id, studentId, user.sub, 'en',
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="student-pack-${studentId.slice(0, 8)}.pdf"`,
+    });
+    res.send(buffer);
   }
 
-  // ─── Parent View (STUB) ──────────────────────────────────────────────────
+  // ─── Parent View ─────────────────────────────────────────────────────────
 
   @Get('behaviour/students/:studentId/parent-view')
   @RequiresPermission('parent.view_behaviour')
   async getParentView(
-    @Param('studentId', ParseUUIDPipe) _studentId: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    // STUB: Parent view -- will be implemented in a later phase
-    return { data: null, message: 'Parent view not yet implemented' };
+    return this.studentsService.getParentView(
+      tenant.tenant_id,
+      studentId,
+    );
   }
 
   // ─── Student Tasks ────────────────────────────────────────────────────────

@@ -15,7 +15,7 @@ const SANCTION_ID = 'sanction-1';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourAmendmentNotice: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -258,7 +258,7 @@ describe('BehaviourAmendmentsService', () => {
       setupParents([]);
       mockRlsTx.behaviourDocument!.findFirst.mockResolvedValue(null);
 
-      const result = await service.sendCorrection(TENANT_ID, 'amendment-5', USER_ID);
+      const result = await service.sendCorrection(TENANT_ID, 'amendment-5', USER_ID) as { correction_notification_sent: boolean };
 
       expect(result.correction_notification_sent).toBe(true);
       expect(mockRlsTx.behaviourSanction!.findFirst).toHaveBeenCalledWith({

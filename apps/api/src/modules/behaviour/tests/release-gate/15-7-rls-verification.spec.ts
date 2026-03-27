@@ -1,4 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
+export {};
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function createRlsFilteredFindMany(table: string, recordId: string) {
  * Build the full mock transaction object with all 33 tables.
  * Each table has a findMany that respects the simulated RLS context.
  */
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourCategory: {
     findMany: createRlsFilteredFindMany('behaviourCategory', 'cat-1'),
   },
@@ -169,6 +170,12 @@ jest.mock('../../../../common/middleware/rls.middleware', () => ({
 
 import { createRlsClient } from '../../../../common/middleware/rls.middleware';
 
+// The mock replaces createRlsClient with a single-arg version (tenantId: string).
+// Cast to the mock's actual signature so TypeScript accepts the call.
+const mockedCreateRlsClient = createRlsClient as unknown as (
+  tenantId: string,
+) => { $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown> };
+
 // ─── Test Suite ─────────────────────────────────────────────────────────────
 
 describe('Release Gate 15-7: RLS Verification — Tenant Isolation per Table', () => {
@@ -189,23 +196,25 @@ describe('Release Gate 15-7: RLS Verification — Tenant Isolation per Table', (
   async function verifyRlsIsolation(
     modelName: string,
   ): Promise<void> {
+    type MockDb = Record<string, Record<string, (...args: unknown[]) => Promise<unknown[]>>>;
+
     // Step 1: Verify Tenant A can see their own data
     activeRlsTenantId = TENANT_A;
-    const rlsClientA = createRlsClient(TENANT_A);
+    const rlsClientA = mockedCreateRlsClient(TENANT_A);
     const resultA = await rlsClientA.$transaction(async (tx) => {
-      const db = tx as Record<string, Record<string, (...args: unknown[]) => Promise<unknown[]>>>;
-      return db[modelName]!.findMany({});
+      const db = tx as unknown as MockDb;
+      return db[modelName]!.findMany!({});
     });
     expect(resultA).toHaveLength(1);
 
     // Step 2: Set RLS context to Tenant B
     activeRlsTenantId = TENANT_B;
-    const rlsClientB = createRlsClient(TENANT_B);
+    const rlsClientB = mockedCreateRlsClient(TENANT_B);
 
     // Step 3: Query with no explicit tenant_id filter
     const resultB = await rlsClientB.$transaction(async (tx) => {
-      const db = tx as Record<string, Record<string, (...args: unknown[]) => Promise<unknown[]>>>;
-      return db[modelName]!.findMany({});
+      const db = tx as unknown as MockDb;
+      return db[modelName]!.findMany!({});
     });
 
     // Step 4: Assert — Tenant B sees nothing

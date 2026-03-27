@@ -6,13 +6,17 @@ import {
   HttpStatus,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
   aiQuerySchema,
   behaviourAnalyticsQuerySchema,
+  benchmarkQuerySchema,
+  csvExportQuerySchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -229,6 +233,74 @@ export class BehaviourAnalyticsController {
     query: z.infer<typeof behaviourAnalyticsQuerySchema>,
   ) {
     return this.analyticsService.getTaskCompletion(tenant.tenant_id, query);
+  }
+
+  // ─── Benchmarks ──────────────────────────────────────────────────────────
+
+  @Get('behaviour/analytics/benchmarks')
+  @RequiresPermission('behaviour.admin')
+  async getBenchmarks(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(benchmarkQuerySchema))
+    query: z.infer<typeof benchmarkQuerySchema>,
+  ) {
+    return this.analyticsService.getBenchmarks(tenant.tenant_id, query);
+  }
+
+  // ─── Teacher Analytics ──────────────────────────────────────────────────
+
+  @Get('behaviour/analytics/teachers')
+  @RequiresPermission('behaviour.view_staff_analytics')
+  async getTeacherAnalytics(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(behaviourAnalyticsQuerySchema))
+    query: z.infer<typeof behaviourAnalyticsQuerySchema>,
+  ) {
+    return this.analyticsService.getTeacherAnalytics(tenant.tenant_id, query);
+  }
+
+  // ─── Class Comparisons ─────────────────────────────────────────────────
+
+  @Get('behaviour/analytics/class-comparisons')
+  @RequiresPermission('behaviour.view')
+  async getClassComparisons(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(behaviourAnalyticsQuerySchema))
+    query: z.infer<typeof behaviourAnalyticsQuerySchema>,
+  ) {
+    const permissions = await this.getUserPermissions(user.membership_id);
+    return this.analyticsService.getClassComparisons(
+      tenant.tenant_id,
+      user.sub,
+      permissions,
+      query,
+    );
+  }
+
+  // ─── CSV Export ─────────────────────────────────────────────────────────
+
+  @Get('behaviour/analytics/export/csv')
+  @RequiresPermission('behaviour.manage')
+  async exportCsv(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(csvExportQuerySchema))
+    query: z.infer<typeof csvExportQuerySchema>,
+    @Res() res: Response,
+  ) {
+    const permissions = await this.getUserPermissions(user.membership_id);
+    const result = await this.analyticsService.exportCsv(
+      tenant.tenant_id,
+      user.sub,
+      permissions,
+      query,
+    );
+    res.set({
+      'Content-Type': 'text/csv',
+      'Content-Disposition': `attachment; filename="${result.filename}"`,
+    });
+    res.send(result.content);
   }
 
   // ─── AI Query ──────────────────────────────────────────────────────────────

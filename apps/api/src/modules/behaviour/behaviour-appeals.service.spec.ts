@@ -20,7 +20,7 @@ const APPEAL_ID = 'appeal-1';
 
 // ─── RLS mock ─────────────────────────────────────────────────────────────────
 
-const mockRlsTx: Record<string, Record<string, jest.Mock>> = {
+const mockRlsTx = {
   behaviourAppeal: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
@@ -113,10 +113,10 @@ describe('BehaviourAppealsService', () => {
       incident_id: INCIDENT_ID,
       sanction_id: SANCTION_ID,
       student_id: STUDENT_ID,
-      appellant_type: 'parent',
+      appellant_type: 'parent' as const,
       appellant_parent_id: 'parent-1',
       grounds: 'Unfair sanction',
-      grounds_category: 'disproportionate',
+      grounds_category: 'disproportionate_consequence' as const,
     };
 
     function setupSubmitMocks(overrides?: {
@@ -150,7 +150,7 @@ describe('BehaviourAppealsService', () => {
     it('should generate AP- sequence number on submission', async () => {
       setupSubmitMocks();
 
-      const result = await service.submit(TENANT_ID, USER_ID, baseDto);
+      const result = await service.submit(TENANT_ID, USER_ID, baseDto) as { appeal_number: string };
 
       expect(mockSequenceService.nextNumber).toHaveBeenCalledWith(
         TENANT_ID,

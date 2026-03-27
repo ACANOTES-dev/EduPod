@@ -1,4 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
+export {};
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 

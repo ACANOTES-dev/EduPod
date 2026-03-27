@@ -81,7 +81,7 @@ export class BehaviourAmendmentsController {
   // ─── Send Correction Notice ───────────────────────────────────────────────
 
   @Post('behaviour/amendments/:id/send-correction')
-  @RequiresPermission('behaviour.manage')
+  @RequiresPermission('behaviour.amend')
   @HttpCode(HttpStatus.OK)
   async sendCorrection(
     @CurrentTenant() tenant: TenantContext,
