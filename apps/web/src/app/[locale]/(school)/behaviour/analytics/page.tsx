@@ -1,13 +1,10 @@
 'use client';
 
-import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import {
   Activity,
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
-  BarChart3,
-  CheckCircle,
   Minus,
   TrendingDown,
   TrendingUp,

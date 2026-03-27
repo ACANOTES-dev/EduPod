@@ -1,18 +1,14 @@
 'use client';
 
-import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Badge, Button } from '@school/ui';
 import {
   AlertTriangle,
-  Bell,
-  BellOff,
   Check,
   CheckCircle,
   Clock,
   Eye,
   Info,
-  MoreHorizontal,
   Shield,
-  X,
 } from 'lucide-react';
 import * as React from 'react';
 
