@@ -10,7 +10,7 @@
 | Sub-Phase | Name | Status | Started | Completed | Notes |
 |-----------|------|--------|---------|-----------|-------|
 | SW-1A | Infrastructure & Foundation | completed | 2026-03-27 | 2026-03-27 | 20 tables, 14 enums, 18 permissions, 17 schemas, 5 modules, 6 processors, 6 tests |
-| SW-1B | Concern Logging & Audit Events | NOT STARTED | — | — | — |
+| SW-1B | Concern Logging & Audit Events | completed | 2026-03-27 | 2026-03-27 | 11 endpoints, 3 services, 36 tests (26 unit + 10 E2E) |
 | SW-1C | Child Protection Fortress | NOT STARTED | — | — | — |
 | SW-1D | Cases & Student Chronology | NOT STARTED | — | — | — |
 | SW-1E | Tiered Notifications | NOT STARTED | — | — | — |
@@ -83,6 +83,7 @@ Every sub-phase execution follows `/SW` command protocol:
 | Date | Sub-Phase | Summary |
 |------|-----------|---------|
 | 2026-03-27 | SW-1A | Infrastructure foundation: 20 tables, 14 enums, RLS (standard + tiered + CP), immutability triggers, 18 permissions, 17 Zod schemas, 5 NestJS modules, 6 worker stubs |
+| 2026-03-27 | SW-1B | Concern logging: ConcernService (8 methods), ConcernVersionService (3), PastoralEventService (3), ConcernsController (11 endpoints), 36 tests |
 
 ## Completed Sub-Phase Summaries
 
@@ -92,3 +93,10 @@ Every sub-phase execution follows `/SW` command protocol:
 **Key patterns established**: `user_id` is optional in `createRlsClient` with sentinel default (`00000000-0000-0000-0000-000000000000`) — existing callers work without modification, new pastoral services pass real user_id. Tiered RLS policy on pastoral_concerns uses `app.current_user_id` to check cp_access_grants. Immutability enforced by `prevent_immutable_modification()` trigger function (reusable). Pastoral Zod schemas follow the `packages/shared/src/pastoral/` directory structure with barrel exports.
 **Known limitations**: Pre-existing type errors in uncommitted behaviour test files (15-6, 15-7 release-gate specs) — not caused by pastoral changes. Some pre-existing worker lint errors in behaviour processors.
 **Results file**: Plans/phases-results/SW-1A-results.md
+
+### SW-1B: Concern Logging & Audit Events — Completed 2026-03-27
+**What was built**: Full concern CRUD with 11 REST endpoints, tiered access enforcement, append-only narrative versioning with SELECT FOR UPDATE concurrency control, immutable pastoral event audit writer (fire-and-forget, Zod-validated payloads), author masking for non-DLP viewers, tenant-configurable concern categories with auto-tier escalation, and concern acknowledgement tracking. 36 tests across 4 test files covering all service methods, RLS leakage, and permission enforcement.
+**Key files created**: `apps/api/src/modules/pastoral/services/{concern,concern-version,pastoral-event}.service.ts`, `apps/api/src/modules/pastoral/controllers/concerns.controller.ts`, `apps/api/src/modules/pastoral/pastoral.constants.ts`, `packages/shared/src/pastoral/schemas/concern-response.schema.ts`
+**Key patterns established**: RLS client with `user_id` for CP-aware queries. Fire-and-forget event writes via `void this.eventService.write(...)`. Author masking as DTO transformation (not interceptor). Category validation against tenant_settings JSONB. Tier-based list filtering at application layer (tier 1 only for view_tier1 users, RLS handles tier 3). ConcernVersionService.createInitialVersion accepts caller's tx client, amendNarrative creates its own.
+**Known limitations**: None — all spec deliverables implemented.
+**Results file**: Plans/phases-results/SW-1B-results.md

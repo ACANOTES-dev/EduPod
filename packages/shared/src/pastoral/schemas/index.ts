@@ -1,5 +1,6 @@
 export * from './concern.schema';
 export * from './concern-version.schema';
+export * from './concern-response.schema';
 export * from './case.schema';
 export * from './intervention.schema';
 export * from './intervention-action.schema';
