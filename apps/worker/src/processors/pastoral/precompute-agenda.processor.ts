@@ -418,7 +418,7 @@ class PrecomputeAgendaTenantJob extends TenantAwareJob<PrecomputeAgendaPayload> 
   private async queryUpcomingNepsAppointments(
     tx: PrismaClient,
     tenantId: string,
-    meetingDate: Date,
+    _meetingDate: Date,
   ): Promise<AgendaSourceItem[]> {
     // Query NEPS referrals with pending statuses
     const referrals = await tx.pastoralReferral.findMany({
