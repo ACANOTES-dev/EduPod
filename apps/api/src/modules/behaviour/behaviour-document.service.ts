@@ -12,7 +12,10 @@ import type {
   ListDocumentsQuery,
   SendDocumentDto,
 } from '@school/shared';
-import * as Handlebars from 'handlebars';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Handlebars = require('handlebars') as {
+  compile: (template: string, options?: { strict?: boolean }) => (data: Record<string, unknown>) => string;
+};
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
