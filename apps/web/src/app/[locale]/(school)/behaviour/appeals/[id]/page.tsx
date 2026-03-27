@@ -24,6 +24,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in StatusTimeline and AppealDetailPage
 import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
@@ -147,6 +148,7 @@ function InlineBadge({ value, colorMap }: { value: string; colorMap: Record<stri
 const PROGRESS_STEPS = ['submitted', 'under_review', 'hearing_scheduled', 'decided'] as const;
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
+  const t = useTranslations('behaviour.appealDetail');
   const activeIndex = PROGRESS_STEPS.indexOf(
     currentStatus as (typeof PROGRESS_STEPS)[number],
   );
@@ -154,11 +156,11 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-sm dark:bg-surface-secondary">
-      <h3 className="mb-4 text-sm font-semibold text-text-primary">Progress</h3>
+      <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('progress')}</h3>
       {isWithdrawn ? (
         <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-3 dark:bg-gray-800/40">
           <XCircle className="h-5 w-5 text-gray-500" />
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Appeal Withdrawn</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('appealWithdrawn')}</span>
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -206,6 +208,7 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AppealDetailPage() {
+  const t = useTranslations('behaviour.appealDetail');
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const router = useRouter();
@@ -417,7 +420,7 @@ export default function AppealDetailPage() {
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> Back
         </Button>
-        <p className="text-sm text-danger-text">Appeal not found.</p>
+        <p className="text-sm text-danger-text">{t('notFound')}</p>
       </div>
     );
   }
@@ -439,7 +442,7 @@ export default function AppealDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/behaviour/appeals`)}>
               <ArrowLeft className="me-1 h-4 w-4 rtl:rotate-180" />
-              Appeals
+              {t('backToAppeals')}
             </Button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -482,7 +485,7 @@ export default function AppealDetailPage() {
           {appeal.status === 'decided' && (
             <Button variant="outline" size="sm" onClick={handleGenerateDecisionLetter}>
               <FileText className="me-1 h-4 w-4" />
-              Decision Letter
+              {t('decisionLetter')}
             </Button>
           )}
           {canWithdraw && (
@@ -492,7 +495,7 @@ export default function AppealDetailPage() {
               onClick={() => setShowWithdraw(!showWithdraw)}
             >
               <XCircle className="me-1 h-4 w-4" />
-              Withdraw
+              {t('withdraw')}
             </Button>
           )}
         </div>
@@ -501,7 +504,7 @@ export default function AppealDetailPage() {
       {/* Withdraw form */}
       {showWithdraw && (
         <div className="rounded-xl border border-danger-fill bg-danger-fill/10 p-4 dark:bg-danger-fill/5">
-          <p className="mb-2 text-sm font-medium text-danger-text">Withdraw this appeal</p>
+          <p className="mb-2 text-sm font-medium text-danger-text">{t('withdrawThisAppeal')}</p>
           <Textarea
             value={withdrawReason}
             onChange={(e) => setWithdrawReason(e.target.value)}
@@ -515,10 +518,10 @@ export default function AppealDetailPage() {
               onClick={handleWithdraw}
               disabled={actionLoading || withdrawReason.length < 5}
             >
-              Confirm Withdraw
+              {t('confirmWithdraw')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowWithdraw(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
           </div>
         </div>
@@ -527,7 +530,7 @@ export default function AppealDetailPage() {
       {/* ── 2. Appellant Info ─────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm dark:bg-surface-secondary">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-          Appellant Information
+          {t('sections.appellantInfo')}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -561,7 +564,7 @@ export default function AppealDetailPage() {
       {/* ── 4. Reviewer Section ───────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm dark:bg-surface-secondary">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-          Reviewer
+          {t('sections.reviewer')}
         </h2>
         {appeal.reviewer && (
           <div className="mb-3 flex items-center gap-2">
@@ -604,7 +607,7 @@ export default function AppealDetailPage() {
       {/* ── 5. Hearing Section ────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm dark:bg-surface-secondary">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-          Hearing
+          {t('sections.hearing')}
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -645,7 +648,7 @@ export default function AppealDetailPage() {
             )}
           </div>
           {attendees.length === 0 ? (
-            <p className="text-sm text-text-tertiary">No attendees listed.</p>
+            <p className="text-sm text-text-tertiary">{t('noAttendees')}</p>
           ) : (
             <div className="space-y-2">
               {attendees.map((att, i) => (
@@ -680,7 +683,7 @@ export default function AppealDetailPage() {
                     handleUpdateAppeal({ hearing_attendees: attendees.filter((a) => a.name.trim()) })
                   }
                 >
-                  Save Attendees
+                  {t('saveAttendees')}
                 </Button>
               )}
             </div>
@@ -711,7 +714,7 @@ export default function AppealDetailPage() {
       {canDecide && (
         <div className="rounded-xl border-2 border-primary-200 bg-surface p-5 shadow-sm dark:border-primary-800 dark:bg-surface-secondary">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">
-            Record Decision
+            {t('recordDecision')}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -721,9 +724,9 @@ export default function AppealDetailPage() {
                   <SelectValue placeholder="Select decision..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="upheld_original">Upheld (Original Stands)</SelectItem>
-                  <SelectItem value="modified">Modified</SelectItem>
-                  <SelectItem value="overturned">Overturned</SelectItem>
+                  <SelectItem value="upheld_original">{t('decisions.upheld')}</SelectItem>
+                  <SelectItem value="modified">{t('decisions.modified')}</SelectItem>
+                  <SelectItem value="overturned">{t('decisions.overturned')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -746,12 +749,12 @@ export default function AppealDetailPage() {
                 <Label className="text-xs">Amendments</Label>
                 <Button variant="ghost" size="sm" onClick={addAmendmentRow}>
                   <Plus className="me-1 h-3.5 w-3.5" />
-                  Add Amendment
+                  {t('addAmendment')}
                 </Button>
               </div>
               {amendments.length === 0 ? (
                 <p className="text-sm text-text-tertiary">
-                  No amendments. Add rows to specify field-level changes.
+                  {t('noAmendments')}
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -803,7 +806,7 @@ export default function AppealDetailPage() {
               disabled={actionLoading || !decisionValue || decisionReasoning.length < 10}
             >
               <CheckCircle className="me-2 h-4 w-4" />
-              Submit Decision
+              {t('submitDecision')}
             </Button>
           </div>
         </div>
@@ -813,7 +816,7 @@ export default function AppealDetailPage() {
       {appeal.decision && appeal.status === 'decided' && (
         <div className="rounded-xl border border-border bg-surface p-5 shadow-sm dark:bg-surface-secondary">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-            Decision Outcome
+            {t('sections.decisionOutcome')}
           </h2>
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <InlineBadge value={appeal.decision} colorMap={DECISION_COLORS} />
@@ -837,7 +840,7 @@ export default function AppealDetailPage() {
           {/* Resulting amendments diff table */}
           {appeal.resulting_amendments && appeal.resulting_amendments.length > 0 && (
             <div className="mt-4">
-              <h3 className="mb-2 text-xs font-semibold text-text-tertiary">Amendments Applied</h3>
+              <h3 className="mb-2 text-xs font-semibold text-text-tertiary">{t('amendmentsApplied')}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -878,10 +881,10 @@ export default function AppealDetailPage() {
       {/* ── 8. Entity History ─────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5 shadow-sm dark:bg-surface-secondary">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-          History
+          {t('sections.history')}
         </h2>
         {history.length === 0 ? (
-          <p className="py-4 text-center text-sm text-text-tertiary">No history records.</p>
+          <p className="py-4 text-center text-sm text-text-tertiary">{t('noHistory')}</p>
         ) : (
           <div className="relative space-y-0">
             {/* Vertical timeline line */}
