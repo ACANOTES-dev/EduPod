@@ -141,6 +141,9 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: Heart, labelKey: 'nav.myWorkload', href: '/wellbeing/my-workload' },
       { icon: LifeBuoy, labelKey: 'nav.supportResources', href: '/wellbeing/resources' },
       { icon: MessageSquare, labelKey: 'nav.survey', href: '/wellbeing/survey' },
+      { icon: BarChart3, labelKey: 'nav.wellbeingDashboard', href: '/wellbeing/dashboard', roles: ADMIN_ROLES },
+      { icon: ClipboardList, labelKey: 'nav.surveyManagement', href: '/wellbeing/surveys', roles: ADMIN_ROLES },
+      { icon: FileText, labelKey: 'nav.boardReport', href: '/wellbeing/reports', roles: ADMIN_ROLES },
     ],
   },
   {
