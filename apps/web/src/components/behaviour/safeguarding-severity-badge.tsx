@@ -1,4 +1,7 @@
+'use client';
+
 import { Badge } from '@school/ui';
+import { useTranslations } from 'next-intl';
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
@@ -8,9 +11,10 @@ const SEVERITY_COLORS: Record<string, string> = {
 };
 
 export function SafeguardingSeverityBadge({ severity }: { severity: string }) {
+  const t = useTranslations('safeguarding.severities');
   return (
     <Badge className={SEVERITY_COLORS[severity] ?? 'bg-gray-100 text-gray-800'}>
-      {severity}
+      {t(`${severity}` as Parameters<typeof t>[0])}
     </Badge>
   );
 }

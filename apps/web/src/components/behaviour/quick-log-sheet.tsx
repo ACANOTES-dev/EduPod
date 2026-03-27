@@ -11,6 +11,7 @@ import {
   Textarea,
 } from '@school/ui';
 import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
@@ -40,6 +41,7 @@ interface QuickLogSheetProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
+  const t = useTranslations('behaviour.components.quickLog');
   const [categories, setCategories] = React.useState<CategoryOption[]>([]);
   const [templates, setTemplates] = React.useState<TemplateOption[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(null);
@@ -89,8 +91,8 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
   };
 
   const handleSubmit = async () => {
-    if (!selectedCategoryId) { setError('Please select a category'); return; }
-    if (!selectedStudent) { setError('Please select a student'); return; }
+    if (!selectedCategoryId) { setError(t('errors.selectCategory')); return; }
+    if (!selectedStudent) { setError(t('errors.selectStudent')); return; }
 
     setSubmitting(true);
     setError('');
@@ -110,7 +112,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
       onOpenChange(false);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      setError(ex?.error?.message ?? 'Failed to log incident');
+      setError(ex?.error?.message ?? t('errors.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -124,13 +126,13 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle>Quick Log</SheetTitle>
+          <SheetTitle>{t('title')}</SheetTitle>
         </SheetHeader>
 
         <div className="mt-4 space-y-5">
           {/* Category Picker */}
           <div>
-            <Label className="mb-2 block text-sm font-medium">Category</Label>
+            <Label className="mb-2 block text-sm font-medium">{t('category')}</Label>
             <CategoryPicker
               categories={categories}
               selectedId={selectedCategoryId}
@@ -140,7 +142,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
 
           {/* Student Search */}
           <div>
-            <Label className="mb-2 block text-sm font-medium">Student</Label>
+            <Label className="mb-2 block text-sm font-medium">{t('student')}</Label>
             {selectedStudent ? (
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface-secondary px-3 py-2">
                 <span className="text-sm font-medium text-text-primary">
@@ -156,7 +158,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
                   size="sm"
                   onClick={() => { setSelectedStudent(null); setStudentSearch(''); }}
                 >
-                  Change
+                  {t('change')}
                 </Button>
               </div>
             ) : (
@@ -165,7 +167,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
                 <Input
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="Search students..."
+                  placeholder={t('searchStudents')}
                   className="ps-9 text-base"
                 />
                 {studentResults.length > 0 && (
@@ -199,7 +201,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
           {/* Template chips */}
           {templates.length > 0 && (
             <div>
-              <Label className="mb-2 block text-sm font-medium">Templates</Label>
+              <Label className="mb-2 block text-sm font-medium">{t('templates')}</Label>
               <div className="flex flex-wrap gap-2">
                 {templates.map((tmpl) => (
                   <button
@@ -217,11 +219,11 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
 
           {/* Description */}
           <div>
-            <Label className="mb-2 block text-sm font-medium">Description</Label>
+            <Label className="mb-2 block text-sm font-medium">{t('description')}</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add details..."
+              placeholder={t('addDetails')}
               rows={3}
               className="text-base"
             />
@@ -235,7 +237,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
             disabled={submitting || !selectedCategoryId || !selectedStudent}
             className="w-full"
           >
-            {submitting ? 'Logging...' : 'Log Incident'}
+            {submitting ? t('logging') : t('logIncident')}
           </Button>
         </div>
       </SheetContent>

@@ -30,6 +30,7 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -181,6 +182,7 @@ function TimelineDot({ status }: { status: string }) {
 // ─── Page ──────────────��──────────────────────────────────────────────────────
 
 export default function ExclusionDetailPage() {
+  const t = useTranslations('behaviour.exclusionDetail');
   const params = useParams();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -494,9 +496,9 @@ export default function ExclusionDetailPage() {
   if (!exclusion) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Exclusion Case Not Found" />
+        <PageHeader title={t('notFound')} />
         <p className="text-sm text-text-tertiary">
-          The requested exclusion case could not be loaded.
+          {t('notFoundDescription')}
         </p>
       </div>
     );
@@ -515,7 +517,7 @@ export default function ExclusionDetailPage() {
           <Link href={`/${locale}/behaviour/exclusions`}>
             <Button variant="ghost">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Back to List
+              {t('backToList')}
             </Button>
           </Link>
         }
@@ -579,12 +581,12 @@ export default function ExclusionDetailPage() {
             <div className="mb-4 flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Statutory Timeline
+                {t('sections.statutoryTimeline')}
               </h3>
             </div>
             {timeline.length === 0 ? (
               <p className="text-sm text-text-tertiary">
-                No statutory timeline steps configured
+                {t('noTimeline')}
               </p>
             ) : (
               <div className="space-y-3">
@@ -639,7 +641,7 @@ export default function ExclusionDetailPage() {
             <div className="mb-3 flex items-center gap-2">
               <FileText className="h-5 w-5 text-text-tertiary" />
               <h3 className="text-sm font-semibold text-text-primary">
-                Formal Notice
+                {t('sections.formalNotice')}
               </h3>
             </div>
             <div className="flex flex-wrap items-center gap-3">

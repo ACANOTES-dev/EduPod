@@ -3,6 +3,7 @@
 import { Badge, Button } from '@school/ui';
 import { AlertTriangle, CalendarClock, Plus, User } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
@@ -90,6 +91,7 @@ function isOverdue(dateStr: string | null): boolean {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InterventionListPage() {
+  const t = useTranslations('behaviour.interventions');
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -150,7 +152,7 @@ export default function InterventionListPage() {
   const columns = [
     {
       key: 'student',
-      header: 'Student',
+      header: t('columns.student'),
       render: (row: InterventionRow) => (
         <span className="text-sm font-medium text-text-primary">
           {row.student
@@ -161,14 +163,14 @@ export default function InterventionListPage() {
     },
     {
       key: 'title',
-      header: 'Intervention',
+      header: t('columns.intervention'),
       render: (row: InterventionRow) => (
         <span className="text-sm text-text-primary">{row.title}</span>
       ),
     },
     {
       key: 'type',
-      header: 'Type',
+      header: t('columns.type'),
       render: (row: InterventionRow) => (
         <Badge
           variant="secondary"
@@ -180,7 +182,7 @@ export default function InterventionListPage() {
     },
     {
       key: 'assigned_to',
-      header: 'Assigned To',
+      header: t('columns.assignedTo'),
       render: (row: InterventionRow) => (
         <span className="text-sm text-text-secondary">
           {row.assigned_to_user
@@ -191,7 +193,7 @@ export default function InterventionListPage() {
     },
     {
       key: 'start_date',
-      header: 'Start Date',
+      header: t('columns.startDate'),
       render: (row: InterventionRow) => (
         <span className="font-mono text-xs text-text-primary">
           {formatDate(row.start_date)}
@@ -200,7 +202,7 @@ export default function InterventionListPage() {
     },
     {
       key: 'next_review',
-      header: 'Next Review',
+      header: t('columns.nextReview'),
       render: (row: InterventionRow) => {
         if (!row.next_review_date) return <span className="text-text-tertiary">—</span>;
         const overdue = isOverdue(row.next_review_date);
@@ -214,7 +216,7 @@ export default function InterventionListPage() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: InterventionRow) => (
         <Badge
           variant="secondary"
@@ -282,12 +284,12 @@ export default function InterventionListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Interventions"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/behaviour/interventions/new`}>
             <Button>
               <Plus className="me-2 h-4 w-4" />
-              New Intervention
+              {t('newIntervention')}
             </Button>
           </Link>
         }
@@ -322,7 +324,7 @@ export default function InterventionListPage() {
                 <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-tertiary">No interventions found</p>
+              <p className="py-12 text-center text-sm text-text-tertiary">{t('noResults')}</p>
             ) : (
               data.map(renderMobileCard)
             )}
@@ -330,13 +332,13 @@ export default function InterventionListPage() {
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+              <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import { Badge, Button, StatCard } from '@school/ui';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { QuickLogFab } from '@/components/behaviour/quick-log-fab';
@@ -57,6 +58,7 @@ type ViewMode = 'my' | 'all';
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourTasksPage() {
+  const t = useTranslations('behaviour.tasks');
   const [tasks, setTasks] = React.useState<BehaviourTask[]>([]);
   const [total, setTotal] = React.useState(0);
   const [page, setPage] = React.useState(1);
@@ -141,20 +143,20 @@ export default function BehaviourTasksPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Behaviour Tasks"
-        description="Follow-up actions and reminders"
+        title={t('title')}
+        description={t('description')}
       />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Pending" value={stats.pending} className="border border-border" />
+        <StatCard label={t('statsPending')} value={stats.pending} className="border border-border" />
         <StatCard
-          label="Overdue"
+          label={t('statsOverdue')}
           value={stats.overdue}
-          trend={stats.overdue > 0 ? { direction: 'up', label: 'needs attention' } : undefined}
+          trend={stats.overdue > 0 ? { direction: 'up', label: t('needsAttention') } : undefined}
           className="border border-border"
         />
-        <StatCard label="Completed Today" value={stats.completed_today} className="border border-border" />
+        <StatCard label={t('statsCompletedToday')} value={stats.completed_today} className="border border-border" />
       </div>
 
       {/* View toggle */}
@@ -168,7 +170,7 @@ export default function BehaviourTasksPage() {
               : 'border-transparent text-text-tertiary hover:text-text-primary'
           }`}
         >
-          My Tasks
+          {t('tabs.myTasks')}
         </button>
         <button
           type="button"
@@ -179,7 +181,7 @@ export default function BehaviourTasksPage() {
               : 'border-transparent text-text-tertiary hover:text-text-primary'
           }`}
         >
-          All Tasks
+          {t('tabs.allTasks')}
         </button>
       </div>
 
@@ -193,7 +195,7 @@ export default function BehaviourTasksPage() {
       ) : tasks.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface py-12 text-center">
           <CheckCircle className="mx-auto h-8 w-8 text-text-tertiary" />
-          <p className="mt-2 text-sm text-text-tertiary">No tasks to show</p>
+          <p className="mt-2 text-sm text-text-tertiary">{t('noResults')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -218,7 +220,7 @@ export default function BehaviourTasksPage() {
                       </Badge>
                       {overdue && (
                         <Badge variant="danger" className="bg-red-100 text-red-700">
-                          Overdue
+                          {t('overdue')}
                         </Badge>
                       )}
                     </div>
@@ -230,12 +232,12 @@ export default function BehaviourTasksPage() {
                       {task.due_date && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Due: {formatDate(task.due_date)}
+                          {t('due')}: {formatDate(task.due_date)}
                         </span>
                       )}
                       {task.assigned_to_user && (
                         <span>
-                          Assigned: {task.assigned_to_user.first_name} {task.assigned_to_user.last_name}
+                          {t('assigned')}: {task.assigned_to_user.first_name} {task.assigned_to_user.last_name}
                         </span>
                       )}
                     </div>
@@ -252,7 +254,7 @@ export default function BehaviourTasksPage() {
                         className="text-green-700 hover:text-green-800"
                       >
                         <CheckCircle className="me-1 h-3.5 w-3.5" />
-                        Complete
+                        {t('complete')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -262,7 +264,7 @@ export default function BehaviourTasksPage() {
                         className="text-text-tertiary hover:text-red-600"
                       >
                         <XCircle className="me-1 h-3.5 w-3.5" />
-                        Cancel
+                        {t('cancel')}
                       </Button>
                     </div>
                   )}
@@ -277,17 +279,17 @@ export default function BehaviourTasksPage() {
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between text-sm text-text-secondary">
           <span>
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            {t('showing', { from: (page - 1) * PAGE_SIZE + 1, to: Math.min(page * PAGE_SIZE, total), total })}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Previous
+              {t('previous')}
             </Button>
             <span className="flex items-center px-2 text-sm text-text-primary">
               {page} / {totalPages}
             </span>
             <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>
-              Next
+              {t('next')}
             </Button>
           </div>
         </div>

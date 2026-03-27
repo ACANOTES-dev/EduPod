@@ -2,6 +2,7 @@
 
 import { cn } from '@school/ui';
 import { TrendingDown, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 interface StudentBehaviourHeaderProps {
@@ -19,6 +20,7 @@ export function StudentBehaviourHeader({
   positiveCount,
   negativeCount,
 }: StudentBehaviourHeaderProps) {
+  const t = useTranslations('behaviour.components.studentHeader');
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -34,7 +36,7 @@ export function StudentBehaviourHeader({
         <div className="flex flex-wrap items-center gap-4">
           <div className="text-center">
             <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
-              Points
+              {t('points')}
             </p>
             <p className={cn(
               'text-2xl font-bold',
@@ -49,7 +51,7 @@ export function StudentBehaviourHeader({
           <div className="flex items-center gap-1.5 text-center">
             <TrendingUp className="h-4 w-4 text-green-500" />
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Positive</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('positive')}</p>
               <p className="text-lg font-semibold text-green-600">{positiveCount}</p>
             </div>
           </div>
@@ -57,7 +59,7 @@ export function StudentBehaviourHeader({
           <div className="flex items-center gap-1.5 text-center">
             <TrendingDown className="h-4 w-4 text-red-500" />
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Negative</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('negative')}</p>
               <p className="text-lg font-semibold text-red-600">{negativeCount}</p>
             </div>
           </div>

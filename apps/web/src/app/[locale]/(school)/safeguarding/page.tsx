@@ -3,6 +3,7 @@
 import { Button, StatCard } from '@school/ui';
 import { AlertTriangle, Clock, FileText, Plus, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -54,6 +55,7 @@ interface DashboardResponse {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SafeguardingDashboardPage() {
+  const t = useTranslations('safeguarding.dashboard');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -81,13 +83,13 @@ export default function SafeguardingDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Safeguarding"
-        description="Child protection concern dashboard"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Link href={`/${locale}/safeguarding/concerns/new`}>
             <Button>
               <Plus className="me-2 h-4 w-4" />
-              Report Concern
+              {t('reportConcern')}
             </Button>
           </Link>
         }
@@ -96,17 +98,17 @@ export default function SafeguardingDashboardPage() {
       {/* SLA Traffic Light Panel */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard
-          label="Overdue"
+          label={t('sla.overdue')}
           value={sla.overdue}
           className="border-2 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
         />
         <StatCard
-          label="Due Soon"
+          label={t('sla.dueSoon')}
           value={sla.due_soon}
           className="border-2 border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
         />
         <StatCard
-          label="On Track"
+          label={t('sla.onTrack')}
           value={sla.on_track}
           className="border-2 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
         />
@@ -115,26 +117,26 @@ export default function SafeguardingDashboardPage() {
       {/* Open by Severity */}
       <div>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-text-tertiary">
-          Open by Severity
+          {t('openBySeverity')}
         </h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard
-            label="Critical"
+            label={t('severities.critical')}
             value={severity.critical}
             className="border border-red-200"
           />
           <StatCard
-            label="High"
+            label={t('severities.high')}
             value={severity.high}
             className="border border-orange-200"
           />
           <StatCard
-            label="Medium"
+            label={t('severities.medium')}
             value={severity.medium}
             className="border border-yellow-200"
           />
           <StatCard
-            label="Low"
+            label={t('severities.low')}
             value={severity.low}
             className="border border-blue-200"
           />
@@ -144,7 +146,7 @@ export default function SafeguardingDashboardPage() {
       {/* Status Distribution */}
       {statusDist.length > 0 && (
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-base font-semibold text-text-primary">Status Distribution</h2>
+          <h2 className="text-base font-semibold text-text-primary">{t('statusDistribution')}</h2>
           <div className="mt-3 flex flex-wrap gap-4">
             {statusDist.map((s) => (
               <div key={s.status} className="flex items-center gap-2">
@@ -159,10 +161,10 @@ export default function SafeguardingDashboardPage() {
       {/* Recent Activity */}
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">Recent Activity</h2>
+          <h2 className="text-base font-semibold text-text-primary">{t('recentActivity')}</h2>
           <Link href={`/${locale}/safeguarding/concerns`}>
             <Button variant="ghost" size="sm">
-              View All
+              {t('viewAll')}
             </Button>
           </Link>
         </div>
@@ -175,7 +177,7 @@ export default function SafeguardingDashboardPage() {
             </div>
           ) : recent.length === 0 ? (
             <p className="py-6 text-center text-sm text-text-tertiary">
-              No recent safeguarding activity.
+              {t('noRecentActivity')}
             </p>
           ) : (
             <div className="space-y-3">
@@ -215,21 +217,21 @@ export default function SafeguardingDashboardPage() {
           className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary"
         >
           <FileText className="h-5 w-5 text-text-tertiary" />
-          <span className="text-sm font-medium text-text-primary">All Concerns</span>
+          <span className="text-sm font-medium text-text-primary">{t('quickLinks.allConcerns')}</span>
         </Link>
         <Link
           href={`/${locale}/safeguarding/my-reports`}
           className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary"
         >
           <Clock className="h-5 w-5 text-text-tertiary" />
-          <span className="text-sm font-medium text-text-primary">My Reports</span>
+          <span className="text-sm font-medium text-text-primary">{t('quickLinks.myReports')}</span>
         </Link>
         <Link
           href={`/${locale}/safeguarding/concerns/new`}
           className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-secondary"
         >
           <AlertTriangle className="h-5 w-5 text-text-tertiary" />
-          <span className="text-sm font-medium text-text-primary">Report a Concern</span>
+          <span className="text-sm font-medium text-text-primary">{t('quickLinks.reportConcern')}</span>
         </Link>
       </div>
     </div>

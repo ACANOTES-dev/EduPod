@@ -3,6 +3,7 @@
 import { Badge, Button } from '@school/ui';
 import { FileText, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -31,15 +32,16 @@ const ACK_COLORS: Record<string, string> = {
   under_review: 'bg-amber-100 text-amber-800',
 };
 
-const ACK_LABELS: Record<string, string> = {
-  received: 'Received',
-  assigned: 'Assigned',
-  under_review: 'Under Review',
+const ACK_KEYS: Record<string, string> = {
+  received: 'received',
+  assigned: 'assigned',
+  under_review: 'underReview',
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MyReportsPage() {
+  const t = useTranslations('safeguarding.myReports');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -68,13 +70,13 @@ export default function MyReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="My Safeguarding Reports"
-        description="Reports you have filed. Case details are only visible to the Designated Liaison Person."
+        title={t('title')}
+        description={t('description')}
         actions={
           <Link href={`/${locale}/safeguarding/concerns/new`}>
             <Button>
               <Plus className="me-2 h-4 w-4" />
-              Report Concern
+              {t('reportConcern')}
             </Button>
           </Link>
         }
@@ -90,10 +92,10 @@ export default function MyReportsPage() {
         <div className="flex flex-col items-center gap-4 py-12">
           <FileText className="h-12 w-12 text-text-tertiary" />
           <p className="text-sm text-text-tertiary">
-            You have not filed any safeguarding reports.
+            {t('noReports')}
           </p>
           <Link href={`/${locale}/safeguarding/concerns/new`}>
-            <Button variant="outline">Report a concern</Button>
+            <Button variant="outline">{t('reportConcern')}</Button>
           </Link>
         </div>
       ) : (
@@ -104,16 +106,16 @@ export default function MyReportsPage() {
               <thead>
                 <tr className="border-b border-border text-start">
                   <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider text-text-tertiary">
-                    Concern #
+                    {t('columns.concernNumber')}
                   </th>
                   <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider text-text-tertiary">
-                    Type
+                    {t('columns.type')}
                   </th>
                   <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider text-text-tertiary">
-                    Reported
+                    {t('columns.reported')}
                   </th>
                   <th className="px-4 py-3 text-start text-xs font-medium uppercase tracking-wider text-text-tertiary">
-                    Status
+                    {t('columns.status')}
                   </th>
                 </tr>
               </thead>
@@ -132,10 +134,10 @@ export default function MyReportsPage() {
                     <td className="px-4 py-3">
                       {report.acknowledgement_status ? (
                         <Badge className={ACK_COLORS[report.acknowledgement_status] ?? 'bg-gray-100 text-gray-800'}>
-                          {ACK_LABELS[report.acknowledgement_status] ?? report.acknowledgement_status}
+                          {t(`ackStatuses.${ACK_KEYS[report.acknowledgement_status] ?? report.acknowledgement_status}` as Parameters<typeof t>[0])}
                         </Badge>
                       ) : (
-                        <Badge className="bg-gray-100 text-gray-600">Pending</Badge>
+                        <Badge className="bg-gray-100 text-gray-600">{t('ackStatuses.pending')}</Badge>
                       )}
                     </td>
                   </tr>
@@ -167,7 +169,7 @@ export default function MyReportsPage() {
                   {report.concern_type.replace(/_/g, ' ')}
                 </p>
                 <p className="mt-0.5 text-[11px] text-text-tertiary">
-                  Reported: {formatDate(report.reported_at)}
+                  {t('reported')}: {formatDate(report.reported_at)}
                 </p>
               </div>
             ))}
@@ -176,7 +178,7 @@ export default function MyReportsPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-2 text-sm text-text-secondary">
-              <span>Page {page} of {totalPages}</span>
+              <span>{t('pagination', { page, totalPages })}</span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -184,7 +186,7 @@ export default function MyReportsPage() {
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -192,7 +194,7 @@ export default function MyReportsPage() {
                   disabled={page >= totalPages}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@school/ui';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { formatDateTime } from '@/lib/format-date';
@@ -18,17 +19,8 @@ interface ActionTimelineProps {
   isLoading?: boolean;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  status_change: 'Status Change',
-  note: 'Note Added',
-  assignment: 'Assignment',
-  referral: 'Referral',
-  attachment: 'Attachment',
-  seal: 'Case Sealed',
-  break_glass: 'Break-Glass Access',
-};
-
 export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
+  const t = useTranslations('behaviour.components.timeline');
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -42,7 +34,7 @@ export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
   if (actions.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-text-tertiary">
-        No actions recorded yet.
+        {t('noActions')}
       </p>
     );
   }
@@ -60,7 +52,7 @@ export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="text-[10px]">
-                {ACTION_LABELS[action.action_type] ?? action.action_type}
+                {t(`actionTypes.${action.action_type}` as Parameters<typeof t>[0])}
               </Badge>
               <span className="text-[11px] text-text-tertiary">
                 {formatDateTime(action.created_at)}
@@ -73,7 +65,7 @@ export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
 
             {action.performed_by_name && (
               <p className="mt-0.5 text-[11px] text-text-tertiary">
-                by {action.performed_by_name}
+                {t('by', { name: action.performed_by_name })}
               </p>
             )}
           </div>

@@ -278,6 +278,53 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
       else updated++;
     }
 
+    // ─── 4b. Intervention Completion Reminders (SP3-4) ──────────────────
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const eightDaysFromNow = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000);
+
+    const approachingCompletion = await tx.behaviourIntervention.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { in: ['active_intervention' as $Enums.InterventionStatus, 'monitoring' as $Enums.InterventionStatus] },
+        target_end_date: { gte: sevenDaysFromNow, lt: eightDaysFromNow },
+      },
+      select: { id: true, intervention_number: true, student_id: true, assigned_to_id: true, target_end_date: true },
+    });
+
+    for (const iv of approachingCompletion) {
+      // Check for existing reminder task (idempotency)
+      const existingReminderTask = await tx.behaviourTask.findFirst({
+        where: {
+          tenant_id: tenantId,
+          entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
+          entity_id: iv.id,
+          task_type: 'follow_up' as $Enums.BehaviourTaskType,
+          title: { startsWith: 'Completion reminder:' },
+          status: { notIn: ['cancelled' as $Enums.BehaviourTaskStatus] },
+        },
+      });
+      if (existingReminderTask) continue;
+
+      await tx.behaviourTask.create({
+        data: {
+          tenant_id: tenantId,
+          task_type: 'follow_up' as $Enums.BehaviourTaskType,
+          entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
+          entity_id: iv.id,
+          title: `Completion reminder: intervention ${iv.intervention_number} ends in 7 days`,
+          assigned_to_id: iv.assigned_to_id,
+          created_by_id: iv.assigned_to_id,
+          priority: 'high' as $Enums.TaskPriority,
+          status: 'pending' as $Enums.BehaviourTaskStatus,
+          due_date: iv.target_end_date!,
+        },
+      });
+    }
+
+    this.logger.log(
+      `Intervention completion reminders: ${approachingCompletion.length} approaching, tasks created where needed`,
+    );
+
     // ─── 5. Hotspot Subjects ────────────────────────────────────────────
     // A subject with incident rate > 2x the school average (per 100 teaching periods)
     const incidentsBySubject = await tx.behaviourIncident.groupBy({
@@ -435,13 +482,8 @@ class PatternDetectorJob extends TenantAwareJob<DetectPatternsPayload> {
       `Pattern detection complete for tenant ${tenantId}: ${created} alerts created, ${updated} alerts updated`,
     );
 
-    // Force-refresh Pulse cache
-    try {
-      // Clear Redis cache key - using raw Redis since we're in worker context
-      // Note: Redis client is not injected in worker; pulse cache cleared on next API request
-    } catch {
-      this.logger.warn('Failed to clear pulse cache');
-    }
+    // Pulse cache (Redis, 5-min TTL) expires naturally before the dashboard
+    // is next viewed, so no active invalidation is needed here.
   }
 
   /**

@@ -2,6 +2,7 @@
 
 import { Button, Input, Label, Switch, toast } from '@school/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -166,6 +167,7 @@ function NumberRow({ label, description, value, onChange, min, max }: { label: s
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourGeneralSettingsPage() {
+  const t = useTranslations('behaviourSettings.general');
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [settings, setSettings] = React.useState<BehaviourSettings>(DEFAULT_SETTINGS);
@@ -195,10 +197,10 @@ export default function BehaviourGeneralSettingsPage() {
         method: 'PATCH',
         body: JSON.stringify({ behaviour: settings }),
       });
-      toast.success('Behaviour settings saved');
+      toast.success(t('toasts.saved'));
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      toast.error(ex?.error?.message ?? 'Failed to save settings');
+      toast.error(ex?.error?.message ?? t('toasts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -215,67 +217,67 @@ export default function BehaviourGeneralSettingsPage() {
   return (
     <form onSubmit={handleSave}>
       <PageHeader
-        title="Behaviour Settings"
-        description="Configure behaviour module settings for your school"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button type="submit" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? t('saving') : t('saveChanges')}
           </Button>
         }
       />
 
       <div className="mt-6 space-y-4">
         {/* Quick-Log */}
-        <SectionCard title="Quick-Log" description="Quick incident logging settings">
+        <SectionCard title={t('sections.quickLog')} description={t('sections.quickLogDesc')}>
           <BooleanRow
-            label="Auto-Submit"
-            description="Skip draft state for quick-logged incidents"
+            label={t('labels.autoSubmit')}
+            description={t('descriptions.autoSubmit')}
             value={settings.quick_log_auto_submit}
             onChange={(v) => update('quick_log_auto_submit', v)}
           />
           <NumberRow
-            label="Recent Students Count"
-            description="Number of recently selected students shown in quick-log"
+            label={t('labels.recentStudentsCount')}
+            description={t('descriptions.recentStudentsCount')}
             value={settings.quick_log_recent_students_count}
             onChange={(v) => update('quick_log_recent_students_count', v)}
             min={1}
             max={50}
           />
           <BooleanRow
-            label="Show Favourites"
-            description="Show favourited students in quick-log"
+            label={t('labels.showFavourites')}
+            description={t('descriptions.showFavourites')}
             value={settings.quick_log_show_favourites}
             onChange={(v) => update('quick_log_show_favourites', v)}
           />
         </SectionCard>
 
         {/* Points */}
-        <SectionCard title="Points" description="Behaviour point tracking and reset rules">
+        <SectionCard title={t('sections.points')} description={t('sections.pointsDesc')}>
           <BooleanRow
-            label="Points Enabled"
-            description="Track behaviour points for students"
+            label={t('labels.pointsEnabled')}
+            description={t('descriptions.pointsEnabled')}
             value={settings.points_enabled}
             onChange={(v) => update('points_enabled', v)}
           />
         </SectionCard>
 
         {/* House Teams */}
-        <SectionCard title="House Teams" description="Inter-house competition via behaviour points">
+        <SectionCard title={t('sections.houseTeams')} description={t('sections.houseTeamsDesc')}>
           <BooleanRow
-            label="House Teams Enabled"
-            description="Enable house-based point aggregation"
+            label={t('labels.houseTeamsEnabled')}
+            description={t('descriptions.houseTeamsEnabled')}
             value={settings.house_teams_enabled}
             onChange={(v) => update('house_teams_enabled', v)}
           />
           {settings.house_teams_enabled && (
             <>
               <BooleanRow
-                label="Points Visible to Students"
+                label={t('labels.pointsVisibleToStudents')}
                 value={settings.house_points_visible_to_students}
                 onChange={(v) => update('house_points_visible_to_students', v)}
               />
               <BooleanRow
-                label="Public Leaderboard"
+                label={t('labels.publicLeaderboard')}
                 value={settings.house_leaderboard_public}
                 onChange={(v) => update('house_leaderboard_public', v)}
               />
@@ -284,10 +286,10 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Awards */}
-        <SectionCard title="Awards" description="Automatic award generation settings">
+        <SectionCard title={t('sections.awards')} description={t('sections.awardsDesc')}>
           <BooleanRow
-            label="Auto-Awards Enabled"
-            description="Automatically award badges when point thresholds are met"
+            label={t('labels.autoAwardsEnabled')}
+            description={t('descriptions.autoAwardsEnabled')}
             value={settings.auto_awards_enabled}
             onChange={(v) => update('auto_awards_enabled', v)}
           />

@@ -3,8 +3,20 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
+import {
+  BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
+  BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
+  BEHAVIOUR_CRON_DISPATCH_SLA_JOB,
+} from '../processors/behaviour/cron-dispatch.processor';
+import { BEHAVIOUR_PARTITION_MAINTENANCE_JOB } from '../processors/behaviour/partition-maintenance.processor';
+import {
+  REFRESH_MV_BENCHMARKS_JOB,
+  REFRESH_MV_EXPOSURE_RATES_JOB,
+  REFRESH_MV_STUDENT_SUMMARY_JOB,
+} from '../processors/behaviour/refresh-mv.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
+import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
 
 /**
  * Registers BullMQ repeatable (cron) jobs on module startup.
@@ -16,11 +28,15 @@ export class CronSchedulerService implements OnModuleInit {
   private readonly logger = new Logger(CronSchedulerService.name);
 
   constructor(
+    @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
     @InjectQueue(QUEUE_NAMES.GRADEBOOK) private readonly gradebookQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.registerGradebookCronJobs();
+    await this.registerBehaviourCronJobs();
+    await this.registerNotificationsCronJobs();
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -54,5 +70,123 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${REPORT_CARD_AUTO_GENERATE_JOB} (daily 03:00 UTC)`);
+  }
+
+  private async registerBehaviourCronJobs(): Promise<void> {
+    // ── Cross-tenant MV refreshes ─────────────────────────────────────────────
+    // These refresh materialized views across ALL tenants. No tenant_id needed.
+
+    // Refresh student behaviour summary every 15 minutes
+    await this.behaviourQueue.add(
+      REFRESH_MV_STUDENT_SUMMARY_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${REFRESH_MV_STUDENT_SUMMARY_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_STUDENT_SUMMARY_JOB} (every 15 min)`);
+
+    // Refresh exposure rates daily at 02:00 UTC
+    await this.behaviourQueue.add(
+      REFRESH_MV_EXPOSURE_RATES_JOB,
+      {},
+      {
+        repeat: { pattern: '0 2 * * *' },
+        jobId: `cron:${REFRESH_MV_EXPOSURE_RATES_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_EXPOSURE_RATES_JOB} (daily 02:00 UTC)`);
+
+    // Refresh benchmarks daily at 03:00 UTC
+    await this.behaviourQueue.add(
+      REFRESH_MV_BENCHMARKS_JOB,
+      {},
+      {
+        repeat: { pattern: '0 3 * * *' },
+        jobId: `cron:${REFRESH_MV_BENCHMARKS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_BENCHMARKS_JOB} (daily 03:00 UTC)`);
+
+    // ── Cross-tenant maintenance ──────────────────────────────────────────────
+
+    // Partition maintenance — monthly on the 1st at 00:00 UTC
+    await this.behaviourQueue.add(
+      BEHAVIOUR_PARTITION_MAINTENANCE_JOB,
+      {},
+      {
+        repeat: { pattern: '0 0 1 * *' },
+        jobId: `cron:${BEHAVIOUR_PARTITION_MAINTENANCE_JOB}`,
+        removeOnComplete: 5,
+        removeOnFail: 20,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_PARTITION_MAINTENANCE_JOB} (monthly 1st 00:00 UTC)`);
+
+    // ── Per-tenant dispatchers ────────────────────────────────────────────────
+    // These dispatch tenant-specific jobs based on each tenant's configuration.
+
+    // Daily dispatch — runs hourly, checks tenant schedules
+    await this.behaviourQueue.add(
+      BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
+      {},
+      {
+        repeat: { pattern: '0 * * * *' },
+        jobId: `cron:${BEHAVIOUR_CRON_DISPATCH_DAILY_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_DAILY_JOB} (hourly)`);
+
+    // SLA check dispatch — every 5 minutes
+    await this.behaviourQueue.add(
+      BEHAVIOUR_CRON_DISPATCH_SLA_JOB,
+      {},
+      {
+        repeat: { pattern: '*/5 * * * *' },
+        jobId: `cron:${BEHAVIOUR_CRON_DISPATCH_SLA_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_SLA_JOB} (every 5 min)`);
+
+    // Monthly dispatch — monthly on the 1st at 01:00 UTC
+    await this.behaviourQueue.add(
+      BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
+      {},
+      {
+        repeat: { pattern: '0 1 1 * *' },
+        jobId: `cron:${BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB}`,
+        removeOnComplete: 5,
+        removeOnFail: 20,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB} (monthly 1st 01:00 UTC)`);
+  }
+
+  private async registerNotificationsCronJobs(): Promise<void> {
+    // ── dispatch-queued ─────────────────────────────────────────────────────
+    // Runs every 30 seconds. Cross-tenant — no tenant_id in payload.
+    // Polls for queued notifications ready for dispatch and re-enqueues them.
+    await this.notificationsQueue.add(
+      DISPATCH_QUEUED_JOB,
+      {},
+      {
+        repeat: { every: 30_000 },
+        jobId: `cron:${DISPATCH_QUEUED_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${DISPATCH_QUEUED_JOB} (every 30s)`);
   }
 }

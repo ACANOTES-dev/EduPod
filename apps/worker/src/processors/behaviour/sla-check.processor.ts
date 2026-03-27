@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { $Enums, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -43,6 +43,11 @@ export class SlaCheckProcessor extends WorkerHost {
     await slaJob.execute(job.data);
   }
 }
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** Staff always receive in_app (delivered) + email (queued) for urgent matters */
+const STAFF_CHANNELS: $Enums.NotificationChannel[] = ['in_app', 'email'];
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
@@ -113,6 +118,34 @@ class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
       });
 
       createdCount++;
+
+      // Notify the assignee via in_app + email
+      // designated_liaison_id and reported_by_id are User IDs directly
+      if (assigneeId) {
+        const now = new Date();
+        for (const channel of STAFF_CHANNELS) {
+          const isInApp = channel === 'in_app';
+
+          await tx.notification.create({
+            data: {
+              tenant_id,
+              recipient_user_id: assigneeId,
+              channel,
+              template_key: 'safeguarding.sla_breach',
+              locale: 'en',
+              status: isInApp ? 'delivered' : 'queued',
+              payload_json: {
+                concern_id: concern.id,
+                concern_number: concern.concern_number,
+                sla_first_response_due: concern.sla_first_response_due?.toISOString() ?? null,
+              },
+              source_entity_type: 'safeguarding_concern',
+              source_entity_id: concern.id,
+              delivered_at: isInApp ? now : undefined,
+            },
+          });
+        }
+      }
 
       this.logger.log(
         `Created SLA breach task for concern ${concern.id} (${concern.concern_number})`,

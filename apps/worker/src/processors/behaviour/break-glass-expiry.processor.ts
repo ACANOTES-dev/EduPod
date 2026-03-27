@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { $Enums, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -45,6 +45,11 @@ export class BreakGlassExpiryProcessor extends WorkerHost {
     await expiryJob.execute(job.data);
   }
 }
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+/** Staff always receive in_app (delivered) + email (queued) for urgent matters */
+const STAFF_CHANNELS: $Enums.NotificationChannel[] = ['in_app', 'email'];
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
@@ -100,6 +105,31 @@ class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
           created_by_id: grant.granted_by_id,
         },
       });
+
+      // Notify the granter via in_app + email
+      // granted_by_id is a User ID directly
+      for (const channel of STAFF_CHANNELS) {
+        const isInApp = channel === 'in_app';
+
+        await tx.notification.create({
+          data: {
+            tenant_id,
+            recipient_user_id: grant.granted_by_id,
+            channel,
+            template_key: 'safeguarding.break_glass_expired',
+            locale: 'en',
+            status: isInApp ? 'delivered' : 'queued',
+            payload_json: {
+              grant_id: grant.id,
+              granted_to_id: grant.granted_to_id,
+              expires_at: grant.expires_at.toISOString(),
+            },
+            source_entity_type: 'break_glass_grant',
+            source_entity_id: grant.id,
+            delivered_at: isInApp ? now : undefined,
+          },
+        });
+      }
 
       this.logger.log(
         `Revoked expired break-glass grant ${grant.id} and created review task`,

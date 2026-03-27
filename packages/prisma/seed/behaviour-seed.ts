@@ -324,6 +324,21 @@ export const DOCUMENT_TEMPLATE_SEEDS: DocumentTemplateSeed[] = [
     template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}h1{font-size:20px;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ddd;padding:8px;text-align:start;}</style></head><body>${LETTERHEAD_AR}<h1>حزمة مجلس الإدارة — حالة الفصل</h1><p>التاريخ: {{today_date}} | السنة الدراسية: {{academic_year}}</p><table><tr><th>الطالب</th><td>{{student_name}}</td></tr><tr><th>المرحلة</th><td>{{student_year_group}}</td></tr><tr><th>فئة الحادثة</th><td>{{incident_category}}</td></tr><tr><th>العقوبة</th><td>{{sanction_type}} ({{suspension_days}} أيام)</td></tr></table>{{#if incident_description}}<h3>وصف الحادثة</h3><p>{{incident_description}}</p>{{/if}}{{#if evidence_list}}<h3>الأدلة</h3><ul>{{#each evidence_list}}<li>{{this.name}} ({{this.classification}})</li>{{/each}}</ul>{{/if}}<p>أعده: {{principal_name}}، {{school_name}}</p></body></html>`,
     merge_fields: [...COMMON_MERGE, { field_name: 'academic_year', source: 'system', description: 'السنة الدراسية' }, { field_name: 'incident_category', source: 'incident', description: 'الفئة' }, { field_name: 'incident_description', source: 'incident', description: 'الوصف' }, { field_name: 'sanction_type', source: 'sanction', description: 'نوع العقوبة' }, { field_name: 'suspension_days', source: 'sanction', description: 'عدد الأيام' }, { field_name: 'evidence_list', source: 'evidence', description: 'قائمة الأدلة' }],
   },
+  // ─── Custom Document ──────────────────────────────────────────────────────
+  {
+    document_type: 'custom_document',
+    name: 'Custom Document (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>Re: <strong>{{student_name}}</strong> ({{student_year_group}})</p><p>[Enter document content here]</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE],
+  },
+  {
+    document_type: 'custom_document',
+    name: 'Custom Document (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>بخصوص: <strong>{{student_name}}</strong> ({{student_year_group}})</p><p>[أدخل محتوى المستند هنا]</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE],
+  },
 ];
 
 /**

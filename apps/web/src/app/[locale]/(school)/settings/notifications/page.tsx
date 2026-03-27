@@ -37,6 +37,16 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   'inquiry.new_message': 'notifInquiryNewMessage',
   'payroll.finalised': 'notifPayrollFinalised',
   'payslip.generated': 'notifPayslipGenerated',
+  'behaviour.incident_logged': 'notifBehaviourIncidentLogged',
+  'behaviour.sanction_assigned': 'notifBehaviourSanctionAssigned',
+  'behaviour.intervention_started': 'notifBehaviourInterventionStarted',
+  'behaviour.intervention_review_due': 'notifBehaviourReviewDue',
+  'behaviour.award_earned': 'notifBehaviourAwardEarned',
+  'behaviour.alert_triggered': 'notifBehaviourAlertTriggered',
+  'behaviour.appeal_submitted': 'notifBehaviourAppealSubmitted',
+  'behaviour.appeal_decided': 'notifBehaviourAppealDecided',
+  'behaviour.safeguarding_concern_raised': 'notifSafeguardingConcernRaised',
+  'behaviour.acknowledgement_required': 'notifBehaviourAcknowledgementRequired',
 };
 
 /* -------------------------------------------------------------------------- */

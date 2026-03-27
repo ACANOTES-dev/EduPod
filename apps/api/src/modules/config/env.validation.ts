@@ -34,6 +34,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_WHATSAPP_FROM: z.string().optional(),
+  TWILIO_SMS_FROM: z.string().optional(),
 
   // Optional -- Meilisearch
   MEILISEARCH_URL: z.string().optional(),

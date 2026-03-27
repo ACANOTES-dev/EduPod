@@ -11,6 +11,7 @@ import {
 } from '@school/ui';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
@@ -54,20 +55,14 @@ interface CategoryOption {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'positive', label: 'Positive' },
-  { key: 'negative', label: 'Negative' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'escalated', label: 'Escalated' },
-  { key: 'my', label: 'My' },
-] as const;
+const TAB_KEYS = ['all', 'positive', 'negative', 'pending', 'escalated', 'my'] as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function IncidentListPage() {
+  const t = useTranslations('behaviour.incidents');
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,7 +144,7 @@ export default function IncidentListPage() {
   const columns = [
     {
       key: 'occurred_at',
-      header: 'Date',
+      header: t('columns.date'),
       render: (row: IncidentRow) => (
         <span className="font-mono text-xs text-text-primary">
           {formatDateTime(row.occurred_at)}
@@ -158,7 +153,7 @@ export default function IncidentListPage() {
     },
     {
       key: 'category',
-      header: 'Category',
+      header: t('columns.category'),
       render: (row: IncidentRow) =>
         row.category ? (
           <Badge
@@ -174,19 +169,19 @@ export default function IncidentListPage() {
     },
     {
       key: 'students',
-      header: 'Student(s)',
+      header: t('columns.students'),
       render: (row: IncidentRow) => (
         <span className="text-sm text-text-primary">{getStudentNames(row)}</span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: IncidentRow) => <IncidentStatusBadge status={row.status} />,
     },
     {
       key: 'reporter',
-      header: 'Reporter',
+      header: t('columns.reporter'),
       render: (row: IncidentRow) =>
         row.reported_by_user ? (
           <span className="text-sm text-text-secondary">
@@ -207,21 +202,21 @@ export default function IncidentListPage() {
         value={dateFrom}
         onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
-        aria-label="Date from"
+        aria-label={t('filters.dateFrom')}
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
-        aria-label="Date to"
+        aria-label={t('filters.dateTo')}
       />
       <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1); }}>
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Category" />
+          <SelectValue placeholder={t('filters.category')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Categories</SelectItem>
+          <SelectItem value="all">{t('filters.allCategories')}</SelectItem>
           {categories.map((c) => (
             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
           ))}
@@ -229,15 +224,15 @@ export default function IncidentListPage() {
       </Select>
       <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
         <SelectTrigger className="w-full sm:w-36">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('filters.status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="investigating">Investigating</SelectItem>
-          <SelectItem value="escalated">Escalated</SelectItem>
-          <SelectItem value="resolved">Resolved</SelectItem>
-          <SelectItem value="withdrawn">Withdrawn</SelectItem>
+          <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+          <SelectItem value="active">{t('statuses.active')}</SelectItem>
+          <SelectItem value="investigating">{t('statuses.investigating')}</SelectItem>
+          <SelectItem value="escalated">{t('statuses.escalated')}</SelectItem>
+          <SelectItem value="resolved">{t('statuses.resolved')}</SelectItem>
+          <SelectItem value="withdrawn">{t('statuses.withdrawn')}</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -248,12 +243,12 @@ export default function IncidentListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Behaviour Incidents"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/behaviour/incidents/new`}>
             <Button>
               <Plus className="me-2 h-4 w-4" />
-              New Incident
+              {t('newIncident')}
             </Button>
           </Link>
         }
@@ -262,18 +257,18 @@ export default function IncidentListPage() {
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((key) => (
             <button
-              key={tab.key}
+              key={key}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => handleTabChange(key)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
+                activeTab === key
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              {t(`tabs.${key}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
@@ -289,7 +284,7 @@ export default function IncidentListPage() {
                 <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-tertiary">No incidents found</p>
+              <p className="py-12 text-center text-sm text-text-tertiary">{t('noResults')}</p>
             ) : (
               data.map((row) => (
                 <IncidentCard
@@ -303,13 +298,13 @@ export default function IncidentListPage() {
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+              <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

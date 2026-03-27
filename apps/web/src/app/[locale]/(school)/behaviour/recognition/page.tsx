@@ -18,6 +18,7 @@ import {
   Trophy,
   XCircle,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
@@ -75,18 +76,15 @@ interface AcademicYear {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'wall', label: 'Wall', icon: Star },
-  { key: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-  { key: 'houses', label: 'Houses', icon: Shield },
-  { key: 'pending', label: 'Pending Approvals', icon: Award },
-] as const;
+const TAB_KEYS = ['wall', 'leaderboard', 'houses', 'pending'] as const;
+const TAB_ICONS = { wall: Star, leaderboard: Trophy, houses: Shield, pending: Award } as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RecognitionWallPage() {
+  const t = useTranslations('behaviour.recognition');
   const searchParams = useSearchParams();
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(
@@ -102,29 +100,32 @@ export default function RecognitionWallPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Recognition Wall" />
+      <PageHeader title={t('title')} />
 
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => handleTabChange(tab.key)}
-              className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-text-tertiary hover:text-text-primary'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden">
-                {tab.key === 'pending' ? 'Pending' : tab.label}
-              </span>
-            </button>
-          ))}
+          {TAB_KEYS.map((tabKey) => {
+            const TabIcon = TAB_ICONS[tabKey];
+            return (
+              <button
+                key={tabKey}
+                type="button"
+                onClick={() => handleTabChange(tabKey)}
+                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === tabKey
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-text-tertiary hover:text-text-primary'
+                }`}
+              >
+                <TabIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">{t(`tabs.${tabKey}` as Parameters<typeof t>[0])}</span>
+                <span className="sm:hidden">
+                  {t(`tabs.${tabKey}Short` as Parameters<typeof t>[0])}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -140,6 +141,7 @@ export default function RecognitionWallPage() {
 // ─── Wall Tab ─────────────────────────────────────────────────────────────────
 
 function WallTab() {
+  const t = useTranslations('behaviour.recognition');
   const [items, setItems] = React.useState<RecognitionItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [academicYears, setAcademicYears] = React.useState<AcademicYear[]>([]);
@@ -185,7 +187,7 @@ function WallTab() {
             <SelectValue placeholder="Academic Year" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="current">Current Year</SelectItem>
+            <SelectItem value="current">{t('filters.currentYear')}</SelectItem>
             {academicYears.map((ay) => (
               <SelectItem key={ay.id} value={ay.id}>{ay.name}</SelectItem>
             ))}
@@ -202,7 +204,7 @@ function WallTab() {
         </div>
       ) : items.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-tertiary">
-          No recognition items yet.
+          {t('noRecognition')}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -223,7 +225,7 @@ function WallTab() {
                   <p className="truncate text-sm font-medium text-text-primary">
                     {item.student
                       ? `${item.student.first_name} ${item.student.last_name.charAt(0)}.`
-                      : 'Unknown Student'}
+                      : t('unknownStudent')}
                   </p>
                   {item.award && (
                     <Badge
@@ -268,6 +270,7 @@ function WallTab() {
 // ─── Leaderboard Tab ──────────────────────────────────────────────────────────
 
 function LeaderboardTab() {
+  const t = useTranslations('behaviour.recognition');
   const [entries, setEntries] = React.useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [period, setPeriod] = React.useState('year');
@@ -307,9 +310,9 @@ function LeaderboardTab() {
             <SelectValue placeholder="Period" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="year">This Year</SelectItem>
-            <SelectItem value="period">This Period</SelectItem>
-            <SelectItem value="all_time">All Time</SelectItem>
+            <SelectItem value="year">{t('filters.thisYear')}</SelectItem>
+            <SelectItem value="period">{t('filters.thisPeriod')}</SelectItem>
+            <SelectItem value="all_time">{t('filters.allTime')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -323,7 +326,7 @@ function LeaderboardTab() {
         </div>
       ) : entries.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-tertiary">
-          No leaderboard data available for this period.
+          {t('noLeaderboard')}
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -331,16 +334,16 @@ function LeaderboardTab() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Rank
+                  {t('columns.rank')}
                 </th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Student
+                  {t('columns.student')}
                 </th>
                 <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Year Group
+                  {t('columns.yearGroup')}
                 </th>
                 <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Points
+                  {t('columns.points')}
                 </th>
               </tr>
             </thead>
@@ -381,6 +384,7 @@ function LeaderboardTab() {
 // ─── Houses Tab ───────────────────────────────────────────────────────────────
 
 function HousesTab() {
+  const t = useTranslations('behaviour.recognition');
   const [houses, setHouses] = React.useState<HouseStanding[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -411,8 +415,7 @@ function HousesTab() {
         <div className="py-12 text-center">
           <Shield className="mx-auto h-12 w-12 text-text-tertiary/30" />
           <p className="mt-3 text-sm text-text-tertiary">
-            No house teams configured yet. Enable house teams in behaviour settings
-            to see standings here.
+            {t('noHouses')}
           </p>
         </div>
       ) : (
@@ -446,7 +449,7 @@ function HousesTab() {
                     {house.name}
                   </p>
                   <p className="mt-0.5 text-xs text-text-tertiary">
-                    {getRankLabel(house.rank)} Place
+                    {t('rankPlace', { rank: getRankLabel(house.rank) })}
                   </p>
                 </div>
               </div>
@@ -468,6 +471,7 @@ function HousesTab() {
 // ─── Pending Approvals Tab ────────────────────────────────────────────────────
 
 function PendingApprovalsTab() {
+  const t = useTranslations('behaviour.recognition');
   const [items, setItems] = React.useState<PendingApproval[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [processingId, setProcessingId] = React.useState<string | null>(null);
@@ -516,7 +520,7 @@ function PendingApprovalsTab() {
         <div className="py-12 text-center">
           <CheckCircle className="mx-auto h-12 w-12 text-green-400/40" />
           <p className="mt-3 text-sm text-text-tertiary">
-            No items pending approval.
+            {t('noPending')}
           </p>
         </div>
       ) : (
@@ -533,7 +537,7 @@ function PendingApprovalsTab() {
                     <span className="text-sm font-medium text-text-primary">
                       {item.student
                         ? `${item.student.first_name} ${item.student.last_name}`
-                        : 'Unknown Student'}
+                        : t('unknownStudent')}
                     </span>
                     {item.award && (
                       <Badge variant="secondary" className="text-xs">
@@ -575,7 +579,7 @@ function PendingApprovalsTab() {
                     onClick={() => void handleAction(item.id, 'reject')}
                   >
                     <XCircle className="me-1.5 h-4 w-4" />
-                    Reject
+                    {t('reject')}
                   </Button>
                   <Button
                     size="sm"
@@ -583,7 +587,7 @@ function PendingApprovalsTab() {
                     onClick={() => void handleAction(item.id, 'approve')}
                   >
                     <CheckCircle className="me-1.5 h-4 w-4" />
-                    Approve
+                    {t('approve')}
                   </Button>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import {
 } from '@school/ui';
 import { toast } from '@school/ui';
 import {
+  Activity,
   ArrowLeft,
   Ban,
   BarChart3,
@@ -32,6 +33,8 @@ import {
   Menu,
   Plus,
   Settings,
+  Shield,
+  ShieldAlert,
   ShieldCheck,
   TrendingUp,
   UserPlus,
@@ -39,7 +42,6 @@ import {
   Globe,
   Megaphone,
   MessageCircle,
-  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -123,6 +125,10 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     roles: STAFF_ROLES,
     items: [
       { icon: Shield, labelKey: 'nav.behaviourDashboard', href: '/behaviour' },
+      { icon: Activity, labelKey: 'nav.behaviourIncidents', href: '/behaviour/incidents' },
+      { icon: Users, labelKey: 'nav.behaviourStudents', href: '/behaviour/students' },
+      { icon: Ban, labelKey: 'nav.guardianRestrictions', href: '/behaviour/guardian-restrictions', roles: ADMIN_ROLES },
+      { icon: ShieldAlert, labelKey: 'nav.safeguarding', href: '/safeguarding', roles: ADMIN_ROLES },
     ],
   },
   {

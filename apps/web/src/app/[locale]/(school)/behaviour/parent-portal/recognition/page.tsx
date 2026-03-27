@@ -1,6 +1,7 @@
 'use client';
 
 import { Award } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -23,6 +24,7 @@ interface RecognitionItem {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentRecognitionWallPage() {
+  const t = useTranslations('behaviour.parentRecognition');
   const [items, setItems] = React.useState<RecognitionItem[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -52,8 +54,8 @@ export default function ParentRecognitionWallPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recognition Wall"
-        description="Celebrating student achievements and positive behaviour"
+        title={t('title')}
+        description={t('description')}
       />
 
       {loading ? (
@@ -65,9 +67,9 @@ export default function ParentRecognitionWallPage() {
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <Award className="mx-auto h-12 w-12 text-text-tertiary/30" />
-          <p className="mt-3 text-sm text-text-primary">No awards published yet</p>
+          <p className="mt-3 text-sm text-text-primary">{t('noAwards')}</p>
           <p className="mt-1 text-xs text-text-tertiary">
-            Check back soon to see recognised achievements.
+            {t('checkBack')}
           </p>
         </div>
       ) : (

@@ -11,6 +11,7 @@ import {
 } from '@school/ui';
 import { ArrowLeft, CheckCircle, Send } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -89,16 +90,14 @@ function renderChangeSummary(changes: WhatChangedEntry[]): string {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'all', label: 'All' },
-] as const;
+const TAB_KEYS = ['pending', 'all'] as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AmendmentListPage() {
+  const t = useTranslations('behaviour.amendments');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -197,7 +196,7 @@ export default function AmendmentListPage() {
   const columns = [
     {
       key: 'entity',
-      header: 'Entity',
+      header: t('columns.entity'),
       render: (row: AmendmentRow) => (
         <span className="text-sm font-medium text-text-primary">
           {getEntityRef(row)}
@@ -206,7 +205,7 @@ export default function AmendmentListPage() {
     },
     {
       key: 'amendment_type',
-      header: 'Type',
+      header: t('columns.type'),
       render: (row: AmendmentRow) => (
         <span
           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${AMENDMENT_TYPE_COLORS[row.amendment_type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
@@ -217,7 +216,7 @@ export default function AmendmentListPage() {
     },
     {
       key: 'what_changed',
-      header: 'Change Summary',
+      header: t('columns.changeSummary'),
       render: (row: AmendmentRow) => (
         <span className="text-sm text-text-secondary">
           {renderChangeSummary(row.what_changed)}
@@ -226,7 +225,7 @@ export default function AmendmentListPage() {
     },
     {
       key: 'changed_by',
-      header: 'Changed By',
+      header: t('columns.changedBy'),
       render: (row: AmendmentRow) =>
         row.changed_by ? (
           <span className="text-sm text-text-secondary">
@@ -238,7 +237,7 @@ export default function AmendmentListPage() {
     },
     {
       key: 'created_at',
-      header: 'Date',
+      header: t('columns.date'),
       render: (row: AmendmentRow) => (
         <span className="font-mono text-xs text-text-secondary">
           {formatDateTime(row.created_at)}
@@ -247,11 +246,11 @@ export default function AmendmentListPage() {
     },
     {
       key: 'reack',
-      header: 'Re-ack',
+      header: t('columns.reAck'),
       render: (row: AmendmentRow) =>
         row.requires_parent_reacknowledgement ? (
           <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
-            Re-ack Required
+            {t('reAckRequired')}
           </span>
         ) : null,
     },
@@ -299,7 +298,7 @@ export default function AmendmentListPage() {
             </span>
             {row.requires_parent_reacknowledgement && (
               <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                Re-ack Required
+                {t('reAckRequired')}
               </span>
             )}
           </div>
@@ -340,15 +339,15 @@ export default function AmendmentListPage() {
       <div className="rounded-xl border border-border bg-surface py-12 text-center">
         <CheckCircle className="mx-auto h-8 w-8 text-green-500" />
         <p className="mt-2 text-sm font-medium text-text-primary">
-          No corrections pending
+          {t('noCorrectionsPending')}
         </p>
         <p className="mt-1 text-xs text-text-tertiary">
-          All amendment notices have been sent
+          {t('allNoticesSent')}
         </p>
       </div>
     ) : (
       <div className="rounded-xl border border-border bg-surface py-12 text-center">
-        <p className="text-sm text-text-tertiary">No amendment notices found</p>
+        <p className="text-sm text-text-tertiary">{t('noResults')}</p>
       </div>
     );
 
@@ -357,13 +356,13 @@ export default function AmendmentListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Amendment Notices"
-        description="Correction queue for parent-visible changes"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Link href={`/${locale}/behaviour`}>
             <Button variant="ghost">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Behaviour
+              {t('back')}
             </Button>
           </Link>
         }
@@ -372,18 +371,18 @@ export default function AmendmentListPage() {
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((tabKey) => (
             <button
-              key={tab.key}
+              key={tabKey}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => handleTabChange(tabKey)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
+                activeTab === tabKey
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              {t(`tabs.${tabKey}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
@@ -410,7 +409,7 @@ export default function AmendmentListPage() {
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>
-                Page {page} of {Math.ceil(total / PAGE_SIZE)}
+                {t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -419,7 +418,7 @@ export default function AmendmentListPage() {
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -427,7 +426,7 @@ export default function AmendmentListPage() {
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>
@@ -452,13 +451,12 @@ export default function AmendmentListPage() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Correction Notice</DialogTitle>
+            <DialogTitle>{t('sendCorrectionTitle')}</DialogTitle>
           </DialogHeader>
           {selectedAmendment && (
             <div className="space-y-4 py-2">
               <p className="text-sm text-text-secondary">
-                This will send a correction notification to the parent for the
-                following change:
+                {t('sendCorrectionDescription')}
               </p>
               <div className="rounded-lg bg-surface-secondary p-3">
                 <p className="text-sm font-medium text-text-primary">
@@ -481,7 +479,7 @@ export default function AmendmentListPage() {
                       variant="danger"
                       className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
                     >
-                      Parent re-acknowledgement will be required
+                      {t('parentReAckRequired')}
                     </Badge>
                   </div>
                 )}
@@ -499,10 +497,10 @@ export default function AmendmentListPage() {
               onClick={() => setConfirmOpen(false)}
               disabled={sending}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleSendCorrection} disabled={sending}>
-              {sending ? 'Sending...' : 'Confirm Send'}
+              {sending ? t('sending') : t('confirmSend')}
             </Button>
           </DialogFooter>
         </DialogContent>

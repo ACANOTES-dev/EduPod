@@ -22,6 +22,12 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   { prefix: '/announcements', roles: ['parent', 'school_principal', 'admin', 'school_vice_principal'] },
   { prefix: '/applications', roles: ['parent', 'school_principal', 'admin', 'school_vice_principal', 'front_office'] },
 
+  // Behaviour — parent portal (must precede /behaviour so it matches first)
+  { prefix: '/behaviour/parent-portal', roles: ['parent'] },
+  // Behaviour & safeguarding — staff pages
+  { prefix: '/behaviour', roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/safeguarding', roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'] },
+
   // Staff/admin pages — parents excluded
   { prefix: '/students', roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher', 'accounting', 'front_office'] },
   { prefix: '/staff', roles: ['school_principal', 'admin', 'school_vice_principal'] },

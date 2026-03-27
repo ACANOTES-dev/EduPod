@@ -17,6 +17,7 @@ import {
 } from '@school/ui';
 import { ArrowLeft, Clock, MapPin, User } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -72,14 +73,9 @@ interface IncidentDetail {
   participants: Participant[];
 }
 
-const TRANSITION_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'investigating', label: 'Investigating' },
-  { value: 'under_review', label: 'Under Review' },
-  { value: 'escalated', label: 'Escalated' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'withdrawn', label: 'Withdrawn' },
-];
+const TRANSITION_KEYS = [
+  'active', 'investigating', 'under_review', 'escalated', 'resolved', 'withdrawn',
+] as const;
 
 const ROLE_COLORS: Record<string, string> = {
   subject: 'bg-blue-100 text-blue-700',
@@ -94,6 +90,7 @@ const ROLE_COLORS: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function IncidentDetailPage() {
+  const t = useTranslations('behaviour.incidentDetail');
   const params = useParams();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -149,7 +146,7 @@ export default function IncidentDetailPage() {
       setTransitionReason('');
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      setTransitionError(ex?.error?.message ?? 'Transition failed');
+      setTransitionError(ex?.error?.message ?? t('transitionFailed'));
     } finally {
       setTransitioning(false);
     }
@@ -166,8 +163,8 @@ export default function IncidentDetailPage() {
   if (!incident) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Incident Not Found" />
-        <p className="text-sm text-text-tertiary">The requested incident could not be loaded.</p>
+        <PageHeader title={t('notFound')} />
+        <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
   }
@@ -175,16 +172,16 @@ export default function IncidentDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Incident ${incident.incident_number}`}
+        title={t('title', { number: incident.incident_number })}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => setTransitionOpen(true)}>
-              Change Status
+              {t('changeStatus')}
             </Button>
             <Link href={`/${locale}/behaviour/incidents`}>
               <Button variant="ghost">
                 <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                Back
+                {t('back')}
               </Button>
             </Link>
           </div>
@@ -204,7 +201,7 @@ export default function IncidentDetailPage() {
         )}
         {incident.category && (
           <span className="text-xs text-text-tertiary">
-            Severity: {incident.category.severity}/10
+            {t('severity', { value: incident.category.severity })}
           </span>
         )}
         {incident.category && incident.category.point_value !== 0 && (
@@ -213,7 +210,7 @@ export default function IncidentDetailPage() {
           </span>
         )}
         {incident.follow_up_required && (
-          <Badge variant="danger">Follow-up Required</Badge>
+          <Badge variant="danger">{t('followUpRequired')}</Badge>
         )}
       </div>
 
@@ -222,17 +219,17 @@ export default function IncidentDetailPage() {
         <div className="space-y-6 md:col-span-2">
           {/* Description */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-2 text-sm font-semibold text-text-primary">Description</h3>
+            <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('sections.description')}</h3>
             <p className="whitespace-pre-wrap text-sm text-text-secondary">{incident.description}</p>
             {incident.parent_description && (
               <div className="mt-4 border-t border-border pt-3">
-                <h4 className="mb-1 text-xs font-medium text-text-tertiary">Parent-Facing Description</h4>
+                <h4 className="mb-1 text-xs font-medium text-text-tertiary">{t('sections.parentDescription')}</h4>
                 <p className="text-sm text-text-secondary">{incident.parent_description}</p>
               </div>
             )}
             {incident.context_notes && (
               <div className="mt-4 border-t border-border pt-3">
-                <h4 className="mb-1 text-xs font-medium text-text-tertiary">Context Notes</h4>
+                <h4 className="mb-1 text-xs font-medium text-text-tertiary">{t('sections.contextNotes')}</h4>
                 <p className="text-sm text-text-secondary">{incident.context_notes}</p>
               </div>
             )}
@@ -240,9 +237,9 @@ export default function IncidentDetailPage() {
 
           {/* Participants */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">Participants</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.participants')}</h3>
             {incident.participants.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No participants recorded</p>
+              <p className="text-sm text-text-tertiary">{t('noParticipants')}</p>
             ) : (
               <ul className="space-y-2">
                 {incident.participants.map((p) => (
@@ -270,7 +267,7 @@ export default function IncidentDetailPage() {
 
           {/* History Timeline */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">History</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.history')}</h3>
             {historyLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -278,7 +275,7 @@ export default function IncidentDetailPage() {
                 ))}
               </div>
             ) : history.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No history yet</p>
+              <p className="text-sm text-text-tertiary">{t('noHistory')}</p>
             ) : (
               <div className="relative space-y-4 ps-6">
                 {/* Timeline line */}
@@ -310,19 +307,19 @@ export default function IncidentDetailPage() {
         <div className="space-y-4">
           {/* Meta */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">Details</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.details')}</h3>
             <dl className="space-y-3 text-sm">
               <div className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
                 <div>
-                  <dt className="text-xs text-text-tertiary">Occurred</dt>
+                  <dt className="text-xs text-text-tertiary">{t('details.occurred')}</dt>
                   <dd className="text-text-primary">{formatDateTime(incident.occurred_at)}</dd>
                 </div>
               </div>
               <div className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
                 <div>
-                  <dt className="text-xs text-text-tertiary">Logged</dt>
+                  <dt className="text-xs text-text-tertiary">{t('details.logged')}</dt>
                   <dd className="text-text-primary">{formatDateTime(incident.created_at)}</dd>
                 </div>
               </div>
@@ -330,7 +327,7 @@ export default function IncidentDetailPage() {
                 <div className="flex items-start gap-2">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
                   <div>
-                    <dt className="text-xs text-text-tertiary">Location</dt>
+                    <dt className="text-xs text-text-tertiary">{t('details.location')}</dt>
                     <dd className="text-text-primary">{incident.location}</dd>
                   </div>
                 </div>
@@ -338,7 +335,7 @@ export default function IncidentDetailPage() {
               <div className="flex items-start gap-2">
                 <User className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
                 <div>
-                  <dt className="text-xs text-text-tertiary">Reporter</dt>
+                  <dt className="text-xs text-text-tertiary">{t('details.reporter')}</dt>
                   <dd className="text-text-primary">
                     {incident.reported_by_user
                       ? `${incident.reported_by_user.first_name} ${incident.reported_by_user.last_name}`
@@ -347,7 +344,7 @@ export default function IncidentDetailPage() {
                 </div>
               </div>
               <div>
-                <dt className="text-xs text-text-tertiary">Context</dt>
+                <dt className="text-xs text-text-tertiary">{t('details.context')}</dt>
                 <dd className="capitalize text-text-primary">
                   {incident.context_type.replace(/_/g, ' ')}
                 </dd>
@@ -357,20 +354,20 @@ export default function IncidentDetailPage() {
 
           {/* Placeholder: Sanctions */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">Sanctions</h3>
-            <p className="mt-1 text-xs text-text-tertiary">Coming in Phase C</p>
+            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.sanctions')}</h3>
+            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
 
           {/* Placeholder: Attachments */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">Attachments</h3>
-            <p className="mt-1 text-xs text-text-tertiary">Coming in Phase D</p>
+            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.attachments')}</h3>
+            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
 
           {/* Placeholder: Policy */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">Policy Evaluation</h3>
-            <p className="mt-1 text-xs text-text-tertiary">Coming in Phase F</p>
+            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.policyEvaluation')}</h3>
+            <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
         </div>
       </div>
@@ -379,7 +376,7 @@ export default function IncidentDetailPage() {
       <Dialog open={transitionOpen} onOpenChange={setTransitionOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Incident Status</DialogTitle>
+            <DialogTitle>{t('dialog.changeStatus')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -388,28 +385,28 @@ export default function IncidentDetailPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-text-primary">New Status</label>
+              <label className="text-sm font-medium text-text-primary">{t('dialog.newStatus')}</label>
               <Select value={newStatus} onValueChange={setNewStatus}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select status..." />
+                  <SelectValue placeholder={t('dialog.selectStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRANSITION_OPTIONS
-                    .filter((opt) => opt.value !== incident.status)
-                    .map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                  {TRANSITION_KEYS
+                    .filter((key) => key !== incident.status)
+                    .map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {t(`statuses.${key}` as Parameters<typeof t>[0])}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-text-primary">Reason (optional)</label>
+              <label className="text-sm font-medium text-text-primary">{t('dialog.reason')}</label>
               <Textarea
                 value={transitionReason}
                 onChange={(e) => setTransitionReason(e.target.value)}
-                placeholder="Why is this changing?"
+                placeholder={t('dialog.reasonPlaceholder')}
                 rows={2}
               />
             </div>
@@ -417,10 +414,10 @@ export default function IncidentDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTransitionOpen(false)} disabled={transitioning}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleStatusTransition} disabled={transitioning || !newStatus}>
-              {transitioning ? 'Updating...' : 'Update Status'}
+              {transitioning ? t('updating') : t('updateStatus')}
             </Button>
           </DialogFooter>
         </DialogContent>

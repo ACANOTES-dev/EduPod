@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~180k lines of code. Two confirmed tenants pending onboarding.
+Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~288k lines of code. Two confirmed tenants pending onboarding.
 
 ## Reference Documents
 

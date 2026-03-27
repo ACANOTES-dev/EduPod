@@ -3,10 +3,12 @@
 import { Badge, Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';
+import { StudentAnalyticsTab } from '@/components/behaviour/student-analytics-tab';
 import { StudentBehaviourHeader } from '@/components/behaviour/student-behaviour-header';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -34,7 +36,7 @@ interface StudentTask {
   assigned_to_user?: { first_name: string; last_name: string } | null;
 }
 
-const TABS = ['Timeline', 'Analytics', 'Interventions', 'Sanctions', 'Awards', 'Tasks'] as const;
+const TAB_KEYS = ['timeline', 'analytics', 'interventions', 'sanctions', 'awards', 'tasks'] as const;
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'bg-gray-100 text-gray-700',
@@ -54,6 +56,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StudentBehaviourProfilePage() {
+  const t = useTranslations('behaviour.studentProfile');
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -64,7 +67,7 @@ export default function StudentBehaviourProfilePage() {
   const [incidents, setIncidents] = React.useState<IncidentCardData[]>([]);
   const [tasks, setTasks] = React.useState<StudentTask[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [activeTab, setActiveTab] = React.useState<(typeof TABS)[number]>('Timeline');
+  const [activeTab, setActiveTab] = React.useState<(typeof TAB_KEYS)[number]>('timeline');
 
   React.useEffect(() => {
     if (!studentId) return;
@@ -93,8 +96,8 @@ export default function StudentBehaviourProfilePage() {
   if (!profile) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Student Not Found" />
-        <p className="text-sm text-text-tertiary">Could not load student behaviour profile.</p>
+        <PageHeader title={t('notFound')} />
+        <p className="text-sm text-text-tertiary">{t('notFoundDescription')}</p>
       </div>
     );
   }
@@ -102,12 +105,12 @@ export default function StudentBehaviourProfilePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Student Profile"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/behaviour/students`}>
             <Button variant="ghost">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Back
+              {t('back')}
             </Button>
           </Link>
         }
@@ -124,28 +127,28 @@ export default function StudentBehaviourProfilePage() {
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((key) => (
             <button
-              key={tab}
+              key={key}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => setActiveTab(key)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab
+                activeTab === key
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab}
+              {t(`tabs.${key}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
       </div>
 
       {/* Tab content */}
-      {activeTab === 'Timeline' && (
+      {activeTab === 'timeline' && (
         <div className="space-y-2">
           {incidents.length === 0 ? (
-            <p className="py-12 text-center text-sm text-text-tertiary">No incidents recorded</p>
+            <p className="py-12 text-center text-sm text-text-tertiary">{t('noIncidents')}</p>
           ) : (
             incidents.map((inc) => (
               <IncidentCard
@@ -158,10 +161,10 @@ export default function StudentBehaviourProfilePage() {
         </div>
       )}
 
-      {activeTab === 'Tasks' && (
+      {activeTab === 'tasks' && (
         <div className="space-y-2">
           {tasks.length === 0 ? (
-            <p className="py-12 text-center text-sm text-text-tertiary">No tasks for this student</p>
+            <p className="py-12 text-center text-sm text-text-tertiary">{t('noTasks')}</p>
           ) : (
             tasks.map((task) => (
               <div
@@ -194,31 +197,26 @@ export default function StudentBehaviourProfilePage() {
         </div>
       )}
 
-      {activeTab === 'Analytics' && (
+      {activeTab === 'analytics' && <StudentAnalyticsTab studentId={studentId} />}
+
+      {activeTab === 'interventions' && (
         <div className="rounded-xl border border-dashed border-border bg-surface py-12 text-center">
-          <p className="text-sm font-medium text-text-tertiary">Analytics</p>
-          <p className="mt-1 text-xs text-text-tertiary">Coming in Phase E</p>
+          <p className="text-sm font-medium text-text-tertiary">{t('tabs.interventions')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('comingSoon')}</p>
         </div>
       )}
 
-      {activeTab === 'Interventions' && (
+      {activeTab === 'sanctions' && (
         <div className="rounded-xl border border-dashed border-border bg-surface py-12 text-center">
-          <p className="text-sm font-medium text-text-tertiary">Interventions</p>
-          <p className="mt-1 text-xs text-text-tertiary">Coming in Phase C</p>
+          <p className="text-sm font-medium text-text-tertiary">{t('tabs.sanctions')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('comingSoon')}</p>
         </div>
       )}
 
-      {activeTab === 'Sanctions' && (
+      {activeTab === 'awards' && (
         <div className="rounded-xl border border-dashed border-border bg-surface py-12 text-center">
-          <p className="text-sm font-medium text-text-tertiary">Sanctions</p>
-          <p className="mt-1 text-xs text-text-tertiary">Coming in Phase C</p>
-        </div>
-      )}
-
-      {activeTab === 'Awards' && (
-        <div className="rounded-xl border border-dashed border-border bg-surface py-12 text-center">
-          <p className="text-sm font-medium text-text-tertiary">Awards</p>
-          <p className="mt-1 text-xs text-text-tertiary">Coming in Phase B</p>
+          <p className="text-sm font-medium text-text-tertiary">{t('tabs.awards')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('comingSoon')}</p>
         </div>
       )}
     </div>

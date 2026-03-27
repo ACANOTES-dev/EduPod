@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { $Enums, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -87,24 +87,31 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
         data: { reminder_sent_at: now },
       });
 
-      // Create in-app notification for the assignee
-      await tx.notification.create({
-        data: {
-          tenant_id,
-          recipient_user_id: task.assigned_to_id,
-          channel: 'in_app',
-          template_key: 'behaviour.task_due_reminder',
-          locale: 'en',
-          status: 'delivered',
-          payload_json: {
-            task_id: task.id,
-            task_title: task.title,
+      // Staff-facing: in_app (delivered) + email (queued)
+      const reminderChannels: Array<{ channel: $Enums.NotificationChannel; status: $Enums.NotificationStatus; delivered_at: Date | undefined }> = [
+        { channel: 'in_app', status: 'delivered', delivered_at: now },
+        { channel: 'email', status: 'queued', delivered_at: undefined },
+      ];
+
+      for (const ch of reminderChannels) {
+        await tx.notification.create({
+          data: {
+            tenant_id,
+            recipient_user_id: task.assigned_to_id,
+            channel: ch.channel,
+            template_key: 'behaviour.task_due_reminder',
+            locale: 'en',
+            status: ch.status,
+            payload_json: {
+              task_id: task.id,
+              task_title: task.title,
+            },
+            source_entity_type: 'behaviour_task',
+            source_entity_id: task.id,
+            delivered_at: ch.delivered_at,
           },
-          source_entity_type: 'behaviour_task',
-          source_entity_id: task.id,
-          delivered_at: now,
-        },
-      });
+        });
+      }
     }
 
     // 3. Find tasks that are past due (before yesterday) and not yet overdue-notified
@@ -115,7 +122,7 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
         due_date: { lt: yesterdayStart },
         overdue_notified_at: null,
       },
-      select: { id: true, title: true, assigned_to_id: true },
+      select: { id: true, title: true, assigned_to_id: true, task_type: true, priority: true },
     });
 
     this.logger.log(
@@ -132,24 +139,46 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
         },
       });
 
-      // Create in-app notification for the assignee about overdue task
-      await tx.notification.create({
-        data: {
-          tenant_id,
-          recipient_user_id: task.assigned_to_id,
-          channel: 'in_app',
-          template_key: 'behaviour.task_overdue',
-          locale: 'en',
-          status: 'delivered',
-          payload_json: {
-            task_id: task.id,
-            task_title: task.title,
+      // SP3-3: Escalate priority for overdue intervention_review tasks
+      if (task.task_type === 'intervention_review') {
+        let escalatedPriority: $Enums.TaskPriority = task.priority;
+        if (task.priority === 'low') escalatedPriority = 'medium';
+        else if (task.priority === 'medium') escalatedPriority = 'high';
+        else if (task.priority === 'high') escalatedPriority = 'urgent';
+
+        if (escalatedPriority !== task.priority) {
+          await tx.behaviourTask.update({
+            where: { id: task.id },
+            data: { priority: escalatedPriority },
+          });
+        }
+      }
+
+      // Staff-facing: in_app (delivered) + email (queued)
+      const overdueChannels: Array<{ channel: $Enums.NotificationChannel; status: $Enums.NotificationStatus; delivered_at: Date | undefined }> = [
+        { channel: 'in_app', status: 'delivered', delivered_at: now },
+        { channel: 'email', status: 'queued', delivered_at: undefined },
+      ];
+
+      for (const ch of overdueChannels) {
+        await tx.notification.create({
+          data: {
+            tenant_id,
+            recipient_user_id: task.assigned_to_id,
+            channel: ch.channel,
+            template_key: 'behaviour.task_overdue',
+            locale: 'en',
+            status: ch.status,
+            payload_json: {
+              task_id: task.id,
+              task_title: task.title,
+            },
+            source_entity_type: 'behaviour_task',
+            source_entity_id: task.id,
+            delivered_at: ch.delivered_at,
           },
-          source_entity_type: 'behaviour_task',
-          source_entity_id: task.id,
-          delivered_at: now,
-        },
-      });
+        });
+      }
     }
 
     this.logger.log(

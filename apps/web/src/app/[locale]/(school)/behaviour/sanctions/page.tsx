@@ -12,6 +12,7 @@ import {
 } from '@school/ui';
 import { Calendar, CheckCircle, ExternalLink, List } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -62,17 +63,6 @@ type ViewTab = (typeof VIEW_TABS)[number]['key'];
 
 // ─── Sanction Type / Status Config ───────────────────────────────────────────
 
-const TYPE_LABELS: Record<string, string> = {
-  detention: 'Detention',
-  suspension_internal: 'Internal Suspension',
-  suspension_external: 'External Suspension',
-  expulsion: 'Expulsion',
-  community_service: 'Community Service',
-  loss_of_privilege: 'Loss of Privilege',
-  restorative_meeting: 'Restorative Meeting',
-  other: 'Other',
-};
-
 const TYPE_BADGE_CLASSES: Record<string, string> = {
   detention: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   suspension_internal: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
@@ -82,21 +72,6 @@ const TYPE_BADGE_CLASSES: Record<string, string> = {
   loss_of_privilege: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   restorative_meeting: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   other: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending_approval: 'Pending Approval',
-  scheduled: 'Scheduled',
-  served: 'Served',
-  partially_served: 'Partially Served',
-  no_show: 'No Show',
-  excused: 'Excused',
-  cancelled: 'Cancelled',
-  rescheduled: 'Rescheduled',
-  not_served_absent: 'Not Served (Absent)',
-  appealed: 'Appealed',
-  replaced: 'Replaced',
-  superseded: 'Superseded',
 };
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -117,25 +92,27 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: string }) {
+  const t = useTranslations('behaviour.sanctions');
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
         TYPE_BADGE_CLASSES[type] ?? TYPE_BADGE_CLASSES.other
       }`}
     >
-      {TYPE_LABELS[type] ?? type}
+      {t(`types.${type}` as Parameters<typeof t>[0])}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useTranslations('behaviour.sanctions');
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
         STATUS_BADGE_CLASSES[status] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
       }`}
     >
-      {STATUS_LABELS[status] ?? status}
+      {t(`statuses.${status}` as Parameters<typeof t>[0])}
     </span>
   );
 }
@@ -143,6 +120,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SanctionListPage() {
+  const t = useTranslations('behaviour.sanctions');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -252,7 +230,7 @@ export default function SanctionListPage() {
     },
     {
       key: 'student',
-      header: 'Student',
+      header: t('columns.student'),
       render: (row: SanctionRow) => (
         <span className="text-sm font-medium text-text-primary">
           {row.student
@@ -263,17 +241,17 @@ export default function SanctionListPage() {
     },
     {
       key: 'type',
-      header: 'Type',
+      header: t('columns.type'),
       render: (row: SanctionRow) => <TypeBadge type={row.type} />,
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: SanctionRow) => <StatusBadge status={row.status} />,
     },
     {
       key: 'scheduled_date',
-      header: 'Scheduled',
+      header: t('columns.scheduled'),
       render: (row: SanctionRow) => (
         <span className="font-mono text-xs text-text-primary">
           {formatDate(row.scheduled_date)}
@@ -282,7 +260,7 @@ export default function SanctionListPage() {
     },
     {
       key: 'supervised_by',
-      header: 'Supervised By',
+      header: t('columns.supervisedBy'),
       render: (row: SanctionRow) =>
         row.supervised_by ? (
           <span className="text-sm text-text-secondary">
@@ -294,7 +272,7 @@ export default function SanctionListPage() {
     },
     {
       key: 'incident',
-      header: 'Incident',
+      header: t('columns.incident'),
       render: (row: SanctionRow) =>
         row.incident ? (
           <Link
@@ -335,9 +313,9 @@ export default function SanctionListPage() {
       <Input
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search student..."
+        placeholder={t('search')}
         className="w-full text-base sm:w-48 sm:text-sm"
-        aria-label="Search student"
+        aria-label={t('search')}
       />
       <Select
         value={typeFilter}
@@ -347,15 +325,15 @@ export default function SanctionListPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-44">
-          <SelectValue placeholder="Type" />
+          <SelectValue placeholder={t('filters.type')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Types</SelectItem>
-          <SelectItem value="detention">Detention</SelectItem>
-          <SelectItem value="suspension_internal">Internal Suspension</SelectItem>
-          <SelectItem value="suspension_external">External Suspension</SelectItem>
-          <SelectItem value="expulsion">Expulsion</SelectItem>
-          <SelectItem value="other">Other</SelectItem>
+          <SelectItem value="all">{t('filters.allTypes')}</SelectItem>
+          <SelectItem value="detention">{t('types.detention')}</SelectItem>
+          <SelectItem value="suspension_internal">{t('types.suspension_internal')}</SelectItem>
+          <SelectItem value="suspension_external">{t('types.suspension_external')}</SelectItem>
+          <SelectItem value="expulsion">{t('types.expulsion')}</SelectItem>
+          <SelectItem value="other">{t('types.other')}</SelectItem>
         </SelectContent>
       </Select>
       <Select
@@ -366,16 +344,16 @@ export default function SanctionListPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-40">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder={t('filters.status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Statuses</SelectItem>
-          <SelectItem value="pending_approval">Pending Approval</SelectItem>
-          <SelectItem value="scheduled">Scheduled</SelectItem>
-          <SelectItem value="served">Served</SelectItem>
-          <SelectItem value="no_show">No Show</SelectItem>
-          <SelectItem value="cancelled">Cancelled</SelectItem>
-          <SelectItem value="appealed">Appealed</SelectItem>
+          <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+          <SelectItem value="pending_approval">{t('statuses.pending_approval')}</SelectItem>
+          <SelectItem value="scheduled">{t('statuses.scheduled')}</SelectItem>
+          <SelectItem value="served">{t('statuses.served')}</SelectItem>
+          <SelectItem value="no_show">{t('statuses.no_show')}</SelectItem>
+          <SelectItem value="cancelled">{t('statuses.cancelled')}</SelectItem>
+          <SelectItem value="appealed">{t('statuses.appealed')}</SelectItem>
         </SelectContent>
       </Select>
       <input
@@ -386,7 +364,7 @@ export default function SanctionListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface dark:text-text-primary sm:w-auto"
-        aria-label="Date from"
+        aria-label={t('filters.dateFrom')}
       />
       <input
         type="date"
@@ -396,7 +374,7 @@ export default function SanctionListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface dark:text-text-primary sm:w-auto"
-        aria-label="Date to"
+        aria-label={t('filters.dateTo')}
       />
     </div>
   );
@@ -428,7 +406,7 @@ export default function SanctionListPage() {
             <p className="truncate text-sm font-medium text-text-primary">
               {row.student
                 ? `${row.student.first_name} ${row.student.last_name}`
-                : 'Unknown Student'}
+                : t('unknownStudent')}
             </p>
             <p className="mt-0.5 font-mono text-xs text-text-tertiary">
               {row.sanction_number}
@@ -438,7 +416,7 @@ export default function SanctionListPage() {
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeClass}`}>
-            {TYPE_LABELS[row.type] ?? row.type}
+            {t(`types.${row.type}` as Parameters<typeof t>[0])}
           </span>
           <span className="text-xs text-text-tertiary">
             {formatDate(row.scheduled_date)}
@@ -459,7 +437,7 @@ export default function SanctionListPage() {
               onClick={(e) => handleMarkServed(row.id, e)}
             >
               <CheckCircle className="me-1 h-3.5 w-3.5" />
-              {markingServed === row.id ? 'Saving...' : 'Mark Served'}
+              {markingServed === row.id ? t('saving') : t('markServed')}
             </Button>
           </div>
         )}
@@ -472,12 +450,12 @@ export default function SanctionListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Sanctions"
-        description="Manage sanctions, detentions, and suspensions"
+        title={t('title')}
+        description={t('description')}
         actions={
           <div className="flex items-center gap-2">
             <Link href={`/${locale}/behaviour/sanctions/today`}>
-              <Button variant="outline">Today&apos;s Detentions</Button>
+              <Button variant="outline">{t('todaysDetentions')}</Button>
             </Link>
           </div>
         }
@@ -512,10 +490,10 @@ export default function SanctionListPage() {
         <div className="rounded-xl border border-border bg-surface py-16 text-center dark:bg-surface">
           <Calendar className="mx-auto h-10 w-10 text-text-tertiary" />
           <p className="mt-3 text-sm font-medium text-text-primary">
-            Calendar view coming soon
+            {t('calendarComingSoon')}
           </p>
           <p className="mt-1 text-xs text-text-tertiary">
-            Visualise sanctions on a calendar to manage scheduling and room allocation.
+            {t('calendarComingSoonDescription')}
           </p>
         </div>
       ) : (
@@ -535,10 +513,10 @@ export default function SanctionListPage() {
                 ) : data.length === 0 ? (
                   <div className="rounded-xl border border-border bg-surface py-12 text-center dark:bg-surface">
                     <Badge variant="secondary" className="mx-auto mb-2">
-                      No sanctions
+                      {t('noResults')}
                     </Badge>
                     <p className="text-sm text-text-tertiary">
-                      No sanctions match the current filters
+                      {t('noResultsDescription')}
                     </p>
                   </div>
                 ) : (
@@ -549,7 +527,7 @@ export default function SanctionListPage() {
               {total > PAGE_SIZE && (
                 <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
                   <span>
-                    Page {page} of {Math.ceil(total / PAGE_SIZE)}
+                    {t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}
                   </span>
                   <div className="flex gap-2">
                     <Button
@@ -558,7 +536,7 @@ export default function SanctionListPage() {
                       disabled={page <= 1}
                       onClick={() => setPage(page - 1)}
                     >
-                      Previous
+                      {t('previous')}
                     </Button>
                     <Button
                       variant="outline"
@@ -566,7 +544,7 @@ export default function SanctionListPage() {
                       disabled={page >= Math.ceil(total / PAGE_SIZE)}
                       onClick={() => setPage(page + 1)}
                     >
-                      Next
+                      {t('next')}
                     </Button>
                   </div>
                 </div>

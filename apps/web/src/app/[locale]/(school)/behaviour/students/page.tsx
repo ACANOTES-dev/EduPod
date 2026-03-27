@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -31,6 +32,7 @@ interface StudentsResponse {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BehaviourStudentsPage() {
+  const t = useTranslations('behaviour.students');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -77,7 +79,7 @@ export default function BehaviourStudentsPage() {
   const columns = [
     {
       key: 'name',
-      header: 'Student Name',
+      header: t('columns.studentName'),
       render: (row: StudentBehaviourRow) => (
         <span className="font-medium text-text-primary">
           {row.first_name} {row.last_name}
@@ -86,14 +88,14 @@ export default function BehaviourStudentsPage() {
     },
     {
       key: 'year_group',
-      header: 'Year Group',
+      header: t('columns.yearGroup'),
       render: (row: StudentBehaviourRow) => (
         <span className="text-text-secondary">{row.year_group_name ?? '—'}</span>
       ),
     },
     {
       key: 'total_points',
-      header: 'Points',
+      header: t('columns.points'),
       render: (row: StudentBehaviourRow) => (
         <span className={`font-semibold ${
           row.total_points > 0 ? 'text-green-600' : row.total_points < 0 ? 'text-red-600' : 'text-text-primary'
@@ -104,21 +106,21 @@ export default function BehaviourStudentsPage() {
     },
     {
       key: 'positive',
-      header: 'Positive',
+      header: t('columns.positive'),
       render: (row: StudentBehaviourRow) => (
         <span className="text-green-600">{row.positive_count}</span>
       ),
     },
     {
       key: 'negative',
-      header: 'Negative',
+      header: t('columns.negative'),
       render: (row: StudentBehaviourRow) => (
         <span className="text-red-600">{row.negative_count}</span>
       ),
     },
     {
       key: 'last_incident',
-      header: 'Last Incident',
+      header: t('columns.lastIncident'),
       render: (row: StudentBehaviourRow) => (
         <span className="text-xs text-text-tertiary">
           {row.last_incident_date ? formatDate(row.last_incident_date) : '—'}
@@ -133,9 +135,9 @@ export default function BehaviourStudentsPage() {
         type="text"
         value={search}
         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        placeholder="Search students..."
+        placeholder={t('search')}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-base text-text-primary sm:w-56"
-        aria-label="Search students"
+        aria-label={t('search')}
       />
     </div>
   );
@@ -143,8 +145,8 @@ export default function BehaviourStudentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Student Behaviour Overview"
-        description="Behaviour points and incident counts by student"
+        title={t('title')}
+        description={t('description')}
       />
 
       <DataTable

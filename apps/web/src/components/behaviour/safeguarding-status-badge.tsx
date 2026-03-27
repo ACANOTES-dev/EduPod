@@ -1,4 +1,7 @@
+'use client';
+
 import { Badge } from '@school/ui';
+import { useTranslations } from 'next-intl';
 
 const STATUS_COLORS: Record<string, string> = {
   reported: 'bg-blue-100 text-blue-800',
@@ -10,20 +13,11 @@ const STATUS_COLORS: Record<string, string> = {
   sealed: 'bg-gray-100 text-gray-800 border border-gray-300',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  reported: 'Reported',
-  acknowledged: 'Acknowledged',
-  under_investigation: 'Under Investigation',
-  referred: 'Referred',
-  monitoring: 'Monitoring',
-  resolved: 'Resolved',
-  sealed: 'SEALED',
-};
-
 export function SafeguardingStatusBadge({ status }: { status: string }) {
+  const t = useTranslations('safeguarding.statuses');
   return (
     <Badge className={STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-800'}>
-      {STATUS_LABELS[status] ?? status}
+      {t(`${status}` as Parameters<typeof t>[0])}
     </Badge>
   );
 }

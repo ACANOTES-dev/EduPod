@@ -1,7 +1,7 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { Job } from 'bullmq';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -23,7 +23,10 @@ export const CRITICAL_ESCALATION_JOB = 'safeguarding:critical-escalation';
 export class CriticalEscalationProcessor extends WorkerHost {
   private readonly logger = new Logger(CriticalEscalationProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
+  ) {
     super();
   }
 
@@ -32,18 +35,36 @@ export class CriticalEscalationProcessor extends WorkerHost {
       return;
     }
 
-    const { tenant_id } = job.data;
+    const { tenant_id, concern_id } = job.data;
 
     if (!tenant_id) {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
     this.logger.log(
-      `Processing ${CRITICAL_ESCALATION_JOB} — concern ${job.data.concern_id}, step ${job.data.escalation_step}`,
+      `Processing ${CRITICAL_ESCALATION_JOB} — concern ${concern_id}, step ${job.data.escalation_step}`,
     );
 
     const escalationJob = new CriticalEscalationJob(this.prisma);
     await escalationJob.execute(job.data);
+
+    // Re-enqueue for next escalation step OUTSIDE the Prisma transaction.
+    // This prevents orphaned delayed jobs if the transaction were to roll back.
+    const nextStep = escalationJob.nextEscalationStep;
+    if (nextStep !== null) {
+      const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+      await this.behaviourQueue.add(
+        CRITICAL_ESCALATION_JOB,
+        { tenant_id, concern_id, escalation_step: nextStep },
+        {
+          delay: THIRTY_MINUTES_MS,
+          jobId: `critical-esc-${concern_id}-step-${nextStep}`,
+        },
+      );
+      this.logger.log(
+        `Enqueued next escalation step ${nextStep} for concern ${concern_id} with 30-minute delay`,
+      );
+    }
   }
 }
 
@@ -51,6 +72,13 @@ export class CriticalEscalationProcessor extends WorkerHost {
 
 class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
   private readonly logger = new Logger(CriticalEscalationJob.name);
+
+  /**
+   * Set by processJob when a subsequent escalation step should be enqueued.
+   * The outer processor reads this AFTER execute() commits the transaction,
+   * ensuring the re-enqueue happens outside the Prisma transaction boundary.
+   */
+  public nextEscalationStep: number | null = null;
 
   protected async processJob(
     data: CriticalEscalationPayload,
@@ -142,8 +170,56 @@ class CriticalEscalationJob extends TenantAwareJob<CriticalEscalationPayload> {
       },
     });
 
+    // 7. Create multi-channel notifications (in_app + email)
+    // Critical escalations are staff-facing — always send both channels
+    const now = new Date();
+    const notificationPayload: Prisma.InputJsonValue = {
+      concern_id,
+      escalation_step,
+      severity: 'critical',
+      concern_type: concern.concern_type,
+      reported_at: concern.created_at.toISOString(),
+    };
+
+    // in_app — delivered immediately
+    await tx.notification.create({
+      data: {
+        tenant_id,
+        recipient_user_id: targetUserId,
+        channel: 'in_app',
+        template_key: 'safeguarding.critical_escalation',
+        locale: 'en',
+        status: 'delivered',
+        payload_json: notificationPayload,
+        source_entity_type: 'safeguarding_concern',
+        source_entity_id: concern_id,
+        delivered_at: now,
+      },
+    });
+
+    // email — queued for dispatch
+    await tx.notification.create({
+      data: {
+        tenant_id,
+        recipient_user_id: targetUserId,
+        channel: 'email',
+        template_key: 'safeguarding.critical_escalation',
+        locale: 'en',
+        status: 'queued',
+        payload_json: notificationPayload,
+        source_entity_type: 'safeguarding_concern',
+        source_entity_id: concern_id,
+      },
+    });
+
     this.logger.log(
-      `Critical escalation step ${escalation_step} recorded for concern ${concern_id} — target user ${targetUserId}. Notification would be sent.`,
+      `Critical escalation step ${escalation_step} recorded for concern ${concern_id} — notified user ${targetUserId} (in_app + email)`,
     );
+
+    // 8. Signal next step for re-enqueue (if chain continues)
+    const nextStep = escalation_step + 1;
+    if (nextStep < escalationChain.length) {
+      this.nextEscalationStep = nextStep;
+    }
   }
 }

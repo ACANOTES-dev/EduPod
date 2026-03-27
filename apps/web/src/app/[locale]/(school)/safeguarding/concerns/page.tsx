@@ -3,6 +3,7 @@
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -41,6 +42,7 @@ const SLA_STATUSES = ['overdue', 'due_soon', 'on_track'] as const;
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ConcernListPage() {
+  const t = useTranslations('safeguarding.concerns');
   const router = useRouter();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -95,50 +97,50 @@ export default function ConcernListPage() {
   const columns = [
     {
       key: 'concern_number',
-      header: 'Concern #',
+      header: t('columns.concernNumber'),
       render: (row: ConcernRow) => (
         <span className="font-mono text-xs font-medium text-text-primary">{row.concern_number}</span>
       ),
     },
     {
       key: 'student_name',
-      header: 'Student',
+      header: t('columns.student'),
       render: (row: ConcernRow) => (
         <span className="text-sm font-medium text-text-primary">{row.student_name}</span>
       ),
     },
     {
       key: 'concern_type',
-      header: 'Type',
+      header: t('columns.type'),
       render: (row: ConcernRow) => (
         <span className="text-sm text-text-secondary">{row.concern_type}</span>
       ),
     },
     {
       key: 'severity',
-      header: 'Severity',
+      header: t('columns.severity'),
       render: (row: ConcernRow) => <SafeguardingSeverityBadge severity={row.severity} />,
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: ConcernRow) => <SafeguardingStatusBadge status={row.status} />,
     },
     {
       key: 'sla_status',
-      header: 'SLA',
+      header: t('columns.sla'),
       render: (row: ConcernRow) => <SlaIndicator status={row.sla_status} />,
     },
     {
       key: 'assigned_to_name',
-      header: 'Assigned',
+      header: t('columns.assigned'),
       render: (row: ConcernRow) => (
         <span className="text-sm text-text-secondary">{row.assigned_to_name ?? '—'}</span>
       ),
     },
     {
       key: 'reported_at',
-      header: 'Date',
+      header: t('columns.date'),
       render: (row: ConcernRow) => (
         <span className="font-mono text-xs text-text-tertiary">{formatDate(row.reported_at)}</span>
       ),
@@ -149,7 +151,7 @@ export default function ConcernListPage() {
     <div className="space-y-3">
       {/* Status chips */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-text-tertiary">Status:</span>
+        <span className="text-xs font-medium text-text-tertiary">{t('filters.status')}:</span>
         {STATUSES.map((s) => (
           <button
             key={s}
@@ -168,7 +170,7 @@ export default function ConcernListPage() {
 
       {/* Severity chips */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-text-tertiary">Severity:</span>
+        <span className="text-xs font-medium text-text-tertiary">{t('filters.severity')}:</span>
         {SEVERITIES.map((s) => (
           <button
             key={s}
@@ -187,13 +189,13 @@ export default function ConcernListPage() {
 
       {/* SLA dropdown */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-text-tertiary">SLA:</span>
+        <span className="text-xs font-medium text-text-tertiary">{t('filters.sla')}:</span>
         <Select value={slaFilter} onValueChange={(v) => { setSlaFilter(v); setPage(1); }}>
           <SelectTrigger className="w-full sm:w-36">
-            <SelectValue placeholder="SLA Status" />
+            <SelectValue placeholder={t('filters.slaStatus')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="all">{t('filters.all')}</SelectItem>
             {SLA_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>{s.replace(/_/g, ' ')}</SelectItem>
             ))}
@@ -206,12 +208,12 @@ export default function ConcernListPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Safeguarding Concerns"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/safeguarding/concerns/new`}>
             <Button>
               <Plus className="me-2 h-4 w-4" />
-              Report Concern
+              {t('reportConcern')}
             </Button>
           </Link>
         }
@@ -228,7 +230,7 @@ export default function ConcernListPage() {
           </div>
         ) : data.length === 0 ? (
           <p className="py-8 text-center text-sm text-text-tertiary">
-            No concerns found.
+            {t('noConcerns')}
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -242,7 +244,7 @@ export default function ConcernListPage() {
             {/* Simple mobile pagination */}
             <div className="flex items-center justify-between pt-2 text-sm text-text-secondary">
               <span>
-                {total === 0 ? 'No results' : `Page ${page} of ${Math.ceil(total / PAGE_SIZE)}`}
+                {total === 0 ? t('noResults') : t('pagination', { page, totalPages: Math.ceil(total / PAGE_SIZE) })}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -251,7 +253,7 @@ export default function ConcernListPage() {
                   disabled={page <= 1}
                   onClick={() => setPage(page - 1)}
                 >
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -259,7 +261,7 @@ export default function ConcernListPage() {
                   disabled={page >= Math.ceil(total / PAGE_SIZE)}
                   onClick={() => setPage(page + 1)}
                 >
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>

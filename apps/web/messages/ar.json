@@ -85,7 +85,11 @@
     "applications": "الطلبات",
     "registerFamily": "تسجيل عائلة",
     "behaviour": "السلوك",
-    "behaviourDashboard": "السلوك"
+    "behaviourDashboard": "السلوك",
+    "behaviourIncidents": "الحوادث",
+    "behaviourStudents": "ملفات الطلاب",
+    "guardianRestrictions": "قيود ولي الأمر",
+    "safeguarding": "الحماية"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -4033,5 +4037,1136 @@
     "inDiscounts": "في الخصومات",
     "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
     "invalidPaymentAmount": "يرجى إدخال مبلغ دفع صالح."
+  },
+  "behaviour": {
+    "dashboard": {
+      "title": "نبض السلوك",
+      "description": "نظرة عامة على نشاط السلوك الأخير",
+      "logIncident": "تسجيل حادثة",
+      "totalIncidents": "إجمالي الحوادث",
+      "positiveNegative": "إيجابي / سلبي",
+      "openTasks": "المهام المفتوحة",
+      "overdue": "متأخر",
+      "needsAttention": "يحتاج انتباه",
+      "allIncidents": "جميع الحوادث",
+      "students": "الطلاب",
+      "tasks": "المهام",
+      "escalated": "مصعّدة",
+      "recentActivity": "النشاط الأخير",
+      "viewAll": "عرض الكل",
+      "noRecentIncidents": "لا توجد حوادث حديثة",
+      "allPositive": "جميعها إيجابية"
+    },
+    "incidents": {
+      "title": "حوادث السلوك",
+      "newIncident": "حادثة جديدة",
+      "noIncidentsFound": "لم يتم العثور على حوادث",
+      "tabs": {
+        "all": "الكل",
+        "positive": "إيجابي",
+        "negative": "سلبي",
+        "pending": "قيد الانتظار",
+        "escalated": "مصعّدة",
+        "my": "حوادثي"
+      },
+      "columns": {
+        "date": "التاريخ",
+        "category": "الفئة",
+        "students": "الطالب/الطلاب",
+        "status": "الحالة",
+        "reporter": "المُبلِّغ"
+      },
+      "filters": {
+        "dateFrom": "من تاريخ",
+        "dateTo": "إلى تاريخ",
+        "category": "الفئة",
+        "allCategories": "جميع الفئات",
+        "status": "الحالة",
+        "allStatuses": "جميع الحالات",
+        "active": "نشط",
+        "investigating": "قيد التحقيق",
+        "escalated": "مصعّد",
+        "resolved": "تم الحل",
+        "withdrawn": "مسحوب"
+      },
+      "pagination": {
+        "page": "صفحة {page} من {total}",
+        "previous": "السابق",
+        "next": "التالي"
+      }
+    },
+    "incidentDetail": {
+      "title": "الحادثة {number}",
+      "notFoundTitle": "الحادثة غير موجودة",
+      "notFoundDescription": "تعذر تحميل الحادثة المطلوبة.",
+      "changeStatus": "تغيير الحالة",
+      "back": "رجوع",
+      "severity": "الشدة: {value}/10",
+      "followUpRequired": "متابعة مطلوبة",
+      "description": "الوصف",
+      "parentFacingDescription": "الوصف الموجه لأولياء الأمور",
+      "contextNotes": "ملاحظات السياق",
+      "participants": "المشاركون",
+      "noParticipants": "لم يتم تسجيل مشاركين",
+      "history": "السجل",
+      "noHistory": "لا يوجد سجل بعد",
+      "details": "التفاصيل",
+      "occurred": "وقعت",
+      "logged": "سُجلت",
+      "location": "الموقع",
+      "reporter": "المُبلِّغ",
+      "context": "السياق",
+      "sanctions": "العقوبات",
+      "comingPhaseC": "قادم في المرحلة C",
+      "attachments": "المرفقات",
+      "comingPhaseD": "قادم في المرحلة D",
+      "policyEvaluation": "تقييم السياسة",
+      "comingPhaseF": "قادم في المرحلة F",
+      "dialog": {
+        "title": "تغيير حالة الحادثة",
+        "currentLabel": "الحالية:",
+        "newStatus": "الحالة الجديدة",
+        "selectStatus": "اختر الحالة...",
+        "reason": "السبب (اختياري)",
+        "reasonPlaceholder": "لماذا يتم التغيير؟",
+        "cancel": "إلغاء",
+        "update": "تحديث الحالة",
+        "updating": "جارٍ التحديث..."
+      },
+      "statuses": {
+        "active": "نشط",
+        "investigating": "قيد التحقيق",
+        "under_review": "قيد المراجعة",
+        "escalated": "مصعّد",
+        "resolved": "تم الحل",
+        "withdrawn": "مسحوب"
+      },
+      "roles": {
+        "subject": "المعني",
+        "witness": "شاهد",
+        "bystander": "متفرج",
+        "reporter": "مُبلِّغ",
+        "victim": "ضحية",
+        "instigator": "محرّض",
+        "mediator": "وسيط"
+      }
+    },
+    "newIncident": {
+      "title": "تسجيل حادثة",
+      "back": "رجوع",
+      "categoryLabel": "الفئة *",
+      "studentsLabel": "الطلاب *",
+      "searchStudents": "ابحث عن طلاب لإضافتهم...",
+      "descriptionLabel": "الوصف *",
+      "descriptionPlaceholder": "صف ما حدث...",
+      "parentDescriptionLabel": "الوصف الموجه لأولياء الأمور (اختياري)",
+      "parentDescriptionPlaceholder": "نسخة مناسبة لعرضها على أولياء الأمور...",
+      "contextLabel": "السياق",
+      "whenLabel": "متى",
+      "contextTypeLabel": "السياق",
+      "locationLabel": "الموقع (اختياري)",
+      "locationPlaceholder": "مثال: غرفة 203، القاعة الرئيسية",
+      "notesLabel": "ملاحظات (اختياري)",
+      "notesPlaceholder": "سياق إضافي...",
+      "autoSubmitLabel": "إرسال تلقائي",
+      "autoSubmitDescription": "إرسال فوري كنشط (تخطي المسودة)",
+      "cancel": "إلغاء",
+      "submitIncident": "إرسال الحادثة",
+      "saveAsDraft": "حفظ كمسودة",
+      "creating": "جارٍ الإنشاء...",
+      "errorCategory": "يرجى اختيار فئة",
+      "errorStudents": "يرجى اختيار طالب واحد على الأقل",
+      "errorDescription": "يرجى إدخال وصف",
+      "errorGeneric": "فشل في إنشاء الحادثة",
+      "contextTypes": {
+        "class": "حصة",
+        "break": "استراحة",
+        "before_school": "قبل المدرسة",
+        "after_school": "بعد المدرسة",
+        "lunch": "غداء",
+        "transport": "نقل",
+        "extra_curricular": "نشاط لاصفي",
+        "off_site": "خارج المدرسة",
+        "online": "إلكتروني",
+        "other": "أخرى"
+      }
+    },
+    "students": {
+      "title": "نظرة عامة على سلوك الطلاب",
+      "description": "نقاط السلوك وعدد الحوادث حسب الطالب",
+      "searchPlaceholder": "البحث عن طلاب...",
+      "columns": {
+        "studentName": "اسم الطالب",
+        "yearGroup": "المجموعة السنوية",
+        "points": "النقاط",
+        "positive": "إيجابي",
+        "negative": "سلبي",
+        "lastIncident": "آخر حادثة"
+      }
+    },
+    "studentProfile": {
+      "title": "ملف الطالب",
+      "notFoundTitle": "الطالب غير موجود",
+      "notFoundDescription": "تعذر تحميل ملف سلوك الطالب.",
+      "back": "رجوع",
+      "tabs": {
+        "timeline": "الجدول الزمني",
+        "analytics": "التحليلات",
+        "interventions": "التدخلات",
+        "sanctions": "العقوبات",
+        "awards": "الجوائز",
+        "tasks": "المهام"
+      },
+      "noIncidents": "لم يتم تسجيل حوادث",
+      "noTasks": "لا توجد مهام لهذا الطالب",
+      "comingPhaseC": "قادم في المرحلة C",
+      "comingPhaseB": "قادم في المرحلة B"
+    },
+    "sanctions": {
+      "title": "العقوبات",
+      "description": "إدارة العقوبات والاحتجازات والإيقافات",
+      "todaysDetentions": "احتجازات اليوم",
+      "noSanctions": "لا توجد عقوبات",
+      "noSanctionsMatch": "لا توجد عقوبات تطابق الفلاتر الحالية",
+      "calendarComingSoon": "عرض التقويم قريباً",
+      "calendarDescription": "عرض العقوبات على التقويم لإدارة الجدولة وتخصيص القاعات.",
+      "searchStudent": "البحث عن طالب...",
+      "markServed": "تأكيد التنفيذ",
+      "saving": "جارٍ الحفظ...",
+      "unknownStudent": "طالب غير معروف",
+      "tabs": {
+        "list": "قائمة",
+        "calendar": "تقويم"
+      },
+      "columns": {
+        "number": "#",
+        "student": "الطالب",
+        "type": "النوع",
+        "status": "الحالة",
+        "scheduled": "المجدول",
+        "supervisedBy": "المشرف",
+        "incident": "الحادثة"
+      },
+      "filters": {
+        "type": "النوع",
+        "allTypes": "جميع الأنواع",
+        "status": "الحالة",
+        "allStatuses": "جميع الحالات",
+        "dateFrom": "من تاريخ",
+        "dateTo": "إلى تاريخ"
+      },
+      "types": {
+        "detention": "احتجاز",
+        "suspension_internal": "إيقاف داخلي",
+        "suspension_external": "إيقاف خارجي",
+        "expulsion": "طرد",
+        "community_service": "خدمة مجتمعية",
+        "loss_of_privilege": "حرمان من امتياز",
+        "restorative_meeting": "اجتماع تصالحي",
+        "other": "أخرى"
+      },
+      "statuses": {
+        "pending_approval": "قيد الموافقة",
+        "scheduled": "مجدول",
+        "served": "تم التنفيذ",
+        "partially_served": "تنفيذ جزئي",
+        "no_show": "لم يحضر",
+        "excused": "معذور",
+        "cancelled": "ملغي",
+        "rescheduled": "أعيدت جدولته",
+        "not_served_absent": "لم يُنفذ (غائب)",
+        "appealed": "مطعون",
+        "replaced": "مُستبدل",
+        "superseded": "ملغى بآخر"
+      }
+    },
+    "sanctionsToday": {
+      "title": "عقوبات اليوم",
+      "allSanctions": "جميع العقوبات",
+      "noSanctionsToday": "لا توجد عقوبات مجدولة لليوم",
+      "noSanctionsDescription": "عند جدولة عقوبات لليوم، ستظهر هنا للإشراف.",
+      "retry": "إعادة المحاولة",
+      "failedToLoad": "فشل في تحميل عقوبات اليوم",
+      "total": "الإجمالي",
+      "scheduled": "مجدول",
+      "served": "تم التنفيذ",
+      "noShow": "لم يحضر",
+      "selectAllScheduled": "تحديد الكل المجدول",
+      "selected": "{count} محدد",
+      "markAsServed": "تأكيد تنفيذ {count}",
+      "marking": "جارٍ التأكيد...",
+      "setStatus": "تعيين الحالة",
+      "updating": "جارٍ التحديث...",
+      "unassignedRoom": "قاعة غير محددة",
+      "noTimeSet": "لم يحدد وقت",
+      "statusOptions": {
+        "served": "تم التنفيذ",
+        "no_show": "لم يحضر",
+        "partially_served": "تنفيذ جزئي",
+        "excused": "معذور"
+      }
+    },
+    "interventions": {
+      "title": "التدخلات",
+      "newIntervention": "تدخل جديد",
+      "noInterventionsFound": "لم يتم العثور على تدخلات",
+      "tabs": {
+        "active": "نشط",
+        "overdue": "متأخر",
+        "monitoring": "مراقبة",
+        "completed": "مكتمل",
+        "all": "الكل"
+      },
+      "columns": {
+        "student": "الطالب",
+        "intervention": "التدخل",
+        "type": "النوع",
+        "assignedTo": "مسؤول",
+        "startDate": "تاريخ البدء",
+        "nextReview": "المراجعة التالية",
+        "status": "الحالة"
+      },
+      "types": {
+        "behaviour_plan": "خطة سلوك",
+        "mentoring": "إرشاد",
+        "counselling_referral": "إحالة استشارية",
+        "restorative": "تصالحي",
+        "academic_support": "دعم أكاديمي",
+        "parent_engagement": "مشاركة أولياء الأمور",
+        "external_agency": "جهة خارجية",
+        "other": "أخرى"
+      }
+    },
+    "interventionDetail": {
+      "title": "تفاصيل التدخل",
+      "back": "رجوع",
+      "student": "الطالب",
+      "type": "النوع",
+      "status": "الحالة",
+      "assignedTo": "مسؤول",
+      "startDate": "تاريخ البدء",
+      "targetEndDate": "تاريخ الانتهاء المستهدف",
+      "nextReview": "المراجعة التالية",
+      "reviewFrequency": "تكرار المراجعة",
+      "triggerDescription": "السبب / المحفز",
+      "sendAwareness": "وعي SEND",
+      "goals": "الأهداف",
+      "strategies": "الاستراتيجيات",
+      "reviews": "المراجعات",
+      "addReview": "إضافة مراجعة",
+      "noReviews": "لا توجد مراجعات بعد",
+      "goalProgress": "الهدف {index}",
+      "measurableTarget": "الهدف القابل للقياس",
+      "deadline": "الموعد النهائي",
+      "responsible": "المسؤول",
+      "frequency": "التكرار"
+    },
+    "newIntervention": {
+      "title": "تدخل جديد",
+      "back": "رجوع",
+      "studentLabel": "الطالب *",
+      "searchStudents": "البحث عن طلاب...",
+      "interventionTypeLabel": "نوع التدخل *",
+      "titleLabel": "العنوان *",
+      "titlePlaceholder": "مثال: خطة دعم السلوك - الفصل الثاني",
+      "triggerLabel": "السبب / المحفز",
+      "triggerPlaceholder": "ما السلوكيات أو الحوادث التي أدت إلى هذا التدخل...",
+      "sendAwarenessLabel": "وعي SEND",
+      "sendAwarenessDescription": "تحديد إذا كان لدى الطالب احتياجات تعليمية خاصة",
+      "sendNotesLabel": "حساس - ملاحظات SEND",
+      "sendNotesPlaceholder": "معلومات SEND ذات الصلة بهذا التدخل...",
+      "goalsLabel": "الأهداف",
+      "addGoal": "إضافة هدف",
+      "goalNumber": "الهدف {index}",
+      "goalPlaceholder": "ماذا يجب أن يحقق الطالب؟",
+      "measurableTargetLabel": "الهدف القابل للقياس",
+      "measurableTargetPlaceholder": "مثال: تقليل الحوادث بنسبة 50%",
+      "deadlineLabel": "الموعد النهائي (اختياري)",
+      "strategiesLabel": "الاستراتيجيات",
+      "addStrategy": "إضافة استراتيجية",
+      "strategyNumber": "الاستراتيجية {index}",
+      "strategyPlaceholder": "ما النهج الذي سيُستخدم؟",
+      "responsibleStaffLabel": "الموظف المسؤول (UUID)",
+      "responsibleStaffPlaceholder": "UUID الموظف",
+      "frequencyLabel": "التكرار",
+      "frequencyPlaceholder": "مثال: يومي، أسبوعي، حسب الحاجة",
+      "scheduleLabel": "الجدول",
+      "startDateLabel": "تاريخ البدء *",
+      "targetEndDateLabel": "تاريخ الانتهاء المستهدف",
+      "reviewFrequencyLabel": "مراجعة كل (أيام)",
+      "assignedToLabel": "مسؤول عن",
+      "assignedToPlaceholder": "UUID الموظف (افتراضياً المستخدم الحالي)",
+      "assignedToHint": "اتركه فارغاً لتعيينه لنفسك",
+      "cancel": "إلغاء",
+      "createIntervention": "إنشاء تدخل",
+      "creating": "جارٍ الإنشاء...",
+      "errorStudent": "يرجى اختيار طالب",
+      "errorTitle": "يرجى إدخال عنوان",
+      "errorGeneric": "فشل في إنشاء التدخل"
+    },
+    "exclusions": {
+      "title": "حالات الاستبعاد",
+      "description": "إجراءات الاستبعاد الرسمية والامتثال القانوني",
+      "backToBehaviour": "السلوك",
+      "noExclusionCases": "لم يتم العثور على حالات استبعاد",
+      "tabs": {
+        "all": "الكل",
+        "initiated": "مبدئي",
+        "notice_issued": "إشعار صادر",
+        "hearing_scheduled": "جلسة مجدولة",
+        "decision_made": "قرار صادر",
+        "appeal_window": "نافذة الطعن",
+        "finalised": "مُنتهي",
+        "overturned": "ملغى"
+      },
+      "columns": {
+        "caseNumber": "رقم القضية",
+        "student": "الطالب",
+        "type": "النوع",
+        "status": "الحالة",
+        "noticeIssued": "إشعار صادر",
+        "hearing": "الجلسة",
+        "decision": "القرار",
+        "appealDeadline": "موعد الطعن"
+      },
+      "tooltips": {
+        "overdueStep": "خطوة قانونية متأخرة",
+        "pendingStep": "خطوة قانونية معلقة"
+      },
+      "appealDays": {
+        "today": "اليوم",
+        "remaining": "{days} يوم متبقي",
+        "expired": "منتهي"
+      }
+    },
+    "exclusionDetail": {
+      "title": "حالة الاستبعاد {number}",
+      "back": "رجوع",
+      "student": "الطالب",
+      "type": "النوع",
+      "status": "الحالة",
+      "noticeIssued": "إشعار صادر",
+      "hearingDate": "تاريخ الجلسة",
+      "decision": "القرار",
+      "decisionReasoning": "مبررات القرار",
+      "conditions": "شروط العودة",
+      "appealDeadline": "موعد الطعن",
+      "statutoryTimeline": "الجدول الزمني القانوني",
+      "hearingAttendees": "حضور الجلسة",
+      "linkedSanction": "العقوبة المرتبطة",
+      "linkedIncident": "الحادثة المرتبطة"
+    },
+    "alerts": {
+      "title": "تنبيهات السلوك",
+      "description": "تنبيهات الأنماط والإشعارات",
+      "noAlerts": "لا توجد تنبيهات للعرض",
+      "tabs": {
+        "all": "الكل",
+        "unseen": "غير مقروء",
+        "acknowledged": "تم الاطلاع",
+        "snoozed": "مؤجل",
+        "resolved": "تم الحل"
+      },
+      "actions": {
+        "acknowledge": "اطلاع",
+        "snooze": "تأجيل",
+        "resolve": "حل"
+      },
+      "snoozeOptions": {
+        "tomorrow": "غداً",
+        "endOfWeek": "نهاية الأسبوع",
+        "nextWeek": "الأسبوع القادم"
+      },
+      "alertTypes": {
+        "escalating_student": "طالب متصاعد",
+        "disengaging_student": "طالب منفصل",
+        "hotspot": "نقطة ساخنة",
+        "logging_gap": "فجوة تسجيل",
+        "overdue_review": "مراجعة متأخرة",
+        "suspension_return": "عودة من الإيقاف",
+        "policy_threshold_breach": "خرق السياسة"
+      },
+      "entityTags": {
+        "student": "الطالب: {name}",
+        "subject": "المادة: {name}",
+        "staff": "الموظف: {name}"
+      },
+      "pagination": {
+        "page": "صفحة {page} من {total}",
+        "previous": "السابق",
+        "next": "التالي"
+      }
+    },
+    "analytics": {
+      "title": "التحليلات",
+      "description": "لوحة تحليلات السلوك",
+      "dateRanges": {
+        "last7": "آخر 7 أيام",
+        "last30": "آخر 30 يوم",
+        "last90": "آخر 90 يوم",
+        "thisYear": "هذا العام"
+      },
+      "normalised": "مُعدّل",
+      "raw": "خام",
+      "aiQuery": "استعلام ذكي",
+      "behaviourPulse": "نبض السلوك",
+      "compositeScore": "النتيجة المركبة",
+      "totalIncidents": "إجمالي الحوادث",
+      "positiveRatio": "نسبة الإيجابي",
+      "openFollowUps": "متابعات مفتوحة",
+      "activeAlerts": "تنبيهات نشطة",
+      "vsPrior": "{percent}% مقارنة بالسابق",
+      "incidentTrends": "اتجاهات الحوادث",
+      "incidentHeatmap": "خريطة الحوادث الحرارية",
+      "categoryBreakdown": "تحليل الفئات",
+      "subjectAnalysis": "تحليل المواد",
+      "rateNormalisationUnavailable": "التعديل غير متاح — عرض الأعداد الخام.",
+      "yearGroupComparison": "مقارنة المجموعات السنوية",
+      "staffLoggingActivity": "نشاط تسجيل الموظفين",
+      "inactive": "غير نشط",
+      "subjectColumns": {
+        "subject": "المادة",
+        "incidents": "الحوادث",
+        "ratePer100": "المعدل / 100 حصة"
+      },
+      "staffColumns": {
+        "staffName": "اسم الموظف",
+        "last7Days": "آخر 7 أيام",
+        "last30Days": "آخر 30 يوم",
+        "totalYear": "إجمالي العام",
+        "lastLogged": "آخر تسجيل"
+      },
+      "heatmapDays": {
+        "mon": "إثنين",
+        "tue": "ثلاثاء",
+        "wed": "أربعاء",
+        "thu": "خميس",
+        "fri": "جمعة"
+      },
+      "trends": {
+        "improving": "تحسن",
+        "declining": "تراجع",
+        "stable": "مستقر"
+      }
+    },
+    "aiQuery": {
+      "title": "التحليلات الذكية",
+      "description": "اطرح أسئلة حول بيانات السلوك بلغة عادية",
+      "placeholder": "اطرح سؤالاً عن بيانات السلوك...",
+      "analysing": "جارٍ تحليل البيانات...",
+      "aiGenerated": "مُنشأ بالذكاء الاصطناعي — تحقق من النتائج المهمة",
+      "dataAsOf": "البيانات حتى {date}",
+      "scope": "النطاق: {scope}",
+      "lowConfidence": "ثقة منخفضة — تحقق يدوياً",
+      "queryHistory": "سجل الاستعلامات",
+      "show": "عرض",
+      "hide": "إخفاء",
+      "noQueries": "لا توجد استعلامات بعد",
+      "charLimit": "{count}/500",
+      "suggestedQueries": {
+        "q1": "ما المواد التي لديها أكثر حوادث سلبية هذا الفصل؟",
+        "q2": "أرني الطلاب ذوي السلوك المتحسن في السنة 9",
+        "q3": "كم عدد الاحتجازات التي نُفذت الشهر الماضي؟",
+        "q4": "ما أبرز 3 مخاوف سلوكية هذا الأسبوع؟",
+        "q5": "قارن نسب الإيجابي/السلبي عبر المجموعات السنوية"
+      }
+    },
+    "tasks": {
+      "title": "مهام السلوك",
+      "description": "إجراءات المتابعة والتذكيرات",
+      "pending": "قيد الانتظار",
+      "overdue": "متأخر",
+      "completedToday": "مكتمل اليوم",
+      "needsAttention": "يحتاج انتباه",
+      "noTasks": "لا توجد مهام للعرض",
+      "complete": "إكمال",
+      "cancel": "إلغاء",
+      "due": "الاستحقاق: {date}",
+      "assigned": "مسؤول: {name}",
+      "showing": "عرض {start}–{end} من {total}",
+      "tabs": {
+        "myTasks": "مهامي",
+        "allTasks": "جميع المهام"
+      },
+      "statuses": {
+        "pending": "قيد الانتظار",
+        "in_progress": "قيد التنفيذ",
+        "completed": "مكتمل",
+        "cancelled": "ملغي",
+        "overdue": "متأخر"
+      },
+      "priorities": {
+        "low": "منخفض",
+        "medium": "متوسط",
+        "high": "عالي",
+        "urgent": "عاجل"
+      }
+    },
+    "appeals": {
+      "title": "طعون السلوك",
+      "description": "إدارة ومراجعة طعون السلوك",
+      "noAppealsFound": "لم يتم العثور على طعون",
+      "assign": "تعيين",
+      "assignReviewer": "تعيين مراجع",
+      "assignReviewerDescription": "اختر موظفاً لمراجعة هذا الطعن.",
+      "selectStaff": "اختر موظفاً...",
+      "reviewerAssigned": "تم تعيين المراجع",
+      "failedToAssign": "فشل في تعيين المراجع",
+      "searchByStudent": "البحث حسب الطالب...",
+      "tabs": {
+        "all": "الكل",
+        "submitted": "مقدّم",
+        "under_review": "قيد المراجعة",
+        "hearing_scheduled": "جلسة مجدولة",
+        "decided": "تم البت",
+        "withdrawn": "مسحوب"
+      },
+      "columns": {
+        "appealNumber": "رقم الطعن",
+        "student": "الطالب",
+        "entity": "الكيان",
+        "grounds": "الأسباب",
+        "submitted": "تاريخ التقديم",
+        "status": "الحالة",
+        "reviewer": "المراجع",
+        "hearing": "الجلسة",
+        "decision": "القرار"
+      },
+      "filters": {
+        "grounds": "الأسباب",
+        "allGrounds": "جميع الأسباب",
+        "factual_inaccuracy": "خطأ واقعي",
+        "disproportionate_consequence": "عقوبة غير متناسبة",
+        "procedural_error": "خطأ إجرائي",
+        "mitigating_circumstances": "ظروف مخففة",
+        "mistaken_identity": "هوية خاطئة",
+        "other": "أخرى",
+        "dateFrom": "من تاريخ",
+        "dateTo": "إلى تاريخ"
+      }
+    },
+    "appealDetail": {
+      "title": "الطعن {number}",
+      "back": "رجوع",
+      "student": "الطالب",
+      "entity": "الكيان",
+      "grounds": "الأسباب",
+      "groundsCategory": "فئة الأسباب",
+      "appellantType": "نوع الطاعن",
+      "submitted": "تاريخ التقديم",
+      "status": "الحالة",
+      "hearingDate": "تاريخ الجلسة",
+      "hearingNotes": "ملاحظات الجلسة",
+      "hearingAttendees": "حضور الجلسة",
+      "decision": "القرار",
+      "decisionReasoning": "مبررات القرار",
+      "decidedAt": "تاريخ القرار",
+      "reviewer": "المراجع",
+      "decidedBy": "قرار بواسطة",
+      "linkedIncident": "الحادثة المرتبطة",
+      "linkedSanction": "العقوبة المرتبطة",
+      "linkedExclusions": "حالات الاستبعاد المرتبطة",
+      "resultingAmendments": "التعديلات الناتجة",
+      "history": "السجل"
+    },
+    "recognition": {
+      "title": "جدار التقدير",
+      "tabs": {
+        "wall": "الجدار",
+        "leaderboard": "المتصدرون",
+        "houses": "الفرق",
+        "pending": "قيد الموافقة"
+      },
+      "wall": {
+        "currentYear": "العام الحالي",
+        "academicYear": "العام الأكاديمي",
+        "noRecognition": "لا توجد عناصر تقدير بعد.",
+        "unknownStudent": "طالب غير معروف"
+      },
+      "leaderboard": {
+        "period": "الفترة",
+        "thisYear": "هذا العام",
+        "thisPeriod": "هذه الفترة",
+        "allTime": "الكل",
+        "noData": "لا توجد بيانات متصدرين لهذه الفترة.",
+        "rank": "الترتيب",
+        "student": "الطالب",
+        "yearGroup": "المجموعة السنوية",
+        "points": "النقاط"
+      },
+      "houses": {
+        "noHouses": "لم يتم تكوين فرق بعد. قم بتفعيل الفرق في إعدادات السلوك لعرض الترتيب هنا.",
+        "place": "المركز {rank}"
+      },
+      "pendingApprovals": {
+        "noPending": "لا توجد عناصر بانتظار الموافقة.",
+        "unknownStudent": "طالب غير معروف",
+        "reject": "رفض",
+        "approve": "موافقة",
+        "by": "بواسطة {name}"
+      }
+    },
+    "amendments": {
+      "title": "إشعارات التعديل",
+      "description": "قائمة التصحيحات للتغييرات المرئية لأولياء الأمور",
+      "backToBehaviour": "السلوك",
+      "noCorrectionsPending": "لا توجد تصحيحات معلقة",
+      "allSent": "تم إرسال جميع إشعارات التعديل",
+      "noAmendments": "لم يتم العثور على إشعارات تعديل",
+      "sent": "تم الإرسال",
+      "reAckRequired": "إعادة الاطلاع مطلوبة",
+      "parentReAck": "ستكون إعادة اطلاع ولي الأمر مطلوبة",
+      "tabs": {
+        "pending": "معلق",
+        "all": "الكل"
+      },
+      "columns": {
+        "entity": "الكيان",
+        "type": "النوع",
+        "changeSummary": "ملخص التغيير",
+        "changedBy": "تم التغيير بواسطة",
+        "date": "التاريخ",
+        "reAck": "إعادة الاطلاع"
+      },
+      "dialog": {
+        "title": "إرسال إشعار التصحيح",
+        "description": "سيتم إرسال إشعار تصحيح لولي الأمر بخصوص التغيير التالي:",
+        "cancel": "إلغاء",
+        "confirmSend": "تأكيد الإرسال",
+        "sending": "جارٍ الإرسال...",
+        "errorGeneric": "فشل في إرسال التصحيح"
+      }
+    },
+    "documents": {
+      "title": "المستندات",
+      "description": "الإشعارات والرسائل والحزم المُنشأة",
+      "generateDocument": "إنشاء مستند",
+      "noDocuments": "لم يتم العثور على مستندات",
+      "searchStudent": "البحث عن طالب...",
+      "view": "عرض",
+      "download": "تحميل",
+      "needsReview": "يحتاج مراجعة",
+      "columns": {
+        "student": "الطالب",
+        "documentType": "نوع المستند",
+        "generated": "تاريخ الإنشاء",
+        "status": "الحالة",
+        "generatedBy": "أنشئ بواسطة"
+      },
+      "filters": {
+        "documentType": "نوع المستند",
+        "allTypes": "جميع الأنواع",
+        "status": "الحالة",
+        "allStatuses": "جميع الحالات",
+        "draft": "مسودة",
+        "finalised": "نهائي",
+        "sent": "تم الإرسال",
+        "superseded": "ملغى بآخر"
+      },
+      "documentTypes": {
+        "incident_notice": "إشعار حادثة",
+        "sanction_letter": "خطاب عقوبة",
+        "parent_notification": "إشعار ولي أمر",
+        "suspension_letter": "خطاب إيقاف",
+        "exclusion_letter": "خطاب استبعاد",
+        "reinstatement_letter": "خطاب إعادة",
+        "behaviour_report": "تقرير سلوك",
+        "contact_pack": "حزمة تواصل"
+      },
+      "documentStatuses": {
+        "draft": "مسودة",
+        "finalised": "نهائي",
+        "sent": "تم الإرسال",
+        "superseded": "ملغى بآخر"
+      },
+      "generateDialog": {
+        "title": "إنشاء مستند",
+        "entityType": "نوع الكيان",
+        "entityId": "معرف الكيان",
+        "entityIdPlaceholder": "الصق معرف الحادثة أو العقوبة",
+        "documentType": "نوع المستند",
+        "cancel": "إلغاء",
+        "generate": "إنشاء",
+        "generating": "جارٍ الإنشاء...",
+        "entityIdRequired": "معرف الكيان مطلوب",
+        "errorGeneric": "فشل في إنشاء المستند"
+      },
+      "entityTypes": {
+        "incident": "حادثة",
+        "sanction": "عقوبة",
+        "student": "طالب"
+      }
+    },
+    "parentPortal": {
+      "title": "بوابة السلوك",
+      "description": "ابقَ على اطلاع بسلوك طفلك",
+      "noChildren": "لا يوجد أطفال مرتبطون بحسابك.",
+      "contactSchool": "تواصل مع مكتب المدرسة لربط حسابك.",
+      "positive": "إيجابي",
+      "negative": "سلبي",
+      "netPoints": "صافي النقاط",
+      "pendingAcknowledgement": "{count} اطلاع معلق",
+      "pendingAcknowledgements": "{count} اطلاعات معلقة",
+      "awaitingAcknowledgement": "بانتظار اطلاعك",
+      "acknowledge": "اطلاع",
+      "acknowledging": "جارٍ الاطلاع...",
+      "acknowledged": "تم الاطلاع",
+      "recentIncidents": "الحوادث الأخيرة",
+      "noIncidents": "لم يتم تسجيل حوادث",
+      "sanctionsTitle": "العقوبات",
+      "noSanctions": "لا توجد عقوبات مسجلة",
+      "upcoming": "القادمة",
+      "recent": "الأخيرة"
+    },
+    "parentRecognition": {
+      "title": "جدار التقدير",
+      "description": "الاحتفال بإنجازات الطلاب والسلوك الإيجابي",
+      "noAwards": "لم يتم نشر جوائز بعد",
+      "checkBack": "عد قريباً لمشاهدة الإنجازات المُقدّرة."
+    },
+    "guardianRestrictions": {
+      "title": "قيود أولياء الأمور",
+      "description": "إدارة قيود التواصل مع أولياء الأمور",
+      "addRestriction": "إضافة قيد",
+      "noRestrictions": "لم يتم العثور على قيود أولياء أمور",
+      "columns": {
+        "guardian": "ولي الأمر",
+        "student": "الطالب",
+        "restrictionType": "نوع القيد",
+        "reason": "السبب",
+        "effectiveFrom": "ساري من",
+        "effectiveTo": "ساري حتى",
+        "status": "الحالة"
+      }
+    },
+    "components": {
+      "quickLogFab": "تسجيل سريع",
+      "quickLogSheet": {
+        "title": "تسجيل سريع",
+        "category": "الفئة",
+        "student": "الطالب *",
+        "searchStudents": "البحث عن طلاب...",
+        "description": "الوصف",
+        "descriptionPlaceholder": "وصف مختصر...",
+        "submit": "إرسال",
+        "submitting": "جارٍ الإرسال...",
+        "errorCategory": "يرجى اختيار فئة",
+        "errorStudent": "يرجى اختيار طالب",
+        "errorDescription": "يرجى إدخال وصف"
+      },
+      "incidentStatusBadge": {
+        "active": "نشط",
+        "investigating": "قيد التحقيق",
+        "under_review": "قيد المراجعة",
+        "escalated": "مصعّد",
+        "resolved": "تم الحل",
+        "withdrawn": "مسحوب",
+        "pending_approval": "قيد الموافقة",
+        "draft": "مسودة"
+      }
+    }
+  },
+  "safeguarding": {
+    "dashboard": {
+      "title": "الحماية",
+      "description": "لوحة مخاوف حماية الطفل",
+      "reportConcern": "الإبلاغ عن مخاوف",
+      "overdue": "متأخر",
+      "dueSoon": "قريب الاستحقاق",
+      "onTrack": "في المسار",
+      "openBySeverity": "مفتوح حسب الشدة",
+      "critical": "حرج",
+      "high": "عالي",
+      "medium": "متوسط",
+      "low": "منخفض",
+      "statusDistribution": "توزيع الحالات",
+      "recentActivity": "النشاط الأخير",
+      "viewAll": "عرض الكل",
+      "noRecentActivity": "لا يوجد نشاط حماية حديث.",
+      "allConcerns": "جميع المخاوف",
+      "myReports": "تقاريري",
+      "reportAConcern": "الإبلاغ عن مخاوف"
+    },
+    "concerns": {
+      "title": "مخاوف الحماية",
+      "reportConcern": "الإبلاغ عن مخاوف",
+      "noConcerns": "لم يتم العثور على مخاوف.",
+      "noResults": "لا توجد نتائج",
+      "columns": {
+        "concernNumber": "رقم المخاوف",
+        "student": "الطالب",
+        "type": "النوع",
+        "severity": "الشدة",
+        "status": "الحالة",
+        "sla": "SLA",
+        "assigned": "مسؤول",
+        "date": "التاريخ"
+      },
+      "filters": {
+        "status": "الحالة:",
+        "severity": "الشدة:",
+        "sla": "SLA:",
+        "allSla": "الكل"
+      },
+      "statuses": {
+        "reported": "مُبلَّغ",
+        "acknowledged": "تم الاطلاع",
+        "under_investigation": "قيد التحقيق",
+        "referred": "محال",
+        "monitoring": "مراقبة",
+        "resolved": "تم الحل",
+        "sealed": "مختوم"
+      },
+      "severities": {
+        "critical": "حرج",
+        "high": "عالي",
+        "medium": "متوسط",
+        "low": "منخفض"
+      },
+      "slaStatuses": {
+        "overdue": "متأخر",
+        "due_soon": "قريب الاستحقاق",
+        "on_track": "في المسار"
+      }
+    },
+    "concernDetail": {
+      "title": "المخاوف {number}",
+      "notFound": "المخاوف غير موجودة",
+      "tabs": {
+        "detail": "التفاصيل",
+        "actions": "الإجراءات",
+        "attachments": "المرفقات"
+      },
+      "student": "الطالب",
+      "reporter": "المُبلِّغ",
+      "severity": "الشدة",
+      "status": "الحالة",
+      "sla": "حالة SLA",
+      "assignedTo": "مسؤول عن",
+      "concernType": "نوع المخاوف",
+      "description": "الوصف",
+      "immediateActions": "الإجراءات الفورية",
+      "linkedIncident": "الحادثة المرتبطة",
+      "sealed": "هذه القضية مختومة",
+      "sealedBy": "مختومة بواسطة {name}",
+      "sealedAt": "مختومة في {date}",
+      "tuslaReferred": "محال إلى Tusla",
+      "gardaReferred": "محال إلى Garda",
+      "addAction": "إضافة إجراء",
+      "transitionStatus": "الانتقال إلى",
+      "actionNote": "ملاحظة الإجراء",
+      "submittingAction": "جارٍ الإرسال..."
+    },
+    "newConcern": {
+      "title": "الإبلاغ عن مخاوف حماية",
+      "description": "جميع البلاغات سرية ويتعامل معها مسؤول الاتصال المعين.",
+      "detailsHeading": "تفاصيل المخاوف",
+      "studentLabel": "الطالب",
+      "studentPlaceholder": "البحث عن طالب بالاسم...",
+      "studentSelected": "تم اختيار الطالب",
+      "concernTypeLabel": "نوع المخاوف",
+      "selectType": "اختر النوع...",
+      "severityLabel": "الشدة",
+      "criticalWarningTitle": "شدة حرجة",
+      "criticalWarningDescription": "المخاوف الحرجة تفعّل جداول SLA الفورية. سيتم إخطار مسؤول الاتصال المعين فوراً عند الإرسال.",
+      "descriptionLabel": "الوصف",
+      "descriptionPlaceholder": "صف المخاوف بالتفصيل (10 أحرف كحد أدنى)...",
+      "charCount": "{count} / 10 حرف كحد أدنى",
+      "immediateActionsLabel": "الإجراءات الفورية المتخذة (اختياري)",
+      "immediateActionsPlaceholder": "صف أي خطوات فورية اتخذتها...",
+      "linkedIncidentLabel": "معرف حادثة السلوك المرتبطة (اختياري)",
+      "linkedIncidentPlaceholder": "مثال: BH-202603-0012",
+      "cancel": "إلغاء",
+      "submitConcern": "إرسال المخاوف",
+      "submitting": "جارٍ الإرسال...",
+      "errors": {
+        "studentRequired": "يرجى اختيار طالب.",
+        "typeRequired": "يرجى اختيار نوع المخاوف.",
+        "severityRequired": "يرجى اختيار مستوى الشدة.",
+        "descriptionLength": "يجب أن يكون الوصف 10 أحرف على الأقل.",
+        "generic": "فشل في إرسال المخاوف. يرجى المحاولة مرة أخرى."
+      },
+      "concernTypes": {
+        "physical_abuse": "إساءة جسدية",
+        "emotional_abuse": "إساءة عاطفية",
+        "sexual_abuse": "إساءة جنسية",
+        "neglect": "إهمال",
+        "domestic_violence": "عنف أسري",
+        "online_safety": "سلامة إلكترونية",
+        "self_harm": "إيذاء النفس",
+        "bullying": "تنمر",
+        "other": "أخرى"
+      }
+    },
+    "myReports": {
+      "title": "تقاريري في الحماية",
+      "description": "البلاغات التي قدمتها. تفاصيل القضايا مرئية فقط لمسؤول الاتصال المعين.",
+      "reportConcern": "الإبلاغ عن مخاوف",
+      "noReports": "لم تقدم أي بلاغات حماية.",
+      "reportAConcern": "الإبلاغ عن مخاوف",
+      "columns": {
+        "concernNumber": "رقم المخاوف",
+        "type": "النوع",
+        "reported": "تاريخ البلاغ",
+        "status": "الحالة"
+      },
+      "ackStatuses": {
+        "received": "تم الاستلام",
+        "assigned": "تم التعيين",
+        "under_review": "قيد المراجعة",
+        "pending": "معلق"
+      }
+    },
+    "settings": {
+      "title": "إعدادات الحماية",
+      "description": "تكوين معلمات وحدة الحماية",
+      "saveChanges": "حفظ التغييرات",
+      "saving": "جارٍ الحفظ...",
+      "saved": "تم الحفظ",
+      "moduleStatus": "حالة الوحدة",
+      "moduleEnabled": "وحدة الحماية مفعلة",
+      "moduleDisabled": "وحدة الحماية معطلة",
+      "dlpSection": "مسؤول الاتصال المعين (DLP)",
+      "dlpLabel": "DLP",
+      "dlpPlaceholder": "أدخل معرف مستخدم DLP...",
+      "dlpDescription": "مسؤول حماية الطفل الرئيسي",
+      "deputyDlpLabel": "نائب DLP",
+      "deputyDlpPlaceholder": "أدخل معرف مستخدم نائب DLP...",
+      "boardContactLabel": "جهة اتصال المجلس",
+      "boardContactPlaceholder": "أدخل معرف مستخدم جهة اتصال المجلس...",
+      "slaSection": "عتبات SLA (ساعات)",
+      "slaCritical": "حرج",
+      "slaHigh": "عالي",
+      "slaMedium": "متوسط",
+      "slaLow": "منخفض",
+      "retentionSection": "الاحتفاظ بالبيانات",
+      "retentionLabel": "فترة الاحتفاظ (سنوات)",
+      "retentionDescription": "يتطلب قانون أطفال أيرلندا أولاً الاحتفاظ حتى يبلغ الطفل 75 عاماً."
+    }
+  },
+  "behaviourSettings": {
+    "general": {
+      "title": "إعدادات السلوك",
+      "description": "تكوين معلمات وحدة السلوك",
+      "saveChanges": "حفظ التغييرات",
+      "saving": "جارٍ الحفظ...",
+      "saved": "تم الحفظ",
+      "sections": {
+        "quickLog": "التسجيل السريع",
+        "points": "النقاط",
+        "houseTeams": "فرق الدار",
+        "awards": "الجوائز",
+        "sanctions": "العقوبات",
+        "parentVisibility": "ظهور ولي الأمر",
+        "recognitionWall": "جدار التقدير",
+        "safeguarding": "الحماية"
+      }
+    },
+    "categories": {
+      "title": "فئات السلوك",
+      "description": "إدارة فئات الحوادث والشدة وقيم النقاط",
+      "addCategory": "إضافة فئة",
+      "editCategory": "تعديل الفئة",
+      "deleteCategory": "حذف الفئة",
+      "columns": {
+        "name": "الاسم",
+        "polarity": "القطبية",
+        "severity": "الشدة",
+        "points": "النقاط",
+        "color": "اللون",
+        "active": "نشط",
+        "order": "الترتيب"
+      },
+      "form": {
+        "name": "الاسم",
+        "nameAr": "الاسم (عربي)",
+        "polarity": "القطبية",
+        "severity": "الشدة",
+        "pointValue": "قيمة النقاط",
+        "color": "اللون",
+        "icon": "الأيقونة",
+        "benchmark": "فئة المعيار",
+        "requiresFollowUp": "يتطلب متابعة",
+        "requiresParentNotification": "يتطلب إشعار ولي الأمر",
+        "parentVisible": "مرئي لولي الأمر",
+        "isActive": "نشط"
+      }
+    },
+    "policies": {
+      "title": "سياسات السلوك",
+      "description": "تكوين سياسات السلوك التلقائية وقواعد التصعيد",
+      "addPolicy": "إضافة سياسة",
+      "editPolicy": "تعديل السياسة",
+      "deletePolicy": "حذف السياسة",
+      "testPolicy": "اختبار السياسة",
+      "viewHistory": "عرض السجل"
+    },
+    "houses": {
+      "title": "فرق الدار",
+      "description": "إدارة فرق الدار وتعيينات الأعضاء",
+      "addHouse": "إضافة فريق",
+      "editHouse": "تعديل الفريق",
+      "deleteHouse": "حذف الفريق",
+      "manageMembers": "إدارة الأعضاء",
+      "form": {
+        "name": "الاسم",
+        "nameAr": "الاسم (عربي)",
+        "color": "اللون",
+        "icon": "الأيقونة",
+        "isActive": "نشط"
+      }
+    },
+    "awards": {
+      "title": "أنواع الجوائز",
+      "description": "تكوين جوائز التقدير والمستويات والعتبات",
+      "addAward": "إضافة جائزة",
+      "editAward": "تعديل الجائزة",
+      "deleteAward": "حذف الجائزة",
+      "form": {
+        "name": "الاسم",
+        "nameAr": "الاسم (عربي)",
+        "pointsThreshold": "عتبة النقاط",
+        "repeatMode": "وضع التكرار",
+        "repeatMax": "الحد الأقصى في السنة",
+        "tierGroup": "مجموعة المستوى",
+        "tierLevel": "مستوى المستوى",
+        "supersedesLower": "يلغي المستويات الأدنى",
+        "icon": "الأيقونة",
+        "color": "اللون",
+        "isActive": "نشط"
+      }
+    },
+    "admin": {
+      "title": "إدارة السلوك",
+      "description": "صحة النظام والتشخيصات وأدوات الصيانة",
+      "systemHealth": "صحة النظام",
+      "deadLetterQueue": "قائمة الرسائل الميتة",
+      "auditLog": "سجل التدقيق",
+      "cacheManagement": "إدارة الذاكرة المؤقتة",
+      "queueDepths": "أعماق القوائم",
+      "deadLetterDepth": "عمق الرسائل الميتة",
+      "cacheHitRate": "معدل إصابة الذاكرة المؤقتة",
+      "viewFreshness": "حداثة العرض",
+      "scanBacklog": "تراكم الفحص",
+      "legalHoldsActive": "حجوزات قانونية نشطة",
+      "refresh": "تحديث",
+      "replay": "إعادة تشغيل",
+      "delete": "حذف"
+    },
+    "documents": {
+      "title": "قوالب المستندات",
+      "description": "إدارة قوالب المستندات للإشعارات والرسائل والحزم",
+      "addTemplate": "إضافة قالب",
+      "editTemplate": "تعديل القالب",
+      "form": {
+        "name": "الاسم",
+        "documentType": "نوع المستند",
+        "locale": "اللغة",
+        "body": "نص القالب",
+        "isActive": "نشط"
+      },
+      "systemTemplate": "نظام",
+      "customTemplate": "مخصص"
+    }
   }
 }

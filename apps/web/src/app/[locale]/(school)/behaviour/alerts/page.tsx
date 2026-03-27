@@ -10,6 +10,7 @@ import {
   Info,
   Shield,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -31,27 +32,12 @@ interface AlertItem {
   data_snapshot: Record<string, unknown>;
 }
 
-const TABS = [
-  { value: 'all', label: 'All' },
-  { value: 'unseen', label: 'Unseen' },
-  { value: 'acknowledged', label: 'Acknowledged' },
-  { value: 'snoozed', label: 'Snoozed' },
-  { value: 'resolved', label: 'Resolved' },
-] as const;
-
-const ALERT_TYPE_LABELS: Record<string, string> = {
-  escalating_student: 'Escalating Student',
-  disengaging_student: 'Disengaging Student',
-  hotspot: 'Hotspot',
-  logging_gap: 'Logging Gap',
-  overdue_review: 'Overdue Review',
-  suspension_return: 'Suspension Return',
-  policy_threshold_breach: 'Policy Breach',
-};
+const TAB_KEYS = ['all', 'unseen', 'acknowledged', 'snoozed', 'resolved'] as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BehaviourAlertsPage() {
+  const t = useTranslations('behaviour.alerts');
   const [alerts, setAlerts] = React.useState<AlertItem[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -109,21 +95,21 @@ export default function BehaviourAlertsPage() {
 
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
-      <PageHeader title="Behaviour Alerts" description="Pattern alerts and notifications" />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1">
-        {TABS.map((tab) => (
+        {TAB_KEYS.map((tabKey) => (
           <button
-            key={tab.value}
-            onClick={() => { setActiveTab(tab.value); setPage(1); }}
+            key={tabKey}
+            onClick={() => { setActiveTab(tabKey); setPage(1); }}
             className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === tab.value
+              activeTab === tabKey
                 ? 'bg-background shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab.label}
+            {t(`tabs.${tabKey}` as Parameters<typeof t>[0])}
           </button>
         ))}
       </div>
@@ -136,7 +122,7 @@ export default function BehaviourAlertsPage() {
       ) : alerts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <CheckCircle className="mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-muted-foreground">No alerts to display</p>
+          <p className="text-muted-foreground">{t('noResults')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -177,7 +163,7 @@ export default function BehaviourAlertsPage() {
                       {alert.severity}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                      {ALERT_TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
+                      {t(`types.${alert.alert_type}` as Parameters<typeof t>[0])}
                     </span>
                     <Badge variant="secondary" className="text-xs">
                       {alert.my_status === 'resolved_recipient' ? 'resolved' : alert.my_status}
@@ -189,13 +175,13 @@ export default function BehaviourAlertsPage() {
                   {/* Entity tags */}
                   <div className="mt-2 flex flex-wrap gap-1">
                     {alert.student_name && (
-                      <Badge variant="secondary" className="text-xs">Student: {alert.student_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">{t('studentLabel')}: {alert.student_name}</Badge>
                     )}
                     {alert.subject_name && (
-                      <Badge variant="secondary" className="text-xs">Subject: {alert.subject_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">{t('subjectLabel')}: {alert.subject_name}</Badge>
                     )}
                     {alert.staff_name && (
-                      <Badge variant="secondary" className="text-xs">Staff: {alert.staff_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">{t('staffLabel')}: {alert.staff_name}</Badge>
                     )}
                   </div>
 
@@ -226,7 +212,7 @@ export default function BehaviourAlertsPage() {
                           onClick={() => handleAction(alert.id, 'acknowledge')}
                           disabled={actionLoading === alert.id}
                         >
-                          <Check className="me-1 h-3 w-3" /> Acknowledge
+                          <Check className="me-1 h-3 w-3" /> {t('acknowledge')}
                         </Button>
                       )}
                     {alert.my_status !== 'snoozed' &&
@@ -241,7 +227,7 @@ export default function BehaviourAlertsPage() {
                             }
                             disabled={actionLoading === alert.id}
                           >
-                            <Clock className="me-1 h-3 w-3" /> Snooze
+                            <Clock className="me-1 h-3 w-3" /> {t('snooze')}
                           </Button>
                           {snoozeAlertId === alert.id && (
                             <div className="absolute end-0 top-full z-10 mt-1 w-36 rounded-lg border bg-popover p-2 shadow-md">
@@ -249,19 +235,19 @@ export default function BehaviourAlertsPage() {
                                 onClick={() => handleSnooze(alert.id, 1)}
                                 className="w-full rounded px-2 py-1 text-start text-sm hover:bg-muted"
                               >
-                                Tomorrow
+                                {t('snoozeTomorrow')}
                               </button>
                               <button
                                 onClick={() => handleSnooze(alert.id, 5)}
                                 className="w-full rounded px-2 py-1 text-start text-sm hover:bg-muted"
                               >
-                                End of week
+                                {t('snoozeEndOfWeek')}
                               </button>
                               <button
                                 onClick={() => handleSnooze(alert.id, 7)}
                                 className="w-full rounded px-2 py-1 text-start text-sm hover:bg-muted"
                               >
-                                Next week
+                                {t('snoozeNextWeek')}
                               </button>
                             </div>
                           )}
@@ -275,7 +261,7 @@ export default function BehaviourAlertsPage() {
                           onClick={() => handleAction(alert.id, 'resolve')}
                           disabled={actionLoading === alert.id}
                         >
-                          <CheckCircle className="me-1 h-3 w-3" /> Resolve
+                          <CheckCircle className="me-1 h-3 w-3" /> {t('resolve')}
                         </Button>
                       )}
                   </div>
@@ -324,10 +310,10 @@ export default function BehaviourAlertsPage() {
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
               >
-                Previous
+                {t('previous')}
               </Button>
               <span className="text-sm text-muted-foreground">
-                Page {page} of {Math.ceil(total / 20)}
+                {t('pageOf', { page, total: Math.ceil(total / 20) })}
               </span>
               <Button
                 variant="secondary"
@@ -335,7 +321,7 @@ export default function BehaviourAlertsPage() {
                 disabled={page >= Math.ceil(total / 20)}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next
+                {t('next')}
               </Button>
             </div>
           )}

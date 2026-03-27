@@ -12,6 +12,7 @@ import {
 } from '@school/ui';
 import { AlertTriangle, CalendarDays, CheckCircle, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -188,6 +189,7 @@ function groupByRoomAndTime(
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TodaySanctionsPage() {
+  const t = useTranslations('behaviour.sanctionsToday');
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
@@ -304,7 +306,7 @@ export default function TodaySanctionsPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Today's Sanctions" />
+        <PageHeader title={t('title')} />
         <div className="grid grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
@@ -330,7 +332,7 @@ export default function TodaySanctionsPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Today's Sanctions" />
+        <PageHeader title={t('title')} />
         <div className="rounded-xl border border-red-200 bg-red-50 py-12 text-center dark:border-red-800 dark:bg-red-900/20">
           <AlertTriangle className="mx-auto h-8 w-8 text-red-500" />
           <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p>
@@ -340,7 +342,7 @@ export default function TodaySanctionsPage() {
             className="mt-4"
             onClick={() => void fetchToday()}
           >
-            Retry
+            {t('retry')}
           </Button>
         </div>
       </div>
@@ -357,17 +359,17 @@ export default function TodaySanctionsPage() {
           description={formatTodayDate()}
           actions={
             <Link href={`/${locale}/behaviour/sanctions`}>
-              <Button variant="outline">All Sanctions</Button>
+              <Button variant="outline">{t('allSanctions')}</Button>
             </Link>
           }
         />
         <div className="rounded-xl border border-border bg-surface py-16 text-center dark:bg-surface">
           <CalendarDays className="mx-auto h-10 w-10 text-text-tertiary" />
           <p className="mt-3 text-sm font-medium text-text-primary">
-            No sanctions scheduled for today
+            {t('empty')}
           </p>
           <p className="mt-1 text-xs text-text-tertiary">
-            When sanctions are scheduled for today, they will appear here for supervision.
+            {t('emptyDescription')}
           </p>
         </div>
       </div>
@@ -388,7 +390,7 @@ export default function TodaySanctionsPage() {
         description={formatTodayDate()}
         actions={
           <Link href={`/${locale}/behaviour/sanctions`}>
-            <Button variant="outline">All Sanctions</Button>
+            <Button variant="outline">{t('allSanctions')}</Button>
           </Link>
         }
       />
@@ -399,7 +401,7 @@ export default function TodaySanctionsPage() {
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-text-tertiary" />
             <span className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
-              Total
+              {t('stats.total')}
             </span>
           </div>
           <p className="mt-1 text-2xl font-semibold text-text-primary">
@@ -410,7 +412,7 @@ export default function TodaySanctionsPage() {
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-blue-500" />
             <span className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
-              Scheduled
+              {t('stats.scheduled')}
             </span>
           </div>
           <p className="mt-1 text-2xl font-semibold text-text-primary">
@@ -421,7 +423,7 @@ export default function TodaySanctionsPage() {
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-500" />
             <span className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
-              Served
+              {t('stats.served')}
             </span>
           </div>
           <p className="mt-1 text-2xl font-semibold text-text-primary">
@@ -432,7 +434,7 @@ export default function TodaySanctionsPage() {
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-red-500" />
             <span className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
-              No Show
+              {t('stats.noShow')}
             </span>
           </div>
           <p className="mt-1 text-2xl font-semibold text-text-primary">
@@ -457,8 +459,8 @@ export default function TodaySanctionsPage() {
             />
             <span className="text-sm text-text-secondary">
               {selected.size > 0
-                ? `${selected.size} selected`
-                : 'Select all scheduled'}
+                ? t('selectedCount', { count: selected.size })
+                : t('selectAllScheduled')}
             </span>
           </div>
           {selected.size > 0 && (
@@ -469,8 +471,8 @@ export default function TodaySanctionsPage() {
             >
               <CheckCircle className="me-1 h-3.5 w-3.5" />
               {bulkMarking
-                ? 'Marking...'
-                : `Mark ${selected.size} as Served`}
+                ? t('marking')
+                : t('markAsServed', { count: selected.size })}
             </Button>
           )}
         </div>
@@ -490,7 +492,7 @@ export default function TodaySanctionsPage() {
                   (acc, ts) => acc + ts.sanctions.length,
                   0,
                 )}{' '}
-                sanctions
+                {t('sanctionsCount')}
               </Badge>
             </div>
 

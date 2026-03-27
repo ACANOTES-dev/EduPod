@@ -124,7 +124,24 @@ These modules have NO downstream dependents. Changes are contained:
 
 ### BehaviourModule
 - **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`
-- **Controllers**: `BehaviourController`, `BehaviourAnalyticsController` (16 endpoints), `BehaviourAlertsController` (8 endpoints), `BehaviourDocumentsController` (6 endpoints), `BehaviourParentController` (6 endpoints)
+- **Controllers**: 17 controllers, ~211 endpoints total:
+  - `BehaviourController` (21) — core incident CRUD, quick-log
+  - `BehaviourConfigController` (21) — categories, templates, settings
+  - `BehaviourAdminController` (21) — admin ops, legal holds, data export
+  - `SafeguardingController` (21) — safeguarding concerns, actions, break-glass
+  - `BehaviourAnalyticsController` (16) — analytics, pulse, AI queries
+  - `BehaviourSanctionsController` (14) — sanction lifecycle
+  - `BehaviourStudentsController` (13) — student profiles, histories
+  - `BehaviourRecognitionController` (12) — awards, award types, recognition wall
+  - `BehaviourInterventionsController` (12) — intervention lifecycle
+  - `BehaviourAppealsController` (10) — appeal submission, decisions, documents
+  - `BehaviourExclusionsController` (10) — exclusion case lifecycle
+  - `BehaviourAlertsController` (8) — alert management
+  - `BehaviourTasksController` (8) — task management
+  - `BehaviourParentController` (8) — parent portal (summary, incidents, sanctions, points, recognition, acknowledge, appeal)
+  - `BehaviourGuardianRestrictionsController` (6) — restriction management
+  - `BehaviourDocumentsController` (6) — document generation, templates
+  - `BehaviourAmendmentsController` (4) — amendment trail, corrections
 - **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents)
 - **Internal dependencies**:
   - `BehaviourPulseService` -> PrismaService, RedisService

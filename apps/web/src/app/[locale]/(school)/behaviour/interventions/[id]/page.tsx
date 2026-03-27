@@ -31,6 +31,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -219,6 +220,7 @@ function daysUntil(dateStr: string | null): number | null {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InterventionDetailPage() {
+  const t = useTranslations('behaviour.interventionDetail');
   const params = useParams();
   const pathname = usePathname();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -447,9 +449,9 @@ export default function InterventionDetailPage() {
   if (!intervention) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Intervention Not Found" />
+        <PageHeader title={t('notFound')} />
         <p className="text-sm text-text-tertiary">
-          The requested intervention could not be loaded.
+          {t('notFoundDescription')}
         </p>
       </div>
     );
@@ -468,7 +470,7 @@ export default function InterventionDetailPage() {
         {intervention.trigger_description && (
           <div className="rounded-xl border border-border bg-surface p-5">
             <h3 className="mb-2 text-sm font-semibold text-text-primary">
-              Trigger / Reason
+              {t('sections.triggerReason')}
             </h3>
             <p className="whitespace-pre-wrap text-sm text-text-secondary">
               {intervention.trigger_description}
@@ -482,7 +484,7 @@ export default function InterventionDetailPage() {
             <div className="mb-2 flex items-center gap-2">
               <Shield className="h-4 w-4 text-amber-600" />
               <h3 className="text-sm font-semibold text-amber-800">
-                SEND Notes (Sensitive)
+                {t('sections.sendNotes')}
               </h3>
             </div>
             <p className="whitespace-pre-wrap text-sm text-amber-900">
@@ -493,9 +495,9 @@ export default function InterventionDetailPage() {
 
         {/* Goals */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-3 text-sm font-semibold text-text-primary">Goals</h3>
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.goals')}</h3>
           {intervention.goals.length === 0 ? (
-            <p className="text-sm text-text-tertiary">No goals defined</p>
+            <p className="text-sm text-text-tertiary">{t('noGoals')}</p>
           ) : (
             <div className="space-y-3">
               {intervention.goals.map((goal) => (
@@ -558,9 +560,9 @@ export default function InterventionDetailPage() {
 
         {/* Strategies */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h3 className="mb-3 text-sm font-semibold text-text-primary">Strategies</h3>
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.strategies')}</h3>
           {intervention.strategies.length === 0 ? (
-            <p className="text-sm text-text-tertiary">No strategies defined</p>
+            <p className="text-sm text-text-tertiary">{t('noStrategies')}</p>
           ) : (
             <div className="space-y-3">
               {intervention.strategies.map((strategy) => (
@@ -1045,12 +1047,12 @@ export default function InterventionDetailPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={() => setTransitionOpen(true)}>
-              Change Status
+              {t('changeStatus')}
             </Button>
             <Link href={`/${locale}/behaviour/interventions`}>
               <Button variant="ghost">
                 <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-                Back
+                {t('back')}
               </Button>
             </Link>
           </div>
@@ -1080,7 +1082,7 @@ export default function InterventionDetailPage() {
         {intervention.next_review_date && reviewDaysLeft != null && reviewDaysLeft < 0 && (
           <Badge variant="danger" className="flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" />
-            Review Overdue
+            {t('reviewOverdue')}
           </Badge>
         )}
       </div>

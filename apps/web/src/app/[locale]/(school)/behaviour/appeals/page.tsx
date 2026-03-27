@@ -14,6 +14,7 @@ import {
   toast,
 } from '@school/ui';
 import { Search, UserPlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -89,20 +90,14 @@ function StatusBadgeInline({ value, colorMap }: { value: string; colorMap: Recor
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'submitted', label: 'Submitted' },
-  { key: 'under_review', label: 'Under Review' },
-  { key: 'hearing_scheduled', label: 'Hearing Scheduled' },
-  { key: 'decided', label: 'Decided' },
-  { key: 'withdrawn', label: 'Withdrawn' },
-] as const;
+const TAB_KEYS = ['all', 'submitted', 'under_review', 'hearing_scheduled', 'decided', 'withdrawn'] as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AppealsListPage() {
+  const t = useTranslations('behaviour.appeals');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -199,11 +194,11 @@ export default function AppealsListPage() {
         method: 'PATCH',
         body: JSON.stringify({ reviewer_id: selectedReviewerId }),
       });
-      toast.success('Reviewer assigned');
+      toast.success(t('reviewerAssigned'));
       setAssignOpen(false);
       void fetchAppeals();
     } catch {
-      toast.error('Failed to assign reviewer');
+      toast.error(t('failedToAssign'));
     } finally {
       setAssignLoading(false);
     }
@@ -222,21 +217,21 @@ export default function AppealsListPage() {
   const columns = [
     {
       key: 'appeal_number',
-      header: 'Appeal #',
+      header: t('columns.appealNumber'),
       render: (row: AppealRow) => (
         <span className="font-mono text-xs text-text-secondary">{row.appeal_number}</span>
       ),
     },
     {
       key: 'student',
-      header: 'Student',
+      header: t('columns.student'),
       render: (row: AppealRow) => (
         <span className="text-sm font-medium text-text-primary">{getStudentName(row)}</span>
       ),
     },
     {
       key: 'entity_type',
-      header: 'Entity',
+      header: t('columns.entity'),
       render: (row: AppealRow) => (
         <Badge variant="secondary" className="text-xs capitalize">
           {row.entity_type}
@@ -245,42 +240,42 @@ export default function AppealsListPage() {
     },
     {
       key: 'grounds_category',
-      header: 'Grounds',
+      header: t('columns.grounds'),
       render: (row: AppealRow) => (
         <StatusBadgeInline value={row.grounds_category} colorMap={GROUNDS_COLORS} />
       ),
     },
     {
       key: 'submitted_at',
-      header: 'Submitted',
+      header: t('columns.submitted'),
       render: (row: AppealRow) => (
         <span className="text-sm text-text-secondary">{formatDate(row.submitted_at)}</span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('columns.status'),
       render: (row: AppealRow) => (
         <StatusBadgeInline value={row.status} colorMap={STATUS_COLORS} />
       ),
     },
     {
       key: 'reviewer',
-      header: 'Reviewer',
+      header: t('columns.reviewer'),
       render: (row: AppealRow) => (
         <span className="text-sm text-text-secondary">{getReviewerName(row)}</span>
       ),
     },
     {
       key: 'hearing_date',
-      header: 'Hearing',
+      header: t('columns.hearing'),
       render: (row: AppealRow) => (
         <span className="text-sm text-text-secondary">{formatDate(row.hearing_date)}</span>
       ),
     },
     {
       key: 'decision',
-      header: 'Decision',
+      header: t('columns.decision'),
       render: (row: AppealRow) =>
         row.decision ? (
           <StatusBadgeInline value={row.decision} colorMap={DECISION_COLORS} />
@@ -302,7 +297,7 @@ export default function AppealsListPage() {
             }}
           >
             <UserPlus className="me-1 h-3.5 w-3.5" />
-            Assign
+            {t('assign')}
           </Button>
         ) : null,
     },
@@ -332,9 +327,9 @@ export default function AppealsListPage() {
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-text-secondary">
-          <span>Submitted: {formatDate(row.submitted_at)}</span>
-          {row.hearing_date && <span>Hearing: {formatDate(row.hearing_date)}</span>}
-          {row.reviewer && <span>Reviewer: {getReviewerName(row)}</span>}
+          <span>{t('columns.submitted')}: {formatDate(row.submitted_at)}</span>
+          {row.hearing_date && <span>{t('columns.hearing')}: {formatDate(row.hearing_date)}</span>}
+          {row.reviewer && <span>{t('columns.reviewer')}: {getReviewerName(row)}</span>}
         </div>
         {row.status === 'submitted' && (
           <div className="mt-3">
@@ -347,7 +342,7 @@ export default function AppealsListPage() {
               }}
             >
               <UserPlus className="me-1 h-3.5 w-3.5" />
-              Assign Reviewer
+              {t('assignReviewer')}
             </Button>
           </div>
         )}
@@ -362,7 +357,7 @@ export default function AppealsListPage() {
       <div className="relative w-full sm:w-64">
         <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
         <Input
-          placeholder="Search by student..."
+          placeholder={t('search')}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="ps-9"
@@ -373,13 +368,13 @@ export default function AppealsListPage() {
           <SelectValue placeholder="Grounds" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Grounds</SelectItem>
-          <SelectItem value="factual_inaccuracy">Factual Inaccuracy</SelectItem>
-          <SelectItem value="disproportionate_consequence">Disproportionate</SelectItem>
-          <SelectItem value="procedural_error">Procedural Error</SelectItem>
-          <SelectItem value="mitigating_circumstances">Mitigating Circumstances</SelectItem>
-          <SelectItem value="mistaken_identity">Mistaken Identity</SelectItem>
-          <SelectItem value="other">Other</SelectItem>
+          <SelectItem value="all">{t('filters.allGrounds')}</SelectItem>
+          <SelectItem value="factual_inaccuracy">{t('filters.factualInaccuracy')}</SelectItem>
+          <SelectItem value="disproportionate_consequence">{t('filters.disproportionate')}</SelectItem>
+          <SelectItem value="procedural_error">{t('filters.proceduralError')}</SelectItem>
+          <SelectItem value="mitigating_circumstances">{t('filters.mitigatingCircumstances')}</SelectItem>
+          <SelectItem value="mistaken_identity">{t('filters.mistakenIdentity')}</SelectItem>
+          <SelectItem value="other">{t('filters.other')}</SelectItem>
         </SelectContent>
       </Select>
       <input
@@ -403,23 +398,23 @@ export default function AppealsListPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Behaviour Appeals" description="Manage and review behaviour appeals" />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((tabKey) => (
             <button
-              key={tab.key}
+              key={tabKey}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => handleTabChange(tabKey)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
+                activeTab === tabKey
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              {t(`tabs.${tabKey}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
@@ -435,20 +430,20 @@ export default function AppealsListPage() {
                 <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-tertiary">No appeals found</p>
+              <p className="py-12 text-center text-sm text-text-tertiary">{t('noResults')}</p>
             ) : (
               data.map((row) => <AppealCard key={row.id} row={row} />)
             )}
           </div>
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+              <span>{t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                  Previous
+                  {t('previous')}
                 </Button>
                 <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
-                  Next
+                  {t('next')}
                 </Button>
               </div>
             </div>
@@ -473,17 +468,17 @@ export default function AppealsListPage() {
       <Modal
         open={assignOpen}
         onOpenChange={setAssignOpen}
-        title="Assign Reviewer"
-        description="Select a staff member to review this appeal."
-        confirmLabel="Assign"
+        title={t('assignReviewer')}
+        description={t('assignReviewerDescription')}
+        confirmLabel={t('assign')}
         onConfirm={handleAssignReviewer}
         isLoading={assignLoading}
       >
         <div className="space-y-3 py-2">
-          <Label>Reviewer</Label>
+          <Label>{t('columns.reviewer')}</Label>
           <Select value={selectedReviewerId} onValueChange={setSelectedReviewerId}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select staff member..." />
+              <SelectValue placeholder={t('selectStaff')} />
             </SelectTrigger>
             <SelectContent>
               {staffList.map((s) => (

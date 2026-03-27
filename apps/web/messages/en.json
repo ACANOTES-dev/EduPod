@@ -85,7 +85,11 @@
     "applications": "Applications",
     "registerFamily": "Register Family",
     "behaviour": "Behaviour",
-    "behaviourDashboard": "Behaviour"
+    "behaviourDashboard": "Behaviour",
+    "behaviourIncidents": "Incidents",
+    "behaviourStudents": "Student Profiles",
+    "guardianRestrictions": "Guardian Restrictions",
+    "safeguarding": "Safeguarding"
   },
   "auth": {
     "login": "Log in",
@@ -4034,5 +4038,1136 @@
     "inDiscounts": "in discounts",
     "paymentFailed": "Payment failed. Please try again.",
     "invalidPaymentAmount": "Please enter a valid payment amount."
+  },
+  "behaviour": {
+    "dashboard": {
+      "title": "Behaviour Pulse",
+      "description": "Overview of recent behaviour activity",
+      "logIncident": "Log Incident",
+      "totalIncidents": "Total Incidents",
+      "positiveNegative": "Positive / Negative",
+      "openTasks": "Open Tasks",
+      "overdue": "Overdue",
+      "needsAttention": "needs attention",
+      "allIncidents": "All Incidents",
+      "students": "Students",
+      "tasks": "Tasks",
+      "escalated": "Escalated",
+      "recentActivity": "Recent Activity",
+      "viewAll": "View all",
+      "noRecentIncidents": "No recent incidents",
+      "allPositive": "All positive"
+    },
+    "incidents": {
+      "title": "Behaviour Incidents",
+      "newIncident": "New Incident",
+      "noIncidentsFound": "No incidents found",
+      "tabs": {
+        "all": "All",
+        "positive": "Positive",
+        "negative": "Negative",
+        "pending": "Pending",
+        "escalated": "Escalated",
+        "my": "My"
+      },
+      "columns": {
+        "date": "Date",
+        "category": "Category",
+        "students": "Student(s)",
+        "status": "Status",
+        "reporter": "Reporter"
+      },
+      "filters": {
+        "dateFrom": "Date from",
+        "dateTo": "Date to",
+        "category": "Category",
+        "allCategories": "All Categories",
+        "status": "Status",
+        "allStatuses": "All Statuses",
+        "active": "Active",
+        "investigating": "Investigating",
+        "escalated": "Escalated",
+        "resolved": "Resolved",
+        "withdrawn": "Withdrawn"
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "incidentDetail": {
+      "title": "Incident {number}",
+      "notFoundTitle": "Incident Not Found",
+      "notFoundDescription": "The requested incident could not be loaded.",
+      "changeStatus": "Change Status",
+      "back": "Back",
+      "severity": "Severity: {value}/10",
+      "followUpRequired": "Follow-up Required",
+      "description": "Description",
+      "parentFacingDescription": "Parent-Facing Description",
+      "contextNotes": "Context Notes",
+      "participants": "Participants",
+      "noParticipants": "No participants recorded",
+      "history": "History",
+      "noHistory": "No history yet",
+      "details": "Details",
+      "occurred": "Occurred",
+      "logged": "Logged",
+      "location": "Location",
+      "reporter": "Reporter",
+      "context": "Context",
+      "sanctions": "Sanctions",
+      "comingPhaseC": "Coming in Phase C",
+      "attachments": "Attachments",
+      "comingPhaseD": "Coming in Phase D",
+      "policyEvaluation": "Policy Evaluation",
+      "comingPhaseF": "Coming in Phase F",
+      "dialog": {
+        "title": "Change Incident Status",
+        "currentLabel": "Current:",
+        "newStatus": "New Status",
+        "selectStatus": "Select status...",
+        "reason": "Reason (optional)",
+        "reasonPlaceholder": "Why is this changing?",
+        "cancel": "Cancel",
+        "update": "Update Status",
+        "updating": "Updating..."
+      },
+      "statuses": {
+        "active": "Active",
+        "investigating": "Investigating",
+        "under_review": "Under Review",
+        "escalated": "Escalated",
+        "resolved": "Resolved",
+        "withdrawn": "Withdrawn"
+      },
+      "roles": {
+        "subject": "subject",
+        "witness": "witness",
+        "bystander": "bystander",
+        "reporter": "reporter",
+        "victim": "victim",
+        "instigator": "instigator",
+        "mediator": "mediator"
+      }
+    },
+    "newIncident": {
+      "title": "Log Incident",
+      "back": "Back",
+      "categoryLabel": "Category *",
+      "studentsLabel": "Students *",
+      "searchStudents": "Search students to add...",
+      "descriptionLabel": "Description *",
+      "descriptionPlaceholder": "Describe what happened...",
+      "parentDescriptionLabel": "Parent-Facing Description (optional)",
+      "parentDescriptionPlaceholder": "A version suitable for parents to see...",
+      "contextLabel": "Context",
+      "whenLabel": "When",
+      "contextTypeLabel": "Context",
+      "locationLabel": "Location (optional)",
+      "locationPlaceholder": "e.g. Room 203, Main Hall",
+      "notesLabel": "Notes (optional)",
+      "notesPlaceholder": "Additional context...",
+      "autoSubmitLabel": "Auto-Submit",
+      "autoSubmitDescription": "Submit immediately as active (skip draft)",
+      "cancel": "Cancel",
+      "submitIncident": "Submit Incident",
+      "saveAsDraft": "Save as Draft",
+      "creating": "Creating...",
+      "errorCategory": "Please select a category",
+      "errorStudents": "Please select at least one student",
+      "errorDescription": "Please enter a description",
+      "errorGeneric": "Failed to create incident",
+      "contextTypes": {
+        "class": "Class",
+        "break": "Break",
+        "before_school": "Before School",
+        "after_school": "After School",
+        "lunch": "Lunch",
+        "transport": "Transport",
+        "extra_curricular": "Extra-Curricular",
+        "off_site": "Off-Site",
+        "online": "Online",
+        "other": "Other"
+      }
+    },
+    "students": {
+      "title": "Student Behaviour Overview",
+      "description": "Behaviour points and incident counts by student",
+      "searchPlaceholder": "Search students...",
+      "columns": {
+        "studentName": "Student Name",
+        "yearGroup": "Year Group",
+        "points": "Points",
+        "positive": "Positive",
+        "negative": "Negative",
+        "lastIncident": "Last Incident"
+      }
+    },
+    "studentProfile": {
+      "title": "Student Profile",
+      "notFoundTitle": "Student Not Found",
+      "notFoundDescription": "Could not load student behaviour profile.",
+      "back": "Back",
+      "tabs": {
+        "timeline": "Timeline",
+        "analytics": "Analytics",
+        "interventions": "Interventions",
+        "sanctions": "Sanctions",
+        "awards": "Awards",
+        "tasks": "Tasks"
+      },
+      "noIncidents": "No incidents recorded",
+      "noTasks": "No tasks for this student",
+      "comingPhaseC": "Coming in Phase C",
+      "comingPhaseB": "Coming in Phase B"
+    },
+    "sanctions": {
+      "title": "Sanctions",
+      "description": "Manage sanctions, detentions, and suspensions",
+      "todaysDetentions": "Today's Detentions",
+      "noSanctions": "No sanctions",
+      "noSanctionsMatch": "No sanctions match the current filters",
+      "calendarComingSoon": "Calendar view coming soon",
+      "calendarDescription": "Visualise sanctions on a calendar to manage scheduling and room allocation.",
+      "searchStudent": "Search student...",
+      "markServed": "Mark Served",
+      "saving": "Saving...",
+      "unknownStudent": "Unknown Student",
+      "tabs": {
+        "list": "List",
+        "calendar": "Calendar"
+      },
+      "columns": {
+        "number": "#",
+        "student": "Student",
+        "type": "Type",
+        "status": "Status",
+        "scheduled": "Scheduled",
+        "supervisedBy": "Supervised By",
+        "incident": "Incident"
+      },
+      "filters": {
+        "type": "Type",
+        "allTypes": "All Types",
+        "status": "Status",
+        "allStatuses": "All Statuses",
+        "dateFrom": "Date from",
+        "dateTo": "Date to"
+      },
+      "types": {
+        "detention": "Detention",
+        "suspension_internal": "Internal Suspension",
+        "suspension_external": "External Suspension",
+        "expulsion": "Expulsion",
+        "community_service": "Community Service",
+        "loss_of_privilege": "Loss of Privilege",
+        "restorative_meeting": "Restorative Meeting",
+        "other": "Other"
+      },
+      "statuses": {
+        "pending_approval": "Pending Approval",
+        "scheduled": "Scheduled",
+        "served": "Served",
+        "partially_served": "Partially Served",
+        "no_show": "No Show",
+        "excused": "Excused",
+        "cancelled": "Cancelled",
+        "rescheduled": "Rescheduled",
+        "not_served_absent": "Not Served (Absent)",
+        "appealed": "Appealed",
+        "replaced": "Replaced",
+        "superseded": "Superseded"
+      }
+    },
+    "sanctionsToday": {
+      "title": "Today's Sanctions",
+      "allSanctions": "All Sanctions",
+      "noSanctionsToday": "No sanctions scheduled for today",
+      "noSanctionsDescription": "When sanctions are scheduled for today, they will appear here for supervision.",
+      "retry": "Retry",
+      "failedToLoad": "Failed to load today's sanctions",
+      "total": "Total",
+      "scheduled": "Scheduled",
+      "served": "Served",
+      "noShow": "No Show",
+      "selectAllScheduled": "Select all scheduled",
+      "selected": "{count} selected",
+      "markAsServed": "Mark {count} as Served",
+      "marking": "Marking...",
+      "setStatus": "Set status",
+      "updating": "Updating...",
+      "unassignedRoom": "Unassigned Room",
+      "noTimeSet": "No time set",
+      "statusOptions": {
+        "served": "Served",
+        "no_show": "No Show",
+        "partially_served": "Partially Served",
+        "excused": "Excused"
+      }
+    },
+    "interventions": {
+      "title": "Interventions",
+      "newIntervention": "New Intervention",
+      "noInterventionsFound": "No interventions found",
+      "tabs": {
+        "active": "Active",
+        "overdue": "Overdue",
+        "monitoring": "Monitoring",
+        "completed": "Completed",
+        "all": "All"
+      },
+      "columns": {
+        "student": "Student",
+        "intervention": "Intervention",
+        "type": "Type",
+        "assignedTo": "Assigned To",
+        "startDate": "Start Date",
+        "nextReview": "Next Review",
+        "status": "Status"
+      },
+      "types": {
+        "behaviour_plan": "Behaviour Plan",
+        "mentoring": "Mentoring",
+        "counselling_referral": "Counselling",
+        "restorative": "Restorative",
+        "academic_support": "Academic Support",
+        "parent_engagement": "Parent Engagement",
+        "external_agency": "External Agency",
+        "other": "Other"
+      }
+    },
+    "interventionDetail": {
+      "title": "Intervention Detail",
+      "back": "Back",
+      "student": "Student",
+      "type": "Type",
+      "status": "Status",
+      "assignedTo": "Assigned To",
+      "startDate": "Start Date",
+      "targetEndDate": "Target End Date",
+      "nextReview": "Next Review",
+      "reviewFrequency": "Review Frequency",
+      "triggerDescription": "Trigger / Reason",
+      "sendAwareness": "SEND Awareness",
+      "goals": "Goals",
+      "strategies": "Strategies",
+      "reviews": "Reviews",
+      "addReview": "Add Review",
+      "noReviews": "No reviews yet",
+      "goalProgress": "Goal {index}",
+      "measurableTarget": "Measurable Target",
+      "deadline": "Deadline",
+      "responsible": "Responsible",
+      "frequency": "Frequency"
+    },
+    "newIntervention": {
+      "title": "New Intervention",
+      "back": "Back",
+      "studentLabel": "Student *",
+      "searchStudents": "Search students...",
+      "interventionTypeLabel": "Intervention Type *",
+      "titleLabel": "Title *",
+      "titlePlaceholder": "e.g. Behaviour Support Plan - Term 2",
+      "triggerLabel": "Trigger / Reason",
+      "triggerPlaceholder": "What behaviours or incidents triggered this intervention...",
+      "sendAwarenessLabel": "SEND Awareness",
+      "sendAwarenessDescription": "Flag if the student has special educational needs",
+      "sendNotesLabel": "Sensitive - SEND Notes",
+      "sendNotesPlaceholder": "Relevant SEND information for this intervention...",
+      "goalsLabel": "Goals",
+      "addGoal": "Add Goal",
+      "goalNumber": "Goal {index}",
+      "goalPlaceholder": "What should the student achieve?",
+      "measurableTargetLabel": "Measurable Target",
+      "measurableTargetPlaceholder": "e.g. Reduce incidents by 50%",
+      "deadlineLabel": "Deadline (optional)",
+      "strategiesLabel": "Strategies",
+      "addStrategy": "Add Strategy",
+      "strategyNumber": "Strategy {index}",
+      "strategyPlaceholder": "What approach will be used?",
+      "responsibleStaffLabel": "Responsible Staff (UUID)",
+      "responsibleStaffPlaceholder": "Staff member UUID",
+      "frequencyLabel": "Frequency",
+      "frequencyPlaceholder": "e.g. Daily, Weekly, As needed",
+      "scheduleLabel": "Schedule",
+      "startDateLabel": "Start Date *",
+      "targetEndDateLabel": "Target End Date",
+      "reviewFrequencyLabel": "Review Every (days)",
+      "assignedToLabel": "Assigned To",
+      "assignedToPlaceholder": "Staff member UUID (defaults to current user)",
+      "assignedToHint": "Leave blank to assign to yourself",
+      "cancel": "Cancel",
+      "createIntervention": "Create Intervention",
+      "creating": "Creating...",
+      "errorStudent": "Please select a student",
+      "errorTitle": "Please enter a title",
+      "errorGeneric": "Failed to create intervention"
+    },
+    "exclusions": {
+      "title": "Exclusion Cases",
+      "description": "Formal exclusion proceedings and statutory compliance",
+      "backToBehaviour": "Behaviour",
+      "noExclusionCases": "No exclusion cases found",
+      "tabs": {
+        "all": "All",
+        "initiated": "Initiated",
+        "notice_issued": "Notice Issued",
+        "hearing_scheduled": "Hearing Scheduled",
+        "decision_made": "Decision Made",
+        "appeal_window": "Appeal Window",
+        "finalised": "Finalised",
+        "overturned": "Overturned"
+      },
+      "columns": {
+        "caseNumber": "Case #",
+        "student": "Student",
+        "type": "Type",
+        "status": "Status",
+        "noticeIssued": "Notice Issued",
+        "hearing": "Hearing",
+        "decision": "Decision",
+        "appealDeadline": "Appeal Deadline"
+      },
+      "tooltips": {
+        "overdueStep": "Statutory step overdue",
+        "pendingStep": "Statutory step pending"
+      },
+      "appealDays": {
+        "today": "Today",
+        "remaining": "{days}d remaining",
+        "expired": "Expired"
+      }
+    },
+    "exclusionDetail": {
+      "title": "Exclusion Case {number}",
+      "back": "Back",
+      "student": "Student",
+      "type": "Type",
+      "status": "Status",
+      "noticeIssued": "Notice Issued",
+      "hearingDate": "Hearing Date",
+      "decision": "Decision",
+      "decisionReasoning": "Decision Reasoning",
+      "conditions": "Conditions for Return",
+      "appealDeadline": "Appeal Deadline",
+      "statutoryTimeline": "Statutory Timeline",
+      "hearingAttendees": "Hearing Attendees",
+      "linkedSanction": "Linked Sanction",
+      "linkedIncident": "Linked Incident"
+    },
+    "alerts": {
+      "title": "Behaviour Alerts",
+      "description": "Pattern alerts and notifications",
+      "noAlerts": "No alerts to display",
+      "tabs": {
+        "all": "All",
+        "unseen": "Unseen",
+        "acknowledged": "Acknowledged",
+        "snoozed": "Snoozed",
+        "resolved": "Resolved"
+      },
+      "actions": {
+        "acknowledge": "Acknowledge",
+        "snooze": "Snooze",
+        "resolve": "Resolve"
+      },
+      "snoozeOptions": {
+        "tomorrow": "Tomorrow",
+        "endOfWeek": "End of week",
+        "nextWeek": "Next week"
+      },
+      "alertTypes": {
+        "escalating_student": "Escalating Student",
+        "disengaging_student": "Disengaging Student",
+        "hotspot": "Hotspot",
+        "logging_gap": "Logging Gap",
+        "overdue_review": "Overdue Review",
+        "suspension_return": "Suspension Return",
+        "policy_threshold_breach": "Policy Breach"
+      },
+      "entityTags": {
+        "student": "Student: {name}",
+        "subject": "Subject: {name}",
+        "staff": "Staff: {name}"
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "analytics": {
+      "title": "Analytics",
+      "description": "Behaviour analytics dashboard",
+      "dateRanges": {
+        "last7": "Last 7 days",
+        "last30": "Last 30 days",
+        "last90": "Last 90 days",
+        "thisYear": "This year"
+      },
+      "normalised": "Normalised",
+      "raw": "Raw",
+      "aiQuery": "AI Query",
+      "behaviourPulse": "Behaviour Pulse",
+      "compositeScore": "Composite Score",
+      "totalIncidents": "Total Incidents",
+      "positiveRatio": "Positive Ratio",
+      "openFollowUps": "Open Follow-ups",
+      "activeAlerts": "Active Alerts",
+      "vsPrior": "{percent}% vs prior",
+      "incidentTrends": "Incident Trends",
+      "incidentHeatmap": "Incident Heatmap",
+      "categoryBreakdown": "Category Breakdown",
+      "subjectAnalysis": "Subject Analysis",
+      "rateNormalisationUnavailable": "Rate normalisation unavailable — showing raw counts.",
+      "yearGroupComparison": "Year Group Comparison",
+      "staffLoggingActivity": "Staff Logging Activity",
+      "inactive": "Inactive",
+      "subjectColumns": {
+        "subject": "Subject",
+        "incidents": "Incidents",
+        "ratePer100": "Rate / 100 periods"
+      },
+      "staffColumns": {
+        "staffName": "Staff Name",
+        "last7Days": "Last 7 Days",
+        "last30Days": "Last 30 Days",
+        "totalYear": "Total Year",
+        "lastLogged": "Last Logged"
+      },
+      "heatmapDays": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri"
+      },
+      "trends": {
+        "improving": "improving",
+        "declining": "declining",
+        "stable": "stable"
+      }
+    },
+    "aiQuery": {
+      "title": "AI Analytics",
+      "description": "Ask questions about behaviour data in plain language",
+      "placeholder": "Ask a question about behaviour data...",
+      "analysing": "Analysing data...",
+      "aiGenerated": "AI-generated — verify critical findings",
+      "dataAsOf": "Data as of {date}",
+      "scope": "Scope: {scope}",
+      "lowConfidence": "Low confidence — verify manually",
+      "queryHistory": "Query History",
+      "show": "Show",
+      "hide": "Hide",
+      "noQueries": "No queries yet",
+      "charLimit": "{count}/500",
+      "suggestedQueries": {
+        "q1": "Which subjects have the most negative incidents this term?",
+        "q2": "Show me students with improving behaviour in Year 9",
+        "q3": "How many detentions were served last month?",
+        "q4": "What are the top 3 behaviour concerns this week?",
+        "q5": "Compare positive/negative ratios across year groups"
+      }
+    },
+    "tasks": {
+      "title": "Behaviour Tasks",
+      "description": "Follow-up actions and reminders",
+      "pending": "Pending",
+      "overdue": "Overdue",
+      "completedToday": "Completed Today",
+      "needsAttention": "needs attention",
+      "noTasks": "No tasks to show",
+      "complete": "Complete",
+      "cancel": "Cancel",
+      "due": "Due: {date}",
+      "assigned": "Assigned: {name}",
+      "showing": "Showing {start}-{end} of {total}",
+      "tabs": {
+        "myTasks": "My Tasks",
+        "allTasks": "All Tasks"
+      },
+      "statuses": {
+        "pending": "pending",
+        "in_progress": "in progress",
+        "completed": "completed",
+        "cancelled": "cancelled",
+        "overdue": "overdue"
+      },
+      "priorities": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "urgent": "urgent"
+      }
+    },
+    "appeals": {
+      "title": "Behaviour Appeals",
+      "description": "Manage and review behaviour appeals",
+      "noAppealsFound": "No appeals found",
+      "assign": "Assign",
+      "assignReviewer": "Assign Reviewer",
+      "assignReviewerDescription": "Select a staff member to review this appeal.",
+      "selectStaff": "Select staff member...",
+      "reviewerAssigned": "Reviewer assigned",
+      "failedToAssign": "Failed to assign reviewer",
+      "searchByStudent": "Search by student...",
+      "tabs": {
+        "all": "All",
+        "submitted": "Submitted",
+        "under_review": "Under Review",
+        "hearing_scheduled": "Hearing Scheduled",
+        "decided": "Decided",
+        "withdrawn": "Withdrawn"
+      },
+      "columns": {
+        "appealNumber": "Appeal #",
+        "student": "Student",
+        "entity": "Entity",
+        "grounds": "Grounds",
+        "submitted": "Submitted",
+        "status": "Status",
+        "reviewer": "Reviewer",
+        "hearing": "Hearing",
+        "decision": "Decision"
+      },
+      "filters": {
+        "grounds": "Grounds",
+        "allGrounds": "All Grounds",
+        "factual_inaccuracy": "Factual Inaccuracy",
+        "disproportionate_consequence": "Disproportionate",
+        "procedural_error": "Procedural Error",
+        "mitigating_circumstances": "Mitigating Circumstances",
+        "mistaken_identity": "Mistaken Identity",
+        "other": "Other",
+        "dateFrom": "Date from",
+        "dateTo": "Date to"
+      }
+    },
+    "appealDetail": {
+      "title": "Appeal {number}",
+      "back": "Back",
+      "student": "Student",
+      "entity": "Entity",
+      "grounds": "Grounds",
+      "groundsCategory": "Grounds Category",
+      "appellantType": "Appellant Type",
+      "submitted": "Submitted",
+      "status": "Status",
+      "hearingDate": "Hearing Date",
+      "hearingNotes": "Hearing Notes",
+      "hearingAttendees": "Hearing Attendees",
+      "decision": "Decision",
+      "decisionReasoning": "Decision Reasoning",
+      "decidedAt": "Decided At",
+      "reviewer": "Reviewer",
+      "decidedBy": "Decided By",
+      "linkedIncident": "Linked Incident",
+      "linkedSanction": "Linked Sanction",
+      "linkedExclusions": "Linked Exclusion Cases",
+      "resultingAmendments": "Resulting Amendments",
+      "history": "History"
+    },
+    "recognition": {
+      "title": "Recognition Wall",
+      "tabs": {
+        "wall": "Wall",
+        "leaderboard": "Leaderboard",
+        "houses": "Houses",
+        "pending": "Pending Approvals"
+      },
+      "wall": {
+        "currentYear": "Current Year",
+        "academicYear": "Academic Year",
+        "noRecognition": "No recognition items yet.",
+        "unknownStudent": "Unknown Student"
+      },
+      "leaderboard": {
+        "period": "Period",
+        "thisYear": "This Year",
+        "thisPeriod": "This Period",
+        "allTime": "All Time",
+        "noData": "No leaderboard data available for this period.",
+        "rank": "Rank",
+        "student": "Student",
+        "yearGroup": "Year Group",
+        "points": "Points"
+      },
+      "houses": {
+        "noHouses": "No house teams configured yet. Enable house teams in behaviour settings to see standings here.",
+        "place": "{rank} Place"
+      },
+      "pendingApprovals": {
+        "noPending": "No items pending approval.",
+        "unknownStudent": "Unknown Student",
+        "reject": "Reject",
+        "approve": "Approve",
+        "by": "By {name}"
+      }
+    },
+    "amendments": {
+      "title": "Amendment Notices",
+      "description": "Correction queue for parent-visible changes",
+      "backToBehaviour": "Behaviour",
+      "noCorrectionsPending": "No corrections pending",
+      "allSent": "All amendment notices have been sent",
+      "noAmendments": "No amendment notices found",
+      "sent": "Sent",
+      "reAckRequired": "Re-ack Required",
+      "parentReAck": "Parent re-acknowledgement will be required",
+      "tabs": {
+        "pending": "Pending",
+        "all": "All"
+      },
+      "columns": {
+        "entity": "Entity",
+        "type": "Type",
+        "changeSummary": "Change Summary",
+        "changedBy": "Changed By",
+        "date": "Date",
+        "reAck": "Re-ack"
+      },
+      "dialog": {
+        "title": "Send Correction Notice",
+        "description": "This will send a correction notification to the parent for the following change:",
+        "cancel": "Cancel",
+        "confirmSend": "Confirm Send",
+        "sending": "Sending...",
+        "errorGeneric": "Failed to send correction"
+      }
+    },
+    "documents": {
+      "title": "Documents",
+      "description": "Generated notices, letters, and packs",
+      "generateDocument": "Generate Document",
+      "noDocuments": "No documents found",
+      "searchStudent": "Search student...",
+      "view": "View",
+      "download": "Download",
+      "needsReview": "Needs review",
+      "columns": {
+        "student": "Student",
+        "documentType": "Document Type",
+        "generated": "Generated",
+        "status": "Status",
+        "generatedBy": "Generated By"
+      },
+      "filters": {
+        "documentType": "Document Type",
+        "allTypes": "All Types",
+        "status": "Status",
+        "allStatuses": "All Statuses",
+        "draft": "Draft",
+        "finalised": "Finalised",
+        "sent": "Sent",
+        "superseded": "Superseded"
+      },
+      "documentTypes": {
+        "incident_notice": "Incident Notice",
+        "sanction_letter": "Sanction Letter",
+        "parent_notification": "Parent Notification",
+        "suspension_letter": "Suspension Letter",
+        "exclusion_letter": "Exclusion Letter",
+        "reinstatement_letter": "Reinstatement Letter",
+        "behaviour_report": "Behaviour Report",
+        "contact_pack": "Contact Pack"
+      },
+      "documentStatuses": {
+        "draft": "Draft",
+        "finalised": "Finalised",
+        "sent": "Sent",
+        "superseded": "Superseded"
+      },
+      "generateDialog": {
+        "title": "Generate Document",
+        "entityType": "Entity Type",
+        "entityId": "Entity ID",
+        "entityIdPlaceholder": "Paste incident or sanction ID",
+        "documentType": "Document Type",
+        "cancel": "Cancel",
+        "generate": "Generate",
+        "generating": "Generating...",
+        "entityIdRequired": "Entity ID is required",
+        "errorGeneric": "Failed to generate document"
+      },
+      "entityTypes": {
+        "incident": "Incident",
+        "sanction": "Sanction",
+        "student": "Student"
+      }
+    },
+    "parentPortal": {
+      "title": "Behaviour Portal",
+      "description": "Stay informed about your child's behaviour",
+      "noChildren": "No children linked to your account.",
+      "contactSchool": "Contact the school office to link your account.",
+      "positive": "Positive",
+      "negative": "Negative",
+      "netPoints": "Net Points",
+      "pendingAcknowledgement": "{count} pending acknowledgement",
+      "pendingAcknowledgements": "{count} pending acknowledgements",
+      "awaitingAcknowledgement": "Awaiting Your Acknowledgement",
+      "acknowledge": "Acknowledge",
+      "acknowledging": "Acknowledging...",
+      "acknowledged": "Acknowledged",
+      "recentIncidents": "Recent Incidents",
+      "noIncidents": "No incidents recorded",
+      "sanctionsTitle": "Sanctions",
+      "noSanctions": "No sanctions on record",
+      "upcoming": "Upcoming",
+      "recent": "Recent"
+    },
+    "parentRecognition": {
+      "title": "Recognition Wall",
+      "description": "Celebrating student achievements and positive behaviour",
+      "noAwards": "No awards published yet",
+      "checkBack": "Check back soon to see recognised achievements."
+    },
+    "guardianRestrictions": {
+      "title": "Guardian Restrictions",
+      "description": "Manage parent/guardian communication restrictions",
+      "addRestriction": "Add Restriction",
+      "noRestrictions": "No guardian restrictions found",
+      "columns": {
+        "guardian": "Guardian",
+        "student": "Student",
+        "restrictionType": "Restriction Type",
+        "reason": "Reason",
+        "effectiveFrom": "Effective From",
+        "effectiveTo": "Effective To",
+        "status": "Status"
+      }
+    },
+    "components": {
+      "quickLogFab": "Quick Log",
+      "quickLogSheet": {
+        "title": "Quick Log",
+        "category": "Category",
+        "student": "Student *",
+        "searchStudents": "Search students...",
+        "description": "Description",
+        "descriptionPlaceholder": "Brief description...",
+        "submit": "Submit",
+        "submitting": "Submitting...",
+        "errorCategory": "Please select a category",
+        "errorStudent": "Please select a student",
+        "errorDescription": "Please enter a description"
+      },
+      "incidentStatusBadge": {
+        "active": "Active",
+        "investigating": "Investigating",
+        "under_review": "Under Review",
+        "escalated": "Escalated",
+        "resolved": "Resolved",
+        "withdrawn": "Withdrawn",
+        "pending_approval": "Pending Approval",
+        "draft": "Draft"
+      }
+    }
+  },
+  "safeguarding": {
+    "dashboard": {
+      "title": "Safeguarding",
+      "description": "Child protection concern dashboard",
+      "reportConcern": "Report Concern",
+      "overdue": "Overdue",
+      "dueSoon": "Due Soon",
+      "onTrack": "On Track",
+      "openBySeverity": "Open by Severity",
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "statusDistribution": "Status Distribution",
+      "recentActivity": "Recent Activity",
+      "viewAll": "View All",
+      "noRecentActivity": "No recent safeguarding activity.",
+      "allConcerns": "All Concerns",
+      "myReports": "My Reports",
+      "reportAConcern": "Report a Concern"
+    },
+    "concerns": {
+      "title": "Safeguarding Concerns",
+      "reportConcern": "Report Concern",
+      "noConcerns": "No concerns found.",
+      "noResults": "No results",
+      "columns": {
+        "concernNumber": "Concern #",
+        "student": "Student",
+        "type": "Type",
+        "severity": "Severity",
+        "status": "Status",
+        "sla": "SLA",
+        "assigned": "Assigned",
+        "date": "Date"
+      },
+      "filters": {
+        "status": "Status:",
+        "severity": "Severity:",
+        "sla": "SLA:",
+        "allSla": "All"
+      },
+      "statuses": {
+        "reported": "reported",
+        "acknowledged": "acknowledged",
+        "under_investigation": "under investigation",
+        "referred": "referred",
+        "monitoring": "monitoring",
+        "resolved": "resolved",
+        "sealed": "sealed"
+      },
+      "severities": {
+        "critical": "critical",
+        "high": "high",
+        "medium": "medium",
+        "low": "low"
+      },
+      "slaStatuses": {
+        "overdue": "overdue",
+        "due_soon": "due soon",
+        "on_track": "on track"
+      }
+    },
+    "concernDetail": {
+      "title": "Concern {number}",
+      "notFound": "Concern not found",
+      "tabs": {
+        "detail": "Detail",
+        "actions": "Actions",
+        "attachments": "Attachments"
+      },
+      "student": "Student",
+      "reporter": "Reporter",
+      "severity": "Severity",
+      "status": "Status",
+      "sla": "SLA Status",
+      "assignedTo": "Assigned To",
+      "concernType": "Concern Type",
+      "description": "Description",
+      "immediateActions": "Immediate Actions",
+      "linkedIncident": "Linked Incident",
+      "sealed": "This case is sealed",
+      "sealedBy": "Sealed by {name}",
+      "sealedAt": "Sealed at {date}",
+      "tuslaReferred": "Tusla Referred",
+      "gardaReferred": "Garda Referred",
+      "addAction": "Add Action",
+      "transitionStatus": "Transition to",
+      "actionNote": "Action note",
+      "submittingAction": "Submitting..."
+    },
+    "newConcern": {
+      "title": "Report a Safeguarding Concern",
+      "description": "All reports are confidential and handled by the Designated Liaison Person.",
+      "detailsHeading": "Concern Details",
+      "studentLabel": "Student",
+      "studentPlaceholder": "Search student by name...",
+      "studentSelected": "Student selected",
+      "concernTypeLabel": "Concern Type",
+      "selectType": "Select type...",
+      "severityLabel": "Severity",
+      "criticalWarningTitle": "Critical Severity",
+      "criticalWarningDescription": "Critical concerns trigger immediate SLA timelines. The Designated Liaison Person will be notified immediately upon submission.",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Describe the concern in detail (minimum 10 characters)...",
+      "charCount": "{count} / 10 minimum characters",
+      "immediateActionsLabel": "Immediate Actions Taken (optional)",
+      "immediateActionsPlaceholder": "Describe any immediate steps you have taken...",
+      "linkedIncidentLabel": "Linked Behaviour Incident ID (optional)",
+      "linkedIncidentPlaceholder": "e.g. BH-202603-0012",
+      "cancel": "Cancel",
+      "submitConcern": "Submit Concern",
+      "submitting": "Submitting...",
+      "errors": {
+        "studentRequired": "Please select a student.",
+        "typeRequired": "Please select a concern type.",
+        "severityRequired": "Please select a severity level.",
+        "descriptionLength": "Description must be at least 10 characters.",
+        "generic": "Failed to submit concern. Please try again."
+      },
+      "concernTypes": {
+        "physical_abuse": "physical abuse",
+        "emotional_abuse": "emotional abuse",
+        "sexual_abuse": "sexual abuse",
+        "neglect": "neglect",
+        "domestic_violence": "domestic violence",
+        "online_safety": "online safety",
+        "self_harm": "self harm",
+        "bullying": "bullying",
+        "other": "other"
+      }
+    },
+    "myReports": {
+      "title": "My Safeguarding Reports",
+      "description": "Reports you have filed. Case details are only visible to the Designated Liaison Person.",
+      "reportConcern": "Report Concern",
+      "noReports": "You have not filed any safeguarding reports.",
+      "reportAConcern": "Report a concern",
+      "columns": {
+        "concernNumber": "Concern #",
+        "type": "Type",
+        "reported": "Reported",
+        "status": "Status"
+      },
+      "ackStatuses": {
+        "received": "Received",
+        "assigned": "Assigned",
+        "under_review": "Under Review",
+        "pending": "Pending"
+      }
+    },
+    "settings": {
+      "title": "Safeguarding Settings",
+      "description": "Configure safeguarding module parameters",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "moduleStatus": "Module Status",
+      "moduleEnabled": "Safeguarding module is enabled",
+      "moduleDisabled": "Safeguarding module is disabled",
+      "dlpSection": "Designated Liaison Person (DLP)",
+      "dlpLabel": "DLP",
+      "dlpPlaceholder": "Enter DLP user ID...",
+      "dlpDescription": "Primary child protection officer",
+      "deputyDlpLabel": "Deputy DLP",
+      "deputyDlpPlaceholder": "Enter Deputy DLP user ID...",
+      "boardContactLabel": "Board Contact",
+      "boardContactPlaceholder": "Enter Board Contact user ID...",
+      "slaSection": "SLA Thresholds (hours)",
+      "slaCritical": "Critical",
+      "slaHigh": "High",
+      "slaMedium": "Medium",
+      "slaLow": "Low",
+      "retentionSection": "Data Retention",
+      "retentionLabel": "Retention Period (years)",
+      "retentionDescription": "Irish Children First Act requires retention until the child turns 75."
+    }
+  },
+  "behaviourSettings": {
+    "general": {
+      "title": "Behaviour Settings",
+      "description": "Configure behaviour module parameters",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "saved": "Saved",
+      "sections": {
+        "quickLog": "Quick Log",
+        "points": "Points",
+        "houseTeams": "House Teams",
+        "awards": "Awards",
+        "sanctions": "Sanctions",
+        "parentVisibility": "Parent Visibility",
+        "recognitionWall": "Recognition Wall",
+        "safeguarding": "Safeguarding"
+      }
+    },
+    "categories": {
+      "title": "Behaviour Categories",
+      "description": "Manage incident categories, severity, and point values",
+      "addCategory": "Add Category",
+      "editCategory": "Edit Category",
+      "deleteCategory": "Delete Category",
+      "columns": {
+        "name": "Name",
+        "polarity": "Polarity",
+        "severity": "Severity",
+        "points": "Points",
+        "color": "Color",
+        "active": "Active",
+        "order": "Order"
+      },
+      "form": {
+        "name": "Name",
+        "nameAr": "Name (Arabic)",
+        "polarity": "Polarity",
+        "severity": "Severity",
+        "pointValue": "Point Value",
+        "color": "Color",
+        "icon": "Icon",
+        "benchmark": "Benchmark Category",
+        "requiresFollowUp": "Requires Follow-up",
+        "requiresParentNotification": "Requires Parent Notification",
+        "parentVisible": "Parent Visible",
+        "isActive": "Active"
+      }
+    },
+    "policies": {
+      "title": "Behaviour Policies",
+      "description": "Configure automated behaviour policies and escalation rules",
+      "addPolicy": "Add Policy",
+      "editPolicy": "Edit Policy",
+      "deletePolicy": "Delete Policy",
+      "testPolicy": "Test Policy",
+      "viewHistory": "View History"
+    },
+    "houses": {
+      "title": "House Teams",
+      "description": "Manage house teams and member assignments",
+      "addHouse": "Add House",
+      "editHouse": "Edit House",
+      "deleteHouse": "Delete House",
+      "manageMembers": "Manage Members",
+      "form": {
+        "name": "Name",
+        "nameAr": "Name (Arabic)",
+        "color": "Color",
+        "icon": "Icon",
+        "isActive": "Active"
+      }
+    },
+    "awards": {
+      "title": "Award Types",
+      "description": "Configure recognition awards, tiers, and thresholds",
+      "addAward": "Add Award",
+      "editAward": "Edit Award",
+      "deleteAward": "Delete Award",
+      "form": {
+        "name": "Name",
+        "nameAr": "Name (Arabic)",
+        "pointsThreshold": "Points Threshold",
+        "repeatMode": "Repeat Mode",
+        "repeatMax": "Max Per Year",
+        "tierGroup": "Tier Group",
+        "tierLevel": "Tier Level",
+        "supersedesLower": "Supersedes Lower Tiers",
+        "icon": "Icon",
+        "color": "Color",
+        "isActive": "Active"
+      }
+    },
+    "admin": {
+      "title": "Behaviour Admin",
+      "description": "System health, diagnostics, and maintenance tools",
+      "systemHealth": "System Health",
+      "deadLetterQueue": "Dead Letter Queue",
+      "auditLog": "Audit Log",
+      "cacheManagement": "Cache Management",
+      "queueDepths": "Queue Depths",
+      "deadLetterDepth": "Dead Letter Depth",
+      "cacheHitRate": "Cache Hit Rate",
+      "viewFreshness": "View Freshness",
+      "scanBacklog": "Scan Backlog",
+      "legalHoldsActive": "Legal Holds Active",
+      "refresh": "Refresh",
+      "replay": "Replay",
+      "delete": "Delete"
+    },
+    "documents": {
+      "title": "Document Templates",
+      "description": "Manage document templates for notices, letters, and packs",
+      "addTemplate": "Add Template",
+      "editTemplate": "Edit Template",
+      "form": {
+        "name": "Name",
+        "documentType": "Document Type",
+        "locale": "Locale",
+        "body": "Template Body",
+        "isActive": "Active"
+      },
+      "systemTemplate": "System",
+      "customTemplate": "Custom"
+    }
   }
 }

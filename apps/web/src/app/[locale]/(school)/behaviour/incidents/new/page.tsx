@@ -14,6 +14,7 @@ import {
 } from '@school/ui';
 import { ArrowLeft, Search, X } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -36,22 +37,15 @@ interface TemplateOption {
   body_template: string;
 }
 
-const CONTEXT_TYPES = [
-  { value: 'class', label: 'Class' },
-  { value: 'break', label: 'Break' },
-  { value: 'before_school', label: 'Before School' },
-  { value: 'after_school', label: 'After School' },
-  { value: 'lunch', label: 'Lunch' },
-  { value: 'transport', label: 'Transport' },
-  { value: 'extra_curricular', label: 'Extra-Curricular' },
-  { value: 'off_site', label: 'Off-Site' },
-  { value: 'online', label: 'Online' },
-  { value: 'other', label: 'Other' },
-];
+const CONTEXT_TYPE_KEYS = [
+  'class', 'break', 'before_school', 'after_school', 'lunch',
+  'transport', 'extra_curricular', 'off_site', 'online', 'other',
+] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CreateIncidentPage() {
+  const t = useTranslations('behaviour.newIncident');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -129,9 +123,9 @@ export default function CreateIncidentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryId) { setError('Please select a category'); return; }
-    if (selectedStudents.length === 0) { setError('Please select at least one student'); return; }
-    if (!description.trim()) { setError('Please enter a description'); return; }
+    if (!categoryId) { setError(t('errors.selectCategory')); return; }
+    if (selectedStudents.length === 0) { setError(t('errors.selectStudent')); return; }
+    if (!description.trim()) { setError(t('errors.enterDescription')); return; }
 
     setSubmitting(true);
     setError('');
@@ -155,7 +149,7 @@ export default function CreateIncidentPage() {
       router.push(`/${locale}/behaviour/incidents/${res.data.id}`);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
-      setError(ex?.error?.message ?? 'Failed to create incident');
+      setError(ex?.error?.message ?? t('errors.createFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -164,12 +158,12 @@ export default function CreateIncidentPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Log Incident"
+        title={t('title')}
         actions={
           <Link href={`/${locale}/behaviour/incidents`}>
             <Button variant="outline">
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" />
-              Back
+              {t('back')}
             </Button>
           </Link>
         }
@@ -178,7 +172,7 @@ export default function CreateIncidentPage() {
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl space-y-6">
         {/* Category Picker */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Category *</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.category')}</Label>
           <CategoryPicker
             categories={categories}
             selectedId={categoryId}
@@ -188,7 +182,7 @@ export default function CreateIncidentPage() {
 
         {/* Student Selection */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Students *</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.students')}</Label>
 
           {/* Selected students chips */}
           {selectedStudents.length > 0 && (
@@ -213,7 +207,7 @@ export default function CreateIncidentPage() {
             <Input
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder="Search students to add..."
+              placeholder={t('placeholders.searchStudents')}
               className="ps-9 text-base"
             />
             {studentResults.length > 0 && (
@@ -243,7 +237,7 @@ export default function CreateIncidentPage() {
 
         {/* Description + Templates */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Description *</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.description')}</Label>
 
           {/* Template chips */}
           {templates.length > 0 && (
@@ -264,7 +258,7 @@ export default function CreateIncidentPage() {
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe what happened..."
+            placeholder={t('placeholders.description')}
             rows={4}
             className="text-base"
             required
@@ -273,12 +267,12 @@ export default function CreateIncidentPage() {
           {/* Parent-facing description */}
           <div className="mt-4">
             <Label className="mb-1 block text-xs text-text-tertiary">
-              Parent-Facing Description (optional)
+              {t('labels.parentDescription')}
             </Label>
             <Textarea
               value={parentDescription}
               onChange={(e) => setParentDescription(e.target.value)}
-              placeholder="A version suitable for parents to see..."
+              placeholder={t('placeholders.parentDescription')}
               rows={2}
               className="text-sm"
             />
@@ -287,10 +281,10 @@ export default function CreateIncidentPage() {
 
         {/* Context */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Context</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.context')}</Label>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">When</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.when')}</Label>
               <Input
                 type="datetime-local"
                 value={occurredAt}
@@ -300,33 +294,33 @@ export default function CreateIncidentPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Context</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.contextType')}</Label>
               <Select value={contextType} onValueChange={setContextType}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CONTEXT_TYPES.map((ct) => (
-                    <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
+                  {CONTEXT_TYPE_KEYS.map((key) => (
+                    <SelectItem key={key} value={key}>{t(`contextTypes.${key}` as Parameters<typeof t>[0])}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Location (optional)</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.location')}</Label>
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Room 203, Main Hall"
+                placeholder={t('placeholders.location')}
                 className="text-base"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Notes (optional)</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.notes')}</Label>
               <Input
                 value={contextNotes}
                 onChange={(e) => setContextNotes(e.target.value)}
-                placeholder="Additional context..."
+                placeholder={t('placeholders.contextNotes')}
                 className="text-base"
               />
             </div>
@@ -337,8 +331,8 @@ export default function CreateIncidentPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-medium">Auto-Submit</Label>
-              <p className="text-xs text-text-tertiary">Submit immediately as active (skip draft)</p>
+              <Label className="text-sm font-medium">{t('labels.autoSubmit')}</Label>
+              <p className="text-xs text-text-tertiary">{t('labels.autoSubmitDescription')}</p>
             </div>
             <Switch checked={autoSubmit} onCheckedChange={setAutoSubmit} />
           </div>
@@ -355,11 +349,11 @@ export default function CreateIncidentPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Link href={`/${locale}/behaviour/incidents`}>
             <Button type="button" variant="outline" className="w-full sm:w-auto">
-              Cancel
+              {t('cancel')}
             </Button>
           </Link>
           <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-            {submitting ? 'Creating...' : autoSubmit ? 'Submit Incident' : 'Save as Draft'}
+            {submitting ? t('creating') : autoSubmit ? t('submitIncident') : t('saveAsDraft')}
           </Button>
         </div>
       </form>

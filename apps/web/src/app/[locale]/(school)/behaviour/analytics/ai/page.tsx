@@ -2,6 +2,7 @@
 
 import { Button, Textarea } from '@school/ui';
 import { Clock, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -24,17 +25,18 @@ interface QueryHistoryEntry {
   created_at: string;
 }
 
-const SUGGESTED_QUERIES = [
-  'Which subjects have the most negative incidents this term?',
-  'Show me students with improving behaviour in Year 9',
-  'How many detentions were served last month?',
-  'What are the top 3 behaviour concerns this week?',
-  'Compare positive/negative ratios across year groups',
-];
+const SUGGESTED_QUERY_KEYS = [
+  'suggestedSubjects',
+  'suggestedImproving',
+  'suggestedDetentions',
+  'suggestedConcerns',
+  'suggestedRatios',
+] as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BehaviourAIQueryPage() {
+  const t = useTranslations('behaviour.aiQuery');
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<AIQueryResult | null>(null);
@@ -84,8 +86,8 @@ export default function BehaviourAIQueryPage() {
       {/* Main area */}
       <div className="flex-1 space-y-6">
         <PageHeader
-          title="AI Analytics"
-          description="Ask questions about behaviour data in plain language"
+          title={t('title')}
+          description={t('description')}
         />
 
         {/* Query input */}
@@ -94,7 +96,7 @@ export default function BehaviourAIQueryPage() {
             <Textarea
               value={query}
               onChange={(e) => setQuery(e.target.value.slice(0, 500))}
-              placeholder="Ask a question about behaviour data..."
+              placeholder={t('placeholder')}
               className="min-h-[80px] pe-12 text-base"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -117,13 +119,13 @@ export default function BehaviourAIQueryPage() {
 
           {/* Suggested queries */}
           <div className="mt-3 flex flex-wrap gap-2">
-            {SUGGESTED_QUERIES.map((q) => (
+            {SUGGESTED_QUERY_KEYS.map((key) => (
               <button
-                key={q}
-                onClick={() => setQuery(q)}
+                key={key}
+                onClick={() => setQuery(t(`suggestions.${key}` as Parameters<typeof t>[0]))}
                 className="rounded-full border bg-muted/50 px-3 py-1 text-xs hover:bg-muted"
               >
-                {q}
+                {t(`suggestions.${key}` as Parameters<typeof t>[0])}
               </button>
             ))}
           </div>
@@ -133,7 +135,7 @@ export default function BehaviourAIQueryPage() {
         {loading && (
           <div className="flex items-center justify-center rounded-lg border bg-card p-8">
             <Loader2 className="me-2 h-5 w-5 animate-spin text-muted-foreground" />
-            <span className="text-muted-foreground">Analysing data...</span>
+            <span className="text-muted-foreground">{t('analysing')}</span>
           </div>
         )}
 
@@ -158,17 +160,17 @@ export default function BehaviourAIQueryPage() {
 
             <div className="flex flex-wrap items-center gap-2 border-t pt-3">
               <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                AI-generated — verify critical findings
+                {t('aiDisclaimer')}
               </span>
               <span className="text-xs text-muted-foreground">
                 Data as of {new Date(result.data_as_of).toLocaleString()}
               </span>
               <span className="text-xs text-muted-foreground">
-                Scope: {result.scope_applied}
+                {t('scope')}: {result.scope_applied}
               </span>
               {result.confidence !== null && result.confidence < 0.85 && (
                 <span className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                  Low confidence — verify manually
+                  {t('lowConfidence')}
                 </span>
               )}
             </div>
@@ -184,17 +186,17 @@ export default function BehaviourAIQueryPage() {
         >
           <span className="flex items-center gap-2 text-sm font-medium">
             <Clock className="h-4 w-4" />
-            Query History
+            {t('queryHistory')}
           </span>
           <span className="text-xs text-muted-foreground lg:hidden">
-            {showHistory ? 'Hide' : 'Show'}
+            {showHistory ? t('hide') : t('show')}
           </span>
         </button>
 
         <div className={`mt-2 space-y-2 ${showHistory ? '' : 'hidden lg:block'}`}>
           {history.length === 0 && (
             <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-              No queries yet
+              {t('noQueries')}
             </p>
           )}
           {history.map((entry) => (

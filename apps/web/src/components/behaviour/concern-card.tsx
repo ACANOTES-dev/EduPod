@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { formatDate } from '@/lib/format-date';
@@ -26,6 +27,7 @@ interface ConcernCardProps {
 }
 
 export function ConcernCard({ concern, onClick }: ConcernCardProps) {
+  const t = useTranslations('behaviour.components.concernCard');
   return (
     <button
       type="button"
@@ -53,7 +55,7 @@ export function ConcernCard({ concern, onClick }: ConcernCardProps) {
         <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-text-tertiary">
           <span>{formatDate(concern.reported_at)}</span>
           {concern.assigned_to_name && (
-            <span>Assigned: {concern.assigned_to_name}</span>
+            <span>{t('assigned', { name: concern.assigned_to_name })}</span>
           )}
         </div>
       </div>

@@ -10,6 +10,7 @@ import {
   Textarea,
 } from '@school/ui';
 import { Lock, Shield, UserPlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
@@ -63,6 +64,7 @@ type MobileTab = 'detail' | 'actions' | 'attachments';
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ConcernDetailPage() {
+  const t = useTranslations('safeguarding.concernDetail');
   const params = useParams();
   const pathname = usePathname();
   const _locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -186,7 +188,7 @@ export default function ConcernDetailPage() {
   if (!concern) {
     return (
       <div className="py-12 text-center">
-        <p className="text-text-tertiary">Concern not found.</p>
+        <p className="text-text-tertiary">{t('notFound')}</p>
       </div>
     );
   }
@@ -202,10 +204,10 @@ export default function ConcernDetailPage() {
           <Lock className="mt-0.5 h-5 w-5 shrink-0 text-gray-600 dark:text-gray-400" />
           <div>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-              CASE SEALED
+              {t('sealed.title')}
             </p>
             <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-              Sealed by {concern.sealed_by_name} on {formatDate(concern.sealed_at)}. Access restricted.
+              {t('sealed.description', { name: concern.sealed_by_name, date: formatDate(concern.sealed_at) })}
             </p>
           </div>
         </div>
@@ -227,41 +229,41 @@ export default function ConcernDetailPage() {
         <div className="mt-4 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Student</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.student')}</p>
               <p className="text-sm text-text-primary">{concern.student_name}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Concern Type</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.concernType')}</p>
               <p className="text-sm capitalize text-text-primary">{concern.concern_type.replace(/_/g, ' ')}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Reported By</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.reportedBy')}</p>
               <p className="text-sm text-text-primary">{concern.reporter_name}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Reported At</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.reportedAt')}</p>
               <p className="text-sm text-text-primary">{formatDateTime(concern.reported_at)}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Assigned To</p>
-              <p className="text-sm text-text-primary">{concern.assigned_to_name ?? 'Unassigned'}</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.assignedTo')}</p>
+              <p className="text-sm text-text-primary">{concern.assigned_to_name ?? t('unassigned')}</p>
             </div>
             {concern.incident_id && (
               <div>
-                <p className="text-xs font-medium text-text-tertiary">Linked Incident</p>
+                <p className="text-xs font-medium text-text-tertiary">{t('fields.linkedIncident')}</p>
                 <p className="text-sm text-text-primary">{concern.incident_id}</p>
               </div>
             )}
           </div>
 
           <div>
-            <p className="text-xs font-medium text-text-tertiary">Description</p>
+            <p className="text-xs font-medium text-text-tertiary">{t('fields.description')}</p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{concern.description}</p>
           </div>
 
           {concern.immediate_actions && (
             <div>
-              <p className="text-xs font-medium text-text-tertiary">Immediate Actions</p>
+              <p className="text-xs font-medium text-text-tertiary">{t('fields.immediateActions')}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{concern.immediate_actions}</p>
             </div>
           )}
@@ -273,27 +275,27 @@ export default function ConcernDetailPage() {
         <div className="rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-text-tertiary" />
-            <span className="text-sm font-medium text-text-primary">Tusla Referral</span>
+            <span className="text-sm font-medium text-text-primary">{t('referrals.tusla')}</span>
           </div>
           {concern.tusla_referred ? (
             <p className="mt-1 text-xs text-success-text">
-              Referred on {formatDate(concern.tusla_referred_at)}
+              {t('referrals.referredOn', { date: formatDate(concern.tusla_referred_at) })}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-text-tertiary">Not yet referred</p>
+            <p className="mt-1 text-xs text-text-tertiary">{t('referrals.notReferred')}</p>
           )}
         </div>
         <div className="rounded-xl border border-border bg-surface p-4">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-text-tertiary" />
-            <span className="text-sm font-medium text-text-primary">Garda Referral</span>
+            <span className="text-sm font-medium text-text-primary">{t('referrals.garda')}</span>
           </div>
           {concern.garda_referred ? (
             <p className="mt-1 text-xs text-success-text">
-              Referred on {formatDate(concern.garda_referred_at)}
+              {t('referrals.referredOn', { date: formatDate(concern.garda_referred_at) })}
             </p>
           ) : (
-            <p className="mt-1 text-xs text-text-tertiary">Not yet referred</p>
+            <p className="mt-1 text-xs text-text-tertiary">{t('referrals.notReferred')}</p>
           )}
         </div>
       </div>
@@ -306,27 +308,27 @@ export default function ConcernDetailPage() {
       {/* Action buttons */}
       {!isSealed && (
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="text-base font-semibold text-text-primary">Actions</h2>
+          <h2 className="text-base font-semibold text-text-primary">{t('actions.title')}</h2>
           <div className="mt-4 space-y-4">
             {/* Status transition */}
             <div className="space-y-2">
               <Select value={transitionTo} onValueChange={setTransitionTo}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Transition status..." />
+                  <SelectValue placeholder={t('actions.transitionPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="acknowledged">Acknowledge</SelectItem>
-                  <SelectItem value="under_investigation">Under Investigation</SelectItem>
-                  <SelectItem value="referred">Referred</SelectItem>
-                  <SelectItem value="monitoring">Monitoring</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="acknowledged">{t('actions.transitions.acknowledge')}</SelectItem>
+                  <SelectItem value="under_investigation">{t('actions.transitions.underInvestigation')}</SelectItem>
+                  <SelectItem value="referred">{t('actions.transitions.referred')}</SelectItem>
+                  <SelectItem value="monitoring">{t('actions.transitions.monitoring')}</SelectItem>
+                  <SelectItem value="resolved">{t('actions.transitions.resolved')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Note */}
             <Textarea
-              placeholder="Add a note (optional)..."
+              placeholder={t('actions.notePlaceholder')}
               value={actionNote}
               onChange={(e) => setActionNote(e.target.value)}
               rows={3}
@@ -340,7 +342,7 @@ export default function ConcernDetailPage() {
                 disabled={!transitionTo || isSubmittingAction}
                 size="sm"
               >
-                Update Status
+                {t('actions.updateStatus')}
               </Button>
               <Button
                 variant="outline"
@@ -349,7 +351,7 @@ export default function ConcernDetailPage() {
                 disabled={isSubmittingAction}
               >
                 <UserPlus className="me-1 h-4 w-4" />
-                Assign
+                {t('actions.assign')}
               </Button>
               <Button
                 variant="outline"
@@ -357,7 +359,7 @@ export default function ConcernDetailPage() {
                 onClick={() => handleReferral('tusla')}
                 disabled={isSubmittingAction || concern.tusla_referred}
               >
-                Tusla Referral
+                {t('actions.tuslaReferral')}
               </Button>
               <Button
                 variant="outline"
@@ -365,7 +367,7 @@ export default function ConcernDetailPage() {
                 onClick={() => handleReferral('garda')}
                 disabled={isSubmittingAction || concern.garda_referred}
               >
-                Garda Referral
+                {t('actions.gardaReferral')}
               </Button>
               <Button
                 variant="outline"
@@ -375,7 +377,7 @@ export default function ConcernDetailPage() {
                 className="text-gray-600"
               >
                 <Lock className="me-1 h-4 w-4" />
-                Seal Case
+                {t('actions.sealCase')}
               </Button>
             </div>
           </div>
@@ -384,7 +386,7 @@ export default function ConcernDetailPage() {
 
       {/* Timeline */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-text-primary">Activity Timeline</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('activityTimeline')}</h2>
         <div className="mt-3">
           <ActionTimeline actions={actions} isLoading={actionsLoading} />
         </div>
@@ -395,18 +397,18 @@ export default function ConcernDetailPage() {
   // ─── Attachments Panel (placeholder) ────────────────────────────────────────
   const attachmentsPanel = (
     <div className="rounded-xl border border-border bg-surface p-5">
-      <h2 className="text-base font-semibold text-text-primary">Attachments</h2>
+      <h2 className="text-base font-semibold text-text-primary">{t('tabs.attachments')}</h2>
       <p className="mt-3 py-6 text-center text-sm text-text-tertiary">
-        No attachments yet.
+        {t('noAttachments')}
       </p>
     </div>
   );
 
   // Mobile tab buttons
   const TABS: Array<{ key: MobileTab; label: string }> = [
-    { key: 'detail', label: 'Detail' },
-    { key: 'actions', label: 'Actions' },
-    { key: 'attachments', label: 'Attachments' },
+    { key: 'detail', label: t('tabs.detail') },
+    { key: 'actions', label: t('tabs.actions') },
+    { key: 'attachments', label: t('tabs.attachments') },
   ];
 
   return (

@@ -10,6 +10,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
   Bar,
@@ -107,6 +108,7 @@ interface StaffEntry {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BehaviourAnalyticsPage() {
+  const t = useTranslations('behaviour.analytics');
   const [pulse, setPulse] = React.useState<PulseResult | null>(null);
   const [overview, setOverview] = React.useState<OverviewResult | null>(null);
   const [trends, setTrends] = React.useState<TrendPoint[]>([]);
@@ -172,7 +174,7 @@ export default function BehaviourAnalyticsPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-6">
-        <PageHeader title="Analytics" description="Behaviour analytics dashboard" />
+        <PageHeader title={t('title')} description={t('description')} />
         <div className="mt-6 flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
@@ -183,17 +185,17 @@ export default function BehaviourAnalyticsPage() {
   return (
     <div className="flex-1 min-w-0 overflow-x-hidden p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader title="Analytics" description="Behaviour analytics dashboard" />
+        <PageHeader title={t('title')} description={t('description')} />
         <div className="flex items-center gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
-              <SelectItem value="365">This year</SelectItem>
+              <SelectItem value="7">{t('filters.last7Days')}</SelectItem>
+              <SelectItem value="30">{t('filters.last30Days')}</SelectItem>
+              <SelectItem value="90">{t('filters.last90Days')}</SelectItem>
+              <SelectItem value="365">{t('filters.thisYear')}</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -202,11 +204,11 @@ export default function BehaviourAnalyticsPage() {
             onClick={() => setExposureNormalised(!exposureNormalised)}
           >
             <Activity className="me-1 h-4 w-4" />
-            {exposureNormalised ? 'Normalised' : 'Raw'}
+            {exposureNormalised ? t('normalised') : t('raw')}
           </Button>
           <Link href="/behaviour/analytics/ai">
             <Button variant="outline" size="sm">
-              AI Query
+              {t('aiQuery')}
             </Button>
           </Link>
         </div>
@@ -215,7 +217,7 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 1: Pulse Widget */}
       {pulse?.pulse_enabled && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Behaviour Pulse</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.pulse')}</h3>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             {pulse.dimensions.map((dim) => (
               <div key={dim.name} className="text-center">
@@ -238,7 +240,7 @@ export default function BehaviourAnalyticsPage() {
           </div>
           {pulse.composite_available && pulse.composite !== null && (
             <div className="mt-4 text-center">
-              <div className="text-sm text-muted-foreground">Composite Score</div>
+              <div className="text-sm text-muted-foreground">{t('compositeScore')}</div>
               <div className="text-3xl font-bold text-primary">
                 {Math.round(pulse.composite * 100)}%
               </div>
@@ -254,12 +256,12 @@ export default function BehaviourAnalyticsPage() {
       {overview && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <OverviewCard
-            title="Total Incidents"
+            title={t('cards.totalIncidents')}
             value={overview.total_incidents}
             delta={overview.delta_percent}
           />
           <OverviewCard
-            title="Positive Ratio"
+            title={t('cards.positiveRatio')}
             value={
               overview.positive_negative_ratio !== null
                 ? `${Math.round(overview.positive_negative_ratio * 100)}%`
@@ -267,9 +269,9 @@ export default function BehaviourAnalyticsPage() {
             }
             trend={overview.ratio_trend}
           />
-          <OverviewCard title="Open Follow-ups" value={overview.open_follow_ups} />
+          <OverviewCard title={t('cards.openFollowUps')} value={overview.open_follow_ups} />
           <Link href="/behaviour/alerts" className="contents">
-            <OverviewCard title="Active Alerts" value={overview.active_alerts} />
+            <OverviewCard title={t('cards.activeAlerts')} value={overview.active_alerts} />
           </Link>
         </div>
       )}
@@ -277,7 +279,7 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 3: Trend Chart */}
       {trends.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Incident Trends</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.trends')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trends}>
@@ -296,12 +298,12 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 4: Heatmap */}
       {heatmap.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Incident Heatmap</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.heatmap')}</h3>
           <div className="overflow-x-auto">
             <div className="grid gap-1" style={{ gridTemplateColumns: 'auto repeat(5, 1fr)' }}>
               <div />
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day) => (
-                <div key={day} className="text-center text-xs font-medium text-muted-foreground">{day}</div>
+              {['mon', 'tue', 'wed', 'thu', 'fri'].map((day) => (
+                <div key={day} className="text-center text-xs font-medium text-muted-foreground">{t(`days.${day}` as Parameters<typeof t>[0])}</div>
               ))}
               {Array.from({ length: 8 }, (_, period) => (
                 <React.Fragment key={period}>
@@ -338,7 +340,7 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 5: Category Breakdown */}
       {categories.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Category Breakdown</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.categories')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categories.slice(0, 10)} layout="vertical">
@@ -363,19 +365,19 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 6: Subject Analysis */}
       {subjects.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Subject Analysis</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.subjects')}</h3>
           {!overview?.data_quality.exposure_normalised && (
             <p className="mb-2 text-xs text-amber-600">
-              Rate normalisation unavailable — showing raw counts.
+              {t('rateNormalisationUnavailable')}
             </p>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-start">
-                  <th className="pb-2 text-start font-medium">Subject</th>
-                  <th className="pb-2 text-end font-medium">Incidents</th>
-                  <th className="pb-2 text-end font-medium">Rate / 100 periods</th>
+                  <th className="pb-2 text-start font-medium">{t('columns.subject')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.incidents')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.ratePer100')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -397,7 +399,7 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 7: Year Group Comparison */}
       {comparisons.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Year Group Comparison</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.yearGroups')}</h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={comparisons}>
@@ -405,8 +407,8 @@ export default function BehaviourAnalyticsPage() {
                 <XAxis dataKey="year_group_name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="positive_rate" fill="#22c55e" name="Positive" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="negative_rate" fill="#ef4444" name="Negative" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="positive_rate" fill="#22c55e" name={t('positive')} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="negative_rate" fill="#ef4444" name={t('negative')} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -416,16 +418,16 @@ export default function BehaviourAnalyticsPage() {
       {/* Section 8: Staff Logging Activity */}
       {staffData.length > 0 && (
         <div className="rounded-lg border bg-card p-4 md:p-6">
-          <h3 className="mb-4 text-lg font-semibold">Staff Logging Activity</h3>
+          <h3 className="mb-4 text-lg font-semibold">{t('sections.staffActivity')}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="pb-2 text-start font-medium">Staff Name</th>
-                  <th className="pb-2 text-end font-medium">Last 7 Days</th>
-                  <th className="pb-2 text-end font-medium">Last 30 Days</th>
-                  <th className="pb-2 text-end font-medium">Total Year</th>
-                  <th className="pb-2 text-end font-medium">Last Logged</th>
+                  <th className="pb-2 text-start font-medium">{t('columns.staffName')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.last7Days')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.last30Days')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.totalYear')}</th>
+                  <th className="pb-2 text-end font-medium">{t('columns.lastLogged')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,7 +444,7 @@ export default function BehaviourAnalyticsPage() {
                       {entry.staff_name}
                       {entry.inactive_flag && (
                         <span className="ms-2 inline-flex items-center rounded-full bg-danger-fill px-3 py-1 text-xs font-medium text-danger-text">
-                          Inactive
+                          {t('inactive')}
                         </span>
                       )}
                     </td>
@@ -476,6 +478,7 @@ function OverviewCard({
   delta?: number | null;
   trend?: string | null;
 }) {
+  const t = useTranslations('behaviour.analytics');
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="text-sm text-muted-foreground">{title}</div>
@@ -483,7 +486,7 @@ function OverviewCard({
       {delta !== undefined && delta !== null && (
         <div className={`mt-1 flex items-center text-xs ${delta > 0 ? 'text-red-500' : 'text-green-500'}`}>
           {delta > 0 ? <TrendingUp className="me-1 h-3 w-3" /> : <TrendingDown className="me-1 h-3 w-3" />}
-          {Math.abs(delta)}% vs prior
+          {t('deltaVsPrior', { delta: Math.abs(delta) })}
         </div>
       )}
       {trend && (
@@ -491,7 +494,7 @@ function OverviewCard({
           {trend === 'improving' && <ArrowDown className="me-1 h-3 w-3 text-green-500" />}
           {trend === 'declining' && <ArrowUp className="me-1 h-3 w-3 text-red-500" />}
           {trend === 'stable' && <Minus className="me-1 h-3 w-3" />}
-          {trend}
+          {t(`trends.${trend}` as Parameters<typeof t>[0])}
         </div>
       )}
     </div>

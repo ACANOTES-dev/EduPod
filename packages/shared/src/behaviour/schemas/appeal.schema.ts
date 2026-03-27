@@ -73,3 +73,14 @@ export const appealListQuerySchema = z.object({
 });
 
 export type AppealListQuery = z.infer<typeof appealListQuerySchema>;
+
+export const parentSubmitAppealSchema = z.object({
+  entity_type: z.enum(APPEAL_ENTITY_TYPE_VALUES),
+  incident_id: z.string().uuid(),
+  sanction_id: z.string().uuid().optional(),
+  student_id: z.string().uuid(),
+  grounds: z.string().min(20).max(5000),
+  grounds_category: z.enum(GROUNDS_CATEGORY_VALUES),
+});
+
+export type ParentSubmitAppealDto = z.infer<typeof parentSubmitAppealSchema>;

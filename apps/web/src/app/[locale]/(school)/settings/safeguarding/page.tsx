@@ -6,6 +6,7 @@ import {
   Label,
 } from '@school/ui';
 import { Save, ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -32,6 +33,7 @@ interface SettingsResponse {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SafeguardingSettingsPage() {
+  const t = useTranslations('safeguarding.settings');
   const [settings, setSettings] = React.useState<SafeguardingSettings>({
     dlp_user_id: '',
     deputy_dlp_user_id: '',
@@ -89,18 +91,18 @@ export default function SafeguardingSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
-        title="Safeguarding Settings"
-        description="Configure safeguarding module parameters"
+        title={t('title')}
+        description={t('description')}
         actions={
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
-              'Saving...'
+              t('saving')
             ) : saved ? (
-              'Saved'
+              t('saved')
             ) : (
               <>
                 <Save className="me-2 h-4 w-4" />
-                Save Changes
+                {t('saveChanges')}
               </>
             )}
           </Button>
@@ -111,7 +113,7 @@ export default function SafeguardingSettingsPage() {
       <div className="rounded-xl border border-border bg-surface p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
           <ShieldCheck className="h-4 w-4" />
-          Module Status
+          {t('sections.moduleStatus')}
         </h2>
         <div className="mt-4 flex items-center gap-3">
           <button
@@ -130,14 +132,14 @@ export default function SafeguardingSettingsPage() {
             />
           </button>
           <span className="text-sm text-text-primary">
-            Safeguarding module is {settings.module_enabled ? 'enabled' : 'disabled'}
+            {settings.module_enabled ? t('moduleEnabled') : t('moduleDisabled')}
           </span>
         </div>
       </div>
 
       {/* DLP Assignment */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-text-primary">Designated Liaison Person (DLP)</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('sections.dlp')}</h2>
         <div className="mt-4 space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="dlp">DLP</Label>
@@ -149,7 +151,7 @@ export default function SafeguardingSettingsPage() {
               onChange={(e) => updateField('dlp_user_id', e.target.value)}
               className="w-full text-base"
             />
-            <p className="text-xs text-text-tertiary">Primary child protection officer</p>
+            <p className="text-xs text-text-tertiary">{t('labels.dlpDescription')}</p>
           </div>
 
           <div className="space-y-1.5">
@@ -180,7 +182,7 @@ export default function SafeguardingSettingsPage() {
 
       {/* SLA Thresholds */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-text-primary">SLA Thresholds (hours)</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('sections.slaThresholds')}</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="sla-critical">Critical</Label>
@@ -231,7 +233,7 @@ export default function SafeguardingSettingsPage() {
 
       {/* Retention */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-base font-semibold text-text-primary">Data Retention</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('sections.dataRetention')}</h2>
         <div className="mt-4 space-y-1.5">
           <Label htmlFor="retention">Retention Period (years)</Label>
           <Input
@@ -243,7 +245,7 @@ export default function SafeguardingSettingsPage() {
             className="w-full text-base sm:w-32"
           />
           <p className="text-xs text-text-tertiary">
-            Irish Children First Act requires retention until the child turns 75.
+            {t('labels.retentionHint')}
           </p>
         </div>
       </div>

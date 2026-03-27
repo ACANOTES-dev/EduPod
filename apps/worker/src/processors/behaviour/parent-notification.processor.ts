@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { $Enums, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -48,6 +48,25 @@ export class BehaviourParentNotificationProcessor extends WorkerHost {
     const notifJob = new BehaviourParentNotificationJob(this.prisma);
     await notifJob.execute(job.data);
   }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Map preferred_contact_channels JSON to valid NotificationChannel values */
+const VALID_EXTRA_CHANNELS = new Set(['email', 'whatsapp', 'sms']);
+
+function resolveChannels(preferredRaw: unknown): $Enums.NotificationChannel[] {
+  const channels: $Enums.NotificationChannel[] = ['in_app'];
+
+  if (Array.isArray(preferredRaw)) {
+    for (const ch of preferredRaw) {
+      if (typeof ch === 'string' && VALID_EXTRA_CHANNELS.has(ch)) {
+        channels.push(ch as $Enums.NotificationChannel);
+      }
+    }
+  }
+
+  return channels;
 }
 
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
@@ -155,29 +174,35 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
           },
         });
 
-        // Create in-app notification if parent has a user account
+        // Create notifications per preferred channel if parent has a user account
         if (sp.parent.user_id) {
-          await tx.notification.create({
-            data: {
-              tenant_id,
-              recipient_user_id: sp.parent.user_id,
-              channel: 'in_app',
-              template_key: 'behaviour.incident_notification',
-              locale: 'en',
-              status: 'delivered',
-              payload_json: {
-                incident_id,
-                incident_number: incident.incident_number,
-                category_name: incident.category.name,
-                polarity: incident.polarity,
-                severity: incident.severity,
-                student_id: studentId,
+          const channels = resolveChannels(sp.parent.preferred_contact_channels);
+
+          for (const channel of channels) {
+            const isInApp = channel === 'in_app';
+
+            await tx.notification.create({
+              data: {
+                tenant_id,
+                recipient_user_id: sp.parent.user_id,
+                channel,
+                template_key: 'behaviour.incident_notification',
+                locale: 'en',
+                status: isInApp ? 'delivered' : 'queued',
+                payload_json: {
+                  incident_id,
+                  incident_number: incident.incident_number,
+                  category_name: incident.category.name,
+                  polarity: incident.polarity,
+                  severity: incident.severity,
+                  student_id: studentId,
+                },
+                source_entity_type: 'behaviour_incident',
+                source_entity_id: incident_id,
+                delivered_at: isInApp ? now : undefined,
               },
-              source_entity_type: 'behaviour_incident',
-              source_entity_id: incident_id,
-              delivered_at: now,
-            },
-          });
+            });
+          }
         }
 
         this.logger.log(

@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@school/ui';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 export interface CategoryOption {
@@ -33,6 +34,7 @@ const POLARITY_BG_SELECTED: Record<string, string> = {
 };
 
 export function CategoryPicker({ categories, selectedId, onSelect, polarityFilter }: CategoryPickerProps) {
+  const t = useTranslations('behaviour.components.categoryPicker');
   const filtered = polarityFilter
     ? categories.filter((c) => c.polarity === polarityFilter)
     : categories;
@@ -40,7 +42,7 @@ export function CategoryPicker({ categories, selectedId, onSelect, polarityFilte
   if (filtered.length === 0) {
     return (
       <p className="py-4 text-center text-sm text-text-tertiary">
-        No categories available
+        {t('noCategories')}
       </p>
     );
   }

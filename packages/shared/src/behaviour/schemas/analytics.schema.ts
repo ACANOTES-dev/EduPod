@@ -226,6 +226,121 @@ export interface InterventionOutcomeResult {
   data_quality: DataQuality;
 }
 
+// ─── Benchmarks ───────────────────────────────────────────────────────────
+
+export const benchmarkQuerySchema = behaviourAnalyticsQuerySchema.extend({
+  benchmarkCategory: z.string().optional(),
+});
+
+export type BenchmarkQuery = z.infer<typeof benchmarkQuerySchema>;
+
+export interface BenchmarkEntry {
+  benchmark_category: string;
+  metric_name: string;
+  tenant_value: number | null;
+  etb_average: number | null;
+  percentile: number | null;
+  sample_size: number;
+}
+
+export interface BenchmarkResult {
+  entries: BenchmarkEntry[];
+  benchmarking_enabled: boolean;
+  data_quality: DataQuality;
+}
+
+// ─── Teacher Analytics ────────────────────────────────────────────────────
+
+export interface TeacherAnalyticsEntry {
+  teacher_id: string;
+  teacher_name: string;
+  incident_count: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
+  positive_ratio: number | null;
+  logging_rate_per_period: number | null;
+  total_teaching_periods: number | null;
+}
+
+export interface TeacherAnalyticsResult {
+  entries: TeacherAnalyticsEntry[];
+  data_quality: DataQuality;
+}
+
+// ─── Class Comparisons ────────────────────────────────────────────────────
+
+export interface ClassComparisonEntry {
+  class_id: string;
+  class_name: string;
+  student_count: number;
+  incident_count: number;
+  positive_count: number;
+  negative_count: number;
+  incident_rate_per_student: number | null;
+  positive_rate_per_student: number | null;
+  negative_rate_per_student: number | null;
+}
+
+export interface ClassComparisonResult {
+  entries: ClassComparisonEntry[];
+  data_quality: DataQuality;
+}
+
+// ─── Student Analytics ────────────────────────────────────────────────────
+
+export interface StudentAnalyticsResult {
+  summary: {
+    total_incidents: number;
+    positive_count: number;
+    negative_count: number;
+    neutral_count: number;
+    positive_ratio: number | null;
+    total_points: number;
+    active_interventions: number;
+    pending_sanctions: number;
+  };
+  trend: TrendPoint[];
+  category_breakdown: Array<{
+    category_name: string;
+    polarity: string;
+    count: number;
+  }>;
+  period_comparison: Array<{
+    period_name: string;
+    positive: number;
+    negative: number;
+  }>;
+  sanction_history: Array<{
+    type: string;
+    count: number;
+    served: number;
+    no_show: number;
+  }>;
+  attendance_correlation: {
+    total_days: number;
+    absent_days: number;
+    absence_rate: number;
+    incidents_on_absent_days: number;
+    incidents_on_present_days: number;
+    avg_incidents_per_present_day: number | null;
+  } | null;
+}
+
+// ─── CSV Export ───────────────────────────────────────────────────────────
+
+export const csvExportQuerySchema = behaviourAnalyticsQuerySchema.extend({
+  exportType: z.enum([
+    'incidents',
+    'sanctions',
+    'interventions',
+    'categories',
+    'staff_activity',
+  ]),
+});
+
+export type CsvExportQuery = z.infer<typeof csvExportQuerySchema>;
+
 // ─── AI Query ──────────────────────────────────────────────────────────────
 
 export const aiQuerySchema = z.object({

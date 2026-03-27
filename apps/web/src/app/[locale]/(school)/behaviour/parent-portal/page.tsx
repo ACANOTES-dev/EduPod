@@ -2,6 +2,7 @@
 
 import { Badge, Button } from '@school/ui';
 import { AlertCircle, Bell, CheckCircle, Minus, Plus, TrendingDown, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
@@ -66,6 +67,7 @@ const SANCTION_STATUS_CLASSES: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ParentBehaviourPortalPage() {
+  const t = useTranslations('behaviour.parentPortal');
   const [summary, setSummary] = React.useState<ChildSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [activeChildId, setActiveChildId] = React.useState<string | null>(null);
@@ -90,8 +92,8 @@ export default function ParentBehaviourPortalPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Behaviour Portal"
-          description="Stay informed about your child's behaviour"
+          title={t('title')}
+          description={t('description')}
         />
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -106,14 +108,14 @@ export default function ParentBehaviourPortalPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Behaviour Portal"
-          description="Stay informed about your child's behaviour"
+          title={t('title')}
+          description={t('description')}
         />
         <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <AlertCircle className="mx-auto h-10 w-10 text-text-tertiary/30" />
-          <p className="mt-3 text-sm text-text-primary">No children linked to your account.</p>
+          <p className="mt-3 text-sm text-text-primary">{t('noChildren')}</p>
           <p className="mt-1 text-xs text-text-tertiary">
-            Contact the school office to link your account.
+            {t('contactSchool')}
           </p>
         </div>
       </div>
@@ -163,6 +165,7 @@ export default function ParentBehaviourPortalPage() {
 // ─── Child Panel ──────────────────────────────────────────────────────────────
 
 function ChildPanel({ child }: { child: ChildSummary }) {
+  const t = useTranslations('behaviour.parentPortal');
   const [incidents, setIncidents] = React.useState<ParentIncident[]>([]);
   const [sanctions, setSanctions] = React.useState<ParentSanction[]>([]);
   const [loadingIncidents, setLoadingIncidents] = React.useState(true);
@@ -246,11 +249,11 @@ function ChildPanel({ child }: { child: ChildSummary }) {
         <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600">{child.positive_count}</p>
-            <p className="mt-0.5 text-xs text-text-tertiary">Positive</p>
+            <p className="mt-0.5 text-xs text-text-tertiary">{t('positive')}</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-red-500">{child.negative_count}</p>
-            <p className="mt-0.5 text-xs text-text-tertiary">Negative</p>
+            <p className="mt-0.5 text-xs text-text-tertiary">{t('negative')}</p>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1">
@@ -273,7 +276,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                 {netPoints > 0 ? `+${netPoints}` : netPoints}
               </p>
             </div>
-            <p className="mt-0.5 text-xs text-text-tertiary">Net Points</p>
+            <p className="mt-0.5 text-xs text-text-tertiary">{t('netPoints')}</p>
           </div>
         </div>
       </div>
@@ -282,7 +285,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
       {incidents.some((i) => i.requires_acknowledgement && !i.acknowledged_at) && (
         <div>
           <h3 className="mb-3 text-sm font-semibold text-text-primary">
-            Awaiting Your Acknowledgement
+            {t('awaitingAcknowledgement')}
           </h3>
           <div className="space-y-2">
             {incidents
@@ -315,7 +318,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                       className="w-full shrink-0 sm:w-auto"
                     >
                       <CheckCircle className="me-1.5 h-4 w-4" />
-                      {acknowledging === inc.id ? 'Acknowledging...' : 'Acknowledge'}
+                      {acknowledging === inc.id ? t('acknowledging') : t('acknowledge')}
                     </Button>
                   </div>
                 </div>
@@ -326,7 +329,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
 
       {/* Recent Incidents */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-text-primary">Recent Incidents</h3>
+        <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('recentIncidents')}</h3>
         {loadingIncidents ? (
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -335,7 +338,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
           </div>
         ) : incidents.length === 0 ? (
           <div className="rounded-xl border border-border bg-surface py-8 text-center">
-            <p className="text-sm text-text-tertiary">No incidents recorded</p>
+            <p className="text-sm text-text-tertiary">{t('noIncidents')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -382,7 +385,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                       {inc.acknowledged_at && (
                         <span className="flex items-center gap-0.5 text-xs text-green-600">
                           <CheckCircle className="h-3 w-3" />
-                          Acknowledged
+                          {t('acknowledged')}
                         </span>
                       )}
                     </div>
@@ -396,7 +399,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
 
       {/* Sanctions */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-text-primary">Sanctions</h3>
+        <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sanctions')}</h3>
         {loadingSanctions ? (
           <div className="space-y-2">
             {Array.from({ length: 2 }).map((_, i) => (
@@ -405,14 +408,14 @@ function ChildPanel({ child }: { child: ChildSummary }) {
           </div>
         ) : sanctions.length === 0 ? (
           <div className="rounded-xl border border-border bg-surface py-8 text-center">
-            <p className="text-sm text-text-tertiary">No sanctions on record</p>
+            <p className="text-sm text-text-tertiary">{t('noSanctions')}</p>
           </div>
         ) : (
           <div className="space-y-4">
             {upcomingSanctions.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Upcoming
+                  {t('upcoming')}
                 </p>
                 <div className="space-y-2">
                   {upcomingSanctions.map((s) => (
@@ -448,7 +451,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
             {recentSanctions.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Recent
+                  {t('recent')}
                 </p>
                 <div className="space-y-2">
                   {recentSanctions.map((s) => (

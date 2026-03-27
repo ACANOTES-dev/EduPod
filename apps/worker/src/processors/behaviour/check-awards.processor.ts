@@ -49,6 +49,25 @@ export class BehaviourCheckAwardsProcessor extends WorkerHost {
   }
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Map preferred_contact_channels JSON to valid NotificationChannel values */
+const VALID_EXTRA_CHANNELS = new Set(['email', 'whatsapp', 'sms']);
+
+function resolveChannels(preferredRaw: unknown): $Enums.NotificationChannel[] {
+  const channels: $Enums.NotificationChannel[] = ['in_app'];
+
+  if (Array.isArray(preferredRaw)) {
+    for (const ch of preferredRaw) {
+      if (typeof ch === 'string' && VALID_EXTRA_CHANNELS.has(ch)) {
+        channels.push(ch as $Enums.NotificationChannel);
+      }
+    }
+  }
+
+  return channels;
+}
+
 // ─── TenantAwareJob implementation ───────────────────────────────────────────
 
 class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload> {
@@ -225,7 +244,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
           where: { student_id: studentId, tenant_id },
           include: {
             parent: {
-              select: { id: true, user_id: true, status: true },
+              select: { id: true, user_id: true, preferred_contact_channels: true, status: true },
             },
           },
         });
@@ -263,25 +282,31 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
             continue;
           }
 
-          await tx.notification.create({
-            data: {
-              tenant_id,
-              recipient_user_id: sp.parent.user_id,
-              channel: 'in_app',
-              template_key: 'behaviour.award_parent',
-              locale: 'en',
-              status: 'delivered',
-              payload_json: {
-                award_id: award.id,
-                award_name: awardType.name,
-                student_id: studentId,
-                points_at_award: totalPoints,
+          const channels = resolveChannels(sp.parent.preferred_contact_channels);
+
+          for (const channel of channels) {
+            const isInApp = channel === 'in_app';
+
+            await tx.notification.create({
+              data: {
+                tenant_id,
+                recipient_user_id: sp.parent.user_id,
+                channel,
+                template_key: 'behaviour.award_parent',
+                locale: 'en',
+                status: isInApp ? 'delivered' : 'queued',
+                payload_json: {
+                  award_id: award.id,
+                  award_name: awardType.name,
+                  student_id: studentId,
+                  points_at_award: totalPoints,
+                },
+                source_entity_type: 'behaviour_recognition_award',
+                source_entity_id: award.id,
+                delivered_at: isInApp ? new Date() : undefined,
               },
-              source_entity_type: 'behaviour_recognition_award',
-              source_entity_id: award.id,
-              delivered_at: new Date(),
-            },
-          });
+            });
+          }
         }
 
         // Auto-populate recognition wall if enabled

@@ -235,6 +235,36 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
       // Execute actions
       for (const rule of matchedRules) {
         for (const action of rule.actions) {
+          // SP3-2: Inter-escalation cooldown — skip if same rule+student+action was recently executed
+          // TODO: use rule.cooldown_hours once the field is added to BehaviourPolicyRule schema
+          const cooldownHours = 24; // default 24h until cooldown_hours field exists on the model
+          const cooldownStart = new Date(
+            Date.now() - cooldownHours * 3600 * 1000,
+          );
+
+          const recentExecution =
+            await tx.behaviourPolicyActionExecution.findFirst({
+              where: {
+                tenant_id: incident.tenant_id,
+                action_type: action.action_type,
+                execution_status: 'success',
+                created_at: { gte: cooldownStart },
+                evaluation: {
+                  student_id: participant.student_id!,
+                  rule_version: {
+                    rule_id: rule.id,
+                  },
+                },
+              },
+            });
+
+          if (recentExecution) {
+            this.logger.log(
+              `Skipping action ${action.action_type} for rule ${rule.id} — cooldown active (last: ${recentExecution.created_at.toISOString()})`,
+            );
+            continue;
+          }
+
           await this.executeAction(
             action,
             incident,
