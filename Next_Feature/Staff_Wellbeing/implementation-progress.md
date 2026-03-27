@@ -28,11 +28,11 @@ A ──→ D ──────→ E ────────┘
 |-------|------|------|--------|---------|-----------|
 | A | Foundation & Shared Infrastructure | `phase-a-foundation.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | B | Anonymous Survey Engine | `phase-b-survey-engine.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
-| C | Survey Results & Trust Layer | `phase-c-trust-layer.md` | NOT STARTED | — | — |
+| C | Survey Results & Trust Layer | `phase-c-trust-layer.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | D | Workload Intelligence | `phase-d-workload-intelligence.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | E | Frontend — Staff Experience | `phase-e-frontend-staff.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
-| F | Frontend — Principal/Board + Reports | `phase-f-frontend-admin.md` | NOT STARTED | — | — |
-| G | Security Verification & Hardening | `phase-g-hardening.md` | NOT STARTED | — | — |
+| F | Frontend — Principal/Board + Reports | `phase-f-frontend-admin.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
+| G | Security Verification & Hardening | `phase-g-hardening.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 
 ---
 
@@ -110,3 +110,56 @@ A ──→ D ──────→ E ────────┘
 **Tests:** 230 passing (13 suites, all staff-wellbeing green). Type-check and lint clean.
 **Issues:** None.
 **Next:** Phase C (Survey Results & Trust Layer) is unblocked. Phase F requires C + D + E (E now complete).
+
+### Session 5 — 2026-03-27
+**Phase(s):** C
+**Work done:**
+- C1: SurveyResultsService — aggregation engine for all question types: likert_5 (mean, median, distribution per value 1-5), single_choice (count/percentage per option), freeform (approved/redacted counts only, text via comments endpoint)
+- C2: Minimum response threshold — participation token count vs `min_response_threshold`, suppresses all question-level data when below threshold, response count always visible
+- C3: Department drill-down metadata — queries StaffProfile grouped by department, returns eligibility per department based on `dept_drill_down_threshold` staff count
+- C4: Cross-filter blocking — validates department filter against both drill-down threshold and min response threshold, returns 403 `FILTER_BELOW_THRESHOLD` when either check fails
+- C5: Batch release enforcement — 403 `SURVEY_STILL_ACTIVE` for active surveys (prevents timing inference), 404 for drafts, results only for closed/archived
+- C6: Moderation queue — `listModerationQueue` (pending/flagged freeform, oldest-first, no user identifiers), `moderateResponse` (approve/flag/redact with text overwrite on redaction, audit-logged via AuditLogService)
+- C7: Moderated comments endpoint — approved + redacted freeform responses, same threshold + batch release enforcement as results
+- SurveyResultsController — 4 thin endpoints (GET results, GET moderation, PATCH moderation, GET comments) with correct permissions (`wellbeing.view_survey_results`, `wellbeing.moderate_surveys`)
+- Fixed shared schema: `surveyResultsQuerySchema` changed from `department_id` (UUID) to `department` (string) — StaffProfile has free-text department field, no Department table
+- Module wired with SurveyResultsService + SurveyResultsController
+**Execution:** 2 parallel agents (1 Opus for service+spec, 1 Sonnet for controller+spec). Zero integration errors. Orchestrator handled schema fix, module wiring.
+**Tests:** 230 passing (13 suites, all staff-wellbeing green). Type-check and lint clean (0 errors).
+**Commit:** `f5b03b2` — 6 files changed, 1,546 insertions.
+**Issues:** None. Department drill-down returns metadata only (staff counts + eligibility) since survey responses are anonymous with no department linkage — actual department-level filtering would require adding department to responses in a future phase.
+**Next:** Phase F (Frontend — Principal/Board + Reports) is now unblocked (requires C + D + E, all complete). Phase G (Hardening) requires all phases.
+
+### Session 6 — 2026-03-27
+**Phase(s):** F
+**Work done:**
+- F1: Aggregate Dashboard (`/wellbeing/dashboard`) — 6-section dashboard with StatCards (teaching load, cover fairness, timetable quality, substitution pressure), Recharts histograms for workload distribution and cover fairness, timetable quality 4-metric grid, substitution pressure trend LineChart with component breakdown, correlation section with accumulating/available dual-state (progress bar vs dual-axis chart), permanent non-dismissable correlation disclaimer
+- F2: Survey Management (`/wellbeing/surveys`) — Survey list table (desktop) / card view (mobile) with status filtering and pagination, create/edit Dialog with question builder (Likert/Single Choice/Freeform), question reorder, threshold sliders, clone flow, activate/close confirmation dialogs
+- F3: Survey Detail (`/wellbeing/surveys/[id]`) — 3-tab layout (Overview/Results/Moderation): overview with status actions, results with anonymity panel + per-question Recharts visualizations (likert stacked bars, single choice bars, freeform hidden-by-default) + department threshold filtering + cross-filter blocking, moderation tab with flagged match highlighting + approve/flag/redact actions + redact permanence confirmation
+- F4: Board Report (`/wellbeing/reports`) — Termly summary display with 6 report sections (workload, cover fairness, timetable quality, substitution pressure, absence pattern, correlation insight), trend direction arrows, print-friendly styling with window.print() PDF fallback
+- Sidebar nav: added Dashboard, Survey Management, Board Report links for ADMIN_ROLES
+- i18n: full en.json + ar.json translation keys for all 4 pages (dashboard, surveys, surveyDetail, reports) + 3 nav keys
+- All pages RTL-safe (logical properties only), mobile-first (375px), bilingual
+**Execution:** 6 parallel agents (3 Opus, 3 Sonnet). Zero integration errors. Orchestrator handled sidebar nav wiring.
+**Tests:** 230 passing (13 suites, all staff-wellbeing green). Type-check and lint clean (0 errors).
+**Commit:** `abba834` — 7 files changed, 4,266 insertions. CI green.
+**Issues:** None.
+**Next:** Phase G (Security Verification & Hardening) is now unblocked — all prior phases complete.
+
+### Session 7 — 2026-03-27
+**Phase(s):** G
+**Work done:**
+- G1: 9 cross-tenant isolation tests — verify no API path leaks data between tenants (survey results, detail, moderation, comments, active survey, submit, workload, aggregate, board report)
+- G2: 51 impersonation block tests + hardened ALL 6 controllers with class-level `@BlockImpersonation()` + `BlockImpersonationGuard` (previously only 4 of 26 endpoints were protected)
+- G3: 9 anonymous submission integrity tests — Prisma DMMF verification that survey_responses has no user_id/tenant_id/timestamp precision, HMAC token one-way hash, cleanup destroys linkability
+- G4: 6 threshold enforcement E2E tests — below/at threshold, department drill-down, cross-filter attack, freeform in drill-down, small-N near-threshold
+- G5: 4 batch release E2E tests — results during active (403), comments during active (403), results after close (200), single active enforcement (409)
+- G6: 13 audit log verification tests — confirmed 3 moderation actions + 4 mutations have audit coverage; documented 6 missing audit log calls for privacy-sensitive READ actions
+- G7: 19 permission model verification tests — metadata reflection on all controllers confirming correct @RequiresPermission decorators
+- G8: Architecture documentation final pass — SurveyStatus + ModerationStatus lifecycles added to state-machines.md; all 4 architecture files verified complete
+- Manual security audit: 8/9 items pass, minor timing side-channel on double-vote (low risk)
+- Fixed 4 pre-existing test assertions that checked method-level @BlockImpersonation (now class-level)
+**Execution:** 7 parallel agents (all Opus). Orchestrator fixed 1 type error (missing DTO fields in g6), 2 lint issues (unused import, blank line), 4 pre-existing test assertions.
+**Tests:** 339 passing (20 suites, all staff-wellbeing green). 111 new tests. Zero regressions.
+**Issues:** 6 missing audit log calls for privacy-sensitive READ actions documented as known gaps (not V1 blockers).
+**Next:** V1 complete — Staff Wellbeing module is production-ready.

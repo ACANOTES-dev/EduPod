@@ -142,20 +142,12 @@ describe('SurveyController', () => {
       expect(permission).toBeUndefined();
     });
 
-    it('should have @BlockImpersonation on submitResponse', () => {
+    it('should have @BlockImpersonation on the controller class (covers all endpoints)', () => {
       const blocked = Reflect.getMetadata(
         BLOCK_IMPERSONATION_KEY,
-        controller.submitResponse,
+        SurveyController,
       );
       expect(blocked).toBe(true);
-    });
-
-    it('should NOT have @BlockImpersonation on getActiveSurvey', () => {
-      const blocked = Reflect.getMetadata(
-        BLOCK_IMPERSONATION_KEY,
-        controller.getActiveSurvey,
-      );
-      expect(blocked).toBeUndefined();
     });
   });
 

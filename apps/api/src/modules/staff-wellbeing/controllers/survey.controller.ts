@@ -27,6 +27,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { BlockImpersonationGuard } from '../../../common/guards/block-impersonation.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
@@ -45,7 +46,8 @@ const listSurveysQuerySchema = z.object({
 
 @Controller('v1')
 @ModuleEnabled('staff_wellbeing')
-@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@BlockImpersonation()
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard, BlockImpersonationGuard)
 export class SurveyController {
   constructor(private readonly surveyService: SurveyService) {}
 
@@ -147,7 +149,6 @@ export class SurveyController {
   // ─── 8. Submit Survey Response (anonymous — block impersonation) ───────
 
   @Post('staff-wellbeing/respond/:surveyId')
-  @BlockImpersonation()
   @HttpCode(HttpStatus.CREATED)
   async submitResponse(
     @CurrentTenant() tenant: TenantContext,

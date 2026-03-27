@@ -24,7 +24,8 @@ import { WorkloadComputeService } from '../services/workload-compute.service';
 
 @Controller('v1')
 @ModuleEnabled('staff_wellbeing')
-@UseGuards(AuthGuard, ModuleEnabledGuard)
+@BlockImpersonation()
+@UseGuards(AuthGuard, ModuleEnabledGuard, BlockImpersonationGuard)
 export class PersonalWorkloadController {
   constructor(
     private readonly computeService: WorkloadComputeService,
@@ -35,8 +36,6 @@ export class PersonalWorkloadController {
   // ─── 1. Personal Workload Summary ──────────────────────────────────────
 
   @Get('staff-wellbeing/my-workload/summary')
-  @BlockImpersonation()
-  @UseGuards(BlockImpersonationGuard)
   async getSummary(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -72,8 +71,6 @@ export class PersonalWorkloadController {
   // ─── 2. Cover History (paginated) ─────────────────────────────────────
 
   @Get('staff-wellbeing/my-workload/cover-history')
-  @BlockImpersonation()
-  @UseGuards(BlockImpersonationGuard)
   async getCoverHistory(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -96,8 +93,6 @@ export class PersonalWorkloadController {
   // ─── 3. Timetable Quality ─────────────────────────────────────────────
 
   @Get('staff-wellbeing/my-workload/timetable-quality')
-  @BlockImpersonation()
-  @UseGuards(BlockImpersonationGuard)
   async getTimetableQuality(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,

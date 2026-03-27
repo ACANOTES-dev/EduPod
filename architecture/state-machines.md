@@ -369,6 +369,37 @@ completed*
 
 ---
 
+## Staff Wellbeing Lifecycles
+
+### SurveyStatus
+```
+draft    -> [active]
+active   -> [closed]
+closed   -> [archived]
+archived*
+```
+- **Guarded by**: `apps/api/src/modules/staff-wellbeing/services/survey.service.ts` — `activate()`, `close()` methods enforce per-transition validation
+- **Valid transitions**:
+  - `draft → active` (requires: questions exist, window dates set, no other active survey for tenant)
+  - `active → closed` (side effects: `results_released` set to `true`)
+  - `closed → archived` (no side effects, cleanup only)
+- **Invalid transitions**: No backward transitions. No `draft→closed`. No `active→draft`. No skipping states.
+- **Note**: Results are only visible after `active → closed` transition — the `results_released` flag gates all result endpoints. There is no separate `release-survey-results` job; results computation happens inline on query.
+
+### ModerationStatus (survey responses)
+```
+pending  -> [approved, flagged, redacted]
+approved*
+flagged  -> [approved, redacted]
+redacted*
+```
+- **Guarded by**: `apps/api/src/modules/staff-wellbeing/services/survey-results.service.ts` — `moderateResponse()`
+- **Side effects**: `redacted` overwrites original `answer_text` with `[Response redacted by moderator]`. Redaction is irreversible — original text is destroyed.
+- **Auto-flagging**: The `wellbeing:moderation-scan` worker job automatically transitions `pending → flagged` if staff names, room codes, or subject names are detected in freeform text.
+- **Danger**: `survey_responses` has NO `tenant_id` and NO RLS — see DZ-27. Moderation access is gated by joining through the tenant-scoped `staff_surveys` table.
+
+---
+
 ## Behaviour Module Lifecycles
 
 ### IncidentStatus

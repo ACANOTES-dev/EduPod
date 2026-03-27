@@ -182,28 +182,20 @@ describe('PersonalWorkloadController', () => {
   });
 
   describe('endpoint decorators', () => {
-    it('should have @BlockImpersonation on getSummary', () => {
+    it('should have @BlockImpersonation on the controller class', () => {
       const blocked = Reflect.getMetadata(
         BLOCK_IMPERSONATION_KEY,
-        controller.getSummary,
+        PersonalWorkloadController,
       );
       expect(blocked).toBe(true);
     });
 
-    it('should have @BlockImpersonation on getCoverHistory', () => {
-      const blocked = Reflect.getMetadata(
-        BLOCK_IMPERSONATION_KEY,
-        controller.getCoverHistory,
+    it('should include BlockImpersonationGuard in class-level guards', () => {
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        PersonalWorkloadController,
       );
-      expect(blocked).toBe(true);
-    });
-
-    it('should have @BlockImpersonation on getTimetableQuality', () => {
-      const blocked = Reflect.getMetadata(
-        BLOCK_IMPERSONATION_KEY,
-        controller.getTimetableQuality,
-      );
-      expect(blocked).toBe(true);
+      expect(guards).toContain(BlockImpersonationGuard);
     });
   });
 

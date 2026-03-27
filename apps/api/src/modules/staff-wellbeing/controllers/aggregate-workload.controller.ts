@@ -9,10 +9,12 @@ import type {
   TenantContext,
 } from '@school/shared';
 
+import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
 import { RequiresPermission } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';
+import { BlockImpersonationGuard } from '../../../common/guards/block-impersonation.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { WorkloadCacheService } from '../services/workload-cache.service';
@@ -22,7 +24,8 @@ import { WorkloadComputeService } from '../services/workload-compute.service';
 
 @Controller('v1')
 @ModuleEnabled('staff_wellbeing')
-@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
+@BlockImpersonation()
+@UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard, BlockImpersonationGuard)
 export class AggregateWorkloadController {
   constructor(
     private readonly computeService: WorkloadComputeService,
