@@ -1,5 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
+import { SettingsService } from '../configuration/settings.service';
+
 export interface TrendPrediction {
   expected: number[];
   optimistic: number[];
@@ -15,7 +17,7 @@ export class AiPredictionsService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
 
-  constructor() {
+  constructor(private readonly settingsService: SettingsService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -35,6 +37,7 @@ export class AiPredictionsService {
   }
 
   async predictTrend(
+    tenantId: string,
     historicalData: Record<string, unknown>[],
     reportType: string,
     periodsAhead = 3,
@@ -47,6 +50,19 @@ export class AiPredictionsService {
         },
       });
     }
+
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.predictionsEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
+    // TODO: Route through GDPR gateway when userId is available in method signature
+    // predictTrend currently has no userId param — gateway call deferred
 
     const dataStr = JSON.stringify(historicalData, null, 2);
 

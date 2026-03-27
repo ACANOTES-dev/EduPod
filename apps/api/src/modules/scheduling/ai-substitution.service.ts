@@ -1,5 +1,8 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import type { GdprOutboundData } from '@school/shared';
 
+import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AiSubstituteRanking {
@@ -30,7 +33,11 @@ export class AiSubstitutionService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
+  ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -62,6 +69,16 @@ export class AiSubstitutionService {
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
           message: 'AI substitution ranking is not configured. ANTHROPIC_API_KEY is not set.',
+        },
+      });
+    }
+
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.substitutionRankingEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
         },
       });
     }
@@ -166,12 +183,31 @@ export class AiSubstitutionService {
       );
     }
 
+    // GDPR tokenisation — protect staff PII before sending to AI
+    const outbound: GdprOutboundData = {
+      entities: availableStaff.map((s) => ({
+        type: 'staff' as const,
+        id: s.id,
+        fields: { full_name: `${s.user.first_name} ${s.user.last_name}`.trim() },
+      })),
+      entityCount: availableStaff.length,
+    };
+    // TODO: thread userId from caller for proper audit trail
+    const { processedData, tokenMap } =
+      await this.gdprTokenService.processOutbound(tenantId, 'ai_substitution', outbound, 'system');
+
+    // Build a lookup from staff ID to tokenised name
+    const tokenisedNameMap = new Map<string, string>();
+    for (const entity of processedData.entities) {
+      tokenisedNameMap.set(entity.id, entity.fields.full_name ?? '');
+    }
+
     // Build context for AI
     const staffContext = availableStaff.map((s) => {
       const comp = competencyMap.get(s.id);
       return {
         staff_profile_id: s.id,
-        name: `${s.user.first_name} ${s.user.last_name}`.trim(),
+        name: tokenisedNameMap.get(s.id) ?? `${s.user.first_name} ${s.user.last_name}`.trim(),
         is_competent: subjectId ? comp !== undefined : true,
         is_primary: comp?.is_primary ?? false,
         cover_count_last_30_days: coverCountMap.get(s.id) ?? 0,
@@ -214,7 +250,8 @@ Return ONLY the JSON array. No markdown, no explanation.`;
 
       const content = response.content[0];
       if (content?.type === 'text' && content.text) {
-        const parsed = JSON.parse(content.text) as RawAiCandidate[];
+        const detokenisedText = await this.gdprTokenService.processInbound(tenantId, content.text, tokenMap);
+        const parsed = JSON.parse(detokenisedText) as RawAiCandidate[];
         if (Array.isArray(parsed)) {
           const validated = parsed.filter((item): item is ValidatedAiCandidate =>
             typeof item.staff_profile_id === 'string' &&

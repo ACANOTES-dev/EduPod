@@ -2,6 +2,7 @@ import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { AiCommentsService } from './ai-comments.service';
@@ -22,7 +23,7 @@ function buildMockPrisma() {
 function buildMockSettingsService(aiOverrides: Record<string, unknown> = {}) {
   return {
     getSettings: jest.fn().mockResolvedValue({
-      ai: { commentStyle: 'balanced', commentTargetWordCount: 100, ...aiOverrides },
+      ai: { commentsEnabled: true, commentStyle: 'balanced', commentTargetWordCount: 100, ...aiOverrides },
     }),
   };
 }
@@ -83,6 +84,7 @@ describe('AiCommentsService — generateComment', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -100,6 +102,23 @@ describe('AiCommentsService — generateComment', () => {
     await expect(
       service.generateComment(TENANT_ID, REPORT_CARD_ID),
     ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('should throw AI_FEATURE_DISABLED when commentsEnabled is false', async () => {
+    mockSettings.getSettings.mockResolvedValue({ ai: { commentsEnabled: false } });
+
+    await expect(
+      service.generateComment(TENANT_ID, REPORT_CARD_ID),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    try {
+      await service.generateComment(TENANT_ID, REPORT_CARD_ID);
+    } catch (err) {
+      const response = (err as ServiceUnavailableException).getResponse() as {
+        error: { code: string };
+      };
+      expect(response.error.code).toBe('AI_FEATURE_DISABLED');
+    }
   });
 
   it('should throw NotFoundException when report card does not exist', async () => {
@@ -132,7 +151,7 @@ describe('AiCommentsService — generateComment', () => {
 
   it('should call AI with settings-derived comment style', async () => {
     mockSettings.getSettings.mockResolvedValue({
-      ai: { commentStyle: 'formal', commentTargetWordCount: 150 },
+      ai: { commentsEnabled: true, commentStyle: 'formal', commentTargetWordCount: 150 },
     });
 
     await service.generateComment(TENANT_ID, REPORT_CARD_ID);
@@ -168,6 +187,7 @@ describe('AiCommentsService — generateComment', () => {
   it('should include sample reference in prompt when commentSampleReference is set', async () => {
     mockSettings.getSettings.mockResolvedValue({
       ai: {
+        commentsEnabled: true,
         commentStyle: 'warm',
         commentSampleReference: 'This student consistently shows dedication.',
         commentTargetWordCount: 80,
@@ -206,6 +226,7 @@ describe('AiCommentsService — generateBatchComments', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 

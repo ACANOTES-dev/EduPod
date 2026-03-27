@@ -55,6 +55,11 @@ export const tenantSettingsSchema = z.object({
     .object({
       defaultMissingGradePolicy: z.enum(['exclude', 'zero']).default('exclude'),
       requireGradeComment: z.boolean().default(false),
+      riskDetection: z
+        .object({
+          enabled: z.boolean().default(false),
+        })
+        .default({}),
     })
     .default({}),
   admissions: z
@@ -140,6 +145,14 @@ export const tenantSettingsSchema = z.object({
   ai: z
     .object({
       enabled: z.boolean().default(false),
+      gradingEnabled: z.boolean().default(false),
+      commentsEnabled: z.boolean().default(false),
+      progressSummariesEnabled: z.boolean().default(false),
+      nlQueriesEnabled: z.boolean().default(false),
+      reportNarrationEnabled: z.boolean().default(false),
+      predictionsEnabled: z.boolean().default(false),
+      substitutionRankingEnabled: z.boolean().default(false),
+      attendanceScanEnabled: z.boolean().default(false),
     })
     .default({}),
 });

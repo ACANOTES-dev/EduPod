@@ -1,6 +1,8 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -17,6 +19,10 @@ const mockRedisClient = {
   set: jest.fn().mockResolvedValue('OK'),
 };
 
+const mockSettingsService = {
+  getSettings: jest.fn().mockResolvedValue({ ai: { attendanceScanEnabled: true } }),
+};
+
 describe('AttendanceScanService — parseScanResponse', () => {
   let service: AttendanceScanService;
 
@@ -29,6 +35,8 @@ describe('AttendanceScanService — parseScanResponse', () => {
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -152,6 +160,8 @@ describe('AttendanceScanService — resolveStudentNames', () => {
         AttendanceScanService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -223,6 +233,8 @@ describe('AttendanceScanService — scanImage guards', () => {
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -245,6 +257,8 @@ describe('AttendanceScanService — scanImage guards', () => {
         AttendanceScanService,
         { provide: PrismaService, useValue: { student: { findMany: jest.fn() } } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        { provide: SettingsService, useValue: mockSettingsService },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 

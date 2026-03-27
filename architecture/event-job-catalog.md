@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **13 queues**, **63 job types**, **14 cron jobs**
+- **13 queues**, **63 job types**, **16 cron jobs**
 
 ---
 
@@ -325,6 +325,24 @@ Cron fires daily at 08:00 tenant TZ
 **Side effects**: For each tenant with `staff_wellbeing` enabled, computes all aggregate workload metrics (workload summary, cover fairness, timetable quality, absence trends, substitution pressure, correlation) and caches them in Redis with 24-hour TTL. Keys: `wellbeing:aggregate:{tenantId}:{metricType}`.
 **Read-only**: Queries schedules, substitution_records, teacher_absences, staff_profiles. Creates NO database records.
 **Failure mode**: Processes tenants independently — one tenant failure doesn't block others. Failed tenants log errors and are retried on the next daily run.
+
+---
+
+## GDPR / Privacy Jobs
+
+### `communications:ip-cleanup` (notifications queue — CRON)
+
+**Trigger**: Daily cron at 04:00 UTC (`0 4 * * *`).
+**Payload**: `{}` (cross-tenant, no `tenant_id`)
+**Processor**: `IpCleanupProcessor`
+**Side effects**: NULLs `source_ip` on `contact_form_submissions` older than 90 days for GDPR privacy compliance. Iterates all tenants. Updates `source_ip = NULL` on matching records.
+
+### `imports:file-cleanup` (imports queue — CRON)
+
+**Trigger**: Daily cron at 05:00 UTC (`0 5 * * *`).
+**Payload**: `{}` (cross-tenant, no `tenant_id`)
+**Processor**: `ImportFileCleanupProcessor`
+**Side effects**: Deletes S3 files for completed/failed import jobs and any imports older than 24 hours. Sets `file_key = NULL` on matching `import_jobs` records after S3 object deletion.
 
 ---
 

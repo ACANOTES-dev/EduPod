@@ -246,9 +246,10 @@ describe('ReportsEnhancedController', () => {
     mockAiNarrator.generateNarrative.mockResolvedValue('Attendance is improving.');
 
     const body = { data: { attendance_rate: 85 }, report_type: 'attendance' };
-    const result = await controller.aiNarrate(body);
+    const result = await controller.aiNarrate(tenantContext, body);
 
     expect(mockAiNarrator.generateNarrative).toHaveBeenCalledWith(
+      TENANT_ID,
       { attendance_rate: 85 },
       'attendance',
     );
@@ -260,9 +261,10 @@ describe('ReportsEnhancedController', () => {
     mockAiPredictions.predictTrend.mockResolvedValue(prediction);
 
     const body = { historical_data: [{ period: '2026-01', value: 78 }], report_type: 'attendance' };
-    const result = await controller.aiPredict(body);
+    const result = await controller.aiPredict(tenantContext, body);
 
     expect(mockAiPredictions.predictTrend).toHaveBeenCalledWith(
+      TENANT_ID,
       body.historical_data,
       'attendance',
     );

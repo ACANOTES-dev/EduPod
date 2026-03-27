@@ -1,6 +1,8 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { NlQueryService } from './nl-query.service';
@@ -25,6 +27,14 @@ function buildMockPrisma() {
   };
 }
 
+function buildMockSettingsService(nlQueriesEnabled = true) {
+  return {
+    getSettings: jest.fn().mockResolvedValue({
+      ai: { nlQueriesEnabled },
+    }),
+  };
+}
+
 function buildMockAnthropic(responseText: string) {
   return {
     messages: {
@@ -40,9 +50,11 @@ function buildMockAnthropic(responseText: string) {
 describe('NlQueryService — processQuery', () => {
   let service: NlQueryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockSettings: ReturnType<typeof buildMockSettingsService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockSettings = buildMockSettingsService(true);
 
     mockPrisma.student.findMany.mockResolvedValue([]);
     mockPrisma.nlQueryHistory.create.mockResolvedValue({ id: 'qh-1' });
@@ -51,6 +63,8 @@ describe('NlQueryService — processQuery', () => {
       providers: [
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -65,6 +79,26 @@ describe('NlQueryService — processQuery', () => {
     await expect(
       service.processQuery(TENANT_ID, USER_ID, 'show all students'),
     ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('should throw AI_FEATURE_DISABLED when nlQueriesEnabled is false', async () => {
+    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
+      JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
+    );
+    mockSettings.getSettings.mockResolvedValue({ ai: { nlQueriesEnabled: false } });
+
+    await expect(
+      service.processQuery(TENANT_ID, USER_ID, 'show all students'),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    try {
+      await service.processQuery(TENANT_ID, USER_ID, 'show all students');
+    } catch (err) {
+      const response = (err as ServiceUnavailableException).getResponse() as {
+        error: { code: string };
+      };
+      expect(response.error.code).toBe('AI_FEATURE_DISABLED');
+    }
   });
 
   it('should return structured query result with data and query_id for student entity', async () => {
@@ -175,6 +209,8 @@ describe('NlQueryService — getQueryHistory', () => {
       providers: [
         NlQueryService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: buildMockSettingsService(true) },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 

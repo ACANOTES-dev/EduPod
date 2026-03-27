@@ -1,6 +1,8 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AiSubstitutionService } from './ai-substitution.service';
@@ -20,6 +22,10 @@ jest.mock('@anthropic-ai/sdk', () => {
     })),
   };
 });
+
+const mockSettingsService = {
+  getSettings: jest.fn().mockResolvedValue({ ai: { substitutionRankingEnabled: true } }),
+};
 
 const mockSchedule = {
   id: SCHEDULE_ID,
@@ -70,10 +76,14 @@ describe('AiSubstitutionService', () => {
       },
     };
 
+    mockSettingsService.getSettings.mockResolvedValue({ ai: { substitutionRankingEnabled: true } });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiSubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: SettingsService, useValue: mockSettingsService },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -243,6 +253,8 @@ describe('AiSubstitutionService', () => {
         providers: [
           AiSubstitutionService,
           { provide: PrismaService, useValue: mockPrisma },
+          { provide: SettingsService, useValue: mockSettingsService },
+          { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
         ],
       }).compile();
 

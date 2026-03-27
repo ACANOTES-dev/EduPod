@@ -5,7 +5,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
+import type { GdprOutboundData } from '@school/shared';
+
 import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,6 +42,7 @@ export class AiCommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -74,6 +78,16 @@ export class AiCommentsService {
       });
     }
 
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.commentsEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
     const reportCard = await this.loadReportCardContext(tenantId, reportCardId);
     if (!reportCard) {
       throw new NotFoundException({
@@ -84,7 +98,6 @@ export class AiCommentsService {
       });
     }
 
-    const settings = await this.settingsService.getSettings(tenantId);
     const aiSettings = (settings as Record<string, unknown>).ai as
       | Record<string, unknown>
       | undefined;
@@ -98,8 +111,42 @@ export class AiCommentsService {
       (aiSettings?.commentTargetWordCount as number | undefined) ?? 100;
 
     const locale = reportCard.template_locale ?? 'en';
+
+    // GDPR tokenisation — protect student PII before sending to AI
+    const studentFullName = `${reportCard.student.first_name} ${reportCard.student.last_name}`;
+    const outbound: GdprOutboundData = {
+      entities: [
+        {
+          type: 'student',
+          id: reportCard.student.id,
+          fields: { full_name: studentFullName },
+        },
+      ],
+      entityCount: 1,
+    };
+
+    // TODO: thread userId from caller for proper audit trail
+    const { processedData, tokenMap } =
+      await this.gdprTokenService.processOutbound(
+        tenantId,
+        'ai_comments',
+        outbound,
+        'system',
+      );
+
+    // Build prompt with tokenised student name
+    const tokenisedName = processedData.entities[0]?.fields.full_name ?? studentFullName;
+    const tokenisedReportCard = {
+      ...reportCard,
+      student: {
+        ...reportCard.student,
+        first_name: tokenisedName,
+        last_name: '',
+      },
+    };
+
     const prompt = this.buildCommentPrompt(
-      reportCard,
+      tokenisedReportCard,
       commentStyle,
       sampleReference,
       targetWordCount,
@@ -119,7 +166,14 @@ export class AiCommentsService {
     const textBlock = response.content.find(
       (b: { type: string; text?: string }) => b.type === 'text',
     );
-    const comment = textBlock?.text?.trim() ?? '';
+    const rawComment = textBlock?.text?.trim() ?? '';
+
+    // Detokenise AI response — restore real student name
+    const comment = await this.gdprTokenService.processInbound(
+      tenantId,
+      rawComment,
+      tokenMap,
+    );
 
     return { report_card_id: reportCardId, comment, locale };
   }

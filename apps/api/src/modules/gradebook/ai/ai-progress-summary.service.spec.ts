@@ -2,6 +2,7 @@ import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -36,7 +37,7 @@ function buildMockSettings(aiEnabled: boolean, commentStyle = 'balanced') {
   return {
     getSettings: jest.fn().mockResolvedValue({
       ai: {
-        aiProgressSummariesEnabled: aiEnabled,
+        progressSummariesEnabled: aiEnabled,
         commentStyle,
       },
     }),
@@ -109,6 +110,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -132,6 +134,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(false) },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
@@ -159,6 +162,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
@@ -258,6 +262,7 @@ describe('AiProgressSummaryService — invalidateCache', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 

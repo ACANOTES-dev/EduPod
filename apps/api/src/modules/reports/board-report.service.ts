@@ -92,6 +92,7 @@ export class BoardReportService {
     let executiveSummary: string | null = null;
     try {
       executiveSummary = await this.aiNarrator.generateNarrative(
+        tenantId,
         { kpis: kpiData, sections: dto.sections_json, report_type: dto.report_type },
         'board_report',
       );

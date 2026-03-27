@@ -6,8 +6,10 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { ScanResultEntry } from '@school/shared';
+import type { GdprOutboundData, ScanResultEntry } from '@school/shared';
 
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
+import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -74,6 +76,8 @@ export class AttendanceScanService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -114,12 +118,27 @@ export class AttendanceScanService {
       });
     }
 
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.attendanceScanEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
     // 2. Rate limit: max 50 scans per tenant per day
     await this.enforceRateLimit(tenantId);
 
     // 3. Send image to Claude Vision API
     const base64Image = imageBuffer.toString('base64');
     const mediaType = mimeType as AllowedMediaType;
+
+    // GDPR audit — log AI data processing (no personal data in prompt)
+    await this.gdprTokenService.processOutbound(
+      tenantId, 'ai_attendance_scan', { entities: [], entityCount: 0 } as GdprOutboundData, userId,
+    );
 
     this.logger.log(
       `Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`,

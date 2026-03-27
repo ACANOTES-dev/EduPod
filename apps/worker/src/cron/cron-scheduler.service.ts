@@ -14,8 +14,10 @@ import {
   REFRESH_MV_EXPOSURE_RATES_JOB,
   REFRESH_MV_STUDENT_SUMMARY_JOB,
 } from '../processors/behaviour/refresh-mv.processor';
+import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
+import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
 import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
 import { EAP_REFRESH_CHECK_JOB } from '../processors/wellbeing/eap-refresh-check.processor';
@@ -34,6 +36,7 @@ export class CronSchedulerService implements OnModuleInit {
   constructor(
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
     @InjectQueue(QUEUE_NAMES.GRADEBOOK) private readonly gradebookQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.IMPORTS) private readonly importsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.WELLBEING) private readonly wellbeingQueue: Queue,
   ) {}
@@ -43,6 +46,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerBehaviourCronJobs();
     await this.registerNotificationsCronJobs();
     await this.registerWellbeingCronJobs();
+    await this.registerCleanupCronJobs();
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -254,5 +258,37 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${WORKLOAD_METRICS_JOB} (daily 04:00 UTC)`);
+  }
+
+  private async registerCleanupCronJobs(): Promise<void> {
+    // ── communications:ip-cleanup ───────────────────────────────────────────
+    // Runs daily at 04:00 UTC. Cross-tenant — no tenant_id in payload.
+    // NULLs source_ip on contact_form_submissions older than 90 days.
+    await this.notificationsQueue.add(
+      IP_CLEANUP_JOB,
+      {},
+      {
+        repeat: { pattern: '0 4 * * *' },
+        jobId: `cron:${IP_CLEANUP_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${IP_CLEANUP_JOB} (daily 04:00 UTC)`);
+
+    // ── imports:file-cleanup ────────────────────────────────────────────────
+    // Runs daily at 05:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Deletes S3 files for completed/failed imports older than 24 hours.
+    await this.importsQueue.add(
+      IMPORT_FILE_CLEANUP_JOB,
+      {},
+      {
+        repeat: { pattern: '0 5 * * *' },
+        jobId: `cron:${IMPORT_FILE_CLEANUP_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${IMPORT_FILE_CLEANUP_JOB} (daily 05:00 UTC)`);
   }
 }

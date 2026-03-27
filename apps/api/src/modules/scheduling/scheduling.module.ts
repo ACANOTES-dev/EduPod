@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { ConfigurationModule } from '../configuration/configuration.module';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
@@ -34,6 +35,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
 @Module({
   imports: [
     AuthModule,
+    ConfigurationModule,
     BullModule.registerQueue({ name: 'scheduling' }),
   ],
   controllers: [

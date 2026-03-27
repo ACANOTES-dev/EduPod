@@ -1,6 +1,8 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../configuration/settings.service';
+
 import { AiPredictionsService } from './ai-predictions.service';
 
 const mockAnthropicCreate = jest.fn();
@@ -20,6 +22,11 @@ const VALID_PREDICTION_RESPONSE = {
   narrative: 'Attendance is trending upward based on past 6 months.',
 };
 
+const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const mockSettingsService = {
+  getSettings: jest.fn().mockResolvedValue({ ai: { predictionsEnabled: true } }),
+};
+
 describe('AiPredictionsService', () => {
   let service: AiPredictionsService;
 
@@ -29,9 +36,13 @@ describe('AiPredictionsService', () => {
     mockAnthropicCreate.mockResolvedValue({
       content: [{ type: 'text', text: JSON.stringify(VALID_PREDICTION_RESPONSE) }],
     });
+    mockSettingsService.getSettings.mockResolvedValue({ ai: { predictionsEnabled: true } });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AiPredictionsService],
+      providers: [
+        AiPredictionsService,
+        { provide: SettingsService, useValue: mockSettingsService },
+      ],
     }).compile();
 
     service = module.get<AiPredictionsService>(AiPredictionsService);
@@ -48,7 +59,7 @@ describe('AiPredictionsService', () => {
       { period: '2026-02', value: 80 },
     ];
 
-    const result = await service.predictTrend(historicalData, 'attendance', 3);
+    const result = await service.predictTrend(TENANT_ID, historicalData, 'attendance', 3);
 
     expect(result.expected).toEqual([82, 84, 86]);
     expect(result.optimistic).toEqual([88, 90, 92]);
@@ -61,7 +72,7 @@ describe('AiPredictionsService', () => {
   it('should call Anthropic API with the historical data in the prompt', async () => {
     const historicalData = [{ period: '2026-01', value: 70 }];
 
-    await service.predictTrend(historicalData, 'grades', 2);
+    await service.predictTrend(TENANT_ID, historicalData, 'grades', 2);
 
     expect(mockAnthropicCreate).toHaveBeenCalledTimes(1);
     const callArgs = mockAnthropicCreate.mock.calls[0]![0] as {
@@ -81,7 +92,7 @@ describe('AiPredictionsService', () => {
       ],
     });
 
-    const result = await service.predictTrend([], 'attendance', 3);
+    const result = await service.predictTrend(TENANT_ID, [], 'attendance', 3);
 
     expect(result.confidence).toBe('medium');
   });
@@ -91,7 +102,7 @@ describe('AiPredictionsService', () => {
       content: [{ type: 'text', text: 'not valid json {{' }],
     });
 
-    const result = await service.predictTrend([], 'attendance', 3);
+    const result = await service.predictTrend(TENANT_ID, [], 'attendance', 3);
 
     expect(result.expected).toEqual([]);
     expect(result.optimistic).toEqual([]);
@@ -105,14 +116,14 @@ describe('AiPredictionsService', () => {
       content: [{ type: 'tool_use' }],
     });
 
-    const result = await service.predictTrend([], 'grades', 3);
+    const result = await service.predictTrend(TENANT_ID, [], 'grades', 3);
 
     // Empty object is parsed from '{}' which gives undefined arrays → falls back to []
     expect(result.expected).toEqual([]);
   });
 
   it('should use default periodsAhead of 3 when not specified', async () => {
-    const result = await service.predictTrend([], 'attendance');
+    const result = await service.predictTrend(TENANT_ID, [], 'attendance');
 
     expect(result.periods_ahead).toBe(3);
   });
@@ -121,12 +132,15 @@ describe('AiPredictionsService', () => {
     delete process.env.ANTHROPIC_API_KEY;
 
     const moduleNoKey: TestingModule = await Test.createTestingModule({
-      providers: [AiPredictionsService],
+      providers: [
+        AiPredictionsService,
+        { provide: SettingsService, useValue: mockSettingsService },
+      ],
     }).compile();
 
     const serviceNoKey = moduleNoKey.get<AiPredictionsService>(AiPredictionsService);
 
-    await expect(serviceNoKey.predictTrend([], 'attendance', 3)).rejects.toThrow(
+    await expect(serviceNoKey.predictTrend(TENANT_ID, [], 'attendance', 3)).rejects.toThrow(
       ServiceUnavailableException,
     );
   });

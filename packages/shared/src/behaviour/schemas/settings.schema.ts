@@ -25,7 +25,7 @@ export const behaviourSettingsSchema = z.object({
   expulsion_requires_approval: z.boolean().default(true),
 
   // Parent visibility & communication
-  parent_portal_behaviour_enabled: z.boolean().default(true),
+  parent_portal_behaviour_enabled: z.boolean().default(false),
   parent_notification_channels: z.array(z.enum(['email', 'whatsapp', 'in_app'])).default(['in_app']),
   parent_notification_negative_severity_threshold: z.number().int().min(1).max(10).default(3),
   parent_notification_positive_always: z.boolean().default(true),
@@ -76,10 +76,10 @@ export const behaviourSettingsSchema = z.object({
   safeguarding_retention_years: z.number().int().min(1).max(50).default(25),
 
   // Analytics & AI
-  behaviour_pulse_enabled: z.boolean().default(true),
-  ai_insights_enabled: z.boolean().default(true),
-  ai_narrative_enabled: z.boolean().default(true),
-  ai_nl_query_enabled: z.boolean().default(true),
+  behaviour_pulse_enabled: z.boolean().default(false),
+  ai_insights_enabled: z.boolean().default(false),
+  ai_narrative_enabled: z.boolean().default(false),
+  ai_nl_query_enabled: z.boolean().default(false),
   ai_confidence_threshold: z.number().min(0).max(1).default(0.85),
   ai_diagnostic_language_blocked: z.boolean().default(true),
   ai_audit_logging: z.boolean().default(true),

@@ -5,7 +5,10 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import type { GdprOutboundData } from '@school/shared';
 
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { SettingsService } from '../../configuration/settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -62,6 +65,8 @@ export class AiGradingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -104,6 +109,16 @@ export class AiGradingService {
       });
     }
 
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.gradingEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
     if (!ALLOWED_MIME_TYPES.includes(mimeType as AllowedMediaType)) {
       throw new BadRequestException({
         error: {
@@ -114,6 +129,14 @@ export class AiGradingService {
     }
 
     await this.enforceRateLimit(tenantId);
+
+    // GDPR audit log — no personal data sent to AI, gateway call is for audit trail only
+    await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_grading',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      'system', // gradeInline has no userId param; caller context not available
+    );
 
     const context = await this.loadGradingContext(tenantId, assessmentId);
 
@@ -182,6 +205,24 @@ export class AiGradingService {
         },
       });
     }
+
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.gradingEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
+    // GDPR audit log — no personal data sent to AI, gateway call is for audit trail only
+    await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_grading_batch',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      'system', // gradeBatch has no userId param; caller context not available
+    );
 
     const context = await this.loadGradingContext(tenantId, assessmentId);
 

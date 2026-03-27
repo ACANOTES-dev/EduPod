@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 
+import { SettingsService } from '../configuration/settings.service';
 import { RedisService } from '../redis/redis.service';
 
 @Injectable()
@@ -9,7 +10,10 @@ export class AiReportNarratorService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
 
-  constructor(private readonly redis: RedisService) {
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly redis: RedisService,
+  ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -29,6 +33,7 @@ export class AiReportNarratorService {
   }
 
   async generateNarrative(
+    tenantId: string,
     data: Record<string, unknown>,
     reportType: string,
   ): Promise<string> {
@@ -40,6 +45,19 @@ export class AiReportNarratorService {
         },
       });
     }
+
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.reportNarrationEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
+    // TODO: Route through GDPR gateway when userId is available in method signature
+    // generateNarrative currently has no userId param — gateway call deferred
 
     // Cache key based on report type + data hash
     const cacheKey = `ai_narrative:${reportType}:${this.hashData(data)}`;

@@ -1,6 +1,7 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../configuration/settings.service';
 import { RedisService } from '../redis/redis.service';
 
 import { AiReportNarratorService } from './ai-report-narrator.service';
@@ -13,6 +14,11 @@ jest.mock('@anthropic-ai/sdk', () => ({
     messages: { create: mockAnthropicCreate },
   })),
 }));
+
+const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const mockSettingsService = {
+  getSettings: jest.fn().mockResolvedValue({ ai: { reportNarrationEnabled: true } }),
+};
 
 describe('AiReportNarratorService', () => {
   let service: AiReportNarratorService;
@@ -29,10 +35,12 @@ describe('AiReportNarratorService', () => {
     mockAnthropicCreate.mockResolvedValue({
       content: [{ type: 'text', text: 'Attendance is improving steadily.' }],
     });
+    mockSettingsService.getSettings.mockResolvedValue({ ai: { reportNarrationEnabled: true } });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiReportNarratorService,
+        { provide: SettingsService, useValue: mockSettingsService },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
       ],
     }).compile();
@@ -46,7 +54,7 @@ describe('AiReportNarratorService', () => {
   });
 
   it('should return AI-generated narrative for attendance report type', async () => {
-    const result = await service.generateNarrative({ attendance_rate: 85 }, 'attendance');
+    const result = await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
 
     expect(result).toBe('Attendance is improving steadily.');
     expect(mockAnthropicCreate).toHaveBeenCalledTimes(1);
@@ -55,14 +63,14 @@ describe('AiReportNarratorService', () => {
   it('should return cached narrative when cache hit occurs', async () => {
     mockRedisClient.get.mockResolvedValue('Cached narrative text.');
 
-    const result = await service.generateNarrative({ attendance_rate: 85 }, 'attendance');
+    const result = await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
 
     expect(result).toBe('Cached narrative text.');
     expect(mockAnthropicCreate).not.toHaveBeenCalled();
   });
 
   it('should store the generated narrative in Redis after API call', async () => {
-    await service.generateNarrative({ total_students: 100 }, 'board_report');
+    await service.generateNarrative(TENANT_ID, { total_students: 100 }, 'board_report');
 
     expect(mockRedisClient.setex).toHaveBeenCalledWith(
       expect.stringContaining('ai_narrative:board_report:'),
@@ -76,13 +84,13 @@ describe('AiReportNarratorService', () => {
       content: [{ type: 'tool_use' }],
     });
 
-    const result = await service.generateNarrative({}, 'grades');
+    const result = await service.generateNarrative(TENANT_ID, {}, 'grades');
 
     expect(result).toBe('No narrative generated.');
   });
 
   it('should build correct prompt for grades report type', async () => {
-    await service.generateNarrative({ avg_score: 70 }, 'grades');
+    await service.generateNarrative(TENANT_ID, { avg_score: 70 }, 'grades');
 
     const callArgs = mockAnthropicCreate.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
@@ -91,7 +99,7 @@ describe('AiReportNarratorService', () => {
   });
 
   it('should build correct prompt for board_report report type', async () => {
-    await service.generateNarrative({ kpi: 1 }, 'board_report');
+    await service.generateNarrative(TENANT_ID, { kpi: 1 }, 'board_report');
 
     const callArgs = mockAnthropicCreate.mock.calls[0]![0] as {
       messages: Array<{ content: string }>;
@@ -105,13 +113,14 @@ describe('AiReportNarratorService', () => {
     const moduleNoKey: TestingModule = await Test.createTestingModule({
       providers: [
         AiReportNarratorService,
+        { provide: SettingsService, useValue: mockSettingsService },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
       ],
     }).compile();
 
     const serviceNoKey = moduleNoKey.get<AiReportNarratorService>(AiReportNarratorService);
 
-    await expect(serviceNoKey.generateNarrative({}, 'attendance')).rejects.toThrow(
+    await expect(serviceNoKey.generateNarrative(TENANT_ID, {}, 'attendance')).rejects.toThrow(
       ServiceUnavailableException,
     );
   });

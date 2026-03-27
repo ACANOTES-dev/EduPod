@@ -678,17 +678,19 @@ export class ReportsEnhancedController {
   @Post('ai/narrate')
   @RequiresPermission('analytics.view')
   async aiNarrate(
+    @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(aiNarratorSchema)) body: z.infer<typeof aiNarratorSchema>,
   ) {
-    return this.aiNarrator.generateNarrative(body.data, body.report_type);
+    return this.aiNarrator.generateNarrative(tenant.tenant_id, body.data, body.report_type);
   }
 
   @Post('ai/predict')
   @RequiresPermission('analytics.view')
   async aiPredict(
+    @CurrentTenant() tenant: TenantContext,
     @Body(new ZodValidationPipe(aiPredictSchema)) body: z.infer<typeof aiPredictSchema>,
   ) {
-    return this.aiPredictions.predictTrend(body.historical_data, body.report_type);
+    return this.aiPredictions.predictTrend(tenant.tenant_id, body.historical_data, body.report_type);
   }
 
   // ─── Export ───────────────────────────────────────────────────────────────

@@ -173,7 +173,7 @@ describe('SettingsService', () => {
       mockPrisma.tenantModule.findMany.mockResolvedValue([]);
 
       await service.updateSettings(TENANT_ID, {
-        gradebook: { defaultMissingGradePolicy: 'zero', requireGradeComment: true },
+        gradebook: { defaultMissingGradePolicy: 'zero', requireGradeComment: true, riskDetection: { enabled: false } },
       });
 
       expect(mockPrisma.tenantSetting.update).toHaveBeenCalledWith(

@@ -4,7 +4,10 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import type { GdprOutboundData } from '@school/shared';
 
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
+import { SettingsService } from '../../configuration/settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -109,7 +112,11 @@ export class NlQueryService {
   private readonly logger = new Logger(NlQueryService.name);
   private anthropic: AnthropicClient | null = null;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
+  ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -144,6 +151,24 @@ export class NlQueryService {
         },
       });
     }
+
+    const settings = await this.settingsService.getSettings(tenantId);
+    if (!settings.ai.nlQueriesEnabled) {
+      throw new ServiceUnavailableException({
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
+        },
+      });
+    }
+
+    // GDPR audit log — no personal data sent to AI, gateway call is for audit trail only
+    await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_nl_query',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      userId,
+    );
 
     // 1. Ask Claude to generate a structured query
     const structuredQuery = await this.generateStructuredQuery(question);

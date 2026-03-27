@@ -1,6 +1,8 @@
 import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -16,6 +18,14 @@ function buildMockPrisma() {
   return {
     assessment: { findFirst: jest.fn() },
     aiGradingInstruction: { findFirst: jest.fn() },
+  };
+}
+
+function buildMockSettingsService(gradingEnabled = true) {
+  return {
+    getSettings: jest.fn().mockResolvedValue({
+      ai: { gradingEnabled },
+    }),
   };
 }
 
@@ -58,10 +68,12 @@ describe('AiGradingService — gradeInline', () => {
   let service: AiGradingService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSettings: ReturnType<typeof buildMockSettingsService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis(1);
+    mockSettings = buildMockSettingsService(true);
 
     mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
     mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
@@ -71,6 +83,8 @@ describe('AiGradingService — gradeInline', () => {
         AiGradingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -86,6 +100,23 @@ describe('AiGradingService — gradeInline', () => {
     await expect(
       service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
     ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('should throw AI_FEATURE_DISABLED when gradingEnabled is false', async () => {
+    mockSettings.getSettings.mockResolvedValue({ ai: { gradingEnabled: false } });
+
+    await expect(
+      service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    try {
+      await service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg');
+    } catch (err) {
+      const response = (err as ServiceUnavailableException).getResponse() as {
+        error: { code: string };
+      };
+      expect(response.error.code).toBe('AI_FEATURE_DISABLED');
+    }
   });
 
   it('should throw BadRequestException for unsupported mime type', async () => {
@@ -124,6 +155,8 @@ describe('AiGradingService — gradeInline', () => {
         AiGradingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
     service = module.get<AiGradingService>(AiGradingService);
@@ -156,10 +189,12 @@ describe('AiGradingService — gradeBatch', () => {
   let service: AiGradingService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSettings: ReturnType<typeof buildMockSettingsService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis(1);
+    mockSettings = buildMockSettingsService(true);
 
     mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
     mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
@@ -169,6 +204,8 @@ describe('AiGradingService — gradeBatch', () => {
         AiGradingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: SettingsService, useValue: mockSettings },
+        { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
       ],
     }).compile();
 
@@ -180,6 +217,14 @@ describe('AiGradingService — gradeBatch', () => {
 
   it('should throw ServiceUnavailableException when anthropic is not configured', async () => {
     (service as unknown as Record<string, unknown>).anthropic = null;
+
+    await expect(
+      service.gradeBatch(TENANT_ID, ASSESSMENT_ID, []),
+    ).rejects.toThrow(ServiceUnavailableException);
+  });
+
+  it('should throw AI_FEATURE_DISABLED when gradingEnabled is false', async () => {
+    mockSettings.getSettings.mockResolvedValue({ ai: { gradingEnabled: false } });
 
     await expect(
       service.gradeBatch(TENANT_ID, ASSESSMENT_ID, []),

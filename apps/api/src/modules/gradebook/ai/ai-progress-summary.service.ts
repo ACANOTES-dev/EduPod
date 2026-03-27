@@ -5,7 +5,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
+import type { GdprOutboundData } from '@school/shared';
+
 import { SettingsService } from '../../configuration/settings.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -40,6 +43,7 @@ export class AiProgressSummaryService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -84,17 +88,11 @@ export class AiProgressSummaryService {
 
     // Check if feature is enabled
     const settings = await this.settingsService.getSettings(tenantId);
-    const aiSettings = (settings as Record<string, unknown>).ai as
-      | Record<string, unknown>
-      | undefined;
-    const isEnabled =
-      (aiSettings?.aiProgressSummariesEnabled as boolean | undefined) ?? false;
-
-    if (!isEnabled) {
+    if (!settings.ai.progressSummariesEnabled) {
       throw new ServiceUnavailableException({
         error: {
-          code: 'AI_PROGRESS_SUMMARIES_DISABLED',
-          message: 'AI progress summaries are not enabled for this tenant.',
+          code: 'AI_FEATURE_DISABLED',
+          message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
         },
       });
     }
@@ -122,9 +120,39 @@ export class AiProgressSummaryService {
     }
 
     const commentStyle =
-      (aiSettings?.commentStyle as string | undefined) ?? 'balanced';
+      ((settings.ai as Record<string, unknown>)?.commentStyle as string | undefined) ?? 'balanced';
 
-    const prompt = this.buildSummaryPrompt(context, commentStyle, locale);
+    // GDPR tokenisation — protect student PII before sending to AI
+    const outbound: GdprOutboundData = {
+      entities: [
+        {
+          type: 'student',
+          id: context.student.id,
+          fields: { full_name: context.student.first_name },
+        },
+      ],
+      entityCount: 1,
+    };
+
+    // TODO: thread userId from caller for proper audit trail
+    const { processedData, tokenMap } =
+      await this.gdprTokenService.processOutbound(
+        tenantId,
+        'ai_progress_summary',
+        outbound,
+        'system',
+      );
+
+    // Build prompt with tokenised student name
+    const tokenisedContext = {
+      ...context,
+      student: {
+        ...context.student,
+        first_name: processedData.entities[0]?.fields.full_name ?? context.student.first_name,
+      },
+    };
+
+    const prompt = this.buildSummaryPrompt(tokenisedContext, commentStyle, locale);
 
     this.logger.log(
       `Generating AI progress summary for student ${studentId}, period ${periodId}`,
@@ -139,7 +167,14 @@ export class AiProgressSummaryService {
     const textBlock = response.content.find(
       (b: { type: string; text?: string }) => b.type === 'text',
     );
-    const summary = textBlock?.text?.trim() ?? '';
+    const rawSummary = textBlock?.text?.trim() ?? '';
+
+    // Detokenise AI response — restore real student name
+    const summary = await this.gdprTokenService.processInbound(
+      tenantId,
+      rawSummary,
+      tokenMap,
+    );
 
     const result: ProgressSummaryResult = {
       student_id: studentId,
