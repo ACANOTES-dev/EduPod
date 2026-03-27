@@ -6,7 +6,9 @@ import { GdprTokenService } from '../gdpr-token.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const TENANT_ID = TENANT_A;
 const USER_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const OVERRIDE_USER_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const ENTITY_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
@@ -633,6 +635,152 @@ describe('GdprTokenService', () => {
         { month: '2026-01', count: 2 },
         { month: '2026-02', count: 1 },
       ]);
+    });
+  });
+
+  // ─── RLS TENANT ISOLATION ─────────────────────────────────────────────────
+
+  describe('RLS tenant isolation', () => {
+    it('should scope token lookup to the calling tenant during processOutbound', async () => {
+      mockPrisma.gdprExportPolicy.findUnique.mockResolvedValue(
+        makePolicy({ tokenisation: 'always' }),
+      );
+      mockRlsTx.gdprAnonymisationToken.findFirst.mockResolvedValue(null);
+      mockRlsTx.gdprAnonymisationToken.create.mockImplementation(
+        async (args: { data: { token: string } }) => ({
+          id: TOKEN_RECORD_ID,
+          ...args.data,
+        }),
+      );
+      mockRlsTx.gdprTokenUsageLog.create.mockResolvedValue({});
+
+      await service.processOutbound(
+        TENANT_A,
+        'ai_behaviour_analysis',
+        makeOutboundData(),
+        USER_ID,
+      );
+
+      // Verify every findFirst call includes tenant_id: TENANT_A
+      for (const call of mockRlsTx.gdprAnonymisationToken.findFirst.mock
+        .calls) {
+        expect(call[0]).toEqual(
+          expect.objectContaining({
+            where: expect.objectContaining({ tenant_id: TENANT_A }),
+          }),
+        );
+      }
+    });
+
+    it('should scope usage log queries to the calling tenant in getUsageLog', async () => {
+      mockPrisma.gdprTokenUsageLog.findMany.mockResolvedValue([]);
+      mockPrisma.gdprTokenUsageLog.count.mockResolvedValue(0);
+
+      await service.getUsageLog(TENANT_A, { page: 1, pageSize: 20 });
+
+      expect(mockPrisma.gdprTokenUsageLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_A }),
+        }),
+      );
+      expect(mockPrisma.gdprTokenUsageLog.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_A }),
+        }),
+      );
+    });
+
+    it('should perform independent token lookups per tenant, preventing cross-tenant leakage', async () => {
+      mockPrisma.gdprExportPolicy.findUnique.mockResolvedValue(
+        makePolicy({ tokenisation: 'always' }),
+      );
+      mockRlsTx.gdprAnonymisationToken.findFirst.mockResolvedValue(null);
+      mockRlsTx.gdprAnonymisationToken.create.mockImplementation(
+        async (args: { data: { token: string } }) => ({
+          id: TOKEN_RECORD_ID,
+          ...args.data,
+        }),
+      );
+      mockRlsTx.gdprTokenUsageLog.create.mockResolvedValue({});
+
+      // Process outbound for Tenant A
+      await service.processOutbound(
+        TENANT_A,
+        'ai_behaviour_analysis',
+        makeOutboundData(),
+        USER_ID,
+      );
+
+      const callsAfterTenantA =
+        mockRlsTx.gdprAnonymisationToken.findFirst.mock.calls.length;
+
+      // Reset mocks to track Tenant B independently
+      mockRlsTx.gdprAnonymisationToken.findFirst.mockReset();
+      mockRlsTx.gdprAnonymisationToken.findFirst.mockResolvedValue(null);
+      mockRlsTx.gdprAnonymisationToken.create.mockReset();
+      mockRlsTx.gdprAnonymisationToken.create.mockImplementation(
+        async (args: { data: { token: string } }) => ({
+          id: '99999999-9999-9999-9999-999999999999',
+          ...args.data,
+        }),
+      );
+      mockRlsTx.gdprTokenUsageLog.create.mockReset();
+      mockRlsTx.gdprTokenUsageLog.create.mockResolvedValue({});
+
+      // Process outbound for Tenant B with the same entity
+      await service.processOutbound(
+        TENANT_B,
+        'ai_behaviour_analysis',
+        makeOutboundData(),
+        USER_ID,
+      );
+
+      // Tenant A had findFirst calls before reset
+      expect(callsAfterTenantA).toBeGreaterThan(0);
+
+      // All findFirst calls after reset must scope to TENANT_B
+      for (const call of mockRlsTx.gdprAnonymisationToken.findFirst.mock
+        .calls) {
+        expect(call[0]).toEqual(
+          expect.objectContaining({
+            where: expect.objectContaining({ tenant_id: TENANT_B }),
+          }),
+        );
+      }
+
+      // Verify create calls also scope to TENANT_B
+      for (const call of mockRlsTx.gdprAnonymisationToken.create.mock
+        .calls) {
+        expect(call[0]).toEqual(
+          expect.objectContaining({
+            data: expect.objectContaining({ tenant_id: TENANT_B }),
+          }),
+        );
+      }
+    });
+
+    it('should scope deleteTokensForEntity to the calling tenant', async () => {
+      mockRlsTx.gdprAnonymisationToken.deleteMany.mockResolvedValue({
+        count: 2,
+      });
+
+      await service.deleteTokensForEntity(TENANT_A, 'student', ENTITY_ID);
+
+      expect(
+        mockRlsTx.gdprAnonymisationToken.deleteMany,
+      ).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A,
+          entity_type: 'student',
+          entity_id: ENTITY_ID,
+        },
+      });
+
+      // Verify the tenant_id is specifically TENANT_A, not TENANT_B
+      const deleteCall =
+        mockRlsTx.gdprAnonymisationToken.deleteMany.mock.calls[0];
+      expect(deleteCall[0].where.tenant_id).toBe(TENANT_A);
+      expect(deleteCall[0].where.tenant_id).not.toBe(TENANT_B);
     });
   });
 });

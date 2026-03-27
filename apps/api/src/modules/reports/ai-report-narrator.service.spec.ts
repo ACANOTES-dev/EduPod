@@ -2,6 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { RedisService } from '../redis/redis.service';
 
 import { AiReportNarratorService } from './ai-report-narrator.service';
@@ -42,6 +43,16 @@ describe('AiReportNarratorService', () => {
         AiReportNarratorService,
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn().mockResolvedValue({
+              processedData: { entities: [], entityCount: 0 },
+              tokenMap: null,
+            }),
+            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
+          },
+        },
       ],
     }).compile();
 
@@ -115,6 +126,16 @@ describe('AiReportNarratorService', () => {
         AiReportNarratorService,
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn().mockResolvedValue({
+              processedData: { entities: [], entityCount: 0 },
+              tokenMap: null,
+            }),
+            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
+          },
+        },
       ],
     }).compile();
 

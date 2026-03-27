@@ -70,7 +70,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | Phase | Title | Status | Depends On | Unlocks | Est. Effort | Spec File |
 |---|---|---|---|---|---|---|
 | A | Quick Wins | COMPLETE | — | D | 1 day | [Phase-A](./Phase-A-Quick-Wins.md) |
-| B | Tokenisation Gateway | NOT STARTED | — | E, K, F | 5 days | [Phase-B](./Phase-B-Tokenisation-Gateway.md) |
+| B | Tokenisation Gateway | COMPLETE | — | E, K, F | 5 days | [Phase-B](./Phase-B-Tokenisation-Gateway.md) |
 | C | Anonymisation Overhaul | NOT STARTED | — | F, I | 3 days | [Phase-C](./Phase-C-Anonymisation-Overhaul.md) |
 | D | Consent Records | NOT STARTED | A | F | 3–4 days | [Phase-D](./Phase-D-Consent-Records.md) |
 | E | Legal & Privacy Infra | NOT STARTED | B | — | 4–5 days | [Phase-E](./Phase-E-Legal-Privacy-Infrastructure.md) |
@@ -121,6 +121,26 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Unlocks:** [phases now available to begin]
 - **Notes:** [anything the next phase should know]
 ```
+
+---
+
+### Phase B: Tokenisation Gateway
+- **Status:** COMPLETE
+- **Completed:** 2026-03-27
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch)
+- **Commit(s):** dbb056c, 9824321, c732dc0
+- **Key decisions:**
+  - 11 export policies in "always" category (added ai_behaviour_query + ai_template_conversion beyond original 9)
+  - ai-report-narrator and ai-predictions use optional auditContext param for backward compatibility
+  - SYSTEM_USER_SENTINEL used when real userId unavailable in AI services
+  - No entities/ directory — Prisma models only (follows codebase convention)
+- **Schema changes:** 20260329000000_add_gdpr_tokenisation_tables
+- **New endpoints:** GET /api/v1/gdpr/export-policies, GET /api/v1/gdpr/token-usage, GET /api/v1/gdpr/token-usage/stats
+- **New frontend pages:** None (component only — GDPR badge)
+- **Tests added:** 28+ unit tests
+- **Architecture files updated:** module-blast-radius.md (DZ-28), danger-zones.md (GdprModule blast radius)
+- **Unlocks:** Phase E (Legal Infrastructure), Phase K (AI Audit Trail), and contributes to Phase F (DSAR — also needs C + D)
+- **Notes:** Token format is 14 chars from ABCDEFGHJKLMNPQRSTUVWXYZ23456789. Behaviour AI service migrated from in-memory anonymiseForAI to persistent DB-backed tokens.
 
 ---
 

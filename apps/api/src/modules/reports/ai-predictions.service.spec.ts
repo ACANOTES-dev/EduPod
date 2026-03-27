@@ -2,6 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 
 import { AiPredictionsService } from './ai-predictions.service';
 
@@ -42,6 +43,16 @@ describe('AiPredictionsService', () => {
       providers: [
         AiPredictionsService,
         { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn().mockResolvedValue({
+              processedData: { entities: [], entityCount: 0 },
+              tokenMap: null,
+            }),
+            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
+          },
+        },
       ],
     }).compile();
 
@@ -135,6 +146,16 @@ describe('AiPredictionsService', () => {
       providers: [
         AiPredictionsService,
         { provide: SettingsService, useValue: mockSettingsService },
+        {
+          provide: GdprTokenService,
+          useValue: {
+            processOutbound: jest.fn().mockResolvedValue({
+              processedData: { entities: [], entityCount: 0 },
+              tokenMap: null,
+            }),
+            processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
+          },
+        },
       ],
     }).compile();
 

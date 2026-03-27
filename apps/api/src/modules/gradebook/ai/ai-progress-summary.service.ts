@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import type { GdprOutboundData } from '@school/shared';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
@@ -128,19 +129,18 @@ export class AiProgressSummaryService {
         {
           type: 'student',
           id: context.student.id,
-          fields: { full_name: context.student.first_name },
+          fields: { first_name: context.student.first_name, last_name: context.student.last_name },
         },
       ],
       entityCount: 1,
     };
 
-    // TODO: thread userId from caller for proper audit trail
     const { processedData, tokenMap } =
       await this.gdprTokenService.processOutbound(
         tenantId,
         'ai_progress_summary',
         outbound,
-        'system',
+        SYSTEM_USER_SENTINEL,
       );
 
     // Build prompt with tokenised student name
@@ -148,7 +148,8 @@ export class AiProgressSummaryService {
       ...context,
       student: {
         ...context.student,
-        first_name: processedData.entities[0]?.fields.full_name ?? context.student.first_name,
+        first_name: processedData.entities[0]?.fields.first_name ?? context.student.first_name,
+        last_name: processedData.entities[0]?.fields.last_name ?? context.student.last_name,
       },
     };
 

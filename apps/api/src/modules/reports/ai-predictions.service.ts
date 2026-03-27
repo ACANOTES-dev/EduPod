@@ -1,6 +1,9 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
+import type { GdprOutboundData } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 
 export interface TrendPrediction {
   expected: number[];
@@ -17,7 +20,10 @@ export class AiPredictionsService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
 
-  constructor(private readonly settingsService: SettingsService) {
+  constructor(
+    private readonly settingsService: SettingsService,
+    private readonly gdprTokenService: GdprTokenService,
+  ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
@@ -41,6 +47,7 @@ export class AiPredictionsService {
     historicalData: Record<string, unknown>[],
     reportType: string,
     periodsAhead = 3,
+    userId?: string,
   ): Promise<TrendPrediction> {
     if (!this.anthropic) {
       throw new ServiceUnavailableException({
@@ -61,8 +68,13 @@ export class AiPredictionsService {
       });
     }
 
-    // TODO: Route through GDPR gateway when userId is available in method signature
-    // predictTrend currently has no userId param — gateway call deferred
+    // GDPR audit trail for AI data processing
+    await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_predictions',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      userId ?? SYSTEM_USER_SENTINEL,
+    );
 
     const dataStr = JSON.stringify(historicalData, null, 2);
 

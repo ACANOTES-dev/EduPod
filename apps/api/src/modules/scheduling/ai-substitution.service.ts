@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
@@ -192,9 +193,8 @@ export class AiSubstitutionService {
       })),
       entityCount: availableStaff.length,
     };
-    // TODO: thread userId from caller for proper audit trail
     const { processedData, tokenMap } =
-      await this.gdprTokenService.processOutbound(tenantId, 'ai_substitution', outbound, 'system');
+      await this.gdprTokenService.processOutbound(tenantId, 'ai_substitution', outbound, SYSTEM_USER_SENTINEL);
 
     // Build a lookup from staff ID to tokenised name
     const tokenisedNameMap = new Map<string, string>();

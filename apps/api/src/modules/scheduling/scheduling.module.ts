@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { GdprModule } from '../gdpr/gdpr.module';
 
 import { AiSubstitutionService } from './ai-substitution.service';
 import { BreakGroupsController } from './break-groups.controller';
@@ -36,6 +37,7 @@ import { TeacherSchedulingConfigService } from './teacher-scheduling-config.serv
   imports: [
     AuthModule,
     ConfigurationModule,
+    GdprModule,
     BullModule.registerQueue({ name: 'scheduling' }),
   ],
   controllers: [

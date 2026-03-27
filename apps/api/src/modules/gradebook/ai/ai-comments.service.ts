@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 
 import type { GdprOutboundData } from '@school/shared';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
@@ -125,13 +126,12 @@ export class AiCommentsService {
       entityCount: 1,
     };
 
-    // TODO: thread userId from caller for proper audit trail
     const { processedData, tokenMap } =
       await this.gdprTokenService.processOutbound(
         tenantId,
         'ai_comments',
         outbound,
-        'system',
+        SYSTEM_USER_SENTINEL,
       );
 
     // Build prompt with tokenised student name

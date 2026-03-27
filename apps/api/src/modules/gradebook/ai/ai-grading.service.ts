@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
+import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { SettingsService } from '../../configuration/settings.service';
@@ -135,7 +136,7 @@ export class AiGradingService {
       tenantId,
       'ai_grading',
       { entities: [], entityCount: 0 } as GdprOutboundData,
-      'system', // gradeInline has no userId param; caller context not available
+      SYSTEM_USER_SENTINEL,
     );
 
     const context = await this.loadGradingContext(tenantId, assessmentId);
@@ -221,7 +222,7 @@ export class AiGradingService {
       tenantId,
       'ai_grading_batch',
       { entities: [], entityCount: 0 } as GdprOutboundData,
-      'system', // gradeBatch has no userId param; caller context not available
+      SYSTEM_USER_SENTINEL,
     );
 
     const context = await this.loadGradingContext(tenantId, assessmentId);

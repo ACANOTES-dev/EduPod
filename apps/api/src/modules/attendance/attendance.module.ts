@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
+import { GdprModule } from '../gdpr/gdpr.module';
 import { SchoolClosuresModule } from '../school-closures/school-closures.module';
 
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
@@ -20,6 +21,7 @@ import { DailySummaryService } from './daily-summary.service';
     SchoolClosuresModule,
     ConfigurationModule,
     CommunicationsModule,
+    GdprModule,
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [AttendanceController],
