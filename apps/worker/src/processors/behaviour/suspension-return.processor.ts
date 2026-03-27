@@ -166,7 +166,7 @@ class SuspensionReturnJob extends TenantAwareJob<SuspensionReturnPayload> {
     if (supervisedById) return supervisedById;
 
     // 2. Try pastoral lead for the student's year group
-    const student = await tx.student.findFirst({
+    const _student = await tx.student.findFirst({
       where: { id: studentId, tenant_id: tenantId },
       select: { year_group_id: true },
     });
