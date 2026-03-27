@@ -51,11 +51,6 @@ interface CleanupAccumulator {
   complianceRequestIdsToClear: Set<string>;
 }
 
-interface ApplicationMatchInput {
-  applicationIds: string[];
-  scope: ApplicationScope;
-}
-
 // ─── Engine ──────────────────────────────────────────────────────────────────
 
 export class ComplianceAnonymisationCore {
