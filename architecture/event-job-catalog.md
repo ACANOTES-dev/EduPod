@@ -477,3 +477,48 @@ Daily cron fires at 02:00 UTC
 ```
 
 **Danger**: Earliest of the nightly behaviour crons (02:00). Must complete before `refresh-mv-benchmarks` at 03:00 if benchmarks depend on exposure rate data.
+
+---
+
+### `behaviour:retention-check` (behaviour queue — CRON)
+
+**Trigger**: Monthly cron, 1st of month at 01:00 UTC (`0 1 1 * *`), or manual via admin ops.
+**Payload**: `{ tenant_id: string, dry_run?: boolean }`
+**Processor**: `apps/worker/src/processors/behaviour/retention-check.processor.ts`
+**Retries**: 1 (no retry — long-running, should not auto-retry)
+**Added in**: Phase H
+
+**Side effects chain**:
+```
+Monthly cron or admin trigger
+  -> Pass 1: Archival — marks records for left students as 'archived' (retention_status)
+  -> Pass 2: Anonymisation — strips PII from archived records past retention deadline
+    -> Checks behaviour_legal_holds before each entity (skips if held)
+    -> Logs 'anonymised' in behaviour_entity_history
+  -> Pass 3: Flags exclusion_cases and safeguarding_concerns for manual review
+  -> Pass 4: Expires guardian_restrictions where effective_until < today
+```
+
+**Danger**: Anonymisation is IRREVERSIBLE. Legal hold check is the only safety gate. If `dry_run=true`, no DB changes are made. Always require dual approval for manual execution.
+
+---
+
+### `behaviour:partition-maintenance` (behaviour queue — CRON)
+
+**Trigger**: Monthly cron, 1st of month at 00:00 UTC (`0 0 1 * *`).
+**Payload**: None (schema management, not tenant-scoped).
+**Processor**: `apps/worker/src/processors/behaviour/partition-maintenance.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase H
+
+**Side effects chain**:
+```
+Monthly cron fires at 00:00 UTC
+  -> Creates next 3 months of partitions for monthly-partitioned tables
+  -> Creates next 2 years of partitions for yearly-partitioned tables
+  -> Tables: behaviour_entity_history, behaviour_policy_evaluations,
+     behaviour_policy_action_executions, behaviour_parent_acknowledgements,
+     behaviour_alerts, behaviour_alert_recipients
+```
+
+**Danger**: Not tenant-aware — runs at DB schema level. Uses `$executeRawUnsafe` for DDL — table/partition names derived from constants, not user input. Must complete before any inserts into new month's partitions.

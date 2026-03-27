@@ -7,6 +7,8 @@ import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { S3Module } from '../s3/s3.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { BehaviourAdminController } from './behaviour-admin.controller';
+import { BehaviourAdminService } from './behaviour-admin.service';
 import { BehaviourAIService } from './behaviour-ai.service';
 import { BehaviourAlertsController } from './behaviour-alerts.controller';
 import { BehaviourAlertsService } from './behaviour-alerts.service';
@@ -27,6 +29,7 @@ import { BehaviourExclusionsController } from './behaviour-exclusions.controller
 import { BehaviourGuardianRestrictionsController } from './behaviour-guardian-restrictions.controller';
 import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restrictions.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
+import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
 import { BehaviourHouseService } from './behaviour-house.service';
 import { BehaviourInterventionsController } from './behaviour-interventions.controller';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
@@ -81,6 +84,7 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourAlertsController,
     BehaviourDocumentsController,
     BehaviourParentController,
+    BehaviourAdminController,
   ],
   providers: [
     BehaviourHistoryService,
@@ -113,6 +117,8 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourDocumentService,
     BehaviourDocumentTemplateService,
     BehaviourParentService,
+    BehaviourLegalHoldService,
+    BehaviourAdminService,
   ],
   exports: [
     BehaviourService,
@@ -145,6 +151,8 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourDocumentService,
     BehaviourDocumentTemplateService,
     BehaviourParentService,
+    BehaviourLegalHoldService,
+    BehaviourAdminService,
   ],
 })
 export class BehaviourModule {}

@@ -19,6 +19,8 @@ import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
 import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
+import { PartitionMaintenanceProcessor } from './processors/behaviour/partition-maintenance.processor';
+import { RetentionCheckProcessor } from './processors/behaviour/retention-check.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
 import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
@@ -143,6 +145,9 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Phase F: Analytics + AI processors
     DetectPatternsProcessor,
     RefreshMVProcessor,
+    // Phase H: Hardening + Ops processors
+    RetentionCheckProcessor,
+    PartitionMaintenanceProcessor,
     // Search queue processors
     SearchIndexProcessor,
     SearchReindexProcessor,

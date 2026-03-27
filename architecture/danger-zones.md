@@ -298,3 +298,25 @@ Both manual and auto-generated documents call `PdfRenderingService.renderFromHtm
 When a correction is sent, the method: (1) resolves student/incident/sanction IDs, (2) creates `behaviour_parent_acknowledgements` rows per parent, (3) creates `notification` rows per parent, (4) updates `behaviour_amendment_notices.correction_notification_sent`, (5) supersedes any sent `behaviour_documents`. If many parents are linked (e.g., divorced/remarried households with 4+ guardians), the transaction can be slow.
 
 **Mitigation**: Monitor transaction durations. If timeouts occur, split into: (a) flag update + document supersession in transaction, (b) parent notifications enqueued to worker.
+
+---
+
+## DZ-21: Anonymisation Is Irreversible — Legal Hold Is the Only Gate
+
+**Risk**: Once the retention worker anonymises a record (PII replaced, retention_status → 'anonymised'), there is NO undo mechanism. The only safety gate is the legal hold check in `behaviour_legal_holds`.
+**Location**: `apps/worker/src/processors/behaviour/retention-check.processor.ts`
+
+If a legal hold is incorrectly released or never created, the retention worker will anonymise the record on its next monthly run. There is no "un-anonymise" API.
+
+**Mitigation**: (1) Always require dual approval for manual retention execution. (2) Legal hold propagation creates holds on all linked entities — releasing the anchor hold alone does NOT release propagated holds unless `releaseLinked=true`. (3) The retention worker supports `dry_run=true` mode — always preview before executing. (4) Exclusion cases and safeguarding concerns are NEVER auto-anonymised — they are flagged for manual review.
+
+---
+
+## DZ-22: Partition Maintenance Uses $executeRawUnsafe for DDL
+
+**Risk**: The partition maintenance processor uses `$executeRawUnsafe` to create table partitions. This bypasses Prisma's query parameterisation.
+**Location**: `apps/worker/src/processors/behaviour/partition-maintenance.processor.ts`
+
+Table and partition names are derived from constants (not user input), so SQL injection risk is minimal. However, if the `PARTITIONED_TABLES` constant is ever modified to include user-controlled values, this becomes a vulnerability.
+
+**Mitigation**: Table names are hardcoded in the `PARTITIONED_TABLES` constant array. Never derive partition names from user input or job payloads.

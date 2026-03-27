@@ -23,3 +23,5 @@ export * from './amendment.schema';
 export * from './analytics.schema';
 export * from './document.schema';
 export * from './parent-behaviour.schema';
+export * from './legal-hold.schema';
+export * from './admin-ops.schema';

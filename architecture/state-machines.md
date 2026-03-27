@@ -493,3 +493,36 @@ withdrawn_appeal*
 - **Auto-generation triggers**: Sanction creation (detention_notice, suspension_letter), exclusion initiation (exclusion_notice), appeal hearing date set (appeal_hearing_invite), appeal decided (appeal_decision_letter). All auto-generated docs start at `draft_doc`.
 - **Guarded by**: `BehaviourDocumentService.finaliseDocument()`, `BehaviourDocumentService.sendDocument()`
 - **Danger**: Document generation runs Puppeteer inside the API transaction — timeout risk for complex board pack templates.
+
+---
+
+## Legal Hold Lifecycle (Phase H)
+
+- **Table**: `behaviour_legal_holds`
+- **Status enum**: `LegalHoldStatus` — `active_hold` (@map "active"), `released`
+- **Initial state**: `active_hold`
+- **Terminal state**: `released *`
+- **Transitions**:
+  - `active_hold -> released` (admin releases via `POST /admin/legal-holds/:id/release`)
+- **Side effects**:
+  - `createHold`: Creates hold record + propagates to all linked entities (one level). Logs `legal_hold_set` in entity history.
+  - `releaseHold`: Updates status to `released`. Logs `legal_hold_released` in entity history. Does NOT trigger anonymisation. If `releaseLinked=true`, releases all holds with same `legal_basis`.
+  - **Retention worker**: Checks for active holds before anonymising any entity. If held, entity is skipped and logged.
+- **Propagation rules**: incident → sanctions, tasks, attachments, documents. appeal → incident + all incident-linked. exclusion_case → sanction, incident, documents + all incident-linked.
+- **Guarded by**: `BehaviourLegalHoldService.createHold()`, `BehaviourLegalHoldService.releaseHold()`
+- **Danger**: Releasing a hold does NOT immediately anonymise the entity. The entity may still be within its retention period or have other active holds. Only the retention worker handles anonymisation.
+
+---
+
+## Retention Status Lifecycle (Phase H)
+
+- **Field**: `retention_status` on incidents, sanctions, interventions, attachments
+- **Enum**: `RetentionStatus` — `active`, `archived`, `anonymised`
+- **Initial state**: `active`
+- **Transitions**:
+  - `active -> archived` (retention worker marks records for left students past retention period)
+  - `archived -> anonymised` (retention worker strips PII from records past full retention deadline, if no legal hold)
+- **Side effects**:
+  - `active -> archived`: Record excluded from default list views, search, analytics. Still fully readable with "Include archived" toggle.
+  - `archived -> anonymised`: PII fields replaced (student names → hash, free text → "[Archived content]"). Entity history logged. Meilisearch entry deleted. IRREVERSIBLE.
+- **Guarded by**: `RetentionCheckProcessor` (worker job only — no manual API transition)
