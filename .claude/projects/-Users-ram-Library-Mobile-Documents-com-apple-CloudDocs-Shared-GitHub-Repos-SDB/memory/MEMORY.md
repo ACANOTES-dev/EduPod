@@ -34,3 +34,6 @@
 ### Strategic Vision (post-launch)
 - [roadmap/project_etb.md](roadmap/project_etb.md) — ETB cluster analytics dashboard, cross-school benchmarking, new buyer tier
 - [roadmap/project_homework_diary.md](roadmap/project_homework_diary.md) — Digital school journal replacing paper homework diary (daily student engagement)
+
+## Active Implementation
+- [project_wellbeing_implementation.md](project_wellbeing_implementation.md) — Student Wellbeing: 13 sub-phases (SW-1A→5A), /SW command, orchestrator+sub-agents pattern, Opus-only, 3-month timeline

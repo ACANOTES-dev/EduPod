@@ -1,0 +1,391 @@
+import { z } from 'zod';
+
+import {
+  actionSourceSchema,
+  caseStatusSchema,
+  concernSeveritySchema,
+  concernSourceSchema,
+  dsarDecisionSchema,
+  exportPurposeSchema,
+  interventionStatusSchema,
+  pastoralEntityTypeSchema,
+  pastoralTierSchema,
+} from '../enums';
+
+// ─── 1. concern_created ────────────────────────────────────────────────────
+
+export const concernCreatedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  category: z.string(),
+  severity: concernSeveritySchema,
+  tier: pastoralTierSchema,
+  narrative_version: z.literal(1),
+  narrative_snapshot: z.string(),
+  source: concernSourceSchema,
+});
+
+export type ConcernCreatedPayload = z.infer<typeof concernCreatedPayloadSchema>;
+
+// ─── 2. concern_tier_escalated ─────────────────────────────────────────────
+
+export const concernTierEscalatedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  old_tier: pastoralTierSchema,
+  new_tier: pastoralTierSchema,
+  reason: z.string(),
+  authorised_by_user_id: z.string().uuid(),
+});
+
+export type ConcernTierEscalatedPayload = z.infer<typeof concernTierEscalatedPayloadSchema>;
+
+// ─── 3. concern_narrative_amended ──────────────────────────────────────────
+
+export const concernNarrativeAmendedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  version_number: z.number().int().min(2),
+  previous_narrative: z.string(),
+  new_narrative: z.string(),
+  reason: z.string(),
+});
+
+export type ConcernNarrativeAmendedPayload = z.infer<typeof concernNarrativeAmendedPayloadSchema>;
+
+// ─── 4. concern_accessed ───────────────────────────────────────────────────
+
+export const concernAccessedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  tier: pastoralTierSchema,
+});
+
+export type ConcernAccessedPayload = z.infer<typeof concernAccessedPayloadSchema>;
+
+// ─── 5. concern_note_added ─────────────────────────────────────────────────
+
+export const concernNoteAddedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  note_text: z.string(),
+});
+
+export type ConcernNoteAddedPayload = z.infer<typeof concernNoteAddedPayloadSchema>;
+
+// ─── 6. concern_shared_with_parent ─────────────────────────────────────────
+
+export const concernSharedWithParentPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  share_level: z.string(),
+  shared_by_user_id: z.string().uuid(),
+});
+
+export type ConcernSharedWithParentPayload = z.infer<typeof concernSharedWithParentPayloadSchema>;
+
+// ─── 7. concern_acknowledged ───────────────────────────────────────────────
+
+export const concernAcknowledgedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  acknowledged_by_user_id: z.string().uuid(),
+});
+
+export type ConcernAcknowledgedPayload = z.infer<typeof concernAcknowledgedPayloadSchema>;
+
+// ─── 8. concern_auto_escalated ─────────────────────────────────────────────
+
+export const concernAutoEscalatedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  old_severity: concernSeveritySchema,
+  new_severity: concernSeveritySchema,
+  reason: z.literal('unacknowledged_timeout'),
+  timeout_minutes: z.number(),
+});
+
+export type ConcernAutoEscalatedPayload = z.infer<typeof concernAutoEscalatedPayloadSchema>;
+
+// ─── 9. case_created ───────────────────────────────────────────────────────
+
+export const caseCreatedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  case_number: z.string(),
+  linked_concern_ids: z.array(z.string().uuid()),
+  owner_user_id: z.string().uuid(),
+  reason: z.string(),
+});
+
+export type CaseCreatedPayload = z.infer<typeof caseCreatedPayloadSchema>;
+
+// ─── 10. case_status_changed ───────────────────────────────────────────────
+
+export const caseStatusChangedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  old_status: caseStatusSchema,
+  new_status: caseStatusSchema,
+  reason: z.string(),
+});
+
+export type CaseStatusChangedPayload = z.infer<typeof caseStatusChangedPayloadSchema>;
+
+// ─── 11. case_ownership_transferred ────────────────────────────────────────
+
+export const caseOwnershipTransferredPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  old_owner_user_id: z.string().uuid(),
+  new_owner_user_id: z.string().uuid(),
+  reason: z.string(),
+});
+
+export type CaseOwnershipTransferredPayload = z.infer<typeof caseOwnershipTransferredPayloadSchema>;
+
+// ─── 12. intervention_created ──────────────────────────────────────────────
+
+export const interventionCreatedPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  case_id: z.string().uuid(),
+  type: z.string(),
+  continuum_level: pastoralTierSchema,
+  target_outcomes: z.array(z.object({
+    description: z.string(),
+    measurable_target: z.string(),
+  })),
+});
+
+export type InterventionCreatedPayload = z.infer<typeof interventionCreatedPayloadSchema>;
+
+// ─── 13. intervention_status_changed ───────────────────────────────────────
+
+export const interventionStatusChangedPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  old_status: interventionStatusSchema,
+  new_status: interventionStatusSchema,
+  outcome_notes: z.string().optional(),
+});
+
+export type InterventionStatusChangedPayload = z.infer<typeof interventionStatusChangedPayloadSchema>;
+
+// ─── 14. intervention_updated ──────────────────────────────────────────────
+
+export const interventionUpdatedPayloadSchema = z.object({
+  intervention_id: z.string().uuid(),
+  previous_snapshot: z.record(z.string(), z.unknown()),
+  changed_fields: z.array(z.string()),
+});
+
+export type InterventionUpdatedPayload = z.infer<typeof interventionUpdatedPayloadSchema>;
+
+// ─── 15. action_assigned ───────────────────────────────────────────────────
+
+export const actionAssignedPayloadSchema = z.object({
+  action_id: z.string().uuid(),
+  source: actionSourceSchema,
+  assigned_to_user_id: z.string().uuid(),
+  description: z.string(),
+  due_date: z.string(),
+});
+
+export type ActionAssignedPayload = z.infer<typeof actionAssignedPayloadSchema>;
+
+// ─── 16. action_completed ──────────────────────────────────────────────────
+
+export const actionCompletedPayloadSchema = z.object({
+  action_id: z.string().uuid(),
+  completed_by_user_id: z.string().uuid(),
+});
+
+export type ActionCompletedPayload = z.infer<typeof actionCompletedPayloadSchema>;
+
+// ─── 17. action_overdue ────────────────────────────────────────────────────
+
+export const actionOverduePayloadSchema = z.object({
+  action_id: z.string().uuid(),
+  assigned_to_user_id: z.string().uuid(),
+  due_date: z.string(),
+  days_overdue: z.number().int().min(1),
+});
+
+export type ActionOverduePayload = z.infer<typeof actionOverduePayloadSchema>;
+
+// ─── 18. parent_contacted ──────────────────────────────────────────────────
+
+export const parentContactedPayloadSchema = z.object({
+  parent_contact_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  parent_id: z.string().uuid(),
+  method: z.string(),
+  outcome_summary: z.string(),
+});
+
+export type ParentContactedPayload = z.infer<typeof parentContactedPayloadSchema>;
+
+// ─── 19. record_exported ───────────────────────────────────────────────────
+
+export const recordExportedPayloadSchema = z.object({
+  export_tier: pastoralTierSchema,
+  entity_type: pastoralEntityTypeSchema,
+  entity_ids: z.array(z.string().uuid()),
+  purpose: exportPurposeSchema.optional(),
+  export_ref_id: z.string().uuid(),
+  watermarked: z.boolean(),
+});
+
+export type RecordExportedPayload = z.infer<typeof recordExportedPayloadSchema>;
+
+// ─── 20. cp_access_granted ─────────────────────────────────────────────────
+
+export const cpAccessGrantedPayloadSchema = z.object({
+  grant_id: z.string().uuid(),
+  granted_to_user_id: z.string().uuid(),
+  granted_by_user_id: z.string().uuid(),
+});
+
+export type CpAccessGrantedPayload = z.infer<typeof cpAccessGrantedPayloadSchema>;
+
+// ─── 21. cp_access_revoked ─────────────────────────────────────────────────
+
+export const cpAccessRevokedPayloadSchema = z.object({
+  grant_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  revoked_by_user_id: z.string().uuid(),
+  reason: z.string(),
+});
+
+export type CpAccessRevokedPayload = z.infer<typeof cpAccessRevokedPayloadSchema>;
+
+// ─── 22. cp_record_accessed ────────────────────────────────────────────────
+
+export const cpRecordAccessedPayloadSchema = z.object({
+  cp_record_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type CpRecordAccessedPayload = z.infer<typeof cpRecordAccessedPayloadSchema>;
+
+// ─── 23. mandated_report_generated ─────────────────────────────────────────
+
+export const mandatedReportGeneratedPayloadSchema = z.object({
+  cp_record_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type MandatedReportGeneratedPayload = z.infer<typeof mandatedReportGeneratedPayloadSchema>;
+
+// ─── 24. mandated_report_submitted ─────────────────────────────────────────
+
+export const mandatedReportSubmittedPayloadSchema = z.object({
+  cp_record_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  tusla_ref: z.string(),
+});
+
+export type MandatedReportSubmittedPayload = z.infer<typeof mandatedReportSubmittedPayloadSchema>;
+
+// ─── 25. dsar_review_routed ────────────────────────────────────────────────
+
+export const dsarReviewRoutedPayloadSchema = z.object({
+  dsar_review_id: z.string().uuid(),
+  compliance_request_id: z.string().uuid(),
+  entity_type: pastoralEntityTypeSchema,
+  entity_id: z.string().uuid(),
+  tier: pastoralTierSchema,
+});
+
+export type DsarReviewRoutedPayload = z.infer<typeof dsarReviewRoutedPayloadSchema>;
+
+// ─── 26. dsar_review_completed ─────────────────────────────────────────────
+
+export const dsarReviewCompletedPayloadSchema = z.object({
+  dsar_review_id: z.string().uuid(),
+  decision: dsarDecisionSchema,
+  legal_basis: z.string().optional(),
+});
+
+export type DsarReviewCompletedPayload = z.infer<typeof dsarReviewCompletedPayloadSchema>;
+
+// ─── 27. checkin_alert_generated ───────────────────────────────────────────
+
+export const checkinAlertGeneratedPayloadSchema = z.object({
+  checkin_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  flag_reason: z.string(),
+  auto_concern_id: z.string().uuid(),
+});
+
+export type CheckinAlertGeneratedPayload = z.infer<typeof checkinAlertGeneratedPayloadSchema>;
+
+// ─── 28. critical_concern_unacknowledged ───────────────────────────────────
+
+export const criticalConcernUnacknowledgedPayloadSchema = z.object({
+  concern_id: z.string().uuid(),
+  severity: concernSeveritySchema,
+  minutes_elapsed: z.number(),
+  notification_round: z.number().int().min(1),
+});
+
+export type CriticalConcernUnacknowledgedPayload = z.infer<typeof criticalConcernUnacknowledgedPayloadSchema>;
+
+// ─── Discriminated union of all event payloads ─────────────────────────────
+
+export const pastoralEventPayloadMap = {
+  concern_created: concernCreatedPayloadSchema,
+  concern_tier_escalated: concernTierEscalatedPayloadSchema,
+  concern_narrative_amended: concernNarrativeAmendedPayloadSchema,
+  concern_accessed: concernAccessedPayloadSchema,
+  concern_note_added: concernNoteAddedPayloadSchema,
+  concern_shared_with_parent: concernSharedWithParentPayloadSchema,
+  concern_acknowledged: concernAcknowledgedPayloadSchema,
+  concern_auto_escalated: concernAutoEscalatedPayloadSchema,
+  case_created: caseCreatedPayloadSchema,
+  case_status_changed: caseStatusChangedPayloadSchema,
+  case_ownership_transferred: caseOwnershipTransferredPayloadSchema,
+  intervention_created: interventionCreatedPayloadSchema,
+  intervention_status_changed: interventionStatusChangedPayloadSchema,
+  intervention_updated: interventionUpdatedPayloadSchema,
+  action_assigned: actionAssignedPayloadSchema,
+  action_completed: actionCompletedPayloadSchema,
+  action_overdue: actionOverduePayloadSchema,
+  parent_contacted: parentContactedPayloadSchema,
+  record_exported: recordExportedPayloadSchema,
+  cp_access_granted: cpAccessGrantedPayloadSchema,
+  cp_access_revoked: cpAccessRevokedPayloadSchema,
+  cp_record_accessed: cpRecordAccessedPayloadSchema,
+  mandated_report_generated: mandatedReportGeneratedPayloadSchema,
+  mandated_report_submitted: mandatedReportSubmittedPayloadSchema,
+  dsar_review_routed: dsarReviewRoutedPayloadSchema,
+  dsar_review_completed: dsarReviewCompletedPayloadSchema,
+  checkin_alert_generated: checkinAlertGeneratedPayloadSchema,
+  critical_concern_unacknowledged: criticalConcernUnacknowledgedPayloadSchema,
+} as const;
+
+export type PastoralEventPayloadMap = {
+  [K in keyof typeof pastoralEventPayloadMap]: z.infer<(typeof pastoralEventPayloadMap)[K]>;
+};
+
+// ─── Create Pastoral Event ─────────────────────────────────────────────────
+
+export const createPastoralEventSchema = z.object({
+  event_type: z.string().max(60),
+  entity_type: pastoralEntityTypeSchema,
+  entity_id: z.string().uuid(),
+  student_id: z.string().uuid().optional(),
+  tier: pastoralTierSchema,
+  payload: z.record(z.string(), z.unknown()),
+  ip_address: z.string().optional(),
+});
+
+export type CreatePastoralEventDto = z.infer<typeof createPastoralEventSchema>;
+
+// ─── Pastoral Event Filters ────────────────────────────────────────────────
+
+export const pastoralEventFiltersSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  student_id: z.string().uuid().optional(),
+  entity_type: pastoralEntityTypeSchema.optional(),
+  entity_id: z.string().uuid().optional(),
+  event_type: z.string().optional(),
+  tier: pastoralTierSchema.optional(),
+  date_from: z.string().optional(),
+  date_to: z.string().optional(),
+  sort: z.enum(['created_at']).default('created_at'),
+  order: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export type PastoralEventFilters = z.infer<typeof pastoralEventFiltersSchema>;

@@ -13,12 +13,14 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BehaviourModule } from './modules/behaviour/behaviour.module';
+import { ChildProtectionModule } from './modules/child-protection/child-protection.module';
 import { ClassRequirementsModule } from './modules/class-requirements/class-requirements.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { CommunicationsModule } from './modules/communications/communications.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
 import { ConfigModule } from './modules/config/config.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
+import { CriticalIncidentsModule } from './modules/critical-incidents/critical-incidents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
@@ -27,6 +29,9 @@ import { HouseholdsModule } from './modules/households/households.module';
 import { ImportsModule } from './modules/imports/imports.module';
 import { ParentInquiriesModule } from './modules/parent-inquiries/parent-inquiries.module';
 import { ParentsModule } from './modules/parents/parents.module';
+import { PastoralModule } from './modules/pastoral/pastoral.module';
+import { PastoralCheckinsModule } from './modules/pastoral-checkins/pastoral-checkins.module';
+import { PastoralDsarModule } from './modules/pastoral-dsar/pastoral-dsar.module';
 import { PayrollModule } from './modules/payroll/payroll.module';
 import { PdfRenderingModule } from './modules/pdf-rendering/pdf-rendering.module';
 import { PeriodGridModule } from './modules/period-grid/period-grid.module';
@@ -73,6 +78,7 @@ import { WebsiteModule } from './modules/website/website.module';
       },
       inject: [ConfigService],
     }),
+    BullModule.registerQueue({ name: 'pastoral' }),
     PrismaModule,
     RedisModule,
     CommonModule,
@@ -89,13 +95,18 @@ import { WebsiteModule } from './modules/website/website.module';
     AcademicsModule,
     StudentsModule,
     ClassesModule,
+    ChildProtectionModule,
     RoomsModule,
     SchedulesModule,
     SchoolClosuresModule,
     AttendanceModule,
     BehaviourModule,
+    CriticalIncidentsModule,
     HouseholdsModule,
     ParentsModule,
+    PastoralModule,
+    PastoralCheckinsModule,
+    PastoralDsarModule,
     SearchModule,
     DashboardModule,
     PeriodGridModule,

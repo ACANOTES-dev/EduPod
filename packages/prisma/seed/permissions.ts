@@ -153,6 +153,31 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'behaviour.view_staff_analytics', description: 'View staff logging activity', permission_tier: 'admin' },
   { permission_key: 'behaviour.ai_query', description: 'AI narrative and natural language query', permission_tier: 'staff' },
   { permission_key: 'behaviour.appeal', description: 'Submit appeal as parent', permission_tier: 'parent' },
+  { permission_key: 'behaviour.amend', description: 'Send correction notices for incident amendments', permission_tier: 'staff' },
+
+  // ─── Pastoral Care ────────────────────────────────────────────────────────
+  { permission_key: 'pastoral.log_concern', description: 'Create a concern for any student', permission_tier: 'staff' },
+  { permission_key: 'pastoral.view_tier1', description: 'View Tier 1 (general pastoral) concerns', permission_tier: 'staff' },
+  { permission_key: 'pastoral.view_tier2', description: 'View Tier 2 (sensitive pastoral) concerns and cases', permission_tier: 'staff' },
+  { permission_key: 'pastoral.manage_cases', description: 'Create/edit cases, assign owners, change status', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_interventions', description: 'Create/edit intervention plans and actions', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_referrals', description: 'Create/edit NEPS and external referrals', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_sst', description: 'Manage SST roster, schedule meetings, manage agenda', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_checkins', description: 'Configure self-check-in settings, view individual check-ins', permission_tier: 'admin' },
+  { permission_key: 'pastoral.view_checkin_aggregate', description: 'View anonymised aggregate check-in analytics', permission_tier: 'admin' },
+  { permission_key: 'pastoral.export_tier1_2', description: 'Export Tier 1/2 records (standard flow)', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_critical_incidents', description: 'Declare and manage critical incidents', permission_tier: 'admin' },
+  { permission_key: 'pastoral.view_reports', description: 'View pastoral reports and analytics', permission_tier: 'admin' },
+  { permission_key: 'pastoral.dsar_review', description: 'Review pastoral records for DSAR responses', permission_tier: 'admin' },
+  { permission_key: 'pastoral.import_historical', description: 'Import historical concerns via CSV', permission_tier: 'admin' },
+
+  // ─── Pastoral Care — Tier 3 / CP operations ──────────────────────────────
+  { permission_key: 'pastoral.manage_cp_access', description: 'Grant/revoke CP access to other users', permission_tier: 'admin' },
+  { permission_key: 'pastoral.export_tier3', description: 'Export Tier 3 records (purpose/confirm/watermark flow)', permission_tier: 'admin' },
+  { permission_key: 'pastoral.manage_mandated_reports', description: 'Create/submit mandated reports', permission_tier: 'admin' },
+
+  // ─── Pastoral Care — Parent tier ─────────────────────────────────────────
+  { permission_key: 'pastoral.parent_self_referral', description: 'Submit a concern about own child (parent)', permission_tier: 'parent' },
 
   // ─── Safeguarding ────────────────────────────────────────────────────────
   { permission_key: 'safeguarding.report', description: 'Report safeguarding concerns', permission_tier: 'staff' },

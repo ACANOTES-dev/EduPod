@@ -38,7 +38,7 @@ const NOTIFICATION_TYPES = [
   'inquiry.new_message', 'payroll.finalised', 'payslip.generated',
 ];
 
-const SEQUENCE_TYPES = ['receipt', 'invoice', 'application', 'payslip', 'student', 'staff', 'household', 'payment'];
+const SEQUENCE_TYPES = ['receipt', 'invoice', 'application', 'payslip', 'student', 'staff', 'household', 'payment', 'pastoral_case'];
 
 const DEFAULT_SETTINGS = {
   attendance: { allowTeacherAmendment: false, autoLockAfterDays: null, pendingAlertTimeHour: 14 },
@@ -805,6 +805,343 @@ async function main() {
         locale: 'ar',
         subject_template: null,
         body_template: 'يرجى إعادة تأكيد الإشعار السلوكي المحدث لـ {{student_name}}',
+      },
+
+      // ─── Phase A/B: Behaviour Incidents + Awards ──────────────────────────
+
+      // behaviour_positive_parent — email en
+      {
+        template_key: 'behaviour_positive_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Positive Behaviour: {{student_name}}',
+        body_template:
+          'Dear {{parent_name}},\n\nWe are pleased to inform you that {{student_name}} has demonstrated positive behaviour.\n\n**Category:** {{category_name}}\n**Date:** {{incident_date}}\n**Details:** {{parent_description}}\n\nThank you for your continued support.\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_positive_parent — email ar
+      {
+        template_key: 'behaviour_positive_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'سلوك إيجابي: {{student_name}}',
+        body_template:
+          'عزيزي {{parent_name}}،\n\nيسعدنا إعلامكم بأن {{student_name}} أظهر سلوكاً إيجابياً.\n\n**الفئة:** {{category_name}}\n**التاريخ:** {{incident_date}}\n**التفاصيل:** {{parent_description}}\n\nشكراً لدعمكم المستمر.\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_positive_parent — in_app en
+      {
+        template_key: 'behaviour_positive_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Positive behaviour recorded for {{student_name}}: {{category_name}}',
+      },
+      // behaviour_positive_parent — in_app ar
+      {
+        template_key: 'behaviour_positive_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم تسجيل سلوك إيجابي لـ {{student_name}}: {{category_name}}',
+      },
+
+      // behaviour_negative_parent — email en
+      {
+        template_key: 'behaviour_negative_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Behaviour Notice: {{student_name}}',
+        body_template:
+          'Dear {{parent_name}},\n\nWe would like to inform you of a behaviour incident involving {{student_name}}.\n\n**Category:** {{category_name}}\n**Date:** {{incident_date}}\n**Details:** {{parent_description}}\n\nIf you have any questions, please contact the school.\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_negative_parent — email ar
+      {
+        template_key: 'behaviour_negative_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'إشعار سلوكي: {{student_name}}',
+        body_template:
+          'عزيزي {{parent_name}}،\n\nنود إعلامكم بحادثة سلوكية تتعلق بـ {{student_name}}.\n\n**الفئة:** {{category_name}}\n**التاريخ:** {{incident_date}}\n**التفاصيل:** {{parent_description}}\n\nللاستفسارات، يرجى التواصل مع المدرسة.\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_negative_parent — in_app en
+      {
+        template_key: 'behaviour_negative_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Behaviour incident recorded for {{student_name}}: {{category_name}}',
+      },
+      // behaviour_negative_parent — in_app ar
+      {
+        template_key: 'behaviour_negative_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم تسجيل حادثة سلوكية لـ {{student_name}}: {{category_name}}',
+      },
+
+      // behaviour_award_parent — email en
+      {
+        template_key: 'behaviour_award_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Award Earned: {{student_name}}',
+        body_template:
+          'Dear {{parent_name}},\n\nCongratulations! {{student_name}} has earned an award.\n\n**Award:** {{award_name}}\n**Points Awarded:** {{points_awarded}}\n\nKeep up the great work!\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_award_parent — email ar
+      {
+        template_key: 'behaviour_award_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'جائزة مُستحقة: {{student_name}}',
+        body_template:
+          'عزيزي {{parent_name}}،\n\nتهانينا! حصل {{student_name}} على جائزة.\n\n**الجائزة:** {{award_name}}\n**النقاط الممنوحة:** {{points_awarded}}\n\nاستمروا في العمل الرائع!\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_award_parent — in_app en
+      {
+        template_key: 'behaviour_award_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: '{{student_name}} earned an award: {{award_name}} (+{{points_awarded}} points)',
+      },
+      // behaviour_award_parent — in_app ar
+      {
+        template_key: 'behaviour_award_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'حصل {{student_name}} على جائزة: {{award_name}} (+{{points_awarded}} نقطة)',
+      },
+
+      // behaviour_acknowledgement_request — email en
+      {
+        template_key: 'behaviour_acknowledgement_request',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Please Acknowledge: Behaviour Notice for {{student_name}}',
+        body_template:
+          'Dear {{parent_name}},\n\nA behaviour notice has been issued for {{student_name}} that requires your acknowledgement.\n\n**Category:** {{category_name}}\n**Date:** {{incident_date}}\n**Details:** {{parent_description}}\n\nPlease log in to the parent portal to review and acknowledge this notice.\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_acknowledgement_request — email ar
+      {
+        template_key: 'behaviour_acknowledgement_request',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'يرجى التأكيد: إشعار سلوكي لـ {{student_name}}',
+        body_template:
+          'عزيزي {{parent_name}}،\n\nتم إصدار إشعار سلوكي بخصوص {{student_name}} يتطلب تأكيدكم.\n\n**الفئة:** {{category_name}}\n**التاريخ:** {{incident_date}}\n**التفاصيل:** {{parent_description}}\n\nيرجى تسجيل الدخول إلى بوابة أولياء الأمور لمراجعة وتأكيد هذا الإشعار.\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_acknowledgement_request — in_app en
+      {
+        template_key: 'behaviour_acknowledgement_request',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Please acknowledge behaviour notice for {{student_name}}',
+      },
+      // behaviour_acknowledgement_request — in_app ar
+      {
+        template_key: 'behaviour_acknowledgement_request',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'يرجى تأكيد الإشعار السلوكي لـ {{student_name}}',
+      },
+
+      // ─── Behaviour Tasks ──────────────────────────────────────────────────
+
+      // behaviour_task_reminder — in_app only en
+      {
+        template_key: 'behaviour_task_reminder',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Reminder: Task "{{task_title}}" is due on {{due_date}}',
+      },
+      // behaviour_task_reminder — in_app only ar
+      {
+        template_key: 'behaviour_task_reminder',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تذكير: المهمة "{{task_title}}" مستحقة بتاريخ {{due_date}}',
+      },
+
+      // behaviour_task_overdue — email en
+      {
+        template_key: 'behaviour_task_overdue',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Overdue Task: {{task_title}}',
+        body_template:
+          'Dear Colleague,\n\nThe following task is now overdue:\n\n**Task:** {{task_title}}\n**Due Date:** {{due_date}}\n\nPlease complete this task as soon as possible.\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_task_overdue — email ar
+      {
+        template_key: 'behaviour_task_overdue',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'مهمة متأخرة: {{task_title}}',
+        body_template:
+          'عزيزي الزميل،\n\nالمهمة التالية أصبحت متأخرة:\n\n**المهمة:** {{task_title}}\n**تاريخ الاستحقاق:** {{due_date}}\n\nيرجى إكمال هذه المهمة في أقرب وقت ممكن.\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_task_overdue — in_app en
+      {
+        template_key: 'behaviour_task_overdue',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Overdue: Task "{{task_title}}" was due on {{due_date}}',
+      },
+      // behaviour_task_overdue — in_app ar
+      {
+        template_key: 'behaviour_task_overdue',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'متأخرة: المهمة "{{task_title}}" كانت مستحقة بتاريخ {{due_date}}',
+      },
+
+      // ─── Safeguarding ─────────────────────────────────────────────────────
+
+      // safeguarding_concern_reported — in_app only en
+      {
+        template_key: 'safeguarding_concern_reported',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'New safeguarding concern reported: {{concern_number}}',
+      },
+      // safeguarding_concern_reported — in_app only ar
+      {
+        template_key: 'safeguarding_concern_reported',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم الإبلاغ عن قلق جديد بشأن الحماية: {{concern_number}}',
+      },
+
+      // safeguarding_critical_escalation — email en
+      {
+        template_key: 'safeguarding_critical_escalation',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'URGENT: Safeguarding Escalation — {{concern_number}}',
+        body_template:
+          'URGENT SAFEGUARDING NOTICE\n\nA safeguarding concern has been escalated and requires your immediate attention.\n\n**Concern Number:** {{concern_number}}\n\nPlease log in to the safeguarding module immediately to review this case.\n\nThis is an automated notification. Do not reply to this email.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_critical_escalation — email ar
+      {
+        template_key: 'safeguarding_critical_escalation',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'عاجل: تصعيد حماية — {{concern_number}}',
+        body_template:
+          'إشعار حماية عاجل\n\nتم تصعيد قلق يتعلق بالحماية ويتطلب اهتمامكم الفوري.\n\n**رقم القلق:** {{concern_number}}\n\nيرجى تسجيل الدخول إلى وحدة الحماية فوراً لمراجعة هذه الحالة.\n\nهذا إشعار تلقائي. لا ترد على هذا البريد الإلكتروني.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_critical_escalation — in_app en
+      {
+        template_key: 'safeguarding_critical_escalation',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'URGENT: Safeguarding escalation requires immediate attention — {{concern_number}}',
+      },
+      // safeguarding_critical_escalation — in_app ar
+      {
+        template_key: 'safeguarding_critical_escalation',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'عاجل: تصعيد حماية يتطلب اهتماماً فورياً — {{concern_number}}',
+      },
+
+      // safeguarding_reporter_ack — in_app only en
+      {
+        template_key: 'safeguarding_reporter_ack',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Your safeguarding concern {{concern_number}} has been received and is being reviewed',
+      },
+      // safeguarding_reporter_ack — in_app only ar
+      {
+        template_key: 'safeguarding_reporter_ack',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم استلام قلقكم بشأن الحماية {{concern_number}} وجاري مراجعته',
+      },
+
+      // safeguarding_sla_breach — email en
+      {
+        template_key: 'safeguarding_sla_breach',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'SLA Breach: Safeguarding Concern {{concern_number}}',
+        body_template:
+          'ATTENTION REQUIRED\n\nThe safeguarding concern {{concern_number}} has breached its SLA.\n\n**SLA Due:** {{sla_due_time}}\n\nThis case requires immediate action. Please log in to the safeguarding module to review.\n\nThis is an automated notification. Do not reply to this email.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_sla_breach — email ar
+      {
+        template_key: 'safeguarding_sla_breach',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'تجاوز مستوى الخدمة: قلق الحماية {{concern_number}}',
+        body_template:
+          'يتطلب الانتباه\n\nقلق الحماية {{concern_number}} قد تجاوز مستوى الخدمة المتفق عليه.\n\n**موعد الاستحقاق:** {{sla_due_time}}\n\nهذه الحالة تتطلب إجراءً فورياً. يرجى تسجيل الدخول إلى وحدة الحماية للمراجعة.\n\nهذا إشعار تلقائي. لا ترد على هذا البريد الإلكتروني.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_sla_breach — in_app en
+      {
+        template_key: 'safeguarding_sla_breach',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'SLA breached for safeguarding concern {{concern_number}} — due {{sla_due_time}}',
+      },
+      // safeguarding_sla_breach — in_app ar
+      {
+        template_key: 'safeguarding_sla_breach',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'تم تجاوز مستوى الخدمة لقلق الحماية {{concern_number}} — المستحق {{sla_due_time}}',
+      },
+
+      // safeguarding_break_glass_review — email en
+      {
+        template_key: 'safeguarding_break_glass_review',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Break-Glass Access Review Required',
+        body_template:
+          'SECURITY REVIEW REQUIRED\n\nA break-glass access session has expired and requires review.\n\n**Concern Number:** {{concern_number}}\n\nPlease log in to review the access log and confirm the actions taken were appropriate.\n\nThis is an automated notification. Do not reply to this email.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_break_glass_review — email ar
+      {
+        template_key: 'safeguarding_break_glass_review',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'مراجعة وصول طارئ مطلوبة',
+        body_template:
+          'مراجعة أمنية مطلوبة\n\nانتهت جلسة الوصول الطارئ وتحتاج إلى مراجعة.\n\n**رقم القلق:** {{concern_number}}\n\nيرجى تسجيل الدخول لمراجعة سجل الوصول والتأكد من أن الإجراءات المتخذة كانت مناسبة.\n\nهذا إشعار تلقائي. لا ترد على هذا البريد الإلكتروني.\n\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // safeguarding_break_glass_review — in_app en
+      {
+        template_key: 'safeguarding_break_glass_review',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Break-glass access session expired for {{concern_number}} — review required',
+      },
+      // safeguarding_break_glass_review — in_app ar
+      {
+        template_key: 'safeguarding_break_glass_review',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'انتهت جلسة الوصول الطارئ لـ {{concern_number}} — مراجعة مطلوبة',
       },
     ];
 

@@ -8,6 +8,7 @@ export * from './constants/notification-types';
 export * from './constants/sequence-types';
 export * from './constants/student-status';
 export * from './constants/class-enrolment-status';
+export * from './constants/system';
 
 // Types
 export * from './types/api-response';
@@ -134,6 +135,9 @@ export * from './ai';
 
 // Behaviour Management
 export * from './behaviour';
+
+// Pastoral Care
+export * from './pastoral';
 
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';

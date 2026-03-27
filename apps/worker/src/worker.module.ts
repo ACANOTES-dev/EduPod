@@ -13,6 +13,7 @@ import { AttendancePendingDetectionProcessor } from './processors/attendance-pen
 import { AttendanceSessionGenerationProcessor } from './processors/attendance-session-generation.processor';
 import { AttachmentScanProcessor } from './processors/behaviour/attachment-scan.processor';
 import { BreakGlassExpiryProcessor } from './processors/behaviour/break-glass-expiry.processor';
+import { BehaviourCronDispatchProcessor } from './processors/behaviour/cron-dispatch.processor';
 import { BehaviourCheckAwardsProcessor } from './processors/behaviour/check-awards.processor';
 import { CriticalEscalationProcessor } from './processors/behaviour/critical-escalation.processor';
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
@@ -33,6 +34,13 @@ import { IpCleanupProcessor } from './processors/communications/ip-cleanup.proce
 import { PublishAnnouncementProcessor } from './processors/communications/publish-announcement.processor';
 import { RetryFailedNotificationsProcessor } from './processors/communications/retry-failed.processor';
 import { StaleInquiryDetectionProcessor } from './processors/communications/stale-inquiry-detection.processor';
+import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
+import { CheckinAlertProcessor } from './processors/pastoral/checkin-alert.processor';
+import { EscalationTimeoutProcessor } from './processors/pastoral/escalation-timeout.processor';
+import { InterventionReviewReminderProcessor } from './processors/pastoral/intervention-review-reminder.processor';
+import { NotifyConcernProcessor } from './processors/pastoral/notify-concern.processor';
+import { OverdueActionsProcessor } from './processors/pastoral/overdue-actions.processor';
+import { PrecomputeAgendaProcessor } from './processors/pastoral/precompute-agenda.processor';
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
@@ -114,6 +122,10 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
         name: QUEUE_NAMES.BEHAVIOUR,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
       },
+      {
+        name: QUEUE_NAMES.PASTORAL,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],
@@ -130,6 +142,7 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Admissions queue processors
     AdmissionsAutoExpiryProcessor,
     // Behaviour queue processors
+    BehaviourCronDispatchProcessor,
     BehaviourParentNotificationProcessor,
     DigestNotificationsProcessor,
     BehaviourTaskRemindersProcessor,
@@ -183,11 +196,19 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     // Communications / Notifications queue processors
     PublishAnnouncementProcessor,
     DispatchNotificationsProcessor,
+    DispatchQueuedProcessor,
     RetryFailedNotificationsProcessor,
     InquiryNotificationProcessor,
     StaleInquiryDetectionProcessor,
     IpCleanupProcessor,
     AnnouncementApprovalCallbackProcessor,
+    // Pastoral queue processors
+    NotifyConcernProcessor,
+    EscalationTimeoutProcessor,
+    PrecomputeAgendaProcessor,
+    OverdueActionsProcessor,
+    InterventionReviewReminderProcessor,
+    CheckinAlertProcessor,
   ],
 })
 export class WorkerModule implements OnModuleDestroy {
