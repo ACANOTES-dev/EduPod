@@ -32,7 +32,7 @@ export type PastoralActionStatus = z.infer<typeof actionStatusSchema>;
 
 // ─── Referral Status ───────────────────────────────────────────────────────
 
-export const REFERRAL_STATUSES = ['draft', 'submitted', 'acknowledged', 'assessment_scheduled', 'assessment_complete', 'report_received', 'recommendations_implemented'] as const;
+export const REFERRAL_STATUSES = ['draft', 'submitted', 'acknowledged', 'assessment_scheduled', 'assessment_complete', 'report_received', 'recommendations_implemented', 'withdrawn'] as const;
 export const referralStatusSchema = z.enum(REFERRAL_STATUSES);
 export type PastoralReferralStatus = z.infer<typeof referralStatusSchema>;
 
@@ -196,6 +196,20 @@ export const PASTORAL_EVENT_TYPES = [
   'external_support_updated',
   'support_offered',
   'wellbeing_flag_expired',
+  'referral_created',
+  'referral_submitted',
+  'referral_acknowledged',
+  'referral_assessment_scheduled',
+  'referral_assessment_complete',
+  'referral_report_received',
+  'referral_recommendations_implemented',
+  'referral_withdrawn',
+  'referral_pre_populated',
+  'recommendation_created',
+  'recommendation_status_changed',
+  'neps_visit_created',
+  'report_generated',
+  'student_summary_accessed',
 ] as const;
 export const pastoralEventTypeSchema = z.enum(PASTORAL_EVENT_TYPES);
 export type PastoralEventType = z.infer<typeof pastoralEventTypeSchema>;

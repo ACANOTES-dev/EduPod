@@ -6,10 +6,14 @@ import {
 } from '@nestjs/common';
 import type { Browser } from 'puppeteer';
 
+import { renderDesInspectionAr } from './templates/des-inspection-ar.template';
+import { renderDesInspectionEn } from './templates/des-inspection-en.template';
 import { renderHouseholdStatementAr } from './templates/household-statement-ar.template';
 import { renderHouseholdStatementEn } from './templates/household-statement-en.template';
 import { renderInvoiceAr } from './templates/invoice-ar.template';
 import { renderInvoiceEn } from './templates/invoice-en.template';
+import { renderPastoralSummaryAr } from './templates/pastoral-summary-ar.template';
+import { renderPastoralSummaryEn } from './templates/pastoral-summary-en.template';
 import { renderPayslipAr } from './templates/payslip-ar.template';
 import { renderPayslipEn } from './templates/payslip-en.template';
 import { renderReceiptAr } from './templates/receipt-ar.template';
@@ -18,8 +22,14 @@ import { renderReportCardAr } from './templates/report-card-ar.template';
 import { renderReportCardEn } from './templates/report-card-en.template';
 import { renderReportCardModernAr } from './templates/report-card-modern-ar.template';
 import { renderReportCardModernEn } from './templates/report-card-modern-en.template';
+import { renderSafeguardingComplianceAr } from './templates/safeguarding-compliance-ar.template';
+import { renderSafeguardingComplianceEn } from './templates/safeguarding-compliance-en.template';
+import { renderSstActivityAr } from './templates/sst-activity-ar.template';
+import { renderSstActivityEn } from './templates/sst-activity-en.template';
 import { renderTranscriptAr } from './templates/transcript-ar.template';
 import { renderTranscriptEn } from './templates/transcript-en.template';
+import { renderWellbeingProgrammeAr } from './templates/wellbeing-programme-ar.template';
+import { renderWellbeingProgrammeEn } from './templates/wellbeing-programme-en.template';
 
 export interface PdfBranding {
   school_name: string;
@@ -59,6 +69,26 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
   'report-card-modern': {
     en: renderReportCardModernEn as TemplateFn,
     ar: renderReportCardModernAr as TemplateFn,
+  },
+  'pastoral-summary': {
+    en: renderPastoralSummaryEn as TemplateFn,
+    ar: renderPastoralSummaryAr as TemplateFn,
+  },
+  'sst-activity': {
+    en: renderSstActivityEn as TemplateFn,
+    ar: renderSstActivityAr as TemplateFn,
+  },
+  'safeguarding-compliance': {
+    en: renderSafeguardingComplianceEn as TemplateFn,
+    ar: renderSafeguardingComplianceAr as TemplateFn,
+  },
+  'wellbeing-programme': {
+    en: renderWellbeingProgrammeEn as TemplateFn,
+    ar: renderWellbeingProgrammeAr as TemplateFn,
+  },
+  'des-inspection': {
+    en: renderDesInspectionEn as TemplateFn,
+    ar: renderDesInspectionAr as TemplateFn,
   },
 };
 

@@ -647,7 +647,7 @@ describe('ParentPastoralService', () => {
       mockRlsTx.pastoralConcern.findMany.mockResolvedValue([concern]);
       mockRlsTx.pastoralConcern.count.mockResolvedValue(1);
 
-      const result = await service.getSharedConcerns(TENANT_ID, USER_ID, { page: 1, pageSize: 20 });
+      await service.getSharedConcerns(TENANT_ID, USER_ID, { page: 1, pageSize: 20 });
 
       // Only the second student's concerns should be queried
       const whereArg = mockRlsTx.pastoralConcern.findMany.mock.calls[0]![0].where;

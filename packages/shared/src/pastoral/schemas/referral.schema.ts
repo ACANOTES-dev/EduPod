@@ -82,3 +82,23 @@ export const referralFiltersSchema = z.object({
 });
 
 export type ReferralFilters = z.infer<typeof referralFiltersSchema>;
+
+// ─── Schedule Assessment ──────────────────────────────────────────────────
+export const scheduleAssessmentSchema = z.object({
+  assessment_scheduled_date: z.string().date(),
+});
+export type ScheduleAssessmentDto = z.infer<typeof scheduleAssessmentSchema>;
+
+// ─── Withdraw Referral ────────────────────────────────────────────────────
+export const withdrawReferralSchema = z.object({
+  reason: z.string().min(5).max(2000),
+});
+export type WithdrawReferralDto = z.infer<typeof withdrawReferralSchema>;
+
+// ─── Waitlist Filters ─────────────────────────────────────────────────────
+export const waitlistFiltersSchema = z.object({
+  referral_type: referralTypeSchema.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type WaitlistFilters = z.infer<typeof waitlistFiltersSchema>;

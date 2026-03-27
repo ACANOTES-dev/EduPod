@@ -574,7 +574,7 @@ export class SstMeetingService {
     });
   }
 
-  async updateAction(tenantId: string, actionId: string, dto: { description?: string; status?: string; due_date?: string }, actorUserId: string) {
+  async updateAction(tenantId: string, actionId: string, dto: { description?: string; status?: string; due_date?: string }, _actorUserId: string) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;

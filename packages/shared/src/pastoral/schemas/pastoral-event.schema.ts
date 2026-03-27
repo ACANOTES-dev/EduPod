@@ -439,6 +439,142 @@ export const wellbeingFlagExpiredPayloadSchema = z.object({
 
 export type WellbeingFlagExpiredPayload = z.infer<typeof wellbeingFlagExpiredPayloadSchema>;
 
+// ─── 40. referral_created ───────────────────────────────────────────────
+
+export const referralCreatedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  referral_type: z.string(),
+  created_by: z.string().uuid(),
+});
+
+export type ReferralCreatedPayload = z.infer<typeof referralCreatedPayloadSchema>;
+
+// ─── 41. referral_submitted ─────────────────────────────────────────────
+
+export const referralSubmittedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  submitted_at: z.string(),
+});
+
+export type ReferralSubmittedPayload = z.infer<typeof referralSubmittedPayloadSchema>;
+
+// ─── 42. referral_acknowledged ──────────────────────────────────────────
+
+export const referralAcknowledgedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  acknowledged_at: z.string(),
+});
+
+export type ReferralAcknowledgedPayload = z.infer<typeof referralAcknowledgedPayloadSchema>;
+
+// ─── 43. referral_assessment_scheduled ──────────────────────────────────
+
+export const referralAssessmentScheduledPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  assessment_date: z.string(),
+});
+
+export type ReferralAssessmentScheduledPayload = z.infer<typeof referralAssessmentScheduledPayloadSchema>;
+
+// ─── 44. referral_assessment_complete ───────────────────────────────────
+
+export const referralAssessmentCompletePayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  completed_at: z.string(),
+});
+
+export type ReferralAssessmentCompletePayload = z.infer<typeof referralAssessmentCompletePayloadSchema>;
+
+// ─── 45. referral_report_received ───────────────────────────────────────
+
+export const referralReportReceivedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  received_at: z.string(),
+});
+
+export type ReferralReportReceivedPayload = z.infer<typeof referralReportReceivedPayloadSchema>;
+
+// ─── 46. referral_recommendations_implemented ───────────────────────────
+
+export const referralRecommendationsImplementedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+});
+
+export type ReferralRecommendationsImplementedPayload = z.infer<typeof referralRecommendationsImplementedPayloadSchema>;
+
+// ─── 47. referral_withdrawn ─────────────────────────────────────────────
+
+export const referralWithdrawnPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  reason: z.string(),
+  withdrawn_by: z.string().uuid(),
+});
+
+export type ReferralWithdrawnPayload = z.infer<typeof referralWithdrawnPayloadSchema>;
+
+// ─── 48. referral_pre_populated ─────────────────────────────────────────
+
+export const referralPrePopulatedPayloadSchema = z.object({
+  referral_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+  data_sources_used: z.array(z.string()),
+});
+
+export type ReferralPrePopulatedPayload = z.infer<typeof referralPrePopulatedPayloadSchema>;
+
+// ─── 49. recommendation_created ─────────────────────────────────────────
+
+export const recommendationCreatedPayloadSchema = z.object({
+  recommendation_id: z.string().uuid(),
+  referral_id: z.string().uuid(),
+  assigned_to: z.string().uuid().optional(),
+});
+
+export type RecommendationCreatedPayload = z.infer<typeof recommendationCreatedPayloadSchema>;
+
+// ─── 50. recommendation_status_changed ──────────────────────────────────
+
+export const recommendationStatusChangedPayloadSchema = z.object({
+  recommendation_id: z.string().uuid(),
+  old_status: z.string(),
+  new_status: z.string(),
+  changed_by: z.string().uuid(),
+});
+
+export type RecommendationStatusChangedPayload = z.infer<typeof recommendationStatusChangedPayloadSchema>;
+
+// ─── 51. neps_visit_created ─────────────────────────────────────────────
+
+export const nepsVisitCreatedPayloadSchema = z.object({
+  visit_id: z.string().uuid(),
+  visit_date: z.string(),
+  psychologist_name: z.string(),
+});
+
+export type NepsVisitCreatedPayload = z.infer<typeof nepsVisitCreatedPayloadSchema>;
+
+// ─── 52. report_generated ───────────────────────────────────────────────
+
+export const reportGeneratedPayloadSchema = z.object({
+  report_type: z.string(),
+  requested_by: z.string().uuid(),
+  filters: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type ReportGeneratedPayload = z.infer<typeof reportGeneratedPayloadSchema>;
+
+// ─── 53. student_summary_accessed ───────────────────────────────────────
+
+export const studentSummaryAccessedPayloadSchema = z.object({
+  student_id: z.string().uuid(),
+  accessed_by: z.string().uuid(),
+  included_tiers: z.array(z.number()),
+});
+
+export type StudentSummaryAccessedPayload = z.infer<typeof studentSummaryAccessedPayloadSchema>;
+
 // ─── Discriminated union of all event payloads ─────────────────────────────
 
 export const pastoralEventPayloadMap = {
@@ -485,6 +621,20 @@ export const pastoralEventPayloadMap = {
   external_support_updated: externalSupportEventPayloadSchema,
   support_offered: supportOfferedPayloadSchema,
   wellbeing_flag_expired: wellbeingFlagExpiredPayloadSchema,
+  referral_created: referralCreatedPayloadSchema,
+  referral_submitted: referralSubmittedPayloadSchema,
+  referral_acknowledged: referralAcknowledgedPayloadSchema,
+  referral_assessment_scheduled: referralAssessmentScheduledPayloadSchema,
+  referral_assessment_complete: referralAssessmentCompletePayloadSchema,
+  referral_report_received: referralReportReceivedPayloadSchema,
+  referral_recommendations_implemented: referralRecommendationsImplementedPayloadSchema,
+  referral_withdrawn: referralWithdrawnPayloadSchema,
+  referral_pre_populated: referralPrePopulatedPayloadSchema,
+  recommendation_created: recommendationCreatedPayloadSchema,
+  recommendation_status_changed: recommendationStatusChangedPayloadSchema,
+  neps_visit_created: nepsVisitCreatedPayloadSchema,
+  report_generated: reportGeneratedPayloadSchema,
+  student_summary_accessed: studentSummaryAccessedPayloadSchema,
 } as const;
 
 export type PastoralEventPayloadMap = {

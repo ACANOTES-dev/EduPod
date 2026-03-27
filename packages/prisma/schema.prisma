@@ -668,6 +668,8 @@ model Tenant {
   pastoral_intervention_progress    PastoralInterventionProgress[]
   pastoral_referrals                PastoralReferral[]
   pastoral_referral_recommendations PastoralReferralRecommendation[]
+  pastoral_neps_visits              PastoralNepsVisit[]
+  pastoral_neps_visit_students      PastoralNepsVisitStudent[]
   sst_members                       SstMember[]
   sst_meetings                      SstMeeting[]
   sst_meeting_agenda_items          SstMeetingAgendaItem[]
@@ -963,32 +965,34 @@ model User {
   sg_break_glass_reviewed           SafeguardingBreakGlassGrant[]  @relation("sg_break_glass_reviewer")
 
   // Pastoral Care Relations
-  pc_concerns_logged                PastoralConcern[]                @relation("pc_concern_logged_by")
-  pc_concerns_shared                PastoralConcern[]                @relation("pc_concern_shared_by")
-  pc_concerns_acknowledged          PastoralConcern[]                @relation("pc_concern_acknowledged_by")
-  pc_concern_versions_amended       PastoralConcernVersion[]         @relation("pc_concern_version_amended_by")
-  pc_cp_records_logged              CpRecord[]                       @relation("pc_cp_record_logged_by")
-  pc_cp_access_grants_user          CpAccessGrant[]                  @relation("pc_cp_access_grant_user")
-  pc_cp_access_grants_granted_by    CpAccessGrant[]                  @relation("pc_cp_access_grant_granted_by")
-  pc_cp_access_grants_revoked_by    CpAccessGrant[]                  @relation("pc_cp_access_grant_revoked_by")
-  pc_cases_owned                    PastoralCase[]                   @relation("pc_case_owner")
-  pc_cases_opened                   PastoralCase[]                   @relation("pc_case_opened_by")
-  pc_interventions_created          PastoralIntervention[]           @relation("pc_intervention_created_by")
-  pc_intervention_actions_assigned  PastoralInterventionAction[]     @relation("pc_intervention_action_assigned_to")
-  pc_intervention_actions_completed PastoralInterventionAction[]     @relation("pc_intervention_action_completed_by")
-  pc_intervention_progress_recorded PastoralInterventionProgress[]   @relation("pc_intervention_progress_recorded_by")
-  pc_referrals_submitted            PastoralReferral[]               @relation("pc_referral_submitted_by")
-  pc_referral_recs_assigned         PastoralReferralRecommendation[] @relation("pc_referral_rec_assigned_to")
-  pc_sst_member                     SstMember[]                      @relation("pc_sst_member_user")
-  pc_sst_meetings_created           SstMeeting[]                     @relation("pc_sst_meeting_created_by")
-  pc_sst_meeting_actions_assigned   SstMeetingAction[]               @relation("pc_sst_meeting_action_assigned_to")
-  pc_sst_meeting_actions_completed  SstMeetingAction[]               @relation("pc_sst_meeting_action_completed_by")
-  pc_parent_contacts_made           PastoralParentContact[]          @relation("pc_parent_contact_contacted_by")
-  pc_events_acted                   PastoralEvent[]                  @relation("pc_event_actor")
-  pc_dsar_reviews_done              PastoralDsarReview[]             @relation("pc_dsar_review_reviewed_by")
-  pc_critical_incidents_declared    CriticalIncident[]               @relation("pc_critical_incident_declared_by")
-  pc_critical_incident_status_changed_by CriticalIncident[]          @relation("pc_critical_incident_status_changed_by")
-  pc_critical_affected_support_by CriticalIncidentAffected[]        @relation("pc_critical_affected_support_by")
+  pc_concerns_logged                     PastoralConcern[]                @relation("pc_concern_logged_by")
+  pc_concerns_shared                     PastoralConcern[]                @relation("pc_concern_shared_by")
+  pc_concerns_acknowledged               PastoralConcern[]                @relation("pc_concern_acknowledged_by")
+  pc_concern_versions_amended            PastoralConcernVersion[]         @relation("pc_concern_version_amended_by")
+  pc_cp_records_logged                   CpRecord[]                       @relation("pc_cp_record_logged_by")
+  pc_cp_access_grants_user               CpAccessGrant[]                  @relation("pc_cp_access_grant_user")
+  pc_cp_access_grants_granted_by         CpAccessGrant[]                  @relation("pc_cp_access_grant_granted_by")
+  pc_cp_access_grants_revoked_by         CpAccessGrant[]                  @relation("pc_cp_access_grant_revoked_by")
+  pc_cases_owned                         PastoralCase[]                   @relation("pc_case_owner")
+  pc_cases_opened                        PastoralCase[]                   @relation("pc_case_opened_by")
+  pc_interventions_created               PastoralIntervention[]           @relation("pc_intervention_created_by")
+  pc_intervention_actions_assigned       PastoralInterventionAction[]     @relation("pc_intervention_action_assigned_to")
+  pc_intervention_actions_completed      PastoralInterventionAction[]     @relation("pc_intervention_action_completed_by")
+  pc_intervention_progress_recorded      PastoralInterventionProgress[]   @relation("pc_intervention_progress_recorded_by")
+  pc_referrals_submitted                 PastoralReferral[]               @relation("pc_referral_submitted_by")
+  pc_referrals_created                   PastoralReferral[]               @relation("pc_referral_created_by")
+  pc_referral_recs_assigned              PastoralReferralRecommendation[] @relation("pc_referral_rec_assigned_to")
+  pc_neps_visits_created                 PastoralNepsVisit[]              @relation("pc_neps_visit_created_by")
+  pc_sst_member                          SstMember[]                      @relation("pc_sst_member_user")
+  pc_sst_meetings_created                SstMeeting[]                     @relation("pc_sst_meeting_created_by")
+  pc_sst_meeting_actions_assigned        SstMeetingAction[]               @relation("pc_sst_meeting_action_assigned_to")
+  pc_sst_meeting_actions_completed       SstMeetingAction[]               @relation("pc_sst_meeting_action_completed_by")
+  pc_parent_contacts_made                PastoralParentContact[]          @relation("pc_parent_contact_contacted_by")
+  pc_events_acted                        PastoralEvent[]                  @relation("pc_event_actor")
+  pc_dsar_reviews_done                   PastoralDsarReview[]             @relation("pc_dsar_review_reviewed_by")
+  pc_critical_incidents_declared         CriticalIncident[]               @relation("pc_critical_incident_declared_by")
+  pc_critical_incident_status_changed_by CriticalIncident[]               @relation("pc_critical_incident_status_changed_by")
+  pc_critical_affected_support_by        CriticalIncidentAffected[]       @relation("pc_critical_affected_support_by")
 
   @@map("users")
 }
@@ -1410,6 +1414,7 @@ model Student {
   pc_case_students       PastoralCaseStudent[]      @relation("pc_case_student_link")
   pc_interventions       PastoralIntervention[]     @relation("pc_intervention_student")
   pc_referrals           PastoralReferral[]         @relation("pc_referral_student")
+  pc_neps_visit_students PastoralNepsVisitStudent[] @relation("pc_neps_visit_student")
   pc_parent_contacts     PastoralParentContact[]    @relation("pc_parent_contact_student")
   pc_events              PastoralEvent[]            @relation("pc_event_student")
   pc_sst_agenda_items    SstMeetingAgendaItem[]     @relation("pc_sst_agenda_student")
@@ -5284,6 +5289,7 @@ enum PastoralReferralStatus {
   assessment_complete
   report_received
   recommendations_implemented
+  withdrawn
 }
 
 enum PastoralReferralRecommendationStatus {
@@ -6454,19 +6460,19 @@ model PastoralConcern {
   updated_at              DateTime                @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant             Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student            Student                  @relation("pc_concern_student", fields: [student_id], references: [id], onDelete: Restrict)
-  logged_by          User                     @relation("pc_concern_logged_by", fields: [logged_by_user_id], references: [id], onDelete: Restrict)
-  case               PastoralCase?            @relation(fields: [case_id], references: [id], onDelete: SetNull)
-  behaviour_incident BehaviourIncident?       @relation("pc_concern_behaviour_incident", fields: [behaviour_incident_id], references: [id], onDelete: SetNull)
-  shared_by          User?                    @relation("pc_concern_shared_by", fields: [shared_by_user_id], references: [id], onDelete: SetNull)
-  acknowledged_by    User?                    @relation("pc_concern_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
-  versions           PastoralConcernVersion[]
-  cp_records         CpRecord[]
-  parent_contacts    PastoralParentContact[]  @relation("pc_parent_contact_concern")
-  sst_agenda_items   SstMeetingAgendaItem[]   @relation("pc_sst_agenda_concern")
-  student_checkins       StudentCheckin[]         @relation("pc_checkin_auto_concern")
-  safeguardingConcerns   SafeguardingConcern[]
+  tenant               Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student              Student                  @relation("pc_concern_student", fields: [student_id], references: [id], onDelete: Restrict)
+  logged_by            User                     @relation("pc_concern_logged_by", fields: [logged_by_user_id], references: [id], onDelete: Restrict)
+  case                 PastoralCase?            @relation(fields: [case_id], references: [id], onDelete: SetNull)
+  behaviour_incident   BehaviourIncident?       @relation("pc_concern_behaviour_incident", fields: [behaviour_incident_id], references: [id], onDelete: SetNull)
+  shared_by            User?                    @relation("pc_concern_shared_by", fields: [shared_by_user_id], references: [id], onDelete: SetNull)
+  acknowledged_by      User?                    @relation("pc_concern_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
+  versions             PastoralConcernVersion[]
+  cp_records           CpRecord[]
+  parent_contacts      PastoralParentContact[]  @relation("pc_parent_contact_concern")
+  sst_agenda_items     SstMeetingAgendaItem[]   @relation("pc_sst_agenda_concern")
+  student_checkins     StudentCheckin[]         @relation("pc_checkin_auto_concern")
+  safeguardingConcerns SafeguardingConcern[]
 
   @@index([tenant_id, student_id, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_student_created")
   @@index([tenant_id, tier, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_tier_created")
@@ -6675,29 +6681,36 @@ model PastoralInterventionProgress {
 }
 
 model PastoralReferral {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String                 @db.Uuid
-  case_id              String?                @db.Uuid
-  student_id           String                 @db.Uuid
-  referral_type        String                 @db.VarChar(50)
-  referral_body_name   String?                @db.VarChar(255)
-  status               PastoralReferralStatus @default(draft)
-  submitted_at         DateTime?              @db.Timestamptz()
-  submitted_by_user_id String?                @db.Uuid
-  pre_populated_data   Json?
-  manual_additions     Json?
-  external_reference   String?                @db.VarChar(100)
-  report_received_at   DateTime?              @db.Timestamptz()
-  report_summary       String?                @db.Text
-  created_at           DateTime               @default(now()) @db.Timestamptz()
-  updated_at           DateTime               @default(now()) @updatedAt @db.Timestamptz()
+  id                        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String                 @db.Uuid
+  case_id                   String?                @db.Uuid
+  student_id                String                 @db.Uuid
+  referral_type             String                 @db.VarChar(50)
+  referral_body_name        String?                @db.VarChar(255)
+  status                    PastoralReferralStatus @default(draft)
+  reason                    String?                @db.Text
+  submitted_at              DateTime?              @db.Timestamptz()
+  submitted_by_user_id      String?                @db.Uuid
+  acknowledged_at           DateTime?              @db.Timestamptz()
+  assessment_scheduled_date DateTime?              @db.Date
+  assessment_completed_at   DateTime?              @db.Timestamptz()
+  pre_populated_data        Json?
+  manual_additions          Json?
+  external_reference        String?                @db.VarChar(100)
+  report_received_at        DateTime?              @db.Timestamptz()
+  report_summary            String?                @db.Text
+  created_by_user_id        String?                @db.Uuid
+  created_at                DateTime               @default(now()) @db.Timestamptz()
+  updated_at                DateTime               @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
-  tenant          Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  case            PastoralCase?                    @relation("pc_referral_case", fields: [case_id], references: [id], onDelete: SetNull)
-  student         Student                          @relation("pc_referral_student", fields: [student_id], references: [id], onDelete: Restrict)
-  submitted_by    User?                            @relation("pc_referral_submitted_by", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
-  recommendations PastoralReferralRecommendation[]
+  tenant              Tenant                           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  case                PastoralCase?                    @relation("pc_referral_case", fields: [case_id], references: [id], onDelete: SetNull)
+  student             Student                          @relation("pc_referral_student", fields: [student_id], references: [id], onDelete: Restrict)
+  submitted_by        User?                            @relation("pc_referral_submitted_by", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  created_by          User?                            @relation("pc_referral_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  recommendations     PastoralReferralRecommendation[]
+  neps_visit_students PastoralNepsVisitStudent[]
 
   @@index([tenant_id, student_id, status], map: "idx_pastoral_referrals_tenant_student_status")
   @@index([tenant_id, referral_type, status], map: "idx_pastoral_referrals_tenant_type_status")
@@ -6723,6 +6736,45 @@ model PastoralReferralRecommendation {
 
   @@index([tenant_id, referral_id], map: "idx_pastoral_referral_recs_tenant_referral")
   @@map("pastoral_referral_recommendations")
+}
+
+model PastoralNepsVisit {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  visit_date         DateTime @db.Date
+  psychologist_name  String   @db.VarChar(200)
+  notes              String?  @db.Text
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant                     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by User                       @relation("pc_neps_visit_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  students   PastoralNepsVisitStudent[]
+
+  @@index([tenant_id, visit_date], map: "idx_pastoral_neps_visits_tenant_date")
+  @@map("pastoral_neps_visits")
+}
+
+model PastoralNepsVisitStudent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  visit_id    String   @db.Uuid
+  student_id  String   @db.Uuid
+  referral_id String?  @db.Uuid
+  outcome     String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant   Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  visit    PastoralNepsVisit @relation(fields: [visit_id], references: [id], onDelete: Cascade)
+  student  Student           @relation("pc_neps_visit_student", fields: [student_id], references: [id], onDelete: Restrict)
+  referral PastoralReferral? @relation(fields: [referral_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, visit_id, student_id])
+  @@index([tenant_id, visit_id], map: "idx_pastoral_neps_visit_students_tenant_visit")
+  @@map("pastoral_neps_visit_students")
 }
 
 model SstMember {

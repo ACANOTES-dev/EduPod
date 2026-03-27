@@ -1,8 +1,10 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { ChildProtectionModule } from '../child-protection/child-protection.module';
 import { CommunicationsModule } from '../communications/communications.module';
+import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
 import { CasesController } from './controllers/cases.controller';
@@ -15,6 +17,8 @@ import { InterventionsController } from './controllers/interventions.controller'
 import { ParentContactsController } from './controllers/parent-contacts.controller';
 import { ParentPastoralController } from './controllers/parent-pastoral.controller';
 import { PastoralAdminController } from './controllers/pastoral-admin.controller';
+import { PastoralReportsController } from './controllers/pastoral-reports.controller';
+import { ReferralsController } from './controllers/referrals.controller';
 import { SstController } from './controllers/sst.controller';
 import { AuthorMaskingInterceptor } from './interceptors/author-masking.interceptor';
 import { AffectedTrackingService } from './services/affected-tracking.service';
@@ -28,10 +32,16 @@ import { ConcernService } from './services/concern.service';
 import { CriticalIncidentService } from './services/critical-incident.service';
 import { InterventionActionService } from './services/intervention-action.service';
 import { InterventionService } from './services/intervention.service';
+import { NepsVisitService } from './services/neps-visit.service';
 import { ParentContactService } from './services/parent-contact.service';
 import { ParentPastoralService } from './services/parent-pastoral.service';
 import { PastoralEventService } from './services/pastoral-event.service';
+import { PastoralExportService } from './services/pastoral-export.service';
 import { PastoralNotificationService } from './services/pastoral-notification.service';
+import { PastoralReportService } from './services/pastoral-report.service';
+import { ReferralPrepopulateService } from './services/referral-prepopulate.service';
+import { ReferralRecommendationService } from './services/referral-recommendation.service';
+import { ReferralService } from './services/referral.service';
 import { SstAgendaGeneratorService } from './services/sst-agenda-generator.service';
 import { SstMeetingService } from './services/sst-meeting.service';
 import { SstService } from './services/sst.service';
@@ -40,7 +50,9 @@ import { StudentChronologyService } from './services/student-chronology.service'
 @Module({
   imports: [
     AuthModule,
+    forwardRef(() => ChildProtectionModule),
     CommunicationsModule,
+    PdfRenderingModule,
     TenantsModule,
     BullModule.registerQueue({ name: 'pastoral' }),
     BullModule.registerQueue({ name: 'notifications' }),
@@ -56,6 +68,8 @@ import { StudentChronologyService } from './services/student-chronology.service'
     ParentContactsController,
     ParentPastoralController,
     PastoralAdminController,
+    PastoralReportsController,
+    ReferralsController,
     SstController,
   ],
   providers: [
@@ -71,10 +85,16 @@ import { StudentChronologyService } from './services/student-chronology.service'
     CriticalIncidentService,
     InterventionActionService,
     InterventionService,
+    NepsVisitService,
     ParentContactService,
     ParentPastoralService,
     PastoralEventService,
+    PastoralExportService,
     PastoralNotificationService,
+    PastoralReportService,
+    ReferralPrepopulateService,
+    ReferralRecommendationService,
+    ReferralService,
     SstAgendaGeneratorService,
     SstMeetingService,
     SstService,
@@ -88,9 +108,12 @@ import { StudentChronologyService } from './services/student-chronology.service'
     ConcernVersionService,
     CriticalIncidentService,
     InterventionService,
+    NepsVisitService,
     ParentContactService,
     PastoralEventService,
     PastoralNotificationService,
+    PastoralReportService,
+    ReferralService,
     SstService,
     StudentChronologyService,
   ],

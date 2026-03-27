@@ -530,7 +530,7 @@ export class SstAgendaGeneratorService {
     tenantId: string,
     meetingId: string,
     itemId: string,
-    actorUserId: string,
+    _actorUserId: string,
   ) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     await rlsClient.$transaction(async (tx) => {

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { PastoralModule } from '../pastoral/pastoral.module';
@@ -17,7 +17,7 @@ import { MandatedReportService } from './services/mandated-report.service';
 @Module({
   imports: [
     AuthModule,
-    PastoralModule,
+    forwardRef(() => PastoralModule),
     PdfRenderingModule,
     TenantsModule,
   ],
@@ -35,6 +35,7 @@ import { MandatedReportService } from './services/mandated-report.service';
   ],
   exports: [
     CpAccessService,
+    CpExportService,
     CpRecordService,
   ],
 })
