@@ -52,6 +52,9 @@ const mockRlsTx = {
   pastoralIntervention: {
     findMany: jest.fn(),
   },
+  studentAcademicRiskAlert: {
+    findMany: jest.fn(),
+  },
 };
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
@@ -169,6 +172,7 @@ const setupDefaultMocks = () => {
   mockRlsTx.sstMeetingAction.findMany.mockResolvedValue([]);
   mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
   mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+  mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([]);
 };
 
 // ─── Test Suite ─────────────────────────────────────────────────────────────
@@ -359,9 +363,64 @@ describe('SstAgendaGeneratorService', () => {
   // ─── Source Query: Early Warning Flags ──────────────────────────────────
 
   describe('queryEarlyWarningFlags', () => {
-    it('returns empty array (placeholder until Phase 4)', async () => {
-      const items = await service.queryEarlyWarningFlags();
-      expect(items).toEqual([]);
+    it('returns one review-recommended item per flagged student', async () => {
+      setupDefaultMocks();
+
+      mockRlsTx.studentAcademicRiskAlert.findMany.mockResolvedValue([
+        {
+          id: 'alert-1',
+          student_id: STUDENT_ID_A,
+          trigger_reason: 'Attendance declined for 3 consecutive weeks',
+        },
+        {
+          id: 'alert-2',
+          student_id: STUDENT_ID_A,
+          trigger_reason: 'Maths assessment average dropped by 12%',
+        },
+        {
+          id: 'alert-3',
+          student_id: STUDENT_ID_B,
+          trigger_reason: 'Two elevated concerns logged this month',
+        },
+      ]);
+
+      const items = await service.queryEarlyWarningFlags(
+        mockRlsTx as unknown as PrismaService,
+        TENANT_ID,
+        NOW,
+      );
+
+      expect(items).toEqual([
+        {
+          source: 'auto_early_warning',
+          student_id: STUDENT_ID_A,
+          case_id: null,
+          concern_id: null,
+          description:
+            'Review recommended: Attendance declined for 3 consecutive weeks; Maths assessment average dropped by 12%',
+        },
+        {
+          source: 'auto_early_warning',
+          student_id: STUDENT_ID_B,
+          case_id: null,
+          concern_id: null,
+          description: 'Review recommended: Two elevated concerns logged this month',
+        },
+      ]);
+
+      expect(mockRlsTx.studentAcademicRiskAlert.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_ID,
+          status: 'active',
+          detected_date: { lte: NOW },
+        },
+        select: {
+          id: true,
+          student_id: true,
+          trigger_reason: true,
+        },
+        orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],
+      });
     });
   });
 
@@ -678,6 +737,7 @@ describe('SstAgendaGeneratorService', () => {
       expect(mockRlsTx.pastoralConcern.findMany).toHaveBeenCalledTimes(1);
       expect(mockRlsTx.pastoralCase.findMany).toHaveBeenCalledTimes(1);
       expect(mockRlsTx.sstMeetingAction.findMany).toHaveBeenCalledTimes(1);
+      expect(mockRlsTx.studentAcademicRiskAlert.findMany).toHaveBeenCalledTimes(1);
       expect(mockRlsTx.pastoralReferral.findMany).toHaveBeenCalledTimes(1);
       expect(mockRlsTx.pastoralIntervention.findMany).toHaveBeenCalledTimes(1);
     });

@@ -717,6 +717,22 @@ describe('CaseService', () => {
           }),
         }),
       );
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'case_concern_linked',
+          entity_type: 'case',
+          entity_id: CASE_ID,
+          student_id: STUDENT_ID,
+          actor_user_id: USER_ID_A,
+          tier: 2,
+          payload: {
+            case_id: CASE_ID,
+            concern_id: CONCERN_ID_B,
+            student_id: STUDENT_ID,
+          },
+        }),
+      );
     });
   });
 
@@ -790,6 +806,22 @@ describe('CaseService', () => {
           }),
         }),
       );
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'case_concern_unlinked',
+          entity_type: 'case',
+          entity_id: CASE_ID,
+          student_id: STUDENT_ID,
+          actor_user_id: USER_ID_A,
+          tier: 3,
+          payload: {
+            case_id: CASE_ID,
+            concern_id: CONCERN_ID_B,
+            student_id: STUDENT_ID,
+          },
+        }),
+      );
     });
   });
 
@@ -832,7 +864,7 @@ describe('CaseService', () => {
       });
 
       // Not already linked
-      mockRlsTx.pastoralCaseStudent.findFirst.mockResolvedValue(null);
+      mockRlsTx.pastoralCaseStudent.findUnique.mockResolvedValue(null);
       mockRlsTx.pastoralCaseStudent.create.mockResolvedValue({
         case_id: CASE_ID,
         student_id: STUDENT_ID_B,
@@ -846,6 +878,21 @@ describe('CaseService', () => {
           student_id: STUDENT_ID_B,
         }),
       });
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'case_student_added',
+          entity_type: 'case',
+          entity_id: CASE_ID,
+          student_id: STUDENT_ID_B,
+          actor_user_id: USER_ID_A,
+          tier: 1,
+          payload: {
+            case_id: CASE_ID,
+            student_id: STUDENT_ID_B,
+          },
+        }),
+      );
     });
 
     it('should be idempotent when adding already-linked student', async () => {
@@ -861,7 +908,7 @@ describe('CaseService', () => {
       });
 
       // Already linked
-      mockRlsTx.pastoralCaseStudent.findFirst.mockResolvedValue({
+      mockRlsTx.pastoralCaseStudent.findUnique.mockResolvedValue({
         case_id: CASE_ID,
         student_id: STUDENT_ID_B,
       });
@@ -870,6 +917,8 @@ describe('CaseService', () => {
       await expect(
         service.addStudent(TENANT_ID, USER_ID_A, CASE_ID, { student_id: STUDENT_ID_B }),
       ).resolves.not.toThrow();
+
+      expect(mockPastoralEventService.write).not.toHaveBeenCalled();
     });
   });
 
@@ -921,6 +970,21 @@ describe('CaseService', () => {
         mockRlsTx.pastoralCaseStudent.delete.mock.calls[0] ??
         mockRlsTx.pastoralCaseStudent.deleteMany.mock.calls[0];
       expect(deleteCall).toBeDefined();
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'case_student_removed',
+          entity_type: 'case',
+          entity_id: CASE_ID,
+          student_id: STUDENT_ID_B,
+          actor_user_id: USER_ID_A,
+          tier: 1,
+          payload: {
+            case_id: CASE_ID,
+            student_id: STUDENT_ID_B,
+          },
+        }),
+      );
     });
   });
 

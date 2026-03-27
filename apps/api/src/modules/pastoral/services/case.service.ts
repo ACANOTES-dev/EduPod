@@ -640,7 +640,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    await rlsClient.$transaction(async (tx) => {
+    const eventContext = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -675,7 +675,7 @@ export class CaseService {
 
       // If already linked to this case, idempotent return
       if (concern.case_id === caseId) {
-        return;
+        return null;
       }
 
       // Link concern
@@ -685,11 +685,33 @@ export class CaseService {
       });
 
       // Recalculate tier
-      await this.recalculateTier(tenantId, caseId, db);
-    });
+      const recalculatedTier = await this.recalculateTier(tenantId, caseId, db);
 
-    // Note: concern linking is tracked via the concern's case_id update.
-    // No dedicated audit event type exists yet for concern link/unlink operations.
+      return {
+        student_id: concern.student_id,
+        tier: Math.max(caseRecord.tier, concern.tier, recalculatedTier),
+      };
+    }) as { student_id: string; tier: number } | null;
+
+    if (!eventContext) {
+      return;
+    }
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'case_concern_linked',
+      entity_type: 'case',
+      entity_id: caseId,
+      student_id: eventContext.student_id,
+      actor_user_id: userId,
+      tier: eventContext.tier,
+      payload: {
+        case_id: caseId,
+        concern_id: dto.concern_id,
+        student_id: eventContext.student_id,
+      },
+      ip_address: null,
+    });
   }
 
   // ─── UNLINK CONCERN ─────────────────────────────────────────────────────────
@@ -705,7 +727,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    await rlsClient.$transaction(async (tx) => {
+    const eventContext = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -749,7 +771,28 @@ export class CaseService {
       });
 
       // Recalculate tier
-      await this.recalculateTier(tenantId, caseId, db);
+      const recalculatedTier = await this.recalculateTier(tenantId, caseId, db);
+
+      return {
+        student_id: concern.student_id,
+        tier: Math.max(caseRecord.tier, concern.tier, recalculatedTier),
+      };
+    }) as { student_id: string; tier: number };
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'case_concern_unlinked',
+      entity_type: 'case',
+      entity_id: caseId,
+      student_id: eventContext.student_id,
+      actor_user_id: userId,
+      tier: eventContext.tier,
+      payload: {
+        case_id: caseId,
+        concern_id: concernId,
+        student_id: eventContext.student_id,
+      },
+      ip_address: null,
     });
   }
 
@@ -766,7 +809,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    await rlsClient.$transaction(async (tx) => {
+    const eventContext = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -802,7 +845,7 @@ export class CaseService {
         },
       });
       if (existing) {
-        return; // Already linked, no-op
+        return null; // Already linked, no-op
       }
 
       await db.pastoralCaseStudent.create({
@@ -812,10 +855,30 @@ export class CaseService {
           tenant_id: tenantId,
         },
       });
-    });
+      return {
+        student_id: dto.student_id,
+        tier: caseRecord.tier,
+      };
+    }) as { student_id: string; tier: number } | null;
 
-    // Note: student addition is tracked via pastoral_case_students row creation.
-    // No dedicated audit event type exists yet for student add/remove operations.
+    if (!eventContext) {
+      return;
+    }
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'case_student_added',
+      entity_type: 'case',
+      entity_id: caseId,
+      student_id: eventContext.student_id,
+      actor_user_id: userId,
+      tier: eventContext.tier,
+      payload: {
+        case_id: caseId,
+        student_id: eventContext.student_id,
+      },
+      ip_address: null,
+    });
   }
 
   // ─── REMOVE STUDENT ─────────────────────────────────────────────────────────
@@ -831,7 +894,7 @@ export class CaseService {
       user_id: userId,
     });
 
-    await rlsClient.$transaction(async (tx) => {
+    const eventContext = await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Validate case exists
@@ -877,6 +940,25 @@ export class CaseService {
           },
         },
       });
+      return {
+        student_id: studentId,
+        tier: caseRecord.tier,
+      };
+    }) as { student_id: string; tier: number };
+
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'case_student_removed',
+      entity_type: 'case',
+      entity_id: caseId,
+      student_id: eventContext.student_id,
+      actor_user_id: userId,
+      tier: eventContext.tier,
+      payload: {
+        case_id: caseId,
+        student_id: eventContext.student_id,
+      },
+      ip_address: null,
     });
   }
 

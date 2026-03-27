@@ -52,6 +52,12 @@ export interface SstMeetingAgendaItemRow {
   updated_at: Date;
 }
 
+interface EarlyWarningAlertRow {
+  id: string;
+  student_id: string;
+  trigger_reason: string;
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -222,7 +228,7 @@ export class SstAgendaGeneratorService {
       case 'auto_overdue_action':
         return this.queryOverdueActions(db, tenantId);
       case 'auto_early_warning':
-        return this.queryEarlyWarningFlags();
+        return this.queryEarlyWarningFlags(db, tenantId, meetingDate);
       case 'auto_neps':
         return this.queryUpcomingNepsAppointments(db, tenantId, meetingDate);
       case 'auto_intervention_review':
@@ -331,10 +337,60 @@ export class SstAgendaGeneratorService {
   }
 
   /**
-   * Placeholder -- returns empty array until Phase 4 integration.
+   * Active predictive early-warning flags, grouped per student.
+   *
+   * Surfaces only operational facts and a "review recommended" prompt.
+   * It must never expose risk scores or machine-authored risk labels.
    */
-  async queryEarlyWarningFlags(): Promise<AgendaSourceItem[]> {
-    return [];
+  async queryEarlyWarningFlags(
+    db: PrismaService,
+    tenantId: string,
+    meetingDate: Date,
+  ): Promise<AgendaSourceItem[]> {
+    const alerts = (await db.studentAcademicRiskAlert.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'active' as $Enums.AcademicAlertStatus,
+        detected_date: { lte: meetingDate },
+      },
+      select: {
+        id: true,
+        student_id: true,
+        trigger_reason: true,
+      },
+      orderBy: [
+        { detected_date: 'desc' },
+        { created_at: 'desc' },
+      ],
+    })) as EarlyWarningAlertRow[];
+
+    const alertsByStudent = new Map<string, string[]>();
+
+    for (const alert of alerts) {
+      const reason = alert.trigger_reason.trim();
+      if (!reason) continue;
+
+      const existingReasons = alertsByStudent.get(alert.student_id) ?? [];
+      if (!existingReasons.includes(reason)) {
+        existingReasons.push(reason);
+      }
+      alertsByStudent.set(alert.student_id, existingReasons);
+    }
+
+    return Array.from(alertsByStudent.entries()).map(([studentId, reasons]) => {
+      const visibleReasons = reasons.slice(0, 2);
+      const remainingCount = Math.max(0, reasons.length - visibleReasons.length);
+      const suffix =
+        remainingCount > 0 ? ` (+${remainingCount} more signal${remainingCount > 1 ? 's' : ''})` : '';
+
+      return {
+        source: 'auto_early_warning' as const,
+        student_id: studentId,
+        case_id: null,
+        concern_id: null,
+        description: `Review recommended: ${visibleReasons.join('; ')}${suffix}`,
+      };
+    });
   }
 
   /**

@@ -135,6 +135,44 @@ export const caseOwnershipTransferredPayloadSchema = z.object({
 
 export type CaseOwnershipTransferredPayload = z.infer<typeof caseOwnershipTransferredPayloadSchema>;
 
+// ─── 11b. case_concern_linked ──────────────────────────────────────────────
+
+export const caseConcernLinkedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  concern_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type CaseConcernLinkedPayload = z.infer<typeof caseConcernLinkedPayloadSchema>;
+
+// ─── 11c. case_concern_unlinked ────────────────────────────────────────────
+
+export const caseConcernUnlinkedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  concern_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type CaseConcernUnlinkedPayload = z.infer<typeof caseConcernUnlinkedPayloadSchema>;
+
+// ─── 11d. case_student_added ───────────────────────────────────────────────
+
+export const caseStudentAddedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type CaseStudentAddedPayload = z.infer<typeof caseStudentAddedPayloadSchema>;
+
+// ─── 11e. case_student_removed ─────────────────────────────────────────────
+
+export const caseStudentRemovedPayloadSchema = z.object({
+  case_id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export type CaseStudentRemovedPayload = z.infer<typeof caseStudentRemovedPayloadSchema>;
+
 // ─── 12. intervention_created ──────────────────────────────────────────────
 
 export const interventionCreatedPayloadSchema = z.object({
@@ -623,6 +661,10 @@ export const pastoralEventPayloadMap = {
   case_created: caseCreatedPayloadSchema,
   case_status_changed: caseStatusChangedPayloadSchema,
   case_ownership_transferred: caseOwnershipTransferredPayloadSchema,
+  case_concern_linked: caseConcernLinkedPayloadSchema,
+  case_concern_unlinked: caseConcernUnlinkedPayloadSchema,
+  case_student_added: caseStudentAddedPayloadSchema,
+  case_student_removed: caseStudentRemovedPayloadSchema,
   intervention_created: interventionCreatedPayloadSchema,
   intervention_status_changed: interventionStatusChangedPayloadSchema,
   intervention_updated: interventionUpdatedPayloadSchema,
