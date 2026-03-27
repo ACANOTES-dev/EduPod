@@ -359,6 +359,128 @@ export class TeacherCompetenciesService {
     return { data: result };
   }
 
+  // ─── Coverage Matrix ─────────────────────────────────────────────────────
+
+  async getCoverage(tenantId: string, academicYearId: string) {
+    // 1. Get all year groups for this tenant
+    const yearGroups = await this.prisma.yearGroup.findMany({
+      where: { tenant_id: tenantId },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+
+    // 2. Get all active classes grouped by year group
+    const classes = await this.prisma.class.findMany({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicYearId,
+        status: 'active',
+      },
+      select: { id: true, year_group_id: true },
+    });
+    const classIdsByYg = new Map<string, string[]>();
+    for (const c of classes) {
+      if (!c.year_group_id) continue;
+      const list = classIdsByYg.get(c.year_group_id) ?? [];
+      list.push(c.id);
+      classIdsByYg.set(c.year_group_id, list);
+    }
+
+    // 3. Get all class-subject assignments (curriculum matrix)
+    const allClassIds = classes.map((c) => c.id);
+    const configs = allClassIds.length > 0
+      ? await this.prisma.classSubjectGradeConfig.findMany({
+          where: { tenant_id: tenantId, class_id: { in: allClassIds } },
+          select: { class_id: true, subject_id: true },
+        })
+      : [];
+
+    // Build set of subject IDs per year group
+    const subjectIdsByYg = new Map<string, Set<string>>();
+    for (const cfg of configs) {
+      for (const [ygId, classIds] of classIdsByYg) {
+        if (classIds.includes(cfg.class_id)) {
+          const set = subjectIdsByYg.get(ygId) ?? new Set<string>();
+          set.add(cfg.subject_id);
+          subjectIdsByYg.set(ygId, set);
+        }
+      }
+    }
+
+    // 4. Get all competencies with teacher names
+    const competencies = await this.prisma.teacherCompetency.findMany({
+      where: { tenant_id: tenantId, academic_year_id: academicYearId },
+      select: {
+        year_group_id: true,
+        subject_id: true,
+        staff_profile: {
+          select: {
+            id: true,
+            user: { select: { first_name: true, last_name: true } },
+          },
+        },
+      },
+    });
+
+    // Group: ygId:subjectId -> teacher names
+    const teacherMap = new Map<string, Array<{ id: string; name: string }>>();
+    for (const c of competencies) {
+      const key = `${c.year_group_id}:${c.subject_id}`;
+      const list = teacherMap.get(key) ?? [];
+      const name = c.staff_profile.user
+        ? `${c.staff_profile.user.first_name} ${c.staff_profile.user.last_name}`
+        : c.staff_profile.id;
+      list.push({ id: c.staff_profile.id, name });
+      teacherMap.set(key, list);
+    }
+
+    // 5. Collect all unique subject IDs across all year groups
+    const allSubjectIds = new Set<string>();
+    for (const subs of subjectIdsByYg.values()) {
+      for (const sid of subs) allSubjectIds.add(sid);
+    }
+
+    const subjectRecords = allSubjectIds.size > 0
+      ? await this.prisma.subject.findMany({
+          where: { id: { in: [...allSubjectIds] }, tenant_id: tenantId },
+          select: { id: true, name: true },
+          orderBy: { name: 'asc' },
+        })
+      : [];
+
+    // 6. Build the matrix
+    let gaps = 0;
+    let atRisk = 0;
+    let covered = 0;
+    let total = 0;
+
+    const rows = yearGroups
+      .filter((yg) => subjectIdsByYg.has(yg.id))
+      .map((yg) => {
+        const ygSubjects = subjectIdsByYg.get(yg.id) ?? new Set<string>();
+        const cells = subjectRecords.map((subject) => {
+          const inCurriculum = ygSubjects.has(subject.id);
+          if (!inCurriculum) return { subject_id: subject.id, in_curriculum: false as const, count: 0, teachers: [] };
+
+          const key = `${yg.id}:${subject.id}`;
+          const teachers = teacherMap.get(key) ?? [];
+          total++;
+          if (teachers.length === 0) gaps++;
+          else if (teachers.length === 1) atRisk++;
+          else covered++;
+
+          return { subject_id: subject.id, in_curriculum: true as const, count: teachers.length, teachers };
+        });
+        return { year_group_id: yg.id, year_group_name: yg.name, cells };
+      });
+
+    return {
+      subjects: subjectRecords,
+      rows,
+      summary: { gaps, at_risk: atRisk, covered, total },
+    };
+  }
+
   // ─── Private helpers ───────────────────────────────────────────────────────
 
   private async validateRelations(

@@ -66,6 +66,16 @@ export class TeacherCompetenciesController {
     return this.service.listAll(tenant.tenant_id, query.academic_year_id);
   }
 
+  @Get('coverage')
+  @RequiresPermission('schedule.configure_requirements')
+  async getCoverage(
+    @CurrentTenant() tenant: { tenant_id: string },
+    @Query(new ZodValidationPipe(listByTeacherQuerySchema))
+    query: z.infer<typeof listByTeacherQuerySchema>,
+  ) {
+    return this.service.getCoverage(tenant.tenant_id, query.academic_year_id);
+  }
+
   @Get('by-teacher/:staffProfileId')
   @RequiresPermission('schedule.configure_requirements')
   async listByTeacher(
