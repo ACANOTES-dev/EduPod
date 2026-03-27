@@ -256,7 +256,7 @@ function SystemHealthTab() {
       </div>
 
       <div className="md:col-span-2 lg:col-span-3">
-        <Button variant="outline" onClick={loadHealth}>
+        <Button variant="secondary" onClick={loadHealth}>
           <RefreshCw className="me-2 h-4 w-4" />
           Refresh
         </Button>
@@ -329,7 +329,7 @@ function DeadLetterTab() {
               <tr key={job.job_id} className="border-b">
                 <td className="py-2 font-mono text-xs">{job.job_name}</td>
                 <td className="py-2">
-                  <Badge variant="outline">{job.queue}</Badge>
+                  <Badge variant="secondary">{job.queue}</Badge>
                 </td>
                 <td className="py-2 text-muted-foreground">
                   {new Date(job.failed_at).toLocaleString()}
@@ -339,7 +339,7 @@ function DeadLetterTab() {
                 </td>
                 <td className="py-2">{job.retry_count}</td>
                 <td className="py-2 text-end">
-                  <Button size="sm" variant="outline" onClick={() => retryJob(job.job_id)}>
+                  <Button size="sm" variant="secondary" onClick={() => retryJob(job.job_id)}>
                     <RotateCcw className="me-1 h-3 w-3" />
                     Retry
                   </Button>
@@ -425,7 +425,7 @@ function OperationsTab() {
                 </Select>
               )}
               {!op.noPreview && (
-                <Button variant="outline" onClick={() => preview(op.key)}>
+                <Button variant="secondary" onClick={() => preview(op.key)}>
                   <Eye className="me-2 h-4 w-4" />
                   Preview Impact
                 </Button>
@@ -477,7 +477,7 @@ function OperationsTab() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewData(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setPreviewData(null)}>Cancel</Button>
             <Button onClick={() => previewOp && execute(previewOp)}>Confirm Execute</Button>
           </DialogFooter>
         </DialogContent>
@@ -532,7 +532,7 @@ function ScopeAuditTab() {
           {result && (
             <div className="rounded-md border p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Badge variant="outline" className="capitalize">{result.scope_level}</Badge>
+                <Badge variant="secondary" className="capitalize">{result.scope_level}</Badge>
                 <span className="text-sm text-muted-foreground">
                   Can see {result.student_count} student{result.student_count !== 1 ? 's' : ''}
                 </span>
@@ -657,7 +657,7 @@ function RetentionTab() {
         </div>
         <div className="p-4 pt-0 space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={previewRetention}>
+            <Button variant="secondary" onClick={previewRetention}>
               <Eye className="me-2 h-4 w-4" />
               Preview Next Run
             </Button>
@@ -724,7 +724,7 @@ function RetentionTab() {
                   {holds.map((hold) => (
                     <tr key={hold.id} className="border-b">
                       <td className="py-2">
-                        <Badge variant="outline" className="capitalize">{hold.entity_type}</Badge>
+                        <Badge variant="secondary" className="capitalize">{hold.entity_type}</Badge>
                         <code className="ms-1 text-xs">{hold.entity_id.substring(0, 8)}...</code>
                       </td>
                       <td className="max-w-[200px] truncate py-2" title={hold.hold_reason}>
@@ -738,7 +738,7 @@ function RetentionTab() {
                       <td className="py-2 text-end">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => setReleaseDialog(hold.id)}
                         >
                           Release
@@ -768,7 +768,7 @@ function RetentionTab() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReleaseDialog(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>Cancel</Button>
             <Button onClick={() => releaseDialog && releaseHold(releaseDialog)} disabled={!releaseReason.trim()}>
               Release Hold
             </Button>
@@ -824,7 +824,7 @@ function RetentionTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialog(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setCreateDialog(false)}>Cancel</Button>
             <Button onClick={createHold} disabled={!newHold.entity_id.trim() || !newHold.hold_reason.trim()}>
               Create Hold
             </Button>
