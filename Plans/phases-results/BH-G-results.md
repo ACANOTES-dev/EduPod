@@ -106,29 +106,45 @@ Phase G delivers the document generation engine (Handlebars templates → Puppet
 - `Plans/phases-plan/BH-G-plan.md`
 - `packages/prisma/migrations/20260327000000_phase_g_doc_template_unique/migration.sql`
 
-## Files Modified: 9
+## Files Modified: 16
 - `apps/api/package.json` — Added `handlebars` dependency
 - `apps/api/src/modules/behaviour/behaviour.module.ts` — Registered 3 services, 2 controllers, imported PdfRenderingModule + S3Module
 - `apps/api/src/modules/behaviour/behaviour-config.controller.ts` — Added 3 document template endpoints
+- `apps/api/src/modules/behaviour/behaviour-sanctions.service.ts` — Auto-generate detention_notice/suspension_letter on create
+- `apps/api/src/modules/behaviour/behaviour-exclusion-cases.service.ts` — Auto-generate exclusion_notice on create
+- `apps/api/src/modules/behaviour/behaviour-appeals.service.ts` — Auto-generate appeal_hearing_invite + appeal_decision_letter
+- `apps/api/src/modules/behaviour/behaviour-amendments.service.ts` — Full correction chain: ack rows, notifications, doc supersession
 - `apps/worker/src/worker.module.ts` — Registered DigestNotificationsProcessor
 - `packages/prisma/schema.prisma` — Added unique constraint on document templates
 - `packages/prisma/seed/behaviour-seed.ts` — Added 20 document template seeds
 - `packages/prisma/seed/permissions.ts` — Added `parent.view_behaviour` permission
 - `packages/shared/src/behaviour/schemas/index.ts` — Added document + parent-behaviour schema exports
-- `architecture/module-blast-radius.md` — Updated BehaviourModule imports/exports
-- `architecture/event-job-catalog.md` — Added behaviour:digest-notifications job
+- `architecture/module-blast-radius.md` — Updated BehaviourModule deps, blast radius to HIGH
+- `architecture/event-job-catalog.md` — Updated digest worker flow with batching + channel dispatch
+- `architecture/state-machines.md` — Added DocumentStatus lifecycle
+- `architecture/danger-zones.md` — Added DZ-19 (Puppeteer in transaction), DZ-20 (amendment chain scope)
 
 ## Known Limitations
 - Document generation requires Puppeteer running in the API process (not offloaded to worker yet — synchronous in transaction)
 - Notification dispatch from `sendDocument` is logged but doesn't trigger the full communications module dispatch chain (creates acknowledgement row and history, but doesn't send email/WhatsApp)
-- Digest worker processes all pending incidents in a single transaction — may need batching for high-volume tenants
-- `parent_visible` check now filters through `category.parent_visible` (the field is on BehaviourCategory, not BehaviourIncident)
-- Recognition wall consent check is a stub (always passes) — full publication_approvals table check deferred
+- Document generation runs Puppeteer synchronously in API transaction (DZ-19) — Phase H should offload to worker
 - Translation files not yet created (hardcoded English)
 - Sidebar nav not yet updated with documents/parent-portal links
-- Server deployment required manual `pnpm install` due to stale node_modules
+- "Amended" watermark on replacement documents not implemented (supersession tracked but no visual marker)
+- Digest worker locale detection uses 'en' for rendering — should use parent's preferred_locale for category name
+
+## Resolved Gaps (post-review fixes)
+- Auto-generate wiring connected to sanctions/exclusions/appeals services
+- Parent locale fallback implemented (parent_description_ar for Arabic parents)
+- Amendment correction chain fully wired (ack rows, notifications, doc supersession)
+- Digest worker composes single batch per parent, dispatches via preferred channel, applies safe rendering
+- Print channel tracked separately (no status change, logs document_printed event)
+- Staff notification sent on auto-generated documents
+- Category name locale fallback uses name_ar for Arabic parents
+- Recognition wall consent check queries publication_approvals table
 
 ## Deviations from Plan
 - Handlebars imported via `require()` with explicit type annotation instead of ES import (pnpm strict mode prevents type resolution on production server)
 - Parent portal pages placed under `/behaviour/parent-portal` route (within school route group) instead of `/parent/behaviour` (follows existing codebase convention where parent pages live in the school shell)
 - `class_entity` used instead of `class` for ClassEnrolment relation (Prisma reserves `class` keyword)
+- `@Optional()` decorator used on BehaviourDocumentService injection in sanctions/exclusions/appeals to avoid circular dependency risk
