@@ -30,7 +30,7 @@ A ──→ D ──────→ E ────────┘
 | B | Anonymous Survey Engine | `phase-b-survey-engine.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | C | Survey Results & Trust Layer | `phase-c-trust-layer.md` | NOT STARTED | — | — |
 | D | Workload Intelligence | `phase-d-workload-intelligence.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
-| E | Frontend — Staff Experience | `phase-e-frontend-staff.md` | NOT STARTED | — | — |
+| E | Frontend — Staff Experience | `phase-e-frontend-staff.md` | COMPLETE | 2026-03-27 | 2026-03-27 |
 | F | Frontend — Principal/Board + Reports | `phase-f-frontend-admin.md` | NOT STARTED | — | — |
 | G | Security Verification & Hardening | `phase-g-hardening.md` | NOT STARTED | — | — |
 
@@ -94,3 +94,19 @@ A ──→ D ──────→ E ────────┘
 **Tests:** 188 passing across 11 suites (all Phase D suites green). Pre-existing failures in other modules unaffected.
 **Issues:** None.
 **Next:** Phase E (Frontend — Staff Experience) requires B + D (both complete). Phase C (Survey Results & Trust Layer) is unblocked.
+
+### Session 4 — 2026-03-27
+**Phase(s):** E
+**Work done:**
+- E1: Personal Workload Dashboard (`/wellbeing/my-workload`) — Summary stat cards (teaching periods, cover duties, timetable quality), cover history table (desktop) / card view (mobile), timetable quality breakdown with Recharts bar chart, trend comparison, privacy note, loading/error states
+- E2: Resources Page (`/wellbeing/resources`) — EAP provider info with freshness indicator, 6 hardcoded Irish crisis helplines (Pieta House, Samaritans, Text 50808, INTO, TUI, ASTI) with tel:/sms: links, external resources from tenant config
+- E3: Survey Submission (`/wellbeing/survey`) — 3-state page (no active survey, active + not responded, active + already responded), anonymity explanation panel with expandable HMAC architecture detail, question rendering by type (likert_5, single_choice, freeform), submission warning, confirmation dialog, 409/403 error handling
+- E4: Active Survey Sidebar Indicator — Badge dot on Survey nav item when active survey exists and user hasn't responded, fetched on layout mount for staff roles
+- E5: Small School Guidance — Dismissible info banner when staff < 15, shown on wellbeing pages
+- Sidebar nav: Wellbeing section added with Heart/LifeBuoy/MessageSquare icons, visible to all staff roles
+- Translation keys: Full en.json + ar.json wellbeing section (myWorkload, resources, survey, sidebar, smallSchool)
+- All pages RTL-safe (logical properties only), mobile-first (375px), bilingual
+**Execution:** 4 parallel agents (2 Opus, 2 Sonnet). Zero integration errors. Orchestrator handled sidebar nav, translations, and lint fixes.
+**Tests:** 230 passing (13 suites, all staff-wellbeing green). Type-check and lint clean.
+**Issues:** None.
+**Next:** Phase C (Survey Results & Trust Layer) is unblocked. Phase F requires C + D + E (E now complete).

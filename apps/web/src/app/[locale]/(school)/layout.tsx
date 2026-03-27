@@ -26,11 +26,14 @@ import {
   DollarSign,
   GraduationCap,
   Grid3X3,
+  Heart,
   Home,
   LayoutGrid,
   LayoutDashboard,
+  LifeBuoy,
   Mail,
   Menu,
+  MessageSquare,
   Plus,
   Settings,
   Shield,
@@ -53,7 +56,7 @@ import { NotificationPanel } from '@/components/notifications/notification-panel
 import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
-import { setApiErrorHandler } from '@/lib/api-client';
+import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
@@ -132,6 +135,15 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     ],
   },
   {
+    labelKey: 'nav.wellbeing',
+    roles: STAFF_ROLES,
+    items: [
+      { icon: Heart, labelKey: 'nav.myWorkload', href: '/wellbeing/my-workload' },
+      { icon: LifeBuoy, labelKey: 'nav.supportResources', href: '/wellbeing/resources' },
+      { icon: MessageSquare, labelKey: 'nav.survey', href: '/wellbeing/survey' },
+    ],
+  },
+  {
     labelKey: 'nav.scheduling',
     roles: STAFF_ROLES,
     items: [
@@ -194,6 +206,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   const [wizardOpen, setWizardOpen] = React.useState(false);
+  const [activeSurveyBadge, setActiveSurveyBadge] = React.useState<'open' | 'submitted' | null>(null);
 
   // Wire global API error toast
   React.useEffect(() => {
@@ -214,6 +227,21 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   }, [user]);
 
   const filteredSections = React.useMemo(() => filterNavForRoles(userRoleKeys), [userRoleKeys]);
+
+  // Fetch active survey status for sidebar badge (staff only)
+  const isStaff = userRoleKeys.some((r) => STAFF_ROLES.includes(r as RoleKey));
+  React.useEffect(() => {
+    if (!isStaff) return;
+    apiClient<{ hasResponded: boolean }>('/api/v1/staff-wellbeing/respond/active', { silent: true })
+      .then((res) => {
+        if (res && typeof res === 'object' && 'hasResponded' in res) {
+          setActiveSurveyBadge(res.hasResponded ? 'submitted' : 'open');
+        } else {
+          setActiveSurveyBadge(null);
+        }
+      })
+      .catch(() => setActiveSurveyBadge(null));
+  }, [isStaff]);
 
   // Derive page title from current path by matching nav items
   const pathname = usePathname();
@@ -236,6 +264,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     if (path.startsWith('/admissions/analytics')) return t('nav.admissions');
     if (path.startsWith('/finance/')) return t('nav.finance');
     if (path.startsWith('/payroll/')) return t('nav.payroll');
+    if (path.startsWith('/wellbeing/')) return t('nav.wellbeing');
     return t('dashboard.title');
   }, [pathname, t]);
 
@@ -268,13 +297,17 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       {filteredSections.map((section) => (
         <SidebarSection key={section.labelKey} label={t(section.labelKey)} collapsed={collapsed}>
           {section.items.map((item) => (
-            <SidebarItem
-              key={item.href}
-              href={item.href}
-              icon={item.icon}
-              label={t(item.labelKey)}
-              collapsed={collapsed}
-            />
+            <div key={item.href} className="relative">
+              <SidebarItem
+                href={item.href}
+                icon={item.icon}
+                label={t(item.labelKey)}
+                collapsed={collapsed}
+              />
+              {item.href === '/wellbeing/survey' && activeSurveyBadge === 'open' && !collapsed && (
+                <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-primary-600" />
+              )}
+            </div>
           ))}
         </SidebarSection>
       ))}
