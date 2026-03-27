@@ -174,7 +174,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Status:** COMPLETE
 - **Completed:** 2026-03-27
 - **Implemented by:** Codex (GPT-5)
-- **Commit(s):** Not committed in this workspace session
+- **Commit(s):** a4ae840
 - **Key decisions:**
   - Reused the existing global `AuditLogInterceptor` instead of introducing a second audit pipeline
   - Stored category/sensitivity inside `metadata_json` rather than adding new table columns
@@ -192,7 +192,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Status:** COMPLETE
 - **Completed:** 2026-03-27
 - **Implemented by:** Codex (GPT-5)
-- **Commit(s):** f117a90
+- **Commit(s):** a4ae840
 - **Key decisions:**
   - Extracted the canonical anonymisation engine into `@school/prisma` so the API path and worker path share the same deterministic, idempotent implementation
   - Integrated token cleanup because Phase B was already complete in this repo
