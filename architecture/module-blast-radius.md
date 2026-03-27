@@ -123,9 +123,9 @@ These modules have NO downstream dependents. Changes are contained:
 ## Tier 3 — Domain Modules with Cross-Module Dependencies
 
 ### BehaviourModule
-- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`
-- **Controllers**: `BehaviourController`, `BehaviourAnalyticsController` (16 endpoints), `BehaviourAlertsController` (8 endpoints)
-- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService)
+- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`
+- **Controllers**: `BehaviourController`, `BehaviourAnalyticsController` (16 endpoints), `BehaviourAlertsController` (8 endpoints), `BehaviourDocumentsController` (6 endpoints), `BehaviourParentController` (6 endpoints)
+- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents)
 - **Internal dependencies**:
   - `BehaviourPulseService` -> PrismaService, RedisService
   - `BehaviourAnalyticsService` -> PrismaService, BehaviourScopeService, BehaviourPulseService

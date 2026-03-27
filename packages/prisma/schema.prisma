@@ -5990,6 +5990,7 @@ model BehaviourDocumentTemplate {
   tenant    Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   documents BehaviourDocument[]
 
+  @@unique([tenant_id, document_type, locale, name], name: "uq_behaviour_doc_templates_name")
   @@index([tenant_id, document_type], name: "idx_behaviour_doc_templates_type")
   @@map("behaviour_document_templates")
 }

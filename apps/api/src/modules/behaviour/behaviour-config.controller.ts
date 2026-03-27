@@ -15,13 +15,16 @@ import {
 } from '@nestjs/common';
 import {
   createCategorySchema,
+  createDocumentTemplateSchema,
   createPolicyRuleSchema,
   createTemplateSchema,
   importPolicyRulesSchema,
+  listDocumentTemplatesQuerySchema,
   listPolicyRulesQuerySchema,
   PolicyDryRunSchema,
   ReplayPolicyRuleSchema,
   updateCategorySchema,
+  updateDocumentTemplateSchema,
   updatePolicyPrioritySchema,
   updatePolicyRuleSchema,
   updateTemplateSchema,
@@ -39,6 +42,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { BehaviourConfigService } from './behaviour-config.service';
+import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
 import { PolicyReplayService } from './policy/policy-replay.service';
 import { PolicyRulesService } from './policy/policy-rules.service';
 
@@ -56,6 +60,7 @@ export class BehaviourConfigController {
     private readonly configService: BehaviourConfigService,
     private readonly policyRulesService: PolicyRulesService,
     private readonly policyReplayService: PolicyReplayService,
+    private readonly documentTemplateService: BehaviourDocumentTemplateService,
   ) {}
 
   // ─── Categories ────────────────────────────────────────────────────────────
@@ -251,6 +256,40 @@ export class BehaviourConfigController {
     dto: z.infer<typeof updatePolicyPrioritySchema>,
   ) {
     return this.policyRulesService.updatePriority(tenant.tenant_id, id, dto);
+  }
+
+  // ─── Document Templates ─────────────────────────────────────────────────────
+
+  @Get('behaviour/document-templates')
+  @RequiresPermission('behaviour.admin')
+  async listDocumentTemplates(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listDocumentTemplatesQuerySchema))
+    query: z.infer<typeof listDocumentTemplatesQuerySchema>,
+  ) {
+    return this.documentTemplateService.listTemplates(tenant.tenant_id, query);
+  }
+
+  @Post('behaviour/document-templates')
+  @RequiresPermission('behaviour.admin')
+  @HttpCode(HttpStatus.CREATED)
+  async createDocumentTemplate(
+    @CurrentTenant() tenant: TenantContext,
+    @Body(new ZodValidationPipe(createDocumentTemplateSchema))
+    dto: z.infer<typeof createDocumentTemplateSchema>,
+  ) {
+    return this.documentTemplateService.createTemplate(tenant.tenant_id, dto);
+  }
+
+  @Patch('behaviour/document-templates/:id')
+  @RequiresPermission('behaviour.admin')
+  async updateDocumentTemplate(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateDocumentTemplateSchema))
+    dto: z.infer<typeof updateDocumentTemplateSchema>,
+  ) {
+    return this.documentTemplateService.updateTemplate(tenant.tenant_id, id, dto);
   }
 
   // ─── Admin Dry-Run ────────────────────────────────────────────────────────

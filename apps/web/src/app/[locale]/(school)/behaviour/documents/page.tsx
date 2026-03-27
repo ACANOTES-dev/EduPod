@@ -1,0 +1,555 @@
+'use client';
+
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
+import { Download, Eye, Plus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import * as React from 'react';
+
+import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface DocumentRow {
+  id: string;
+  document_type: string;
+  status: string;
+  generated_at: string;
+  student: { first_name: string; last_name: string } | null;
+  generated_by_user: { first_name: string; last_name: string } | null;
+  download_url: string | null;
+}
+
+interface DocumentsResponse {
+  data: DocumentRow[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
+interface GenerateForm {
+  entity_type: string;
+  entity_id: string;
+  document_type: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  incident_notice: 'Incident Notice',
+  sanction_letter: 'Sanction Letter',
+  parent_notification: 'Parent Notification',
+  suspension_letter: 'Suspension Letter',
+  exclusion_letter: 'Exclusion Letter',
+  reinstatement_letter: 'Reinstatement Letter',
+  behaviour_report: 'Behaviour Report',
+  contact_pack: 'Contact Pack',
+};
+
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  draft: {
+    label: 'Draft',
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+  finalised: {
+    label: 'Finalised',
+    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  },
+  sent: {
+    label: 'Sent',
+    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  },
+  superseded: {
+    label: 'Superseded',
+    className: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  },
+};
+
+const ENTITY_TYPE_OPTIONS = [
+  { value: 'incident', label: 'Incident' },
+  { value: 'sanction', label: 'Sanction' },
+  { value: 'student', label: 'Student' },
+];
+
+const DEFAULT_GENERATE_FORM: GenerateForm = {
+  entity_type: 'incident',
+  entity_id: '',
+  document_type: 'incident_notice',
+};
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+function DocumentStatusBadge({ status }: { status: string }) {
+  const config = STATUS_CONFIG[status] ?? {
+    label: status,
+    className: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function DocumentsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
+
+  const [data, setData] = React.useState<DocumentRow[]>([]);
+  const [total, setTotal] = React.useState(0);
+  const [page, setPage] = React.useState(1);
+  const PAGE_SIZE = 20;
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const [docTypeFilter, setDocTypeFilter] = React.useState('all');
+  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [studentSearch, setStudentSearch] = React.useState('');
+  const [debouncedSearch, setDebouncedSearch] = React.useState('');
+
+  const [generateOpen, setGenerateOpen] = React.useState(false);
+  const [generateForm, setGenerateForm] = React.useState<GenerateForm>(DEFAULT_GENERATE_FORM);
+  const [generating, setGenerating] = React.useState(false);
+  const [generateError, setGenerateError] = React.useState('');
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(studentSearch);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [studentSearch]);
+
+  // Fetch documents
+  const fetchDocuments = React.useCallback(
+    async (p: number, docType: string, status: string, search: string) => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+        if (docType !== 'all') params.set('document_type', docType);
+        if (status !== 'all') params.set('status', status);
+        if (search) params.set('student_search', search);
+        const res = await apiClient<DocumentsResponse>(
+          `/api/v1/behaviour/documents?${params.toString()}`,
+        );
+        setData(res.data ?? []);
+        setTotal(res.meta?.total ?? 0);
+      } catch {
+        setData([]);
+        setTotal(0);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
+
+  React.useEffect(() => {
+    void fetchDocuments(page, docTypeFilter, statusFilter, debouncedSearch);
+  }, [page, docTypeFilter, statusFilter, debouncedSearch, fetchDocuments]);
+
+  // Generate document handler
+  const handleGenerate = async () => {
+    if (!generateForm.entity_id.trim()) {
+      setGenerateError('Entity ID is required');
+      return;
+    }
+    setGenerating(true);
+    setGenerateError('');
+    try {
+      await apiClient('/api/v1/behaviour/documents', {
+        method: 'POST',
+        body: JSON.stringify({
+          entity_type: generateForm.entity_type,
+          entity_id: generateForm.entity_id.trim(),
+          document_type: generateForm.document_type,
+        }),
+      });
+      setGenerateOpen(false);
+      setGenerateForm(DEFAULT_GENERATE_FORM);
+      void fetchDocuments(1, docTypeFilter, statusFilter, debouncedSearch);
+      setPage(1);
+    } catch (err: unknown) {
+      const ex = err as { error?: { message?: string } };
+      setGenerateError(ex?.error?.message ?? 'Failed to generate document');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const updateForm = <K extends keyof GenerateForm>(key: K, value: GenerateForm[K]) => {
+    setGenerateForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // ─── DataTable columns ──────────────────────────────────────────────────
+
+  const columns = [
+    {
+      key: 'student',
+      header: 'Student',
+      render: (row: DocumentRow) => (
+        <span className="text-sm font-medium text-text-primary">
+          {row.student
+            ? `${row.student.first_name} ${row.student.last_name}`
+            : '\u2014'}
+        </span>
+      ),
+    },
+    {
+      key: 'document_type',
+      header: 'Document Type',
+      render: (row: DocumentRow) => (
+        <span className="text-sm text-text-secondary">
+          {DOCUMENT_TYPE_LABELS[row.document_type] ?? row.document_type}
+        </span>
+      ),
+    },
+    {
+      key: 'generated_at',
+      header: 'Generated',
+      render: (row: DocumentRow) => (
+        <span className="font-mono text-xs text-text-primary">
+          {formatDate(row.generated_at)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row: DocumentRow) => (
+        <div className="flex flex-col gap-1">
+          <DocumentStatusBadge status={row.status} />
+          {row.status === 'draft' && (
+            <span className="text-[10px] font-medium text-amber-600">Needs review</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'generated_by',
+      header: 'Generated By',
+      render: (row: DocumentRow) =>
+        row.generated_by_user ? (
+          <span className="text-sm text-text-secondary">
+            {row.generated_by_user.first_name} {row.generated_by_user.last_name}
+          </span>
+        ) : (
+          <span className="text-text-tertiary">\u2014</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (row: DocumentRow) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/${locale}/behaviour/documents/${row.id}`);
+            }}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span className="ms-1 hidden sm:inline">View</span>
+          </Button>
+          {row.download_url && (
+            <a
+              href={row.download_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="ghost" size="sm">
+                <Download className="h-3.5 w-3.5" />
+                <span className="ms-1 hidden sm:inline">Download</span>
+              </Button>
+            </a>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  // ─── Toolbar ────────────────────────────────────────────────────────────
+
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-3">
+      <Input
+        value={studentSearch}
+        onChange={(e) => setStudentSearch(e.target.value)}
+        placeholder="Search student..."
+        className="w-full text-base sm:w-48 sm:text-sm"
+        aria-label="Search student"
+      />
+      <Select
+        value={docTypeFilter}
+        onValueChange={(v) => {
+          setDocTypeFilter(v);
+          setPage(1);
+        }}
+      >
+        <SelectTrigger className="w-full sm:w-48">
+          <SelectValue placeholder="Document Type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Types</SelectItem>
+          {Object.entries(DOCUMENT_TYPE_LABELS).map(([val, label]) => (
+            <SelectItem key={val} value={val}>
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+      >
+        <SelectTrigger className="w-full sm:w-36">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="draft">Draft</SelectItem>
+          <SelectItem value="finalised">Finalised</SelectItem>
+          <SelectItem value="sent">Sent</SelectItem>
+          <SelectItem value="superseded">Superseded</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  // ─── Mobile Card ─────────────────────────────────────────────────────────
+
+  const renderMobileCard = (row: DocumentRow) => (
+    <div
+      key={row.id}
+      className="rounded-xl border border-border bg-surface p-4"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text-primary">
+            {row.student
+              ? `${row.student.first_name} ${row.student.last_name}`
+              : 'Unknown Student'}
+          </p>
+          <p className="mt-0.5 text-xs text-text-secondary">
+            {DOCUMENT_TYPE_LABELS[row.document_type] ?? row.document_type}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <DocumentStatusBadge status={row.status} />
+          {row.status === 'draft' && (
+            <span className="text-[10px] font-medium text-amber-600">Needs review</span>
+          )}
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-tertiary">
+        <span>{formatDate(row.generated_at)}</span>
+        {row.generated_by_user && (
+          <span>
+            {row.generated_by_user.first_name} {row.generated_by_user.last_name}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1"
+          onClick={() => router.push(`/${locale}/behaviour/documents/${row.id}`)}
+        >
+          <Eye className="me-1.5 h-3.5 w-3.5" />
+          View
+        </Button>
+        {row.download_url && (
+          <a
+            href={row.download_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1"
+          >
+            <Button variant="outline" size="sm" className="w-full">
+              <Download className="me-1.5 h-3.5 w-3.5" />
+              Download
+            </Button>
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Documents"
+        description="Generated notices, letters, and packs"
+        actions={
+          <Button onClick={() => { setGenerateError(''); setGenerateOpen(true); }}>
+            <Plus className="me-2 h-4 w-4" />
+            Generate Document
+          </Button>
+        }
+      />
+
+      {isMobile ? (
+        <div>
+          {toolbar}
+          <div className="mt-4 space-y-2">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-28 animate-pulse rounded-xl bg-surface-secondary" />
+              ))
+            ) : data.length === 0 ? (
+              <p className="py-12 text-center text-sm text-text-tertiary">
+                No documents found
+              </p>
+            ) : (
+              data.map(renderMobileCard)
+            )}
+          </div>
+          {total > PAGE_SIZE && (
+            <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
+              <span>Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data}
+          toolbar={toolbar}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          onRowClick={(row) => router.push(`/${locale}/behaviour/documents/${row.id}`)}
+          keyExtractor={(row) => row.id}
+          isLoading={isLoading}
+        />
+      )}
+
+      {/* Generate Document Dialog */}
+      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generate Document</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Entity Type</Label>
+              <Select
+                value={generateForm.entity_type}
+                onValueChange={(v) => updateForm('entity_type', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENTITY_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Entity ID</Label>
+              <Input
+                value={generateForm.entity_id}
+                onChange={(e) => updateForm('entity_id', e.target.value)}
+                placeholder="Paste incident or sanction ID"
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Document Type</Label>
+              <Select
+                value={generateForm.document_type}
+                onValueChange={(v) => updateForm('document_type', v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DOCUMENT_TYPE_LABELS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {generateError && (
+              <p className="text-sm text-danger-text">{generateError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setGenerateOpen(false)}
+              disabled={generating}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleGenerate} disabled={generating}>
+              {generating ? 'Generating...' : 'Generate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

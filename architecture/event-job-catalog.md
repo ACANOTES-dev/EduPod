@@ -395,6 +395,31 @@ Daily cron fires at 05:00 UTC
 
 ---
 
+### `behaviour:digest-notifications` (notifications queue — CRON)
+
+**Trigger**: Cron at tenant-configured time (`parent_notification_digest_time` setting, default `16:00`), evaluated per tenant in tenant timezone. Only active when `parent_notification_digest_enabled = true`.
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/digest-notifications.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase G
+
+**Side effects chain**:
+```
+Cron fires at tenant digest time
+  -> behaviour:digest-notifications enqueued per tenant
+  -> Worker loads all incidents with parent_notification_status = 'pending' and category.parent_visible = true
+  -> For each student's parents:
+    -> Guardian restriction check (skip if restricted)
+    -> Dedup check (skip if already sent today)
+    -> Create behaviour_parent_acknowledgements row
+    -> Create in-app notification if parent has user account
+  -> Update incident parent_notification_status to 'sent'
+```
+
+**Danger**: Processes all pending incidents for a tenant in one batch. For tenants with high incident volumes and many parents, this job may be slow. Individual parent failures don't abort the batch — errors are logged and other parents continue.
+
+---
+
 ### `behaviour:refresh-mv-student-summary` (behaviour queue — CRON)
 
 **Trigger**: Cron every 15 minutes (`*/15 * * * *`).

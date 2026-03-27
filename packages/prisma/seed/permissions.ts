@@ -142,6 +142,7 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'parent.submit_inquiry', description: 'Submit parent inquiries', permission_tier: 'parent' },
   { permission_key: 'parent.view_announcements', description: 'View school announcements', permission_tier: 'parent' },
   { permission_key: 'parent.view_transcripts', description: 'View and download own children\'s transcripts', permission_tier: 'parent' },
+  { permission_key: 'parent.view_behaviour', description: 'View behaviour data for linked students', permission_tier: 'parent' },
 
   // ─── Behaviour Management ──────────────────────────────────────────────────
   { permission_key: 'behaviour.log', description: 'Create incidents, access quick-log', permission_tier: 'staff' },

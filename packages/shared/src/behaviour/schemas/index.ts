@@ -21,3 +21,5 @@ export * from './exclusion.schema';
 export * from './alert.schema';
 export * from './amendment.schema';
 export * from './analytics.schema';
+export * from './document.schema';
+export * from './parent-behaviour.schema';

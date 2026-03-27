@@ -148,6 +148,184 @@ export const AWARD_TYPE_SEEDS: AwardTypeSeed[] = [
   { name: "Principal's Award", name_ar: 'جائزة المدير', description: 'Awarded for reaching 500 positive points', points_threshold: 500, repeat_mode: 'once_per_year', tier_group: 'achievement_tier', tier_level: 4, supersedes_lower_tiers: true, icon: 'trophy', color: '#8b5cf6', display_order: 4 },
 ];
 
+// ─── Document Template Seeds ─────────────────────────────────────────────────
+
+export interface DocumentTemplateSeed {
+  document_type: string;
+  name: string;
+  locale: string;
+  template_body: string;
+  merge_fields: Array<{ field_name: string; source: string; description: string }>;
+}
+
+const LETTERHEAD_EN = `<div style="text-align:center;margin-bottom:24px;">{{#if school_logo_url}}<img src="{{school_logo_url}}" style="max-height:60px;" />{{/if}}<h2 style="margin:8px 0 4px;">{{school_name}}</h2><p style="margin:0;color:#666;">{{school_address}}</p></div>`;
+const LETTERHEAD_AR = `<div style="text-align:center;margin-bottom:24px;" dir="rtl">{{#if school_logo_url}}<img src="{{school_logo_url}}" style="max-height:60px;" />{{/if}}<h2 style="margin:8px 0 4px;">{{school_name}}</h2><p style="margin:0;color:#666;">{{school_address}}</p></div>`;
+
+const COMMON_MERGE = [
+  { field_name: 'student_name', source: 'student', description: 'Student full name' },
+  { field_name: 'student_year_group', source: 'student', description: 'Year group' },
+  { field_name: 'school_name', source: 'school', description: 'School name' },
+  { field_name: 'school_address', source: 'school', description: 'School address' },
+  { field_name: 'school_logo_url', source: 'school', description: 'Logo URL' },
+  { field_name: 'principal_name', source: 'school', description: 'Principal name' },
+  { field_name: 'today_date', source: 'system', description: 'Today\'s date' },
+  { field_name: 'parent_name', source: 'parent', description: 'Parent name' },
+  { field_name: 'parent_address', source: 'parent', description: 'Parent address' },
+];
+
+export const DOCUMENT_TEMPLATE_SEEDS: DocumentTemplateSeed[] = [
+  // ─── Detention Notice ──────────────────────────────────────────────────────
+  {
+    document_type: 'detention_notice',
+    name: 'Detention Notice (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>This letter is to inform you that <strong>{{student_name}}</strong> ({{student_year_group}}) has been issued a detention on <strong>{{sanction_date}}</strong>.</p><p>Reason: {{incident_category}}</p>{{#if incident_description}}<p>Details: {{incident_description}}</p>{{/if}}<p>Please ensure your child attends the detention at the scheduled time.</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_date', source: 'sanction', description: 'Detention date' }, { field_name: 'incident_category', source: 'incident', description: 'Category' }, { field_name: 'incident_description', source: 'incident', description: 'Description' }],
+  },
+  {
+    document_type: 'detention_notice',
+    name: 'Detention Notice (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>نود إعلامكم بأن <strong>{{student_name}}</strong> ({{student_year_group}}) قد صدر بحقه/بحقها احتجاز بتاريخ <strong>{{sanction_date}}</strong>.</p><p>السبب: {{incident_category}}</p>{{#if incident_description}}<p>التفاصيل: {{incident_description}}</p>{{/if}}<p>يرجى التأكد من حضور ابنكم/ابنتكم في الموعد المحدد.</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_date', source: 'sanction', description: 'تاريخ الاحتجاز' }, { field_name: 'incident_category', source: 'incident', description: 'الفئة' }, { field_name: 'incident_description', source: 'incident', description: 'الوصف' }],
+  },
+  // ─── Suspension Letter ─────────────────────────────────────────────────────
+  {
+    document_type: 'suspension_letter',
+    name: 'Suspension Letter (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>I am writing to inform you that <strong>{{student_name}}</strong> ({{student_year_group}}) has been suspended from school effective <strong>{{sanction_start_date}}</strong> to <strong>{{sanction_end_date}}</strong> ({{suspension_days}} school days).</p><p>Reason: {{incident_category}}</p>{{#if incident_description}}<p>Details: {{incident_description}}</p>{{/if}}{{#if return_conditions}}<p><strong>Return Conditions:</strong> {{return_conditions}}</p>{{/if}}<p>During the suspension period, your child is not permitted on school grounds. A return meeting may be scheduled before re-admission.</p><p>You have the right to appeal this decision within 15 school days.</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_start_date', source: 'sanction', description: 'Start date' }, { field_name: 'sanction_end_date', source: 'sanction', description: 'End date' }, { field_name: 'suspension_days', source: 'sanction', description: 'Days' }, { field_name: 'incident_category', source: 'incident', description: 'Category' }, { field_name: 'incident_description', source: 'incident', description: 'Description' }, { field_name: 'return_conditions', source: 'sanction', description: 'Return conditions' }],
+  },
+  {
+    document_type: 'suspension_letter',
+    name: 'Suspension Letter (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>نود إعلامكم بأن <strong>{{student_name}}</strong> ({{student_year_group}}) قد تم إيقافه/إيقافها عن الدراسة اعتباراً من <strong>{{sanction_start_date}}</strong> حتى <strong>{{sanction_end_date}}</strong> ({{suspension_days}} أيام دراسية).</p><p>السبب: {{incident_category}}</p>{{#if incident_description}}<p>التفاصيل: {{incident_description}}</p>{{/if}}{{#if return_conditions}}<p><strong>شروط العودة:</strong> {{return_conditions}}</p>{{/if}}<p>يحق لكم الاستئناف خلال 15 يوم دراسي.</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_start_date', source: 'sanction', description: 'تاريخ البداية' }, { field_name: 'sanction_end_date', source: 'sanction', description: 'تاريخ النهاية' }, { field_name: 'suspension_days', source: 'sanction', description: 'عدد الأيام' }, { field_name: 'incident_category', source: 'incident', description: 'الفئة' }, { field_name: 'incident_description', source: 'incident', description: 'الوصف' }, { field_name: 'return_conditions', source: 'sanction', description: 'شروط العودة' }],
+  },
+  // ─── Return Meeting Letter ─────────────────────────────────────────────────
+  {
+    document_type: 'return_meeting_letter',
+    name: 'Return Meeting Letter (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>Following the suspension of <strong>{{student_name}}</strong>, a return meeting has been scheduled. The suspension period ends on <strong>{{sanction_end_date}}</strong>.</p>{{#if return_conditions}}<p><strong>Conditions for return:</strong> {{return_conditions}}</p>{{/if}}<p>Please attend the meeting to discuss your child's reintegration plan.</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_end_date', source: 'sanction', description: 'End date' }, { field_name: 'return_conditions', source: 'sanction', description: 'Return conditions' }],
+  },
+  {
+    document_type: 'return_meeting_letter',
+    name: 'Return Meeting Letter (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>بعد إيقاف <strong>{{student_name}}</strong>، تم تحديد موعد لاجتماع العودة. تنتهي فترة الإيقاف في <strong>{{sanction_end_date}}</strong>.</p>{{#if return_conditions}}<p><strong>شروط العودة:</strong> {{return_conditions}}</p>{{/if}}<p>يرجى حضور الاجتماع لمناقشة خطة إعادة دمج ابنكم/ابنتكم.</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_end_date', source: 'sanction', description: 'تاريخ النهاية' }, { field_name: 'return_conditions', source: 'sanction', description: 'شروط العودة' }],
+  },
+  // ─── Behaviour Contract ────────────────────────────────────────────────────
+  {
+    document_type: 'behaviour_contract',
+    name: 'Behaviour Contract (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<h3 style="text-align:center;">Behaviour Contract</h3><p>Date: {{today_date}}</p><p>Student: <strong>{{student_name}}</strong> ({{student_year_group}})</p><p>This contract outlines the agreed goals and expectations:</p>{{#if intervention_goals}}<ul>{{#each intervention_goals}}<li>{{this}}</li>{{/each}}</ul>{{/if}}<p>By signing, the student and parent/guardian agree to work towards these goals.</p><p style="margin-top:40px;">Student Signature: ___________________</p><p>Parent/Guardian Signature: ___________________</p><p>School Representative: {{principal_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'intervention_goals', source: 'intervention', description: 'Goals list' }],
+  },
+  {
+    document_type: 'behaviour_contract',
+    name: 'Behaviour Contract (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<h3 style="text-align:center;">عقد سلوكي</h3><p>التاريخ: {{today_date}}</p><p>الطالب: <strong>{{student_name}}</strong> ({{student_year_group}})</p><p>يحدد هذا العقد الأهداف والتوقعات المتفق عليها:</p>{{#if intervention_goals}}<ul>{{#each intervention_goals}}<li>{{this}}</li>{{/each}}</ul>{{/if}}<p>بالتوقيع يوافق الطالب وولي الأمر على العمل نحو هذه الأهداف.</p><p style="margin-top:40px;">توقيع الطالب: ___________________</p><p>توقيع ولي الأمر: ___________________</p><p>ممثل المدرسة: {{principal_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'intervention_goals', source: 'intervention', description: 'قائمة الأهداف' }],
+  },
+  // ─── Intervention Summary ──────────────────────────────────────────────────
+  {
+    document_type: 'intervention_summary',
+    name: 'Intervention Summary (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<h3>Intervention Summary</h3><p>Date: {{today_date}}</p><p>Student: <strong>{{student_name}}</strong> ({{student_year_group}})</p>{{#if intervention_goals}}<h4>Goals:</h4><ul>{{#each intervention_goals}}<li>{{this}}</li>{{/each}}</ul>{{/if}}<p>Prepared for parent meeting discussion.</p><p>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'intervention_goals', source: 'intervention', description: 'Goals' }],
+  },
+  {
+    document_type: 'intervention_summary',
+    name: 'Intervention Summary (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<h3>ملخص التدخل</h3><p>التاريخ: {{today_date}}</p><p>الطالب: <strong>{{student_name}}</strong> ({{student_year_group}})</p>{{#if intervention_goals}}<h4>الأهداف:</h4><ul>{{#each intervention_goals}}<li>{{this}}</li>{{/each}}</ul>{{/if}}<p>أُعد لمناقشة اجتماع أولياء الأمور.</p><p>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'intervention_goals', source: 'intervention', description: 'الأهداف' }],
+  },
+  // ─── Appeal Hearing Invite ─────────────────────────────────────────────────
+  {
+    document_type: 'appeal_hearing_invite',
+    name: 'Appeal Hearing Invite (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>An appeal hearing has been scheduled for <strong>{{student_name}}</strong> on <strong>{{appeal_hearing_date}}</strong>.</p><p><strong>Grounds:</strong> {{appeal_grounds}}</p><p>You may attend to present your case. You may be accompanied by a support person.</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_hearing_date', source: 'appeal', description: 'Hearing date' }, { field_name: 'appeal_grounds', source: 'appeal', description: 'Grounds' }],
+  },
+  {
+    document_type: 'appeal_hearing_invite',
+    name: 'Appeal Hearing Invite (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>تم تحديد جلسة استئناف لـ <strong>{{student_name}}</strong> بتاريخ <strong>{{appeal_hearing_date}}</strong>.</p><p><strong>أسباب الاستئناف:</strong> {{appeal_grounds}}</p><p>يمكنكم الحضور لعرض قضيتكم. يمكنكم اصطحاب شخص داعم.</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_hearing_date', source: 'appeal', description: 'تاريخ الجلسة' }, { field_name: 'appeal_grounds', source: 'appeal', description: 'أسباب الاستئناف' }],
+  },
+  // ─── Appeal Decision Letter ────────────────────────────────────────────────
+  {
+    document_type: 'appeal_decision_letter',
+    name: 'Appeal Decision Letter (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>Following the appeal hearing for <strong>{{student_name}}</strong> held on {{appeal_hearing_date}}, the committee has reached a decision.</p><p><strong>Decision:</strong> {{appeal_decision}}</p>{{#if appeal_decision_reasoning}}<p><strong>Reasoning:</strong> {{appeal_decision_reasoning}}</p>{{/if}}<p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_hearing_date', source: 'appeal', description: 'Hearing date' }, { field_name: 'appeal_decision', source: 'appeal', description: 'Decision' }, { field_name: 'appeal_decision_reasoning', source: 'appeal', description: 'Reasoning' }],
+  },
+  {
+    document_type: 'appeal_decision_letter',
+    name: 'Appeal Decision Letter (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>بعد جلسة الاستئناف الخاصة بـ <strong>{{student_name}}</strong> المنعقدة في {{appeal_hearing_date}}، توصلت اللجنة إلى قرار.</p><p><strong>القرار:</strong> {{appeal_decision}}</p>{{#if appeal_decision_reasoning}}<p><strong>المبررات:</strong> {{appeal_decision_reasoning}}</p>{{/if}}<p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_hearing_date', source: 'appeal', description: 'تاريخ الجلسة' }, { field_name: 'appeal_decision', source: 'appeal', description: 'القرار' }, { field_name: 'appeal_decision_reasoning', source: 'appeal', description: 'المبررات' }],
+  },
+  // ─── Exclusion Notice ──────────────────────────────────────────────────────
+  {
+    document_type: 'exclusion_notice',
+    name: 'Exclusion Notice (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>I am writing to inform you that <strong>{{student_name}}</strong> ({{student_year_group}}) is subject to exclusion proceedings. A {{sanction_type}} has been initiated effective {{sanction_start_date}}.</p><p>Reason: {{incident_category}}</p>{{#if incident_description}}<p>Details: {{incident_description}}</p>{{/if}}<p>You have the right to make representations and to appeal this decision. The appeal deadline is 15 school days from the date of this notice.</p><p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_type', source: 'sanction', description: 'Sanction type' }, { field_name: 'sanction_start_date', source: 'sanction', description: 'Start date' }, { field_name: 'incident_category', source: 'incident', description: 'Category' }, { field_name: 'incident_description', source: 'incident', description: 'Description' }],
+  },
+  {
+    document_type: 'exclusion_notice',
+    name: 'Exclusion Notice (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>نود إعلامكم بأن <strong>{{student_name}}</strong> ({{student_year_group}}) يخضع لإجراءات الفصل. تم البدء بـ {{sanction_type}} اعتباراً من {{sanction_start_date}}.</p><p>السبب: {{incident_category}}</p>{{#if incident_description}}<p>التفاصيل: {{incident_description}}</p>{{/if}}<p>يحق لكم تقديم ملاحظاتكم والاستئناف. الموعد النهائي للاستئناف هو 15 يوم دراسي من تاريخ هذا الإشعار.</p><p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'sanction_type', source: 'sanction', description: 'نوع العقوبة' }, { field_name: 'sanction_start_date', source: 'sanction', description: 'تاريخ البداية' }, { field_name: 'incident_category', source: 'incident', description: 'الفئة' }, { field_name: 'incident_description', source: 'incident', description: 'الوصف' }],
+  },
+  // ─── Exclusion Decision Letter ─────────────────────────────────────────────
+  {
+    document_type: 'exclusion_decision_letter',
+    name: 'Exclusion Decision Letter (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}</style></head><body>${LETTERHEAD_EN}<p>Date: {{today_date}}</p><p>Dear {{parent_name}},</p><p>Following the disciplinary proceedings for <strong>{{student_name}}</strong>, the school board has reached a decision.</p><p><strong>Decision:</strong> {{appeal_decision}}</p>{{#if appeal_decision_reasoning}}<p><strong>Reasoning:</strong> {{appeal_decision_reasoning}}</p>{{/if}}<p>Yours sincerely,<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_decision', source: 'appeal', description: 'Decision' }, { field_name: 'appeal_decision_reasoning', source: 'appeal', description: 'Reasoning' }],
+  },
+  {
+    document_type: 'exclusion_decision_letter',
+    name: 'Exclusion Decision Letter (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}</style></head><body>${LETTERHEAD_AR}<p>التاريخ: {{today_date}}</p><p>عزيزي/عزيزتي {{parent_name}}،</p><p>بعد الإجراءات التأديبية الخاصة بـ <strong>{{student_name}}</strong>، توصل مجلس المدرسة إلى قرار.</p><p><strong>القرار:</strong> {{appeal_decision}}</p>{{#if appeal_decision_reasoning}}<p><strong>المبررات:</strong> {{appeal_decision_reasoning}}</p>{{/if}}<p>مع التحية،<br/>{{principal_name}}<br/>{{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'appeal_decision', source: 'appeal', description: 'القرار' }, { field_name: 'appeal_decision_reasoning', source: 'appeal', description: 'المبررات' }],
+  },
+  // ─── Board Pack ────────────────────────────────────────────────────────────
+  {
+    document_type: 'board_pack',
+    name: 'Board Pack (English)',
+    locale: 'en',
+    template_body: `<html lang="en"><head><style>body{font-family:sans-serif;font-size:14px;line-height:1.6;margin:0;padding:40px;}h1{font-size:20px;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ddd;padding:8px;text-align:start;}</style></head><body>${LETTERHEAD_EN}<h1>Board Pack — Exclusion Case</h1><p>Date: {{today_date}} | Academic Year: {{academic_year}}</p><table><tr><th>Student</th><td>{{student_name}}</td></tr><tr><th>Year Group</th><td>{{student_year_group}}</td></tr><tr><th>Incident Category</th><td>{{incident_category}}</td></tr><tr><th>Sanction</th><td>{{sanction_type}} ({{suspension_days}} days)</td></tr></table>{{#if incident_description}}<h3>Incident Description</h3><p>{{incident_description}}</p>{{/if}}{{#if evidence_list}}<h3>Evidence</h3><ul>{{#each evidence_list}}<li>{{this.name}} ({{this.classification}})</li>{{/each}}</ul>{{/if}}<p>Prepared by: {{principal_name}}, {{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'academic_year', source: 'system', description: 'Academic year' }, { field_name: 'incident_category', source: 'incident', description: 'Category' }, { field_name: 'incident_description', source: 'incident', description: 'Description' }, { field_name: 'sanction_type', source: 'sanction', description: 'Sanction type' }, { field_name: 'suspension_days', source: 'sanction', description: 'Days' }, { field_name: 'evidence_list', source: 'evidence', description: 'Evidence array' }],
+  },
+  {
+    document_type: 'board_pack',
+    name: 'Board Pack (Arabic)',
+    locale: 'ar',
+    template_body: `<html lang="ar" dir="rtl"><head><style>body{font-family:'Noto Sans Arabic',sans-serif;font-size:14px;line-height:1.8;margin:0;padding:40px;direction:rtl;}h1{font-size:20px;}table{width:100%;border-collapse:collapse;margin:16px 0;}th,td{border:1px solid #ddd;padding:8px;text-align:start;}</style></head><body>${LETTERHEAD_AR}<h1>حزمة مجلس الإدارة — حالة الفصل</h1><p>التاريخ: {{today_date}} | السنة الدراسية: {{academic_year}}</p><table><tr><th>الطالب</th><td>{{student_name}}</td></tr><tr><th>المرحلة</th><td>{{student_year_group}}</td></tr><tr><th>فئة الحادثة</th><td>{{incident_category}}</td></tr><tr><th>العقوبة</th><td>{{sanction_type}} ({{suspension_days}} أيام)</td></tr></table>{{#if incident_description}}<h3>وصف الحادثة</h3><p>{{incident_description}}</p>{{/if}}{{#if evidence_list}}<h3>الأدلة</h3><ul>{{#each evidence_list}}<li>{{this.name}} ({{this.classification}})</li>{{/each}}</ul>{{/if}}<p>أعده: {{principal_name}}، {{school_name}}</p></body></html>`,
+    merge_fields: [...COMMON_MERGE, { field_name: 'academic_year', source: 'system', description: 'السنة الدراسية' }, { field_name: 'incident_category', source: 'incident', description: 'الفئة' }, { field_name: 'incident_description', source: 'incident', description: 'الوصف' }, { field_name: 'sanction_type', source: 'sanction', description: 'نوع العقوبة' }, { field_name: 'suspension_days', source: 'sanction', description: 'عدد الأيام' }, { field_name: 'evidence_list', source: 'evidence', description: 'قائمة الأدلة' }],
+  },
+];
+
 /**
  * Seed behaviour categories, description templates, and award types for a tenant.
  * Called during tenant provisioning.
@@ -250,6 +428,31 @@ export async function seedBehaviourData(
 
   // 5. Seed default policy rules
   await seedDefaultPolicyRules(prisma, tenantId, categoryMap);
+
+  // 6. Seed document templates
+  await seedDocumentTemplates(prisma, tenantId);
+}
+
+async function seedDocumentTemplates(prisma: PrismaClient, tenantId: string) {
+  const existingCount = await prisma.behaviourDocumentTemplate.count({
+    where: { tenant_id: tenantId },
+  });
+  if (existingCount > 0) return;
+
+  for (const tmpl of DOCUMENT_TEMPLATE_SEEDS) {
+    await prisma.behaviourDocumentTemplate.create({
+      data: {
+        tenant_id: tenantId,
+        document_type: tmpl.document_type as never,
+        name: tmpl.name,
+        locale: tmpl.locale,
+        template_body: tmpl.template_body,
+        merge_fields: tmpl.merge_fields as never,
+        is_active: true,
+        is_system: true,
+      },
+    });
+  }
 }
 
 // ─── Default Policy Rules ──────────────────────────────────────────────────

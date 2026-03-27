@@ -18,6 +18,7 @@ import { CriticalEscalationProcessor } from './processors/behaviour/critical-esc
 import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
+import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
 import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
@@ -128,6 +129,7 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     AdmissionsAutoExpiryProcessor,
     // Behaviour queue processors
     BehaviourParentNotificationProcessor,
+    DigestNotificationsProcessor,
     BehaviourTaskRemindersProcessor,
     BehaviourCheckAwardsProcessor,
     BehaviourGuardianRestrictionCheckProcessor,
