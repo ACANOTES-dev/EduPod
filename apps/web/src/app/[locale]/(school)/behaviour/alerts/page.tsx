@@ -69,10 +69,10 @@ export default function BehaviourAlertsPage() {
       params.set('page', String(page));
       params.set('pageSize', '20');
 
-      const res = await apiClient.get(`/behaviour/alerts?${params}`);
-      if (res?.data) {
-        setAlerts(res.data.data ?? []);
-        setTotal(res.data.meta?.total ?? 0);
+      const res = await apiClient<{ data: AlertItem[]; meta: { total: number } }>(`/behaviour/alerts?${params}`);
+      if (res) {
+        setAlerts(res.data ?? []);
+        setTotal(res.meta?.total ?? 0);
       }
     } catch {
       // Error handling
@@ -88,7 +88,10 @@ export default function BehaviourAlertsPage() {
   async function handleAction(alertId: string, action: string, body?: Record<string, unknown>) {
     setActionLoading(alertId);
     try {
-      await apiClient.patch(`/behaviour/alerts/${alertId}/${action}`, body);
+      await apiClient(`/behaviour/alerts/${alertId}/${action}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body ?? {}),
+      });
       loadAlerts();
     } catch {
       // Error handling

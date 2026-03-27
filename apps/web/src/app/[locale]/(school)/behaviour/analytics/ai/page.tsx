@@ -48,8 +48,8 @@ export default function BehaviourAIQueryPage() {
 
   async function loadHistory() {
     try {
-      const res = await apiClient.get('/behaviour/analytics/ai-query/history?page=1&pageSize=20');
-      if (res?.data?.entries) setHistory(res.data.entries);
+      const res = await apiClient<{ entries: QueryHistoryEntry[] }>('/behaviour/analytics/ai-query/history?page=1&pageSize=20');
+      if (res?.entries) setHistory(res.entries);
     } catch {
       // History is optional
     }
@@ -62,9 +62,12 @@ export default function BehaviourAIQueryPage() {
     setResult(null);
 
     try {
-      const res = await apiClient.post('/behaviour/analytics/ai-query', { query });
-      if (res?.data) {
-        setResult(res.data);
+      const res = await apiClient<AIQueryResult>('/behaviour/analytics/ai-query', {
+        method: 'POST',
+        body: JSON.stringify({ query }),
+      });
+      if (res) {
+        setResult(res);
         loadHistory();
       }
     } catch (err: unknown) {

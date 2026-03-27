@@ -119,22 +119,22 @@ export default function BehaviourAnalyticsPage() {
     try {
       const [pulseRes, overviewRes, trendsRes, categoriesRes, subjectsRes, heatmapRes, compRes] =
         await Promise.all([
-          apiClient.get('/behaviour/analytics/pulse').catch(() => null),
-          apiClient.get(`/behaviour/analytics/overview?${params}`),
-          apiClient.get(`/behaviour/analytics/trends?${params}`),
-          apiClient.get(`/behaviour/analytics/categories?${params}`),
-          apiClient.get(`/behaviour/analytics/subjects?${params}`),
-          apiClient.get(`/behaviour/analytics/heatmap?${params}`),
-          apiClient.get(`/behaviour/analytics/comparisons?${params}`),
+          apiClient<PulseResult>('/behaviour/analytics/pulse').catch(() => null),
+          apiClient<OverviewResult>(`/behaviour/analytics/overview?${params}`),
+          apiClient<{ points: TrendPoint[] }>(`/behaviour/analytics/trends?${params}`),
+          apiClient<{ categories: CategoryEntry[] }>(`/behaviour/analytics/categories?${params}`),
+          apiClient<{ subjects: SubjectEntry[] }>(`/behaviour/analytics/subjects?${params}`),
+          apiClient<{ cells: HeatmapCell[] }>(`/behaviour/analytics/heatmap?${params}`),
+          apiClient<{ entries: ComparisonEntry[] }>(`/behaviour/analytics/comparisons?${params}`),
         ]);
 
-      if (pulseRes?.data) setPulse(pulseRes.data);
-      if (overviewRes?.data) setOverview(overviewRes.data);
-      if (trendsRes?.data?.points) setTrends(trendsRes.data.points);
-      if (categoriesRes?.data?.categories) setCategories(categoriesRes.data.categories);
-      if (subjectsRes?.data?.subjects) setSubjects(subjectsRes.data.subjects);
-      if (heatmapRes?.data?.cells) setHeatmap(heatmapRes.data.cells);
-      if (compRes?.data?.entries) setComparisons(compRes.data.entries);
+      if (pulseRes) setPulse(pulseRes);
+      if (overviewRes) setOverview(overviewRes);
+      if (trendsRes?.points) setTrends(trendsRes.points);
+      if (categoriesRes?.categories) setCategories(categoriesRes.categories);
+      if (subjectsRes?.subjects) setSubjects(subjectsRes.subjects);
+      if (heatmapRes?.cells) setHeatmap(heatmapRes.cells);
+      if (compRes?.entries) setComparisons(compRes.entries);
     } catch {
       // Error handling
     } finally {
