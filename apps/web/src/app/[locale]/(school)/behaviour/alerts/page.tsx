@@ -168,10 +168,10 @@ export default function BehaviourAlertsPage() {
                     <Badge
                       variant={
                         alert.severity === 'critical'
-                          ? 'destructive'
+                          ? 'danger'
                           : alert.severity === 'warning'
-                            ? 'secondary'
-                            : 'outline'
+                            ? 'warning'
+                            : 'default'
                       }
                     >
                       {alert.severity}
@@ -179,7 +179,7 @@ export default function BehaviourAlertsPage() {
                     <span className="text-xs text-muted-foreground">
                       {ALERT_TYPE_LABELS[alert.alert_type] ?? alert.alert_type}
                     </span>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="secondary" className="text-xs">
                       {alert.my_status === 'resolved_recipient' ? 'resolved' : alert.my_status}
                     </Badge>
                   </div>
@@ -189,13 +189,13 @@ export default function BehaviourAlertsPage() {
                   {/* Entity tags */}
                   <div className="mt-2 flex flex-wrap gap-1">
                     {alert.student_name && (
-                      <Badge variant="outline" className="text-xs">Student: {alert.student_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">Student: {alert.student_name}</Badge>
                     )}
                     {alert.subject_name && (
-                      <Badge variant="outline" className="text-xs">Subject: {alert.subject_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">Subject: {alert.subject_name}</Badge>
                     )}
                     {alert.staff_name && (
-                      <Badge variant="outline" className="text-xs">Staff: {alert.staff_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">Staff: {alert.staff_name}</Badge>
                     )}
                   </div>
 
@@ -222,7 +222,7 @@ export default function BehaviourAlertsPage() {
                       alert.my_status !== 'dismissed' && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => handleAction(alert.id, 'acknowledge')}
                           disabled={actionLoading === alert.id}
                         >
@@ -235,7 +235,7 @@ export default function BehaviourAlertsPage() {
                         <div className="relative">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             onClick={() =>
                               setSnoozeAlertId(snoozeAlertId === alert.id ? null : alert.id)
                             }
@@ -271,7 +271,7 @@ export default function BehaviourAlertsPage() {
                       alert.my_status !== 'dismissed' && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => handleAction(alert.id, 'resolve')}
                           disabled={actionLoading === alert.id}
                         >
@@ -319,7 +319,7 @@ export default function BehaviourAlertsPage() {
           {total > 20 && (
             <div className="flex items-center justify-center gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={page === 1}
                 onClick={() => setPage((p) => p - 1)}
@@ -330,7 +330,7 @@ export default function BehaviourAlertsPage() {
                 Page {page} of {Math.ceil(total / 20)}
               </span>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={page >= Math.ceil(total / 20)}
                 onClick={() => setPage((p) => p + 1)}
