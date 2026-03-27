@@ -122,17 +122,17 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
       where: {
         tenant_id,
         status: { in: ['withdrawn', 'graduated'] as $Enums.StudentStatus[] },
-        left_at: { not: null },
+        exit_date: { not: null },
       },
-      select: { id: true, left_at: true },
+      select: { id: true, exit_date: true },
     });
 
     for (const student of leftStudents) {
-      if (!student.left_at) continue;
+      if (!student.exit_date) continue;
 
       // Process incidents for this student
       await this.archiveEntitiesForStudent(
-        tx, tenant_id, student.id, student.left_at, now, settings, dry_run ?? false,
+        tx, tenant_id, student.id, student.exit_date, now, settings, dry_run ?? false,
       );
     }
 
@@ -145,10 +145,11 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
 
     // ── Pass 3: Flag exclusion cases and safeguarding for manual review ─
 
+    // Exclusion cases don't have retention_status — they are always retained
+    // Count all exclusion cases for manual review flagging
     this.result.exclusion_cases_for_review = await tx.behaviourExclusionCase.count({
       where: {
         tenant_id,
-        retention_status: 'archived' as $Enums.RetentionStatus,
       },
     });
 
@@ -254,7 +255,6 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
             where: { id: sanction.id },
             data: {
               retention_status: 'archived' as $Enums.RetentionStatus,
-              archived_at: now,
             },
           });
         }
@@ -284,7 +284,6 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
             where: { id: intervention.id },
             data: {
               retention_status: 'archived' as $Enums.RetentionStatus,
-              archived_at: now,
             },
           });
         }
