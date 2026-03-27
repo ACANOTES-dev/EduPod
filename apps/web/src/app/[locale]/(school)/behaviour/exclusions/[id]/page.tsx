@@ -621,7 +621,7 @@ export default function ExclusionDetailPage() {
                         onClick={() => handleMarkTimelineComplete(step)}
                       >
                         {markingComplete === step.step ? (
-                          'Saving...'
+                          t('saving')
                         ) : (
                           <>
                             <CheckCircle2 className="me-1 h-3.5 w-3.5" />

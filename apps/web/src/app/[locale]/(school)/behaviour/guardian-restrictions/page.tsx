@@ -572,7 +572,7 @@ export default function GuardianRestrictionsPage() {
             <p className="truncate text-sm font-medium text-text-primary">
               {row.student
                 ? `${row.student.first_name} ${row.student.last_name}`
-                : 'Unknown Student'}
+                : t('unknownStudent')}
             </p>
             <p className="mt-0.5 text-xs text-text-tertiary">
               Guardian: {getParentDisplayName(row.parent)}

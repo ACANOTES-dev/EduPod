@@ -59,10 +59,10 @@ interface BulkMarkResponse {
 // ─── Status Config ───────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'served', label: 'Served' },
-  { value: 'no_show', label: 'No Show' },
-  { value: 'partially_served', label: 'Partially Served' },
-  { value: 'excused', label: 'Excused' },
+  { value: 'served' },
+  { value: 'no_show' },
+  { value: 'partially_served' },
+  { value: 'excused' },
 ] as const;
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -74,28 +74,6 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   pending_approval: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   appealed: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  scheduled: 'Scheduled',
-  served: 'Served',
-  no_show: 'No Show',
-  partially_served: 'Partially Served',
-  excused: 'Excused',
-  cancelled: 'Cancelled',
-  pending_approval: 'Pending',
-  appealed: 'Appealed',
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  detention: 'Detention',
-  suspension_internal: 'Internal Suspension',
-  suspension_external: 'External Suspension',
-  expulsion: 'Expulsion',
-  community_service: 'Community Service',
-  loss_of_privilege: 'Loss of Privilege',
-  restorative_meeting: 'Restorative Meeting',
-  other: 'Other',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -355,7 +333,7 @@ export default function TodaySanctionsPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Today's Sanctions"
+          title={t('title')}
           description={formatTodayDate()}
           actions={
             <Link href={`/${locale}/behaviour/sanctions`}>
@@ -386,7 +364,7 @@ export default function TodaySanctionsPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="Today's Sanctions"
+        title={t('title')}
         description={formatTodayDate()}
         actions={
           <Link href={`/${locale}/behaviour/sanctions`}>
@@ -558,10 +536,11 @@ function SanctionRow({
   isUpdating,
   locale,
 }: SanctionRowProps) {
+  const t = useTranslations('behaviour.sanctionsToday');
   const isScheduled = sanction.status === 'scheduled';
   const studentName = sanction.student
     ? `${sanction.student.first_name} ${sanction.student.last_name}`
-    : 'Unknown Student';
+    : t('unknownStudent');
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -593,11 +572,11 @@ function SanctionRow({
               'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
             }`}
           >
-            {STATUS_LABELS[sanction.status] ?? sanction.status}
+            {t(`statuses.${sanction.status}` as Parameters<typeof t>[0])}
           </span>
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
-          <span>{TYPE_LABELS[sanction.type] ?? sanction.type}</span>
+          <span>{t(`types.${sanction.type}` as Parameters<typeof t>[0])}</span>
           {sanction.notes && (
             <>
               <span className="text-border">{'\u2022'}</span>
@@ -616,12 +595,12 @@ function SanctionRow({
             disabled={isUpdating}
           >
             <SelectTrigger className="w-36 text-sm">
-              <SelectValue placeholder={isUpdating ? 'Updating...' : 'Set status'} />
+              <SelectValue placeholder={isUpdating ? t('updating') : t('setStatus')} />
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(`statusOptions.${opt.value}` as Parameters<typeof t>[0])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -633,7 +612,7 @@ function SanctionRow({
               'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
             }`}
           >
-            {STATUS_LABELS[sanction.status] ?? sanction.status}
+            {t(`statuses.${sanction.status}` as Parameters<typeof t>[0])}
           </span>
         )}
       </div>

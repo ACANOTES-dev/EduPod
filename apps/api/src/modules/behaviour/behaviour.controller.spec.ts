@@ -4,6 +4,7 @@ import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
+import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourController } from './behaviour.controller';
@@ -15,6 +16,7 @@ const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const MEMBERSHIP_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const INCIDENT_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const PARTICIPANT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+const ATTACHMENT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
 const TENANT: TenantContext = {
   tenant_id: TENANT_ID,
@@ -62,6 +64,13 @@ const mockPermissionCacheService = {
   getPermissions: jest.fn(),
 };
 
+const mockAttachmentService = {
+  uploadAttachment: jest.fn(),
+  listAttachments: jest.fn(),
+  getAttachment: jest.fn(),
+  recordFollowUp: jest.fn(),
+};
+
 const mockPolicyReplayService = {
   getIncidentEvaluationTrace: jest.fn(),
 };
@@ -76,6 +85,7 @@ describe('BehaviourController', () => {
         { provide: BehaviourService, useValue: mockBehaviourService },
         { provide: BehaviourQuickLogService, useValue: mockQuickLogService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
+        { provide: BehaviourAttachmentService, useValue: mockAttachmentService },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
         { provide: PolicyReplayService, useValue: mockPolicyReplayService },
       ],
@@ -207,10 +217,16 @@ describe('BehaviourController', () => {
     expect(result).toEqual({ id: INCIDENT_ID, status: 'withdrawn' });
   });
 
-  it('should return stub response for recordFollowUp', async () => {
-    const result = await controller.recordFollowUp(INCIDENT_ID);
+  it('should call attachmentService.recordFollowUp with tenant_id, user_id, id, dto', async () => {
+    const dto = { action_taken: 'Spoke with student', outcome: 'Resolved' };
+    mockAttachmentService.recordFollowUp.mockResolvedValue({
+      data: { incident_id: INCIDENT_ID, follow_up_recorded: true },
+    });
 
-    expect(result).toEqual({ data: null, message: 'Follow-up recording not yet implemented' });
+    const result = await controller.recordFollowUp(TENANT, USER, INCIDENT_ID, dto as never);
+
+    expect(mockAttachmentService.recordFollowUp).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, dto);
+    expect(result).toEqual({ data: { incident_id: INCIDENT_ID, follow_up_recorded: true } });
   });
 
   // ─── Participants ──────────────────────────────────────────────────────────
@@ -234,24 +250,39 @@ describe('BehaviourController', () => {
     expect(result).toEqual({ deleted: true });
   });
 
-  // ─── Attachments (STUBS) ──────────────────────────────────────────────────
+  // ─── Attachments ──────────────────────────────────────────────────────────
 
-  it('should return stub response for uploadAttachment', async () => {
-    const result = await controller.uploadAttachment(INCIDENT_ID);
+  it('should call attachmentService.uploadAttachment with tenant_id, user_id, id, file, dto', async () => {
+    const file = { buffer: Buffer.from('test'), originalname: 'test.pdf', mimetype: 'application/pdf', size: 1024 };
+    const dto = { classification: 'staff_statement' };
+    mockAttachmentService.uploadAttachment.mockResolvedValue({
+      data: { id: ATTACHMENT_ID, file_name: 'test.pdf' },
+    });
 
-    expect(result).toEqual({ data: null, message: 'Attachment upload not yet implemented' });
+    const result = await controller.uploadAttachment(TENANT, USER, INCIDENT_ID, file, dto as never);
+
+    expect(mockAttachmentService.uploadAttachment).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, file, dto);
+    expect(result).toEqual({ data: { id: ATTACHMENT_ID, file_name: 'test.pdf' } });
   });
 
-  it('should return stub response for listAttachments', async () => {
-    const result = await controller.listAttachments(INCIDENT_ID);
+  it('should call attachmentService.listAttachments with tenant_id and id', async () => {
+    mockAttachmentService.listAttachments.mockResolvedValue({ data: [] });
 
-    expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+    const result = await controller.listAttachments(TENANT, INCIDENT_ID);
+
+    expect(mockAttachmentService.listAttachments).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID);
+    expect(result).toEqual({ data: [] });
   });
 
-  it('should return stub response for downloadAttachment', async () => {
-    const result = await controller.downloadAttachment(INCIDENT_ID, 'att-id');
+  it('should call attachmentService.getAttachment with tenant_id, user_id, id, aid', async () => {
+    mockAttachmentService.getAttachment.mockResolvedValue({
+      data: { id: ATTACHMENT_ID, download_url: 'https://example.com/file' },
+    });
 
-    expect(result).toEqual({ data: null, message: 'Attachment download not yet implemented' });
+    const result = await controller.downloadAttachment(TENANT, USER, INCIDENT_ID, ATTACHMENT_ID);
+
+    expect(mockAttachmentService.getAttachment).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, ATTACHMENT_ID);
+    expect(result).toEqual({ data: { id: ATTACHMENT_ID, download_url: 'https://example.com/file' } });
   });
 
   // ─── History ──────────────────────────────────────────────────────────────

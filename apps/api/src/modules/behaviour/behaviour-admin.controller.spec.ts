@@ -35,13 +35,16 @@ const mockAdminService = {
   recomputePointsPreview: jest.fn(),
   recomputePoints: jest.fn(),
   rebuildAwardsPreview: jest.fn(),
+  rebuildAwards: jest.fn(),
   recomputePulse: jest.fn(),
   backfillTasksPreview: jest.fn(),
+  backfillTasks: jest.fn(),
   resendNotification: jest.fn(),
   refreshViews: jest.fn(),
   policyDryRun: jest.fn(),
   scopeAudit: jest.fn(),
   reindexSearchPreview: jest.fn(),
+  reindexSearch: jest.fn(),
   retentionPreview: jest.fn(),
   retentionExecute: jest.fn(),
 };
@@ -141,12 +144,14 @@ describe('BehaviourAdminController', () => {
     expect(result).toEqual({ affected: 10 });
   });
 
-  it('should return success stub for rebuildAwards', async () => {
-    const dto = { scope: 'all' };
+  it('should call adminService.rebuildAwards with tenant_id and dto and return data', async () => {
+    const dto = { scope: 'tenant' };
+    mockAdminService.rebuildAwards.mockResolvedValue({ enqueued: 42 });
 
     const result = await controller.rebuildAwards(TENANT, dto as never);
 
-    expect(result).toEqual({ success: true, message: 'Award rebuild initiated' });
+    expect(mockAdminService.rebuildAwards).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(result).toEqual({ data: { enqueued: 42 } });
   });
 
   // ─── Recompute Pulse ─────────────────────────────────────────────────────
@@ -172,12 +177,14 @@ describe('BehaviourAdminController', () => {
     expect(result).toEqual({ affected: 5 });
   });
 
-  it('should return success stub for backfillTasks', async () => {
-    const dto = { scope: 'all' };
+  it('should call adminService.backfillTasks with tenant_id and dto and return data', async () => {
+    const dto = { scope: 'tenant' };
+    mockAdminService.backfillTasks.mockResolvedValue({ created: 7 });
 
     const result = await controller.backfillTasks(TENANT, dto as never);
 
-    expect(result).toEqual({ success: true, message: 'Task backfill initiated' });
+    expect(mockAdminService.backfillTasks).toHaveBeenCalledWith(TENANT_ID, dto);
+    expect(result).toEqual({ data: { created: 7 } });
   });
 
   // ─── Resend Notification ─────────────────────────────────────────────────
@@ -238,13 +245,13 @@ describe('BehaviourAdminController', () => {
     expect(result).toEqual({ count: 100 });
   });
 
-  it('should return success stub for reindexSearch', async () => {
+  it('should call adminService.reindexSearch with tenant_id and return data', async () => {
+    mockAdminService.reindexSearch.mockResolvedValue({ job_id: 'job-abc-123' });
+
     const result = await controller.reindexSearch(TENANT);
 
-    expect(result).toEqual({
-      success: true,
-      message: 'Search reindex initiated — requires dual approval for tenant-wide scope',
-    });
+    expect(mockAdminService.reindexSearch).toHaveBeenCalledWith(TENANT_ID);
+    expect(result).toEqual({ data: { job_id: 'job-abc-123' } });
   });
 
   // ─── Retention ───────────────────────────────────────────────────────────

@@ -302,8 +302,8 @@ export class BehaviourAmendmentsService {
                   channel: 'in_app',
                   template_key:
                     notice.requires_parent_reacknowledgement
-                      ? 'behaviour.reacknowledgement_request'
-                      : 'behaviour.correction_parent',
+                      ? 'behaviour_reacknowledgement_request'
+                      : 'behaviour_correction_parent',
                   locale: 'en',
                   status: 'delivered',
                   payload_json: {

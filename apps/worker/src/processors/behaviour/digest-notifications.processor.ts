@@ -325,7 +325,7 @@ class DigestNotificationsJob extends TenantAwareJob<DigestNotificationsPayload> 
                 tenant_id,
                 recipient_user_id: parentInfo.user_id,
                 channel,
-                template_key: 'behaviour.digest_notification',
+                template_key: 'behaviour_digest_parent',
                 locale: 'en',
                 status: isInApp ? 'delivered' : 'queued',
                 payload_json: {

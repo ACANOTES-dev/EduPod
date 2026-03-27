@@ -116,7 +116,7 @@ class BreakGlassExpiryJob extends TenantAwareJob<BreakGlassExpiryPayload> {
             tenant_id,
             recipient_user_id: grant.granted_by_id,
             channel,
-            template_key: 'safeguarding.break_glass_expired',
+            template_key: 'safeguarding_break_glass_review',
             locale: 'en',
             status: isInApp ? 'delivered' : 'queued',
             payload_json: {

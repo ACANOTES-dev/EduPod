@@ -131,7 +131,7 @@ class SlaCheckJob extends TenantAwareJob<SlaCheckPayload> {
               tenant_id,
               recipient_user_id: assigneeId,
               channel,
-              template_key: 'safeguarding.sla_breach',
+              template_key: 'safeguarding_sla_breach',
               locale: 'en',
               status: isInApp ? 'delivered' : 'queued',
               payload_json: {

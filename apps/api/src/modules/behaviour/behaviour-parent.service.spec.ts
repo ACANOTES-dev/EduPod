@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 
+import { BehaviourAppealsService } from './behaviour-appeals.service';
 import { BehaviourParentService } from './behaviour-parent.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -150,6 +151,7 @@ describe('BehaviourParentService', () => {
       providers: [
         BehaviourParentService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: BehaviourAppealsService, useValue: { submit: jest.fn() } },
       ],
     }).compile();
 

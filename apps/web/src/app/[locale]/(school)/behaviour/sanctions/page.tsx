@@ -300,7 +300,7 @@ export default function SanctionListPage() {
             className="shrink-0"
           >
             <CheckCircle className="me-1 h-3.5 w-3.5" />
-            {markingServed === row.id ? 'Saving...' : 'Mark Served'}
+            {markingServed === row.id ? t('saving') : t('markServed')}
           </Button>
         ) : null,
     },

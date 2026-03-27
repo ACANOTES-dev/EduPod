@@ -427,7 +427,7 @@ export default function AppealDetailPage() {
 
   const studentName = appeal.student
     ? `${appeal.student.first_name} ${appeal.student.last_name}`
-    : 'Unknown Student';
+    : t('unknownStudent');
   const isTerminal = appeal.status === 'decided' || appeal.status === 'withdrawn' || appeal.status === 'withdrawn_appeal';
   const canDecide = ['submitted', 'under_review', 'hearing_scheduled'].includes(appeal.status);
   const canWithdraw = !isTerminal;

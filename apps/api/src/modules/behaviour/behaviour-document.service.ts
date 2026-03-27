@@ -456,7 +456,7 @@ export class BehaviourDocumentService {
             tenant_id: tenantId,
             recipient_user_id: userId,
             channel: 'in_app',
-            template_key: 'behaviour.document_ready_for_review',
+            template_key: 'behaviour_document_review',
             locale: 'en',
             status: 'delivered',
             payload_json: {

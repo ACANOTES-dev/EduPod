@@ -10,16 +10,21 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   bulkPositiveSchema,
   createIncidentSchema,
   createParticipantSchema,
   listIncidentsQuerySchema,
   quickLogSchema,
+  recordFollowUpSchema,
   statusTransitionSchema,
   updateIncidentSchema,
+  uploadBehaviourAttachmentSchema,
   withdrawIncidentSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
@@ -35,6 +40,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
+import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourService } from './behaviour.service';
@@ -60,6 +66,7 @@ export class BehaviourController {
     private readonly behaviourService: BehaviourService,
     private readonly quickLogService: BehaviourQuickLogService,
     private readonly historyService: BehaviourHistoryService,
+    private readonly attachmentService: BehaviourAttachmentService,
     private readonly permissionCacheService: PermissionCacheService,
     private readonly policyReplayService: PolicyReplayService,
   ) {}
@@ -237,10 +244,18 @@ export class BehaviourController {
   @RequiresPermission('behaviour.manage')
   @HttpCode(HttpStatus.OK)
   async recordFollowUp(
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(recordFollowUpSchema))
+    dto: z.infer<typeof recordFollowUpSchema>,
   ) {
-    // STUB: Record follow-up -- will be implemented in a later phase
-    return { data: null, message: 'Follow-up recording not yet implemented' };
+    return this.attachmentService.recordFollowUp(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      dto,
+    );
   }
 
   // ─── Participants ───────────────────────────────────────────────────────────
@@ -279,35 +294,52 @@ export class BehaviourController {
     );
   }
 
-  // ─── Attachments (STUB) ────────────────────────────────────────────────────
+  // ─── Attachments ────────────────────────────────────────────────────────────
 
   @Post('behaviour/incidents/:id/attachments')
   @RequiresPermission('behaviour.manage')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
   async uploadAttachment(
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    @Body(new ZodValidationPipe(uploadBehaviourAttachmentSchema))
+    dto: z.infer<typeof uploadBehaviourAttachmentSchema>,
   ) {
-    // STUB: Evidence upload -- will be implemented in a later phase
-    return { data: null, message: 'Attachment upload not yet implemented' };
+    return this.attachmentService.uploadAttachment(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      file,
+      dto,
+    );
   }
 
   @Get('behaviour/incidents/:id/attachments')
   @RequiresPermission('behaviour.view')
   async listAttachments(
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
-    // STUB: List attachments
-    return { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    return this.attachmentService.listAttachments(tenant.tenant_id, id);
   }
 
   @Get('behaviour/incidents/:id/attachments/:aid')
   @RequiresPermission('behaviour.view')
   async downloadAttachment(
-    @Param('id', ParseUUIDPipe) _id: string,
-    @Param('aid', ParseUUIDPipe) _aid: string,
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('aid', ParseUUIDPipe) aid: string,
   ) {
-    // STUB: Download attachment
-    return { data: null, message: 'Attachment download not yet implemented' };
+    return this.attachmentService.getAttachment(
+      tenant.tenant_id,
+      user.sub,
+      id,
+      aid,
+    );
   }
 
   // ─── History ───────────────────────────────────────────────────────────────

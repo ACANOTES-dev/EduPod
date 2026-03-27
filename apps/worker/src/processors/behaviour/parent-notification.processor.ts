@@ -186,7 +186,7 @@ class BehaviourParentNotificationJob extends TenantAwareJob<BehaviourParentNotif
                 tenant_id,
                 recipient_user_id: sp.parent.user_id,
                 channel,
-                template_key: 'behaviour.incident_notification',
+                template_key: incident.polarity === 'positive' ? 'behaviour_positive_parent' : 'behaviour_negative_parent',
                 locale: 'en',
                 status: isInApp ? 'delivered' : 'queued',
                 payload_json: {

@@ -1003,6 +1003,62 @@ async function main() {
         body_template: 'متأخرة: المهمة "{{task_title}}" كانت مستحقة بتاريخ {{due_date}}',
       },
 
+      // ─── Behaviour Digest ─────────────────────────────────────────────────
+
+      // behaviour_digest_parent — email en
+      {
+        template_key: 'behaviour_digest_parent',
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Behaviour Digest for {{student_name}}',
+        body_template:
+          'Dear {{parent_name}},\n\nHere is a summary of recent behaviour incidents for {{student_name}}.\n\n**Total Incidents:** {{total_incidents}}\n\nPlease log in to the parent portal for full details.\n\nRegards,\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_digest_parent — email ar
+      {
+        template_key: 'behaviour_digest_parent',
+        channel: 'email',
+        locale: 'ar',
+        subject_template: 'ملخص السلوك لـ {{student_name}}',
+        body_template:
+          'عزيزي {{parent_name}}،\n\nإليك ملخص بالحوادث السلوكية الأخيرة لـ {{student_name}}.\n\n**إجمالي الحوادث:** {{total_incidents}}\n\nيرجى تسجيل الدخول إلى بوابة أولياء الأمور للاطلاع على التفاصيل الكاملة.\n\nمع التحية،\n{{school_name}}\n\n{{unsubscribe_link}}',
+      },
+      // behaviour_digest_parent — in_app en
+      {
+        template_key: 'behaviour_digest_parent',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Behaviour digest: {{total_incidents}} incidents recorded for {{student_name}}',
+      },
+      // behaviour_digest_parent — in_app ar
+      {
+        template_key: 'behaviour_digest_parent',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'ملخص السلوك: {{total_incidents}} حوادث مسجلة لـ {{student_name}}',
+      },
+
+      // ─── Behaviour Documents ──────────────────────────────────────────────
+
+      // behaviour_document_review — in_app only en
+      {
+        template_key: 'behaviour_document_review',
+        channel: 'in_app',
+        locale: 'en',
+        subject_template: null,
+        body_template: 'Document ready for review: {{document_type}} for {{student_name}}',
+      },
+      // behaviour_document_review — in_app only ar
+      {
+        template_key: 'behaviour_document_review',
+        channel: 'in_app',
+        locale: 'ar',
+        subject_template: null,
+        body_template: 'المستند جاهز للمراجعة: {{document_type}} لـ {{student_name}}',
+      },
+
       // ─── Safeguarding ─────────────────────────────────────────────────────
 
       // safeguarding_concern_reported — in_app only en

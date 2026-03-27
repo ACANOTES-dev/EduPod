@@ -4219,8 +4219,30 @@
       },
       "noIncidents": "لم يتم تسجيل حوادث",
       "noTasks": "لا توجد مهام لهذا الطالب",
+      "noInterventions": "لم يتم تسجيل تدخلات لهذا الطالب",
+      "noSanctions": "لم يتم تسجيل عقوبات لهذا الطالب",
+      "noAwards": "لم يتم تسجيل جوائز لهذا الطالب",
       "comingPhaseC": "قادم في المرحلة C",
-      "comingPhaseB": "قادم في المرحلة B"
+      "comingPhaseB": "قادم في المرحلة B",
+      "interventionColumns": {
+        "title": "العنوان",
+        "type": "النوع",
+        "status": "الحالة",
+        "assignedTo": "مسند إلى",
+        "startDate": "تاريخ البدء"
+      },
+      "sanctionColumns": {
+        "type": "النوع",
+        "status": "الحالة",
+        "scheduledDate": "التاريخ المجدول",
+        "servedDate": "تاريخ التنفيذ"
+      },
+      "awardColumns": {
+        "awardName": "اسم الجائزة",
+        "tier": "المستوى",
+        "dateAwarded": "تاريخ المنح",
+        "reason": "السبب"
+      }
     },
     "sanctions": {
       "title": "العقوبات",
@@ -4229,11 +4251,18 @@
       "noSanctions": "لا توجد عقوبات",
       "noSanctionsMatch": "لا توجد عقوبات تطابق الفلاتر الحالية",
       "calendarComingSoon": "عرض التقويم قريباً",
+      "calendarComingSoonDescription": "عرض العقوبات على التقويم لإدارة الجدولة وتخصيص القاعات.",
       "calendarDescription": "عرض العقوبات على التقويم لإدارة الجدولة وتخصيص القاعات.",
+      "search": "البحث عن طالب...",
       "searchStudent": "البحث عن طالب...",
       "markServed": "تأكيد التنفيذ",
       "saving": "جارٍ الحفظ...",
       "unknownStudent": "طالب غير معروف",
+      "noResults": "لم يتم العثور على عقوبات",
+      "noResultsDescription": "لا توجد عقوبات تطابق الفلاتر الحالية",
+      "previous": "السابق",
+      "next": "التالي",
+      "pagination": "الصفحة {page} من {total}",
       "tabs": {
         "list": "قائمة",
         "calendar": "تقويم"
@@ -4299,11 +4328,42 @@
       "updating": "جارٍ التحديث...",
       "unassignedRoom": "قاعة غير محددة",
       "noTimeSet": "لم يحدد وقت",
+      "empty": "لا توجد عقوبات مجدولة لليوم",
+      "emptyDescription": "عند جدولة عقوبات لليوم، ستظهر هنا للإشراف.",
+      "unknownStudent": "طالب غير معروف",
+      "sanctionsCount": "عقوبات",
+      "selectedCount": "{count} محدد",
       "statusOptions": {
         "served": "تم التنفيذ",
         "no_show": "لم يحضر",
         "partially_served": "تنفيذ جزئي",
         "excused": "معذور"
+      },
+      "stats": {
+        "total": "الإجمالي",
+        "scheduled": "مجدول",
+        "served": "تم التنفيذ",
+        "noShow": "لم يحضر"
+      },
+      "statuses": {
+        "pending_approval": "قيد الموافقة",
+        "scheduled": "مجدول",
+        "served": "تم التنفيذ",
+        "partially_served": "تنفيذ جزئي",
+        "no_show": "لم يحضر",
+        "excused": "معذور",
+        "cancelled": "ملغي",
+        "appealed": "مطعون"
+      },
+      "types": {
+        "detention": "احتجاز",
+        "suspension_internal": "إيقاف داخلي",
+        "suspension_external": "إيقاف خارجي",
+        "expulsion": "طرد",
+        "community_service": "خدمة مجتمعية",
+        "loss_of_privilege": "حرمان من امتياز",
+        "restorative_meeting": "اجتماع تصالحي",
+        "other": "أخرى"
       }
     },
     "interventions": {
@@ -4454,7 +4514,9 @@
       "statutoryTimeline": "الجدول الزمني القانوني",
       "hearingAttendees": "حضور الجلسة",
       "linkedSanction": "العقوبة المرتبطة",
-      "linkedIncident": "الحادثة المرتبطة"
+      "linkedIncident": "الحادثة المرتبطة",
+      "saving": "جارٍ الحفظ...",
+      "saveHearingDetails": "حفظ تفاصيل الجلسة"
     },
     "alerts": {
       "title": "تنبيهات السلوك",
@@ -4667,7 +4729,8 @@
       "linkedSanction": "العقوبة المرتبطة",
       "linkedExclusions": "حالات الاستبعاد المرتبطة",
       "resultingAmendments": "التعديلات الناتجة",
-      "history": "السجل"
+      "history": "السجل",
+      "unknownStudent": "طالب غير معروف"
     },
     "recognition": {
       "title": "جدار التقدير",
@@ -4829,6 +4892,7 @@
       "description": "إدارة قيود التواصل مع أولياء الأمور",
       "addRestriction": "إضافة قيد",
       "noRestrictions": "لم يتم العثور على قيود أولياء أمور",
+      "unknownStudent": "طالب غير معروف",
       "columns": {
         "guardian": "ولي الأمر",
         "student": "الطالب",

@@ -14,6 +14,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../../../../modules/prisma/prisma.service';
+import { BehaviourAppealsService } from '../../behaviour-appeals.service';
 import { BehaviourParentService } from '../../behaviour-parent.service';
 
 const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -188,6 +189,7 @@ describe('Release Gate 15-4: Parent-Safe Rendering', () => {
       providers: [
         BehaviourParentService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: BehaviourAppealsService, useValue: { submit: jest.fn() } },
       ],
     }).compile();
 

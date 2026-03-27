@@ -292,7 +292,7 @@ class BehaviourCheckAwardsJob extends TenantAwareJob<BehaviourCheckAwardsPayload
                 tenant_id,
                 recipient_user_id: sp.parent.user_id,
                 channel,
-                template_key: 'behaviour.award_parent',
+                template_key: 'behaviour_award_parent',
                 locale: 'en',
                 status: isInApp ? 'delivered' : 'queued',
                 payload_json: {

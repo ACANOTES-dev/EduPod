@@ -41,6 +41,10 @@ const mockRlsTx = {
     create: jest.fn(),
     updateMany: jest.fn(),
   },
+  behaviourSanction: {
+    findMany: jest.fn(),
+    updateMany: jest.fn(),
+  },
   student: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -851,6 +855,10 @@ describe('BehaviourService', () => {
         makeIncident({ status: 'active' }),
       );
       mockRlsTx.behaviourIncident!.update.mockResolvedValue(
+        makeIncident({ status: 'withdrawn' }),
+      );
+      mockRlsTx.behaviourSanction!.findMany.mockResolvedValue([]);
+      mockRlsTx.behaviourIncident!.findUnique.mockResolvedValue(
         makeIncident({ status: 'withdrawn' }),
       );
 

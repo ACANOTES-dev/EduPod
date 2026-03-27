@@ -31,6 +31,7 @@ export class BehaviourAdminService {
     private readonly policyReplayService: PolicyReplayService,
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    @InjectQueue('search-sync') private readonly searchSyncQueue: Queue,
   ) {}
 
   // ─── Health ───────────────────────────────────────────────────────────────
@@ -349,6 +350,273 @@ export class BehaviourAdminService {
         rollback_method: 'New awards can be individually revoked via DELETE /awards/:id.',
       };
     }) as Promise<AdminPreviewResponse>;
+  }
+
+  // ─── Rebuild Awards ───────────────────────────────────────────────────────
+
+  async rebuildAwards(
+    tenantId: string,
+    dto: RebuildAwardsDto,
+  ): Promise<{ enqueued: number }> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    // Resolve student IDs based on scope
+    const studentIds = await rlsClient.$transaction(async (txRaw) => {
+      const tx = txRaw as unknown as PrismaService;
+
+      if (dto.scope === 'student' && dto.student_id) {
+        // Verify the student exists
+        const student = await tx.student.findFirst({
+          where: { id: dto.student_id, tenant_id: tenantId },
+          select: { id: true },
+        });
+        return student ? [student.id] : [];
+      }
+
+      const baseFilter: { tenant_id: string; status: $Enums.StudentStatus; year_group_id?: string } = {
+        tenant_id: tenantId,
+        status: 'active' as $Enums.StudentStatus,
+      };
+
+      if (dto.scope === 'year_group' && dto.year_group_id) {
+        baseFilter.year_group_id = dto.year_group_id;
+      }
+
+      const students = await tx.student.findMany({
+        where: baseFilter,
+        select: { id: true },
+      });
+
+      return students.map((s) => s.id);
+    }) as string[];
+
+    if (studentIds.length === 0) {
+      return { enqueued: 0 };
+    }
+
+    // Resolve current academic year and period (needed by the check-awards processor)
+    const academicContext = await this.prisma.academicYear.findFirst({
+      where: { tenant_id: tenantId, status: 'active' },
+      select: { id: true },
+    });
+
+    if (!academicContext) {
+      this.logger.warn(`rebuildAwards: no active academic year for tenant ${tenantId}`);
+      return { enqueued: 0 };
+    }
+
+    const now = new Date();
+    const currentPeriod = await this.prisma.academicPeriod.findFirst({
+      where: {
+        tenant_id: tenantId,
+        academic_year_id: academicContext.id,
+        start_date: { lte: now },
+        end_date: { gte: now },
+      },
+      select: { id: true },
+    });
+
+    // Enqueue one job per student.  Each job needs an incident_id — we use the
+    // student's most recent active incident so the dedup and awarded_by logic in
+    // the processor works correctly.  Students with no incidents are skipped
+    // because they cannot have reached any award threshold.
+    const rlsClient2 = createRlsClient(this.prisma, { tenant_id: tenantId });
+    let enqueued = 0;
+
+    await rlsClient2.$transaction(async (txRaw) => {
+      const tx = txRaw as unknown as PrismaService;
+
+      for (const studentId of studentIds) {
+        const latestIncident = await tx.behaviourIncidentParticipant.findFirst({
+          where: {
+            tenant_id: tenantId,
+            student_id: studentId,
+            incident: {
+              retention_status: 'active' as $Enums.RetentionStatus,
+              status: {
+                notIn: ['draft', 'withdrawn'] as $Enums.IncidentStatus[],
+              },
+            },
+          },
+          orderBy: { created_at: 'desc' },
+          select: { incident_id: true },
+        });
+
+        if (!latestIncident) {
+          // No incidents → no thresholds can have been reached
+          continue;
+        }
+
+        await this.behaviourQueue.add(
+          'behaviour:check-awards',
+          {
+            tenant_id: tenantId,
+            incident_id: latestIncident.incident_id,
+            student_ids: [studentId],
+            academic_year_id: academicContext.id,
+            academic_period_id: currentPeriod?.id ?? null,
+          },
+          { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+        );
+        enqueued += 1;
+      }
+    });
+
+    this.logger.log(`rebuildAwards: enqueued ${String(enqueued)} check-awards jobs for tenant ${tenantId}`);
+    return { enqueued };
+  }
+
+  // ─── Backfill Tasks ───────────────────────────────────────────────────────
+
+  async backfillTasks(
+    tenantId: string,
+    dto: BackfillTasksDto,
+  ): Promise<{ created: number }> {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    let created = 0;
+
+    await rlsClient.$transaction(async (txRaw) => {
+      const tx = txRaw as unknown as PrismaService;
+
+      const shouldBackfillInterventions =
+        dto.scope === 'tenant' ||
+        (dto.scope === 'entity_type' && dto.entity_type === 'intervention');
+
+      const shouldBackfillSanctions =
+        dto.scope === 'tenant' ||
+        (dto.scope === 'entity_type' && dto.entity_type === 'sanction');
+
+      // ── Interventions ──────────────────────────────────────────────────
+
+      if (shouldBackfillInterventions) {
+        const interventions = await tx.behaviourIntervention.findMany({
+          where: {
+            tenant_id: tenantId,
+            retention_status: 'active' as $Enums.RetentionStatus,
+            status: {
+              notIn: ['completed_intervention', 'abandoned'] as $Enums.InterventionStatus[],
+            },
+          },
+          select: {
+            id: true,
+            title: true,
+            assigned_to_id: true,
+            start_date: true,
+            intervention_number: true,
+          },
+        });
+
+        for (const intervention of interventions) {
+          // Dedup: skip if an open follow_up task already exists
+          const existing = await tx.behaviourTask.findFirst({
+            where: {
+              tenant_id: tenantId,
+              entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
+              entity_id: intervention.id,
+              task_type: 'follow_up' as $Enums.BehaviourTaskType,
+              status: { notIn: ['completed', 'cancelled'] as $Enums.BehaviourTaskStatus[] },
+            },
+            select: { id: true },
+          });
+
+          if (existing) continue;
+
+          const dueDate = intervention.start_date ?? new Date();
+
+          await tx.behaviourTask.create({
+            data: {
+              tenant_id: tenantId,
+              task_type: 'follow_up' as $Enums.BehaviourTaskType,
+              entity_type: 'intervention' as $Enums.BehaviourTaskEntityType,
+              entity_id: intervention.id,
+              title: `Follow up on intervention ${intervention.intervention_number}`,
+              assigned_to_id: intervention.assigned_to_id,
+              created_by_id: intervention.assigned_to_id,
+              priority: 'medium' as $Enums.TaskPriority,
+              status: 'pending' as $Enums.BehaviourTaskStatus,
+              due_date: dueDate,
+            },
+          });
+
+          created += 1;
+        }
+      }
+
+      // ── Sanctions ──────────────────────────────────────────────────────
+
+      if (shouldBackfillSanctions) {
+        const sanctions = await tx.behaviourSanction.findMany({
+          where: {
+            tenant_id: tenantId,
+            retention_status: 'active' as $Enums.RetentionStatus,
+            status: { notIn: ['served', 'cancelled', 'appealed'] as $Enums.SanctionStatus[] },
+          },
+          select: {
+            id: true,
+            sanction_number: true,
+            scheduled_date: true,
+            supervised_by_id: true,
+            incident: {
+              select: { reported_by_id: true },
+            },
+          },
+        });
+
+        for (const sanction of sanctions) {
+          // Resolve assignee: prefer supervised_by, fall back to incident reporter
+          const assigneeId = sanction.supervised_by_id ?? sanction.incident.reported_by_id;
+
+          // Dedup: skip if an open follow_up task already exists for this sanction
+          const existing = await tx.behaviourTask.findFirst({
+            where: {
+              tenant_id: tenantId,
+              entity_type: 'sanction' as $Enums.BehaviourTaskEntityType,
+              entity_id: sanction.id,
+              task_type: 'follow_up' as $Enums.BehaviourTaskType,
+              status: { notIn: ['completed', 'cancelled'] as $Enums.BehaviourTaskStatus[] },
+            },
+            select: { id: true },
+          });
+
+          if (existing) continue;
+
+          const dueDate = sanction.scheduled_date ?? new Date();
+
+          await tx.behaviourTask.create({
+            data: {
+              tenant_id: tenantId,
+              task_type: 'follow_up' as $Enums.BehaviourTaskType,
+              entity_type: 'sanction' as $Enums.BehaviourTaskEntityType,
+              entity_id: sanction.id,
+              title: `Follow up on sanction ${sanction.sanction_number}`,
+              assigned_to_id: assigneeId,
+              created_by_id: assigneeId,
+              priority: 'medium' as $Enums.TaskPriority,
+              status: 'pending' as $Enums.BehaviourTaskStatus,
+              due_date: dueDate,
+            },
+          });
+
+          created += 1;
+        }
+      }
+    });
+
+    this.logger.log(`backfillTasks: created ${String(created)} missing tasks for tenant ${tenantId}`);
+    return { created };
+  }
+
+  // ─── Reindex Search ───────────────────────────────────────────────────────
+
+  async reindexSearch(tenantId: string): Promise<{ job_id: string }> {
+    const job = await this.searchSyncQueue.add(
+      'search:full-reindex',
+      { tenant_id: tenantId },
+      { attempts: 2, backoff: { type: 'exponential', delay: 3000 } },
+    );
+
+    this.logger.log(`reindexSearch: enqueued search:full-reindex job ${job.id ?? ''} for tenant ${tenantId}`);
+    return { job_id: job.id ?? '' };
   }
 
   // ─── Backfill Tasks Preview ───────────────────────────────────────────────

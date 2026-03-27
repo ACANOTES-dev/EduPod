@@ -302,7 +302,7 @@ describe('BehaviourAmendmentsService', () => {
           tenant_id: TENANT_ID,
           recipient_user_id: PARENT_USER_ID,
           channel: 'in_app',
-          template_key: 'behaviour.correction_parent',
+          template_key: 'behaviour_correction_parent',
           status: 'delivered',
         }),
       });
@@ -319,7 +319,7 @@ describe('BehaviourAmendmentsService', () => {
 
       expect(mockRlsTx.notification!.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          template_key: 'behaviour.reacknowledgement_request',
+          template_key: 'behaviour_reacknowledgement_request',
         }),
       });
     });

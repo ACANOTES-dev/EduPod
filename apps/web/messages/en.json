@@ -4220,8 +4220,30 @@
       },
       "noIncidents": "No incidents recorded",
       "noTasks": "No tasks for this student",
+      "noInterventions": "No interventions recorded for this student",
+      "noSanctions": "No sanctions recorded for this student",
+      "noAwards": "No awards recorded for this student",
       "comingPhaseC": "Coming in Phase C",
-      "comingPhaseB": "Coming in Phase B"
+      "comingPhaseB": "Coming in Phase B",
+      "interventionColumns": {
+        "title": "Title",
+        "type": "Type",
+        "status": "Status",
+        "assignedTo": "Assigned To",
+        "startDate": "Start Date"
+      },
+      "sanctionColumns": {
+        "type": "Type",
+        "status": "Status",
+        "scheduledDate": "Scheduled Date",
+        "servedDate": "Served Date"
+      },
+      "awardColumns": {
+        "awardName": "Award Name",
+        "tier": "Tier",
+        "dateAwarded": "Date Awarded",
+        "reason": "Reason"
+      }
     },
     "sanctions": {
       "title": "Sanctions",
@@ -4230,11 +4252,18 @@
       "noSanctions": "No sanctions",
       "noSanctionsMatch": "No sanctions match the current filters",
       "calendarComingSoon": "Calendar view coming soon",
+      "calendarComingSoonDescription": "Visualise sanctions on a calendar to manage scheduling and room allocation.",
       "calendarDescription": "Visualise sanctions on a calendar to manage scheduling and room allocation.",
+      "search": "Search student...",
       "searchStudent": "Search student...",
       "markServed": "Mark Served",
       "saving": "Saving...",
       "unknownStudent": "Unknown Student",
+      "noResults": "No sanctions found",
+      "noResultsDescription": "No sanctions match the current filters",
+      "previous": "Previous",
+      "next": "Next",
+      "pagination": "Page {page} of {total}",
       "tabs": {
         "list": "List",
         "calendar": "Calendar"
@@ -4300,11 +4329,42 @@
       "updating": "Updating...",
       "unassignedRoom": "Unassigned Room",
       "noTimeSet": "No time set",
+      "empty": "No sanctions scheduled for today",
+      "emptyDescription": "When sanctions are scheduled for today, they will appear here for supervision.",
+      "unknownStudent": "Unknown Student",
+      "sanctionsCount": "sanctions",
+      "selectedCount": "{count} selected",
       "statusOptions": {
         "served": "Served",
         "no_show": "No Show",
         "partially_served": "Partially Served",
         "excused": "Excused"
+      },
+      "stats": {
+        "total": "Total",
+        "scheduled": "Scheduled",
+        "served": "Served",
+        "noShow": "No Show"
+      },
+      "statuses": {
+        "pending_approval": "Pending",
+        "scheduled": "Scheduled",
+        "served": "Served",
+        "partially_served": "Partially Served",
+        "no_show": "No Show",
+        "excused": "Excused",
+        "cancelled": "Cancelled",
+        "appealed": "Appealed"
+      },
+      "types": {
+        "detention": "Detention",
+        "suspension_internal": "Internal Suspension",
+        "suspension_external": "External Suspension",
+        "expulsion": "Expulsion",
+        "community_service": "Community Service",
+        "loss_of_privilege": "Loss of Privilege",
+        "restorative_meeting": "Restorative Meeting",
+        "other": "Other"
       }
     },
     "interventions": {
@@ -4455,7 +4515,9 @@
       "statutoryTimeline": "Statutory Timeline",
       "hearingAttendees": "Hearing Attendees",
       "linkedSanction": "Linked Sanction",
-      "linkedIncident": "Linked Incident"
+      "linkedIncident": "Linked Incident",
+      "saving": "Saving...",
+      "saveHearingDetails": "Save Hearing Details"
     },
     "alerts": {
       "title": "Behaviour Alerts",
@@ -4668,7 +4730,8 @@
       "linkedSanction": "Linked Sanction",
       "linkedExclusions": "Linked Exclusion Cases",
       "resultingAmendments": "Resulting Amendments",
-      "history": "History"
+      "history": "History",
+      "unknownStudent": "Unknown Student"
     },
     "recognition": {
       "title": "Recognition Wall",
@@ -4830,6 +4893,7 @@
       "description": "Manage parent/guardian communication restrictions",
       "addRestriction": "Add Restriction",
       "noRestrictions": "No guardian restrictions found",
+      "unknownStudent": "Unknown Student",
       "columns": {
         "guardian": "Guardian",
         "student": "Student",

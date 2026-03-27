@@ -99,7 +99,7 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
             tenant_id,
             recipient_user_id: task.assigned_to_id,
             channel: ch.channel,
-            template_key: 'behaviour.task_due_reminder',
+            template_key: 'behaviour_task_reminder',
             locale: 'en',
             status: ch.status,
             payload_json: {
@@ -166,7 +166,7 @@ class BehaviourTaskRemindersJob extends TenantAwareJob<BehaviourTaskRemindersPay
             tenant_id,
             recipient_user_id: task.assigned_to_id,
             channel: ch.channel,
-            template_key: 'behaviour.task_overdue',
+            template_key: 'behaviour_task_overdue',
             locale: 'en',
             status: ch.status,
             payload_json: {

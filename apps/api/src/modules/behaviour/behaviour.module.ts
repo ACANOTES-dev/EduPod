@@ -20,6 +20,7 @@ import { BehaviourAnalyticsController } from './behaviour-analytics.controller';
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
 import { BehaviourAppealsController } from './behaviour-appeals.controller';
 import { BehaviourAppealsService } from './behaviour-appeals.service';
+import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourAwardService } from './behaviour-award.service';
 import { BehaviourConfigController } from './behaviour-config.controller';
 import { BehaviourConfigService } from './behaviour-config.service';
@@ -32,10 +33,10 @@ import { BehaviourExportService } from './behaviour-export.service';
 import { BehaviourGuardianRestrictionsController } from './behaviour-guardian-restrictions.controller';
 import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restrictions.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
-import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
 import { BehaviourHouseService } from './behaviour-house.service';
 import { BehaviourInterventionsController } from './behaviour-interventions.controller';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
+import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
 import { BehaviourParentController } from './behaviour-parent.controller';
 import { BehaviourParentService } from './behaviour-parent.service';
 import { BehaviourPointsService } from './behaviour-points.service';
@@ -71,6 +72,7 @@ import { SafeguardingService } from './safeguarding.service';
     S3Module,
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'behaviour' }),
+    BullModule.registerQueue({ name: 'search-sync' }),
   ],
   controllers: [
     BehaviourController,
@@ -105,6 +107,7 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourQuickLogService,
     BehaviourStudentsService,
     BehaviourTasksService,
+    BehaviourAttachmentService,
     PolicyRulesService,
     PolicyEvaluationEngine,
     PolicyReplayService,
@@ -140,6 +143,7 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourHouseService,
     BehaviourInterventionsService,
     BehaviourGuardianRestrictionsService,
+    BehaviourAttachmentService,
     PolicyRulesService,
     PolicyEvaluationEngine,
     PolicyReplayService,

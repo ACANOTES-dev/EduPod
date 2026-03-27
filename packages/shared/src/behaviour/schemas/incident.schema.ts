@@ -114,3 +114,30 @@ export const listIncidentsQuerySchema = z.object({
 });
 
 export type ListIncidentsQuery = z.infer<typeof listIncidentsQuerySchema>;
+
+// ─── Attachment Upload ──────────────────────────────────────────────────────
+
+export const uploadBehaviourAttachmentSchema = z.object({
+  classification: z.enum([
+    'staff_statement', 'student_statement', 'parent_letter',
+    'meeting_minutes', 'screenshot', 'photo', 'scanned_document',
+    'referral_form', 'return_agreement', 'behaviour_contract',
+    'medical_report', 'agency_correspondence', 'other',
+  ]),
+  description: z.string().max(500).nullable().optional(),
+});
+
+export type UploadBehaviourAttachmentDto = z.infer<typeof uploadBehaviourAttachmentSchema>;
+
+// ─── Follow-Up Recording ────────────────────────────────────────────────────
+
+export const recordFollowUpSchema = z.object({
+  action_taken: z.string().min(1).max(5000),
+  outcome: z.string().max(2000).nullable().optional(),
+  create_task: z.boolean().default(false),
+  task_title: z.string().max(200).optional(),
+  task_due_date: z.string().optional(),
+  task_assigned_to_id: z.string().uuid().optional(),
+});
+
+export type RecordFollowUpDto = z.infer<typeof recordFollowUpSchema>;

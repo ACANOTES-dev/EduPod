@@ -43,6 +43,7 @@ const mockSafeguardingService = {
   approveSeal: jest.fn(),
   getDashboard: jest.fn(),
   checkEffectivePermission: jest.fn(),
+  generateCaseFile: jest.fn(),
 };
 
 const mockAttachmentService = {
@@ -239,20 +240,38 @@ describe('SafeguardingController', () => {
 
   // ─── Case File PDF ──────────────────────────────────────────────────────
 
-  it('should return not_implemented for generateCaseFile', async () => {
-    const result = await controller.generateCaseFile(TENANT, 'concern-1');
+  it('should call generateCaseFile with redacted=false and send PDF buffer', async () => {
+    const buffer = Buffer.from('%PDF-test');
+    mockSafeguardingService.generateCaseFile.mockResolvedValue(buffer);
+    const mockRes = { set: jest.fn(), send: jest.fn() } as unknown as import('express').Response;
 
-    expect(result).toEqual({
-      data: { status: 'not_implemented', message: expect.any(String) },
+    await controller.generateCaseFile(TENANT, 'concern-1', mockRes);
+
+    expect(mockSafeguardingService.generateCaseFile).toHaveBeenCalledWith(
+      'tenant-uuid', 'concern-1', false,
+    );
+    expect(mockRes.set).toHaveBeenCalledWith({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="case-file-concern-.pdf"',
     });
+    expect(mockRes.send).toHaveBeenCalledWith(buffer);
   });
 
-  it('should return not_implemented for generateRedactedCaseFile', async () => {
-    const result = await controller.generateRedactedCaseFile(TENANT, 'concern-1');
+  it('should call generateCaseFile with redacted=true and send PDF buffer', async () => {
+    const buffer = Buffer.from('%PDF-redacted-test');
+    mockSafeguardingService.generateCaseFile.mockResolvedValue(buffer);
+    const mockRes = { set: jest.fn(), send: jest.fn() } as unknown as import('express').Response;
 
-    expect(result).toEqual({
-      data: { status: 'not_implemented', message: expect.any(String) },
+    await controller.generateRedactedCaseFile(TENANT, 'concern-1', mockRes);
+
+    expect(mockSafeguardingService.generateCaseFile).toHaveBeenCalledWith(
+      'tenant-uuid', 'concern-1', true,
+    );
+    expect(mockRes.set).toHaveBeenCalledWith({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="case-file-redacted-concern-.pdf"',
     });
+    expect(mockRes.send).toHaveBeenCalledWith(buffer);
   });
 
   // ─── Seal ───────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -32,6 +33,7 @@ import {
   uploadSafeguardingAttachmentSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -235,23 +237,38 @@ export class SafeguardingController {
 
   @Post('concerns/:id/case-file')
   @RequiresPermission('safeguarding.manage')
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.OK)
   async generateCaseFile(
-    @CurrentTenant() _tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
   ) {
-    // PDF generation is deferred — requires Puppeteer integration
-    return { data: { status: 'not_implemented', message: 'Case file PDF generation will be available when Puppeteer is configured' } };
+    const buffer = await this.safeguardingService.generateCaseFile(
+      tenant.tenant_id, id, false,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="case-file-${id.slice(0, 8)}.pdf"`,
+    });
+    res.send(buffer);
   }
 
   @Post('concerns/:id/case-file/redacted')
   @RequiresPermission('safeguarding.manage')
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.OK)
   async generateRedactedCaseFile(
-    @CurrentTenant() _tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) _id: string,
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
   ) {
-    return { data: { status: 'not_implemented', message: 'Redacted case file PDF generation will be available when Puppeteer is configured' } };
+    const buffer = await this.safeguardingService.generateCaseFile(
+      tenant.tenant_id, id, true,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="case-file-redacted-${id.slice(0, 8)}.pdf"`,
+    });
+    res.send(buffer);
   }
 
   // ─── Seal ───────────────────────────────────────────────────────────────

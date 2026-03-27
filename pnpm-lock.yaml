@@ -349,6 +349,9 @@ importers:
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
+      handlebars:
+        specifier: ^4.7.9
+        version: 4.7.9
       ioredis:
         specifier: ^5.4.2
         version: 5.10.0
@@ -358,9 +361,15 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      resend:
+        specifier: ^4.1.0
+        version: 4.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      twilio:
+        specifier: ^5.4.0
+        version: 5.13.1
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
