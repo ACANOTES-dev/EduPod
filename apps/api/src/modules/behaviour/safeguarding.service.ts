@@ -10,6 +10,8 @@ import { $Enums, Prisma } from '@prisma/client';
 import {
   type AssignSafeguardingConcernDto,
   type BehaviourSettings,
+  type CreateConcernDto,
+  type CreateCpRecordDto,
   type GardaReferralDto,
   type InitiateSealDto,
   type ListSafeguardingActionsQuery,
@@ -27,6 +29,10 @@ import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { CpRecordService } from '../child-protection/services/cp-record.service';
+import { ConcernVersionService } from '../pastoral/services/concern-version.service';
+import { ConcernService } from '../pastoral/services/concern.service';
+import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
@@ -132,6 +138,27 @@ const PRISMA_TO_ACTION_TYPE: Record<string, string> = Object.fromEntries(
   Object.entries(ACTION_TYPE_TO_PRISMA).map(([k, v]) => [v, k]),
 );
 
+// ─── Behaviour → Pastoral severity mapping ──────────────────────────────────
+
+const BEHAVIOUR_TO_PASTORAL_SEVERITY: Record<string, string> = {
+  low: 'routine',
+  medium: 'elevated',
+  high: 'urgent',
+  critical: 'critical',
+};
+
+// ─── Behaviour → Pastoral status mapping ─────────────────────────────────────
+
+const BEHAVIOUR_TO_PASTORAL_STATUS: Record<string, string> = {
+  reported: 'routine',
+  acknowledged: 'routine',
+  under_investigation: 'elevated',
+  referred: 'elevated',
+  monitoring: 'monitoring',
+  resolved: 'resolved',
+  sealed: 'resolved',
+};
+
 @Injectable()
 export class SafeguardingService {
   private readonly logger = new Logger(SafeguardingService.name);
@@ -144,6 +171,10 @@ export class SafeguardingService {
     private readonly auditLogService: AuditLogService,
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
+    private readonly concernService: ConcernService,
+    private readonly cpRecordService: CpRecordService,
+    private readonly concernVersionService: ConcernVersionService,
+    private readonly pastoralEventService: PastoralEventService,
   ) {}
 
   // ─── Report Concern ─────────────────────────────────────────────────────
@@ -240,6 +271,60 @@ export class SafeguardingService {
         await db.behaviourIncident.update({
           where: { id: dto.incident_id },
           data: { status: 'converted_to_safeguarding' as $Enums.IncidentStatus },
+        });
+      }
+
+      // ─── Pastoral / CP delegation (facade) ──────────────────────────
+      try {
+        const pastoralSeverity = BEHAVIOUR_TO_PASTORAL_SEVERITY[dto.severity] ?? 'routine';
+
+        const concernDto: CreateConcernDto = {
+          student_id: dto.student_id,
+          category: 'child_protection',
+          severity: pastoralSeverity as CreateConcernDto['severity'],
+          narrative: dto.description,
+          occurred_at: new Date().toISOString(),
+          actions_taken: dto.immediate_actions_taken ?? null,
+          follow_up_needed: true,
+          author_masked: true,
+          tier: 3,
+          behaviour_incident_id: dto.incident_id ?? null,
+        };
+
+        const pastoralConcern = await this.concernService.create(
+          tenantId, userId, concernDto, null,
+        );
+
+        const cpRecordDto: CreateCpRecordDto = {
+          concern_id: pastoralConcern.data.id,
+          student_id: dto.student_id,
+          record_type: 'concern',
+          narrative: dto.description,
+        };
+
+        await this.cpRecordService.create(tenantId, userId, cpRecordDto, null);
+
+        // Store cross-reference
+        await db.safeguardingConcern.update({
+          where: { id: concern.id },
+          data: { pastoral_concern_id: pastoralConcern.data.id },
+        });
+      } catch (delegationError) {
+        this.logger.error(
+          `Pastoral/CP delegation failed for safeguarding concern ${concern.id}: ${delegationError instanceof Error ? delegationError.message : String(delegationError)}`,
+        );
+        // Enqueue retry job — behaviour record is primary, don't block
+        await this.behaviourQueue.add('pastoral:sync-behaviour-safeguarding', {
+          tenant_id: tenantId,
+          concern_id: concern.id,
+          user_id: userId,
+          dto_snapshot: {
+            student_id: dto.student_id,
+            severity: dto.severity,
+            description: dto.description,
+            immediate_actions_taken: dto.immediate_actions_taken ?? null,
+            incident_id: dto.incident_id ?? null,
+          },
         });
       }
 
@@ -515,6 +600,21 @@ export class SafeguardingService {
         'safeguarding_concern_updated', { fields: Object.keys(dto) }, null,
       );
 
+      // ─── Propagate description change to pastoral concern version ───
+      if (dto.description !== undefined && concern.pastoral_concern_id) {
+        try {
+          await this.concernVersionService.amendNarrative(
+            tenantId, userId, concern.pastoral_concern_id,
+            { new_narrative: dto.description, amendment_reason: 'Updated via behaviour safeguarding' },
+            null,
+          );
+        } catch (propError) {
+          this.logger.error(
+            `Pastoral description propagation failed for concern ${concernId}: ${propError instanceof Error ? propError.message : String(propError)}`,
+          );
+        }
+      }
+
       return { data: { id: updated.id, status: PRISMA_TO_STATUS[updated.status] ?? updated.status } };
     }) as Promise<{ data: { id: string; status: string } }>;
   }
@@ -609,6 +709,35 @@ export class SafeguardingService {
         { from: fromStatus, to: toStatus },
         null,
       );
+
+      // ─── Propagate status change to pastoral concern ────────────────
+      if (concern.pastoral_concern_id) {
+        const pastoralStatus = BEHAVIOUR_TO_PASTORAL_STATUS[toStatus];
+        if (pastoralStatus) {
+          try {
+            void this.pastoralEventService.write({
+              tenant_id: tenantId,
+              event_type: 'concern_status_changed',
+              entity_type: 'concern',
+              entity_id: concern.pastoral_concern_id,
+              student_id: concern.student_id,
+              actor_user_id: userId,
+              tier: 3,
+              payload: {
+                concern_id: concern.pastoral_concern_id,
+                old_status: BEHAVIOUR_TO_PASTORAL_STATUS[fromStatus] ?? fromStatus,
+                new_status: pastoralStatus,
+                source: 'behaviour_safeguarding',
+              },
+              ip_address: null,
+            });
+          } catch (propError) {
+            this.logger.error(
+              `Pastoral status propagation failed for concern ${concernId}: ${propError instanceof Error ? propError.message : String(propError)}`,
+            );
+          }
+        }
+      }
 
       return { data: { id: updated.id, status: PRISMA_TO_STATUS[updated.status] ?? updated.status } };
     }) as Promise<{ data: { id: string; status: string } }>;

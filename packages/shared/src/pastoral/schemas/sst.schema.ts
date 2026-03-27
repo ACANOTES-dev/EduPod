@@ -1,15 +1,15 @@
 import { z } from 'zod';
 
-import { actionStatusSchema, agendaItemSourceSchema, sstMeetingStatusSchema } from '../enums';
+import { actionStatusSchema, sstMeetingStatusSchema } from '../enums';
 
-// ─── SST Member ────────────────────────────────────────────────────────────
+// ─── Roster ───────────────────────────────────────────────────────────────
 
-export const createSstMemberSchema = z.object({
+export const addSstMemberSchema = z.object({
   user_id: z.string().uuid(),
   role_description: z.string().max(100).optional(),
 });
 
-export type CreateSstMemberDto = z.infer<typeof createSstMemberSchema>;
+export type AddSstMemberDto = z.infer<typeof addSstMemberSchema>;
 
 export const updateSstMemberSchema = z.object({
   role_description: z.string().max(100).optional(),
@@ -18,59 +18,48 @@ export const updateSstMemberSchema = z.object({
 
 export type UpdateSstMemberDto = z.infer<typeof updateSstMemberSchema>;
 
-// ─── SST Meeting ───────────────────────────────────────────────────────────
+// ─── Meetings ─────────────────────────────────────────────────────────────
 
 export const createMeetingSchema = z.object({
   scheduled_at: z.string().datetime(),
-  attendees: z.array(z.object({
-    user_id: z.string().uuid(),
-    name: z.string(),
-    present: z.boolean().default(true),
-  })).optional(),
-  general_notes: z.string().optional(),
 });
 
 export type CreateMeetingDto = z.infer<typeof createMeetingSchema>;
 
-export const updateMeetingSchema = z.object({
-  scheduled_at: z.string().datetime().optional(),
+export const meetingFilterSchema = z.object({
   status: sstMeetingStatusSchema.optional(),
-  attendees: z.array(z.object({
-    user_id: z.string().uuid(),
-    name: z.string(),
-    present: z.boolean(),
-  })).optional(),
-  general_notes: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export type UpdateMeetingDto = z.infer<typeof updateMeetingSchema>;
-
-// ─── Meeting Attendee sub-schema ───────────────────────────────────────────
+export type MeetingFilterDto = z.infer<typeof meetingFilterSchema>;
 
 export const meetingAttendeeSchema = z.object({
   user_id: z.string().uuid(),
   name: z.string(),
-  present: z.boolean(),
+  present: z.boolean().nullable(),
 });
 
-export type MeetingAttendee = z.infer<typeof meetingAttendeeSchema>;
+export type MeetingAttendeeDto = z.infer<typeof meetingAttendeeSchema>;
 
-// ─── Agenda Item ───────────────────────────────────────────────────────────
+export const updateMeetingNotesSchema = z.object({
+  general_notes: z.string(),
+});
 
-export const createAgendaItemSchema = z.object({
-  meeting_id: z.string().uuid(),
-  source: agendaItemSourceSchema,
+export type UpdateMeetingNotesDto = z.infer<typeof updateMeetingNotesSchema>;
+
+// ─── Agenda ───────────────────────────────────────────────────────────────
+
+export const createManualAgendaItemSchema = z.object({
+  description: z.string().min(1),
   student_id: z.string().uuid().optional(),
   case_id: z.string().uuid().optional(),
-  concern_id: z.string().uuid().optional(),
-  description: z.string().min(1),
-  display_order: z.number().int().default(0),
+  display_order: z.number().int().optional(),
 });
 
-export type CreateAgendaItemDto = z.infer<typeof createAgendaItemSchema>;
+export type CreateManualAgendaItemDto = z.infer<typeof createManualAgendaItemSchema>;
 
 export const updateAgendaItemSchema = z.object({
-  description: z.string().min(1).optional(),
   discussion_notes: z.string().optional(),
   decisions: z.string().optional(),
   display_order: z.number().int().optional(),
@@ -78,51 +67,38 @@ export const updateAgendaItemSchema = z.object({
 
 export type UpdateAgendaItemDto = z.infer<typeof updateAgendaItemSchema>;
 
-// ─── Meeting Action ────────────────────────────────────────────────────────
+// ─── Actions ──────────────────────────────────────────────────────────────
 
 export const createMeetingActionSchema = z.object({
-  meeting_id: z.string().uuid(),
   agenda_item_id: z.string().uuid().optional(),
   student_id: z.string().uuid().optional(),
   case_id: z.string().uuid().optional(),
   description: z.string().min(1),
   assigned_to_user_id: z.string().uuid(),
-  due_date: z.string(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 export type CreateMeetingActionDto = z.infer<typeof createMeetingActionSchema>;
 
 export const updateMeetingActionSchema = z.object({
   description: z.string().min(1).optional(),
-  assigned_to_user_id: z.string().uuid().optional(),
-  due_date: z.string().optional(),
-  status: actionStatusSchema.optional(),
+  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export type UpdateMeetingActionDto = z.infer<typeof updateMeetingActionSchema>;
 
-// ─── Filters ───────────────────────────────────────────────────────────────
-
-export const meetingFiltersSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  status: sstMeetingStatusSchema.optional(),
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
-  sort: z.enum(['scheduled_at', 'created_at']).default('scheduled_at'),
-  order: z.enum(['asc', 'desc']).default('desc'),
-});
-
-export type MeetingFilters = z.infer<typeof meetingFiltersSchema>;
-
-export const meetingActionFiltersSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  meeting_id: z.string().uuid().optional(),
-  assigned_to_user_id: z.string().uuid().optional(),
+export const actionFilterSchema = z.object({
   status: actionStatusSchema.optional(),
-  sort: z.enum(['due_date', 'created_at', 'status']).default('due_date'),
-  order: z.enum(['asc', 'desc']).default('asc'),
+  assigned_to_user_id: z.string().uuid().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export type MeetingActionFilters = z.infer<typeof meetingActionFiltersSchema>;
+export type ActionFilterDto = z.infer<typeof actionFilterSchema>;
+
+// ─── Attendees JSONB schema ───────────────────────────────────────────────
+
+export const meetingAttendeesJsonSchema = z.array(meetingAttendeeSchema);
+
+export type MeetingAttendeesJson = z.infer<typeof meetingAttendeesJsonSchema>;

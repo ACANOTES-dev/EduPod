@@ -56,7 +56,8 @@ export type EscalateConcernTierDto = z.infer<typeof escalateConcernTierSchema>;
 // ─── Share with Parent ─────────────────────────────────────────────────────
 
 export const shareConcernWithParentSchema = z.object({
-  share_level: parentShareLevelSchema,
+  share_level: parentShareLevelSchema.optional(),
+  notify_parent: z.boolean().default(false),
 });
 
 export type ShareConcernWithParentDto = z.infer<typeof shareConcernWithParentSchema>;

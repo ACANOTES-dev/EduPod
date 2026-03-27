@@ -6327,6 +6327,7 @@ model SafeguardingConcern {
   sealed_reason                    String?                 @db.Text
   seal_approved_by_id              String?                 @db.Uuid
   retention_until                  DateTime?               @db.Date
+  pastoral_concern_id              String?                 @db.Uuid
   created_at                       DateTime                @default(now()) @db.Timestamptz()
   updated_at                       DateTime                @default(now()) @updatedAt @db.Timestamptz()
 
@@ -6338,6 +6339,7 @@ model SafeguardingConcern {
   assigned_to        User?                         @relation("sg_concern_assignee", fields: [assigned_to_id], references: [id], onDelete: SetNull)
   sealed_by          User?                         @relation("sg_concern_sealer", fields: [sealed_by_id], references: [id], onDelete: SetNull)
   seal_approved_by   User?                         @relation("sg_concern_seal_approver", fields: [seal_approved_by_id], references: [id], onDelete: SetNull)
+  pastoralConcern    PastoralConcern?              @relation(fields: [pastoral_concern_id], references: [id], onDelete: SetNull)
   actions            SafeguardingAction[]
   concern_incidents  SafeguardingConcernIncident[]
 
@@ -6461,7 +6463,8 @@ model PastoralConcern {
   cp_records         CpRecord[]
   parent_contacts    PastoralParentContact[]  @relation("pc_parent_contact_concern")
   sst_agenda_items   SstMeetingAgendaItem[]   @relation("pc_sst_agenda_concern")
-  student_checkins   StudentCheckin[]         @relation("pc_checkin_auto_concern")
+  student_checkins       StudentCheckin[]         @relation("pc_checkin_auto_concern")
+  safeguardingConcerns   SafeguardingConcern[]
 
   @@index([tenant_id, student_id, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_student_created")
   @@index([tenant_id, tier, created_at(sort: Desc)], map: "idx_pastoral_concerns_tenant_tier_created")

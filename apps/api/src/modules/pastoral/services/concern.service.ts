@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -591,6 +592,185 @@ export class ConcernService {
     return { data: updated };
   }
 
+  // ─── SHARE WITH PARENT (SW-2C) ──────────────────────────────────────────────
+
+  /**
+   * Mark a concern as shareable with parents, with permission checks and audit.
+   *
+   * Permission rules:
+   * - The logging teacher (concern.logged_by_user_id === userId) can share
+   * - Any user with pastoral.view_tier2 can share
+   * - Year head for the student's year group can share
+   *
+   * Tier 3 concerns cannot be shared with parents (hard rule).
+   * When share_level is omitted, falls back to tenant_settings.parent_share_default_level.
+   */
+  async shareConcernWithParent(
+    tenantId: string,
+    userId: string,
+    membershipId: string,
+    concernId: string,
+    dto: ShareConcernWithParentDto,
+  ): Promise<{ data: { id: string; parent_shareable: boolean; parent_share_level: string; shared_at: string } }> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    // 1. Load the concern
+    const concern = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.pastoralConcern.findUnique({ where: { id: concernId } });
+    })) as ConcernRow | null;
+
+    if (!concern) {
+      throw new NotFoundException({
+        code: 'CONCERN_NOT_FOUND',
+        message: `Concern "${concernId}" not found`,
+      });
+    }
+
+    // 2. Tier 3 concerns cannot be shared with parents
+    if (concern.tier === 3) {
+      throw new ForbiddenException({
+        code: 'TIER3_SHARE_BLOCKED',
+        message: 'Tier 3 concerns cannot be shared with parents',
+      });
+    }
+
+    // 3. Permission check: caller must be logging teacher, have pastoral.view_tier2, or be year head
+    const isLoggingTeacher = concern.logged_by_user_id === userId;
+    const permissions = await this.permissionCacheService.getPermissions(membershipId);
+    const hasTier2 = permissions.includes('pastoral.view_tier2');
+    const isYearHead = await this.checkIsYearHead(tenantId, membershipId);
+
+    if (!isLoggingTeacher && !hasTier2 && !isYearHead) {
+      throw new ForbiddenException({
+        code: 'SHARE_NOT_PERMITTED',
+        message: 'You do not have permission to share this concern with parents',
+      });
+    }
+
+    // 4. Resolve share_level (fallback to tenant default if omitted)
+    let shareLevel = dto.share_level;
+    if (!shareLevel) {
+      const settings = await this.loadPastoralSettings(tenantId);
+      shareLevel = settings.parent_share_default_level;
+    }
+
+    // 5. Update the concern
+    const now = new Date();
+    const updated = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return db.pastoralConcern.update({
+        where: { id: concernId },
+        data: {
+          parent_shareable: true,
+          parent_share_level: shareLevel,
+          shared_by_user_id: userId,
+          shared_at: now,
+        },
+      });
+    })) as ConcernRow;
+
+    // 6. Write immutable audit event
+    void this.eventService.write({
+      tenant_id: tenantId,
+      event_type: 'concern_shared_with_parent',
+      entity_type: 'concern',
+      entity_id: concernId,
+      student_id: concern.student_id,
+      actor_user_id: userId,
+      tier: concern.tier,
+      payload: {
+        concern_id: concernId,
+        share_level: shareLevel,
+        shared_by_user_id: userId,
+      },
+      ip_address: null,
+    });
+
+    // 7. Optionally enqueue parent notification
+    if (dto.notify_parent) {
+      await this.notificationsQueue.add('pastoral:notify-parent-share', {
+        tenant_id: tenantId,
+        concern_id: concernId,
+        student_id: concern.student_id,
+        category: concern.category,
+      });
+    }
+
+    return {
+      data: {
+        id: updated.id,
+        parent_shareable: updated.parent_shareable,
+        parent_share_level: updated.parent_share_level ?? shareLevel,
+        shared_at: (updated.shared_at ?? now).toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Revoke parent sharing on a concern.
+   * Requires pastoral.view_tier2 (enforced at the controller layer).
+   * Generates immutable `concern_unshared_from_parent` audit event.
+   */
+  async unshareConcernFromParent(
+    tenantId: string,
+    userId: string,
+    concernId: string,
+  ): Promise<{ data: { id: string; parent_shareable: boolean } }> {
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    const updated = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+
+      const existing = await db.pastoralConcern.findUnique({
+        where: { id: concernId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException({
+          code: 'CONCERN_NOT_FOUND',
+          message: `Concern "${concernId}" not found`,
+        });
+      }
+
+      const result = await db.pastoralConcern.update({
+        where: { id: concernId },
+        data: { parent_shareable: false },
+      });
+
+      // Write immutable audit event
+      void this.eventService.write({
+        tenant_id: tenantId,
+        event_type: 'concern_unshared_from_parent',
+        entity_type: 'concern',
+        entity_id: concernId,
+        student_id: existing.student_id,
+        actor_user_id: userId,
+        tier: existing.tier,
+        payload: {
+          concern_id: concernId,
+          unshared_by_user_id: userId,
+        },
+        ip_address: null,
+      });
+
+      return result;
+    })) as ConcernRow;
+
+    return {
+      data: {
+        id: updated.id,
+        parent_shareable: updated.parent_shareable,
+      },
+    };
+  }
+
   // ─── GET CATEGORIES ─────────────────────────────────────────────────────────
 
   async getCategories(
@@ -789,6 +969,25 @@ export class ConcernService {
     });
 
     return !!grant;
+  }
+
+  /**
+   * Checks whether the user (by membership) has the 'year_head' role in this tenant.
+   */
+  private async checkIsYearHead(
+    tenantId: string,
+    membershipId: string,
+  ): Promise<boolean> {
+    const role = await this.prisma.membershipRole.findFirst({
+      where: {
+        membership_id: membershipId,
+        tenant_id: tenantId,
+        role: { role_key: 'year_head' },
+      },
+      select: { membership_id: true },
+    });
+
+    return !!role;
   }
 
   /**

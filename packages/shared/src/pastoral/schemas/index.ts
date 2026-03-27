@@ -16,3 +16,5 @@ export * from './critical-incident.schema';
 export * from './checkin.schema';
 export * from './export.schema';
 export * from './mandated-report.schema';
+export * from './parent-engagement.schema';
+export * from './escalation-settings.schema';

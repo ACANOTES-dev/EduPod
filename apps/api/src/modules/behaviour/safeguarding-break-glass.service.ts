@@ -13,6 +13,14 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+export type EffectivePermissionContext = 'normal' | 'break_glass' | 'cp_access_grant';
+
+export interface EffectivePermissionResult {
+  allowed: boolean;
+  context: EffectivePermissionContext;
+  grantId?: string;
+}
+
 @Injectable()
 export class SafeguardingBreakGlassService {
   private readonly logger = new Logger(SafeguardingBreakGlassService.name);
@@ -22,6 +30,86 @@ export class SafeguardingBreakGlassService {
     private readonly auditLogService: AuditLogService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
+
+  // ─── Effective Permission Check (dual source) ──────────────────────────────
+
+  async checkEffectivePermission(
+    userId: string,
+    tenantId: string,
+    membershipId: string,
+    concernId?: string,
+  ): Promise<EffectivePermissionResult> {
+    // 1. Check RBAC for safeguarding.view permission
+    const membership = await this.prisma.tenantMembership.findFirst({
+      where: { id: membershipId, user_id: userId, tenant_id: tenantId },
+      include: {
+        membership_roles: {
+          include: {
+            role: {
+              include: {
+                role_permissions: {
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (membership) {
+      const permissions = new Set<string>();
+      for (const mr of membership.membership_roles) {
+        for (const rp of mr.role.role_permissions) {
+          permissions.add(rp.permission.permission_key);
+        }
+      }
+      if (permissions.has('safeguarding.view')) {
+        return { allowed: true, context: 'normal' };
+      }
+    }
+
+    // 2. Check behaviour break-glass grant
+    const grantWhere: Prisma.SafeguardingBreakGlassGrantWhereInput = {
+      tenant_id: tenantId,
+      granted_to_id: userId,
+      revoked_at: null,
+      expires_at: { gt: new Date() },
+    };
+
+    if (concernId) {
+      grantWhere.OR = [
+        { scope: 'all_concerns' as $Enums.BreakGlassScope },
+        {
+          scope: 'specific_concerns' as $Enums.BreakGlassScope,
+          scoped_concern_ids: { has: concernId },
+        },
+      ];
+    }
+
+    const breakGlassGrant = await this.prisma.safeguardingBreakGlassGrant.findFirst({
+      where: grantWhere,
+    });
+
+    if (breakGlassGrant) {
+      return { allowed: true, context: 'break_glass', grantId: breakGlassGrant.id };
+    }
+
+    // 3. Check pastoral cp_access_grants for active grant
+    const cpGrant = await this.prisma.cpAccessGrant.findFirst({
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        revoked_at: null,
+      },
+    });
+
+    if (cpGrant) {
+      return { allowed: true, context: 'cp_access_grant', grantId: cpGrant.id };
+    }
+
+    return { allowed: false, context: 'normal' };
+  }
 
   // ─── Grant Access ──────────────────────────────────────────────────────────
 

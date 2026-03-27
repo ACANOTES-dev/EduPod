@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -17,6 +17,8 @@ const USER_ID_B = 'cccccccc-cccc-cccc-cccc-cccccccccccc'; // viewer (non-DLP)
 const USER_ID_DLP = 'dddddddd-dddd-dddd-dddd-dddddddddddd'; // DLP user
 const STUDENT_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const CONCERN_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const MEMBERSHIP_ID_A = '11111111-1111-1111-1111-111111111111'; // author membership
+const MEMBERSHIP_ID_B = '22222222-2222-2222-2222-222222222222'; // viewer membership
 
 // ─── RLS mock ───────────────────────────────────────────────────────────────
 
@@ -119,9 +121,11 @@ describe('ConcernService', () => {
     listVersions: jest.Mock;
   };
   let mockPermissionCacheService: { getPermissions: jest.Mock };
+  let mockNotificationsQueue: { add: jest.Mock };
   let mockPrisma: {
     tenantSetting: { findUnique: jest.Mock };
     cpAccessGrant: { findFirst: jest.Mock };
+    membershipRole: { findFirst: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -146,11 +150,16 @@ describe('ConcernService', () => {
       getPermissions: jest.fn().mockResolvedValue([]),
     };
 
+    mockNotificationsQueue = { add: jest.fn().mockResolvedValue(undefined) };
+
     mockPrisma = {
       tenantSetting: {
         findUnique: jest.fn().mockResolvedValue(makeTenantSettingsRecord()),
       },
       cpAccessGrant: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      membershipRole: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
     };
@@ -177,7 +186,7 @@ describe('ConcernService', () => {
         },
         {
           provide: getQueueToken('notifications'),
-          useValue: { add: jest.fn().mockResolvedValue(undefined) },
+          useValue: mockNotificationsQueue,
         },
         {
           provide: getQueueToken('pastoral'),
@@ -572,7 +581,7 @@ describe('ConcernService', () => {
         TENANT_ID,
         USER_ID_A,
         CONCERN_ID,
-        { share_level: 'category_summary' },
+        { share_level: 'category_summary', notify_parent: false },
       );
 
       // Verify update was called with correct fields
@@ -697,6 +706,222 @@ describe('ConcernService', () => {
           payload: expect.objectContaining({
             concern_id: CONCERN_ID,
             acknowledged_by_user_id: USER_ID_B,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── shareConcernWithParent / unshareConcernFromParent ──────────────────
+
+  describe('shareConcernWithParent', () => {
+    it('shares concern with explicit share_level', async () => {
+      const concern = makeConcern({ tier: 1, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(
+        makeConcern({
+          parent_shareable: true,
+          parent_share_level: 'category_summary',
+          shared_by_user_id: USER_ID_A,
+          shared_at: new Date('2026-03-27T12:00:00Z'),
+        }),
+      );
+      // Logging teacher shares their own concern -- no extra permissions needed
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
+
+      const result = await service.shareConcernWithParent(
+        TENANT_ID,
+        USER_ID_A,
+        MEMBERSHIP_ID_A,
+        CONCERN_ID,
+        { share_level: 'category_summary', notify_parent: false },
+      );
+
+      expect(result.data.parent_shareable).toBe(true);
+      expect(result.data.parent_share_level).toBe('category_summary');
+      expect(result.data.shared_at).toBeDefined();
+
+      // Verify update was called
+      expect(mockRlsTx.pastoralConcern.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            parent_shareable: true,
+            parent_share_level: 'category_summary',
+            shared_by_user_id: USER_ID_A,
+          }),
+        }),
+      );
+
+      // Verify audit event
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'concern_shared_with_parent',
+          payload: expect.objectContaining({
+            concern_id: CONCERN_ID,
+            share_level: 'category_summary',
+            shared_by_user_id: USER_ID_A,
+          }),
+        }),
+      );
+    });
+
+    it('defaults to tenant setting when share_level is omitted', async () => {
+      const concern = makeConcern({ tier: 1, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(
+        makeConcern({
+          parent_shareable: true,
+          parent_share_level: 'category_only',
+          shared_by_user_id: USER_ID_A,
+          shared_at: new Date('2026-03-27T12:00:00Z'),
+        }),
+      );
+      // Tenant setting has parent_share_default_level = 'category_only' (Zod default)
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(
+        makeTenantSettingsRecord({ parent_share_default_level: 'category_only' }),
+      );
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
+
+      const result = await service.shareConcernWithParent(
+        TENANT_ID,
+        USER_ID_A,
+        MEMBERSHIP_ID_A,
+        CONCERN_ID,
+        { notify_parent: false },
+      );
+
+      expect(result.data.parent_share_level).toBe('category_only');
+
+      // Verify update used the default level
+      expect(mockRlsTx.pastoralConcern.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            parent_share_level: 'category_only',
+          }),
+        }),
+      );
+    });
+
+    it('rejects Tier 3 concerns with ForbiddenException', async () => {
+      const tier3Concern = makeConcern({ tier: 3, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(tier3Concern);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier2']);
+
+      await expect(
+        service.shareConcernWithParent(
+          TENANT_ID,
+          USER_ID_A,
+          MEMBERSHIP_ID_A,
+          CONCERN_ID,
+          { share_level: 'category_only', notify_parent: false },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      // Verify no update was attempted
+      expect(mockRlsTx.pastoralConcern.update).not.toHaveBeenCalled();
+    });
+
+    it('logging teacher can share their own concern', async () => {
+      const concern = makeConcern({ tier: 1, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(
+        makeConcern({ parent_shareable: true, parent_share_level: 'full_detail' }),
+      );
+      // User A is the logging teacher -- no special permissions needed
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
+
+      const result = await service.shareConcernWithParent(
+        TENANT_ID,
+        USER_ID_A,
+        MEMBERSHIP_ID_A,
+        CONCERN_ID,
+        { share_level: 'full_detail', notify_parent: false },
+      );
+
+      expect(result.data.parent_shareable).toBe(true);
+    });
+
+    it('user with pastoral.view_tier2 can share any concern', async () => {
+      // User B is NOT the logging teacher, but has view_tier2
+      const concern = makeConcern({ tier: 1, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(
+        makeConcern({ parent_shareable: true, parent_share_level: 'category_only' }),
+      );
+      mockPermissionCacheService.getPermissions.mockResolvedValue([
+        'pastoral.view_tier1',
+        'pastoral.view_tier2',
+      ]);
+
+      const result = await service.shareConcernWithParent(
+        TENANT_ID,
+        USER_ID_B,
+        MEMBERSHIP_ID_B,
+        CONCERN_ID,
+        { share_level: 'category_only', notify_parent: false },
+      );
+
+      expect(result.data.parent_shareable).toBe(true);
+    });
+
+    it('user without qualifying permission gets ForbiddenException', async () => {
+      // User B is NOT the logging teacher, does NOT have view_tier2, is NOT year head
+      const concern = makeConcern({ tier: 1, logged_by_user_id: USER_ID_A });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(concern);
+      mockPermissionCacheService.getPermissions.mockResolvedValue(['pastoral.view_tier1']);
+      mockPrisma.membershipRole.findFirst.mockResolvedValue(null); // not year head
+
+      await expect(
+        service.shareConcernWithParent(
+          TENANT_ID,
+          USER_ID_B,
+          MEMBERSHIP_ID_B,
+          CONCERN_ID,
+          { share_level: 'category_only', notify_parent: false },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockRlsTx.pastoralConcern.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unshareConcernFromParent', () => {
+    it('sets parent_shareable=false and writes audit event', async () => {
+      const sharedConcern = makeConcern({
+        parent_shareable: true,
+        parent_share_level: 'category_summary',
+        shared_by_user_id: USER_ID_A,
+        shared_at: new Date('2026-03-27T12:00:00Z'),
+      });
+      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(sharedConcern);
+      mockRlsTx.pastoralConcern.update.mockResolvedValue(
+        makeConcern({ parent_shareable: false }),
+      );
+
+      const result = await service.unshareConcernFromParent(
+        TENANT_ID,
+        USER_ID_B,
+        CONCERN_ID,
+      );
+
+      expect(result.data.parent_shareable).toBe(false);
+
+      // Verify update was called
+      expect(mockRlsTx.pastoralConcern.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            parent_shareable: false,
+          }),
+        }),
+      );
+
+      // Verify audit event
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'concern_unshared_from_parent',
+          payload: expect.objectContaining({
+            concern_id: CONCERN_ID,
+            unshared_by_user_id: USER_ID_B,
           }),
         }),
       );

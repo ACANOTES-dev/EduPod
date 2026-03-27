@@ -51,6 +51,7 @@ import { InterventionReviewReminderProcessor } from './processors/pastoral/inter
 import { NotifyConcernProcessor } from './processors/pastoral/notify-concern.processor';
 import { OverdueActionsProcessor } from './processors/pastoral/overdue-actions.processor';
 import { PrecomputeAgendaProcessor } from './processors/pastoral/precompute-agenda.processor';
+import { SyncBehaviourSafeguardingProcessor } from './processors/pastoral/sync-behaviour-safeguarding.processor';
 import { PayrollApprovalCallbackProcessor } from './processors/payroll/approval-callback.processor';
 import { PayrollMassExportProcessor } from './processors/payroll/mass-export.processor';
 import { PayrollSessionGenerationProcessor } from './processors/payroll/session-generation.processor';
@@ -207,6 +208,7 @@ import { SearchReindexProcessor } from './processors/search-reindex.processor';
     EscalationTimeoutProcessor,
     PrecomputeAgendaProcessor,
     OverdueActionsProcessor,
+    SyncBehaviourSafeguardingProcessor,
     InterventionReviewReminderProcessor,
     CheckinAlertProcessor,
   ],

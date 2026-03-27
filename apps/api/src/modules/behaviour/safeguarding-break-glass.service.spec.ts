@@ -41,10 +41,18 @@ import { SafeguardingBreakGlassService } from './safeguarding-break-glass.servic
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const USER_ID = '22222222-2222-2222-2222-222222222222';
+const MEMBERSHIP_ID = '33333333-3333-3333-3333-333333333333';
 const CONCERN_ID = '44444444-4444-4444-4444-444444444444';
 const GRANT_ID = '99999999-9999-9999-9999-999999999999';
+const CP_GRANT_ID = '88888888-8888-8888-8888-888888888888';
 
 const mockNotificationsQueue = { add: jest.fn().mockResolvedValue({}) };
+
+const mockPrisma = {
+  tenantMembership: { findFirst: jest.fn() },
+  safeguardingBreakGlassGrant: { findFirst: jest.fn() },
+  cpAccessGrant: { findFirst: jest.fn() },
+};
 
 describe('SafeguardingBreakGlassService', () => {
   let service: SafeguardingBreakGlassService;
@@ -53,7 +61,7 @@ describe('SafeguardingBreakGlassService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SafeguardingBreakGlassService,
-        { provide: PrismaService, useValue: {} },
+        { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditLogService, useValue: { write: jest.fn() } },
         { provide: 'BullQueue_notifications', useValue: mockNotificationsQueue },
       ],
@@ -293,6 +301,88 @@ describe('SafeguardingBreakGlassService', () => {
       await expect(
         service.completeReview(TENANT_ID, USER_ID, GRANT_ID, reviewDto),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── checkEffectivePermission ───────────────────────────────────────────────
+
+  describe('checkEffectivePermission', () => {
+    beforeEach(() => {
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue(null);
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+    });
+
+    it('should allow access via cp_access_grant when user has active grant', async () => {
+      // RBAC denied, break-glass denied, but cp_access_grant exists
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue({
+        id: CP_GRANT_ID,
+        tenant_id: TENANT_ID,
+        user_id: USER_ID,
+        revoked_at: null,
+      });
+
+      const result = await service.checkEffectivePermission(
+        USER_ID,
+        TENANT_ID,
+        MEMBERSHIP_ID,
+      );
+
+      expect(result).toEqual({
+        allowed: true,
+        context: 'cp_access_grant',
+        grantId: CP_GRANT_ID,
+      });
+
+      // Verify cp_access_grant was queried with correct filters
+      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalledWith({
+        where: {
+          user_id: USER_ID,
+          tenant_id: TENANT_ID,
+          revoked_at: null,
+        },
+      });
+    });
+
+    it('should allow access via break-glass grant (backward compatibility)', async () => {
+      // RBAC denied, but break-glass grant exists
+      mockPrisma.safeguardingBreakGlassGrant.findFirst.mockResolvedValue({
+        id: GRANT_ID,
+      });
+
+      const result = await service.checkEffectivePermission(
+        USER_ID,
+        TENANT_ID,
+        MEMBERSHIP_ID,
+      );
+
+      expect(result).toEqual({
+        allowed: true,
+        context: 'break_glass',
+        grantId: GRANT_ID,
+      });
+
+      // cp_access_grant should NOT be checked when break-glass already granted
+      expect(mockPrisma.cpAccessGrant.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('should deny access when user has neither grant type', async () => {
+      // All three checks return nothing
+      const result = await service.checkEffectivePermission(
+        USER_ID,
+        TENANT_ID,
+        MEMBERSHIP_ID,
+      );
+
+      expect(result).toEqual({
+        allowed: false,
+        context: 'normal',
+      });
+
+      // All three sources should have been checked
+      expect(mockPrisma.tenantMembership.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.safeguardingBreakGlassGrant.findFirst).toHaveBeenCalled();
+      expect(mockPrisma.cpAccessGrant.findFirst).toHaveBeenCalled();
     });
   });
 });

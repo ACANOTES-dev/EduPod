@@ -58,6 +58,10 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
 }));
 
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { CpRecordService } from '../child-protection/services/cp-record.service';
+import { ConcernVersionService } from '../pastoral/services/concern-version.service';
+import { ConcernService } from '../pastoral/services/concern.service';
+import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
@@ -70,6 +74,8 @@ const TENANT_ID = '11111111-1111-1111-1111-111111111111';
 const USER_ID = '22222222-2222-2222-2222-222222222222';
 const USER_ID_2 = '33333333-3333-3333-3333-333333333333';
 const CONCERN_ID = '44444444-4444-4444-4444-444444444444';
+const PASTORAL_CONCERN_ID = '88888888-8888-8888-8888-888888888888';
+const CP_RECORD_ID = '99999999-9999-9999-9999-999999999999';
 const STUDENT_ID = '55555555-5555-5555-5555-555555555555';
 const MEMBERSHIP_ID = '66666666-6666-6666-6666-666666666666';
 const INCIDENT_ID = '77777777-7777-7777-7777-777777777777';
@@ -113,6 +119,66 @@ const mockAuditLogService = {
 const mockHistoryService = {};
 const mockTasksService = {};
 
+// ─── Mock Pastoral / CP Services ───────────────────────────────────────────
+
+const mockConcernService = {
+  create: jest.fn().mockResolvedValue({
+    data: {
+      id: PASTORAL_CONCERN_ID,
+      tenant_id: TENANT_ID,
+      student_id: STUDENT_ID,
+      logged_by_user_id: USER_ID,
+      author_masked: false,
+      category: 'child_protection',
+      severity: 'critical',
+      tier: 3,
+      occurred_at: new Date(),
+      location: null,
+      witnesses: null,
+      actions_taken: null,
+      follow_up_needed: false,
+      follow_up_suggestion: null,
+      case_id: null,
+      behaviour_incident_id: null,
+      parent_shareable: false,
+      parent_share_level: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+  }),
+};
+
+const mockCpRecordService = {
+  create: jest.fn().mockResolvedValue({
+    data: {
+      id: CP_RECORD_ID,
+      tenant_id: TENANT_ID,
+      student_id: STUDENT_ID,
+      concern_id: PASTORAL_CONCERN_ID,
+      record_type: 'concern',
+      logged_by_user_id: USER_ID,
+      logged_by_name: null,
+      narrative: 'Visible bruising on arm',
+      mandated_report_status: null,
+      mandated_report_ref: null,
+      tusla_contact_name: null,
+      tusla_contact_date: null,
+      legal_hold: false,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+  }),
+};
+
+const mockConcernVersionService = {
+  createInitialVersion: jest.fn().mockResolvedValue({ id: 'version-1' }),
+  amendNarrative: jest.fn().mockResolvedValue({ data: { id: 'version-2' } }),
+};
+
+const mockPastoralEventService = {
+  write: jest.fn().mockResolvedValue(undefined),
+};
+
 // ─── Helper: build a base concern record ────────────────────────────────────
 
 function makeConcern(overrides: Record<string, unknown> = {}) {
@@ -138,6 +204,7 @@ function makeConcern(overrides: Record<string, unknown> = {}) {
     seal_approved_by_id: null,
     resolved_at: null,
     reporter_acknowledgement_status: null,
+    pastoral_concern_id: null,
     created_at: new Date(),
     updated_at: new Date(),
     ...overrides,
@@ -202,6 +269,10 @@ describe('SafeguardingService', () => {
         { provide: AuditLogService, useValue: mockAuditLogService },
         { provide: 'BullQueue_behaviour', useValue: mockBehaviourQueue },
         { provide: 'BullQueue_notifications', useValue: mockNotificationsQueue },
+        { provide: ConcernService, useValue: mockConcernService },
+        { provide: CpRecordService, useValue: mockCpRecordService },
+        { provide: ConcernVersionService, useValue: mockConcernVersionService },
+        { provide: PastoralEventService, useValue: mockPastoralEventService },
       ],
     }).compile();
 
@@ -946,6 +1017,237 @@ describe('SafeguardingService', () => {
           { status: 'resolved' as const, reason: 'Skipping investigation' },
         ),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── Behaviour-Pastoral Facade Delegation ─────────────────────────────
+
+  describe('facade delegation', () => {
+    const baseDto = {
+      student_id: STUDENT_ID,
+      concern_type: 'physical_abuse' as const,
+      severity: 'critical' as const,
+      description: 'Visible bruising observed on left arm during PE',
+      immediate_actions_taken: null,
+    };
+
+    beforeEach(() => {
+      mockTx.tenantSetting!.findFirst!.mockResolvedValue(DEFAULT_SETTINGS);
+      mockTx.student!.findFirst!.mockResolvedValue({
+        id: STUDENT_ID,
+        date_of_birth: new Date('2015-06-15'),
+      });
+      mockTx.safeguardingConcern!.create!.mockResolvedValue(makeConcern());
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(makeConcern({ pastoral_concern_id: PASTORAL_CONCERN_ID }));
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+    });
+
+    it('should create pastoral_concern and cp_record via delegation', async () => {
+      await service.reportConcern(TENANT_ID, USER_ID, baseDto);
+
+      expect(mockConcernService.create).toHaveBeenCalledWith(
+        TENANT_ID, USER_ID,
+        expect.objectContaining({
+          student_id: STUDENT_ID,
+          category: 'child_protection',
+          tier: 3,
+          narrative: baseDto.description,
+        }),
+        null,
+      );
+
+      expect(mockCpRecordService.create).toHaveBeenCalledWith(
+        TENANT_ID, USER_ID,
+        expect.objectContaining({
+          concern_id: PASTORAL_CONCERN_ID,
+          student_id: STUDENT_ID,
+          record_type: 'concern',
+          narrative: baseDto.description,
+        }),
+        null,
+      );
+    });
+
+    it('should store pastoral_concern_id on safeguarding concern (cross-reference)', async () => {
+      await service.reportConcern(TENANT_ID, USER_ID, baseDto);
+
+      expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
+        where: { id: CONCERN_ID },
+        data: { pastoral_concern_id: PASTORAL_CONCERN_ID },
+      });
+    });
+
+    it('should create pastoral concern with tier=3 and category=child_protection', async () => {
+      await service.reportConcern(TENANT_ID, USER_ID, baseDto);
+
+      const createCall = mockConcernService.create.mock.calls[0]![2] as {
+        tier: number;
+        category: string;
+      };
+      expect(createCall.tier).toBe(3);
+      expect(createCall.category).toBe('child_protection');
+    });
+
+    it('should propagate behaviour_incident_id when provided', async () => {
+      const dtoWithIncident = { ...baseDto, incident_id: INCIDENT_ID };
+      mockTx.safeguardingConcernIncident!.create!.mockResolvedValue({ id: 'link-1' });
+
+      await service.reportConcern(TENANT_ID, USER_ID, dtoWithIncident);
+
+      expect(mockConcernService.create).toHaveBeenCalledWith(
+        TENANT_ID, USER_ID,
+        expect.objectContaining({
+          behaviour_incident_id: INCIDENT_ID,
+        }),
+        null,
+      );
+    });
+
+    it.each([
+      ['low', 'routine'],
+      ['medium', 'elevated'],
+      ['high', 'urgent'],
+      ['critical', 'critical'],
+    ] as const)('should map behaviour severity "%s" to pastoral severity "%s"', async (behaviourSev, expectedPastoralSev) => {
+      const sevDto = { ...baseDto, severity: behaviourSev as 'low' | 'medium' | 'high' | 'critical' };
+      mockTx.safeguardingConcern!.create!.mockResolvedValue(makeConcern({ severity: `${behaviourSev}_sev` }));
+
+      await service.reportConcern(TENANT_ID, USER_ID, sevDto);
+
+      expect(mockConcernService.create).toHaveBeenCalledWith(
+        TENANT_ID, USER_ID,
+        expect.objectContaining({
+          severity: expectedPastoralSev,
+        }),
+        null,
+      );
+    });
+
+    it('should gracefully handle delegation failure (safeguarding record still created, retry job enqueued)', async () => {
+      mockConcernService.create.mockRejectedValueOnce(new Error('Pastoral service unavailable'));
+
+      const result = await service.reportConcern(TENANT_ID, USER_ID, baseDto);
+
+      // Safeguarding record still created
+      expect(result.data.id).toBe(CONCERN_ID);
+      expect(result.data.concern_number).toBe('CP-202603-000001');
+      expect(result.data.status).toBe('reported');
+
+      // Retry job enqueued
+      expect(mockBehaviourQueue.add).toHaveBeenCalledWith(
+        'pastoral:sync-behaviour-safeguarding',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          concern_id: CONCERN_ID,
+          user_id: USER_ID,
+        }),
+      );
+    });
+
+    it('should return unchanged response shape { data: { id, concern_number, status } }', async () => {
+      const result = await service.reportConcern(TENANT_ID, USER_ID, baseDto);
+
+      expect(result).toHaveProperty('data');
+      expect(result.data).toHaveProperty('id');
+      expect(result.data).toHaveProperty('concern_number');
+      expect(result.data).toHaveProperty('status');
+      expect(Object.keys(result.data).sort()).toEqual(['concern_number', 'id', 'status']);
+    });
+  });
+
+  // ─── Update Propagation ─────────────────────────────────────────────────
+
+  describe('updateConcern pastoral propagation', () => {
+    it('should propagate description change to pastoral concern version when pastoral_concern_id exists', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ pastoral_concern_id: PASTORAL_CONCERN_ID }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(
+        makeConcern({ description: 'Updated description', pastoral_concern_id: PASTORAL_CONCERN_ID }),
+      );
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      await service.updateConcern(
+        TENANT_ID, USER_ID, CONCERN_ID,
+        { description: 'Updated description' },
+      );
+
+      expect(mockConcernVersionService.amendNarrative).toHaveBeenCalledWith(
+        TENANT_ID, USER_ID, PASTORAL_CONCERN_ID,
+        { new_narrative: 'Updated description', amendment_reason: 'Updated via behaviour safeguarding' },
+        null,
+      );
+    });
+
+    it('should NOT propagate when pastoral_concern_id is null', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ pastoral_concern_id: null }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(
+        makeConcern({ description: 'Updated description', pastoral_concern_id: null }),
+      );
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      await service.updateConcern(
+        TENANT_ID, USER_ID, CONCERN_ID,
+        { description: 'Updated description' },
+      );
+
+      expect(mockConcernVersionService.amendNarrative).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Status Transition Propagation ──────────────────────────────────────
+
+  describe('transitionStatus pastoral propagation', () => {
+    it('should propagate status change to pastoral when pastoral_concern_id exists', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({
+          status: 'under_investigation',
+          pastoral_concern_id: PASTORAL_CONCERN_ID,
+        }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(
+        makeConcern({ status: 'referred', pastoral_concern_id: PASTORAL_CONCERN_ID }),
+      );
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      await service.transitionStatus(
+        TENANT_ID, USER_ID, CONCERN_ID,
+        { status: 'referred' as const, reason: 'Referred to agency' },
+      );
+
+      expect(mockPastoralEventService.write).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          event_type: 'concern_status_changed',
+          entity_type: 'concern',
+          entity_id: PASTORAL_CONCERN_ID,
+          tier: 3,
+          payload: expect.objectContaining({
+            concern_id: PASTORAL_CONCERN_ID,
+            new_status: 'elevated',
+            source: 'behaviour_safeguarding',
+          }),
+        }),
+      );
+    });
+
+    it('should NOT propagate status when pastoral_concern_id is null', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'reported', pastoral_concern_id: null }),
+      );
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(
+        makeConcern({ status: 'acknowledged', pastoral_concern_id: null }),
+      );
+      mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
+
+      await service.transitionStatus(
+        TENANT_ID, USER_ID, CONCERN_ID,
+        { status: 'acknowledged' as const, reason: 'Acknowledged by DLP' },
+      );
+
+      expect(mockPastoralEventService.write).not.toHaveBeenCalled();
     });
   });
 });

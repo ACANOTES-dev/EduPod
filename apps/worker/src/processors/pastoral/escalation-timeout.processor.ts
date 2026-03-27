@@ -26,7 +26,10 @@ export const ESCALATION_TIMEOUT_JOB = 'pastoral:escalation-timeout';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Default timeout in minutes for escalation if tenant settings are missing */
+/** Default timeout in minutes for urgent escalation if tenant settings are missing */
+const DEFAULT_URGENT_TIMEOUT_MINUTES = 120;
+
+/** Default timeout in minutes for critical escalation if tenant settings are missing */
 const DEFAULT_CRITICAL_TIMEOUT_MINUTES = 30;
 
 /** Build deterministic job ID for escalation timeout (allows cancellation) */
@@ -41,7 +44,11 @@ export function buildEscalationJobId(
 // ─── Pastoral settings extraction ────────────────────────────────────────────
 
 interface PastoralEscalationSettings {
+  escalation_enabled: boolean;
+  urgent_timeout_minutes: number;
   critical_timeout_minutes: number;
+  escalation_urgent_recipients: string[];
+  escalation_critical_recipients: string[];
 }
 
 function extractPastoralSettings(
@@ -51,11 +58,41 @@ function extractPastoralSettings(
   const pastoral = (settings?.pastoral as Record<string, unknown>) ?? {};
   const escalation = (pastoral?.escalation as Record<string, unknown>) ?? {};
 
+  // Master switch — default to true if not explicitly set
+  const escalationEnabled =
+    typeof escalation?.enabled === 'boolean'
+      ? escalation.enabled
+      : true;
+
+  const urgentTimeoutMinutes =
+    typeof escalation?.urgent_timeout_minutes === 'number'
+      ? escalation.urgent_timeout_minutes
+      : DEFAULT_URGENT_TIMEOUT_MINUTES;
+
+  const criticalTimeoutMinutes =
+    typeof escalation?.critical_timeout_minutes === 'number'
+      ? escalation.critical_timeout_minutes
+      : DEFAULT_CRITICAL_TIMEOUT_MINUTES;
+
+  // Override recipient lists — empty array means use defaults
+  const urgentRecipients = Array.isArray(escalation?.urgent_recipients)
+    ? (escalation.urgent_recipients as string[]).filter(
+        (id): id is string => typeof id === 'string',
+      )
+    : [];
+
+  const criticalRecipients = Array.isArray(escalation?.critical_recipients)
+    ? (escalation.critical_recipients as string[]).filter(
+        (id): id is string => typeof id === 'string',
+      )
+    : [];
+
   return {
-    critical_timeout_minutes:
-      typeof escalation?.critical_timeout_minutes === 'number'
-        ? escalation.critical_timeout_minutes
-        : DEFAULT_CRITICAL_TIMEOUT_MINUTES,
+    escalation_enabled: escalationEnabled,
+    urgent_timeout_minutes: urgentTimeoutMinutes,
+    critical_timeout_minutes: criticalTimeoutMinutes,
+    escalation_urgent_recipients: urgentRecipients,
+    escalation_critical_recipients: criticalRecipients,
   };
 }
 
@@ -66,7 +103,16 @@ interface CriticalRecipientConfig {
   fallback_roles: string[];
 }
 
-function extractCriticalRecipients(settingsJson: unknown): CriticalRecipientConfig {
+function extractCriticalRecipients(
+  settingsJson: unknown,
+  overrideRecipients: string[],
+): CriticalRecipientConfig {
+  // If tenant has configured override recipients, use them directly
+  if (overrideRecipients.length > 0) {
+    return { user_ids: overrideRecipients, fallback_roles: [] };
+  }
+
+  // Fall back to notification_recipients.critical from tenant settings
   const settings = (settingsJson as Record<string, unknown>) ?? {};
   const pastoral = (settings?.pastoral as Record<string, unknown>) ?? {};
   const notifRecipients =
@@ -193,7 +239,23 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
   ): Promise<void> {
     const { tenant_id, concern_id, escalation_type } = data;
 
-    // 1. Load the concern
+    // 1. Load tenant settings first to check escalation_enabled
+    const tenantSettings = await tx.tenantSetting.findFirst({
+      where: { tenant_id },
+      select: { settings: true },
+    });
+
+    const pastoralSettings = extractPastoralSettings(tenantSettings?.settings);
+
+    // 2. If escalation is disabled for this tenant, no-op
+    if (!pastoralSettings.escalation_enabled) {
+      this.logger.log(
+        `Escalation disabled for tenant ${tenant_id} — skipping concern ${concern_id}`,
+      );
+      return;
+    }
+
+    // 3. Load the concern
     const concern = await tx.pastoralConcern.findFirst({
       where: { id: concern_id, tenant_id },
       include: {
@@ -210,7 +272,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
       return;
     }
 
-    // 2. If acknowledged, terminate escalation
+    // 4. If acknowledged, terminate escalation
     if (concern.acknowledged_at !== null) {
       this.logger.log(
         `Escalation cancelled — concern ${concern_id} was acknowledged at ${concern.acknowledged_at.toISOString()}`,
@@ -218,18 +280,10 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
       return;
     }
 
-    // 3. Load tenant settings
-    const tenantSettings = await tx.tenantSetting.findFirst({
-      where: { tenant_id },
-      select: { settings: true },
-    });
-
-    const pastoralSettings = extractPastoralSettings(tenantSettings?.settings);
-
     if (escalation_type === 'urgent_to_critical') {
       await this.handleUrgentToCritical(tx, data, concern, pastoralSettings, tenantSettings?.settings);
     } else if (escalation_type === 'critical_second_round') {
-      await this.handleCriticalSecondRound(tx, data, concern, tenantSettings?.settings);
+      await this.handleCriticalSecondRound(tx, data, concern, pastoralSettings, tenantSettings?.settings);
     }
   }
 
@@ -292,11 +346,13 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     );
 
     // c. Resolve critical-level recipients and create notifications
+    // Use configured override recipients if provided, otherwise fall back to defaults
     const recipients = await this.resolveCriticalRecipients(
       tx,
       tenant_id,
       rawSettings,
       concern.logged_by_user_id,
+      pastoralSettings.escalation_critical_recipients,
     );
 
     const notificationPayload: Prisma.InputJsonValue = {
@@ -337,7 +393,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
    * Critical second round:
    * - Re-check acknowledgement (may have been acknowledged between first and second round)
    * - Write pastoral_event: critical_concern_unacknowledged
-   * - Send second-round notifications to principal
+   * - Send second-round notifications to principal (or configured override recipients)
    * - Terminate chain (no further automatic escalation)
    */
   private async handleCriticalSecondRound(
@@ -353,6 +409,7 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
       acknowledged_at: Date | null;
       student: { id: string; first_name: string; last_name: string };
     },
+    pastoralSettings: PastoralEscalationSettings,
     rawSettings: unknown,
   ): Promise<void> {
     const { tenant_id, concern_id } = data;
@@ -393,12 +450,18 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
       `Critical concern ${concern_id} unacknowledged after ${minutesElapsed} minutes — second-round notification`,
     );
 
-    // b. Resolve principal recipient for second-round notification
-    const recipients = await this.resolvePrincipalRecipient(
-      tx,
-      tenant_id,
-      rawSettings,
-    );
+    // b. Resolve recipients for second-round notification
+    // Use configured critical override recipients if provided, otherwise fall back to principal
+    let recipients: string[];
+    if (pastoralSettings.escalation_critical_recipients.length > 0) {
+      recipients = [...new Set(pastoralSettings.escalation_critical_recipients)];
+    } else {
+      recipients = await this.resolvePrincipalRecipient(
+        tx,
+        tenant_id,
+        rawSettings,
+      );
+    }
 
     if (recipients.length === 0) {
       this.logger.warn(
@@ -438,7 +501,8 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
 
   /**
    * Resolve critical-level recipients from tenant settings.
-   * If explicit user_ids are configured, use those.
+   * If escalation override recipients are configured, use those first.
+   * Otherwise, if explicit user_ids are configured in notification_recipients, use those.
    * Otherwise, fall back to role-based resolution (dlp + principal).
    * Excludes the concern author from the recipient list.
    */
@@ -447,8 +511,9 @@ class EscalationTimeoutTenantJob extends TenantAwareJob<EscalationTimeoutPayload
     tenantId: string,
     rawSettings: unknown,
     excludeUserId: string,
+    overrideRecipients: string[],
   ): Promise<string[]> {
-    const config = extractCriticalRecipients(rawSettings);
+    const config = extractCriticalRecipients(rawSettings, overrideRecipients);
     let recipientIds: string[] = [];
 
     if (config.user_ids.length > 0) {

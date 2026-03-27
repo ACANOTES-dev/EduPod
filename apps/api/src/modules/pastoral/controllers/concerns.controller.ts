@@ -157,20 +157,37 @@ export class ConcernsController {
   // ─── 6. Share Concern with Parent ─────────────────────────────────────────
 
   @Post('pastoral/concerns/:id/share')
-  @RequiresPermission('pastoral.view_tier1')
   @HttpCode(HttpStatus.OK)
-  async markShareable(
+  async shareConcernWithParent(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(shareConcernWithParentSchema))
     dto: z.infer<typeof shareConcernWithParentSchema>,
   ) {
-    return this.concernService.markShareable(
+    return this.concernService.shareConcernWithParent(
+      tenant.tenant_id,
+      user.sub,
+      user.membership_id!,
+      id,
+      dto,
+    );
+  }
+
+  // ─── 6b. Unshare Concern from Parent ───────────────────────────────────────
+
+  @Post('pastoral/concerns/:id/unshare')
+  @RequiresPermission('pastoral.view_tier2')
+  @HttpCode(HttpStatus.OK)
+  async unshareConcernFromParent(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.concernService.unshareConcernFromParent(
       tenant.tenant_id,
       user.sub,
       id,
-      dto,
     );
   }
 

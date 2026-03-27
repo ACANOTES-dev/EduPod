@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
 import { AuthModule } from '../auth/auth.module';
+import { ChildProtectionModule } from '../child-protection/child-protection.module';
+import { PastoralModule } from '../pastoral/pastoral.module';
 import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { S3Module } from '../s3/s3.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -62,6 +64,8 @@ import { SafeguardingService } from './safeguarding.service';
   imports: [
     AuthModule,
     ApprovalsModule,
+    ChildProtectionModule,
+    PastoralModule,
     TenantsModule,
     PdfRenderingModule,
     S3Module,
