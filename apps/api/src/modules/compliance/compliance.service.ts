@@ -263,14 +263,47 @@ export class ComplianceService {
     }
 
     let exportFileKey: string | null = null;
+    let pastoralReviewedRecords: unknown[] = [];
 
-    if (request.request_type === 'access_export') {
-      const result = await this.accessExportService.exportSubjectData(
+    if (request.request_type === 'access_export' && request.subject_type === 'student') {
+      await this.pastoralDsarService.routeForReview(
         tenantId,
-        request.subject_type,
+        requestId,
         request.subject_id,
+        request.requested_by_user_id,
+      );
+
+      const allReviewsComplete = await this.pastoralDsarService.allReviewsComplete(
+        tenantId,
         requestId,
       );
+
+      if (!allReviewsComplete) {
+        return this.loadRequestWithRequester(tenantId, requestId);
+      }
+
+      pastoralReviewedRecords = await this.pastoralDsarService.getReviewedRecords(
+        tenantId,
+        requestId,
+      );
+    }
+
+    if (request.request_type === 'access_export') {
+      const result =
+        request.subject_type === 'student'
+          ? await this.accessExportService.exportSubjectData(
+              tenantId,
+              request.subject_type,
+              request.subject_id,
+              requestId,
+              { pastoral_dsar_records: pastoralReviewedRecords },
+            )
+          : await this.accessExportService.exportSubjectData(
+              tenantId,
+              request.subject_type,
+              request.subject_id,
+              requestId,
+            );
       exportFileKey = result.s3Key;
     } else if (
       (request.request_type === 'erasure' || request.request_type === 'rectification') &&
@@ -280,16 +313,6 @@ export class ComplianceService {
         tenantId,
         request.subject_type,
         request.subject_id,
-      );
-    }
-
-    // Route pastoral records for DSAR review if subject is a student
-    if (request.request_type === 'access_export' && request.subject_type === 'student') {
-      await this.pastoralDsarService.routeForReview(
-        tenantId,
-        requestId,
-        request.subject_id,
-        request.requested_by_user_id,
       );
     }
 
@@ -350,6 +373,34 @@ export class ComplianceService {
       where: {
         id: requestId,
         tenant_id: tenantId,
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException({
+        code: 'COMPLIANCE_REQUEST_NOT_FOUND',
+        message: `Compliance request with id "${requestId}" not found`,
+      });
+    }
+
+    return request;
+  }
+
+  private async loadRequestWithRequester(tenantId: string, requestId: string) {
+    const request = await this.prisma.complianceRequest.findFirst({
+      where: {
+        id: requestId,
+        tenant_id: tenantId,
+      },
+      include: {
+        requested_by: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
       },
     });
 

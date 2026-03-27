@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { PastoralDsarService } from './pastoral-dsar.service';
@@ -28,6 +29,22 @@ const mockRlsTx = {
     count: jest.fn(),
   },
   pastoralConcern: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  pastoralCase: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  pastoralIntervention: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  pastoralReferral: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+  },
+  studentCheckin: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
   },
@@ -117,6 +134,13 @@ describe('PastoralDsarService', () => {
       }
     }
 
+    mockRlsTx.pastoralConcern.findMany.mockResolvedValue([]);
+    mockRlsTx.pastoralCase.findMany.mockResolvedValue([]);
+    mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([]);
+    mockRlsTx.pastoralReferral.findMany.mockResolvedValue([]);
+    mockRlsTx.studentCheckin.findMany.mockResolvedValue([]);
+    mockRlsTx.cpRecord.findMany.mockResolvedValue([]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PastoralDsarService,
@@ -163,6 +187,73 @@ describe('PastoralDsarService', () => {
       expect(result.reviewCount).toBe(2);
       expect(result.tier3Count).toBe(0);
       expect(mockRlsTx.pastoralDsarReview.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should create review rows for cases, interventions, referrals, and check-ins', async () => {
+      mockRlsTx.pastoralCase.findMany.mockResolvedValue([
+        {
+          id: 'case-1',
+          student_id: STUDENT_ID,
+          case_number: 'CASE-001',
+          status: 'open',
+          tier: 2,
+          opened_reason: 'Reason',
+          created_at: NOW,
+        },
+      ]);
+      mockRlsTx.pastoralIntervention.findMany.mockResolvedValue([
+        {
+          id: 'int-1',
+          student_id: STUDENT_ID,
+          intervention_type: 'attendance_support',
+          continuum_level: 2,
+          status: 'pc_active',
+          outcome_notes: 'Outcome note',
+          next_review_date: NOW,
+          created_at: NOW,
+          case: { tier: 2, case_number: 'CASE-001' },
+        },
+      ]);
+      mockRlsTx.pastoralReferral.findMany.mockResolvedValue([
+        {
+          id: 'ref-1',
+          student_id: STUDENT_ID,
+          referral_type: 'neps',
+          status: 'submitted',
+          reason: 'Referral reason',
+          report_summary: null,
+          created_at: NOW,
+          case: { tier: 2, case_number: 'CASE-001' },
+        },
+      ]);
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([
+        {
+          id: 'chk-1',
+          student_id: STUDENT_ID,
+          mood_score: 2,
+          freeform_text: 'Need support',
+          flagged: true,
+          flag_reason: 'keyword_match',
+          checkin_date: NOW,
+          created_at: NOW,
+        },
+      ]);
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(null);
+      mockRlsTx.pastoralDsarReview.create
+        .mockResolvedValueOnce(makeReview({ id: 'r-case', entity_type: 'case', entity_id: 'case-1', tier: 2 }))
+        .mockResolvedValueOnce(makeReview({ id: 'r-int', entity_type: 'intervention', entity_id: 'int-1', tier: 2 }))
+        .mockResolvedValueOnce(makeReview({ id: 'r-ref', entity_type: 'referral', entity_id: 'ref-1', tier: 2 }))
+        .mockResolvedValueOnce(makeReview({ id: 'r-checkin', entity_type: 'checkin', entity_id: 'chk-1', tier: 1 }));
+
+      const result = await service.routeForReview(
+        TENANT_ID,
+        COMPLIANCE_REQUEST_ID,
+        STUDENT_ID,
+        ACTOR_USER_ID,
+      );
+
+      expect(result.reviewCount).toBe(4);
+      expect(mockRlsTx.pastoralDsarReview.create).toHaveBeenCalledTimes(4);
     });
 
     it('should include CP records when routing user has cp_access', async () => {
@@ -380,6 +471,7 @@ describe('PastoralDsarService', () => {
         decision: 'include',
         entity_type: 'concern',
         entity_id: 'c1',
+        reviewed_by_user_id: ACTOR_USER_ID,
       });
       const redactedReview = makeReview({
         id: 'r2',
@@ -388,6 +480,7 @@ describe('PastoralDsarService', () => {
         entity_id: 'cp1',
         tier: 3,
         justification: 'Redaction details here',
+        reviewed_by_user_id: ACTOR_USER_ID,
       });
 
       mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([
@@ -432,6 +525,7 @@ describe('PastoralDsarService', () => {
         entity_id: 'cp1',
         tier: 3,
         justification: 'Names of third parties removed',
+        reviewed_by_user_id: ACTOR_USER_ID,
       });
 
       mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([
@@ -454,6 +548,10 @@ describe('PastoralDsarService', () => {
       expect(results[0]!.redaction_note).toBe(
         'Names of third parties removed',
       );
+      expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, {
+        tenant_id: TENANT_ID,
+        user_id: ACTOR_USER_ID,
+      });
     });
   });
 

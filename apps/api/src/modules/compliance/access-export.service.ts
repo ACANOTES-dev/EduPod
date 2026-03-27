@@ -23,6 +23,7 @@ export class AccessExportService {
     subjectType: string,
     subjectId: string,
     requestId: string,
+    extraSections?: Record<string, unknown>,
   ): Promise<{ s3Key: string }> {
     let exportData: Record<string, unknown> = {};
 
@@ -51,7 +52,10 @@ export class AccessExportService {
         subject_type: subjectType,
         subject_id: subjectId,
         tenant_id: tenantId,
-        data: exportData,
+        data: {
+          ...exportData,
+          ...(extraSections ?? {}),
+        },
       },
       null,
       2,

@@ -86,6 +86,56 @@ interface CpRecordRow {
   created_at: Date;
 }
 
+interface CaseRecord {
+  id: string;
+  student_id: string;
+  case_number: string;
+  status: string;
+  tier: number;
+  opened_reason: string;
+  created_at: Date;
+}
+
+interface InterventionRecord {
+  id: string;
+  student_id: string;
+  intervention_type: string;
+  continuum_level: number;
+  status: string;
+  outcome_notes: string | null;
+  next_review_date: Date;
+  created_at: Date;
+  case?: {
+    tier: number;
+    case_number: string;
+  } | null;
+}
+
+interface ReferralRecord {
+  id: string;
+  student_id: string;
+  referral_type: string;
+  status: string;
+  reason: string | null;
+  report_summary: string | null;
+  created_at: Date;
+  case?: {
+    tier: number;
+    case_number: string;
+  } | null;
+}
+
+interface CheckinRecord {
+  id: string;
+  student_id: string;
+  mood_score: number;
+  freeform_text: string | null;
+  flagged: boolean;
+  flag_reason: string | null;
+  checkin_date: Date;
+  created_at: Date;
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 @Injectable()
@@ -105,11 +155,14 @@ export class PastoralDsarService {
     studentId: string,
     reviewerUserId: string,
   ): Promise<{ reviewCount: number; tier3Count: number }> {
-    const hasCpAccess = await this.checkCpAccess(tenantId, reviewerUserId);
+    const queryUserId =
+      (await this.resolveDsarQueryUserId(tenantId, reviewerUserId)) ??
+      reviewerUserId;
+    const canQueryTier3 = await this.checkCpAccess(tenantId, queryUserId);
 
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
-      user_id: reviewerUserId,
+      user_id: queryUserId,
     });
 
     return rlsClient.$transaction(async (tx) => {
@@ -120,9 +173,54 @@ export class PastoralDsarService {
         where: { tenant_id: tenantId, student_id: studentId },
       })) as ConcernRecord[];
 
-      // Fetch CP records only if reviewer has cp_access
+      const cases = (await db.pastoralCase.findMany({
+        where: {
+          tenant_id: tenantId,
+          OR: [
+            { student_id: studentId },
+            {
+              case_students: {
+                some: {
+                  tenant_id: tenantId,
+                  student_id: studentId,
+                },
+              },
+            },
+          ],
+        },
+      })) as CaseRecord[];
+
+      const interventions = (await db.pastoralIntervention.findMany({
+        where: { tenant_id: tenantId, student_id: studentId },
+        include: {
+          case: {
+            select: {
+              tier: true,
+              case_number: true,
+            },
+          },
+        },
+      })) as InterventionRecord[];
+
+      const referrals = (await db.pastoralReferral.findMany({
+        where: { tenant_id: tenantId, student_id: studentId },
+        include: {
+          case: {
+            select: {
+              tier: true,
+              case_number: true,
+            },
+          },
+        },
+      })) as ReferralRecord[];
+
+      const checkins = (await db.studentCheckin.findMany({
+        where: { tenant_id: tenantId, student_id: studentId },
+      })) as CheckinRecord[];
+
+      // Fetch CP records only when a CP-approved query context exists
       let cpRecords: CpRecordRow[] = [];
-      if (hasCpAccess) {
+      if (canQueryTier3) {
         cpRecords = (await db.cpRecord.findMany({
           where: { tenant_id: tenantId, student_id: studentId },
         })) as CpRecordRow[];
@@ -145,6 +243,71 @@ export class PastoralDsarService {
         if (created) {
           reviewCount++;
           if (concern.tier === 3) tier3Count++;
+        }
+      }
+
+      for (const pastoralCase of cases) {
+        const created = await this.createReviewIfNotExists(
+          db,
+          tenantId,
+          complianceRequestId,
+          'case',
+          pastoralCase.id,
+          pastoralCase.tier,
+          reviewerUserId,
+        );
+        if (created) {
+          reviewCount++;
+          if (pastoralCase.tier === 3) tier3Count++;
+        }
+      }
+
+      for (const intervention of interventions) {
+        const tier = intervention.case?.tier ?? 2;
+        const created = await this.createReviewIfNotExists(
+          db,
+          tenantId,
+          complianceRequestId,
+          'intervention',
+          intervention.id,
+          tier,
+          reviewerUserId,
+        );
+        if (created) {
+          reviewCount++;
+          if (tier === 3) tier3Count++;
+        }
+      }
+
+      for (const referral of referrals) {
+        const tier = referral.case?.tier ?? 2;
+        const created = await this.createReviewIfNotExists(
+          db,
+          tenantId,
+          complianceRequestId,
+          'referral',
+          referral.id,
+          tier,
+          reviewerUserId,
+        );
+        if (created) {
+          reviewCount++;
+          if (tier === 3) tier3Count++;
+        }
+      }
+
+      for (const checkin of checkins) {
+        const created = await this.createReviewIfNotExists(
+          db,
+          tenantId,
+          complianceRequestId,
+          'checkin',
+          checkin.id,
+          1,
+          reviewerUserId,
+        );
+        if (created) {
+          reviewCount++;
         }
       }
 
@@ -382,55 +545,47 @@ export class PastoralDsarService {
     tenantId: string,
     complianceRequestId: string,
   ): Promise<DsarReviewedRecord[]> {
-    const rlsClient = createRlsClient(this.prisma, {
+    const reviewsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
 
-    return rlsClient.$transaction(async (tx) => {
+    const reviews = (await reviewsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const reviews = (await db.pastoralDsarReview.findMany({
+      return db.pastoralDsarReview.findMany({
         where: {
           tenant_id: tenantId,
           compliance_request_id: complianceRequestId,
           decision: { in: ['include', 'redact'] },
         },
-      })) as DsarReviewRow[];
+      }) as Promise<DsarReviewRow[]>;
+    })) as DsarReviewRow[];
 
-      const results: DsarReviewedRecord[] = [];
+    const results: DsarReviewedRecord[] = [];
 
-      for (const review of reviews) {
-        const recordData = await this.fetchEntityRecord(
-          db,
-          review.entity_type,
-          review.entity_id,
-          tenantId,
-        );
+    for (const review of reviews) {
+      const recordData = await this.fetchReviewedRecordForDecision(tenantId, review);
 
-        if (!recordData) continue;
+      if (!recordData) continue;
 
-        const entry: DsarReviewedRecord = {
-          review_id: review.id,
-          entity_type: review.entity_type,
-          entity_id: review.entity_id,
-          decision: review.decision as string,
-          tier: review.tier,
-          record_data: recordData,
-        };
+      const entry: DsarReviewedRecord = {
+        review_id: review.id,
+        entity_type: review.entity_type,
+        entity_id: review.entity_id,
+        decision: review.decision as string,
+        tier: review.tier,
+        record_data: recordData,
+      };
 
-        // Apply redaction: replace narrative with [REDACTED]
-        if (review.decision === 'redact') {
-          if ('narrative' in entry.record_data) {
-            entry.record_data.narrative = '[REDACTED]';
-          }
-          entry.redaction_note = review.justification ?? undefined;
-        }
-
-        results.push(entry);
+      if (review.decision === 'redact') {
+        this.applyRedactions(entry.record_data, review.entity_type);
+        entry.redaction_note = review.justification ?? undefined;
       }
 
-      return results;
-    }) as Promise<DsarReviewedRecord[]>;
+      results.push(entry);
+    }
+
+    return results;
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────
@@ -448,6 +603,23 @@ export class PastoralDsarService {
       where: { tenant_id: tenantId, user_id: userId, revoked_at: null },
     });
     return !!grant;
+  }
+
+  private async resolveDsarQueryUserId(
+    tenantId: string,
+    preferredUserId: string,
+  ): Promise<string | null> {
+    if (await this.checkCpAccess(tenantId, preferredUserId)) {
+      return preferredUserId;
+    }
+
+    const fallbackGrant = await this.prisma.cpAccessGrant.findFirst({
+      where: { tenant_id: tenantId, revoked_at: null },
+      orderBy: { granted_at: 'asc' },
+      select: { user_id: true },
+    });
+
+    return fallbackGrant?.user_id ?? null;
   }
 
   /**
@@ -621,6 +793,92 @@ export class PastoralDsarService {
       };
     }
 
+    if (entityType === 'case') {
+      const pastoralCase = await db.pastoralCase.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+      });
+      if (!pastoralCase) return null;
+      const row = pastoralCase as unknown as CaseRecord;
+      return {
+        id: row.id,
+        case_number: row.case_number,
+        status: row.status,
+        tier: row.tier,
+        opened_reason: row.opened_reason,
+        created_at: row.created_at,
+      };
+    }
+
+    if (entityType === 'intervention') {
+      const intervention = await db.pastoralIntervention.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+        include: {
+          case: {
+            select: {
+              tier: true,
+              case_number: true,
+            },
+          },
+        },
+      });
+      if (!intervention) return null;
+      const row = intervention as unknown as InterventionRecord;
+      return {
+        id: row.id,
+        intervention_type: row.intervention_type,
+        continuum_level: row.continuum_level,
+        status: row.status,
+        outcome_notes: row.outcome_notes,
+        next_review_date: row.next_review_date,
+        case_number: row.case?.case_number ?? null,
+        tier: row.case?.tier ?? 2,
+        created_at: row.created_at,
+      };
+    }
+
+    if (entityType === 'referral') {
+      const referral = await db.pastoralReferral.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+        include: {
+          case: {
+            select: {
+              tier: true,
+              case_number: true,
+            },
+          },
+        },
+      });
+      if (!referral) return null;
+      const row = referral as unknown as ReferralRecord;
+      return {
+        id: row.id,
+        referral_type: row.referral_type,
+        status: row.status,
+        reason: row.reason,
+        report_summary: row.report_summary,
+        case_number: row.case?.case_number ?? null,
+        tier: row.case?.tier ?? 2,
+        created_at: row.created_at,
+      };
+    }
+
+    if (entityType === 'checkin') {
+      const checkin = await db.studentCheckin.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+      });
+      if (!checkin) return null;
+      const row = checkin as unknown as CheckinRecord;
+      return {
+        id: row.id,
+        mood_score: row.mood_score,
+        freeform_text: row.freeform_text,
+        flagged: row.flagged,
+        flag_reason: row.flag_reason,
+        checkin_date: row.checkin_date,
+        created_at: row.created_at,
+      };
+    }
+
     this.logger.warn(
       `Unknown entity type "${entityType}" in DSAR review for entity ${entityId}`,
     );
@@ -667,6 +925,136 @@ export class PastoralDsarService {
       return `CP Record (${row.record_type}): ${preview}`;
     }
 
+    if (entityType === 'case') {
+      const pastoralCase = await db.pastoralCase.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+      });
+      if (!pastoralCase) return 'Case record not found';
+      const row = pastoralCase as unknown as CaseRecord;
+      const preview =
+        row.opened_reason.length > 100
+          ? row.opened_reason.slice(0, 100) + '...'
+          : row.opened_reason;
+      return `Case (${row.case_number}, tier ${row.tier}): ${preview}`;
+    }
+
+    if (entityType === 'intervention') {
+      const intervention = await db.pastoralIntervention.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+        include: {
+          case: {
+            select: {
+              case_number: true,
+            },
+          },
+        },
+      });
+      if (!intervention) return 'Intervention record not found';
+      const row = intervention as unknown as InterventionRecord;
+      const summarySource =
+        row.outcome_notes?.trim() || `Continuum level ${row.continuum_level}`;
+      const preview =
+        summarySource.length > 100
+          ? summarySource.slice(0, 100) + '...'
+          : summarySource;
+      return `Intervention (${row.intervention_type}${row.case?.case_number ? `, ${row.case.case_number}` : ''}): ${preview}`;
+    }
+
+    if (entityType === 'referral') {
+      const referral = await db.pastoralReferral.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+        include: {
+          case: {
+            select: {
+              case_number: true,
+            },
+          },
+        },
+      });
+      if (!referral) return 'Referral record not found';
+      const row = referral as unknown as ReferralRecord;
+      const summarySource = row.report_summary?.trim() || row.reason?.trim() || row.status;
+      const preview =
+        summarySource.length > 100
+          ? summarySource.slice(0, 100) + '...'
+          : summarySource;
+      return `Referral (${row.referral_type}${row.case?.case_number ? `, ${row.case.case_number}` : ''}): ${preview}`;
+    }
+
+    if (entityType === 'checkin') {
+      const checkin = await db.studentCheckin.findFirst({
+        where: { id: entityId, tenant_id: tenantId },
+      });
+      if (!checkin) return 'Check-in record not found';
+      const row = checkin as unknown as CheckinRecord;
+      const summarySource =
+        row.freeform_text?.trim() ||
+        `Mood ${row.mood_score}${row.flagged ? `, flagged ${row.flag_reason ?? ''}` : ''}`;
+      const preview =
+        summarySource.length > 100
+          ? summarySource.slice(0, 100) + '...'
+          : summarySource;
+      return `Check-in (${row.checkin_date.toISOString().slice(0, 10)}): ${preview}`;
+    }
+
     return 'Unknown record type';
+  }
+
+  private async fetchReviewedRecordForDecision(
+    tenantId: string,
+    review: DsarReviewRow,
+  ): Promise<Record<string, unknown> | null> {
+    if (review.tier === 3 && !review.reviewed_by_user_id) {
+      this.logger.warn(
+        `Skipping DSAR review ${review.id}: tier 3 record has no reviewer context for re-fetch`,
+      );
+      return null;
+    }
+
+    const rlsClient = createRlsClient(this.prisma, {
+      tenant_id: tenantId,
+      ...(review.reviewed_by_user_id
+        ? { user_id: review.reviewed_by_user_id }
+        : {}),
+    });
+
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      return this.fetchEntityRecord(
+        db,
+        review.entity_type,
+        review.entity_id,
+        tenantId,
+      );
+    }) as Promise<Record<string, unknown> | null>;
+  }
+
+  private applyRedactions(
+    record: Record<string, unknown>,
+    entityType: string,
+  ): void {
+    for (const field of this.getRedactionFields(entityType)) {
+      if (field in record && typeof record[field] === 'string') {
+        record[field] = '[REDACTED]';
+      }
+    }
+  }
+
+  private getRedactionFields(entityType: string): string[] {
+    switch (entityType) {
+      case 'concern':
+      case 'cp_record':
+        return ['narrative'];
+      case 'case':
+        return ['opened_reason'];
+      case 'intervention':
+        return ['outcome_notes'];
+      case 'referral':
+        return ['reason', 'report_summary'];
+      case 'checkin':
+        return ['freeform_text'];
+      default:
+        return [];
+    }
   }
 }

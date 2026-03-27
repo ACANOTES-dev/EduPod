@@ -254,6 +254,53 @@ describe('AccessExportService', () => {
       }));
     });
 
+    it('should merge extra export sections into the uploaded payload', async () => {
+      mockStudent.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Student',
+        full_name: 'Alice Student',
+        first_name_ar: null,
+        last_name_ar: null,
+        full_name_ar: null,
+        student_number: 'STU-001',
+        date_of_birth: new Date('2012-01-01'),
+        gender: 'female',
+        status: 'active',
+        entry_date: new Date('2024-09-01'),
+        exit_date: null,
+        medical_notes: null,
+        has_allergy: false,
+        allergy_details: null,
+        created_at: new Date('2024-09-01'),
+        updated_at: new Date('2025-01-01'),
+      });
+      mockAttendanceRecord.findMany.mockResolvedValue([]);
+      mockGrade.findMany.mockResolvedValue([]);
+      mockClassEnrolment.findMany.mockResolvedValue([]);
+      mockS3Service.upload.mockResolvedValue(
+        `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`,
+      );
+
+      await service.exportSubjectData(
+        TENANT_ID,
+        'student',
+        STUDENT_ID,
+        REQUEST_ID,
+        {
+          pastoral_dsar_records: [
+            { entity_type: 'cp_record', decision: 'include' },
+          ],
+        },
+      );
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
+      expect(uploadedJson.data.pastoral_dsar_records).toEqual([
+        { entity_type: 'cp_record', decision: 'include' },
+      ]);
+    });
+
     it('should export household data with profile, parents, students, invoices, payments', async () => {
       const householdProfile = {
         id: HOUSEHOLD_ID,

@@ -61,7 +61,11 @@ describe('ComplianceService', () => {
   };
   let mockAccessExport: { exportSubjectData: jest.Mock };
   let mockAnonymisation: { anonymiseSubject: jest.Mock };
-  let mockPastoralDsar: { routeForReview: jest.Mock };
+  let mockPastoralDsar: {
+    routeForReview: jest.Mock;
+    allReviewsComplete: jest.Mock;
+    getReviewedRecords: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -88,6 +92,8 @@ describe('ComplianceService', () => {
 
     mockPastoralDsar = {
       routeForReview: jest.fn().mockResolvedValue({ reviewCount: 0, tier3Count: 0 }),
+      allReviewsComplete: jest.fn().mockResolvedValue(true),
+      getReviewedRecords: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -103,6 +109,8 @@ describe('ComplianceService', () => {
     service = module.get<ComplianceService>(ComplianceService);
 
     mockPastoralDsar.routeForReview.mockReset().mockResolvedValue({ reviewCount: 0, tier3Count: 0 });
+    mockPastoralDsar.allReviewsComplete.mockReset().mockResolvedValue(true);
+    mockPastoralDsar.getReviewedRecords.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -856,6 +864,83 @@ describe('ComplianceService', () => {
         REQUEST_ID,
         SUBJECT_ID,
         USER_ID,
+      );
+      expect(mockPastoralDsar.allReviewsComplete).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+      );
+    });
+
+    it('should leave the request approved when student pastoral DSAR reviews are still pending', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+        requested_by_user_id: USER_ID,
+      });
+
+      mockPrisma.complianceRequest.findFirst
+        .mockResolvedValueOnce(approved)
+        .mockResolvedValueOnce({
+          ...approved,
+          requested_by: REQUESTED_BY_SELECT,
+        });
+      mockPastoralDsar.allReviewsComplete.mockResolvedValue(false);
+
+      const result = await service.execute(TENANT_ID, REQUEST_ID);
+
+      expect(result.status).toBe('approved');
+      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should include reviewed pastoral DSAR records in the completed student export', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+        requested_by_user_id: USER_ID,
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        subject_type: 'student',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+      const reviewedRecords = [
+        {
+          review_id: 'review-1',
+          entity_type: 'cp_record',
+          entity_id: 'cp-1',
+          decision: 'include',
+          tier: 3,
+          record_data: { narrative: 'Included after DLP review' },
+        },
+      ];
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockPastoralDsar.getReviewedRecords.mockResolvedValue(reviewedRecords);
+      mockAccessExport.exportSubjectData.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      await service.execute(TENANT_ID, REQUEST_ID);
+
+      expect(mockPastoralDsar.getReviewedRecords).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+      );
+      expect(mockAccessExport.exportSubjectData).toHaveBeenCalledWith(
+        TENANT_ID,
+        'student',
+        SUBJECT_ID,
+        REQUEST_ID,
+        {
+          pastoral_dsar_records: reviewedRecords,
+        },
       );
     });
 

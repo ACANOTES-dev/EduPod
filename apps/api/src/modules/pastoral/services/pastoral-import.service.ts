@@ -202,6 +202,15 @@ export class PastoralImportService {
           continue;
         }
 
+        if ((matchedCategory.auto_tier ?? 1) >= 3) {
+          errors.push({
+            row: row.row_number,
+            field: 'category',
+            message: `Tier 3 category "${categoryKey}" cannot be imported in bulk. Enter this manually via the DLP interface.`,
+          });
+          continue;
+        }
+
         // ── Severity validation ────────────────────────────────────
         const severityVal = row.severity.trim().toLowerCase();
         if (!VALID_SEVERITIES.has(severityVal)) {
@@ -254,7 +263,7 @@ export class PastoralImportService {
         }
 
         // ── Build validated row ────────────────────────────────────
-        const tier = this.determineTier(categoryKey, severityVal);
+        const tier = this.determineTier(matchedCategory, severityVal);
 
         validRows.push({
           ...row,
@@ -365,6 +374,17 @@ export class PastoralImportService {
           follow_up_suggestion: row.follow_up_notes || null,
           imported: true,
           import_hash: row.import_hash,
+        });
+
+        await db.pastoralConcernVersion.create({
+          data: {
+            tenant_id: tenantId,
+            concern_id: concern.id,
+            version_number: 1,
+            narrative: row.narrative,
+            amended_by_user_id: userId,
+            amendment_reason: null,
+          },
         });
 
         // Fire audit event
@@ -641,16 +661,13 @@ export class PastoralImportService {
   }
 
   /**
-   * Determine the tier based on category and severity.
-   * For imports: routine/elevated = Tier 1, urgent/critical = Tier 2 (never Tier 3).
+   * Determine the tier based on category metadata and severity.
+   * Tier 3 categories are rejected during validation and never reach this method.
    */
-  private determineTier(category: string, severity: string): number {
-    // Never assign Tier 3 via import
-    if (severity === 'urgent' || severity === 'critical') {
-      return 2;
-    }
-    // Ignore auto_tier for import — cap at Tier 2
-    void category;
-    return 1;
+  private determineTier(category: ConcernCategory, severity: string): number {
+    const severityTier =
+      severity === 'urgent' || severity === 'critical' ? 2 : 1;
+    const categoryTier = Math.min(category.auto_tier ?? 1, 2);
+    return Math.max(severityTier, categoryTier);
   }
 }

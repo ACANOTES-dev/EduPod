@@ -32,6 +32,9 @@ const mockRlsTx = {
     create: jest.fn(),
     findFirst: jest.fn(),
   },
+  pastoralConcernVersion: {
+    create: jest.fn(),
+  },
   student: {
     findFirst: jest.fn(),
   },
@@ -130,6 +133,9 @@ describe('PastoralImportService', () => {
         ...args.data,
       }),
     );
+    mockRlsTx.pastoralConcernVersion.create.mockResolvedValue({
+      id: 'version-1',
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -238,6 +244,16 @@ describe('PastoralImportService', () => {
     expect(result.errors[0]?.message).toContain('DLP interface');
   });
 
+  it('should produce an error for self_harm category', async () => {
+    const csv = buildCsvBuffer([buildValidRow({ category: 'self_harm' })]);
+    const result = await service.validate(TENANT_ID, ACTOR_USER_ID, csv);
+
+    expect(result.error_rows).toBe(1);
+    expect(result.errors[0]?.field).toBe('category');
+    expect(result.errors[0]?.message).toContain('Tier 3 category');
+    expect(result.errors[0]?.message).toContain('self_harm');
+  });
+
   // ─── 8. urgent/critical severity produces warning ─────────────────────────
 
   it('should produce a warning for urgent severity', async () => {
@@ -294,6 +310,16 @@ describe('PastoralImportService', () => {
         }),
       }),
     );
+    expect(mockRlsTx.pastoralConcernVersion.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenant_id: TENANT_ID,
+        concern_id: expect.any(String),
+        version_number: 1,
+        narrative: expect.any(String),
+        amended_by_user_id: ACTOR_USER_ID,
+        amendment_reason: null,
+      }),
+    });
   });
 
   // ─── 11. Confirm creates audit events with source: 'historical_import' ────
