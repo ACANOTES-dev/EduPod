@@ -51,6 +51,7 @@ import { SearchModule } from './modules/search/search.module';
 import { StaffAvailabilityModule } from './modules/staff-availability/staff-availability.module';
 import { StaffPreferencesModule } from './modules/staff-preferences/staff-preferences.module';
 import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
+import { StaffWellbeingModule } from './modules/staff-wellbeing/staff-wellbeing.module';
 import { StudentsModule } from './modules/students/students.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { WebsiteModule } from './modules/website/website.module';
@@ -127,6 +128,7 @@ import { WebsiteModule } from './modules/website/website.module';
     ReportsModule,
     RegistrationModule,
     SchedulingModule,
+    StaffWellbeingModule,
   ],
 })
 export class AppModule implements NestModule {

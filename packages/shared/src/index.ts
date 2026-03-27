@@ -139,6 +139,9 @@ export * from './behaviour';
 // Pastoral Care
 export * from './pastoral';
 
+// Staff Wellbeing
+export * from './staff-wellbeing';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

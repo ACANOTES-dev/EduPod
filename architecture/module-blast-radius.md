@@ -188,3 +188,22 @@ Known Prisma-direct consumers:
 | `behaviour_incidents` + `behaviour_incident_participants` | Behaviour module reads these via Prisma (owned), future: reports, dashboard, scheduling analytics |
 
 **Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.
+
+---
+
+## StaffWellbeingModule
+
+- **Exports**: None — no other module depends on it
+- **Reads from** (read-only, no writes):
+  - `SchedulingModule` → Schedule, SchedulePeriodTemplate (teaching load, timetable quality, room changes)
+  - `SubstitutionModule` / Scheduling → SubstitutionRecord (cover duties, absence proxy, fairness analysis)
+  - `StaffProfilesModule` → staff_profiles (staff metadata, DOB for aggregate workforce transition in V2)
+  - `PayrollModule` → compensation_records (compensation context for V2 reports)
+  - `CommunicationsModule` → notification infrastructure (survey open/close notifications)
+  - `ConfigurationModule` → EncryptionService (HMAC secret encryption), SettingsService (tenant settings)
+- **Blast radius**: None downstream. Changes to StaffWellbeingModule cannot break any other module.
+- **Reverse blast radius** (changes to these modules affect wellbeing):
+  - Schedule model changes affect workload computation
+  - SubstitutionRecord model changes affect cover fairness and absence trends
+  - EncryptionService interface changes affect HMAC secret management
+- **Special risk**: `survey_responses` table has NO tenant_id and NO RLS — see DZ-27 in danger-zones.md

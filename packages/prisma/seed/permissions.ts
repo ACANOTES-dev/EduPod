@@ -184,4 +184,13 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'safeguarding.view', description: 'View safeguarding concerns', permission_tier: 'admin' },
   { permission_key: 'safeguarding.manage', description: 'Manage safeguarding concerns', permission_tier: 'admin' },
   { permission_key: 'safeguarding.seal', description: 'Seal safeguarding concerns (irreversible)', permission_tier: 'admin' },
+
+  // ─── Staff Wellbeing ──────────────────────────────────────────────────────
+  { permission_key: 'wellbeing.view_own_workload', description: 'View own personal workload dashboard', permission_tier: 'staff' },
+  { permission_key: 'wellbeing.view_aggregate', description: 'View school-wide aggregate wellbeing dashboards', permission_tier: 'admin' },
+  { permission_key: 'wellbeing.manage_surveys', description: 'Create, edit, activate, and close staff surveys', permission_tier: 'admin' },
+  { permission_key: 'wellbeing.view_survey_results', description: 'View aggregate survey results after close', permission_tier: 'admin' },
+  { permission_key: 'wellbeing.moderate_surveys', description: 'Access moderation queue, approve/flag/redact responses', permission_tier: 'admin' },
+  { permission_key: 'wellbeing.view_board_report', description: 'View and generate termly board wellbeing report', permission_tier: 'admin' },
+  { permission_key: 'wellbeing.manage_resources', description: 'Edit EAP and support resource configuration', permission_tier: 'admin' },
 ];

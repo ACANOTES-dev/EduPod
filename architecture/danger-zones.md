@@ -396,3 +396,35 @@ Termination conditions:
 The re-enqueue happens OUTSIDE the Prisma transaction (line ~52 comment), preventing orphaned delayed jobs if the transaction rolls back.
 
 **Status**: MITIGATED. The `jobId` dedup guard prevents duplicate jobs for the same concern + step. The escalation terminates correctly when the concern is acknowledged or the chain is exhausted. Monitor for edge case: if the escalation chain is modified (users removed from DLP config) between steps, a step may target a user that no longer exists in the chain — this is handled by the null check at line ~158.
+
+---
+
+## DZ-27: survey_responses Has No tenant_id and No RLS
+
+**Risk**: Cross-tenant response leakage if queried without survey join
+**Location**: `packages/prisma/schema.prisma` — `SurveyResponse` model, `apps/api/src/modules/staff-wellbeing/`
+**Severity**: CRITICAL
+
+The `survey_responses` table is the ONLY table in the entire codebase that intentionally has NO `tenant_id` column and NO RLS policy. This is an anonymity-by-architecture decision for the Staff Wellbeing module — survey responses must not be traceable to any user.
+
+**What makes this dangerous:**
+- A direct query against `survey_responses` without joining through `staff_surveys` will return responses from ALL tenants
+- There is no database-layer protection — tenant isolation is enforced purely at the application layer
+- Only `StaffWellbeingSurveyService` may query this table — no other service, no raw queries
+
+**Also absent from this table (by design):**
+- No `user_id` or `staff_profile_id` — no link to any person
+- No `session_id` or `ip_address` — no network traceability
+- No `created_at` TIMESTAMPTZ — only `submitted_date DATE` to prevent timing inference
+- No foreign key to ANY user-related table
+
+**Mitigation:**
+- All queries MUST join through `staff_surveys.tenant_id` to enforce tenant isolation
+- Only the wellbeing survey service may access this table
+- Integration tests (Phase G) specifically verify no API path can return responses from another tenant's surveys
+- The `survey_participation_tokens` table follows the same pattern (no tenant_id, no RLS) — same mitigations apply
+
+**HMAC reversibility window:**
+- During the 7 days between survey close and token deletion, the HMAC is theoretically reversible by someone with the tenant's HMAC secret AND the full staff list
+- After token cleanup (7-day cron), participation data is permanently unlinkable
+- Per-tenant secrets limit blast radius — compromise of one tenant's secret does not affect others

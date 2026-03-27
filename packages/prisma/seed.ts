@@ -28,7 +28,7 @@ import {
 const MODULE_KEYS = [
   'admissions', 'attendance', 'gradebook', 'finance', 'payroll',
   'communications', 'website', 'analytics', 'compliance',
-  'parent_inquiries', 'auto_scheduling',
+  'parent_inquiries', 'auto_scheduling', 'staff_wellbeing',
 ];
 
 const NOTIFICATION_TYPES = [
