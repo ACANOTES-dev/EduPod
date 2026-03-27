@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-26
+> **Last verified**: 2026-03-27
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **11 queues**, **36 job types**, **7 cron jobs**
+- **12 queues**, **57 job types**, **10 cron jobs**
 
 ---
 
@@ -224,7 +224,7 @@ ComplianceService.approve()
 | payroll | 3 | 5s exponential | |
 | imports | 3 | 5s exponential | Also handles compliance jobs |
 | reports | 3 | 5s exponential | No processors yet (future use) |
-| behaviour | 3 | 5s exponential | Task reminders cron, policy evaluation, pattern detection cron, 3 materialized view refresh crons |
+| behaviour | 3 | 5s exponential | 23 job types: cron dispatch (daily/SLA/monthly), policy evaluation, pattern detection, MV refreshes (3), parent notification, digest notifications, task reminders, suspension return, check awards, attachment scan, break-glass expiry, SLA check, critical escalation, guardian restriction check, retention check, partition maintenance |
 
 ---
 
@@ -300,6 +300,16 @@ Cron fires daily at 08:00 tenant TZ
 10. **Behaviour pattern detection creates alerts that accumulate** — `behaviour:detect-patterns` creates `behaviour_alerts` records daily. Without periodic cleanup or auto-resolution of stale alerts, the alerts table can grow unbounded. Patterns that no longer match are auto-resolved, but resolved records remain in the table.
 
 11. **Behaviour AI service depends on external API** — `BehaviourAIService` calls the Anthropic Claude API via `@anthropic-ai/sdk`. External API downtime, rate limits, or missing API key configuration will cause AI query endpoints to fail. These are non-critical — all other analytics endpoints work without AI.
+
+12. **Break-glass expiry cron is UNREGISTERED** — The `BreakGlassExpiryProcessor` exists and is registered as a provider in `WorkerModule`, but no cron schedule is configured in `CronSchedulerService` or dispatched by `cron-dispatch.processor.ts`. Break-glass grants will not auto-expire until this is resolved. Flagged in SP7 remediation.
+
+13. **Critical escalation re-enqueue is outside transaction** — `CriticalEscalationProcessor` re-enqueues the next escalation step AFTER the Prisma transaction commits (SP3 fix). If the worker crashes between commit and re-enqueue, the escalation chain silently stops. The concern remains in `reported` status with no further notifications.
+
+14. **SLA check runs every 5 minutes without dedup jobId** — The `cron-dispatch-sla` dispatcher does not use dedup jobIds, so concurrent SLA check jobs for the same tenant can run simultaneously. The SLA check processor is idempotent, so this is safe but creates unnecessary load.
+
+15. **Check-awards queue failure is swallowed** — When `BehaviourService.createIncident()` enqueues `behaviour:check-awards`, the queue add is wrapped in try/catch with an empty catch block. If the queue is down, no auto-awards are checked and no error is surfaced to the user or logged.
+
+16. **ClamAV scanning is a TODO** — `AttachmentScanProcessor` has a development fallback that marks all attachments as `clean` when ClamAV is unavailable. Even when ClamAV IS available, the actual scanning integration is a TODO — it currently marks files as clean unconditionally.
 
 ---
 
@@ -420,6 +430,286 @@ Cron fires at tenant digest time
 ```
 
 **Danger**: Processes all pending incidents for a tenant in one batch. For tenants with high incident volumes and many parents, this job may be slow. Individual parent failures don't abort the batch — errors are logged and other parents continue. The preferred channel resolution reads `preferred_contact_channels` from the parent record — if this field is stale or empty, only in_app notifications are created.
+
+---
+
+### `behaviour:attachment-scan` (behaviour queue)
+
+**Trigger**: Enqueued by `BehaviourAttachmentService` when an attachment is uploaded to a behaviour entity (incident, sanction, appeal, etc.).
+**Payload**: `{ tenant_id, attachment_id, file_key }`
+**Processor**: `apps/worker/src/processors/behaviour/attachment-scan.processor.ts`
+**Retries**: 3 with exponential backoff (5s, 10s, 20s)
+**Added in**: Phase D
+
+**Side effects chain**:
+```
+Attachment uploaded
+  -> behaviour:attachment-scan enqueued to behaviour queue
+  -> Worker loads attachment record by id + tenant_id
+  -> Idempotency: skip if scan_status is not 'pending_scan'
+  -> Check ClamAV socket at /var/run/clamav/clamd.ctl
+  -> If ClamAV unavailable (dev/staging):
+    -> Auto-approve as 'clean' (development fallback)
+    -> Set scanned_at = now()
+  -> If ClamAV available (production):
+    -> Scan file via unix socket (TODO: actual integration pending)
+    -> Update scan_status to 'clean' or 'infected'
+    -> Set scanned_at = now()
+```
+
+**Danger**: ClamAV fallback auto-approves all attachments as clean when the socket is not found. This is safe for development but means ALL attachments pass scanning in non-ClamAV environments. The actual ClamAV scanning integration is a TODO — currently marks all files as clean even in production if ClamAV is installed.
+
+---
+
+### `behaviour:break-glass-expiry` (behaviour queue — CRON, registration pending)
+
+**Trigger**: Designed as a cron job (spec: every 5 min per tenant). Processor exists but cron registration is NOT present in `CronSchedulerService`. Not dispatched by `cron-dispatch.processor.ts` either. Currently a dead processor awaiting cron registration.
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase D
+
+**Side effects chain**:
+```
+Cron would fire per tenant (REGISTRATION PENDING)
+  -> behaviour:break-glass-expiry enqueued per tenant
+  -> Worker queries safeguarding_break_glass_grants WHERE:
+     revoked_at IS NULL AND expires_at < NOW()
+  -> For each expired grant:
+    -> Atomically revoke: set revoked_at = now() (WHERE revoked_at IS NULL guard)
+    -> Create behaviour_task with:
+       - task_type = 'break_glass_review'
+       - entity_type = 'break_glass_grant'
+       - assigned_to_id = granted_by_id
+       - priority = 'high', due_date = 7 days from now
+    -> Create notifications for granted_by_id (in_app: delivered immediately, email: queued)
+       - template_key = 'safeguarding.break_glass_expired'
+```
+
+**Danger**: This processor is UNREGISTERED as a cron job. Break-glass grants will NOT auto-expire until the cron is registered in `CronSchedulerService` or added to `cron-dispatch.processor.ts` as a daily dispatch. This is a known remediation gap (flagged in SP7).
+
+---
+
+### `behaviour:check-awards` (behaviour queue)
+
+**Trigger**: Enqueued by `BehaviourService.createIncident()` when the incident status is `active` AND the category polarity is `positive`.
+**Payload**: `{ tenant_id, incident_id, student_ids, academic_year_id, academic_period_id }`
+**Processor**: `apps/worker/src/processors/behaviour/check-awards.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase E
+
+**Side effects chain**:
+```
+Positive incident created with status = active
+  -> behaviour:check-awards enqueued to behaviour queue
+  -> Worker loads active award types with non-null points_threshold (sorted by tier_level DESC, threshold DESC)
+  -> For each student in student_ids:
+    -> Aggregate total points from all active non-withdrawn incidents
+    -> For each eligible award type (totalPoints >= threshold):
+      -> Dedup guard: skip if award already exists for same student + award_type + incident
+      -> Repeat eligibility check (once_ever, once_per_year, once_per_period, unlimited, max_per_year cap)
+      -> If eligible: create behaviour_recognition_award record
+      -> Tier supersession: if award type supersedes lower tiers in same tier_group,
+         mark lower-tier awards with superseded_by_id = new award
+      -> For each parent of the student:
+        -> Guardian restriction check (skip if no_behaviour_notifications or no_communications)
+        -> Resolve notification channels from parent.preferred_contact_channels
+        -> Create notifications per channel (in_app: delivered, email/whatsapp/sms: queued)
+        -> template_key = 'behaviour.award_parent'
+      -> Auto-populate recognition wall if tenant setting recognition_wall_auto_populate = true:
+        -> Create behaviour_publication_approval record
+        -> Consent + admin approval gates determine if published_at is set immediately
+```
+
+**Danger**: The points aggregation is computed fresh from the database (no cache). For students with very high incident counts, this aggregation query may be slow. The parent notification does NOT go through the parent-notification processor — it creates notifications directly in the same transaction. If the queue add fails during incident creation, the failure is swallowed silently (try/catch with empty catch block).
+
+---
+
+### `safeguarding:critical-escalation` (behaviour queue)
+
+**Trigger**: Enqueued by `SafeguardingService.reportConcern()` when `severity = 'critical'` (initial step 0, no delay). Self-re-enqueues with 30-minute delay for subsequent steps (SP3 fix: re-enqueue happens OUTSIDE the Prisma transaction).
+**Payload**: `{ tenant_id, concern_id, escalation_step }`
+**Processor**: `apps/worker/src/processors/behaviour/critical-escalation.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase D, fixed in SP3
+
+**Side effects chain**:
+```
+Critical concern reported OR previous escalation step completed
+  -> safeguarding:critical-escalation enqueued to behaviour queue
+  -> Worker loads safeguarding_concern by id + tenant_id
+  -> TERMINATION CHECK: if concern status !== 'reported', stop escalation chain
+  -> Load escalation chain from tenant settings:
+     [designated_liaison_user_id, deputy_designated_liaison_user_id, ...dlp_fallback_chain]
+  -> If escalation_step >= chain length:
+    -> Record 'chain exhausted' action in safeguarding_actions
+    -> STOP (no re-enqueue)
+  -> Record escalation action in safeguarding_actions
+  -> Create notifications for target user (in_app: delivered, email: queued)
+    -> template_key = 'safeguarding.critical_escalation'
+  -> If next step < chain length:
+    -> Set nextEscalationStep on job instance (signal for re-enqueue)
+  -> AFTER transaction commits (outside Prisma $transaction):
+    -> Re-enqueue with 30-minute delay and dedup jobId = 'critical-esc-{concern_id}-step-{nextStep}'
+```
+
+**Danger**: The re-enqueue happens OUTSIDE the transaction boundary (SP3 fix). If the worker crashes between transaction commit and re-enqueue, the escalation chain stops. The dedup jobId prevents duplicate escalation steps. Once the concern is acknowledged (status !== 'reported'), the entire escalation chain terminates — a late acknowledgement kills all pending delayed jobs when they fire.
+
+---
+
+### `behaviour:guardian-restriction-check` (behaviour queue — dispatched by daily cron)
+
+**Trigger**: Dispatched by `behaviour:cron-dispatch-daily` at 06:00 UTC for each active behaviour tenant.
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/guardian-restriction-check.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase G
+
+**Side effects chain**:
+```
+Daily cron dispatch at 06:00 UTC
+  -> behaviour:guardian-restriction-check enqueued per tenant
+  -> Step 1: Expire ended restrictions
+    -> Query active restrictions WHERE effective_until < today (UTC midnight)
+    -> For each: update status to 'expired'
+    -> Record entity history: change_type = 'status_changed', reason = 'Auto-expired'
+  -> Step 2: Create review reminder tasks
+    -> Query active restrictions WHERE review_date <= 14 days from now
+    -> For each with upcoming review:
+      -> Idempotency: skip if open review task already exists (pending or in_progress)
+      -> Calculate priority: 'high' if <= 3 days, 'medium' otherwise
+      -> Create behaviour_task with:
+        - task_type = 'guardian_restriction_review'
+        - entity_type = 'guardian_restriction'
+        - assigned_to_id = set_by_id
+        - due_date = review_date
+```
+
+**Danger**: The review task creation uses the restriction's `set_by_id` as the assignee. If that staff member has left the school, the task is assigned to an inactive user. Date comparison uses UTC midnight — timezone edge cases may cause off-by-one day issues for tenants far from UTC.
+
+---
+
+### `safeguarding:sla-check` (behaviour queue — dispatched by SLA cron)
+
+**Trigger**: Dispatched by `behaviour:cron-dispatch-sla` every 5 minutes for each active behaviour tenant.
+**Payload**: `{ tenant_id }`
+**Processor**: `apps/worker/src/processors/behaviour/sla-check.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: Phase D
+
+**Side effects chain**:
+```
+SLA cron dispatch every 5 minutes
+  -> safeguarding:sla-check enqueued per tenant
+  -> Worker queries safeguarding_concerns WHERE:
+     sla_first_response_met_at IS NULL
+     AND sla_first_response_due < NOW()
+     AND status NOT IN ('sg_resolved', 'sealed')
+  -> For each breached concern:
+    -> Idempotency: skip if breach task already exists (title starts with 'SLA BREACH', status pending/in_progress)
+    -> Create behaviour_task with:
+      - task_type = 'safeguarding_action'
+      - entity_type = 'safeguarding_concern'
+      - title = 'SLA BREACH: {concern_number} — acknowledgement overdue'
+      - priority = 'urgent', due_date = now
+      - assigned_to_id = designated_liaison_id ?? reported_by_id
+    -> Create notifications for assignee (in_app: delivered, email: queued)
+      - template_key = 'safeguarding.sla_breach'
+```
+
+**Danger**: Runs every 5 minutes across all tenants. If a tenant has many unacknowledged safeguarding concerns with breached SLAs, each run checks and creates tasks for all of them. The idempotency check (title prefix match) is string-based — if the title format changes, dedup breaks and duplicate tasks are created.
+
+---
+
+### `behaviour:cron-dispatch-daily` (behaviour queue — CRON)
+
+**Trigger**: Repeatable cron, runs hourly (`0 * * * *`).
+**Payload**: None (cross-tenant dispatcher — no tenant_id).
+**Processor**: `apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: SP1
+
+**Side effects chain**:
+```
+Hourly cron fires
+  -> Query all active tenants with behaviour module enabled
+  -> For each tenant, based on current hour in tenant's timezone:
+    -> 07:00 TZ: enqueue behaviour:suspension-return (behaviour queue)
+    -> 08:00 TZ: enqueue behaviour:task-reminders (behaviour queue)
+    -> Digest time TZ (default 16:00): enqueue behaviour:digest-notifications (notifications queue)
+  -> For each tenant, based on current UTC hour:
+    -> 05:00 UTC: enqueue behaviour:detect-patterns (behaviour queue)
+    -> 06:00 UTC: enqueue behaviour:guardian-restriction-check (behaviour queue)
+  -> Each enqueued job includes dedup jobId: 'daily:{job_name}:{tenant_id}'
+```
+
+**Danger**: This is a cross-tenant processor — it queries tenants WITHOUT RLS context (system-level read). It injects the `notificationsQueue` for digest dispatch. Invalid timezone strings fall back to UTC silently. If a tenant's timezone is misconfigured, their daily jobs fire at the wrong local hour.
+
+---
+
+### `behaviour:cron-dispatch-sla` (behaviour queue — CRON)
+
+**Trigger**: Repeatable cron, runs every 5 minutes (`*/5 * * * *`).
+**Payload**: None (cross-tenant dispatcher — no tenant_id).
+**Processor**: `apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: SP1
+
+**Side effects chain**:
+```
+Every 5 minutes cron fires
+  -> Query all active tenants with behaviour module enabled
+  -> For each tenant: enqueue safeguarding:sla-check (behaviour queue)
+  -> No dedup jobId (each 5-min tick creates new jobs)
+```
+
+**Danger**: No dedup jobId means if the previous batch of SLA checks is still processing when the next tick fires, multiple SLA check jobs may run concurrently for the same tenant. The SLA check processor itself is idempotent (dedup on existing tasks), so this is safe but wasteful.
+
+---
+
+### `behaviour:cron-dispatch-monthly` (behaviour queue — CRON)
+
+**Trigger**: Repeatable cron, monthly on the 1st at 01:00 UTC (`0 1 1 * *`).
+**Payload**: None (cross-tenant dispatcher — no tenant_id).
+**Processor**: `apps/worker/src/processors/behaviour/cron-dispatch.processor.ts`
+**Retries**: 3 with exponential backoff
+**Added in**: SP1
+
+**Side effects chain**:
+```
+Monthly cron fires on 1st at 01:00 UTC
+  -> Query all active tenants with behaviour module enabled
+  -> For each tenant: enqueue behaviour:retention-check (behaviour queue)
+  -> No dedup jobId
+```
+
+**Danger**: Runs at 01:00, one hour after `behaviour:partition-maintenance` (00:00). The retention check processor itself has `retries: 1` (no retry), so if it fails it goes directly to dead-letter. The monthly dispatch creates one retention-check job per tenant — for tenants with large datasets, these jobs may run for extended periods.
+
+---
+
+### `notifications:dispatch-queued` (notifications queue — CRON)
+
+**Trigger**: Repeatable cron, runs every 30 seconds (`every: 30_000`).
+**Payload**: None (cross-tenant dispatcher — no tenant_id).
+**Processor**: `apps/worker/src/processors/notifications/dispatch-queued.processor.ts`
+**Retries**: 5 with exponential backoff (3s, notifications queue defaults)
+**Added in**: SP2
+
+**Side effects chain**:
+```
+Every 30 seconds cron fires
+  -> Cross-tenant query (no RLS): find notifications WHERE
+     status = 'queued' AND channel != 'in_app'
+     AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+  -> Limit to 50 per batch (FIFO by created_at)
+  -> Group by tenant_id
+  -> For each tenant batch:
+    -> Set RLS context within interactive transaction
+    -> Clear next_retry_at on matched notifications
+    -> Enqueue communications:dispatch-notifications with { tenant_id, notification_ids }
+```
+
+**Danger**: The 50-per-batch limit means at most 50 notifications are dispatched per 30-second tick. If a tenant generates a burst of queued notifications (e.g., mass digest), it may take multiple ticks to drain the queue. The cross-tenant query runs without RLS — it reads notification IDs across all tenants, then sets RLS per tenant for the update. This is intentional for the dispatch pattern.
 
 ---
 

@@ -39,6 +39,7 @@ const mockRlsTx = {
   },
   behaviourTask: {
     create: jest.fn(),
+    updateMany: jest.fn(),
   },
   student: {
     findMany: jest.fn(),
@@ -1095,6 +1096,82 @@ describe('BehaviourService', () => {
         },
         {},
       );
+    });
+  });
+
+  // ─── blocked transitions ──────────────────────────────────────────────
+
+  describe('blocked transitions', () => {
+    it('should reject withdrawn -> any (terminal status)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'withdrawn' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject closed_after_appeal -> any (terminal status)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'closed_after_appeal' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject superseded -> any (terminal status)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'superseded' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject converted_to_safeguarding -> any (terminal status)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'converted_to_safeguarding' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject draft -> resolved (invalid skip)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'draft' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject active -> closed_after_appeal (invalid skip)', async () => {
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
+        makeIncident({ status: 'active' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'closed_after_appeal' },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

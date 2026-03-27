@@ -37,7 +37,8 @@
 | [Compliance](#25-compliance) | `modules/compliance/` | 8 | 1 | 1 |
 | [Imports](#26-imports) | `modules/imports/` | 6 | 1 | 3 |
 | [Platform Admin](#27-platform-admin) | `modules/tenants/` | 16 | 5 | — |
-| **TOTAL** | **38 modules** | **~736** | **~170** | **32 jobs** |
+| [Behaviour](#28-behaviour) | `modules/behaviour/` | 214 | 37 | 16 |
+| **TOTAL** | **39 modules** | **~950** | **~207** | **48 jobs** |
 
 ---
 
@@ -703,3 +704,136 @@ Plus 2 more from other modules that use the notifications queue.
 | `/admin/tenants/new` | Create tenant |
 | `/admin/tenants/[id]` | Detail with status, domains, modules, impersonation |
 | `/admin/audit-log` | Platform audit log |
+
+---
+
+## 28. Behaviour
+
+**What it does**: The second-largest backend module (214 endpoints, 30 services). Incident logging (detailed, quick-log, bulk positive, AI-parsed), configurable point system with house aggregation, automated policy engine (condition/action rules with versioning), sanctions with suspension lifecycle, interventions with review cycles, formal exclusion cases with board packs and decision letters, appeals with evidence bundles, safeguarding concerns with Tusla/Garda referrals and sealed records, student behaviour profiles with timelines, recognition wall with publications, analytics with AI-powered narrative, parent portal, document generation, task management, pattern detection alerts, guardian restrictions, amendment audit trail, and GDPR-aligned data retention.
+
+**Backend**: `apps/api/src/modules/behaviour/`
+- 17 controllers, 30 services, 214 endpoints
+
+| Controller | Endpoints | Route Prefix | Key Features |
+|------------|-----------|-------------|-------------|
+| `behaviour.controller.ts` | 21 | `v1/behaviour/incidents` | Incident CRUD, quick-log, bulk positive, AI parse, follow-ups, participants, attachments, policy evaluation, history |
+| `behaviour-config.controller.ts` | 21 | `v1/behaviour/categories`, `policies`, `description-templates`, `document-templates` | Category CRUD, policy CRUD with versioning/export/import/replay/dry-run, description templates, document templates |
+| `behaviour-admin.controller.ts` | 21 | `v1/behaviour/admin` | Health check, dead-letter retry, recompute points, rebuild awards, recompute pulse, backfill tasks, resend notifications, refresh views, policy dry-run, scope audit, reindex search, retention preview/execute, legal holds |
+| `safeguarding.controller.ts` | 21 | `v1/safeguarding` | Concern CRUD with status transitions, assign lead, action log, Tusla/Garda referrals, attachments, case file (full + redacted), seal initiate/approve, dashboard, break-glass access/review |
+| `behaviour-analytics.controller.ts` | 20 | `v1/behaviour/analytics` | Pulse, overview, heatmap (live + historical), trends, categories, subjects, staff, sanctions, interventions, ratio, comparisons, policy effectiveness, task completion, benchmarks, teachers, class comparisons, CSV export, AI query + history |
+| `behaviour-sanctions.controller.ts` | 14 | `v1/behaviour/sanctions` | Sanction CRUD, today view, my-supervision, calendar, active suspensions, returning-soon, bulk mark-served, status transitions, parent meeting, appeal + outcome |
+| `behaviour-students.controller.ts` | 13 | `v1/behaviour/students` | Student list, profile, timeline, analytics, points, sanctions, interventions, awards, AI summary, preview, export, parent-view, tasks |
+| `behaviour-interventions.controller.ts` | 12 | `v1/behaviour/interventions` | Intervention CRUD, overdue, my-assigned, outcomes, status transitions, reviews, auto-populate, complete |
+| `behaviour-recognition.controller.ts` | 12 | `v1/behaviour/recognition` | Recognition wall, leaderboard, house points/detail, award CRUD, publications with approve/reject, public feed, bulk house assign |
+| `behaviour-appeals.controller.ts` | 10 | `v1/behaviour/appeals` | Appeal CRUD, decide, withdraw, attachments, generate decision letter, evidence bundle |
+| `behaviour-exclusions.controller.ts` | 10 | `v1/behaviour/exclusion-cases` | Exclusion case CRUD, status transitions, generate notice, generate board pack, record decision, timeline, documents |
+| `behaviour-alerts.controller.ts` | 8 | `v1/behaviour/alerts` | Alert list, badge count, detail, seen/acknowledge/snooze/resolve/dismiss |
+| `behaviour-tasks.controller.ts` | 8 | `v1/behaviour/tasks` | Task list, my-tasks, overdue, stats, detail, update, complete, cancel |
+| `behaviour-parent.controller.ts` | 7 | `v1/parent/behaviour` | Parent summary, incidents, points/awards, sanctions, acknowledge, recognition, appeal |
+| `behaviour-documents.controller.ts` | 6 | `v1/behaviour/documents` | Generate, list, detail, finalise, send, download |
+| `behaviour-guardian-restrictions.controller.ts` | 6 | `v1/behaviour/guardian-restrictions` | Restriction CRUD, active list, revoke |
+| `behaviour-amendments.controller.ts` | 4 | `v1/behaviour/amendments` | Amendment list, pending, detail, send correction notice |
+
+**Worker jobs** (16 processors across `behaviour` and `notifications` queues):
+
+| Job Name | Queue | Trigger | Description |
+|----------|-------|---------|-------------|
+| `behaviour:cron-dispatch-daily` | behaviour | Cron (hourly) | Cross-tenant dispatcher — enqueues per-tenant daily jobs at correct local hour |
+| `behaviour:cron-dispatch-sla` | behaviour | Cron (every 5 min) | Cross-tenant dispatcher — enqueues safeguarding SLA checks |
+| `behaviour:cron-dispatch-monthly` | behaviour | Cron (1st of month) | Cross-tenant dispatcher — enqueues retention checks |
+| `behaviour:evaluate-policy` | behaviour | On incident create/update | Run policy engine rules, auto-create sanctions/tasks/notifications |
+| `behaviour:detect-patterns` | behaviour | Daily (05:00 UTC via cron-dispatch) | Detect escalating behaviour patterns, create alerts |
+| `behaviour:check-awards` | behaviour | On points change | Evaluate award thresholds, grant awards |
+| `behaviour:suspension-return` | behaviour | Daily (07:00 TZ via cron-dispatch) | Process suspension end dates, update statuses |
+| `behaviour:task-reminders` | behaviour | Daily (08:00 TZ via cron-dispatch) | Send reminders for overdue/upcoming tasks |
+| `behaviour:guardian-restriction-check` | behaviour | Daily (06:00 UTC via cron-dispatch) | Check restriction expiry and compliance |
+| `behaviour:retention-check` | behaviour | Monthly (via cron-dispatch) | GDPR retention policy enforcement |
+| `behaviour:attachment-scan` | behaviour | On attachment upload | Scan uploaded files for malware/policy compliance |
+| `behaviour:refresh-mv-student-summary` | behaviour | On incident/sanction change | Refresh materialised view for student behaviour summary |
+| `behaviour:refresh-mv-benchmarks` | behaviour | On data change | Refresh materialised view for benchmarks |
+| `behaviour:refresh-mv-exposure-rates` | behaviour | On data change | Refresh materialised view for exposure rates |
+| `behaviour:partition-maintenance` | behaviour | Periodic | Manage table partitions for behaviour data |
+| `behaviour:break-glass-expiry` | behaviour | On break-glass grant | Expire temporary safeguarding access after timeout |
+| `safeguarding:sla-check` | behaviour | Every 5 min (via cron-dispatch) | Check safeguarding concern SLA deadlines, escalate overdue |
+| `safeguarding:critical-escalation` | behaviour | On SLA breach | Escalate critical safeguarding concerns to senior staff |
+| `behaviour:parent-notification` | notifications | On incident/sanction | Send parent notifications for behaviour events |
+| `behaviour:digest-notifications` | notifications | Daily (digest_time TZ via cron-dispatch) | Send daily digest emails to parents |
+
+**Frontend**: 37 pages across `apps/web/src/app/[locale]/(school)/behaviour/`, `(school)/safeguarding/`, and `(school)/settings/behaviour-*`
+
+Behaviour pages (25):
+| Route | Description |
+|-------|-------------|
+| `/behaviour` | Dashboard with pulse, recent incidents, quick actions |
+| `/behaviour/incidents` | Incident list with status/polarity/date filters |
+| `/behaviour/incidents/new` | Detailed incident creation form |
+| `/behaviour/incidents/[id]` | Incident detail with timeline, participants, attachments, policy evaluation |
+| `/behaviour/students` | Student behaviour directory with search |
+| `/behaviour/students/[studentId]` | Student profile with timeline, points, sanctions, interventions, AI summary |
+| `/behaviour/sanctions` | Sanction list with status/type filters |
+| `/behaviour/sanctions/today` | Today's sanctions with supervision assignments |
+| `/behaviour/appeals` | Appeal list with status filters |
+| `/behaviour/appeals/[id]` | Appeal detail with evidence, decision workflow |
+| `/behaviour/interventions` | Intervention list with status/type filters |
+| `/behaviour/interventions/new` | Create intervention form |
+| `/behaviour/interventions/[id]` | Intervention detail with reviews, status transitions |
+| `/behaviour/exclusions` | Exclusion case list |
+| `/behaviour/exclusions/[id]` | Exclusion detail with timeline, documents, board pack, decision |
+| `/behaviour/alerts` | Pattern detection alerts with acknowledge/resolve/dismiss |
+| `/behaviour/tasks` | Task management with overdue/my-tasks views |
+| `/behaviour/amendments` | Amendment history with correction notice workflow |
+| `/behaviour/guardian-restrictions` | Guardian restriction management |
+| `/behaviour/recognition` | Recognition wall with awards and leaderboard |
+| `/behaviour/documents` | Generated documents list with download/send |
+| `/behaviour/analytics` | Analytics dashboard with heatmap, trends, categories, comparisons |
+| `/behaviour/analytics/ai` | AI-powered narrative queries with history |
+| `/behaviour/parent-portal` | Parent-facing behaviour summary |
+| `/behaviour/parent-portal/recognition` | Parent-facing recognition feed |
+
+Safeguarding pages (5):
+| Route | Description |
+|-------|-------------|
+| `/safeguarding` | Safeguarding dashboard with SLA status |
+| `/safeguarding/concerns` | Concern list with status/priority filters |
+| `/safeguarding/concerns/new` | Report new safeguarding concern |
+| `/safeguarding/concerns/[id]` | Concern detail with actions, referrals, seal workflow, case file |
+| `/safeguarding/my-reports` | Own reported concerns |
+
+Settings pages (7):
+| Route | Description |
+|-------|-------------|
+| `/settings/behaviour-general` | General behaviour settings (points, notifications, digest) |
+| `/settings/behaviour-categories` | Incident category management |
+| `/settings/behaviour-policies` | Policy rule configuration with versioning |
+| `/settings/behaviour-houses` | House setup for house points system |
+| `/settings/behaviour-awards` | Award threshold configuration |
+| `/settings/behaviour-admin` | Admin operations (recompute, rebuild, retention) |
+| `/settings/behaviour-documents` | Document template management |
+
+**Permissions** (14):
+| Permission | Tier | Description |
+|------------|------|-------------|
+| `behaviour.log` | staff | Create incidents, access quick-log |
+| `behaviour.view` | staff | View incidents within scope |
+| `behaviour.manage` | staff | Manage sanctions, interventions, tasks, appeals |
+| `behaviour.view_sensitive` | staff | View context notes and SEND notes |
+| `behaviour.amend` | staff | Send correction notices for incident amendments |
+| `behaviour.ai_query` | staff | AI narrative and natural language query |
+| `behaviour.view_staff_analytics` | admin | View staff logging activity |
+| `behaviour.admin` | admin | Configure behaviour module, admin operations |
+| `behaviour.appeal` | parent | Submit appeal as parent |
+| `parent.view_behaviour` | parent | View behaviour data for linked students |
+| `safeguarding.report` | staff | Report safeguarding concerns |
+| `safeguarding.view` | admin | View safeguarding concerns |
+| `safeguarding.manage` | admin | Manage safeguarding concerns |
+| `safeguarding.seal` | admin | Seal safeguarding concerns (irreversible) |
+
+**Shared types**: `packages/shared/src/behaviour/`
+- Enums: `enums.ts` (polarity, entity types, task types/status, change types, scope levels)
+- State machines: `state-machine.ts` (incidents), `state-machine-sanction.ts`, `state-machine-intervention.ts`, `state-machine-appeal.ts`, `state-machine-exclusion.ts`, `state-machine-task.ts`, `safeguarding-state-machine.ts`
+- Data classification: `data-classification.ts` (GDPR field-level classification)
+- Scope: `scope.ts` (visibility scope resolution)
+- School calendar: `school-calendar.ts` (school-day calculations for suspensions)
+- Schemas (28 files): `schemas/incident.schema.ts`, `schemas/sanction.schema.ts`, `schemas/intervention.schema.ts`, `schemas/appeal.schema.ts`, `schemas/exclusion.schema.ts`, `schemas/safeguarding.schema.ts`, `schemas/analytics.schema.ts`, `schemas/policy-rules.schema.ts`, `schemas/policy-condition.schema.ts`, `schemas/policy-action-config.schema.ts`, `schemas/policy-dry-run.schema.ts`, `schemas/policy-replay.schema.ts`, `schemas/recognition.schema.ts`, `schemas/category.schema.ts`, `schemas/house.schema.ts`, `schemas/settings.schema.ts`, `schemas/task.schema.ts`, `schemas/alert.schema.ts`, `schemas/amendment.schema.ts`, `schemas/guardian-restriction.schema.ts`, `schemas/legal-hold.schema.ts`, `schemas/admin-ops.schema.ts`, `schemas/quick-log.schema.ts`, `schemas/template.schema.ts`, `schemas/participant.schema.ts`, `schemas/document.schema.ts`, `schemas/parent-behaviour.schema.ts`
+
+**Depends on**: AuthModule (user resolution), TenantsModule (tenant context, sequences), ApprovalsModule (appeal/exclusion approval workflows), PdfRenderingModule (document generation, board packs, decision letters), S3Module (attachment storage)

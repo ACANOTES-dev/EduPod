@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-26
+> **Last verified**: 2026-03-27
 
 ---
 
@@ -123,13 +123,14 @@ These modules have NO downstream dependents. Changes are contained:
 ## Tier 3 — Domain Modules with Cross-Module Dependencies
 
 ### BehaviourModule
-- **Exports**: `BehaviourService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourConfigService`, `BehaviourQuickLogService`, `BehaviourHistoryService`, `BehaviourScopeService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`
-- **Controllers**: 17 controllers, ~211 endpoints total:
+- **Last verified**: 2026-03-27
+- **Exports** (28 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `SafeguardingService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
+- **Controllers**: 17 controllers, 214 endpoints total:
   - `BehaviourController` (21) — core incident CRUD, quick-log
   - `BehaviourConfigController` (21) — categories, templates, settings
   - `BehaviourAdminController` (21) — admin ops, legal holds, data export
   - `SafeguardingController` (21) — safeguarding concerns, actions, break-glass
-  - `BehaviourAnalyticsController` (16) — analytics, pulse, AI queries
+  - `BehaviourAnalyticsController` (20) — analytics, pulse, AI queries
   - `BehaviourSanctionsController` (14) — sanction lifecycle
   - `BehaviourStudentsController` (13) — student profiles, histories
   - `BehaviourRecognitionController` (12) — awards, award types, recognition wall
@@ -138,11 +139,11 @@ These modules have NO downstream dependents. Changes are contained:
   - `BehaviourExclusionsController` (10) — exclusion case lifecycle
   - `BehaviourAlertsController` (8) — alert management
   - `BehaviourTasksController` (8) — task management
-  - `BehaviourParentController` (8) — parent portal (summary, incidents, sanctions, points, recognition, acknowledge, appeal)
+  - `BehaviourParentController` (7) — parent portal (summary, incidents, sanctions, points, recognition, acknowledge, appeal)
   - `BehaviourGuardianRestrictionsController` (6) — restriction management
   - `BehaviourDocumentsController` (6) — document generation, templates
   - `BehaviourAmendmentsController` (4) — amendment trail, corrections
-- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `CommonModule` (PermissionCacheService), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents)
+- **Imports**: `AuthModule` (guards, permission cache), `TenantsModule` (SequenceService for incident/sanction/appeal/exclusion numbers), `ApprovalsModule` (approval request creation from policy actions), `PdfRenderingModule` (Puppeteer PDF generation for documents), `S3Module` (S3 storage for generated documents), `BullModule.registerQueue('notifications')`, `BullModule.registerQueue('behaviour')`
 - **Internal dependencies**:
   - `BehaviourPulseService` -> PrismaService, RedisService
   - `BehaviourAnalyticsService` -> PrismaService, BehaviourScopeService, BehaviourPulseService
@@ -151,15 +152,20 @@ These modules have NO downstream dependents. Changes are contained:
   - `BehaviourDocumentService` -> PrismaService, S3Service, PdfRenderingService, BehaviourDocumentTemplateService, BehaviourHistoryService
   - `BehaviourParentService` -> PrismaService (reads student_parents, guardian_restrictions, incidents, sanctions, awards, publication_approvals)
   - `BehaviourSanctionsService` -> `@Optional() BehaviourDocumentService` (auto-generate detention_notice/suspension_letter)
-  - `BehaviourExclusionCasesService` -> `@Optional() BehaviourDocumentService` (auto-generate exclusion_notice)
+  - `BehaviourExclusionCasesService` -> `@Optional() BehaviourDocumentService` (auto-generate exclusion_notice), reads `tenant_settings`
   - `BehaviourAppealsService` -> `@Optional() BehaviourDocumentService` (auto-generate appeal_hearing_invite/appeal_decision_letter)
   - `BehaviourAmendmentsService` -> creates correction ack rows, notifications, supersedes documents on sendCorrection()
+  - `BehaviourAdminService` -> PrismaService (reads `students` for data export, cohort analysis)
+  - `BehaviourAwardService` -> PrismaService (reads `academic_periods` for period date ranges)
 - **External dependencies**: `@anthropic-ai/sdk` (Anthropic Claude API), `handlebars` (template compilation for document generation), `puppeteer` (PDF rendering via PdfRenderingModule)
-- **Queues**: Enqueues to `notifications` (parent notifications, sanction notices, appeal outcomes, correction notices, digest notifications) and `behaviour` (policy evaluation, suspension return checks, pattern detection, materialized view refreshes), processes from `behaviour` (task reminders, policy evaluation, suspension-return, detect-patterns, refresh-mv-student-summary, refresh-mv-benchmarks, refresh-mv-exposure-rates)
+- **Queues** — 16 processors on the `behaviour` queue, plus enqueues to `notifications`:
+  - *Enqueues to `behaviour` queue*: `behaviour:evaluate-policy`, `behaviour:check-awards`, `behaviour:suspension-return`, `behaviour:detect-patterns`, `behaviour:task-reminders`, `behaviour:break-glass-expiry` (constant defined but NOT dispatched — see DZ-23), `safeguarding:critical-escalation`, `safeguarding:sla-check`, `behaviour:refresh-mv-student-summary`, `behaviour:refresh-mv-benchmarks`, `behaviour:refresh-mv-exposure-rates`, `behaviour:partition-maintenance`, `behaviour:cron-dispatch-daily`, `behaviour:cron-dispatch-sla`, `behaviour:cron-dispatch-monthly`, `behaviour:guardian-restriction-check`, `behaviour:attachment-scan`, `behaviour:retention-check`
+  - *Enqueues to `notifications` queue*: parent notifications, sanction notices, appeal outcomes, correction notices, `behaviour:digest-notifications`
+  - *Processors (16)*: `BehaviourCronDispatchProcessor` (dispatches per-tenant daily/SLA/monthly jobs), `BehaviourParentNotificationProcessor`, `DigestNotificationsProcessor`, `BehaviourTaskRemindersProcessor`, `BehaviourCheckAwardsProcessor`, `BehaviourGuardianRestrictionCheckProcessor`, `EvaluatePolicyProcessor`, `BehaviourSuspensionReturnProcessor`, `AttachmentScanProcessor`, `BreakGlassExpiryProcessor`, `SlaCheckProcessor`, `CriticalEscalationProcessor`, `DetectPatternsProcessor`, `RefreshMVProcessor` (handles 3 MV refresh job types), `RetentionCheckProcessor`, `PartitionMaintenanceProcessor`
 - **Consumed by**: None yet externally. Internally, PolicyEvaluationEngine creates tasks, sanctions, interventions. SanctionService auto-creates exclusion cases + auto-generates documents. AppealService cascades decisions to sanctions/incidents + auto-generates documents. AmendmentsService dispatches correction notifications + supersedes documents. BehaviourAnalyticsService reads from materialized views refreshed by cron jobs.
 - **Blast radius**: HIGH. ApprovalsModule changes affect behaviour policy actions. Sanction lifecycle creates exclusion cases, legal holds, amendment notices, auto-generates documents. Appeal decisions cascade to sanctions, incidents, exclusion cases, and generate documents. Amendment corrections dispatch parent notifications and supersede existing documents. Document generation depends on PdfRenderingModule (Puppeteer) and S3Module. Materialized view refreshes depend on underlying tables.
 - **Cross-module Prisma-direct reads**: Reads `students`, `student_parents`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `subjects`, `rooms`, `schedules`, `tenant_settings`, `users`, `staff_profiles`, `parents`, `year_groups`, `notifications`, `behaviour_publication_approvals` directly via PrismaService. These are read-only lookups for context snapshots, scope resolution, student data, and parent portal rendering.
-- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker and parent portal rendering. The `@anthropic-ai/sdk` dependency requires an API key configured per tenant. Puppeteer PDF generation runs synchronously in API transactions — see DZ-19. Amendment correction chain touches 5 tables — see DZ-20.
+- **Danger**: Schema changes to `students`, `class_enrolments`, or `class_staff` affect scope resolution in `BehaviourScopeService`. Schema changes to `student_parents` affect parent notification dispatch in the worker and parent portal rendering. The `@anthropic-ai/sdk` dependency requires an API key configured per tenant. Puppeteer PDF generation runs synchronously in API transactions — see DZ-19. Amendment correction chain touches 5 tables — see DZ-20. Break-glass expiry processor has no dispatch mechanism — see DZ-23.
 
 ---
 

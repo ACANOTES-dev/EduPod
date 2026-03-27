@@ -6,6 +6,7 @@ import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 
+import { BREAK_GLASS_EXPIRY_JOB } from './break-glass-expiry.processor';
 import { BEHAVIOUR_DETECT_PATTERNS_JOB } from './detect-patterns.processor';
 import { BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB } from './digest-notifications.processor';
 import { BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB } from './guardian-restriction-check.processor';
@@ -173,7 +174,11 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
           SLA_CHECK_JOB,
           { tenant_id: tenant.id },
         );
-        enqueued++;
+        await this.behaviourQueue.add(
+          BREAK_GLASS_EXPIRY_JOB,
+          { tenant_id: tenant.id },
+        );
+        enqueued += 2;
       } catch (err: unknown) {
         this.logger.error(
           `SLA dispatch failed for tenant ${tenant.id}: ${String(err)}`,

@@ -398,4 +398,56 @@ describe('BehaviourExclusionCasesService', () => {
       expect(diffDays).toBeLessThanOrEqual(22);
     });
   });
+
+  // ─── blocked transitions ──────────────────────────────────────────────
+
+  describe('blocked transitions', () => {
+    it('should reject finalised -> any (terminal status)', async () => {
+      mockRlsTx.behaviourExclusionCase!.findFirst.mockResolvedValue(
+        makeExclusionCase({ status: 'finalised' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID,
+          CASE_ID,
+          'notice_issued',
+          undefined,
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject overturned -> any (terminal status)', async () => {
+      mockRlsTx.behaviourExclusionCase!.findFirst.mockResolvedValue(
+        makeExclusionCase({ status: 'overturned' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID,
+          CASE_ID,
+          'notice_issued',
+          undefined,
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject initiated -> hearing_scheduled_exc (must go through notice_issued)', async () => {
+      mockRlsTx.behaviourExclusionCase!.findFirst.mockResolvedValue(
+        makeExclusionCase({ status: 'initiated' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID,
+          CASE_ID,
+          'hearing_scheduled_exc',
+          undefined,
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

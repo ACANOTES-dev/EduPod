@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-03-26
+> **Last verified**: 2026-03-27
 
 ---
 
@@ -398,17 +398,18 @@ converted_to_safeguarding*  (PROJECTED as "closed" for non-safeguarding users)
 ### BehaviourTaskStatus
 ```
 pending     -> [in_progress, completed, cancelled, overdue]
-in_progress -> [completed, cancelled]
+in_progress -> [completed, cancelled, overdue]
 overdue     -> [in_progress, completed, cancelled]
 completed*
 cancelled*
 ```
-- **Guarded by**: `behaviour-tasks.service.ts` -> `completeTask()`, `cancelTask()` (per-method validation)
+- **Guarded by**: `packages/shared/src/behaviour/state-machine-task.ts` -> `isValidTaskTransition()` (single source of truth, added in SP3) + `behaviour-tasks.service.ts` -> `completeTask()`, `cancelTask()` (per-method validation)
 - **Side effects**:
   - `* -> completed`: Sets `completed_at`, `completed_by_id`, optional `completion_notes`. Records history.
   - `* -> cancelled`: Records history with mandatory reason.
   - `pending -> overdue`: Set automatically by `behaviour:task-reminders` daily cron when `due_date < yesterday`. Sends overdue notification.
-- **Note**: `overdue` is NOT terminal — tasks can still be completed or cancelled after becoming overdue.
+  - `in_progress -> overdue`: Also set by task-reminders cron if a task in progress passes its due date.
+- **Note**: `overdue` is NOT terminal — tasks can still be completed or cancelled after becoming overdue. The `in_progress -> overdue` transition was added in SP3 (previously only `pending -> overdue` was valid).
 
 ### SanctionStatus (Phase C)
 ```
@@ -435,6 +436,52 @@ superseded*
   - `appealed -> replaced`: Appeal partially upheld. New replacement sanction created.
   - Bulk mark served: `POST /sanctions/bulk-mark-served` transitions multiple sanctions atomically with partial success.
 - **Danger**: Appeal decision cascading — a single `decide` call can transition the sanction, incident, and exclusion case. All in one transaction.
+
+### InterventionStatus (Phase E)
+```
+planned                  -> [active_intervention, abandoned]
+active_intervention      -> [monitoring, completed_intervention, abandoned]
+monitoring               -> [completed_intervention, active_intervention]
+completed_intervention*
+abandoned*
+```
+- **Guarded by**: `packages/shared/src/behaviour/state-machine-intervention.ts` -> `isValidInterventionTransition()` (single source of truth) + `behaviour-interventions.service.ts` -> `transitionStatus()`
+- **Prisma enum mapping**: `active_intervention` -> DB `"active"`, `completed_intervention` -> DB `"completed"`. Other values (`planned`, `monitoring`, `abandoned`) map to themselves.
+- **Side effects**:
+  - `planned -> active_intervention`: Records entity history. Intervention plan is now in effect.
+  - `active_intervention -> monitoring`: Moves intervention to observation phase. Records history.
+  - `monitoring -> active_intervention`: Re-activates intervention if monitoring reveals it's still needed.
+  - `* -> completed_intervention`: Terminal. Records completion. Sets completed metrics.
+  - `* -> abandoned`: Terminal. Records abandonment with reason. No further transitions allowed.
+- **Note**: `monitoring -> active_intervention` is a deliberate cycle — interventions can oscillate between active and monitoring until a terminal state is reached. This supports iterative intervention plans where a student's needs change.
+- **Danger**: The Prisma enum names (`active_intervention`, `completed_intervention`) differ from their DB-mapped values (`active`, `completed`) to avoid collisions with other enums. Code that handles these statuses must use the Prisma enum name, not the DB value.
+
+### SafeguardingStatus (Phase D)
+```
+reported             -> [acknowledged]
+acknowledged         -> [under_investigation]
+under_investigation  -> [referred, monitoring, resolved]
+referred             -> [monitoring, resolved]
+monitoring           -> [resolved]
+resolved             -> [sealed]
+sealed*
+```
+- **Guarded by**: `packages/shared/src/behaviour/safeguarding-state-machine.ts` -> `isValidSafeguardingTransition()` (single source of truth) + `safeguarding.service.ts` -> `transitionStatus()`
+- **Prisma enum mapping**: `monitoring` -> DB `"sg_monitoring"` (to avoid collision with `InterventionStatus.monitoring`). Other values map to themselves.
+- **Side effects**:
+  - `reported -> acknowledged`: SLA clock stops (`sla_first_response_met_at` set). Critical escalation chain terminates (processor checks `status !== 'reported'`).
+  - `acknowledged -> under_investigation`: Designated liaison formally opens investigation.
+  - `under_investigation -> referred`: Referral to external agency (Tusla, Garda). Records referral details.
+  - `* -> resolved`: Closes the concern. Outcome notes recorded.
+  - `resolved -> sealed`: IRREVERSIBLE. Seals the record for long-term retention. Sealed concerns cannot be viewed without `safeguarding.seal_access` permission. A sealed record cannot be unsealed.
+- **SLA Notes**: SLA deadlines are computed on creation based on severity:
+  - `critical`: 1 hour
+  - `high`: 4 hours
+  - `medium`: 24 hours
+  - `low`: 72 hours
+  The `safeguarding:sla-check` cron (every 5 min) creates breach tasks if `sla_first_response_met_at` is null and `sla_first_response_due < now()`.
+- **Critical Escalation**: When severity is `critical`, a `safeguarding:critical-escalation` job is enqueued immediately (step 0). It re-enqueues itself with 30-minute delay for each subsequent step in the escalation chain (designated liaison -> deputy -> fallback chain). Chain terminates when concern is acknowledged or chain is exhausted.
+- **Danger**: The `sealed` state is the most dangerous transition in the system — it is completely irreversible. There is no unsealing mechanism by design. Data under a sealed concern is subject to enhanced access controls and cannot be included in standard reports. The Prisma enum uses `sg_monitoring` for the `monitoring` status to avoid name collision.
 
 ### ExclusionStatus (Phase C)
 ```

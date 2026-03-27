@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-03-26
+> **Last verified**: 2026-03-27
 
 ---
 
@@ -320,3 +320,79 @@ If a legal hold is incorrectly released or never created, the retention worker w
 Table and partition names are derived from constants (not user input), so SQL injection risk is minimal. However, if the `PARTITIONED_TABLES` constant is ever modified to include user-controlled values, this becomes a vulnerability.
 
 **Mitigation**: Table names are hardcoded in the `PARTITIONED_TABLES` constant array. Never derive partition names from user input or job payloads.
+
+---
+
+## DZ-23: Break-Glass Expiry Has No Dispatch Mechanism
+
+**Risk**: Expired break-glass grants remain active indefinitely because nothing enqueues the expiry job
+**Location**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`, `apps/api/src/modules/behaviour/safeguarding.constants.ts`
+
+The `BreakGlassExpiryProcessor` exists and is registered in the worker module. The job constant `BEHAVIOUR_BREAK_GLASS_EXPIRY_JOB` is defined in `safeguarding.constants.ts`. However:
+
+1. The cron-dispatch processor does NOT include break-glass expiry in its daily dispatch
+2. The `SafeguardingBreakGlassService.grantAccess()` does NOT enqueue a delayed expiry job when a grant is created
+3. The cron scheduler does NOT register a repeatable job for break-glass expiry
+4. No code anywhere in the API or worker actually enqueues this job
+
+Result: the processor is dead code. Expired grants are never revoked, review tasks are never created, and expiry notifications are never sent. The only way a grant gets revoked is manual revocation via the API.
+
+**Status**: ACTIVE — requires a fix. Either:
+- (a) Add `break-glass-expiry` to the daily cron-dispatch (preferred — consistent with other per-tenant jobs), or
+- (b) Enqueue a delayed job with `delay: duration_hours * 3600000` in `grantAccess()` (more responsive but orphaned if worker restarts)
+
+---
+
+## DZ-24: Check-Awards Concurrent Duplicate
+
+**Risk**: Duplicate awards when multiple positive incidents for the same student are processed concurrently
+**Location**: `apps/worker/src/processors/behaviour/check-awards.processor.ts`
+
+The `BehaviourCheckAwardsJob` dedup guard (line ~166) only checks for an existing award with the same `triggered_by_incident_id` + `award_type_id` + `student_id` combination. It does NOT check for a global "award already exists for this student + award type in this period" before creating.
+
+Race scenario: two incidents for the same student are logged seconds apart. Both are enqueued as `behaviour:check-awards` jobs. Both jobs compute `totalPoints >= threshold` and both pass the dedup guard (different `incident_id`). Both create the same award type for the same student.
+
+The `checkRepeatEligibility()` method (line ~339) mitigates this for `once_ever` and `once_per_year` repeat modes — but only if the first job's transaction commits before the second job reads. Under true concurrency with `unlimited` repeat mode, duplicates are possible.
+
+**Mitigation**: Use `once_per_year` or `once_ever` repeat modes for high-value awards (gold stars, certificates). The `unlimited` repeat mode should only be used for low-stakes awards where duplicates are acceptable. For strict dedup, add a unique partial index on `(tenant_id, student_id, award_type_id, academic_year_id)` for `once_per_year` types.
+
+---
+
+## DZ-25: SLA Threshold Changes Are Not Retroactive
+
+**Risk**: Relaxing SLA thresholds does not relieve existing safeguarding concerns that have already breached
+**Location**: `apps/worker/src/processors/behaviour/sla-check.processor.ts`, `apps/api/src/modules/behaviour/safeguarding.service.ts`
+
+The SLA check processor queries `sla_first_response_due < now()` to detect breaches. The `sla_first_response_due` timestamp is set at concern creation time based on the tenant's configured SLA threshold at that moment. If a tenant later relaxes the SLA (e.g., from 1 hour to 4 hours):
+
+1. Existing concerns that already breached under the old threshold remain breached
+2. Breach tasks already created are not auto-resolved
+3. The `sla_first_response_due` column on existing concerns is not recalculated
+
+This is **intentional design** — retroactive SLA relaxation could mask genuine failures to respond. Once a breach is recorded, it must be addressed, not quietly forgiven by config change.
+
+**Status**: BY DESIGN — no fix needed. Document for support teams: if a tenant asks why breach alerts persist after relaxing SLA settings, the answer is that existing concerns are unaffected. Only new concerns use the updated SLA threshold.
+
+---
+
+## DZ-26: Critical Escalation Self-Chaining With Re-Enqueue
+
+**Risk**: Originally a single-step problem — escalation fired once and stopped. Now MITIGATED.
+**Location**: `apps/worker/src/processors/behaviour/critical-escalation.processor.ts`
+
+The `CriticalEscalationProcessor` re-enqueues itself with a 30-minute delay after each step (line ~56). The pattern:
+
+1. Job fires for `escalation_step: 0` — notifies DLP (designated liaison person)
+2. If concern is still `reported` status, sets `nextEscalationStep = 1` on the inner job object
+3. Outer processor reads `nextEscalationStep` AFTER the Prisma transaction commits
+4. Enqueues `{ concern_id, escalation_step: 1 }` with `delay: 30 * 60 * 1000`
+5. Each step uses `jobId: critical-esc-{concern_id}-step-{nextStep}` for dedup
+
+Termination conditions:
+- Concern status is no longer `reported` (acknowledged/resolved) — step 2 in `processJob()` returns early
+- Escalation chain exhausted (`escalation_step >= chain.length`) — logs "chain exhausted" and creates a manual-intervention note
+- No target user at the current step — returns early
+
+The re-enqueue happens OUTSIDE the Prisma transaction (line ~52 comment), preventing orphaned delayed jobs if the transaction rolls back.
+
+**Status**: MITIGATED. The `jobId` dedup guard prevents duplicate jobs for the same concern + step. The escalation terminates correctly when the concern is acknowledged or the chain is exhausted. Monitor for edge case: if the escalation chain is modified (users removed from DLP config) between steps, a step may target a user that no longer exists in the chain — this is handled by the null check at line ~158.

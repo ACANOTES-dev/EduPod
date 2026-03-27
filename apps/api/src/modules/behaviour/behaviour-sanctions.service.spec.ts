@@ -437,4 +437,58 @@ describe('BehaviourSanctionsService', () => {
       expect(result.failed[0]!.reason).toContain('served');
     });
   });
+
+  // ─── blocked transitions ──────────────────────────────────────────────
+
+  describe('blocked transitions', () => {
+    it('should reject served -> any (terminal status)', async () => {
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
+        makeSanction({ status: 'served' }),
+      );
+
+      await expect(
+        service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject partially_served -> any (terminal status)', async () => {
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
+        makeSanction({ status: 'partially_served' }),
+      );
+
+      await expect(
+        service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject cancelled -> any (terminal status)', async () => {
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
+        makeSanction({ status: 'cancelled' }),
+      );
+
+      await expect(
+        service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject replaced -> any (terminal status)', async () => {
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
+        makeSanction({ status: 'replaced' }),
+      );
+
+      await expect(
+        service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject superseded -> any (terminal status)', async () => {
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
+        makeSanction({ status: 'superseded' }),
+      );
+
+      await expect(
+        service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

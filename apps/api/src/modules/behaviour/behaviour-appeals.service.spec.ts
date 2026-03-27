@@ -362,4 +362,78 @@ describe('BehaviourAppealsService', () => {
       ).rejects.toThrow('Amendment DB failure');
     });
   });
+
+  // ─── blocked transitions ──────────────────────────────────────────────
+
+  describe('blocked transitions', () => {
+    it('should reject decided -> withdraw (terminal status)', async () => {
+      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue({
+        id: APPEAL_ID,
+        tenant_id: TENANT_ID,
+        status: 'decided',
+        sanction_id: SANCTION_ID,
+        sanction: { id: SANCTION_ID, status: 'scheduled' },
+      });
+
+      await expect(
+        service.withdraw(TENANT_ID, APPEAL_ID, USER_ID, { reason: 'Changed mind' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject withdrawn_appeal -> withdraw (terminal status)', async () => {
+      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue({
+        id: APPEAL_ID,
+        tenant_id: TENANT_ID,
+        status: 'withdrawn_appeal',
+        sanction_id: SANCTION_ID,
+        sanction: { id: SANCTION_ID, status: 'scheduled' },
+      });
+
+      await expect(
+        service.withdraw(TENANT_ID, APPEAL_ID, USER_ID, { reason: 'Try again' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject decided -> decide again (terminal status)', async () => {
+      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue({
+        id: APPEAL_ID,
+        tenant_id: TENANT_ID,
+        appeal_number: 'AP-202603-000001',
+        status: 'decided',
+        incident_id: INCIDENT_ID,
+        sanction_id: SANCTION_ID,
+        incident: { id: INCIDENT_ID, status: 'confirmed' },
+        sanction: { id: SANCTION_ID, status: 'scheduled' },
+        exclusion_cases: [],
+      });
+
+      await expect(
+        service.decide(TENANT_ID, APPEAL_ID, USER_ID, {
+          decision: 'overturned',
+          decision_reasoning: 'Re-deciding',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject withdrawn_appeal -> decide (terminal status)', async () => {
+      mockRlsTx.behaviourAppeal!.findFirst.mockResolvedValue({
+        id: APPEAL_ID,
+        tenant_id: TENANT_ID,
+        appeal_number: 'AP-202603-000001',
+        status: 'withdrawn_appeal',
+        incident_id: INCIDENT_ID,
+        sanction_id: SANCTION_ID,
+        incident: { id: INCIDENT_ID, status: 'confirmed' },
+        sanction: { id: SANCTION_ID, status: 'scheduled' },
+        exclusion_cases: [],
+      });
+
+      await expect(
+        service.decide(TENANT_ID, APPEAL_ID, USER_ID, {
+          decision: 'upheld_original',
+          decision_reasoning: 'Deciding after withdrawal',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

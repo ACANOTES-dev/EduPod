@@ -904,4 +904,48 @@ describe('SafeguardingService', () => {
       );
     });
   });
+
+  // ─── blocked transitions ──────────────────────────────────────────────
+
+  describe('blocked transitions', () => {
+    it('should reject sealed -> any (terminal status)', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'sealed' }),
+      );
+
+      // Sealed concerns throw ForbiddenException (immutable record)
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, USER_ID, CONCERN_ID,
+          { status: 'acknowledged' as const, reason: 'Attempt to reopen sealed' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject reported -> under_investigation (must go through acknowledged)', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'reported' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, USER_ID, CONCERN_ID,
+          { status: 'under_investigation' as const, reason: 'Skipping acknowledged' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject acknowledged -> resolved (must go through under_investigation)', async () => {
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
+        makeConcern({ status: 'acknowledged' }),
+      );
+
+      await expect(
+        service.transitionStatus(
+          TENANT_ID, USER_ID, CONCERN_ID,
+          { status: 'resolved' as const, reason: 'Skipping investigation' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });
