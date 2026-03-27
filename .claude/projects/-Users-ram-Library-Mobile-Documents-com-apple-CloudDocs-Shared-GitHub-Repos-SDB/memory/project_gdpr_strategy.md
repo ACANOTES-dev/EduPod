@@ -1,11 +1,13 @@
 ---
-name: GDPR is final module
-description: User is intentionally deferring GDPR compliance as the final module — building all features first, then applying GDPR lens across everything
+name: GDPR is active workstream
+description: GDPR integration is now the active project — 12 phases (A–L) decomposed from master plan at Plans/GDPR-INTEGRATION-PLAN.md, specs at Next Features/GDPR/
 type: project
 ---
 
-GDPR/compliance is intentionally the last module to be built. User wants to complete all functional modules first, then put everything through the GDPR lens as a unified pass.
+GDPR is now the active workstream (as of 2026-03-27). All feature modules are complete; GDPR compliance is being applied as a unified pass across the full codebase.
 
-**Why:** More efficient to apply compliance holistically once all data flows and features are known, rather than retrofitting piecemeal during development.
+**Master plan:** `Plans/GDPR-INTEGRATION-PLAN.md` (v2, tokenisation gateway architecture)
+**Phase specs + implementation log:** `Next Features/GDPR/`
+**Phase graph:** See `project_gdpr_phase_graph.md` for dependency graph, waves, and "what's next" lookup
 
-**How to apply:** Don't block feature discussions or agentic planning on GDPR gaps. Flag GDPR considerations as design notes for the future compliance pass, not as blockers. Still flag genuinely dangerous patterns (e.g., secrets in git) immediately.
+**How to apply:** When working on any GDPR phase, read its spec from `Next Features/GDPR/Phase-X-*.md`. Before starting, check `Next Features/GDPR/IMPLEMENTATION-LOG.md` for prerequisite completion. After completing, write to the implementation log — this is mandatory, not optional.

@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPod — Navigation Approaches</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: #0C0A09;
+    color: #FAFAF9;
+    min-height: 100vh;
+    padding: 40px 32px 60px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    font-size: 15px;
+    color: #A8A29E;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .approaches {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .approach {
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+  .approach:hover {
+    border-color: #10B981;
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.08);
+    transform: translateY(-2px);
+  }
+  .approach.selected {
+    border-color: #10B981;
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.15);
+  }
+  .approach.selected::after {
+    content: '✓ Selected';
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: #10B981;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 999px;
+    z-index: 10;
+  }
+
+  .approach-info {
+    padding: 32px 32px 24px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .approach-letter {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .approach:nth-child(1) .approach-letter { background: rgba(244, 63, 94, 0.15); color: #F43F5E; }
+  .approach:nth-child(2) .approach-letter { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
+  .approach:nth-child(3) .approach-letter { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+
+  .approach-text h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+  .approach-text .tagline {
+    font-size: 14px;
+    color: #10B981;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .approach-text p {
+    font-size: 14px;
+    color: #A8A29E;
+    line-height: 1.6;
+  }
+
+  .mockup-container {
+    padding: 0 32px 32px;
+  }
+
+  .mockup-frame {
+    background: #FEFDFB;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  /* ─── APPROACH A: Radical Departure ─── */
+  .mockup-a {
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+  .mockup-a .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid #E7E5E4;
+    background: #fff;
+  }
+  .mockup-a .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1C1917;
+  }
+  .mockup-a .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 8px;
+  }
+  .mockup-a .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .mockup-a .search-pill {
+    background: #F5F5F4;
+    border: 1px solid #E7E5E4;
+    border-radius: 999px;
+    padding: 8px 20px;
+    font-size: 13px;
+    color: #A8A29E;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 240px;
+  }
+  .mockup-a .search-pill .kbd {
+    background: #fff;
+    border: 1px solid #D6D3D1;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: #78716C;
+    margin-left: auto;
+  }
+  .mockup-a .avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+  }
+  .mockup-a .bell {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid #D6D3D1;
+  }
+
+  .mockup-a .main-content {
+    flex: 1;
+    padding: 32px;
+    background: #FEFDFB;
+  }
+  .mockup-a .greeting {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .mockup-a .greeting-sub {
+    font-size: 13px;
+    color: #78716C;
+    margin-bottom: 28px;
+  }
+
+  .mockup-a .zones-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .mockup-a .zone-card {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .mockup-a .zone-card:hover {
+    border-color: #10B981;
+    box-shadow: 0 2px 12px rgba(16,185,129,0.08);
+  }
+  .mockup-a .zone-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .zone-people .zone-icon { background: rgba(59,130,246,0.1); }
+  .zone-academics .zone-icon { background: rgba(139,92,246,0.1); }
+  .zone-operations .zone-icon { background: rgba(249,115,22,0.1); }
+  .zone-finance .zone-icon { background: rgba(16,185,129,0.1); }
+  .zone-wellbeing .zone-icon { background: rgba(244,63,94,0.1); }
+  .zone-behaviour .zone-icon { background: rgba(245,158,11,0.1); }
+  .zone-scheduling .zone-icon { background: rgba(20,184,166,0.1); }
+  .zone-reports .zone-icon { background: rgba(99,102,241,0.1); }
+
+  .mockup-a .zone-card h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1C1917;
+    margin-bottom: 4px;
+  }
+  .mockup-a .zone-card .zone-stat {
+    font-size: 12px;
+    color: #78716C;
+  }
+  .mockup-a .zone-card .zone-alert {
+    font-size: 11px;
+    color: #F43F5E;
+    font-weight: 500;
+    margin-top: 8px;
+  }
+
+  .mockup-a .action-strip {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .mockup-a .action-chip {
+    background: #ECFDF5;
+    color: #047857;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mockup-a .action-chip.urgent {
+    background: #FFF1F2;
+    color: #9F1239;
+  }
+
+  /* ─── APPROACH B: Elevated Familiar ─── */
+  .mockup-b {
+    min-height: 420px;
+    display: flex;
+  }
+  .mockup-b .sidebar {
+    width: 68px;
+    background: #FAFAF9;
+    border-right: 1px solid #E7E5E4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .mockup-b .sidebar .s-logo {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .mockup-b .sidebar .s-item {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .mockup-b .sidebar .s-item:hover {
+    background: #F5F5F4;
+  }
+  .mockup-b .sidebar .s-item.active {
+    background: #ECFDF5;
+  }
+  .mockup-b .sidebar .s-item .s-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: #D6D3D1;
+  }
+  .mockup-b .sidebar .s-item.active .s-dot {
+    background: #10B981;
+  }
+  .mockup-b .sidebar .s-item .s-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: #F43F5E;
+    border-radius: 999px;
+    border: 2px solid #FAFAF9;
+  }
+  .mockup-b .sidebar .s-spacer { flex: 1; }
+  .mockup-b .sidebar .s-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+  }
+
+  .mockup-b .sub-nav {
+    width: 220px;
+    background: #fff;
+    border-right: 1px solid #E7E5E4;
+    padding: 20px 12px;
+    flex-shrink: 0;
+  }
+  .mockup-b .sub-nav .sub-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #A8A29E;
+    padding: 0 12px;
+    margin-bottom: 12px;
+  }
+  .mockup-b .sub-nav .sub-item {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #78716C;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+  .mockup-b .sub-nav .sub-item:hover { background: #F5F5F4; color: #1C1917; }
+  .mockup-b .sub-nav .sub-item.active {
+    background: #ECFDF5;
+    color: #047857;
+    font-weight: 500;
+  }
+
+  .mockup-b .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .mockup-b .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid #E7E5E4;
+  }
+  .mockup-b .page-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1C1917;
+  }
+  .mockup-b .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .mockup-b .search-pill {
+    background: #F5F5F4;
+    border: 1px solid #E7E5E4;
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 12px;
+    color: #A8A29E;
+    min-width: 200px;
+  }
+  .mockup-b .content-area {
+    flex: 1;
+    padding: 28px;
+    background: #FEFDFB;
+  }
+  .mockup-b .stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .mockup-b .stat-card {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .mockup-b .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #A8A29E;
+    margin-bottom: 6px;
+  }
+  .mockup-b .stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1C1917;
+  }
+  .mockup-b .content-placeholder {
+    background: #F5F5F4;
+    border-radius: 12px;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #A8A29E;
+    font-size: 13px;
+  }
+
+  /* ─── APPROACH C: Bold Hybrid ─── */
+  .mockup-c {
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+  .mockup-c .top-bar {
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 56px;
+    border-bottom: 1px solid #E7E5E4;
+    background: #fff;
+    gap: 24px;
+  }
+  .mockup-c .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1C1917;
+    flex-shrink: 0;
+  }
+  .mockup-c .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 8px;
+  }
+
+  .mockup-c .hub-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    justify-content: center;
+  }
+  .mockup-c .hub-item {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #78716C;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .mockup-c .hub-item:hover {
+    background: #F5F5F4;
+    color: #1C1917;
+  }
+  .mockup-c .hub-item.active {
+    background: #ECFDF5;
+    color: #047857;
+    font-weight: 600;
+  }
+
+  .mockup-c .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .mockup-c .search-pill {
+    background: #F5F5F4;
+    border: 1px solid #E7E5E4;
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 12px;
+    color: #A8A29E;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mockup-c .search-pill .kbd {
+    background: #fff;
+    border: 1px solid #D6D3D1;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+  }
+  .mockup-c .avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+  }
+  .mockup-c .bell {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid #D6D3D1;
+  }
+
+  .mockup-c .context-strip {
+    display: flex;
+    align-items: center;
+    padding: 10px 32px;
+    gap: 8px;
+    background: #FAFAF9;
+    border-bottom: 1px solid #E7E5E4;
+  }
+  .mockup-c .context-tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #78716C;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mockup-c .context-tab:hover { background: #F5F5F4; color: #1C1917; }
+  .mockup-c .context-tab.active {
+    background: #fff;
+    color: #1C1917;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    font-weight: 600;
+  }
+
+  .mockup-c .main-content {
+    flex: 1;
+    padding: 28px 32px;
+    background: #FEFDFB;
+  }
+  .mockup-c .greeting {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .mockup-c .greeting-sub {
+    font-size: 13px;
+    color: #78716C;
+    margin-bottom: 24px;
+  }
+  .mockup-c .smart-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+  .mockup-c .main-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .mockup-c .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .mockup-c .panel-card {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .mockup-c .panel-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1C1917;
+    margin-bottom: 12px;
+  }
+  .mockup-c .mini-stat-row {
+    display: flex;
+    gap: 12px;
+  }
+  .mockup-c .mini-stat {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    background: #F5F5F4;
+    border-radius: 10px;
+  }
+  .mockup-c .mini-stat .ms-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1C1917;
+  }
+  .mockup-c .mini-stat .ms-label {
+    font-size: 11px;
+    color: #78716C;
+    margin-top: 2px;
+  }
+  .mockup-c .task-list { list-style: none; }
+  .mockup-c .task-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #F5F5F4;
+    font-size: 13px;
+    color: #44403C;
+  }
+  .mockup-c .task-list li:last-child { border-bottom: none; }
+  .mockup-c .task-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .mockup-c .task-dot.urgent { background: #F43F5E; }
+  .mockup-c .task-dot.warning { background: #F59E0B; }
+  .mockup-c .task-dot.info { background: #3B82F6; }
+  .mockup-c .task-time {
+    margin-left: auto;
+    font-size: 11px;
+    color: #A8A29E;
+  }
+  .mockup-c .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .mockup-c .qa-chip {
+    background: #F5F5F4;
+    color: #44403C;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mockup-c .qa-chip:hover {
+    background: #ECFDF5;
+    color: #047857;
+  }
+
+  /* Traits list */
+  .traits {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0 32px 20px;
+  }
+  .trait {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+  }
+  .trait-pro { background: rgba(16,185,129,0.1); color: #10B981; }
+  .trait-con { background: rgba(244,63,94,0.08); color: #F43F5E; }
+  .trait-neutral { background: rgba(168,162,158,0.15); color: #A8A29E; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Three Futures for EduPod</h1>
+    <p>Same product, three fundamentally different experiences. Click the one that makes your gut react. Don't overthink it.</p>
+  </div>
+
+  <div class="approaches">
+    <!-- ─── APPROACH A: Radical Departure ─── -->
+    <div class="approach" data-choice="radical" onclick="selectApproach(this)">
+      <div class="approach-info">
+        <div class="approach-letter">A</div>
+        <div class="approach-text">
+          <h2>The Spatial Workspace</h2>
+          <div class="tagline">No sidebar. No traditional nav. The dashboard IS the navigation.</div>
+          <p>Your homepage is a living workspace of cards — each one a domain (People, Academics, Finance...) showing live data. Click a zone to dive in. Navigate via the command palette (⌘K) or click back to the workspace. Like an iPad home screen that shows you what's happening inside each app before you open it.</p>
+        </div>
+      </div>
+      <div class="traits">
+        <span class="trait trait-pro">No sidebar clutter</span>
+        <span class="trait trait-pro">Live data at a glance</span>
+        <span class="trait trait-pro">Feels genuinely new</span>
+        <span class="trait trait-con">Learning curve</span>
+        <span class="trait trait-con">Extra click to reach deep pages</span>
+        <span class="trait trait-neutral">Arc + ClassDojo energy</span>
+      </div>
+      <div class="mockup-container">
+        <div class="mockup-frame mockup-a">
+          <div class="top-bar">
+            <div class="logo">
+              <div class="logo-icon"></div>
+              EduPod
+            </div>
+            <div class="search-pill">
+              Search students, pages, actions...
+              <span class="kbd">⌘K</span>
+            </div>
+            <div class="top-actions">
+              <div class="bell"></div>
+              <div class="avatar"></div>
+            </div>
+          </div>
+          <div class="main-content">
+            <div class="greeting">Good morning, Ram</div>
+            <div class="greeting-sub">Thursday 27 March · NHQS · 3 items need your attention</div>
+            <div class="zones-grid">
+              <div class="zone-card zone-people">
+                <div class="zone-icon">👥</div>
+                <h3>People</h3>
+                <div class="zone-stat">209 students · 32 staff</div>
+                <div class="zone-alert">8 households incomplete</div>
+              </div>
+              <div class="zone-card zone-academics">
+                <div class="zone-icon">📚</div>
+                <h3>Academics</h3>
+                <div class="zone-stat">15 active classes</div>
+                <div class="zone-stat">4 assessments due</div>
+              </div>
+              <div class="zone-card zone-operations">
+                <div class="zone-icon">⚡</div>
+                <h3>Operations</h3>
+                <div class="zone-stat">2 pending admissions</div>
+                <div class="zone-stat">0 pending approvals</div>
+              </div>
+              <div class="zone-card zone-finance">
+                <div class="zone-icon">💰</div>
+                <h3>Finance</h3>
+                <div class="zone-stat">€12,400 collected this month</div>
+                <div class="zone-alert">3 invoices overdue</div>
+              </div>
+              <div class="zone-card zone-behaviour">
+                <div class="zone-icon">🛡️</div>
+                <h3>Behaviour</h3>
+                <div class="zone-stat">2 open incidents</div>
+                <div class="zone-stat">14 recognitions today</div>
+              </div>
+              <div class="zone-card zone-scheduling">
+                <div class="zone-icon">📅</div>
+                <h3>Scheduling</h3>
+                <div class="zone-stat">1 substitution needed</div>
+                <div class="zone-stat">Next period: 10:30</div>
+              </div>
+              <div class="zone-card zone-wellbeing">
+                <div class="zone-icon">❤️</div>
+                <h3>Wellbeing</h3>
+                <div class="zone-stat">Survey open · 18/32 responded</div>
+              </div>
+              <div class="zone-card zone-reports">
+                <div class="zone-icon">📊</div>
+                <h3>Reports</h3>
+                <div class="zone-stat">Board report due in 4 days</div>
+              </div>
+            </div>
+            <div class="action-strip">
+              <div class="action-chip urgent">⚠ 3 overdue invoices</div>
+              <div class="action-chip">📝 Take attendance — Year 3</div>
+              <div class="action-chip">✅ Approve admission — Kelly</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── APPROACH B: Elevated Familiar ─── -->
+    <div class="approach" data-choice="elevated" onclick="selectApproach(this)">
+      <div class="approach-info">
+        <div class="approach-letter">B</div>
+        <div class="approach-text">
+          <h2>The Refined Rail</h2>
+          <div class="tagline">Sidebar reimagined — icon rail + contextual panel. Familiar but elevated to premium.</div>
+          <p>A slim icon rail (always visible) with 8 domain icons. Hover or click to reveal a contextual sub-panel with the domain's pages. The sidebar never shows 30 items — it shows 8 icons, and expands only where you're focused. Think macOS Dock meets Stripe's sidebar. Familiar enough that nobody needs training, polished enough to feel new.</p>
+        </div>
+      </div>
+      <div class="traits">
+        <span class="trait trait-pro">Zero learning curve</span>
+        <span class="trait trait-pro">Fast deep navigation</span>
+        <span class="trait trait-pro">Scales to any feature count</span>
+        <span class="trait trait-con">Still a sidebar (visually)</span>
+        <span class="trait trait-con">Less radical differentiation</span>
+        <span class="trait trait-neutral">Apple + Stripe energy</span>
+      </div>
+      <div class="mockup-container">
+        <div class="mockup-frame mockup-b">
+          <div class="sidebar">
+            <div class="s-logo"></div>
+            <div class="s-item active">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+              <div class="s-badge"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-spacer"></div>
+            <div class="s-item">
+              <div class="s-dot"></div>
+            </div>
+            <div class="s-avatar"></div>
+          </div>
+          <div class="sub-nav">
+            <div class="sub-title">People</div>
+            <div class="sub-item active">Students</div>
+            <div class="sub-item">Staff</div>
+            <div class="sub-item">Households</div>
+            <div style="height: 20px;"></div>
+            <div class="sub-title">Quick Actions</div>
+            <div class="sub-item">+ Register Family</div>
+            <div class="sub-item">+ Add Student</div>
+          </div>
+          <div class="main">
+            <div class="top-bar">
+              <div class="page-title">Students</div>
+              <div class="top-actions">
+                <div class="search-pill">Search... ⌘K</div>
+              </div>
+            </div>
+            <div class="content-area">
+              <div class="stats-row">
+                <div class="stat-card">
+                  <div class="stat-label">Total Students</div>
+                  <div class="stat-value">209</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">Active</div>
+                  <div class="stat-value">204</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-label">New This Term</div>
+                  <div class="stat-value">12</div>
+                </div>
+              </div>
+              <div class="content-placeholder">
+                Student list with filters, search, and batch actions
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── APPROACH C: Bold Hybrid ─── -->
+    <div class="approach" data-choice="hybrid" onclick="selectApproach(this)">
+      <div class="approach-info">
+        <div class="approach-letter">C</div>
+        <div class="approach-text">
+          <h2>The Hub Bar</h2>
+          <div class="tagline">Top navigation with domain hubs + contextual sub-tabs. No sidebar at all.</div>
+          <p>A horizontal hub bar at the top with 6-7 domain pills (Home, People, Learning, Operations, Finance, Reports, Settings). Below it, a contextual strip shows the pages within that hub. The homepage is a personalised command center. Feels like a modern web app (think Notion, Linear) but structured for schools. Bold enough to be different, familiar enough to be instant.</p>
+        </div>
+      </div>
+      <div class="traits">
+        <span class="trait trait-pro">Full-width content area</span>
+        <span class="trait trait-pro">Familiar web-app pattern</span>
+        <span class="trait trait-pro">Scales gracefully</span>
+        <span class="trait trait-pro">Works perfectly on mobile</span>
+        <span class="trait trait-con">Horizontal space limited</span>
+        <span class="trait trait-neutral">ClassDojo + Linear energy</span>
+      </div>
+      <div class="mockup-container">
+        <div class="mockup-frame mockup-c">
+          <div class="top-bar">
+            <div class="logo">
+              <div class="logo-icon"></div>
+              EduPod
+            </div>
+            <div class="hub-nav">
+              <div class="hub-item active">Home</div>
+              <div class="hub-item">People</div>
+              <div class="hub-item">Learning</div>
+              <div class="hub-item">Operations</div>
+              <div class="hub-item">Finance</div>
+              <div class="hub-item">Reports</div>
+              <div class="hub-item">Settings</div>
+            </div>
+            <div class="top-actions">
+              <div class="search-pill">
+                Search <span class="kbd">⌘K</span>
+              </div>
+              <div class="bell"></div>
+              <div class="avatar"></div>
+            </div>
+          </div>
+          <div class="context-strip">
+            <div class="context-tab active">Overview</div>
+            <div class="context-tab">My Tasks</div>
+            <div class="context-tab">Announcements</div>
+            <div class="context-tab">Calendar</div>
+          </div>
+          <div class="main-content">
+            <div class="greeting">Good morning, Ram</div>
+            <div class="greeting-sub">Thursday 27 March · 3 items need attention</div>
+            <div class="smart-grid">
+              <div class="main-panel">
+                <div class="panel-card">
+                  <h3>Today's Priorities</h3>
+                  <ul class="task-list">
+                    <li>
+                      <span class="task-dot urgent"></span>
+                      3 invoices overdue — total €2,340
+                      <span class="task-time">Finance</span>
+                    </li>
+                    <li>
+                      <span class="task-dot warning"></span>
+                      Kelly family admission awaiting approval
+                      <span class="task-time">Admissions</span>
+                    </li>
+                    <li>
+                      <span class="task-dot info"></span>
+                      Wellbeing survey closes Friday — 18/32 responded
+                      <span class="task-time">Wellbeing</span>
+                    </li>
+                    <li>
+                      <span class="task-dot warning"></span>
+                      8 households missing emergency contacts
+                      <span class="task-time">People</span>
+                    </li>
+                  </ul>
+                </div>
+                <div class="panel-card">
+                  <h3>At a Glance</h3>
+                  <div class="mini-stat-row">
+                    <div class="mini-stat">
+                      <div class="ms-val">209</div>
+                      <div class="ms-label">Students</div>
+                    </div>
+                    <div class="mini-stat">
+                      <div class="ms-val">32</div>
+                      <div class="ms-label">Staff</div>
+                    </div>
+                    <div class="mini-stat">
+                      <div class="ms-val">15</div>
+                      <div class="ms-label">Classes</div>
+                    </div>
+                    <div class="mini-stat">
+                      <div class="ms-val">98%</div>
+                      <div class="ms-label">Attendance</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="side-panel">
+                <div class="panel-card">
+                  <h3>Quick Actions</h3>
+                  <div class="quick-actions">
+                    <div class="qa-chip">+ Register Family</div>
+                    <div class="qa-chip">📝 Take Attendance</div>
+                    <div class="qa-chip">📄 New Invoice</div>
+                    <div class="qa-chip">📢 Announcement</div>
+                    <div class="qa-chip">🔍 Find Student</div>
+                  </div>
+                </div>
+                <div class="panel-card">
+                  <h3>Recent Activity</h3>
+                  <ul class="task-list">
+                    <li>
+                      <span class="task-dot info"></span>
+                      Payment received — Evans
+                      <span class="task-time">2h ago</span>
+                    </li>
+                    <li>
+                      <span class="task-dot info"></span>
+                      Grade published — Year 5
+                      <span class="task-time">3h ago</span>
+                    </li>
+                    <li>
+                      <span class="task-dot info"></span>
+                      New inquiry — Hassan
+                      <span class="task-time">5h ago</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function selectApproach(el) {
+      document.querySelectorAll('.approach').forEach(a => a.classList.remove('selected'));
+      el.classList.add('selected');
+
+      // Record selection
+      const choice = el.dataset.choice;
+      const title = el.querySelector('h2').textContent;
+      if (window.__recordEvent) {
+        window.__recordEvent({ type: 'click', choice: choice, text: title });
+      }
+    }
+  </script>
+</body>
+</html>

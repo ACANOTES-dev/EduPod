@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPod — Option C: The Morphing Shell</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: #0C0A09;
+    color: #FAFAF9;
+    min-height: 100vh;
+    padding: 40px 32px 80px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .header .label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(249, 115, 22, 0.15);
+    color: #FB923C;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #F97316, #FDBA74);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    font-size: 15px;
+    color: #A8A29E;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .section-label {
+    text-align: center;
+    margin-bottom: 20px;
+    margin-top: 64px;
+  }
+  .section-label h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .section-label p {
+    font-size: 13px;
+    color: #78716C;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .mockup-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .mockup-frame {
+    background: #FEFDFB;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+    position: relative;
+  }
+
+  /* ─── THE MORPHING TOP BAR ─── */
+  .morph-bar {
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 56px;
+    background: #1C1917;
+    gap: 20px;
+    position: relative;
+  }
+  .morph-bar .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #FAFAF9;
+    flex-shrink: 0;
+  }
+  .morph-bar .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 8px;
+  }
+  .morph-bar .hub-nav {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    justify-content: center;
+  }
+  .morph-bar .hub-item {
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(250, 250, 249, 0.5);
+    border-radius: 999px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .morph-bar .hub-item:hover {
+    color: rgba(250, 250, 249, 0.8);
+    background: rgba(255,255,255,0.06);
+  }
+  .morph-bar .hub-item.active {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6EE7B7;
+    font-weight: 600;
+  }
+  .morph-bar .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .morph-bar .search-pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 12px;
+    color: rgba(250,250,249,0.4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .morph-bar .kbd {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: rgba(250,250,249,0.3);
+  }
+  .morph-bar .avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+  }
+  .morph-bar .bell {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.2);
+    position: relative;
+  }
+  .morph-bar .bell-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #F43F5E;
+    border-radius: 999px;
+    border: 2px solid #1C1917;
+  }
+
+  /* Morph strip — appears below the bar when inside a module */
+  .morph-strip {
+    display: flex;
+    align-items: center;
+    padding: 0 28px;
+    height: 44px;
+    background: #292524;
+    gap: 2px;
+    border-bottom: 1px solid #3f3b39;
+  }
+  .morph-strip .ms-tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(250,250,249,0.4);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .morph-strip .ms-tab:hover {
+    color: rgba(250,250,249,0.7);
+    background: rgba(255,255,255,0.05);
+  }
+  .morph-strip .ms-tab.active {
+    color: #FAFAF9;
+    background: rgba(255,255,255,0.1);
+    font-weight: 600;
+  }
+  .morph-strip .ms-tab .tab-ct {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 5px;
+    padding: 0 5px;
+  }
+  .morph-strip .ms-tab.active .tab-ct {
+    background: rgba(16,185,129,0.25);
+    color: #6EE7B7;
+  }
+  .morph-strip .ms-more {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(250,250,249,0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
+  /* ─── HOME CONTENT ─── */
+  .home-content {
+    padding: 32px 36px;
+    background: #FEFDFB;
+    min-height: 500px;
+  }
+  .greeting-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .greeting {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.025em;
+    margin-bottom: 4px;
+  }
+  .greeting-sub {
+    font-size: 13px;
+    color: #78716C;
+  }
+  .time-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #78716C;
+    background: #F5F5F4;
+    padding: 8px 16px;
+    border-radius: 999px;
+  }
+  .time-pill .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #10B981;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Two-column command center layout */
+  .command-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+  }
+
+  .main-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Timeline feed */
+  .feed-card {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .feed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+  }
+  .feed-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1C1917;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .feed-header .feed-count {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #FFF1F2;
+    color: #DC2626;
+  }
+  .feed-header .view-all {
+    font-size: 12px;
+    font-weight: 500;
+    color: #059669;
+    cursor: pointer;
+  }
+
+  .feed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 20px;
+    border-top: 1px solid #F5F5F4;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .feed-item:hover {
+    background: #FAFAF9;
+  }
+  .feed-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .fi-danger { background: rgba(244,63,94,0.1); }
+  .fi-warning { background: rgba(245,158,11,0.1); }
+  .fi-info { background: rgba(59,130,246,0.1); }
+  .fi-success { background: rgba(16,185,129,0.1); }
+
+  .feed-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .feed-body .fb-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1C1917;
+    margin-bottom: 3px;
+  }
+  .feed-body .fb-desc {
+    font-size: 12px;
+    color: #78716C;
+    line-height: 1.5;
+  }
+  .feed-action {
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .feed-action .fa-btn {
+    font-size: 12px;
+    font-weight: 600;
+    color: #059669;
+    padding: 5px 14px;
+    background: #ECFDF5;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .feed-action .fa-btn:hover {
+    background: #D1FAE5;
+  }
+
+  /* Right sidebar - context panel */
+  .context-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .ctx-card {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .ctx-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1C1917;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stat-row .sr-label {
+    font-size: 12px;
+    color: #78716C;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stat-row .sr-label .sr-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+  }
+  .sr-blue { background: rgba(59,130,246,0.1); }
+  .sr-purple { background: rgba(139,92,246,0.1); }
+  .sr-emerald { background: rgba(16,185,129,0.1); }
+  .sr-amber { background: rgba(245,158,11,0.1); }
+  .sr-rose { background: rgba(244,63,94,0.1); }
+
+  .stat-row .sr-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1C1917;
+  }
+
+  /* Progress bar */
+  .progress-item {
+    margin-bottom: 14px;
+  }
+  .progress-item:last-child { margin-bottom: 0; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #78716C;
+    margin-bottom: 6px;
+  }
+  .progress-label strong {
+    color: #1C1917;
+    font-weight: 600;
+  }
+  .progress-bar {
+    height: 6px;
+    background: #F5F5F4;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease;
+  }
+  .pf-emerald { background: #10B981; }
+  .pf-amber { background: #F59E0B; }
+  .pf-blue { background: #3B82F6; }
+
+  /* Quick nav pills */
+  .nav-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .nav-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #F5F5F4;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #44403C;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .nav-pill:hover {
+    background: #ECFDF5;
+    color: #047857;
+  }
+  .nav-pill .np-emoji {
+    font-size: 14px;
+  }
+
+  /* ─── MODULE VIEW ─── */
+  .module-content {
+    padding: 28px 36px;
+    background: #FEFDFB;
+    min-height: 400px;
+  }
+  .mc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .mc-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.015em;
+  }
+  .mc-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .btn-primary {
+    background: #047857;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: 999px;
+    border: none;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: #78716C;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 20px;
+    border-radius: 999px;
+    border: 1px solid #E7E5E4;
+  }
+
+  .fin-stats {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .fin-stat {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .fin-stat .fs-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #A8A29E;
+    margin-bottom: 4px;
+  }
+  .fin-stat .fs-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1C1917;
+  }
+  .fin-stat .fs-val.danger { color: #DC2626; }
+  .fin-stat .fs-val.success { color: #059669; }
+
+  .table-mock {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .t-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 10px 16px;
+    background: #FAFAF9;
+    border-bottom: 1px solid #E7E5E4;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #A8A29E;
+  }
+  .t-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #F5F5F4;
+    font-size: 13px;
+    color: #44403C;
+    align-items: center;
+  }
+  .t-row:last-child { border-bottom: none; }
+  .t-badge {
+    display: inline-flex;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .t-badge.paid { background: #ECFDF5; color: #059669; }
+  .t-badge.overdue { background: #FFF1F2; color: #9F1239; }
+  .t-badge.pending { background: #FFFBEB; color: #92400E; }
+  .t-link { color: #059669; font-size: 12px; font-weight: 500; }
+
+  /* ─── EXPLANATION ─── */
+  .explanation {
+    max-width: 1100px;
+    margin: 60px auto 0;
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 20px;
+    padding: 36px;
+  }
+  .explanation h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 24px;
+  }
+  .diff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .diff-card {
+    background: #292524;
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .diff-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .diff-card p {
+    font-size: 12px;
+    color: #A8A29E;
+    line-height: 1.6;
+  }
+  .diff-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .db-a { background: rgba(16,185,129,0.15); color: #10B981; }
+  .db-b { background: rgba(139,92,246,0.15); color: #A78BFA; }
+  .db-c { background: rgba(249,115,22,0.15); color: #FB923C; }
+
+  .the-take {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid #292524;
+    text-align: center;
+  }
+  .the-take p {
+    font-size: 14px;
+    color: #78716C;
+    line-height: 1.7;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .the-take strong { color: #FAFAF9; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="label">Option C</div>
+    <h1>The Morphing Shell</h1>
+    <p>The navigation bar itself becomes the experience. A dark, cinematic top bar that transforms — showing hub pills on home, expanding into module tabs when you dive in. One bar, two modes. Feed-driven home replaces the spatial grid.</p>
+  </div>
+
+  <!-- ─── HOME VIEW ─── -->
+  <div class="section-label">
+    <h2>The Home — Feed + Context Panel</h2>
+    <p>A dark top bar with emerald-accented hub pills. Below: a two-column layout. Left: priority action feed (scrollable, chronological). Right: live stats, progress, and quick navigation.</p>
+  </div>
+
+  <div class="mockup-wrapper">
+    <div class="mockup-frame">
+      <!-- DARK MORPHING BAR — HOME MODE -->
+      <div class="morph-bar">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          EduPod
+        </div>
+        <div class="hub-nav">
+          <div class="hub-item active">Home</div>
+          <div class="hub-item">People</div>
+          <div class="hub-item">Learning</div>
+          <div class="hub-item">Operations</div>
+          <div class="hub-item">Finance</div>
+          <div class="hub-item">Reports</div>
+          <div class="hub-item">Settings</div>
+        </div>
+        <div class="top-actions">
+          <div class="search-pill">Search <span class="kbd">⌘K</span></div>
+          <div class="bell"><div class="bell-dot"></div></div>
+          <div class="avatar"></div>
+        </div>
+      </div>
+
+      <div class="home-content">
+        <div class="greeting-row">
+          <div>
+            <div class="greeting">Good morning, Ram</div>
+            <div class="greeting-sub">Thursday 27 March · NHQS</div>
+          </div>
+          <div class="time-pill">
+            <div class="live-dot"></div>
+            3 items need attention
+          </div>
+        </div>
+
+        <div class="command-layout">
+          <!-- Main feed -->
+          <div class="main-feed">
+            <!-- Priority actions -->
+            <div class="feed-card">
+              <div class="feed-header">
+                <h3>Needs Your Attention <span class="feed-count">3</span></h3>
+                <span class="view-all">View all →</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-danger">💰</div>
+                <div class="feed-body">
+                  <div class="fb-title">3 invoices overdue — €2,340 total</div>
+                  <div class="fb-desc">Kelly Family (€1,200) · Thompson (€800) · Johnston (€340)</div>
+                </div>
+                <div class="feed-action">
+                  <button class="fa-btn">Review</button>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-warning">📋</div>
+                <div class="feed-body">
+                  <div class="fb-title">Kelly family admission awaiting approval</div>
+                  <div class="fb-desc">Applied 3 days ago · 2 students · Documents verified</div>
+                </div>
+                <div class="feed-action">
+                  <button class="fa-btn">Approve</button>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-info">📊</div>
+                <div class="feed-body">
+                  <div class="fb-title">Wellbeing survey closes Friday</div>
+                  <div class="fb-desc">18 of 32 staff have responded · 2 days remaining</div>
+                </div>
+                <div class="feed-action">
+                  <button class="fa-btn">View</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="feed-card">
+              <div class="feed-header">
+                <h3>Today's Activity</h3>
+                <span class="view-all">View all →</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-success">💳</div>
+                <div class="feed-body">
+                  <div class="fb-title">Payment received — Evans Family</div>
+                  <div class="fb-desc">€1,200 · Invoice INV-2603-0012 · Stripe</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-info">📝</div>
+                <div class="feed-body">
+                  <div class="fb-title">Year 5 grades published</div>
+                  <div class="fb-desc">Ms. O'Brien published Term 2 grades for 28 students</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-info">💬</div>
+                <div class="feed-body">
+                  <div class="fb-title">New inquiry from Hassan family</div>
+                  <div class="fb-desc">Question about enrolment for September intake</div>
+                </div>
+              </div>
+              <div class="feed-item">
+                <div class="feed-icon fi-success">✅</div>
+                <div class="feed-body">
+                  <div class="fb-title">Attendance submitted — Year 3</div>
+                  <div class="fb-desc">Mr. Kelly marked 24/25 present · 1 absent</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Context panel -->
+          <div class="context-panel">
+            <!-- Live numbers -->
+            <div class="ctx-card">
+              <h3>📊 School Snapshot</h3>
+              <div class="stat-stack">
+                <div class="stat-row">
+                  <div class="sr-label"><span class="sr-icon sr-blue">👥</span> Students</div>
+                  <div class="sr-val">209</div>
+                </div>
+                <div class="stat-row">
+                  <div class="sr-label"><span class="sr-icon sr-purple">👨‍🏫</span> Staff</div>
+                  <div class="sr-val">32</div>
+                </div>
+                <div class="stat-row">
+                  <div class="sr-label"><span class="sr-icon sr-emerald">📚</span> Classes</div>
+                  <div class="sr-val">15</div>
+                </div>
+                <div class="stat-row">
+                  <div class="sr-label"><span class="sr-icon sr-amber">📊</span> Attendance</div>
+                  <div class="sr-val">98%</div>
+                </div>
+                <div class="stat-row">
+                  <div class="sr-label"><span class="sr-icon sr-rose">💰</span> Collected</div>
+                  <div class="sr-val">€12.4k</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Progress trackers -->
+            <div class="ctx-card">
+              <h3>📈 This Week</h3>
+              <div class="progress-item">
+                <div class="progress-label">
+                  <span>Attendance average</span>
+                  <strong>97.2%</strong>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill pf-emerald" style="width: 97%;"></div>
+                </div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-label">
+                  <span>Wellbeing survey</span>
+                  <strong>18/32</strong>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill pf-amber" style="width: 56%;"></div>
+                </div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-label">
+                  <span>Fee collection (March)</span>
+                  <strong>€12.4k / €20.6k</strong>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill pf-blue" style="width: 60%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick nav -->
+            <div class="ctx-card">
+              <h3>🚀 Quick Actions</h3>
+              <div class="nav-pills">
+                <div class="nav-pill"><span class="np-emoji">➕</span> Register</div>
+                <div class="nav-pill"><span class="np-emoji">📝</span> Attendance</div>
+                <div class="nav-pill"><span class="np-emoji">📄</span> Invoice</div>
+                <div class="nav-pill"><span class="np-emoji">📢</span> Announce</div>
+                <div class="nav-pill"><span class="np-emoji">🔍</span> Find student</div>
+                <div class="nav-pill"><span class="np-emoji">📊</span> Reports</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODULE VIEW ─── -->
+  <div class="section-label">
+    <h2>Inside a Module — The Bar Morphs</h2>
+    <p>Click "Finance" and the hub pills stay — but a second strip slides out beneath the bar with the module's sub-pages. Same dark treatment. The bar has grown, not changed.</p>
+  </div>
+
+  <div class="mockup-wrapper">
+    <div class="mockup-frame">
+      <!-- DARK MORPHING BAR — MODULE MODE (expanded) -->
+      <div class="morph-bar">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          EduPod
+        </div>
+        <div class="hub-nav">
+          <div class="hub-item">Home</div>
+          <div class="hub-item">People</div>
+          <div class="hub-item">Learning</div>
+          <div class="hub-item">Operations</div>
+          <div class="hub-item active">Finance</div>
+          <div class="hub-item">Reports</div>
+          <div class="hub-item">Settings</div>
+        </div>
+        <div class="top-actions">
+          <div class="search-pill">Search <span class="kbd">⌘K</span></div>
+          <div class="bell"></div>
+          <div class="avatar"></div>
+        </div>
+      </div>
+      <!-- THE MORPH — sub-nav strip slides in -->
+      <div class="morph-strip">
+        <div class="ms-tab">Overview</div>
+        <div class="ms-tab">Fee Structures</div>
+        <div class="ms-tab active">Invoices <span class="tab-ct">24</span></div>
+        <div class="ms-tab">Payments <span class="tab-ct">18</span></div>
+        <div class="ms-tab">Credits</div>
+        <div class="ms-tab">Refunds</div>
+        <div class="ms-tab">Plans</div>
+        <div class="ms-tab">Statements</div>
+        <div class="ms-tab">Reports</div>
+        <div class="ms-more">Audit ▾</div>
+      </div>
+
+      <div class="module-content">
+        <div class="mc-header">
+          <div class="mc-title">Invoices</div>
+          <div class="mc-actions">
+            <button class="btn-ghost">Export</button>
+            <button class="btn-primary">+ New Invoice</button>
+          </div>
+        </div>
+
+        <div class="fin-stats">
+          <div class="fin-stat">
+            <div class="fs-label">Outstanding</div>
+            <div class="fs-val danger">€8,240</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fs-label">Collected</div>
+            <div class="fs-val success">€12,400</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fs-label">Overdue</div>
+            <div class="fs-val danger">3</div>
+          </div>
+          <div class="fin-stat">
+            <div class="fs-label">Pending</div>
+            <div class="fs-val">2</div>
+          </div>
+        </div>
+
+        <div class="table-mock">
+          <div class="t-header">
+            <div>Household</div>
+            <div>Invoice #</div>
+            <div>Amount</div>
+            <div>Status</div>
+            <div></div>
+          </div>
+          <div class="t-row">
+            <div>The Kelly Family</div>
+            <div>INV-2603-0014</div>
+            <div>€1,200</div>
+            <div><span class="t-badge overdue">Overdue</span></div>
+            <div><span class="t-link">View →</span></div>
+          </div>
+          <div class="t-row">
+            <div>Thompson Family</div>
+            <div>INV-2603-0013</div>
+            <div>€800</div>
+            <div><span class="t-badge overdue">Overdue</span></div>
+            <div><span class="t-link">View →</span></div>
+          </div>
+          <div class="t-row">
+            <div>The Evans Family</div>
+            <div>INV-2603-0012</div>
+            <div>€1,200</div>
+            <div><span class="t-badge paid">Paid</span></div>
+            <div><span class="t-link">View →</span></div>
+          </div>
+          <div class="t-row">
+            <div>Doyle Family</div>
+            <div>INV-2603-0011</div>
+            <div>€600</div>
+            <div><span class="t-badge pending">Pending</span></div>
+            <div><span class="t-link">View →</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── COMPARISON ─── -->
+  <div class="explanation">
+    <h2>All Three Options At a Glance</h2>
+    <div class="diff-grid">
+      <div class="diff-card">
+        <h3>Navigation <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> White top hub bar with text pills<br>
+        <strong>B:</strong> Floating dark dock at the bottom with emoji icons<br>
+        <strong>C:</strong> Dark cinematic top bar that morphs — expands a sub-strip inside modules</p>
+      </div>
+      <div class="diff-card">
+        <h3>Home Page <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> Uniform zone card grid + action chips<br>
+        <strong>B:</strong> Bento grid with hero priority card<br>
+        <strong>C:</strong> Action feed (left) + context panel (right). Feed-driven, not card-driven.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Module Depth <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> Sidebar sub-nav for complex modules<br>
+        <strong>B:</strong> Horizontal tabs (no sidebar anywhere)<br>
+        <strong>C:</strong> Morphing bar — sub-tabs live inside the dark bar itself</p>
+      </div>
+      <div class="diff-card">
+        <h3>Content Width <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> Full-width on home, narrower in sidebar modules<br>
+        <strong>B:</strong> Full-width everywhere<br>
+        <strong>C:</strong> Full-width everywhere (sub-nav is in the bar, not the content)</p>
+      </div>
+      <div class="diff-card">
+        <h3>Personality <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> Clean, bright, accessible. Linear + ClassDojo.<br>
+        <strong>B:</strong> App-like, spatial, playful. Apple + Arc.<br>
+        <strong>C:</strong> Cinematic, editorial, confident. Notion + Superhuman.</p>
+      </div>
+      <div class="diff-card">
+        <h3>Mobile Story <span class="diff-badge db-a">A</span> <span class="diff-badge db-b">B</span> <span class="diff-badge db-c">C</span></h3>
+        <p><strong>A:</strong> Hub bar → bottom tabs<br>
+        <strong>B:</strong> Dock already at bottom — near-zero adaptation<br>
+        <strong>C:</strong> Morph bar → hamburger + bottom tabs (needs more work)</p>
+      </div>
+    </div>
+
+    <div class="the-take">
+      <p><strong>The question isn't which is "best" — it's which personality matches EduPod's soul.</strong> A is the safest, most universally appealing. B is the boldest and most app-like. C is the most sophisticated and editorial. All three use the same unified-layers architecture. The difference is purely in how they express it.</p>
+    </div>
+  </div>
+
+</body>
+</html>

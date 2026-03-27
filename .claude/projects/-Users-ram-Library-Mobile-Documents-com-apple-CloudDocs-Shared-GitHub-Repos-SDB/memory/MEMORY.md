@@ -37,3 +37,4 @@
 
 ## Active Implementation
 - [project_wellbeing_implementation.md](project_wellbeing_implementation.md) — Student Wellbeing: 13 sub-phases (SW-1A→5A), /SW command, orchestrator+sub-agents pattern, Opus-only, 3-month timeline
+- [project_gdpr_phase_graph.md](project_gdpr_phase_graph.md) — GDPR: 12 phases (A–L), dependency graph, wave parallelism, impl log at Next Features/GDPR/IMPLEMENTATION-LOG.md
