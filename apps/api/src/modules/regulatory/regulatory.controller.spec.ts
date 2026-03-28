@@ -6,9 +6,12 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
+import { RegulatoryDesService } from './regulatory-des.service';
+import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
+import { RegulatoryTuslaService } from './regulatory-tusla.service';
 import { RegulatoryController } from './regulatory.controller';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -60,6 +63,13 @@ describe('RegulatoryController', () => {
     findAll: jest.Mock;
     remove: jest.Mock;
   };
+  let mockTuslaService: {
+    getThresholdMonitor: jest.Mock;
+    generateSar: jest.Mock;
+    generateAar: jest.Mock;
+    getSuspensions: jest.Mock;
+    getExpulsions: jest.Mock;
+  };
   let mockDesMappingsService: {
     create: jest.Mock;
     findAll: jest.Mock;
@@ -71,6 +81,16 @@ describe('RegulatoryController', () => {
     findOne: jest.Mock;
     update: jest.Mock;
     remove: jest.Mock;
+  };
+  let mockDesService: {
+    checkReadiness: jest.Mock;
+    previewFile: jest.Mock;
+    generateFile: jest.Mock;
+  };
+  let mockOctoberReturnsService: {
+    checkReadiness: jest.Mock;
+    preview: jest.Mock;
+    getStudentIssues: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -96,6 +116,14 @@ describe('RegulatoryController', () => {
       remove: jest.fn(),
     };
 
+    mockTuslaService = {
+      getThresholdMonitor: jest.fn(),
+      generateSar: jest.fn(),
+      generateAar: jest.fn(),
+      getSuspensions: jest.fn(),
+      getExpulsions: jest.fn(),
+    };
+
     mockDesMappingsService = {
       create: jest.fn(),
       findAll: jest.fn(),
@@ -110,13 +138,28 @@ describe('RegulatoryController', () => {
       remove: jest.fn(),
     };
 
+    mockDesService = {
+      checkReadiness: jest.fn(),
+      previewFile: jest.fn(),
+      generateFile: jest.fn(),
+    };
+
+    mockOctoberReturnsService = {
+      checkReadiness: jest.fn(),
+      preview: jest.fn(),
+      getStudentIssues: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RegulatoryController],
       providers: [
         { provide: RegulatoryCalendarService, useValue: mockCalendarService },
         { provide: RegulatorySubmissionService, useValue: mockSubmissionService },
         { provide: RegulatoryTuslaMappingsService, useValue: mockTuslaMappingsService },
+        { provide: RegulatoryTuslaService, useValue: mockTuslaService },
         { provide: RegulatoryDesMappingsService, useValue: mockDesMappingsService },
+        { provide: RegulatoryDesService, useValue: mockDesService },
+        { provide: RegulatoryOctoberReturnsService, useValue: mockOctoberReturnsService },
         { provide: RegulatoryReducedDaysService, useValue: mockReducedDaysService },
       ],
     })
@@ -288,6 +331,76 @@ describe('RegulatoryController', () => {
     expect(mockTuslaMappingsService.remove).toHaveBeenCalledWith(TENANT_ID, MAPPING_ID);
   });
 
+  // ─── Tusla Compliance ──────────────────────────────────────────────────────
+
+  it('should get threshold monitor data', async () => {
+    const expected = { threshold: 20, data: [] };
+    mockTuslaService.getThresholdMonitor.mockResolvedValue(expected);
+
+    const result = await controller.getThresholdMonitor(mockTenant, {
+      threshold_days: 20,
+    });
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getThresholdMonitor).toHaveBeenCalledWith(TENANT_ID, {
+      threshold_days: 20,
+      start_date: undefined,
+      end_date: undefined,
+    });
+  });
+
+  it('should generate SAR report', async () => {
+    const dto = {
+      academic_year: '2025-2026',
+      period: 1,
+      start_date: '2025-09-01',
+      end_date: '2025-12-20',
+    };
+    const expected = { ...dto, total_students: 5, rows: [] };
+    mockTuslaService.generateSar.mockResolvedValue(expected);
+
+    const result = await controller.generateSar(mockTenant, dto);
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.generateSar).toHaveBeenCalledWith(TENANT_ID, dto);
+  });
+
+  it('should generate AAR report', async () => {
+    const dto = { academic_year: '2025-2026' };
+    const expected = {
+      academic_year: '2025-2026',
+      total_students: 120,
+      total_days_lost: 450,
+      students_over_20_days: 8,
+    };
+    mockTuslaService.generateAar.mockResolvedValue(expected);
+
+    const result = await controller.generateAar(mockTenant, dto);
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.generateAar).toHaveBeenCalledWith(TENANT_ID, dto);
+  });
+
+  it('should get suspensions requiring Tusla notification', async () => {
+    const expected = [{ id: RECORD_ID, suspension_days: 7, student: { id: STUDENT_ID } }];
+    mockTuslaService.getSuspensions.mockResolvedValue(expected);
+
+    const result = await controller.getSuspensions(mockTenant, {});
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getSuspensions).toHaveBeenCalledWith(TENANT_ID, undefined);
+  });
+
+  it('should get expulsions requiring Tusla notification', async () => {
+    const expected = [{ id: RECORD_ID, case_number: 'EXC-001', student: { id: STUDENT_ID } }];
+    mockTuslaService.getExpulsions.mockResolvedValue(expected);
+
+    const result = await controller.getExpulsions(mockTenant, {});
+
+    expect(result).toEqual(expected);
+    expect(mockTuslaService.getExpulsions).toHaveBeenCalledWith(TENANT_ID, undefined);
+  });
+
   // ─── DES Subject Mappings ───────────────────────────────────────────────────
 
   it('should list DES subject mappings', async () => {
@@ -379,5 +492,74 @@ describe('RegulatoryController', () => {
 
     expect(result).toEqual(expected);
     expect(mockReducedDaysService.update).toHaveBeenCalledWith(TENANT_ID, RECORD_ID, dto);
+  });
+
+  // ─── DES Returns ──────────────────────────────────────────────────────────
+
+  it('should check DES readiness', async () => {
+    const expected = { ready: true, academic_year: '2025-2026', categories: [] };
+    mockDesService.checkReadiness.mockResolvedValue(expected);
+
+    const result = await controller.desReadiness(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockDesService.checkReadiness).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  it('should preview a DES file', async () => {
+    const expected = { file_type: 'file_a', columns: [], rows: [], record_count: 0, validation_errors: [] };
+    mockDesService.previewFile.mockResolvedValue(expected);
+
+    const result = await controller.desPreview(mockTenant, 'file_a', { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockDesService.previewFile).toHaveBeenCalledWith(TENANT_ID, 'file_a', '2025-2026');
+  });
+
+  it('should generate a DES file', async () => {
+    const expected = { id: SUBMISSION_ID, domain: 'des_september_returns' };
+    mockDesService.generateFile.mockResolvedValue(expected);
+
+    const result = await controller.desGenerate(mockTenant, mockUser, 'file_e', { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockDesService.generateFile).toHaveBeenCalledWith(TENANT_ID, USER_ID, 'file_e', '2025-2026');
+  });
+
+  it('should reject invalid DES file type', async () => {
+    await expect(controller.desPreview(mockTenant, 'invalid', { academic_year: '2025-2026' }))
+      .rejects.toThrow();
+  });
+
+  // ─── October Returns ──────────────────────────────────────────────────────
+
+  it('should check October Returns readiness', async () => {
+    const expected = { ready: true, academic_year: '2025-2026', student_count: 120, categories: [] };
+    mockOctoberReturnsService.checkReadiness.mockResolvedValue(expected);
+
+    const result = await controller.octoberReturnsReadiness(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockOctoberReturnsService.checkReadiness).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  it('should preview October Returns', async () => {
+    const expected = { academic_year: '2025-2026', summary: { total_students: 120 } };
+    mockOctoberReturnsService.preview.mockResolvedValue(expected);
+
+    const result = await controller.octoberReturnsPreview(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockOctoberReturnsService.preview).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  it('should get October Returns student issues', async () => {
+    const expected = { academic_year: '2025-2026', total_students: 120, students_with_issues: 3, issues: [] };
+    mockOctoberReturnsService.getStudentIssues.mockResolvedValue(expected);
+
+    const result = await controller.octoberReturnsIssues(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockOctoberReturnsService.getStudentIssues).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
   });
 });
