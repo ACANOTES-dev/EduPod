@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   ForbiddenException,
   Injectable,
@@ -196,9 +194,9 @@ export class AiCommentsService {
       subjectType: 'student',
       subjectId: reportCard.student.id,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: rawComment.length > 500 ? rawComment.substring(0, 500) + '...' : rawComment,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(rawComment, 500),
       inputDataCategories: ['grades', 'attendance'],
       tokenised: true,
       processingTimeMs: elapsed,

@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   ForbiddenException,
   Injectable,
@@ -137,9 +135,9 @@ export class BehaviourAIService {
       subjectType: null,
       subjectId: null,
       modelUsed: 'claude-sonnet-4-5-20250514',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: aiResponse.length > 500 ? aiResponse.substring(0, 500) + '...' : aiResponse,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(aiResponse, 500),
       inputDataCategories: ['behaviour_analytics'],
       tokenised: true,
       processingTimeMs: aiElapsed,

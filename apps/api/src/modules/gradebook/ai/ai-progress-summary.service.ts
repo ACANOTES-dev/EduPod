@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   ForbiddenException,
   Injectable,
@@ -198,9 +196,9 @@ export class AiProgressSummaryService {
       subjectType: 'student',
       subjectId: studentId,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: rawSummary.length > 500 ? rawSummary.substring(0, 500) + '...' : rawSummary,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(rawSummary, 500),
       inputDataCategories: ['grades', 'attendance'],
       tokenised: true,
       processingTimeMs: elapsed,

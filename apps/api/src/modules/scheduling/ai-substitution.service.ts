@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
@@ -263,9 +261,9 @@ Return ONLY the JSON array. No markdown, no explanation.`;
         subjectType: null,
         subjectId: null,
         modelUsed: 'claude-3-5-haiku-20241022',
-        promptHash: createHash('sha256').update(prompt).digest('hex'),
-        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-        responseSummary: rawResponseText.length > 500 ? rawResponseText.substring(0, 500) + '...' : rawResponseText,
+        promptHash: AiAuditService.hashPrompt(prompt),
+        promptSummary: AiAuditService.truncate(prompt, 500),
+        responseSummary: AiAuditService.truncate(rawResponseText, 500),
         inputDataCategories: ['staff_availability', 'competencies', 'cover_history'],
         tokenised: true,
         processingTimeMs: elapsed,

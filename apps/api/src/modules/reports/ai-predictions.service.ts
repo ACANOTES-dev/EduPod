@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
@@ -125,9 +123,9 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
         subjectType: null,
         subjectId: null,
         modelUsed: 'claude-sonnet-4-6',
-        promptHash: createHash('sha256').update(prompt).digest('hex'),
-        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-        responseSummary: raw.length > 500 ? raw.substring(0, 500) + '...' : raw,
+        promptHash: AiAuditService.hashPrompt(prompt),
+        promptSummary: AiAuditService.truncate(prompt, 500),
+        responseSummary: AiAuditService.truncate(raw, 500),
         inputDataCategories: ['historical_trends'],
         tokenised: true,
         confidenceScore,
@@ -151,9 +149,9 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
         subjectType: null,
         subjectId: null,
         modelUsed: 'claude-sonnet-4-6',
-        promptHash: createHash('sha256').update(prompt).digest('hex'),
-        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-        responseSummary: raw.length > 500 ? raw.substring(0, 500) + '...' : raw,
+        promptHash: AiAuditService.hashPrompt(prompt),
+        promptSummary: AiAuditService.truncate(prompt, 500),
+        responseSummary: AiAuditService.truncate(raw, 500),
         inputDataCategories: ['historical_trends'],
         tokenised: true,
         confidenceScore: 0.3,

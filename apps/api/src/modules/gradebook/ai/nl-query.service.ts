@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   BadRequestException,
   Injectable,
@@ -185,8 +183,8 @@ export class NlQueryService {
       subjectType: null,
       subjectId: null,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(question).digest('hex'),
-      promptSummary: question.length > 500 ? question.substring(0, 500) + '...' : question,
+      promptHash: AiAuditService.hashPrompt(question),
+      promptSummary: AiAuditService.truncate(question, 500),
       responseSummary: JSON.stringify(structuredQuery).substring(0, 500),
       inputDataCategories: ['gradebook_schema'],
       tokenised: true,

@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   ConflictException,
   Injectable,
@@ -443,9 +441,9 @@ Return ONLY the JSON array, no explanation.`;
       subjectType: null,
       subjectId: null,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: rawText.length > 500 ? rawText.substring(0, 500) + '...' : rawText,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(rawText, 500),
       inputDataCategories: ['report_card_template_image'],
       tokenised: true,
       processingTimeMs: elapsed,

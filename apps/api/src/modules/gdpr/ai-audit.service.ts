@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -282,5 +284,23 @@ export class AiAuditService {
       avgProcessingTimeMs,
       tokenisationRate,
     };
+  }
+
+  // ─── Static Helpers ───────────────────────────────────────────────────────
+
+  /**
+   * SHA-256 hash of the full prompt for storage-efficient audit trail.
+   * Same prompt always produces the same hash (deterministic).
+   */
+  static hashPrompt(prompt: string): string {
+    return createHash('sha256').update(prompt).digest('hex');
+  }
+
+  /**
+   * Truncate text to maxLength characters, appending '...' if truncated.
+   */
+  static truncate(text: string, maxLength: number): string {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
   }
 }

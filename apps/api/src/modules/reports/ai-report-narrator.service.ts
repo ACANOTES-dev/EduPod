@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
@@ -104,9 +102,9 @@ export class AiReportNarratorService {
       subjectType: null,
       subjectId: null,
       modelUsed: 'claude-sonnet-4-6',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: narrative.length > 500 ? narrative.substring(0, 500) + '...' : narrative,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(narrative, 500),
       inputDataCategories: ['report_data'],
       tokenised: true,
       processingTimeMs: elapsed,

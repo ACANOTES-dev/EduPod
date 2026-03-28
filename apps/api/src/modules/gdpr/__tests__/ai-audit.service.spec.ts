@@ -418,4 +418,127 @@ describe('AiAuditService', () => {
       expect(firstCall.data.prompt_hash).toBe(secondCall.data.prompt_hash);
     });
   });
+
+  // ─── token_usage_log_id reference ──────────────────────────────────────────
+
+  describe('log — token_usage_log_id', () => {
+    it('should store token_usage_log_id when provided', async () => {
+      const TOKEN_LOG_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+      mockPrisma.aiProcessingLog.create.mockResolvedValue({ id: LOG_ID });
+
+      const dto = buildCreateLogDto({ tokenUsageLogId: TOKEN_LOG_ID });
+      await service.log(dto);
+
+      const createCall = mockPrisma.aiProcessingLog.create.mock.calls[0][0];
+      expect(createCall.data.token_usage_log_id).toBe(TOKEN_LOG_ID);
+    });
+  });
+
+  // ─── Static helpers — hashPrompt / truncate ────────────────────────────────
+
+  describe('AiAuditService.hashPrompt', () => {
+    it('should return a deterministic SHA-256 hex hash', () => {
+      const prompt = 'Generate report card comment for student';
+      const hash1 = AiAuditService.hashPrompt(prompt);
+      const hash2 = AiAuditService.hashPrompt(prompt);
+
+      expect(hash1).toBe(hash2);
+      expect(hash1).toHaveLength(64); // SHA-256 hex = 64 chars
+      expect(hash1).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it('should produce different hashes for different prompts', () => {
+      const hash1 = AiAuditService.hashPrompt('prompt A');
+      const hash2 = AiAuditService.hashPrompt('prompt B');
+
+      expect(hash1).not.toBe(hash2);
+    });
+  });
+
+  describe('AiAuditService.truncate', () => {
+    it('should truncate text longer than maxLength', () => {
+      const longText = 'A'.repeat(1000);
+      const result = AiAuditService.truncate(longText, 500);
+
+      expect(result).toHaveLength(503); // 500 + '...'
+      expect(result.endsWith('...')).toBe(true);
+    });
+
+    it('should not truncate text shorter than maxLength', () => {
+      const shortText = 'Hello world';
+      const result = AiAuditService.truncate(shortText, 500);
+
+      expect(result).toBe('Hello world');
+    });
+
+    it('should return exact text when length equals maxLength', () => {
+      const exactText = 'A'.repeat(100);
+      const result = AiAuditService.truncate(exactText, 100);
+
+      expect(result).toBe(exactText);
+      expect(result).toHaveLength(100);
+    });
+  });
+});
+
+// ─── RLS Isolation ─────────────────────────────────────────────────────────────
+
+describe('AiAuditService — RLS isolation', () => {
+  const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+  let service: AiAuditService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  const mockCreateRlsClient = createRlsClient as jest.Mock;
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+
+    mockCreateRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(
+        async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
+          fn(mockPrisma),
+      ),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiAuditService,
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    }).compile();
+
+    service = module.get<AiAuditService>(AiAuditService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should not return Tenant A logs when querying as Tenant B', async () => {
+    // Tenant B has no logs — findMany returns empty, count returns 0
+    mockPrisma.aiProcessingLog.findMany.mockResolvedValue([]);
+    mockPrisma.aiProcessingLog.count.mockResolvedValue(0);
+
+    const result = await service.getLogsForSubject(
+      TENANT_B,
+      'student',
+      'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      1,
+      20,
+    );
+
+    expect(result.data).toEqual([]);
+    expect(result.meta.total).toBe(0);
+
+    // The critical assertion: Prisma was called with Tenant B's ID, not Tenant A's
+    expect(mockPrisma.aiProcessingLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenant_id: TENANT_B }),
+      }),
+    );
+    expect(mockPrisma.aiProcessingLog.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenant_id: TENANT_B }),
+      }),
+    );
+  });
 });

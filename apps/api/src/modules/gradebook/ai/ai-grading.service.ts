@@ -1,5 +1,3 @@
-import { createHash } from 'crypto';
-
 import {
   BadRequestException,
   ForbiddenException,
@@ -215,9 +213,9 @@ export class AiGradingService {
       subjectType: 'student',
       subjectId: studentId,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(prompt).digest('hex'),
-      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-      responseSummary: rawText.length > 500 ? rawText.substring(0, 500) + '...' : rawText,
+      promptHash: AiAuditService.hashPrompt(prompt),
+      promptSummary: AiAuditService.truncate(prompt, 500),
+      responseSummary: AiAuditService.truncate(rawText, 500),
       inputDataCategories: ['student_work_image', 'assessment_rubric'],
       tokenised: true,
       confidenceScore: confidenceScoreMap[parsed.confidence] ?? null,
@@ -355,9 +353,9 @@ export class AiGradingService {
           subjectType: 'student',
           subjectId: img.student_id ?? null,
           modelUsed: 'claude-sonnet-4-6-20250514',
-          promptHash: createHash('sha256').update(prompt).digest('hex'),
-          promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
-          responseSummary: batchRawText.length > 500 ? batchRawText.substring(0, 500) + '...' : batchRawText,
+          promptHash: AiAuditService.hashPrompt(prompt),
+          promptSummary: AiAuditService.truncate(prompt, 500),
+          responseSummary: AiAuditService.truncate(batchRawText, 500),
           inputDataCategories: ['student_work_image', 'assessment_rubric'],
           tokenised: true,
           confidenceScore: batchConfidenceMap[parsed.confidence] ?? null,

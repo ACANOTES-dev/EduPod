@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 
 import {
   BadRequestException,
@@ -181,9 +181,9 @@ export class AttendanceScanService {
       subjectType: null,
       subjectId: null,
       modelUsed: 'claude-sonnet-4-6-20250514',
-      promptHash: createHash('sha256').update(SCAN_PROMPT).digest('hex'),
-      promptSummary: SCAN_PROMPT.length > 500 ? SCAN_PROMPT.substring(0, 500) + '...' : SCAN_PROMPT,
-      responseSummary: aiText.length > 500 ? aiText.substring(0, 500) + '...' : aiText,
+      promptHash: AiAuditService.hashPrompt(SCAN_PROMPT),
+      promptSummary: AiAuditService.truncate(SCAN_PROMPT, 500),
+      responseSummary: AiAuditService.truncate(aiText, 500),
       inputDataCategories: ['attendance_sheet_image'],
       tokenised: true,
       processingTimeMs: elapsed,
