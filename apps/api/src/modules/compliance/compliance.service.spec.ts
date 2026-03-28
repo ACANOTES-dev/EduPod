@@ -715,7 +715,7 @@ describe('ComplianceService', () => {
       });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
 
-      const result = await service.execute(TENANT_ID, REQUEST_ID);
+      const result = await service.execute(TENANT_ID, REQUEST_ID, 'json');
 
       expect(result.status).toBe('completed');
       expect(mockDsarTraversal.collectAllData).toHaveBeenCalledWith(
@@ -728,6 +728,7 @@ describe('ComplianceService', () => {
         REQUEST_ID,
         dataPackage,
         {},
+        'json',
       );
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -736,6 +737,42 @@ describe('ComplianceService', () => {
             export_file_key: 'compliance-exports/request-uuid-1.json',
           }),
         }),
+      );
+    });
+
+    it('should pass csv format through to exportDataPackage', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        export_file_key: 'compliance-exports/request-uuid-1.csv',
+      });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: { profile: { first_name: 'John' } },
+      };
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.csv',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      const result = await service.execute(TENANT_ID, REQUEST_ID, 'csv');
+
+      expect(result.status).toBe('completed');
+      expect(mockAccessExport.exportDataPackage).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+        dataPackage,
+        {},
+        'csv',
       );
     });
 
@@ -996,6 +1033,7 @@ describe('ComplianceService', () => {
         REQUEST_ID,
         dataPackage,
         { pastoral_dsar_records: reviewedRecords },
+        'json',
       );
     });
 

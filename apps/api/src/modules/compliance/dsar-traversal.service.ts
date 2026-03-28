@@ -76,8 +76,38 @@ export class DsarTraversalService {
   ): Promise<Record<string, unknown>> {
     const where = { tenant_id: tenantId };
 
+    // Phase 1: Fetch profile and parent links first — needed for application + token queries
+    const [profile, studentParentLinks, studentTokens] = await Promise.all([
+      this.prisma.student.findFirst({
+        where: { id: studentId, ...where },
+      }),
+      this.prisma.studentParent.findMany({
+        where: { student_id: studentId, tenant_id: tenantId },
+        select: { parent_id: true },
+      }),
+      this.prisma.gdprAnonymisationToken.findMany({
+        where: { tenant_id: tenantId, entity_type: 'student', entity_id: studentId },
+        select: { id: true },
+      }),
+    ]);
+
+    const parentIds = studentParentLinks.map((sp) => sp.parent_id);
+    const studentTokenIds = studentTokens.map((t) => t.id);
+
+    // Build application filter: by parent submission OR by student name match
+    const applicationOrClauses: Record<string, unknown>[] = [];
+    if (parentIds.length > 0) {
+      applicationOrClauses.push({ submitted_by_parent_id: { in: parentIds } });
+    }
+    if (profile) {
+      applicationOrClauses.push({
+        student_first_name: profile.first_name,
+        student_last_name: profile.last_name,
+      });
+    }
+
+    // Phase 2: All remaining queries in parallel
     const [
-      profile,
       attendanceRecords,
       attendancePatternAlerts,
       grades,
@@ -97,11 +127,6 @@ export class DsarTraversalService {
       auditLogs,
       notifications,
     ] = await Promise.all([
-      // Profile — ALL fields
-      this.prisma.student.findFirst({
-        where: { id: studentId, ...where },
-      }),
-
       // Attendance — ALL records, no limit
       this.prisma.attendanceRecord.findMany({
         where: { student_id: studentId, ...where },
@@ -169,12 +194,13 @@ export class DsarTraversalService {
         orderBy: { awarded_at: 'desc' },
       }),
 
-      // Admissions — applications submitted by parents for this student
-      // Link is via parent who submitted, with student name match, or direct lookup
-      this.prisma.application.findMany({
-        where: { ...where },
-        include: { notes: true },
-      }),
+      // Admissions — applications submitted by student's parents or matching student name
+      applicationOrClauses.length > 0
+        ? this.prisma.application.findMany({
+            where: { ...where, OR: applicationOrClauses },
+            include: { notes: true },
+          })
+        : Promise.resolve([]),
 
       // Class enrolments with class name
       this.prisma.classEnrolment.findMany({
@@ -191,7 +217,7 @@ export class DsarTraversalService {
         where: { subject_type: 'student', subject_id: studentId, ...where },
       }),
 
-      // GDPR token usage logs referencing the student
+      // GDPR token usage logs referencing the student's tokens
       this.prisma.gdprTokenUsageLog.findMany({
         where: { ...where },
       }),
@@ -219,22 +245,17 @@ export class DsarTraversalService {
       }),
     ]);
 
-    // Filter applications to those matching this student by name or linked parent
-    const studentProfile = profile;
-    const relevantApplications = studentProfile
-      ? applications.filter(
-          (app) =>
-            app.student_first_name === studentProfile.first_name &&
-            app.student_last_name === studentProfile.last_name,
-        )
-      : [];
-
-    // Filter token usage logs that reference this student's tokens
-    const relevantTokenLogs = gdprTokenUsageLogs.filter(
-      (log) =>
-        Array.isArray(log.tokens_used) &&
-        log.tokens_used.length > 0,
-    );
+    // Filter token usage logs to only those referencing the student's token IDs
+    const relevantTokenLogs =
+      studentTokenIds.length > 0
+        ? gdprTokenUsageLogs.filter(
+            (log) =>
+              Array.isArray(log.tokens_used) &&
+              log.tokens_used.some((tokenId) =>
+                studentTokenIds.includes(tokenId as string),
+              ),
+          )
+        : [];
 
     return {
       profile,
@@ -249,7 +270,7 @@ export class DsarTraversalService {
       behaviour_appeals: behaviourAppeals,
       behaviour_exclusion_cases: behaviourExclusionCases,
       behaviour_recognition_awards: behaviourRecognitionAwards,
-      admissions: relevantApplications,
+      admissions: applications,
       class_enrolments: classEnrolments.map((e) => ({
         ...e,
         class_name: e.class_entity.name,
@@ -473,7 +494,7 @@ export class DsarTraversalService {
       }),
     ]);
 
-    // Mask bank details — only expose bank_name and last 4 chars
+    // Mask bank details — show bank_name only; encrypted fields cannot be meaningfully masked
     const maskedProfile = profile
       ? {
           ...profile,
@@ -482,11 +503,11 @@ export class DsarTraversalService {
           bank_encryption_key_ref: undefined,
           bank_details_masked: {
             bank_name: profile.bank_name,
-            account_last_4: profile.bank_account_number_encrypted
-              ? `****${profile.bank_account_number_encrypted.slice(-4)}`
+            account_number: profile.bank_account_number_encrypted
+              ? '[encrypted — available via DPO request]'
               : null,
-            iban_last_4: profile.bank_iban_encrypted
-              ? `****${profile.bank_iban_encrypted.slice(-4)}`
+            iban: profile.bank_iban_encrypted
+              ? '[encrypted — available via DPO request]'
               : null,
           },
         }

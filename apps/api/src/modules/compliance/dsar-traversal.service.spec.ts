@@ -39,6 +39,7 @@ interface MockPrisma {
   applicationNote: Pick<MockModel, 'findMany'>;
   classEnrolment: Pick<MockModel, 'findMany'>;
   consentRecord: Pick<MockModel, 'findMany'>;
+  gdprAnonymisationToken: Pick<MockModel, 'findMany'>;
   gdprTokenUsageLog: Pick<MockModel, 'findMany'>;
   aiProcessingLog: Pick<MockModel, 'findMany'>;
   auditLog: Pick<MockModel, 'findMany'>;
@@ -118,6 +119,9 @@ function buildMockPrisma(): MockPrisma {
       findMany: jest.fn().mockResolvedValue([]),
     },
     consentRecord: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    gdprAnonymisationToken: {
       findMany: jest.fn().mockResolvedValue([]),
     },
     gdprTokenUsageLog: {
@@ -418,6 +422,116 @@ describe('DsarTraversalService', () => {
         }),
       );
     });
+
+    // ─── GAP-5: Application queries filtered by parent IDs and name ────────
+
+    it('should query applications filtered by parent IDs when student has parents', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Alice',
+        last_name: 'Smith',
+      });
+      mockPrisma.studentParent.findMany.mockResolvedValue([
+        { parent_id: 'parent-1' },
+        { parent_id: 'parent-2' },
+      ]);
+
+      await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            OR: expect.arrayContaining([
+              { submitted_by_parent_id: { in: ['parent-1', 'parent-2'] } },
+              { student_first_name: 'Alice', student_last_name: 'Smith' },
+            ]),
+          }),
+          include: { notes: true },
+        }),
+      );
+    });
+
+    it('should query student parent links with correct filters', async () => {
+      await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+
+      expect(mockPrisma.studentParent.findMany).toHaveBeenCalledWith({
+        where: { student_id: STUDENT_ID, tenant_id: TENANT_ID },
+        select: { parent_id: true },
+      });
+    });
+
+    it('should not query applications when student has no profile and no parents', async () => {
+      // Default mocks: student.findFirst returns null, studentParent.findMany returns []
+      const result = await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+
+      // No application query should have been made — resolved to empty array
+      expect(mockPrisma.application.findMany).not.toHaveBeenCalled();
+      expect(result.categories.admissions).toEqual([]);
+    });
+
+    it('should filter applications by name only when student has no parents', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({
+        id: STUDENT_ID,
+        first_name: 'Bob',
+        last_name: 'Jones',
+      });
+      mockPrisma.studentParent.findMany.mockResolvedValue([]);
+
+      await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            OR: [{ student_first_name: 'Bob', student_last_name: 'Jones' }],
+          }),
+        }),
+      );
+    });
+
+    // ─── GAP-6: Token usage logs filtered by student token IDs ─────────────
+
+    it('should filter token usage logs to entries referencing student token IDs', async () => {
+      const tokenId1 = 'token-uuid-1';
+      const tokenId2 = 'token-uuid-2';
+
+      mockPrisma.gdprAnonymisationToken.findMany.mockResolvedValue([
+        { id: tokenId1 },
+        { id: tokenId2 },
+      ]);
+
+      mockPrisma.gdprTokenUsageLog.findMany.mockResolvedValue([
+        { id: 'log-1', tokens_used: [tokenId1, 'other-token'] },
+        { id: 'log-2', tokens_used: ['unrelated-token'] },
+        { id: 'log-3', tokens_used: [tokenId2] },
+      ]);
+
+      const result = await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+      const tokenLogs = result.categories.gdpr_token_usage_logs as Array<Record<string, unknown>>;
+
+      expect(tokenLogs).toHaveLength(2);
+      expect(tokenLogs.map((l) => l.id)).toEqual(['log-1', 'log-3']);
+    });
+
+    it('should return empty token usage logs when student has no tokens', async () => {
+      mockPrisma.gdprAnonymisationToken.findMany.mockResolvedValue([]);
+      mockPrisma.gdprTokenUsageLog.findMany.mockResolvedValue([
+        { id: 'log-1', tokens_used: ['some-token'] },
+      ]);
+
+      const result = await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+      expect(result.categories.gdpr_token_usage_logs).toEqual([]);
+    });
+
+    it('should query anonymisation tokens for the correct student', async () => {
+      await service.collectAllData(TENANT_ID, 'student', STUDENT_ID);
+
+      expect(mockPrisma.gdprAnonymisationToken.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, entity_type: 'student', entity_id: STUDENT_ID },
+        select: { id: true },
+      });
+    });
   });
 
   // ─── Parent traversal ──────────────────────────────────────────────────
@@ -577,11 +691,11 @@ describe('DsarTraversalService', () => {
       expect(profile.bank_iban_encrypted).toBeUndefined();
       expect(profile.bank_encryption_key_ref).toBeUndefined();
 
-      // Masked details must be present
+      // Masked details must show DPO message, not ciphertext
       const masked = profile.bank_details_masked as Record<string, unknown>;
       expect(masked.bank_name).toBe('AIB');
-      expect(masked.account_last_4).toBe('****1234');
-      expect(masked.iban_last_4).toBe('****5678');
+      expect(masked.account_number).toBe('[encrypted — available via DPO request]');
+      expect(masked.iban).toBe('[encrypted — available via DPO request]');
     });
 
     it('should handle null bank details gracefully', async () => {
@@ -599,8 +713,8 @@ describe('DsarTraversalService', () => {
       const masked = profile.bank_details_masked as Record<string, unknown>;
 
       expect(masked.bank_name).toBeNull();
-      expect(masked.account_last_4).toBeNull();
-      expect(masked.iban_last_4).toBeNull();
+      expect(masked.account_number).toBeNull();
+      expect(masked.iban).toBeNull();
     });
 
     it('should include linked user record in staff profile', async () => {

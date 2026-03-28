@@ -75,26 +75,36 @@ export class DeadlineCheckProcessor extends WorkerHost {
       );
 
       if (daysRemaining <= 0 && !request.deadline_exceeded) {
-        // Deadline exceeded — flag and notify
+        // Deadline exceeded — flag and notify all admins + requester
         await this.prisma.complianceRequest.update({
           where: { id: request.id },
           data: { deadline_exceeded: true },
         });
-        await this.sendNotificationIfNew(
-          tenantId,
-          request.id,
+        const adminUserIds = await this.getAdminUserIds(tenantId);
+        const exceededRecipients = new Set([
+          ...adminUserIds,
           request.requested_by_user_id,
-          'compliance_deadline_exceeded',
-        );
+        ]);
+        for (const userId of exceededRecipients) {
+          await this.sendNotificationIfNew(
+            tenantId,
+            request.id,
+            userId,
+            'compliance_deadline_exceeded',
+          );
+        }
         exceeded++;
       } else if (daysRemaining > 0 && daysRemaining <= 3) {
-        // 3-day warning window
-        await this.sendNotificationIfNew(
-          tenantId,
-          request.id,
-          request.requested_by_user_id,
-          'compliance_deadline_3day',
-        );
+        // 3-day warning — escalate to all admin-tier users
+        const adminUserIds = await this.getAdminUserIds(tenantId);
+        for (const userId of adminUserIds) {
+          await this.sendNotificationIfNew(
+            tenantId,
+            request.id,
+            userId,
+            'compliance_deadline_3day',
+          );
+        }
         warnings++;
       } else if (daysRemaining > 3 && daysRemaining <= 7) {
         // 7-day warning window
@@ -113,6 +123,22 @@ export class DeadlineCheckProcessor extends WorkerHost {
         `Tenant ${tenantId}: checked ${requests.length} requests, ${warnings} warnings sent, ${exceeded} deadlines exceeded`,
       );
     }
+  }
+
+  // ─── Admin user resolution ──────────────────────────────────────────────
+
+  private async getAdminUserIds(tenantId: string): Promise<string[]> {
+    const adminMemberships = await this.prisma.membershipRole.findMany({
+      where: {
+        tenant_id: tenantId,
+        role: { role_tier: 'admin' },
+        membership: { membership_status: 'active' },
+      },
+      select: {
+        membership: { select: { user_id: true } },
+      },
+    });
+    return [...new Set(adminMemberships.map((mr) => mr.membership.user_id))];
   }
 
   // ─── Deduplicated notification creation ─────────────────────────────────

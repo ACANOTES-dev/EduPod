@@ -12,6 +12,8 @@ const TENANT_A_ID = '11111111-1111-1111-1111-111111111111';
 const TENANT_B_ID = '22222222-2222-2222-2222-222222222222';
 const REQUEST_ID = 'aaaa0001-0000-0000-0000-000000000001';
 const USER_ID = 'bbbb0001-0000-0000-0000-000000000001';
+const ADMIN_USER_A = 'dddd0001-0000-0000-0000-000000000001';
+const ADMIN_USER_B = 'dddd0002-0000-0000-0000-000000000002';
 
 function daysFromNow(days: number): Date {
   const date = new Date();
@@ -45,6 +47,10 @@ function buildRequest(overrides: Record<string, unknown> = {}) {
 
 // ─── Mock Prisma ────────────────────────────────────────────────────────────
 
+function buildAdminMembershipRole(userId: string) {
+  return { membership: { user_id: userId } };
+}
+
 function buildMockPrisma() {
   return {
     tenant: {
@@ -57,6 +63,12 @@ function buildMockPrisma() {
     notification: {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue({}),
+    },
+    membershipRole: {
+      findMany: jest.fn().mockResolvedValue([
+        buildAdminMembershipRole(ADMIN_USER_A),
+        buildAdminMembershipRole(ADMIN_USER_B),
+      ]),
     },
   };
 }
@@ -174,7 +186,7 @@ describe('DeadlineCheckProcessor', () => {
   // ─── 3-day warning ────────────────────────────────────────────────────
 
   describe('checkTenantDeadlines — 3-day warning', () => {
-    it('should send 3-day notification for requests with deadline 1-3 days away', async () => {
+    it('should send 3-day notification to all admin-tier users', async () => {
       mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
       mockPrisma.complianceRequest.findMany.mockResolvedValue([
         buildRequest({ deadline_at: daysFromNow(2) }),
@@ -184,8 +196,28 @@ describe('DeadlineCheckProcessor', () => {
       const job = buildMockJob(DEADLINE_CHECK_JOB);
       await processor.process(job);
 
+      expect(mockPrisma.membershipRole.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A_ID,
+          role: { role_tier: 'admin' },
+          membership: { membership_status: 'active' },
+        },
+        select: {
+          membership: { select: { user_id: true } },
+        },
+      });
+
+      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(2);
       expect(mockPrisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
+          recipient_user_id: ADMIN_USER_A,
+          template_key: 'compliance_deadline_3day',
+          source_entity_id: REQUEST_ID,
+        }),
+      });
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recipient_user_id: ADMIN_USER_B,
           template_key: 'compliance_deadline_3day',
           source_entity_id: REQUEST_ID,
         }),
@@ -208,12 +240,29 @@ describe('DeadlineCheckProcessor', () => {
         }),
       });
     });
+
+    it('should NOT send 3-day notification to requested_by_user_id directly', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
+      mockPrisma.complianceRequest.findMany.mockResolvedValue([
+        buildRequest({ deadline_at: daysFromNow(2) }),
+      ]);
+      mockPrisma.notification.findFirst.mockResolvedValue(null);
+
+      const job = buildMockJob(DEADLINE_CHECK_JOB);
+      await processor.process(job);
+
+      const createCalls = mockPrisma.notification.create.mock.calls;
+      const recipientIds = createCalls.map(
+        (call: [{ data: { recipient_user_id: string } }]) => call[0].data.recipient_user_id,
+      );
+      expect(recipientIds).not.toContain(USER_ID);
+    });
   });
 
   // ─── Deadline exceeded ────────────────────────────────────────────────
 
   describe('checkTenantDeadlines — deadline exceeded', () => {
-    it('should set deadline_exceeded=true and notify when past deadline', async () => {
+    it('should set deadline_exceeded=true and notify admins + requester when past deadline', async () => {
       mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
       mockPrisma.complianceRequest.findMany.mockResolvedValue([
         buildRequest({
@@ -231,12 +280,52 @@ describe('DeadlineCheckProcessor', () => {
         data: { deadline_exceeded: true },
       });
 
+      // Notifies both admin users + the requester = 3 notifications
+      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(3);
       expect(mockPrisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
+          recipient_user_id: ADMIN_USER_A,
           template_key: 'compliance_deadline_exceeded',
           source_entity_id: REQUEST_ID,
         }),
       });
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recipient_user_id: ADMIN_USER_B,
+          template_key: 'compliance_deadline_exceeded',
+          source_entity_id: REQUEST_ID,
+        }),
+      });
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recipient_user_id: USER_ID,
+          template_key: 'compliance_deadline_exceeded',
+          source_entity_id: REQUEST_ID,
+        }),
+      });
+    });
+
+    it('should deduplicate when requester is also an admin', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
+      // Requester is also an admin user
+      mockPrisma.complianceRequest.findMany.mockResolvedValue([
+        buildRequest({
+          deadline_at: daysFromNow(-1),
+          deadline_exceeded: false,
+          requested_by_user_id: ADMIN_USER_A,
+        }),
+      ]);
+      mockPrisma.membershipRole.findMany.mockResolvedValue([
+        buildAdminMembershipRole(ADMIN_USER_A),
+        buildAdminMembershipRole(ADMIN_USER_B),
+      ]);
+      mockPrisma.notification.findFirst.mockResolvedValue(null);
+
+      const job = buildMockJob(DEADLINE_CHECK_JOB);
+      await processor.process(job);
+
+      // ADMIN_USER_A appears in both admin list and requester — Set deduplicates
+      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(2);
     });
 
     it('should flag deadline exceeded when deadline is exactly now (0 days remaining)', async () => {

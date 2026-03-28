@@ -16,6 +16,7 @@ import {
   complianceFilterSchema,
   complianceOverdueFilterSchema,
   createComplianceRequestSchema,
+  dsarExportFormatSchema,
   extendComplianceRequestSchema,
 } from '@school/shared';
 import type {
@@ -24,6 +25,7 @@ import type {
   ComplianceFilterDto,
   ComplianceOverdueFilterDto,
   CreateComplianceRequestDto,
+  DsarExportFormatDto,
   ExtendComplianceRequestDto,
   JwtPayload,
   TenantContext,
@@ -121,8 +123,12 @@ export class ComplianceController {
   @Post(':id/execute')
   @HttpCode(HttpStatus.OK)
   @RequiresPermission('compliance.manage')
-  async execute(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
-    return this.complianceService.execute(tenant.tenant_id, id);
+  async execute(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodValidationPipe(dsarExportFormatSchema)) query: DsarExportFormatDto,
+  ) {
+    return this.complianceService.execute(tenant.tenant_id, id, query.format);
   }
 
   // POST /v1/compliance-requests/:id/extend
@@ -139,7 +145,7 @@ export class ComplianceController {
   }
 
   @Get(':id/export')
-  @RequiresPermission('compliance.view')
+  @RequiresPermission('compliance.manage')
   @SensitiveDataAccess('dsar_response')
   async getExportUrl(
     @CurrentTenant() tenant: TenantContext,

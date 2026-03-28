@@ -329,7 +329,7 @@ export class ComplianceService {
    *   - access_export: generates an export via AccessExportService
    *   - erasure/rectification with anonymise/erase classification: runs AnonymisationService
    */
-  async execute(tenantId: string, requestId: string) {
+  async execute(tenantId: string, requestId: string, format: 'json' | 'csv' = 'json') {
     const request = await this.findOrThrow(tenantId, requestId);
 
     if (request.status !== 'approved') {
@@ -388,6 +388,7 @@ export class ComplianceService {
         requestId,
         dataPackage,
         extraSections,
+        format,
       );
       exportFileKey = result.s3Key;
     } else if (

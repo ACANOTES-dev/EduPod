@@ -152,13 +152,35 @@ describe('ComplianceController', () => {
     expect(result).toBe(expected);
   });
 
-  it('should call execute with tenant_id and request id', async () => {
+  it('should call execute with tenant_id, request id, and default json format', async () => {
     const expected = { id: REQUEST_ID, status: 'completed' };
     service.execute.mockResolvedValue(expected);
 
-    const result = await controller.execute(mockTenant, REQUEST_ID);
+    const result = await controller.execute(mockTenant, REQUEST_ID, {
+      format: 'json',
+    });
 
-    expect(service.execute).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
+    expect(service.execute).toHaveBeenCalledWith(
+      TENANT_ID,
+      REQUEST_ID,
+      'json',
+    );
+    expect(result).toBe(expected);
+  });
+
+  it('should pass csv format through to service.execute', async () => {
+    const expected = { id: REQUEST_ID, status: 'completed' };
+    service.execute.mockResolvedValue(expected);
+
+    const result = await controller.execute(mockTenant, REQUEST_ID, {
+      format: 'csv',
+    });
+
+    expect(service.execute).toHaveBeenCalledWith(
+      TENANT_ID,
+      REQUEST_ID,
+      'csv',
+    );
     expect(result).toBe(expected);
   });
 
