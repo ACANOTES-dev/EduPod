@@ -5,11 +5,14 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
+import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
+import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
+import { RegulatoryTransfersService } from './regulatory-transfers.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
 import { RegulatoryTuslaService } from './regulatory-tusla.service';
 import { RegulatoryController } from './regulatory.controller';
@@ -22,6 +25,7 @@ const MAPPING_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
 const STUDENT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const RECORD_ID = '11111111-1111-1111-1111-111111111111';
 const SUBJECT_ID = '22222222-2222-2222-2222-222222222222';
+const TRANSFER_ID = '33333333-3333-3333-3333-333333333333';
 
 const mockTenant: TenantContext = {
   tenant_id: TENANT_ID,
@@ -92,6 +96,27 @@ describe('RegulatoryController', () => {
     preview: jest.Mock;
     getStudentIssues: jest.Mock;
   };
+  let mockPpodService: {
+    getSyncStatus: jest.Mock;
+    listMappedStudents: jest.Mock;
+    getSyncLog: jest.Mock;
+    previewDiff: jest.Mock;
+    importFromPpod: jest.Mock;
+    exportForPpod: jest.Mock;
+    syncSingleStudent: jest.Mock;
+  };
+  let mockCbaService: {
+    getCbaStatus: jest.Mock;
+    getPendingResults: jest.Mock;
+    syncExport: jest.Mock;
+    syncStudent: jest.Mock;
+  };
+  let mockTransfersService: {
+    findAll: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockCalendarService = {
@@ -150,6 +175,30 @@ describe('RegulatoryController', () => {
       getStudentIssues: jest.fn(),
     };
 
+    mockPpodService = {
+      getSyncStatus: jest.fn(),
+      listMappedStudents: jest.fn(),
+      getSyncLog: jest.fn(),
+      previewDiff: jest.fn(),
+      importFromPpod: jest.fn(),
+      exportForPpod: jest.fn(),
+      syncSingleStudent: jest.fn(),
+    };
+
+    mockCbaService = {
+      getCbaStatus: jest.fn(),
+      getPendingResults: jest.fn(),
+      syncExport: jest.fn(),
+      syncStudent: jest.fn(),
+    };
+
+    mockTransfersService = {
+      findAll: jest.fn(),
+      findOne: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RegulatoryController],
       providers: [
@@ -160,7 +209,10 @@ describe('RegulatoryController', () => {
         { provide: RegulatoryDesMappingsService, useValue: mockDesMappingsService },
         { provide: RegulatoryDesService, useValue: mockDesService },
         { provide: RegulatoryOctoberReturnsService, useValue: mockOctoberReturnsService },
+        { provide: RegulatoryPpodService, useValue: mockPpodService },
         { provide: RegulatoryReducedDaysService, useValue: mockReducedDaysService },
+        { provide: RegulatoryCbaService, useValue: mockCbaService },
+        { provide: RegulatoryTransfersService, useValue: mockTransfersService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -561,5 +613,156 @@ describe('RegulatoryController', () => {
 
     expect(result).toEqual(expected);
     expect(mockOctoberReturnsService.getStudentIssues).toHaveBeenCalledWith(TENANT_ID, '2025-2026');
+  });
+
+  // ─── P-POD/POD ─────────────────────────────────────────────────────────────
+
+  it('should get PPOD sync status', async () => {
+    const expected = { total_mapped: 10, synced: 8, pending: 2, changed: 0, errors: 0, last_sync: null };
+    mockPpodService.getSyncStatus.mockResolvedValue(expected);
+
+    const result = await controller.getPpodStatus(mockTenant, { database_type: 'ppod' });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should list PPOD students', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockPpodService.listMappedStudents.mockResolvedValue(expected);
+
+    const result = await controller.listPpodStudents(mockTenant, { database_type: 'ppod', page: 1, pageSize: 20 });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should import from PPOD', async () => {
+    const expected = { sync_log_id: 'abc', records_created: 5, records_updated: 0, records_failed: 0, errors: [] };
+    mockPpodService.importFromPpod.mockResolvedValue(expected);
+
+    const result = await controller.importFromPpod(mockTenant, mockUser, { database_type: 'ppod', file_content: 'csv...' });
+
+    expect(result).toEqual(expected);
+    expect(mockPpodService.importFromPpod).toHaveBeenCalledWith(TENANT_ID, USER_ID, { database_type: 'ppod', file_content: 'csv...' });
+  });
+
+  it('should export for PPOD', async () => {
+    const expected = { sync_log_id: 'abc', records_pushed: 3, csv_content: 'csv...' };
+    mockPpodService.exportForPpod.mockResolvedValue(expected);
+
+    const result = await controller.exportForPpod(mockTenant, mockUser, { database_type: 'ppod', scope: 'incremental' });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should get PPOD diff', async () => {
+    const expected = [{ student_id: 'x', status: 'changed' }];
+    mockPpodService.previewDiff.mockResolvedValue(expected);
+
+    const result = await controller.getPpodDiff(mockTenant, { database_type: 'ppod' });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should get PPOD sync log', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockPpodService.getSyncLog.mockResolvedValue(expected);
+
+    const result = await controller.getPpodSyncLog(mockTenant, { page: 1, pageSize: 20 });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should sync single PPOD student', async () => {
+    const expected = { status: 'synced', student_id: STUDENT_ID, mapping_id: 'x', csv_content: '' };
+    mockPpodService.syncSingleStudent.mockResolvedValue(expected);
+
+    const result = await controller.syncPpodStudent(mockTenant, mockUser, STUDENT_ID, { database_type: 'ppod' });
+
+    expect(result).toEqual(expected);
+  });
+
+  // ─── CBA Sync ──────────────────────────────────────────────────────────────
+
+  it('should get CBA status', async () => {
+    const expected = { academic_year: '2025-2026', total: 10, pending: 5, synced: 5, errors: 0, last_synced_at: null };
+    mockCbaService.getCbaStatus.mockResolvedValue(expected);
+
+    const result = await controller.getCbaStatus(mockTenant, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should get CBA pending results', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockCbaService.getPendingResults.mockResolvedValue(expected);
+
+    const result = await controller.getCbaPending(mockTenant, { academic_year: '2025-2026', page: 1, pageSize: 20 });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should sync CBA export', async () => {
+    const expected = { synced_count: 3, error_count: 0, errors: [] };
+    mockCbaService.syncExport.mockResolvedValue(expected);
+
+    const result = await controller.syncCba(mockTenant, mockUser, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should sync CBA for single student', async () => {
+    const expected = { synced_count: 1, error_count: 0, errors: [] };
+    mockCbaService.syncStudent.mockResolvedValue(expected);
+
+    const result = await controller.syncCbaStudent(mockTenant, mockUser, STUDENT_ID, { academic_year: '2025-2026' });
+
+    expect(result).toEqual(expected);
+    expect(mockCbaService.syncStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, { academic_year: '2025-2026' }, USER_ID);
+  });
+
+  // ─── Transfers ─────────────────────────────────────────────────────────────
+
+  it('should list transfers', async () => {
+    const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+    mockTransfersService.findAll.mockResolvedValue(expected);
+
+    const result = await controller.listTransfers(mockTenant, { page: 1, pageSize: 20 });
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should create a transfer', async () => {
+    const dto = {
+      student_id: STUDENT_ID,
+      direction: 'outbound' as const,
+      other_school_roll_no: '12345A',
+      transfer_date: '2026-06-01',
+    };
+    const expected = { id: TRANSFER_ID, ...dto };
+    mockTransfersService.create.mockResolvedValue(expected);
+
+    const result = await controller.createTransfer(mockTenant, mockUser, dto);
+
+    expect(result).toEqual(expected);
+    expect(mockTransfersService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
+  });
+
+  it('should get a single transfer', async () => {
+    const expected = { id: TRANSFER_ID, status: 'pending' };
+    mockTransfersService.findOne.mockResolvedValue(expected);
+
+    const result = await controller.getTransfer(mockTenant, TRANSFER_ID);
+
+    expect(result).toEqual(expected);
+  });
+
+  it('should update a transfer', async () => {
+    const dto = { status: 'accepted' as const };
+    const expected = { id: TRANSFER_ID, status: 'accepted' };
+    mockTransfersService.update.mockResolvedValue(expected);
+
+    const result = await controller.updateTransfer(mockTenant, TRANSFER_ID, dto);
+
+    expect(result).toEqual(expected);
   });
 });

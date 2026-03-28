@@ -13,11 +13,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { PodDatabaseType } from '@prisma/client';
 import {
+  cbaSyncSchema,
   createCalendarEventSchema,
   createDesSubjectCodeMappingSchema,
   createReducedSchoolDaySchema,
   createSubmissionSchema,
+  createTransferSchema,
   createTuslaAbsenceCodeMappingSchema,
   DES_FILE_TYPES,
   desReadinessCheckSchema,
@@ -25,17 +28,23 @@ import {
   generateTuslaSarSchema,
   listCalendarEventsQuerySchema,
   listSubmissionsQuerySchema,
+  listTransfersQuerySchema,
   octoberReturnsReadinessSchema,
+  ppodExportSchema,
+  ppodImportSchema,
   seedDefaultsSchema,
   updateCalendarEventSchema,
   updateReducedSchoolDaySchema,
   updateSubmissionSchema,
+  updateTransferSchema,
 } from '@school/shared';
 import type {
+  CbaSyncDto,
   CreateCalendarEventDto,
   CreateDesSubjectCodeMappingDto,
   CreateReducedSchoolDayDto,
   CreateSubmissionDto,
+  CreateTransferDto,
   CreateTuslaAbsenceCodeMappingDto,
   DesFileType,
   DesReadinessCheckDto,
@@ -44,11 +53,15 @@ import type {
   JwtPayload,
   ListCalendarEventsQueryDto,
   ListSubmissionsQueryDto,
+  ListTransfersQueryDto,
   OctoberReturnsReadinessDto,
+  PpodExportDto,
+  PpodImportDto,
   TenantContext,
   UpdateCalendarEventDto,
   UpdateReducedSchoolDayDto,
   UpdateSubmissionDto,
+  UpdateTransferDto,
 } from '@school/shared';
 import { z } from 'zod';
 
@@ -60,11 +73,14 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
+import { RegulatoryCbaService } from './regulatory-cba.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
+import { RegulatoryPpodService } from './regulatory-ppod.service';
 import { RegulatoryReducedDaysService } from './regulatory-reduced-days.service';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
+import { RegulatoryTransfersService } from './regulatory-transfers.service';
 import { RegulatoryTuslaMappingsService } from './regulatory-tusla-mappings.service';
 import { RegulatoryTuslaService } from './regulatory-tusla.service';
 
@@ -93,18 +109,63 @@ const tuslaNotificationQuerySchema = z.object({
 
 type TuslaNotificationQueryDto = z.infer<typeof tuslaNotificationQuerySchema>;
 
+const ppodDatabaseTypeQuerySchema = z.object({
+  database_type: z.enum(['ppod', 'pod']),
+});
+
+type PpodDatabaseTypeQueryDto = z.infer<typeof ppodDatabaseTypeQuerySchema>;
+
+const ppodStudentsQuerySchema = z.object({
+  database_type: z.enum(['ppod', 'pod']),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+type PpodStudentsQueryDto = z.infer<typeof ppodStudentsQuerySchema>;
+
+const ppodSyncLogQuerySchema = z.object({
+  database_type: z.enum(['ppod', 'pod']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+type PpodSyncLogQueryDto = z.infer<typeof ppodSyncLogQuerySchema>;
+
+const ppodSyncStudentBodySchema = z.object({
+  database_type: z.enum(['ppod', 'pod']),
+});
+
+type PpodSyncStudentBodyDto = z.infer<typeof ppodSyncStudentBodySchema>;
+
+const cbaStatusQuerySchema = z.object({
+  academic_year: z.string().min(1).max(20),
+});
+
+type CbaStatusQueryDto = z.infer<typeof cbaStatusQuerySchema>;
+
+const cbaPendingQuerySchema = z.object({
+  academic_year: z.string().min(1).max(20),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+type CbaPendingQueryDto = z.infer<typeof cbaPendingQuerySchema>;
+
 @Controller('v1/regulatory')
 @UseGuards(AuthGuard, PermissionGuard)
 export class RegulatoryController {
   constructor(
     private readonly calendarService: RegulatoryCalendarService,
-    private readonly submissionService: RegulatorySubmissionService,
-    private readonly tuslaMappingsService: RegulatoryTuslaMappingsService,
-    private readonly tuslaService: RegulatoryTuslaService,
+    private readonly cbaService: RegulatoryCbaService,
     private readonly desMappingsService: RegulatoryDesMappingsService,
     private readonly desService: RegulatoryDesService,
     private readonly octoberReturnsService: RegulatoryOctoberReturnsService,
+    private readonly ppodService: RegulatoryPpodService,
     private readonly reducedDaysService: RegulatoryReducedDaysService,
+    private readonly submissionService: RegulatorySubmissionService,
+    private readonly transfersService: RegulatoryTransfersService,
+    private readonly tuslaMappingsService: RegulatoryTuslaMappingsService,
+    private readonly tuslaService: RegulatoryTuslaService,
   ) {}
 
   // ─── Calendar ───────────────────────────────────────────────────────────────
@@ -462,6 +523,209 @@ export class RegulatoryController {
     @Query(new ZodValidationPipe(octoberReturnsReadinessSchema)) query: OctoberReturnsReadinessDto,
   ) {
     return this.octoberReturnsService.getStudentIssues(tenant.tenant_id, query.academic_year);
+  }
+
+  // ─── P-POD/POD ────────────────────────────────────────────────────────────
+
+  // GET /v1/regulatory/ppod/status
+  @Get('ppod/status')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getPpodStatus(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(ppodDatabaseTypeQuerySchema)) query: PpodDatabaseTypeQueryDto,
+  ) {
+    return this.ppodService.getSyncStatus(tenant.tenant_id, query.database_type as PodDatabaseType);
+  }
+
+  // GET /v1/regulatory/ppod/students
+  @Get('ppod/students')
+  @RequiresPermission('regulatory.manage_ppod')
+  async listPpodStudents(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(ppodStudentsQuerySchema)) query: PpodStudentsQueryDto,
+  ) {
+    return this.ppodService.listMappedStudents(
+      tenant.tenant_id,
+      query.database_type as PodDatabaseType,
+      query.page,
+      query.pageSize,
+    );
+  }
+
+  // GET /v1/regulatory/ppod/sync-log
+  @Get('ppod/sync-log')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getPpodSyncLog(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(ppodSyncLogQuerySchema)) query: PpodSyncLogQueryDto,
+  ) {
+    return this.ppodService.getSyncLog(
+      tenant.tenant_id,
+      query.database_type as PodDatabaseType | undefined,
+      query.page,
+      query.pageSize,
+    );
+  }
+
+  // GET /v1/regulatory/ppod/diff
+  @Get('ppod/diff')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getPpodDiff(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(ppodDatabaseTypeQuerySchema)) query: PpodDatabaseTypeQueryDto,
+  ) {
+    return this.ppodService.previewDiff(tenant.tenant_id, query.database_type as PodDatabaseType);
+  }
+
+  // POST /v1/regulatory/ppod/import
+  @Post('ppod/import')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async importFromPpod(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(ppodImportSchema)) dto: PpodImportDto,
+  ) {
+    return this.ppodService.importFromPpod(tenant.tenant_id, user.sub, dto);
+  }
+
+  // POST /v1/regulatory/ppod/export-csv
+  @Post('ppod/export-csv')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async exportForPpod(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(ppodExportSchema)) dto: PpodExportDto,
+  ) {
+    return this.ppodService.exportForPpod(tenant.tenant_id, user.sub, dto);
+  }
+
+  // POST /v1/regulatory/ppod/sync
+  @Post('ppod/sync')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async syncPpod(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(ppodExportSchema)) dto: PpodExportDto,
+  ) {
+    return this.ppodService.exportForPpod(tenant.tenant_id, user.sub, dto);
+  }
+
+  // POST /v1/regulatory/ppod/sync/:studentId
+  @Post('ppod/sync/:studentId')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async syncPpodStudent(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body(new ZodValidationPipe(ppodSyncStudentBodySchema)) body: PpodSyncStudentBodyDto,
+  ) {
+    return this.ppodService.syncSingleStudent(
+      tenant.tenant_id,
+      studentId,
+      user.sub,
+      body.database_type as PodDatabaseType,
+    );
+  }
+
+  // ─── CBA Sync ─────────────────────────────────────────────────────────────
+
+  // GET /v1/regulatory/cba/status
+  @Get('cba/status')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getCbaStatus(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(cbaStatusQuerySchema)) query: CbaStatusQueryDto,
+  ) {
+    return this.cbaService.getCbaStatus(tenant.tenant_id, query.academic_year);
+  }
+
+  // GET /v1/regulatory/cba/pending
+  @Get('cba/pending')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getCbaPending(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(cbaPendingQuerySchema)) query: CbaPendingQueryDto,
+  ) {
+    return this.cbaService.getPendingResults(
+      tenant.tenant_id,
+      query.academic_year,
+      query.page,
+      query.pageSize,
+    );
+  }
+
+  // POST /v1/regulatory/cba/sync
+  @Post('cba/sync')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async syncCba(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(cbaSyncSchema)) dto: CbaSyncDto,
+  ) {
+    return this.cbaService.syncExport(tenant.tenant_id, user.sub, dto);
+  }
+
+  // POST /v1/regulatory/cba/sync/:studentId
+  @Post('cba/sync/:studentId')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.OK)
+  async syncCbaStudent(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body(new ZodValidationPipe(cbaSyncSchema)) dto: CbaSyncDto,
+  ) {
+    return this.cbaService.syncStudent(tenant.tenant_id, studentId, dto, user.sub);
+  }
+
+  // ─── Transfers ────────────────────────────────────────────────────────────
+
+  // GET /v1/regulatory/transfers
+  @Get('transfers')
+  @RequiresPermission('regulatory.manage_ppod')
+  async listTransfers(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(listTransfersQuerySchema)) query: ListTransfersQueryDto,
+  ) {
+    return this.transfersService.findAll(tenant.tenant_id, query);
+  }
+
+  // POST /v1/regulatory/transfers
+  @Post('transfers')
+  @RequiresPermission('regulatory.manage_ppod')
+  @HttpCode(HttpStatus.CREATED)
+  async createTransfer(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(createTransferSchema)) dto: CreateTransferDto,
+  ) {
+    return this.transfersService.create(tenant.tenant_id, user.sub, dto);
+  }
+
+  // GET /v1/regulatory/transfers/:id
+  @Get('transfers/:id')
+  @RequiresPermission('regulatory.manage_ppod')
+  async getTransfer(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.transfersService.findOne(tenant.tenant_id, id);
+  }
+
+  // PATCH /v1/regulatory/transfers/:id
+  @Patch('transfers/:id')
+  @RequiresPermission('regulatory.manage_ppod')
+  async updateTransfer(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updateTransferSchema)) dto: UpdateTransferDto,
+  ) {
+    return this.transfersService.update(tenant.tenant_id, id, dto);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
