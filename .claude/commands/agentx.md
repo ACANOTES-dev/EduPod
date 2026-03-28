@@ -29,10 +29,11 @@ The user provides a subplan identifier and optionally a spec path:
 4. **If an implementation log exists**, read the **Phase Registry** and **Deployment Waves** section. Find this subplan and extract:
    - Its **dependencies** (the "Depends On" column)
    - Its **wave number** and **deploy order** (`d` number)
+   - The path to the `.status/` subfolder (sibling of `IMPLEMENTATION-LOG.md`)
 
-5. **Check if all dependencies are satisfied.** For each dependency:
-   - Read the **Execution Log** section of the implementation log.
-   - A dependency is satisfied if it has an execution log entry with status `COMPLETE`.
+5. **Check if all dependencies are satisfied.** For each dependency Phase X:
+   - Check whether the file `.status/Phase-X.complete` exists.
+   - A dependency is satisfied if and only if that file exists.
 
 6. **If all dependencies are satisfied:** print `✅ All prerequisites met. Starting build.` and proceed to Stage 2.
 
@@ -40,15 +41,14 @@ The user provides a subplan identifier and optionally a spec path:
    - Print:
      ```
      ⏳ Waiting for prerequisites:
-       - [X]: COMPLETE ✓
-       - [Y]: NOT COMPLETE — waiting
-       - [Z]: NOT COMPLETE — waiting
+       - [X]: COMPLETE ✓  (.status/Phase-X.complete exists)
+       - [Y]: NOT COMPLETE — waiting (.status/Phase-Y.complete not found)
+       - [Z]: NOT COMPLETE — waiting (.status/Phase-Z.complete not found)
      Polling every 5 minutes...
      ```
    - Run `sleep 300` (5 minutes).
-   - **Re-read the implementation log** (another session may have updated it).
-   - Check dependencies again.
-   - Repeat this loop until all dependencies show `COMPLETE`.
+   - **Re-check the `.status/` files** (do not re-read the implementation log — it never changes).
+   - Repeat this loop until all dependency `.complete` files exist.
    - On each poll, print: `🔄 [HH:MM] — still waiting for [Y], [Z]...`
    - When finally clear: `✅ All prerequisites met after [N] minutes. Starting build.`
 
@@ -91,21 +91,25 @@ Execute the `/agents2` workflow using the gap report from Stage 3:
 
 This is the single commit and deploy point for the entire pipeline.
 
-1. Stage all new and modified files. Be specific — no `git add .`.
-2. Commit with a conventional commit message for the full subplan: `feat(<scope>): implement [phase identifier]`
+1. Write `.status/Phase-[X].built` (where `[X]` is this phase's identifier) containing the current ISO timestamp. Create the `.status/` folder if it does not exist.
+2. Stage all new and modified files. Be specific — no `git add .`.
+3. Commit with a conventional commit message for the full subplan: `feat(<scope>): implement [phase identifier]`
 
 ### Deploy-order gate
 
-3. **Re-read the implementation log** (state may have changed while building).
-4. **Check all lower-d subplans in the same wave:**
-   - If all are `COMPLETE` → push, monitor CI with `gh run watch`.
-   - If any are not deployed → **poll with the same 5-minute loop as Stage 1** until all lower-d subplans are `COMPLETE`, then push.
+4. **Check all lower-d subplans in the same wave** by looking for their `.status/Phase-[Y].complete` files.
+   - If all exist → push, monitor CI with `gh run watch`.
+   - If any are missing → **poll with the same 5-minute loop as Stage 1**, checking `.status/Phase-[Y].complete` existence, until all lower-d phases are complete, then push.
 
 ### After push
 
 5. If CI fails, read logs with `gh run view --log-failed`, fix, commit, push again.
-6. Update the execution log entry: status `COMPLETE`, commit hash, date, all template fields.
-7. Check if this unblocks any `BUILT` subplans in the same wave. Report if so.
+6. Write `.status/Phase-[X].complete` containing:
+   ```
+   commit: [short-hash]
+   deployed_at: [YYYY-MM-DD HH:MM UTC]
+   ```
+7. Check if any other phases in the same wave have a `.built` file but no `.complete` file — their deploy gate may now be unblocked. Report if so.
 
 ## Stage 6 — Final Report
 
