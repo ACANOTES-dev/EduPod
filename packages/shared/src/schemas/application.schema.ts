@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import { paginationQuerySchema } from './pagination.schema';
 
+import { consentCaptureSchema } from '../gdpr/consent.schema';
+
 // Public application creation (from public admissions page)
 export const createPublicApplicationSchema = z.object({
   form_definition_id: z.string().uuid(),
@@ -9,6 +11,16 @@ export const createPublicApplicationSchema = z.object({
   student_last_name: z.string().min(1).max(100),
   date_of_birth: z.string().date().nullable().optional(),
   payload_json: z.record(z.string(), z.unknown()),
+  consents: consentCaptureSchema.default({
+    health_data: false,
+    whatsapp_channel: false,
+    ai_features: {
+      ai_grading: false,
+      ai_comments: false,
+      ai_risk_detection: false,
+      ai_progress_summary: false,
+    },
+  }),
   website_url: z.string().optional(), // honeypot field
 });
 

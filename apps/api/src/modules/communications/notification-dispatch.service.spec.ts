@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { ConsentService } from '../gdpr/consent.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { NotificationDispatchService } from './notification-dispatch.service';
@@ -13,6 +14,9 @@ import { TemplateRendererService } from './template-renderer.service';
 describe('NotificationDispatchService', () => {
   let service: NotificationDispatchService;
   let prisma: {
+    parent: {
+      findFirst: jest.Mock;
+    };
     notification: {
       findUnique: jest.Mock;
       update: jest.Mock;
@@ -20,11 +24,15 @@ describe('NotificationDispatchService', () => {
     };
   };
   let templateService: { resolveTemplate: jest.Mock };
+  let consentService: { hasConsent: jest.Mock };
 
   beforeEach(async () => {
     jest.clearAllMocks();
 
     prisma = {
+      parent: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'parent-1' }),
+      },
       notification: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -35,11 +43,15 @@ describe('NotificationDispatchService', () => {
     templateService = {
       resolveTemplate: jest.fn(),
     };
+    consentService = {
+      hasConsent: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationDispatchService,
         { provide: PrismaService, useValue: prisma },
+        { provide: ConsentService, useValue: consentService },
         { provide: NotificationTemplatesService, useValue: templateService },
         { provide: TemplateRendererService, useValue: { render: jest.fn().mockReturnValue('rendered'), renderSubject: jest.fn().mockReturnValue('subject'), stripHtml: jest.fn().mockReturnValue('stripped') } },
         { provide: ResendEmailProvider, useValue: { send: jest.fn().mockResolvedValue({ messageId: 'msg-1' }) } },
@@ -259,6 +271,32 @@ describe('NotificationDispatchService', () => {
           next_retry_at: null,
         }),
       });
+    });
+
+    it('should skip WhatsApp immediately when consent is not granted', async () => {
+      const notification = makeNotification({ channel: 'whatsapp' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      consentService.hasConsent.mockResolvedValue(false);
+      prisma.notification.update.mockResolvedValue({});
+      prisma.notification.create.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'failed',
+          failure_reason: 'WhatsApp consent not granted',
+          next_retry_at: null,
+        }),
+      });
+      expect(prisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'sms',
+          status: 'queued',
+        }),
+      });
+      expect(templateService.resolveTemplate).not.toHaveBeenCalled();
     });
 
     it('should skip WhatsApp and create SMS fallback when phone number invalid', async () => {

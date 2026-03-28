@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { AcademicAlertType, AcademicRiskLevel, PrismaClient } from '@prisma/client';
+import { CONSENT_TYPES } from '@school/shared';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -197,7 +198,27 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
       select: { id: true },
     });
 
-    const activeStudentIds = new Set(students.map((s: { id: string }) => s.id));
+    const riskDetectionConsents = await tx.consentRecord.findMany({
+      where: {
+        tenant_id,
+        subject_type: 'student',
+        subject_id: { in: students.map((student: { id: string }) => student.id) },
+        consent_type: CONSENT_TYPES.AI_RISK_DETECTION,
+        status: 'granted',
+      },
+      select: { subject_id: true },
+    });
+
+    const activeStudentIds = new Set(
+      riskDetectionConsents.map((consent) => consent.subject_id),
+    );
+
+    if (activeStudentIds.size === 0) {
+      this.logger.log(
+        `Tenant ${tenant_id}: no students with active AI risk detection consent, skipping.`,
+      );
+      return;
+    }
 
     const today = new Date();
     const detectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());

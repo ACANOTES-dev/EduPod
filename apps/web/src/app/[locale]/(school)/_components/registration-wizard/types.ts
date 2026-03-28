@@ -34,6 +34,17 @@ export interface StudentFormData {
   isComplete: boolean;
 }
 
+export interface ConsentFormData {
+  health_data: boolean;
+  whatsapp_channel: boolean;
+  ai_features: {
+    ai_grading: boolean;
+    ai_comments: boolean;
+    ai_risk_detection: boolean;
+    ai_progress_summary: boolean;
+  };
+}
+
 export interface FeePreviewStudent {
   student_index: number;
   year_group_name: string;
@@ -93,6 +104,7 @@ export interface WizardState {
   household: HouseholdFormData;
   emergencyContacts: EmergencyContactData[];
   students: StudentFormData[];
+  consents: ConsentFormData;
   expandedStudentIndex: number;
   feePreview: FeePreviewResult | null;
   removedFees: string[];
@@ -111,6 +123,7 @@ export type WizardAction =
   | { type: 'TOGGLE_SECONDARY_PARENT' }
   | { type: 'SET_HOUSEHOLD'; data: Partial<HouseholdFormData> }
   | { type: 'SET_EMERGENCY_CONTACTS'; contacts: EmergencyContactData[] }
+  | { type: 'SET_CONSENTS'; data: ConsentFormData }
   | { type: 'ADD_STUDENT' }
   | { type: 'REMOVE_STUDENT'; index: number }
   | { type: 'UPDATE_STUDENT'; index: number; data: Partial<StudentFormData> }
@@ -147,4 +160,15 @@ export const EMPTY_STUDENT: StudentFormData = {
   nationality: '',
   city_of_birth: '',
   isComplete: false,
+};
+
+export const EMPTY_CONSENTS: ConsentFormData = {
+  health_data: false,
+  whatsapp_channel: false,
+  ai_features: {
+    ai_grading: false,
+    ai_comments: false,
+    ai_risk_detection: false,
+    ai_progress_summary: false,
+  },
 };

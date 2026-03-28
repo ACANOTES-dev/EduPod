@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Notification, NotificationChannel } from '@prisma/client';
+import { CONSENT_TYPES } from '@school/shared';
 
+import { ConsentService } from '../gdpr/consent.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { NotificationRateLimitService } from './notification-rate-limit.service';
@@ -29,6 +31,7 @@ export class NotificationDispatchService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly consentService: ConsentService,
     private readonly templateService: NotificationTemplatesService,
     private readonly templateRenderer: TemplateRendererService,
     private readonly resendEmail: ResendEmailProvider,
@@ -166,6 +169,28 @@ export class NotificationDispatchService {
   }
 
   private async dispatchWhatsApp(notification: NotificationWithRecipient): Promise<void> {
+    const hasConsent = await this.hasRecipientWhatsAppConsent(
+      notification.tenant_id,
+      notification.recipient_user_id,
+    );
+
+    if (!hasConsent) {
+      this.logger.log(
+        `WhatsApp consent not granted for recipient ${notification.recipient_user_id}, falling back to SMS`,
+      );
+      await this.prisma.notification.update({
+        where: { id: notification.id },
+        data: {
+          status: 'failed',
+          failure_reason: 'WhatsApp consent not granted',
+          attempt_count: notification.attempt_count + 1,
+          next_retry_at: null,
+        },
+      });
+      await this.createFallbackNotification(notification, 'sms');
+      return;
+    }
+
     // Rate limit check
     const rateLimitResult = await this.rateLimitService.checkAndIncrement(
       notification.tenant_id,
@@ -347,6 +372,27 @@ export class NotificationDispatchService {
 
     // sms
     return parent.phone ?? null;
+  }
+
+  private async hasRecipientWhatsAppConsent(
+    tenantId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const parent = await this.prisma.parent.findFirst({
+      where: { tenant_id: tenantId, user_id: userId },
+      select: { id: true },
+    });
+
+    if (!parent) {
+      return true;
+    }
+
+    return this.consentService.hasConsent(
+      tenantId,
+      'parent',
+      parent.id,
+      CONSENT_TYPES.WHATSAPP_CHANNEL,
+    );
   }
 
   private async createFallbackNotification(

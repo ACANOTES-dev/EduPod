@@ -10,7 +10,7 @@ import { StepParentHousehold, validateStep1 } from './step-parent-household';
 import { StepPayment } from './step-payment';
 import { StepStudents, validateStep2 } from './step-students';
 import type { WizardAction, WizardState } from './types';
-import { EMPTY_PARENT, EMPTY_STUDENT } from './types';
+import { EMPTY_CONSENTS, EMPTY_PARENT, EMPTY_STUDENT } from './types';
 
 // ─── Initial state ───────────────────────────────────────────────────────────
 
@@ -29,6 +29,7 @@ const initialState: WizardState = {
   },
   emergencyContacts: [],
   students: [{ ...EMPTY_STUDENT }],
+  consents: { ...EMPTY_CONSENTS },
   expandedStudentIndex: 0,
   feePreview: null,
   removedFees: [],
@@ -81,6 +82,9 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
 
     case 'SET_EMERGENCY_CONTACTS':
       return { ...state, emergencyContacts: action.contacts };
+
+    case 'SET_CONSENTS':
+      return { ...state, consents: action.data };
 
     case 'ADD_STUDENT':
       return {
@@ -191,6 +195,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         primaryParent: { ...EMPTY_PARENT },
         household: { ...initialState.household },
         students: [{ ...EMPTY_STUDENT }],
+        consents: { ...EMPTY_CONSENTS },
       };
 
     default:

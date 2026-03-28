@@ -54,6 +54,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'website.manage', 'analytics.view',
       'curriculum_matrix.manage',
       'compliance.manage', 'compliance.view',
+      'legal.view', 'legal.manage', 'privacy.view', 'privacy.manage',
+      'consent.manage', 'consent.view',
       // Parent capabilities
       'parent.view_own_students', 'parent.view_attendance', 'parent.view_grades',
       'parent.view_invoices', 'parent.make_payments', 'parent.submit_inquiry',
@@ -105,6 +107,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'website.manage', 'analytics.view',
       'curriculum_matrix.manage',
       'compliance.manage', 'compliance.view',
+      'legal.view', 'legal.manage', 'privacy.view', 'privacy.manage',
+      'consent.manage', 'consent.view',
     ],
   },
   {
@@ -143,6 +147,8 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       // Website, Analytics, Compliance
       'website.manage', 'analytics.view',
       'compliance.view',
+      'legal.view', 'legal.manage', 'privacy.view', 'privacy.manage',
+      'consent.manage', 'consent.view',
     ],
   },
   {
@@ -157,6 +163,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'schedule.manage_own_preferences',
       'schedule.view_own_satisfaction',
       'schedule.view_personal_timetable',
+      'legal.view',
     ],
   },
   {
@@ -165,6 +172,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     role_tier: 'admin',
     default_permissions: [
       'finance.manage', 'finance.view', 'finance.process_payments',
+      'legal.view',
     ],
   },
   {
@@ -172,7 +180,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     display_name: 'Front Office',
     role_tier: 'admin',
     default_permissions: [
-      'admissions.manage', 'admissions.view',
+      'admissions.manage', 'admissions.view', 'legal.view',
     ],
   },
   {
@@ -188,6 +196,7 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
       'parent.submit_inquiry',
       'parent.view_announcements',
       'parent.view_transcripts',
+      'legal.view',
     ],
   },
   {

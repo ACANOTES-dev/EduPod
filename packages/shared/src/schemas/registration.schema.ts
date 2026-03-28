@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { consentCaptureSchema } from '../gdpr/consent.schema';
+
 const parentSchema = z.object({
   first_name: z.string().min(1).max(100),
   last_name: z.string().min(1).max(100),
@@ -63,6 +65,16 @@ export const familyRegistrationSchema = z.object({
   fee_assignments: z.array(feeAssignmentSchema),
   applied_discounts: z.array(appliedDiscountSchema).default([]),
   adhoc_adjustments: z.array(adhocAdjustmentSchema).default([]),
+  consents: consentCaptureSchema.default({
+    health_data: false,
+    whatsapp_channel: false,
+    ai_features: {
+      ai_grading: false,
+      ai_comments: false,
+      ai_risk_detection: false,
+      ai_progress_summary: false,
+    },
+  }),
 });
 
 export type FamilyRegistrationDto = z.infer<typeof familyRegistrationSchema>;

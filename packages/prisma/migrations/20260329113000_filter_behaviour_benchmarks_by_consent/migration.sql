@@ -1,0 +1,1 @@
+-- Consent-aware behaviour benchmark filtering is implemented in post_migrate.sql.

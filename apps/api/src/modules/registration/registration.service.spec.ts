@@ -104,6 +104,16 @@ describe('RegistrationService', () => {
       fee_assignments: [] as Array<{ student_index: number; fee_structure_id: string }>,
       applied_discounts: [] as Array<{ fee_assignment_index: number; discount_id: string }>,
       adhoc_adjustments: [] as Array<{ label: string; amount: number }>,
+      consents: {
+        health_data: false,
+        whatsapp_channel: false,
+        ai_features: {
+          ai_grading: false,
+          ai_comments: false,
+          ai_risk_detection: false,
+          ai_progress_summary: false,
+        },
+      },
     };
   }
 
@@ -129,6 +139,10 @@ describe('RegistrationService', () => {
       },
       studentParent: {
         create: jest.fn().mockResolvedValue({}),
+      },
+      consentRecord: {
+        create: jest.fn().mockResolvedValue({}),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       householdFeeAssignment: {
         create: jest.fn().mockResolvedValue({ id: 'fa-1' }),
@@ -303,6 +317,46 @@ describe('RegistrationService', () => {
 
       // 500 * 3 (default term count)
       expect(result.students[0]!.fees[0]!.annual_amount).toBe(1500);
+    });
+  });
+
+  describe('registerFamily()', () => {
+    it('should create consent records from registration consent selections', async () => {
+      const mockTx = buildMockTx();
+      setupMockTransaction(mockTx);
+
+      await service.registerFamily(TENANT_ID, USER_ID, {
+        ...buildMinimalDto(),
+        consents: {
+          health_data: true,
+          whatsapp_channel: true,
+          ai_features: {
+            ai_grading: true,
+            ai_comments: false,
+            ai_risk_detection: false,
+            ai_progress_summary: false,
+          },
+        },
+      } as never);
+
+      expect(mockTx.consentRecord.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            subject_type: 'student',
+            consent_type: 'health_data',
+          }),
+          expect.objectContaining({
+            subject_type: 'student',
+            consent_type: 'ai_grading',
+          }),
+        ]),
+      });
+      expect(mockTx.consentRecord.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          subject_type: 'parent',
+          consent_type: 'whatsapp_channel',
+        }),
+      });
     });
   });
 

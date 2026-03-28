@@ -1,6 +1,6 @@
 'use client';
 
-import { Button, Input, Label, toast } from '@school/ui';
+import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -33,6 +33,28 @@ interface PublicForm {
   tenant_name: string;
 }
 
+interface ConsentCaptureState {
+  health_data: boolean;
+  whatsapp_channel: boolean;
+  ai_features: {
+    ai_grading: boolean;
+    ai_comments: boolean;
+    ai_risk_detection: boolean;
+    ai_progress_summary: boolean;
+  };
+}
+
+const EMPTY_CONSENTS: ConsentCaptureState = {
+  health_data: false,
+  whatsapp_channel: false,
+  ai_features: {
+    ai_grading: false,
+    ai_comments: false,
+    ai_risk_detection: false,
+    ai_progress_summary: false,
+  },
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PublicAdmissionsPage() {
@@ -54,18 +76,39 @@ export default function PublicAdmissionsPage() {
 
   // Dynamic form values
   const [formValues, setFormValues] = React.useState<Record<string, unknown>>({});
+  const [consents, setConsents] = React.useState<ConsentCaptureState>(EMPTY_CONSENTS);
 
   // Honeypot
   const [honeypot, setHoneypot] = React.useState('');
 
   React.useEffect(() => {
-    apiClient<PublicForm>('/api/v1/public/admission-forms/active', { skipAuth: true })
+    apiClient<PublicForm>('/api/v1/public/admissions/form', { skipAuth: true })
       .then((res) => setForm(res))
-      .catch(() => {
-        // No active form
+      .catch((err) => {
+        console.error('[PublicAdmissionsPage.loadForm]', err);
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const toggleConsent = React.useCallback(
+    (field: 'health_data' | 'whatsapp_channel') => {
+      setConsents((prev) => ({ ...prev, [field]: !prev[field] }));
+    },
+    [],
+  );
+
+  const toggleAiConsent = React.useCallback(
+    (field: keyof ConsentCaptureState['ai_features']) => {
+      setConsents((prev) => ({
+        ...prev,
+        ai_features: {
+          ...prev.ai_features,
+          [field]: !prev.ai_features[field],
+        },
+      }));
+    },
+    [],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,20 +134,36 @@ export default function PublicAdmissionsPage() {
 
     setSubmitting(true);
     try {
-      await apiClient('/api/v1/applications', {
+      const created = await apiClient<{
+        id: string;
+        application_number: string;
+        status: string;
+      }>('/api/v1/public/admissions/applications', {
         method: 'POST',
+        skipAuth: true,
+        silent: true,
         body: JSON.stringify({
-          form_id: form.id,
+          form_definition_id: form.id,
           student_first_name: studentFirstName,
           student_last_name: studentLastName,
           date_of_birth: dateOfBirth || undefined,
-          payload: formValues,
+          payload_json: formValues,
+          consents,
+          website_url: honeypot || undefined,
         }),
       });
+
+      await apiClient(`/api/v1/parent/applications/${created.id}/submit`, {
+        method: 'POST',
+        silent: true,
+      });
+
       setSubmitted(true);
       toast.success(t('applicationSubmitted'));
-    } catch {
-      toast.error(tc('errorGeneric'));
+    } catch (err) {
+      const message =
+        (err as { error?: { message?: string } })?.error?.message ?? tc('errorGeneric');
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -203,6 +262,90 @@ export default function PublicAdmissionsPage() {
             />
           </div>
         )}
+
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <div className="space-y-1">
+            <h2 className="text-base font-semibold text-text-primary">
+              {t('consentTitle')}
+            </h2>
+            <p className="text-sm text-text-secondary">
+              {t('consentDescription')}
+            </p>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <label className="flex items-start gap-3">
+              <Checkbox
+                checked={consents.health_data}
+                onCheckedChange={() => toggleConsent('health_data')}
+                className="mt-0.5"
+              />
+              <span className="space-y-0.5">
+                <span className="block text-sm font-medium text-text-primary">
+                  {t('consentHealthData')}
+                </span>
+                <span className="block text-xs text-text-tertiary">
+                  {t('consentHealthDataDescription')}
+                </span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3">
+              <Checkbox
+                checked={consents.whatsapp_channel}
+                onCheckedChange={() => toggleConsent('whatsapp_channel')}
+                className="mt-0.5"
+              />
+              <span className="space-y-0.5">
+                <span className="block text-sm font-medium text-text-primary">
+                  {t('consentWhatsApp')}
+                </span>
+                <span className="block text-xs text-text-tertiary">
+                  {t('consentWhatsAppDescription')}
+                </span>
+              </span>
+            </label>
+
+            <div className="rounded-xl bg-surface-secondary p-4">
+              <p className="text-sm font-medium text-text-primary">
+                {t('consentAiTitle')}
+              </p>
+              <p className="mt-1 text-xs text-text-tertiary">
+                {t('consentAiDescription')}
+              </p>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ['ai_grading', 'consentAiGrading', 'consentAiGradingDescription'],
+                    ['ai_comments', 'consentAiComments', 'consentAiCommentsDescription'],
+                    ['ai_risk_detection', 'consentAiRiskDetection', 'consentAiRiskDetectionDescription'],
+                    ['ai_progress_summary', 'consentAiProgressSummary', 'consentAiProgressSummaryDescription'],
+                  ] as const
+                ).map(([key, labelKey, descriptionKey]) => (
+                  <label
+                    key={key}
+                    className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3"
+                  >
+                    <Checkbox
+                      checked={consents.ai_features[key]}
+                      onCheckedChange={() => toggleAiConsent(key)}
+                      className="mt-0.5"
+                    />
+                    <span className="space-y-0.5">
+                      <span className="block text-sm font-medium text-text-primary">
+                        {t(labelKey)}
+                      </span>
+                      <span className="block text-xs text-text-tertiary">
+                        {t(descriptionKey)}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Honeypot — hidden from real users */}
         <div className="absolute -start-[9999px] opacity-0" aria-hidden="true">

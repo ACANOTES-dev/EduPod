@@ -936,17 +936,71 @@ export class BehaviourAnalyticsService {
           percentile: number | null;
           sample_size: bigint;
         }>
-      >`SELECT
+      >`
+        WITH benchmark_source AS (
+          SELECT
+            bi.tenant_id,
+            bc.benchmark_category,
+            COUNT(DISTINCT bi_p.student_id) AS student_count,
+            COUNT(DISTINCT bi.id) AS incident_count,
+            ROUND(
+              COUNT(DISTINCT bi.id)::numeric
+                / NULLIF(COUNT(DISTINCT bi_p.student_id), 0)
+                * 100,
+              2
+            ) AS rate_per_100
+          FROM behaviour_incidents bi
+          JOIN behaviour_categories bc
+            ON bc.id = bi.category_id
+            AND bc.tenant_id = bi.tenant_id
+          JOIN behaviour_incident_participants bi_p
+            ON bi_p.incident_id = bi.id
+            AND bi_p.tenant_id = bi.tenant_id
+          JOIN consent_records cr
+            ON cr.tenant_id = bi.tenant_id
+            AND cr.subject_type = 'student'
+            AND cr.subject_id = bi_p.student_id
+            AND cr.consent_type = 'cross_school_benchmarking'
+            AND cr.status = 'granted'
+          WHERE bi.status NOT IN ('withdrawn', 'converted_to_safeguarding')
+            AND bi.retention_status = 'active'
+            AND bi_p.participant_type = 'student'
+            AND bi.academic_period_id IS NOT NULL
+            ${categoryFilter}
+          GROUP BY bi.tenant_id, bc.benchmark_category
+          HAVING COUNT(DISTINCT bi_p.student_id) >= COALESCE(
+            (
+              SELECT (ts.settings->'behaviour'->>'benchmark_min_cohort_size')::int
+              FROM tenant_settings ts
+              WHERE ts.tenant_id = bi.tenant_id
+            ),
+            10
+          )
+        ),
+        ranked_benchmarks AS (
+          SELECT
+            benchmark_category,
+            tenant_id,
+            rate_per_100,
+            AVG(rate_per_100) OVER (PARTITION BY benchmark_category) AS etb_average,
+            PERCENT_RANK() OVER (
+              PARTITION BY benchmark_category
+              ORDER BY rate_per_100
+            ) * 100 AS percentile,
+            COUNT(*) OVER (PARTITION BY benchmark_category) AS sample_size
+          FROM benchmark_source
+        )
+        SELECT
           benchmark_category,
-          metric_name,
-          tenant_value,
+          'rate_per_100' AS metric_name,
+          rate_per_100 AS tenant_value,
           etb_average,
           percentile,
           sample_size
-        FROM mv_behaviour_benchmarks
+        FROM ranked_benchmarks
         WHERE tenant_id = ${tenantId}::uuid
-        ${categoryFilter}
-        ORDER BY benchmark_category, metric_name`;
+        ORDER BY benchmark_category, metric_name
+      `;
 
       const entries = rows.map((row) => ({
         benchmark_category: row.benchmark_category,

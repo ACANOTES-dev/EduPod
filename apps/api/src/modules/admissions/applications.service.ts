@@ -8,10 +8,16 @@ import {
 import { Prisma } from '@prisma/client';
 import type {
   AdmissionsAnalyticsQuery,
+  ConsentCaptureDto,
   ConvertApplicationDto,
   CreatePublicApplicationDto,
   ListApplicationsQuery,
   ReviewApplicationDto,
+} from '@school/shared';
+import {
+  CONSENT_TYPES,
+  consentCaptureSchema,
+  mapConsentCaptureToTypes,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -21,6 +27,8 @@ import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
+
+const CONSENT_CAPTURE_PAYLOAD_KEY = '__consents';
 
 // ─── Prisma result shapes ─────────────────────────────────────────────────────
 
@@ -187,7 +195,10 @@ export class ApplicationsService {
           student_last_name: dto.student_last_name,
           date_of_birth: dto.date_of_birth ? new Date(dto.date_of_birth) : null,
           status: 'draft',
-          payload_json: dto.payload_json as Prisma.InputJsonValue,
+          payload_json: {
+            ...(dto.payload_json as Record<string, unknown>),
+            [CONSENT_CAPTURE_PAYLOAD_KEY]: dto.consents,
+          } as Prisma.InputJsonValue,
         },
       });
 
@@ -292,6 +303,63 @@ export class ApplicationsService {
           submitted_by_parent_id: parentId,
         },
       });
+
+      const payload = application.payload_json as Record<string, unknown>;
+      const parsedConsents = consentCaptureSchema.safeParse(
+        payload[CONSENT_CAPTURE_PAYLOAD_KEY],
+      );
+
+      if (parsedConsents.success) {
+        const capture = parsedConsents.data as ConsentCaptureDto;
+        const applicantConsentTypes = mapConsentCaptureToTypes(capture).filter(
+          (consentType) => consentType !== CONSENT_TYPES.WHATSAPP_CHANNEL,
+        );
+
+        if (applicantConsentTypes.length > 0) {
+          await db.consentRecord.createMany({
+            data: applicantConsentTypes.map((consentType) => ({
+              tenant_id: tenantId,
+              subject_type: 'applicant',
+              subject_id: application.id,
+              consent_type: consentType,
+              status: 'granted',
+              granted_by_user_id: userId,
+              evidence_type: 'registration_form',
+              privacy_notice_version_id: null,
+              notes: null,
+            })),
+          });
+        }
+
+        if (capture.whatsapp_channel && parentId) {
+          const existingWhatsAppConsent = await db.consentRecord.findFirst({
+            where: {
+              tenant_id: tenantId,
+              subject_type: 'parent',
+              subject_id: parentId,
+              consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
+              status: 'granted',
+            },
+            select: { id: true },
+          });
+
+          if (!existingWhatsAppConsent) {
+            await db.consentRecord.create({
+              data: {
+                tenant_id: tenantId,
+                subject_type: 'parent',
+                subject_id: parentId,
+                consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
+                status: 'granted',
+                granted_by_user_id: userId,
+                evidence_type: 'registration_form',
+                privacy_notice_version_id: null,
+                notes: null,
+              },
+            });
+          }
+        }
+      }
 
       return updated;
     })) as { id: string; application_number: string; student_first_name: string; student_last_name: string; status: string };

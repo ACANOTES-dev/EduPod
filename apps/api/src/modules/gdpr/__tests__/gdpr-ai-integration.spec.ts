@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { AiCommentsService } from '../../gradebook/ai/ai-comments.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiSubstitutionService } from '../../scheduling/ai-substitution.service';
@@ -46,6 +47,7 @@ describe('AI Comments GDPR Integration', () => {
     processOutbound: jest.Mock;
     processInbound: jest.Mock;
   };
+  let mockConsentService: { hasConsent: jest.Mock };
   let mockSettingsService: { getSettings: jest.Mock };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockPrisma: any;
@@ -58,6 +60,10 @@ describe('AI Comments GDPR Integration', () => {
 
     mockSettingsService = {
       getSettings: jest.fn(),
+    };
+
+    mockConsentService = {
+      hasConsent: jest.fn().mockResolvedValue(true),
     };
 
     mockPrisma = {
@@ -90,6 +96,7 @@ describe('AI Comments GDPR Integration', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
@@ -239,6 +246,7 @@ describe('AI Comments GDPR Integration', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();

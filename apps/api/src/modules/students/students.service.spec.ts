@@ -45,6 +45,9 @@ function buildMockPrisma() {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    consentRecord: {
+      findMany: jest.fn(),
+    },
   };
 }
 
@@ -274,6 +277,66 @@ describe('StudentsService — findAll', () => {
     expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 20 }),
     );
+  });
+});
+
+describe('StudentsService — allergyReport', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockPrisma.student.findMany.mockResolvedValue([
+      {
+        id: 'student-1',
+        student_number: 'STU-1',
+        first_name: 'John',
+        last_name: 'Doe',
+        allergy_details: 'Peanuts',
+        year_group: { name: 'Year 5' },
+        homeroom_class: { name: '5A' },
+      },
+      {
+        id: 'student-2',
+        student_number: 'STU-2',
+        first_name: 'Sara',
+        last_name: 'Ali',
+        allergy_details: 'Milk',
+        year_group: { name: 'Year 6' },
+        homeroom_class: { name: '6A' },
+      },
+    ]);
+    mockPrisma.consentRecord.findMany.mockResolvedValue([{ subject_id: 'student-1' }]);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should include only students with active health data consent', async () => {
+    const result = await service.allergyReport(TENANT_ID, {});
+
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        student_id: 'student-1',
+        allergy_details: 'Peanuts',
+      }),
+    ]);
+    expect(result.meta.total).toBe(1);
   });
 });
 

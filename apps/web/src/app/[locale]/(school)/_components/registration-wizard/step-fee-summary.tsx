@@ -52,13 +52,15 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
           '/api/v1/registration/family/preview-fees',
           {
             method: 'POST',
+            silent: true,
             body: JSON.stringify({
               students: state.students.map((s) => ({ year_group_id: s.year_group_id })),
             }),
           },
         );
         dispatch({ type: 'SET_FEE_PREVIEW', preview: res.data });
-      } catch {
+      } catch (err) {
+        console.error('[StepFeeSummary.fetchFees]', err);
         dispatch({ type: 'SET_ERROR', error: 'Failed to load fee preview' });
       } finally {
         dispatch({ type: 'SET_LOADING', loading: false });
@@ -164,20 +166,25 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         fee_assignments: feeAssignments,
         applied_discounts: state.appliedDiscounts,
         adhoc_adjustments: state.adhocAdjustments,
+        consents: state.consents,
       };
 
       const res = await apiClient<{ data: RegistrationResult }>(
         '/api/v1/registration/family',
         {
           method: 'POST',
+          silent: true,
           body: JSON.stringify(dto),
         },
       );
 
       dispatch({ type: 'SET_REGISTRATION_RESULT', result: res.data });
       dispatch({ type: 'SET_STEP', step: 4 });
-    } catch {
-      toast.error(t('registrationFailed'));
+    } catch (err) {
+      const message =
+        (err as { error?: { message?: string } })?.error?.message ??
+        t('registrationFailed');
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
       dispatch({ type: 'SET_LOADING', loading: false });

@@ -175,6 +175,18 @@ export const PERMISSIONS = {
   gdpr: {
     view: 'gdpr.view',
   },
+  legal: {
+    view: 'legal.view',
+    manage: 'legal.manage',
+  },
+  privacy: {
+    view: 'privacy.view',
+    manage: 'privacy.manage',
+  },
+  consent: {
+    manage: 'consent.manage',
+    view: 'consent.view',
+  },
   // Behaviour (admin + staff tier)
   behaviour: {
     log: 'behaviour.log',
@@ -301,6 +313,12 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.compliance.manage]: 'admin',
   [PERMISSIONS.compliance.view]: 'admin',
   [PERMISSIONS.gdpr.view]: 'admin',
+  [PERMISSIONS.legal.view]: 'parent',
+  [PERMISSIONS.legal.manage]: 'admin',
+  [PERMISSIONS.privacy.view]: 'admin',
+  [PERMISSIONS.privacy.manage]: 'admin',
+  [PERMISSIONS.consent.manage]: 'admin',
+  [PERMISSIONS.consent.view]: 'admin',
   [PERMISSIONS.behaviour.admin]: 'admin',
   [PERMISSIONS.behaviour.view_staff_analytics]: 'admin',
   [PERMISSIONS.safeguarding.view]: 'admin',
@@ -432,6 +450,12 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
     PERMISSIONS.gdpr.view,
+    PERMISSIONS.legal.view,
+    PERMISSIONS.legal.manage,
+    PERMISSIONS.privacy.view,
+    PERMISSIONS.privacy.manage,
+    PERMISSIONS.consent.manage,
+    PERMISSIONS.consent.view,
     // Behaviour + safeguarding (all)
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
@@ -508,6 +532,12 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.compliance.manage,
     PERMISSIONS.compliance.view,
     PERMISSIONS.gdpr.view,
+    PERMISSIONS.legal.view,
+    PERMISSIONS.legal.manage,
+    PERMISSIONS.privacy.view,
+    PERMISSIONS.privacy.manage,
+    PERMISSIONS.consent.manage,
+    PERMISSIONS.consent.view,
     // Behaviour + safeguarding
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
@@ -532,6 +562,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.gradebook.view,
     PERMISSIONS.gradebook.manage_ai_grading,
     PERMISSIONS.students.view,
+    PERMISSIONS.legal.view,
     // Behaviour (staff tier)
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,
@@ -548,11 +579,13 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.finance.manage_late_fees,
     PERMISSIONS.finance.view_reports,
     PERMISSIONS.finance.bulk_operations,
+    PERMISSIONS.legal.view,
   ],
 
   admissions_staff: [
     PERMISSIONS.admissions.manage,
     PERMISSIONS.admissions.view,
+    PERMISSIONS.legal.view,
   ],
 
   parent: [
@@ -565,6 +598,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.parent_portal.submit_inquiry,
     PERMISSIONS.parent_portal.view_announcements,
     PERMISSIONS.parent_portal.view_transcripts,
+    PERMISSIONS.legal.view,
     // Behaviour (parent tier)
     PERMISSIONS.behaviour.appeal,
   ],

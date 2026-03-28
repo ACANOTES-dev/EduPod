@@ -103,6 +103,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: Megaphone, labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
       { icon: MessageCircle, labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
+      { icon: ShieldCheck, labelKey: 'nav.privacyConsent', href: '/privacy-consent', roles: ['parent'] },
       {
         icon: ClipboardList,
         labelKey: 'nav.applications',

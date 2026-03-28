@@ -450,3 +450,18 @@ The `gdpr_anonymisation_tokens` table maps random tokens back to real student/st
 - A well-meaning developer adding a "view tokens" admin endpoint would create a PII exposure
 - Logging the token map (e.g., in audit logs or error traces) would leak the mapping
 - The `processInbound` method operates on the token map in-memory only — it must never be persisted alongside AI responses
+
+---
+
+## DZ-29: Consent Withdrawal Must Bypass Cached Or Deferred Paths
+
+**Risk**: Withdrawn consent still affecting live processing after the user has opted out
+**Location**: `apps/api/src/modules/gdpr/consent.service.ts`, communications dispatch, gradebook AI services, `gradebook-risk-detection.processor.ts`, `behaviour-analytics.service.ts`
+
+Consent changes are user-facing and must take effect immediately. This means consent-gated features cannot rely only on cron propagation, stale caches, or materialized-view refresh timing. The current contract is:
+- notifications read `consent_records` before WhatsApp dispatch
+- AI services read `consent_records` before processing
+- gradebook risk detection reads `consent_records` inside the worker job
+- cross-school benchmarking uses a live consent-aware query, not just the benchmark MV
+
+**Mitigation**: Any optimisation around consent-gated features must preserve a synchronous active-consent check on the request/job path, or do synchronous invalidation before returning success to the user.

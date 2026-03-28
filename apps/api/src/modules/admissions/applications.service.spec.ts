@@ -35,6 +35,7 @@ describe('ApplicationsService', () => {
     householdParent: { create: jest.Mock };
     student: { create: jest.Mock };
     studentParent: { create: jest.Mock };
+    consentRecord: { create: jest.Mock; createMany: jest.Mock; findFirst: jest.Mock };
     $queryRaw: jest.Mock;
   };
   let mockSequenceService: { nextNumber: jest.Mock; generateHouseholdReference: jest.Mock };
@@ -45,6 +46,20 @@ describe('ApplicationsService', () => {
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
   const USER_ID = 'user-1';
   const IP = '192.168.1.1';
+  const DEFAULT_CONSENTS = {
+    health_data: false,
+    whatsapp_channel: false,
+    email_marketing: false,
+    photo_use: false,
+    cross_school_benchmarking: false,
+    homework_diary: false,
+    ai_features: {
+      ai_grading: false,
+      ai_comments: false,
+      ai_risk_detection: false,
+      ai_progress_summary: false,
+    },
+  };
 
   function buildApplication(overrides: Record<string, unknown> = {}) {
     return {
@@ -108,6 +123,11 @@ describe('ApplicationsService', () => {
       studentParent: {
         create: jest.fn(),
       },
+      consentRecord: {
+        create: jest.fn(),
+        createMany: jest.fn(),
+        findFirst: jest.fn(),
+      },
       $queryRaw: jest.fn(),
     };
 
@@ -169,6 +189,10 @@ describe('ApplicationsService', () => {
         student_last_name: 'Doe',
         date_of_birth: '2018-05-15',
         payload_json: { first_name: 'John' },
+        consents: {
+          ...DEFAULT_CONSENTS,
+          health_data: true,
+        },
       }, IP) as Record<string, unknown>;
 
       expect(result.id).toBe('app-1');
@@ -182,6 +206,7 @@ describe('ApplicationsService', () => {
         student_first_name: 'Bot',
         student_last_name: 'User',
         payload_json: {},
+        consents: DEFAULT_CONSENTS,
         website_url: 'http://spam.com', // honeypot filled
       }, IP) as Record<string, unknown>;
 
@@ -201,6 +226,7 @@ describe('ApplicationsService', () => {
           student_first_name: 'John',
           student_last_name: 'Doe',
           payload_json: {},
+          consents: DEFAULT_CONSENTS,
         }, IP),
       ).rejects.toThrow(BadRequestException);
     });
@@ -215,6 +241,7 @@ describe('ApplicationsService', () => {
           student_first_name: 'John',
           student_last_name: 'Doe',
           payload_json: {},
+          consents: DEFAULT_CONSENTS,
         }, IP),
       ).rejects.toThrow(NotFoundException);
     });
@@ -238,6 +265,7 @@ describe('ApplicationsService', () => {
           student_first_name: 'John',
           student_last_name: 'Doe',
           payload_json: {}, // missing required_field
+          consents: DEFAULT_CONSENTS,
         }, IP),
       ).rejects.toThrow(BadRequestException);
     });
@@ -270,6 +298,58 @@ describe('ApplicationsService', () => {
           }),
         }),
       );
+    });
+
+    it('should create applicant and parent consent records on submit', async () => {
+      const app = buildApplication({
+        status: 'draft',
+        payload_json: {
+          first_name: 'John',
+          __consents: {
+            health_data: true,
+            whatsapp_channel: true,
+            ai_features: {
+              ai_grading: true,
+              ai_comments: false,
+              ai_risk_detection: false,
+              ai_progress_summary: false,
+            },
+          },
+        },
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findFirst.mockResolvedValue({ id: 'parent-1' });
+      mockPrisma.application.findMany.mockResolvedValue([]);
+      mockPrisma.application.update.mockResolvedValue({
+        ...app,
+        status: 'submitted',
+        submitted_by_parent_id: 'parent-1',
+        submitted_at: new Date(),
+      });
+      mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+      mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
+
+      await service.submit(TENANT_ID, 'app-1', USER_ID);
+
+      expect(mockPrisma.consentRecord.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            subject_type: 'applicant',
+            consent_type: 'health_data',
+          }),
+          expect.objectContaining({
+            subject_type: 'applicant',
+            consent_type: 'ai_grading',
+          }),
+        ]),
+      });
+      expect(mockPrisma.consentRecord.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          subject_type: 'parent',
+          subject_id: 'parent-1',
+          consent_type: 'whatsapp_channel',
+        }),
+      });
     });
 
     it('should detect duplicates by name+DOB', async () => {

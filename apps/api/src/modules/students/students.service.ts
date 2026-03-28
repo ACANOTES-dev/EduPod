@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { PreviewResponse } from '@school/shared';
+import { CONSENT_TYPES } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -770,15 +771,32 @@ export class StudentsService {
       orderBy: { last_name: 'asc' },
     })) as AllergyStudentRow[];
 
-    const data = students.map((s) => ({
-      student_id: s.id,
-      student_number: s.student_number,
-      first_name: s.first_name,
-      last_name: s.last_name,
-      year_group_name: s.year_group?.name ?? null,
-      class_homeroom_name: s.homeroom_class?.name ?? null,
-      allergy_details: s.allergy_details ?? '',
-    }));
+    const consentedStudentIds = new Set(
+      (
+        await this.prisma.consentRecord.findMany({
+          where: {
+            tenant_id: tenantId,
+            subject_type: 'student',
+            subject_id: { in: students.map((student) => student.id) },
+            consent_type: CONSENT_TYPES.HEALTH_DATA,
+            status: 'granted',
+          },
+          select: { subject_id: true },
+        })
+      ).map((record) => record.subject_id),
+    );
+
+    const data = students
+      .filter((student) => consentedStudentIds.has(student.id))
+      .map((s) => ({
+        student_id: s.id,
+        student_number: s.student_number,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        year_group_name: s.year_group?.name ?? null,
+        class_homeroom_name: s.homeroom_class?.name ?? null,
+        allergy_details: s.allergy_details ?? '',
+      }));
 
     return {
       data,

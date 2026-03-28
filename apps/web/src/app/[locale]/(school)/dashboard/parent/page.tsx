@@ -1,8 +1,9 @@
 'use client';
 
-import { EmptyState, StatusBadge } from '@school/ui';
+import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { Bell, Calendar, CreditCard, FileText, GraduationCap } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
@@ -52,6 +53,7 @@ export default function ParentDashboardPage() {
   const t = useTranslations('dashboard');
   const tStudents = useTranslations('students');
   const tCommon = useTranslations('common');
+  const locale = useLocale();
   const [data, setData] = useState<ParentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ParentTab>('overview');
@@ -123,6 +125,26 @@ export default function ParentDashboardPage() {
           {/* AI Insight Card */}
           {!loading && hasChildren && (
             <AiInsightCard students={data?.students ?? []} />
+          )}
+
+          {!loading && (
+            <section className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-text-primary">
+                    {t('parentDashboard.privacyConsentTitle')}
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {t('parentDashboard.privacyConsentDescription')}
+                  </p>
+                </div>
+                <Button asChild variant="outline">
+                  <Link href={`/${locale}/privacy-consent`}>
+                    {t('parentDashboard.managePrivacyConsent')}
+                  </Link>
+                </Button>
+              </div>
+            </section>
           )}
 
           {/* Linked students */}

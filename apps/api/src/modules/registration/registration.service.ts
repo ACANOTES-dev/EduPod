@@ -1,9 +1,18 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { AddStudentToHouseholdDto, FamilyRegistrationDto, PreviewFeesDto } from '@school/shared';
+import type {
+  AddStudentToHouseholdDto,
+  FamilyRegistrationDto,
+  PreviewFeesDto,
+} from '@school/shared';
+import {
+  CONSENT_TYPES,
+  mapConsentCaptureToTypes,
+} from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';
@@ -26,6 +35,8 @@ export interface RegistrationResult {
 
 @Injectable()
 export class RegistrationService {
+  private readonly logger = new Logger(RegistrationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
@@ -308,6 +319,42 @@ export class RegistrationService {
             },
           });
         }
+
+        const consentTypes = mapConsentCaptureToTypes(dto.consents).filter(
+          (consentType) => consentType !== CONSENT_TYPES.WHATSAPP_CHANNEL,
+        );
+
+        if (consentTypes.length > 0) {
+          await db.consentRecord.createMany({
+            data: consentTypes.map((consentType) => ({
+              tenant_id: tenantId,
+              subject_type: 'student',
+              subject_id: student.id,
+              consent_type: consentType,
+              status: 'granted',
+              granted_by_user_id: userId,
+              evidence_type: 'registration_form',
+              privacy_notice_version_id: null,
+              notes: null,
+            })),
+          });
+        }
+      }
+
+      if (dto.consents.whatsapp_channel) {
+        await db.consentRecord.create({
+          data: {
+            tenant_id: tenantId,
+            subject_type: 'parent',
+            subject_id: primaryParent.id,
+            consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
+            status: 'granted',
+            granted_by_user_id: userId,
+            evidence_type: 'registration_form',
+            privacy_notice_version_id: null,
+            notes: null,
+          },
+        });
       }
 
       // ── 9. Create HouseholdFeeAssignment records ───────────────────────
@@ -557,6 +604,9 @@ export class RegistrationService {
         },
       };
     } catch {
+      this.logger.warn(
+        `Invoice issue failed after family registration for tenant ${tenantId}, invoice ${result.invoice.id}. Returning transaction result without issued status.`,
+      );
       // If issuing fails (e.g., approval needed), return result with draft/pending status
       return result;
     }
@@ -772,6 +822,9 @@ export class RegistrationService {
         },
       };
     } catch {
+      this.logger.warn(
+        `Invoice issue failed after addStudentToHousehold for tenant ${tenantId}, invoice ${result.invoice.id}. Returning transaction result without issued status.`,
+      );
       return result;
     }
   }

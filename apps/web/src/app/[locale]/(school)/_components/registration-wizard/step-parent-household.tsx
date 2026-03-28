@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Checkbox,
   Input,
   Label,
   Select,
@@ -15,11 +16,14 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import type {
+  ConsentFormData,
   EmergencyContactData,
   ParentFormData,
   WizardAction,
   WizardState,
 } from './types';
+
+type AiConsentField = keyof ConsentFormData['ai_features'];
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -63,6 +67,32 @@ interface StepParentHouseholdProps {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const RELATIONSHIP_OPTIONS = ['father', 'mother', 'guardian', 'other'] as const;
+const AI_CONSENT_FIELDS: Array<{
+  key: AiConsentField;
+  labelKey: string;
+  descriptionKey: string;
+}> = [
+  {
+    key: 'ai_grading',
+    labelKey: 'consentAiGrading',
+    descriptionKey: 'consentAiGradingDescription',
+  },
+  {
+    key: 'ai_comments',
+    labelKey: 'consentAiComments',
+    descriptionKey: 'consentAiCommentsDescription',
+  },
+  {
+    key: 'ai_risk_detection',
+    labelKey: 'consentAiRiskDetection',
+    descriptionKey: 'consentAiRiskDetectionDescription',
+  },
+  {
+    key: 'ai_progress_summary',
+    labelKey: 'consentAiProgressSummary',
+    descriptionKey: 'consentAiProgressSummaryDescription',
+  },
+] as const;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -140,6 +170,35 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
     ];
     dispatch({ type: 'SET_EMERGENCY_CONTACTS', contacts: updated });
   }, [state.emergencyContacts, dispatch]);
+
+  const toggleConsent = React.useCallback(
+    (field: 'health_data' | 'whatsapp_channel') => {
+      dispatch({
+        type: 'SET_CONSENTS',
+        data: {
+          ...state.consents,
+          [field]: !state.consents[field],
+        },
+      });
+    },
+    [dispatch, state.consents],
+  );
+
+  const toggleAiConsent = React.useCallback(
+    (field: AiConsentField) => {
+      dispatch({
+        type: 'SET_CONSENTS',
+        data: {
+          ...state.consents,
+          ai_features: {
+            ...state.consents.ai_features,
+            [field]: !state.consents.ai_features[field],
+          },
+        },
+      });
+    },
+    [dispatch, state.consents],
+  );
 
   const removeEmergencyContact = React.useCallback(
     (index: number) => {
@@ -441,7 +500,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
           ))}
         </div>
 
-        {state.emergencyContacts.length < 3 && (
+      {state.emergencyContacts.length < 3 && (
           <Button
             type="button"
             variant="outline"
@@ -453,6 +512,90 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
             {t('addEmergencyContact')}
           </Button>
         )}
+      </section>
+
+      {/* ── Section 5: Privacy & Consent ─────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold text-text-primary">
+            {t('consentTitle')}
+          </h3>
+          <p className="text-sm text-text-secondary">
+            {t('consentDescription')}
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-border-primary bg-surface-primary p-4">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="consent-health-data"
+              checked={state.consents.health_data}
+              onCheckedChange={() => toggleConsent('health_data')}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="consent-health-data" className="cursor-pointer text-sm font-medium">
+                {t('consentHealthData')}
+              </Label>
+              <p className="text-xs text-text-tertiary">
+                {t('consentHealthDataDescription')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t border-border-secondary pt-3">
+            <Checkbox
+              id="consent-whatsapp"
+              checked={state.consents.whatsapp_channel}
+              onCheckedChange={() => toggleConsent('whatsapp_channel')}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="consent-whatsapp" className="cursor-pointer text-sm font-medium">
+                {t('consentWhatsApp')}
+              </Label>
+              <p className="text-xs text-text-tertiary">
+                {t('consentWhatsAppDescription')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-lg border border-border-primary bg-surface-primary p-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-text-primary">
+              {t('consentAiTitle')}
+            </p>
+            <p className="text-xs text-text-tertiary">
+              {t('consentAiDescription')}
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {AI_CONSENT_FIELDS.map((field) => (
+              <label
+                key={field.key}
+                htmlFor={`consent-${field.key}`}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-secondary bg-surface-secondary px-3 py-3"
+              >
+                <Checkbox
+                  id={`consent-${field.key}`}
+                  checked={state.consents.ai_features[field.key]}
+                  onCheckedChange={() => toggleAiConsent(field.key)}
+                  className="mt-0.5"
+                />
+                <span className="space-y-0.5">
+                  <span className="block text-sm font-medium text-text-primary">
+                    {t(field.labelKey)}
+                  </span>
+                  <span className="block text-xs text-text-tertiary">
+                    {t(field.descriptionKey)}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
       </section>
     </div>
   );

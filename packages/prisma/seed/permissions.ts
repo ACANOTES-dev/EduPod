@@ -124,6 +124,12 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'compliance.manage', description: 'Manage compliance and GDPR settings', permission_tier: 'admin' },
   { permission_key: 'compliance.view', description: 'View audit logs and compliance reports', permission_tier: 'admin' },
   { permission_key: 'gdpr.view', description: 'View GDPR export policies and token usage audit logs', permission_tier: 'admin' },
+  { permission_key: 'legal.view', description: 'View data processing agreement status and legal documents', permission_tier: 'parent' },
+  { permission_key: 'legal.manage', description: 'Accept and manage tenant data processing agreement records', permission_tier: 'admin' },
+  { permission_key: 'privacy.view', description: 'View privacy notice version history', permission_tier: 'admin' },
+  { permission_key: 'privacy.manage', description: 'Create and publish privacy notice versions', permission_tier: 'admin' },
+  { permission_key: 'consent.manage', description: 'Grant and withdraw consent records for tenant subjects', permission_tier: 'admin' },
+  { permission_key: 'consent.view', description: 'View consent records for tenant subjects', permission_tier: 'admin' },
 
   // ─── Staff tier ────────────────────────────────────────────────────────────
   { permission_key: 'attendance.take', description: 'Take attendance for assigned classes', permission_tier: 'staff' },

@@ -660,15 +660,22 @@ Plus 2 more from other modules that use the notifications queue.
 
 ## 25. Compliance (GDPR)
 
-**What it does**: Data subject request management (access export, erasure, rectification). Request lifecycle: submitted → classified → approved/rejected → completed. Execution via background job (erasure/anonymisation).
+**What it does**: Data subject request management (access export, erasure, rectification), GDPR tokenisation/privacy infrastructure, and consent record management. Includes admin consent endpoints plus a parent self-service Privacy & Consent dashboard for viewing and withdrawing optional consents.
 
 **Backend**: `apps/api/src/modules/compliance/`
 - 1 controller, 8 endpoints under `v1/compliance-requests`
 
+**Backend**: `apps/api/src/modules/gdpr/`
+- Consent endpoints under `v1/consent` and `v1/parent-portal/consent`
+- GDPR token usage/policy endpoints under `v1/gdpr`
+- Privacy/legal content controllers for notices, DPA acceptance, and public sub-processors
+
 **Worker jobs** (shares imports queue):
 - `compliance:execute` — Execute approved data actions
 
-**Frontend**: `apps/web/src/app/[locale]/(school)/settings/compliance`
+**Frontend**:
+- `apps/web/src/app/[locale]/(school)/settings/compliance`
+- `apps/web/src/app/[locale]/(school)/privacy-consent`
 
 ---
 
