@@ -1000,3 +1000,44 @@ Daily cron fires
 ```
 
 **Danger**: Notifications are created directly via `prisma.notification.create` (not through the dispatch queue). This means no email/WhatsApp fallback — in-app only. If the compliance admin doesn't check the app, deadline warnings are missed.
+
+---
+
+## Queue: `regulatory` (PLANNED — Phase E)
+
+> **Status**: Skeleton entries. Queue and processors will be implemented in Phase E.
+
+### Job: `regulatory:check-deadlines` (PLANNED)
+
+- **Trigger**: Cron — daily at 07:00 UTC
+- **Payload**: `{}` (cross-tenant)
+- **Processor**: `RegulatoryDeadlineCheckProcessor` (Phase E)
+- **Side effects**: Scans `regulatory_calendar_events` for upcoming deadlines. Creates in-app notifications based on `reminder_days` configuration.
+
+### Job: `regulatory:scan-tusla-thresholds` (PLANNED)
+
+- **Trigger**: Cron — daily at 08:00 UTC
+- **Payload**: `{}` (cross-tenant)
+- **Processor**: `TuslaThresholdScanProcessor` (Phase E)
+- **Side effects**: Scans `daily_attendance_summaries` for students approaching or exceeding the 20-day threshold. Creates alerts for school admin.
+
+### Job: `regulatory:schedule-ppod-sync` (PLANNED)
+
+- **Trigger**: Cron — weekly on Monday at 06:00 UTC
+- **Payload**: `{}` (cross-tenant)
+- **Processor**: `PpodSyncScheduleProcessor` (Phase E)
+- **Side effects**: Checks for changed student records since last sync. Enqueues per-tenant sync jobs if changes detected.
+
+### Job: `regulatory:generate-des-files` (PLANNED)
+
+- **Trigger**: Manual or scheduled via calendar events
+- **Payload**: `{ tenant_id, academic_year, file_type }`
+- **Processor**: `DesFileGenerateProcessor` (Phase E)
+- **Side effects**: Runs DES data collection pipeline, validates, formats, and stores generated file in S3. Creates `RegulatorySubmission` record.
+
+### Job: `regulatory:cba-sync-check` (PLANNED)
+
+- **Trigger**: Cron — weekly on Wednesday at 07:00 UTC
+- **Payload**: `{}` (cross-tenant)
+- **Processor**: `CbaSyncCheckProcessor` (Phase E)
+- **Side effects**: Checks for unsynced CBA results. Creates alerts for school admin when CBA results are pending sync to PPOD.

@@ -45,6 +45,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
+import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SchedulingRunsModule } from './modules/scheduling-runs/scheduling-runs.module';
 import { SchoolClosuresModule } from './modules/school-closures/school-closures.module';
@@ -101,6 +102,7 @@ import { WebsiteModule } from './modules/website/website.module';
     ChildProtectionModule,
     RoomsModule,
     SchedulesModule,
+    RegulatoryModule,
     SchoolClosuresModule,
     AttendanceModule,
     BehaviourModule,

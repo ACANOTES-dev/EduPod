@@ -697,6 +697,17 @@ model Tenant {
   retention_holds              RetentionHold[]
   retention_policies           RetentionPolicy[]
 
+  // Regulatory Portal Relations
+  regulatory_calendar_events  RegulatoryCalendarEvent[]
+  regulatory_submissions      RegulatorySubmission[]
+  tusla_absence_code_mappings TuslaAbsenceCodeMapping[]
+  reduced_school_days         ReducedSchoolDay[]
+  des_subject_code_mappings   DesSubjectCodeMapping[]
+  ppod_student_mappings       PpodStudentMapping[]
+  ppod_sync_logs              PpodSyncLog[]
+  ppod_cba_sync_records       PpodCbaSyncRecord[]
+  inter_school_transfers      InterSchoolTransfer[]
+
   @@map("tenants")
 }
 
@@ -1028,6 +1039,14 @@ model User {
   created_incidents  SecurityIncident[]     @relation("incident_created_by")
   assigned_incidents SecurityIncident[]     @relation("incident_assigned_to")
   incident_events    SecurityIncidentEvent[] @relation("incident_event_created_by")
+
+  // Regulatory Portal Relations
+  reg_calendar_completed   RegulatoryCalendarEvent[] @relation("reg_event_completed_by")
+  reg_submissions_gen      RegulatorySubmission[]    @relation("reg_sub_generated_by")
+  reg_submissions_sub      RegulatorySubmission[]    @relation("reg_sub_submitted_by")
+  reg_reduced_day_approver ReducedSchoolDay[]        @relation("reg_reduced_school_day_approver")
+  reg_sync_triggered       PpodSyncLog[]             @relation("reg_sync_triggered_by")
+  reg_transfers_initiated  InterSchoolTransfer[]     @relation("reg_transfer_initiated_by")
 
   @@map("users")
 }
@@ -1458,6 +1477,12 @@ model Student {
   pc_critical_affected         CriticalIncidentAffected[]       @relation("pc_critical_affected_student")
   pc_checkins                  StudentCheckin[]                 @relation("pc_checkin_student")
 
+  // Regulatory Portal Relations
+  reg_reduced_school_days  ReducedSchoolDay[]     @relation("reg_reduced_school_day_student")
+  reg_ppod_mappings        PpodStudentMapping[]   @relation("reg_ppod_student_mapping")
+  reg_cba_sync_records     PpodCbaSyncRecord[]    @relation("reg_cba_sync_student")
+  reg_transfers            InterSchoolTransfer[]  @relation("reg_transfer_student")
+
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
   @@index([tenant_id, household_id], name: "idx_students_tenant_household")
@@ -1713,6 +1738,9 @@ model Subject {
   // Behaviour Management Relations
   bh_incidents BehaviourIncident[] @relation("bh_incident_subject")
   bh_alerts    BehaviourAlert[]    @relation("bh_alert_subject")
+
+  // Regulatory Portal Relations
+  reg_des_code_mappings DesSubjectCodeMapping[] @relation("reg_des_subject_mapping")
 
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
@@ -5402,6 +5430,105 @@ enum CriticalIncidentImpactLevel {
   indirect
 }
 
+// ─── Regulatory Portal Enums ────────────────────────────────────────────────
+
+enum RegulatoryDomain {
+  tusla_attendance
+  des_september_returns
+  des_october_census
+  ppod_sync
+  pod_sync
+  child_safeguarding
+  anti_bullying
+  fssu_financial
+  inspectorate_wse
+  sen_provision
+  gdpr_compliance
+  seai_energy
+  admissions_compliance
+  board_governance
+}
+
+enum RegulatorySubmissionStatus {
+  reg_not_started    @map("not_started")
+  reg_in_progress    @map("in_progress")
+  ready_for_review
+  reg_submitted      @map("submitted")
+  reg_accepted       @map("accepted")
+  reg_rejected       @map("rejected")
+  overdue
+}
+
+enum CalendarEventType {
+  hard_deadline
+  soft_deadline
+  preparation
+  reminder
+}
+
+enum TuslaAbsenceCategory {
+  illness
+  urgent_family_reason
+  holiday
+  tusla_suspension  @map("suspension")
+  tusla_expulsion   @map("expulsion")
+  tusla_other       @map("other")
+  unexplained
+}
+
+enum ReducedSchoolDayReason {
+  behaviour_management
+  medical_needs
+  phased_return
+  assessment_pending
+  rsd_other @map("other")
+}
+
+enum PodDatabaseType {
+  ppod
+  pod
+}
+
+enum PodSyncStatus {
+  pod_pending        @map("pending")
+  synced
+  changed
+  pod_error          @map("error")
+  not_applicable
+}
+
+enum PodSyncType {
+  full
+  incremental
+  manual
+}
+
+enum PodSyncLogStatus {
+  sync_in_progress @map("in_progress")
+  sync_completed   @map("completed")
+  completed_with_errors
+  sync_failed      @map("failed")
+}
+
+enum TransferDirection {
+  inbound
+  outbound
+}
+
+enum TransferStatus {
+  transfer_pending   @map("pending")
+  transfer_accepted  @map("accepted")
+  transfer_rejected  @map("rejected")
+  transfer_completed @map("completed")
+  transfer_cancelled @map("cancelled")
+}
+
+enum CbaSyncStatus {
+  cba_pending @map("pending")
+  cba_synced  @map("synced")
+  cba_error   @map("error")
+}
+
 // ─── Behaviour Management Models ────────────────────────────────────────────
 
 model BehaviourCategory {
@@ -7500,4 +7627,233 @@ model SecurityIncidentEvent {
 
   @@index([incident_id, created_at], name: "idx_security_incident_events_incident")
   @@map("security_incident_events")
+}
+
+// ─── Regulatory Portal Models ───────────────────────────────────────────────
+
+model RegulatoryCalendarEvent {
+  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String                     @db.Uuid
+  domain          RegulatoryDomain
+  event_type      CalendarEventType
+  title           String                     @db.VarChar(255)
+  description     String?                    @db.Text
+  due_date        DateTime                   @db.Date
+  academic_year   String?                    @db.VarChar(20)
+  is_recurring    Boolean                    @default(false)
+  recurrence_rule String?                    @db.VarChar(100)
+  reminder_days   Int[]                      @db.SmallInt
+  status          RegulatorySubmissionStatus @default(reg_not_started)
+  completed_at    DateTime?                  @db.Timestamptz()
+  completed_by_id String?                    @db.Uuid
+  notes           String?                    @db.Text
+  created_at      DateTime                   @default(now()) @db.Timestamptz()
+  updated_at      DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  completed_by User?  @relation("reg_event_completed_by", fields: [completed_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, domain], name: "idx_reg_calendar_tenant_domain")
+  @@index([tenant_id, due_date], name: "idx_reg_calendar_tenant_date")
+  @@index([tenant_id, status, due_date], name: "idx_reg_calendar_tenant_status_date")
+  @@map("regulatory_calendar_events")
+}
+
+model RegulatorySubmission {
+  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String                     @db.Uuid
+  domain          RegulatoryDomain
+  submission_type String                     @db.VarChar(100)
+  academic_year   String                     @db.VarChar(20)
+  period_label    String?                    @db.VarChar(50)
+  status          RegulatorySubmissionStatus
+  generated_at    DateTime?                  @db.Timestamptz()
+  generated_by_id String?                    @db.Uuid
+  submitted_at    DateTime?                  @db.Timestamptz()
+  submitted_by_id String?                    @db.Uuid
+  file_key        String?                    @db.VarChar(500)
+  file_hash       String?                    @db.VarChar(64)
+  record_count    Int?
+  validation_errors Json?
+  notes           String?                    @db.Text
+  created_at      DateTime                   @default(now()) @db.Timestamptz()
+  updated_at      DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  generated_by User?  @relation("reg_sub_generated_by", fields: [generated_by_id], references: [id], onDelete: SetNull)
+  submitted_by User?  @relation("reg_sub_submitted_by", fields: [submitted_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, domain, academic_year], name: "idx_reg_submissions_tenant_domain_year")
+  @@index([tenant_id, status], name: "idx_reg_submissions_tenant_status")
+  @@map("regulatory_submissions")
+}
+
+model TuslaAbsenceCodeMapping {
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                 @db.Uuid
+  attendance_status AttendanceRecordStatus
+  reason_pattern    String?                @db.VarChar(255)
+  tusla_category    TuslaAbsenceCategory
+  display_label     String                 @db.VarChar(100)
+  is_default        Boolean                @default(false)
+  created_at        DateTime               @default(now()) @db.Timestamptz()
+  updated_at        DateTime               @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], name: "idx_tusla_mapping_tenant")
+  @@map("tusla_absence_code_mappings")
+}
+
+model ReducedSchoolDay {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                @db.Uuid
+  student_id          String                @db.Uuid
+  start_date          DateTime              @db.Date
+  end_date            DateTime?             @db.Date
+  hours_per_day       Decimal               @db.Decimal(4, 2)
+  reason              ReducedSchoolDayReason
+  reason_detail       String?               @db.Text
+  approved_by_id      String                @db.Uuid
+  parent_consent_date DateTime?             @db.Date
+  review_date         DateTime?             @db.Date
+  tusla_notified      Boolean               @default(false)
+  tusla_notified_at   DateTime?             @db.Timestamptz()
+  is_active           Boolean               @default(true)
+  notes               String?               @db.Text
+  created_at          DateTime              @default(now()) @db.Timestamptz()
+  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student     Student @relation("reg_reduced_school_day_student", fields: [student_id], references: [id], onDelete: Cascade)
+  approved_by User    @relation("reg_reduced_school_day_approver", fields: [approved_by_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, student_id], name: "idx_reduced_school_days_student")
+  @@index([tenant_id, is_active], name: "idx_reduced_school_days_active")
+  @@map("reduced_school_days")
+}
+
+model DesSubjectCodeMapping {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  subject_id  String   @db.Uuid
+  des_code    String   @db.VarChar(10)
+  des_name    String   @db.VarChar(150)
+  des_level   String?  @db.VarChar(50)
+  is_verified Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamptz()
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  subject Subject @relation("reg_des_subject_mapping", fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, subject_id], name: "idx_des_subject_mapping_unique")
+  @@index([tenant_id], name: "idx_des_subject_mapping_tenant")
+  @@map("des_subject_code_mappings")
+}
+
+model PpodStudentMapping {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String        @db.Uuid
+  student_id     String        @db.Uuid
+  database_type  PodDatabaseType
+  external_id    String?       @db.VarChar(50)
+  sync_status    PodSyncStatus @default(pod_pending)
+  last_synced_at DateTime?     @db.Timestamptz()
+  last_sync_hash String?       @db.VarChar(64)
+  last_sync_error String?      @db.Text
+  data_snapshot  Json?
+  created_at     DateTime      @default(now()) @db.Timestamptz()
+  updated_at     DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation("reg_ppod_student_mapping", fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, database_type], name: "idx_ppod_mapping_unique")
+  @@index([tenant_id, sync_status], name: "idx_ppod_mapping_status")
+  @@map("ppod_student_mappings")
+}
+
+/// Append-only audit trail — no updated_at
+model PpodSyncLog {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String           @db.Uuid
+  database_type   PodDatabaseType
+  sync_type       PodSyncType
+  triggered_by_id String?          @db.Uuid
+  started_at      DateTime         @db.Timestamptz()
+  completed_at    DateTime?        @db.Timestamptz()
+  status          PodSyncLogStatus
+  records_pushed  Int              @default(0)
+  records_created Int              @default(0)
+  records_updated Int              @default(0)
+  records_failed  Int              @default(0)
+  error_details   Json?
+  transport_used  String           @db.VarChar(50)
+  created_at      DateTime         @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  triggered_by User?  @relation("reg_sync_triggered_by", fields: [triggered_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, database_type, started_at(sort: Desc)], name: "idx_ppod_sync_log_tenant")
+  @@map("ppod_sync_logs")
+}
+
+model PpodCbaSyncRecord {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String        @db.Uuid
+  student_id    String        @db.Uuid
+  subject_id    String        @db.Uuid
+  assessment_id String        @db.Uuid
+  academic_year String        @db.VarChar(20)
+  cba_type      String        @db.VarChar(20)
+  grade         String        @db.VarChar(50)
+  sync_status   CbaSyncStatus @default(cba_pending)
+  synced_at     DateTime?     @db.Timestamptz()
+  sync_error    String?       @db.Text
+  created_at    DateTime      @default(now()) @db.Timestamptz()
+  updated_at    DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation("reg_cba_sync_student", fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, subject_id, assessment_id], name: "idx_cba_sync_unique")
+  @@index([tenant_id, sync_status], name: "idx_cba_sync_status")
+  @@map("ppod_cba_sync_records")
+}
+
+model InterSchoolTransfer {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String            @db.Uuid
+  student_id           String            @db.Uuid
+  direction            TransferDirection
+  other_school_roll_no String            @db.VarChar(20)
+  other_school_name    String?           @db.VarChar(255)
+  transfer_date        DateTime          @db.Date
+  leaving_reason       String?           @db.VarChar(100)
+  status               TransferStatus    @default(transfer_pending)
+  ppod_confirmed       Boolean           @default(false)
+  ppod_confirmed_at    DateTime?         @db.Timestamptz()
+  notes                String?           @db.Text
+  initiated_by_id      String?           @db.Uuid
+  created_at           DateTime          @default(now()) @db.Timestamptz()
+  updated_at           DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant       Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student      Student @relation("reg_transfer_student", fields: [student_id], references: [id], onDelete: Cascade)
+  initiated_by User?   @relation("reg_transfer_initiated_by", fields: [initiated_by_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, student_id], name: "idx_transfer_student")
+  @@index([tenant_id, status], name: "idx_transfer_status")
+  @@index([tenant_id, direction, status], name: "idx_transfer_direction_status")
+  @@map("inter_school_transfers")
 }

@@ -192,6 +192,19 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'safeguarding.manage', description: 'Manage safeguarding concerns', permission_tier: 'admin' },
   { permission_key: 'safeguarding.seal', description: 'Seal safeguarding concerns (irreversible)', permission_tier: 'admin' },
 
+  // ─── Regulatory Portal ─────────────────────────────────────────────────────
+  { permission_key: 'regulatory.view', description: 'View regulatory dashboard, calendar, and compliance status', permission_tier: 'staff' },
+  { permission_key: 'regulatory.manage', description: 'Manage regulatory calendar, submissions, and configuration', permission_tier: 'admin' },
+  { permission_key: 'regulatory.view_tusla', description: 'View Tusla threshold monitor and absence reports', permission_tier: 'staff' },
+  { permission_key: 'regulatory.manage_tusla', description: 'Generate Tusla SARs and AARs, manage absence code mappings', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_des', description: 'Generate DES September Returns files and manage subject mappings', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_october_returns', description: 'View and validate October Returns readiness', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_ppod', description: 'Manage P-POD/POD sync, import/export student data', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_cba', description: 'Sync CBA results to PPOD', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_transfers', description: 'Manage inter-school transfers via PPOD', permission_tier: 'admin' },
+  { permission_key: 'regulatory.manage_reduced_days', description: 'Manage reduced school day records and Tusla notifications', permission_tier: 'admin' },
+  { permission_key: 'regulatory.view_submissions', description: 'View regulatory submission audit log', permission_tier: 'admin' },
+
   // ─── Staff Wellbeing ──────────────────────────────────────────────────────
   { permission_key: 'wellbeing.view_own_workload', description: 'View own personal workload dashboard', permission_tier: 'staff' },
   { permission_key: 'wellbeing.view_aggregate', description: 'View school-wide aggregate wellbeing dashboards', permission_tier: 'admin' },

@@ -148,6 +148,9 @@ export * from './gdpr';
 // Security Incidents (Phase J)
 export * from './security';
 
+// Regulatory Portal
+export * from './regulatory';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';
