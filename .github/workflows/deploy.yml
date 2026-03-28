@@ -82,7 +82,35 @@ jobs:
 
             echo "=== Smoke test ==="
             sleep 5
-            curl -sf http://localhost:5551/en/login > /dev/null && echo "WEB OK" || echo "WEB FAILED"
-            curl -sf http://localhost:3001/api/health > /dev/null && echo "API OK" || echo "API FAILED"
+            web_ok=0
+            api_ok=0
+
+            if curl -sf http://localhost:5551/en/login > /dev/null; then
+              echo "WEB OK"
+              web_ok=1
+            else
+              echo "WEB FAILED"
+              echo "=== web describe ==="
+              sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 describe web || true
+              echo "=== web logs ==="
+              sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 logs web --lines 80 --nostream || true
+              echo "=== localhost web headers ==="
+              curl -I http://localhost:5551/en/login || true
+            fi
+
+            if curl -sf http://localhost:3001/api/health > /dev/null; then
+              echo "API OK"
+              api_ok=1
+            else
+              echo "API FAILED"
+              echo "=== api describe ==="
+              sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 describe api || true
+              echo "=== api logs ==="
+              sudo -u edupod PM2_HOME=/home/edupod/.pm2 pm2 logs api --lines 80 --nostream || true
+            fi
+
+            if [ "$web_ok" -ne 1 ] || [ "$api_ok" -ne 1 ]; then
+              exit 1
+            fi
 
             echo "=== Deploy complete ==="

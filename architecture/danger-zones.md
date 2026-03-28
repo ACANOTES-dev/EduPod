@@ -499,4 +499,5 @@ The failure mode is non-deterministic and server-only. The same commit may pass 
 **Mitigation**:
 - `Deploy to Production` must stay serialized via GitHub Actions `concurrency`
 - The remote deploy script must take a server-side lock before mutating `/opt/edupod/app`
+- Smoke checks must fail the workflow and print PM2 diagnostics if the web or API process is not actually serving
 - Any future manual deploy script must respect the same lock or it can reintroduce the race
