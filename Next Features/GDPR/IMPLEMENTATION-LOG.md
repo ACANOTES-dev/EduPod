@@ -342,8 +342,8 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 
 - **Status:** COMPLETE
 - **Completed:** 2026-03-28
-- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents)
-- **Commit(s):** Pending
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents + 3 remediation agents)
+- **Commit(s):** 7275067, 8715ec9 (review remediation)
 - **Key decisions:**
   - `DsarTraversalService` (684 lines) is a standalone service in ComplianceModule — queries ~20 Prisma models directly, no new module imports needed
   - Six subject types supported: `student` (19 data categories), `parent` (8), `staff` (8), `applicant` (4), `household` (6), `user` (2)
@@ -359,7 +359,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **New endpoints:** GET /v1/compliance-requests/overdue, POST /v1/compliance-requests/:id/extend
 - **Enhanced endpoints:** POST /v1/compliance-requests (auto-sets deadline_at), GET /v1/compliance-requests/:id (includes deadline fields), POST /v1/compliance-requests/:id/execute (uses DsarTraversalService, supports portability, erasure cleans consent+tokens)
 - **New frontend pages:** None (backend only — DSAR dashboard enhancements deferred to separate frontend ticket)
-- **Tests added:** 192 tests total — 153 API (33 DSAR traversal + 68 compliance service/access-export + 52 existing) + 39 worker (18 deadline-check + 21 existing)
+- **Tests added:** 203 tests total — 162 API (40 DSAR traversal + 69 compliance service/controller/access-export + 53 existing) + 41 worker (20 deadline-check + 21 existing)
 - **Architecture files updated:** `event-job-catalog.md` (compliance:deadline-check cron), `state-machines.md` (ComplianceRequestStatus side-effects), `module-blast-radius.md` (ComplianceModule note)
 - **Unlocks:** Phase H (Data Subject Protections) is now available
-- **Notes:** The DSAR traversal collects ALL records with no limits. For schools with very large datasets, the export generation may take significant time. The `DsarTraversalService` uses `Promise.all` for parallel queries within each subject type. Applicant data collection matches applications by student name (first + last) since pre-enrolment applicants may not have a linked student_id. Emergency contacts and fee assignments are included for households if the corresponding Prisma models exist.
+- **Notes:** The DSAR traversal collects ALL records with no limits. For schools with very large datasets, the export generation may take significant time. The `DsarTraversalService` uses `Promise.all` for parallel queries within each subject type. Student applications are matched by parent ID (via StudentParent join) or by name — covers both linked and unlinked applicants. Staff bank details show honest "[encrypted — available via DPO request]" message since AES ciphertext cannot be meaningfully masked without decryption. Deadline escalation: 7-day → requester, 3-day → all admin-tier users, exceeded → admins + requester. Two accepted deviations: (1) CSV export is concatenated sections, not zipped per-category files (MINOR); (2) Frontend DSAR dashboard deferred to separate ticket.
