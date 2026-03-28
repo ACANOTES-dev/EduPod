@@ -15,13 +15,14 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
 
-
+import { apiClient } from '@/lib/api-client';
 import { RequireAuth } from '@/providers/auth-provider';
 
 interface NavItem {
   icon: LucideIcon;
   label: string;
   href: string;
+  badge?: number;
 }
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
@@ -29,13 +30,31 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const params = useParams();
   const locale = (params?.locale as string) ?? 'en';
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
+
+  // Fetch open incident count for the alert badge
+  React.useEffect(() => {
+    async function fetchOpenIncidents() {
+      try {
+        const res = await apiClient<{ meta: { total: number } }>(
+          '/api/v1/admin/security-incidents?pageSize=1&severity=high',
+        );
+        setOpenIncidentCount(res.meta.total);
+      } catch {
+        // Silently ignore — badge just won't show
+      }
+    }
+    void fetchOpenIncidents();
+    const interval = setInterval(() => void fetchOpenIncidents(), 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems: NavItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', href: `/${locale}/admin` },
     { icon: Building2, label: 'Tenants', href: `/${locale}/admin/tenants` },
     { icon: Activity, label: 'Health', href: `/${locale}/admin/health` },
     { icon: ClipboardList, label: 'Audit Log', href: `/${locale}/admin/audit-log` },
-    { icon: ShieldAlert, label: 'Security Incidents', href: `/${locale}/admin/security-incidents` },
+    { icon: ShieldAlert, label: 'Security Incidents', href: `/${locale}/admin/security-incidents`, badge: openIncidentCount },
   ];
 
   const isActive = (href: string) => {
@@ -62,7 +81,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
             )}
           >
             <item.icon className="h-[18px] w-[18px] shrink-0" />
-            <span>{item.label}</span>
+            <span className="flex-1">{item.label}</span>
+            {item.badge && item.badge > 0 ? (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold text-white">
+                {item.badge}
+              </span>
+            ) : null}
           </Link>
         );
       })}

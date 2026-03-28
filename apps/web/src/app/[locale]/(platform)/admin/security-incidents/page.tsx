@@ -24,6 +24,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
 
+import {
+  SECURITY_INCIDENT_SEVERITIES,
+  SECURITY_INCIDENT_STATUSES,
+  SECURITY_INCIDENT_TYPES,
+} from '@school/shared';
+
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -60,27 +66,9 @@ interface IncidentsResponse {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SEVERITY_OPTIONS = ['low', 'medium', 'high', 'critical'] as const;
-const STATUS_OPTIONS = [
-  'detected',
-  'investigating',
-  'contained',
-  'reported',
-  'resolved',
-  'closed',
-] as const;
-
-const INCIDENT_TYPE_OPTIONS = [
-  'unauthorised_access',
-  'data_breach',
-  'ransomware',
-  'phishing',
-  'data_loss',
-  'system_compromise',
-  'insider_threat',
-  'misconfiguration',
-  'other',
-] as const;
+const SEVERITY_OPTIONS = SECURITY_INCIDENT_SEVERITIES;
+const STATUS_OPTIONS = SECURITY_INCIDENT_STATUSES;
+const INCIDENT_TYPE_OPTIONS = SECURITY_INCIDENT_TYPES;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -32,6 +32,11 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import {
+  SECURITY_INCIDENT_EVENT_TYPES,
+  SECURITY_INCIDENT_STATUS_TRANSITIONS,
+} from '@school/shared';
+
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
@@ -74,25 +79,8 @@ interface SecurityIncident {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  detected: ['investigating', 'closed'],
-  investigating: ['contained', 'closed'],
-  contained: ['reported', 'resolved'],
-  reported: ['resolved'],
-  resolved: ['closed'],
-  closed: [],
-};
-
-const EVENT_TYPE_OPTIONS = [
-  'note',
-  'status_change',
-  'containment_action',
-  'evidence_collected',
-  'notification_sent',
-  'dpc_communication',
-  'remediation_applied',
-  'other',
-] as const;
+const STATUS_TRANSITIONS = SECURITY_INCIDENT_STATUS_TRANSITIONS;
+const EVENT_TYPE_OPTIONS = SECURITY_INCIDENT_EVENT_TYPES;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,9 +199,11 @@ function InfoRow({
 
 function NotifyControllersDialog({
   incidentId,
+  affectedTenants,
   onNotified,
 }: {
   incidentId: string;
+  affectedTenants: string[];
   onNotified: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -231,7 +221,7 @@ function NotifyControllersDialog({
       try {
         await apiClient(`/api/v1/admin/security-incidents/${incidentId}/notify-controllers`, {
           method: 'POST',
-          body: JSON.stringify({ message: message.trim() }),
+          body: JSON.stringify({ tenant_ids: affectedTenants, message: message.trim() }),
         });
         toast.success('Controllers notified');
         setOpen(false);
@@ -533,8 +523,8 @@ export default function SecurityIncidentDetailPage() {
   }, [incidentId, newStatus, incident, fetchIncident]);
 
   const validTransitions = incident
-    ? (STATUS_TRANSITIONS[incident.status] ?? [])
-    : [];
+    ? ([...(STATUS_TRANSITIONS[incident.status as keyof typeof STATUS_TRANSITIONS] ?? [])])
+    : [] as string[];
 
   // ─── Loading skeleton ──────────────────────────────────────────────────────
 
@@ -609,6 +599,7 @@ export default function SecurityIncidentDetailPage() {
           {!incident.reported_to_controllers_at && (
             <NotifyControllersDialog
               incidentId={incident.id}
+              affectedTenants={incident.affected_tenants}
               onNotified={() => void fetchIncident()}
             />
           )}
