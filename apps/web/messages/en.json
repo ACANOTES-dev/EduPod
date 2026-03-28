@@ -82,6 +82,7 @@
     "parentPortal": "My School",
     "announcements": "Announcements",
     "inquiries": "Inquiries",
+    "privacyConsent": "Privacy & Consent",
     "applications": "Applications",
     "registerFamily": "Register Family",
     "behaviour": "Behaviour",
@@ -233,6 +234,9 @@
       "paymentHistory": "Payment History",
       "noPayments": "No payments recorded yet.",
       "receipt": "Receipt",
+      "privacyConsentTitle": "Privacy & Consent",
+      "privacyConsentDescription": "Review the optional processing consents attached to your children and your own communication preferences.",
+      "managePrivacyConsent": "Manage privacy choices",
       "financesUnavailable": "Finances unavailable",
       "financesUnavailableDesc": "Financial information could not be loaded.",
       "contactSchoolForPayment": "Contact school for payment",
@@ -1864,6 +1868,22 @@
     "submitApplication": "Submit Application",
     "loginToSubmit": "Please log in or register to submit your application",
     "applicationSubmitted": "Application submitted successfully",
+    "consentTitle": "Privacy & consent",
+    "consentDescription": "Optional consents are kept separate so you can choose exactly what you want to allow.",
+    "consentHealthData": "Allow health information to be stored with this application",
+    "consentHealthDataDescription": "This covers optional health details that help the school support the applicant safely.",
+    "consentWhatsApp": "Allow WhatsApp updates for admissions communication",
+    "consentWhatsAppDescription": "The school may use WhatsApp for optional admissions updates when a parent account is linked.",
+    "consentAiTitle": "AI features",
+    "consentAiDescription": "Choose which optional AI-assisted features may be used if the applicant becomes a student.",
+    "consentAiGrading": "AI grading suggestions",
+    "consentAiGradingDescription": "Allow teachers to use AI-generated grading suggestions for this student.",
+    "consentAiComments": "AI report comments",
+    "consentAiCommentsDescription": "Allow AI-generated draft report comments for this student.",
+    "consentAiRiskDetection": "AI risk detection",
+    "consentAiRiskDetectionDescription": "Allow the system to include this student in AI-based academic risk detection.",
+    "consentAiProgressSummary": "AI progress summaries",
+    "consentAiProgressSummaryDescription": "Allow AI-generated learning progress summaries for this student.",
     "duplicateWarning": "Potential duplicate detected",
     "dobWarning": "Date of birth is recommended as required for student conversion. Applications without it will need manual entry at conversion time.",
     "editPublishedWarning": "Editing will create a new version. Existing applications remain on the current version.",
@@ -3993,6 +4013,22 @@
     "country": "Country",
     "postalCode": "Postal Code",
     "contactName": "Contact Name",
+    "consentTitle": "Privacy & Consent",
+    "consentDescription": "Optional consents stay separate from core school processing and can be withdrawn later from the parent portal.",
+    "consentHealthData": "Health data consent",
+    "consentHealthDataDescription": "Allow the school to store optional health information for each student in this registration.",
+    "consentWhatsApp": "WhatsApp updates",
+    "consentWhatsAppDescription": "Allow the primary parent to receive optional WhatsApp communications from the school.",
+    "consentAiTitle": "AI feature consents",
+    "consentAiDescription": "Each AI feature is separate so parents can opt in only to the features they want.",
+    "consentAiGrading": "AI grading suggestions",
+    "consentAiGradingDescription": "Teachers may request AI-generated grading suggestions for this student.",
+    "consentAiComments": "AI report comments",
+    "consentAiCommentsDescription": "Teachers may generate AI draft report comments for this student.",
+    "consentAiRiskDetection": "AI risk detection",
+    "consentAiRiskDetectionDescription": "The system may include this student in AI-based academic risk monitoring.",
+    "consentAiProgressSummary": "AI progress summaries",
+    "consentAiProgressSummaryDescription": "Parents and staff may receive AI-generated progress summaries for this student.",
     "students": "Students",
     "addStudent": "+ Add Another Student",
     "student": "Student {number}",
@@ -4062,6 +4098,148 @@
     "inDiscounts": "in discounts",
     "paymentFailed": "Payment failed. Please try again.",
     "invalidPaymentAmount": "Please enter a valid payment amount."
+  },
+  "retention": {
+    "title": "Data Retention",
+    "description": "Manage how long different types of data are retained before automatic cleanup.",
+    "policiesTitle": "Retention Policies",
+    "holdsTitle": "Legal Holds",
+    "category": "Category",
+    "retentionPeriod": "Retention Period",
+    "actionOnExpiry": "Action",
+    "status": "Status",
+    "statutoryBasis": "Statutory Basis",
+    "default": "Default",
+    "override": "Override",
+    "locked": "Locked",
+    "lockedTooltip": "This policy cannot be changed — required by {basis}.",
+    "editRetention": "Edit Retention Period",
+    "retentionMonths": "Retention Period (months)",
+    "minimumNotice": "Minimum: {min} months (statutory requirement)",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Retention policy updated successfully.",
+    "belowMinimum": "Cannot reduce below the statutory minimum.",
+    "previewImpact": "Preview Impact",
+    "previewTitle": "Retention Preview",
+    "previewDescription": "Records that would be affected if retention enforcement ran now.",
+    "affectedRecords": "Affected Records",
+    "noExpiredRecords": "No records currently exceed their retention period.",
+    "fetchError": "Failed to load retention policies.",
+    "subjectType": "Subject Type",
+    "subjectId": "Subject ID",
+    "reason": "Reason",
+    "heldBy": "Held By",
+    "heldAt": "Held At",
+    "actions": "Actions",
+    "placeHold": "Place Hold",
+    "releaseHold": "Release Hold",
+    "releaseConfirm": "Are you sure you want to release this legal hold? The subject will become eligible for retention enforcement.",
+    "holdCreated": "Legal hold placed successfully.",
+    "holdReleased": "Legal hold released.",
+    "noActiveHolds": "No active legal holds.",
+    "holdError": "Failed to manage legal hold."
+  },
+  "privacyConsent": {
+    "eyebrow": "Parent portal",
+    "title": "Privacy & Consent",
+    "description": "These choices only cover optional processing. Core school records such as attendance, enrolment, and grades are not managed here because they do not rely on consent.",
+    "loadError": "Unable to load consent records right now.",
+    "emptyTitle": "No consent records available",
+    "emptyDescription": "Optional consents will appear here once they have been recorded for your family.",
+    "grantedAt": "Granted",
+    "evidenceType": "Evidence",
+    "withdraw": "Withdraw consent",
+    "withdrawSuccess": "Consent withdrawn. The change takes effect immediately.",
+    "withdrawError": "Unable to withdraw consent right now.",
+    "confirmTitle": "Withdraw consent?",
+    "confirmDescription": "Are you sure you want to withdraw consent for {type}? This will take effect immediately.",
+    "confirmWithdraw": "Withdraw now",
+    "withdrawing": "Withdrawing...",
+    "cancel": "Cancel",
+    "status": {
+      "granted": "Granted",
+      "withdrawn": "Withdrawn",
+      "expired": "Expired"
+    },
+    "evidence": {
+      "in_app_modal": "In-app confirmation",
+      "registration_form": "Registration form",
+      "paper_form": "Paper form",
+      "email_link": "Email link"
+    },
+    "categories": {
+      "health": {
+        "title": "Health",
+        "description": "Optional health-related records and disclosures."
+      },
+      "ai_features": {
+        "title": "AI Features",
+        "description": "Optional AI-assisted features that affect how insights are generated."
+      },
+      "communications": {
+        "title": "Communications",
+        "description": "Optional communication channels and media permissions."
+      },
+      "cross_school": {
+        "title": "Cross-School",
+        "description": "Optional benchmarking and cross-school comparison features."
+      },
+      "student_experience": {
+        "title": "Student Experience",
+        "description": "Optional student-facing tools and extras."
+      }
+    },
+    "types": {
+      "health_data": {
+        "label": "Health data",
+        "description": "Allows optional health information to be stored and viewed where appropriate."
+      },
+      "allergy_data": {
+        "label": "Allergy details",
+        "description": "Allows allergy-specific information to be shown in non-emergency allergy reporting."
+      },
+      "medical_notes": {
+        "label": "Medical notes",
+        "description": "Allows optional medical notes to be stored for the student."
+      },
+      "photo_use": {
+        "label": "Photo use",
+        "description": "Allows the school to include the student in optional photos and media."
+      },
+      "whatsapp_channel": {
+        "label": "WhatsApp updates",
+        "description": "Allows optional WhatsApp communications to the linked parent."
+      },
+      "email_marketing": {
+        "label": "Email updates",
+        "description": "Allows optional non-essential email communications."
+      },
+      "ai_grading": {
+        "label": "AI grading suggestions",
+        "description": "Allows teachers to use AI-generated grading suggestions for this student."
+      },
+      "ai_comments": {
+        "label": "AI report comments",
+        "description": "Allows AI-generated draft report comments for this student."
+      },
+      "ai_risk_detection": {
+        "label": "AI risk detection",
+        "description": "Allows the student to be included in AI-based academic risk detection."
+      },
+      "ai_progress_summary": {
+        "label": "AI progress summaries",
+        "description": "Allows AI-generated summaries of student progress."
+      },
+      "cross_school_benchmarking": {
+        "label": "Cross-school benchmarking",
+        "description": "Allows anonymised inclusion in cross-school behaviour benchmarking."
+      },
+      "homework_diary": {
+        "label": "Homework diary",
+        "description": "Allows access to optional homework diary features."
+      }
+    }
   },
   "behaviour": {
     "dashboard": {

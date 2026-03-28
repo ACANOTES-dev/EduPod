@@ -35,6 +35,7 @@ import { PublishAnnouncementProcessor } from './processors/communications/publis
 import { RetryFailedNotificationsProcessor } from './processors/communications/retry-failed.processor';
 import { StaleInquiryDetectionProcessor } from './processors/communications/stale-inquiry-detection.processor';
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
+import { RetentionEnforcementProcessor } from './processors/compliance/retention-enforcement.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
@@ -60,8 +61,10 @@ import { SchedulingSolverProcessor } from './processors/scheduling-solver.proces
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SearchIndexProcessor } from './processors/search-index.processor';
-import { KeyRotationProcessor } from './processors/security/key-rotation.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
+import { AnomalyScanProcessor } from './processors/security/anomaly-scan.processor';
+import { BreachDeadlineProcessor } from './processors/security/breach-deadline.processor';
+import { KeyRotationProcessor } from './processors/security/key-rotation.processor';
 import { CleanupParticipationTokensProcessor } from './processors/wellbeing/cleanup-participation-tokens.processor';
 import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-check.processor';
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
@@ -143,6 +146,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
         name: QUEUE_NAMES.WELLBEING,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
       },
+      {
+        name: QUEUE_NAMES.COMPLIANCE,
+        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],
@@ -204,8 +211,9 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     ImportValidationProcessor,
     ImportProcessingProcessor,
     ImportFileCleanupProcessor,
-    // Compliance (on imports queue — low volume)
+    // Compliance processors
     ComplianceExecutionProcessor,
+    RetentionEnforcementProcessor,
     // Payroll queue processors
     PayrollSessionGenerationProcessor,
     PayrollMassExportProcessor,
@@ -230,6 +238,8 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     WellbeingFlagExpiryProcessor,
     // Security queue processors
     KeyRotationProcessor,
+    AnomalyScanProcessor,
+    BreachDeadlineProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

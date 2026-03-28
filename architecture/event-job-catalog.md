@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-27
+> **Last verified**: 2026-03-28
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **13 queues**, **63 job types**, **16 cron jobs**
+- **15 queues**, **66 job types**, **19 cron jobs**
 
 ---
 
@@ -177,6 +177,7 @@ Daily 02:00 UTC
   -> gradebook queue: gradebook:detect-risks
     -> GradebookRiskDetectionProcessor
       -> iterates ALL active tenants
+      -> filters to students with active `ai_risk_detection` consent
       -> checks grade thresholds per student
       -> creates/updates AcademicAlert records
 
@@ -329,6 +330,8 @@ Cron fires daily at 08:00 tenant TZ
 ---
 
 ## GDPR / Privacy Jobs
+
+**Consent enforcement note**: Consent grant/withdrawal does NOT enqueue a propagation job. Downstream services and workers read `consent_records` synchronously so withdrawal takes effect immediately for WhatsApp delivery, AI services, allergy reporting, risk detection, and cross-school benchmarking.
 
 ### `communications:ip-cleanup` (notifications queue — CRON)
 
@@ -881,3 +884,90 @@ Monthly cron fires at 00:00 UTC
 ```
 
 **Danger**: Not tenant-aware — runs at DB schema level. Uses `$executeRawUnsafe` for DDL — table/partition names derived from constants, not user input. Must complete before any inserts into new month's partitions.
+
+---
+
+### security:anomaly-scan (Phase J — Breach Detection)
+
+**Queue**: `security`
+**Job constant**: `ANOMALY_SCAN_JOB`
+**Trigger**: Cron every 15 minutes (`*/15 * * * *`).
+**Payload**: None (platform-level, cross-tenant scan).
+**Processor**: `apps/worker/src/processors/security/anomaly-scan.processor.ts`
+**Retries**: 2 with exponential backoff (10s delay)
+**Added in**: Phase J
+
+**Side effects chain**:
+```
+Cron fires every 15 minutes
+  -> Runs 7 detection rules against audit_logs table:
+     1. Unusual access (100+ student records / 1 min by single user)
+     2. Auth spike (10+ failed logins / 5 min for same email)
+     3. Cross-tenant attempt (any RLS violation — critical)
+     4. Permission probe (20+ denials / 10 min from single user)
+     5. Brute force cluster (5+ lockouts / 1 hour from same IP)
+     6. Off-hours bulk access (50+ reads between 00:00–05:00 UTC)
+     7. Data export spike (3+ exports / 1 hour by single user)
+  -> For each violation:
+     -> Check for existing open incident with same type
+     -> If found: add 'evidence' event to existing incident
+     -> If not found: create new SecurityIncident (status=detected)
+```
+
+**Danger**: Queries audit_logs with GROUP BY / HAVING — could be slow on very large audit tables. Detection rules use `$queryRaw` (safe tagged template), not `$queryRawUnsafe`. Platform-level — no TenantAwareJob, no RLS context.
+
+---
+
+### security:breach-deadline (Phase J — DPC Notification Countdown)
+
+**Queue**: `security`
+**Job constant**: `BREACH_DEADLINE_JOB`
+**Trigger**: Cron hourly (`0 * * * *`).
+**Payload**: None (platform-level).
+**Processor**: `apps/worker/src/processors/security/breach-deadline.processor.ts`
+**Retries**: 2 with exponential backoff (10s delay)
+**Added in**: Phase J
+
+**Side effects chain**:
+```
+Hourly cron fires
+  -> Finds all open high/critical incidents (status not in [resolved, closed])
+  -> For each incident, calculates hours since detected_at
+  -> Escalation checkpoints:
+     -> 12h: adds 'escalation' event if not already present
+     -> 48h: adds '48-hour warning' escalation event
+     -> 72h: adds 'CRITICAL: 72-hour DPC deadline' event (if reported_to_dpc_at is null)
+```
+
+**Danger**: Escalation events are idempotent (checks for existing events before creating). Does not automatically notify — creates audit trail only. Platform admin must act on the escalation events via the incident management UI.
+
+---
+
+### data-retention:enforce (Phase I — Retention Policy Engine)
+
+**Queue**: `compliance`
+**Job constant**: `RETENTION_ENFORCEMENT_JOB`
+**Trigger**: Cron weekly, Sunday 03:00 UTC (`0 3 * * 0`).
+**Payload**: None (cross-tenant). Optional `{ dry_run: true }` for preview mode.
+**Processor**: `apps/worker/src/processors/compliance/retention-enforcement.processor.ts`
+**Retries**: 2 with exponential backoff (10s delay)
+**Added in**: Phase I
+
+**Side effects chain**:
+```
+Weekly cron fires
+  -> Iterates all active tenants
+  -> For each tenant:
+     -> Resolves effective retention policies (tenant overrides > platform defaults)
+     -> Loads active retention holds
+     -> For each policy (skip if retention_months = 0 / indefinite):
+        -> 'delete' categories (notifications, audit_logs, contact_form_submissions,
+           nl_query_history, gdpr_token_usage_log): finds expired records, filters
+           out held subjects, deletes in batches of 100 via RLS-aware transactions
+        -> 'anonymise' categories (student/staff/financial/payroll/attendance records):
+           logged as deferred — not executed (awaiting DSAR pipeline integration)
+        -> s3_compliance_exports: clears export_file_key on expired compliance_requests
+        -> Creates audit_log entry per category per tenant with enforcement summary
+```
+
+**Danger**: The deletion operations are IRREVERSIBLE. The dry_run flag must be tested before first production run. Retention holds protect specific subjects from enforcement — always check `retention_holds` before deleting. Anonymise categories are intentionally deferred until the DSAR/anonymisation pipeline is mature enough for automated execution.

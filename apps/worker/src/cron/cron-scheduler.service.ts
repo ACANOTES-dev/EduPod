@@ -15,10 +15,13 @@ import {
   REFRESH_MV_STUDENT_SUMMARY_JOB,
 } from '../processors/behaviour/refresh-mv.processor';
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
+import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
+import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
+import { BREACH_DEADLINE_JOB } from '../processors/security/breach-deadline.processor';
 import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
 import { EAP_REFRESH_CHECK_JOB } from '../processors/wellbeing/eap-refresh-check.processor';
 import { SURVEY_CLOSING_REMINDER_JOB } from '../processors/wellbeing/survey-closing-reminder.processor';
@@ -39,6 +42,8 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.IMPORTS) private readonly importsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.WELLBEING) private readonly wellbeingQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.SECURITY) private readonly securityQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.COMPLIANCE) private readonly complianceQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -47,6 +52,8 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerNotificationsCronJobs();
     await this.registerWellbeingCronJobs();
     await this.registerCleanupCronJobs();
+    await this.registerSecurityCronJobs();
+    await this.registerComplianceCronJobs();
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -290,5 +297,55 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${IMPORT_FILE_CLEANUP_JOB} (daily 05:00 UTC)`);
+  }
+
+  private async registerSecurityCronJobs(): Promise<void> {
+    // ── security:anomaly-scan ──────────────────────────────────────────────
+    // Runs every 15 minutes. Platform-level — no tenant_id in payload.
+    // Scans audit_logs for anomalous patterns and creates/updates security incidents.
+    await this.securityQueue.add(
+      ANOMALY_SCAN_JOB,
+      {},
+      {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: `cron:${ANOMALY_SCAN_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${ANOMALY_SCAN_JOB} (every 15 min)`);
+
+    // ── security:breach-deadline ───────────────────────────────────────────
+    // Runs hourly. Platform-level — no tenant_id in payload.
+    // Monitors open high/critical incidents for 72-hour DPC notification deadline.
+    await this.securityQueue.add(
+      BREACH_DEADLINE_JOB,
+      {},
+      {
+        repeat: { pattern: '0 * * * *' },
+        jobId: `cron:${BREACH_DEADLINE_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${BREACH_DEADLINE_JOB} (hourly)`);
+  }
+
+  private async registerComplianceCronJobs(): Promise<void> {
+    // ── data-retention:enforce ─────────────────────────────────────────────
+    // Runs weekly on Sunday at 03:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Iterates all active tenants, resolves effective retention policies,
+    // and enforces expiry through anonymisation or deletion.
+    await this.complianceQueue.add(
+      RETENTION_ENFORCEMENT_JOB,
+      {},
+      {
+        repeat: { pattern: '0 3 * * 0' },
+        jobId: `cron:${RETENTION_ENFORCEMENT_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${RETENTION_ENFORCEMENT_JOB} (weekly Sunday 03:00 UTC)`);
   }
 }

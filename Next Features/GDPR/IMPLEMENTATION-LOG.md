@@ -81,7 +81,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | F     | DSAR Overhaul            | NOT STARTED | B, C, D    | H       | 4–5 days    | [Phase-F](./Phase-F-DSAR-Overhaul.md)                |
 | G     | Audit Logging            | COMPLETE    | —          | J       | 2–3 days    | [Phase-G](./Phase-G-Audit-Logging.md)                |
 | H     | Data Subject Protections | NOT STARTED | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
-| I     | Retention Engine         | NOT STARTED | C          | —       | 3–4 days    | [Phase-I](./Phase-I-Retention-Engine.md)             |
+| I     | Retention Engine         | COMPLETE    | C          | —       | 3–4 days    | [Phase-I](./Phase-I-Retention-Engine.md)             |
 | J     | Breach Detection         | NOT STARTED | G          | —       | 3–4 days    | [Phase-J](./Phase-J-Breach-Detection.md)             |
 | K     | AI Decision Audit Trail  | COMPLETE    | B          | —       | 2 days      | [Phase-K](./Phase-K-AI-Audit-Trail.md)               |
 | L     | Security Hardening       | COMPLETE    | —          | —       | 4–5 days    | [Phase-L](./Phase-L-Security-Hardening.md)           |
@@ -244,6 +244,32 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Architecture files updated:** None required (SECURITY queue is internal, no cross-module dependencies added)
 - **Unlocks:** None (terminal phase, fully independent)
 - **Notes:** Key rotation is manually triggered via BullMQ `security:key-rotation` job. To rotate: set `ENCRYPTION_KEY_V2` env var and `ENCRYPTION_CURRENT_VERSION=2`, then enqueue the job. Old key must remain available until all records are re-encrypted. The `rotateAll()` method also exists on `KeyRotationService` in the API for synchronous use. Worker approach recommended for production (non-blocking).
+
+---
+
+### Phase I: Retention Engine
+
+- **Status:** COMPLETE
+- **Completed:** 2026-03-28
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents)
+- **Commit(s):** Pending
+- **Key decisions:**
+  - Retention service placed in ComplianceModule (not GdprModule) — aligns with `compliance.manage` permission
+  - Two controllers in one file: `RetentionPoliciesController` at `/v1/retention-policies`, `RetentionHoldsController` at `/v1/retention-holds`
+  - `child_protection_safeguarding` has `retention_months = 0` (indefinite) — enforcement always skips
+  - Non-overridable policies (financial, payroll, safeguarding) cannot be reduced below platform default
+  - Anonymise categories (student/staff/financial/payroll/attendance records) are logged but NOT automatically executed — deferred to DSAR/anonymisation pipeline maturity
+  - Simple delete categories (notifications, audit logs, contact forms, NL queries, token usage logs) are actively enforced with batch processing (100 records per transaction)
+  - `s3_compliance_exports` — clears `export_file_key` on expired compliance requests (does not delete S3 objects directly)
+  - New `COMPLIANCE` queue added to worker (separate from existing `IMPORTS` queue used by compliance execution)
+  - `staff_records_post_employment` uses `employment_status = 'inactive'` (only status values are active/inactive)
+- **Schema changes:** `20260329120000_add_retention_policy_tables` (retention_policies + retention_holds tables, RLS, 17 seeded platform defaults)
+- **New endpoints:** GET /v1/retention-policies, PATCH /v1/retention-policies/:id, POST /v1/retention-policies/preview, POST /v1/retention-holds, DELETE /v1/retention-holds/:id, GET /v1/retention-holds
+- **New frontend pages:** Settings > Data Retention (`/settings/data-retention`)
+- **Tests added:** 22 API tests (16 service + 6 controller) + 13 worker tests = 35 new tests
+- **Architecture files updated:** `event-job-catalog.md` (compliance queue + retention enforcement cron)
+- **Unlocks:** None (terminal phase)
+- **Notes:** First production run should use `dry_run: true` to verify record counts before actual deletion. Enqueue manually: `{ name: 'data-retention:enforce', data: { dry_run: true } }` on the `compliance` queue. The preview endpoint (`POST /v1/retention-policies/preview`) also provides affected counts without side effects.
 
 ---
 
