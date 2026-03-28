@@ -370,7 +370,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Status:** COMPLETE
 - **Completed:** 2026-03-28
 - **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents)
-- **Commit(s):** Pending
+- **Commit(s):** 0e7a043
 - **Key decisions:**
   - AgeGateService uses manual `fullYearsBetween` calculation (no `date-fns` dependency needed since existing API didn't import it)
   - Age-gate auto-flags ALL DSARs for 17+ students regardless of requester type (more protective than spec's parent-only requirement — ensures school review for all age-gated cases)
