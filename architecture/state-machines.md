@@ -96,6 +96,32 @@ expired*
 - **Side effects**: `withdrawn` takes effect synchronously on the next downstream read. WhatsApp notifications fall back to SMS, AI grading/comments/progress summaries reject requests, risk detection skips the student, allergy reports hide consent-gated rows, and cross-school benchmarking excludes the student immediately.
 - **Note**: Active uniqueness is enforced by a partial unique index on `(tenant_id, subject_type, subject_id, consent_type)` where `status = 'granted'`, so withdrawn consent can be re-granted as a new row.
 
+### DPA Acceptance (synthetic lifecycle)
+```
+not_accepted               -> [accepted_current]
+accepted_current          -> [stale_on_new_dpa_version]
+stale_on_new_dpa_version  -> [accepted_current]
+```
+- **Guarded by**: `gdpr/dpa.service.ts` + global `gdpr/dpa-accepted.guard.ts`
+- **Side effects**: Accepting the current DPA appends an immutable acceptance row with content hash, user, timestamp, and IP. A newly published platform `dpa_versions.version` does not mutate old rows; instead it makes previous acceptance stale because the global guard compares tenant acceptance against the current platform version before allowing tenant-scoped API access.
+
+### PrivacyNoticeVersionPublication (synthetic lifecycle)
+```
+draft      -> [published]
+published*   (read-only; superseded only by a newer published version)
+```
+- **Guarded by**: `gdpr/privacy-notices.service.ts`
+- **Side effects**: Drafts may be edited until `published_at` is set. Publishing fan-outs in-app notifications to all active tenant memberships and makes the new version the current acknowledgement target.
+
+### PrivacyNoticeAcknowledgement (synthetic lifecycle)
+```
+not_acknowledged             -> [acknowledged_current]
+acknowledged_current         -> [stale_on_new_notice_version]
+stale_on_new_notice_version  -> [acknowledged_current]
+```
+- **Guarded by**: `gdpr/privacy-notices.service.ts`
+- **Side effects**: Acknowledgements are unique per `(tenant_id, user_id, privacy_notice_version_id)`. When a newer notice is published, earlier acknowledgements remain in history but no longer satisfy the current-version check, which re-shows the acknowledgement banner until the latest version is acknowledged.
+
 ---
 
 ## Finance

@@ -51,6 +51,7 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { GlobalSearch } from '@/components/global-search';
+import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
 import { RequireRole } from '@/components/require-role';
 import { UserMenu } from '@/components/user-menu';
@@ -63,6 +64,7 @@ import { RegistrationWizard } from './_components/registration-wizard/registrati
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
 type RoleKey =
+  | 'school_owner'
   | 'school_principal'
   | 'admin'
   | 'teacher'
@@ -73,12 +75,10 @@ type RoleKey =
   | 'student';
 
 /** Roles with full admin access */
-const ADMIN_ROLES: RoleKey[] = ['school_principal', 'admin', 'school_vice_principal'];
+const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_principal', 'admin', 'school_vice_principal'];
 /** Roles that are school staff (not parents) */
 const STAFF_ROLES: RoleKey[] = [
-  'school_principal',
-  'admin',
-  'school_vice_principal',
+  ...ADMIN_ROLES,
   'teacher',
   'accounting',
   'front_office',
@@ -168,7 +168,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         icon: Heart,
         labelKey: 'nav.pastoral',
         href: '/pastoral',
-        roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+        roles: [...ADMIN_ROLES, 'teacher'],
       },
     ],
   },
@@ -229,7 +229,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         href: '/finance',
         roles: [...ADMIN_ROLES, 'accounting'],
       },
-      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_principal'] },
+      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner', 'school_principal'] },
     ],
   },
   {
@@ -275,11 +275,29 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   const [activeSurveyBadge, setActiveSurveyBadge] = React.useState<'open' | 'submitted' | null>(
     null,
   );
+  const pathname = usePathname();
 
   // Wire global API error toast
   React.useEffect(() => {
-    setApiErrorHandler((msg) => toast.error(msg));
-  }, []);
+    const segments = (pathname ?? '').split('/').filter(Boolean);
+    const locale = segments[0] ?? 'en';
+    const pathWithoutLocale = '/' + segments.slice(1).join('/');
+
+    setApiErrorHandler((error) => {
+      if (error.code === 'DPA_NOT_ACCEPTED' && error.redirect) {
+        if (!pathWithoutLocale.startsWith('/settings/legal/dpa')) {
+          router.replace(`/${locale}${error.redirect}`);
+        }
+        return;
+      }
+
+      toast.error(error.message);
+    });
+
+    return () => {
+      setApiErrorHandler(null);
+    };
+  }, [pathname, router]);
 
   useShortcuts([
     {
@@ -312,7 +330,6 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
   }, [isStaff]);
 
   // Derive page title from current path by matching nav items
-  const pathname = usePathname();
   const pageTitle = React.useMemo(() => {
     // Strip locale prefix (e.g., /en/students → /students)
     const path = (pathname ?? '').replace(/^\/[a-z]{2}(?=\/)/, '');
@@ -333,6 +350,8 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     if (path.startsWith('/finance/')) return t('nav.finance');
     if (path.startsWith('/payroll/')) return t('nav.payroll');
     if (path.startsWith('/wellbeing/')) return t('nav.wellbeing');
+    if (path.startsWith('/settings/legal')) return t('nav.legal');
+    if (path.startsWith('/privacy-notice')) return t('nav.legal');
     return t('dashboard.title');
   }, [pathname, t]);
 
@@ -443,6 +462,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
           </TopBar>
         }
       >
+        <PrivacyNoticeBanner />
         <RequireRole>{children}</RequireRole>
       </AppShell>
 

@@ -4,9 +4,16 @@ let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
 /** Global error listener — set by the app to show toasts on API failures. */
-let onApiError: ((message: string) => void) | null = null;
+export interface ApiErrorPayload {
+  code: string;
+  message: string;
+  redirect?: string;
+  status: number;
+}
 
-export function setApiErrorHandler(handler: (message: string) => void) {
+let onApiError: ((error: ApiErrorPayload) => void) | null = null;
+
+export function setApiErrorHandler(handler: ((error: ApiErrorPayload) => void) | null) {
   onApiError = handler;
 }
 
@@ -68,8 +75,12 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
       .json()
       .catch(() => ({ error: { code: 'UNKNOWN', message: 'Unknown error' } }));
     if (!silent && onApiError && response.status !== 401) {
-      const msg = error?.error?.message ?? `Request failed (${response.status})`;
-      onApiError(msg);
+      onApiError({
+        code: error?.error?.code ?? 'UNKNOWN',
+        message: error?.error?.message ?? `Request failed (${response.status})`,
+        redirect: error?.error?.redirect,
+        status: response.status,
+      });
     }
     throw error;
   }

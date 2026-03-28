@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
-import type { CreatePrivacyNoticeDto } from '@school/shared';
+import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { NotificationsService } from '../communications/notifications.service';
@@ -82,6 +82,43 @@ export class PrivacyNoticesService {
     });
   }
 
+  async updateVersion(tenantId: string, versionId: string, dto: UpdatePrivacyNoticeDto) {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+
+    return rlsClient.$transaction(async (tx) => {
+      const existing = await tx.privacyNoticeVersion.findFirst({
+        where: { id: versionId, tenant_id: tenantId },
+      });
+
+      if (!existing) {
+        throw new NotFoundException({
+          error: {
+            code: 'PRIVACY_NOTICE_NOT_FOUND',
+            message: `Privacy notice version with id "${versionId}" not found.`,
+          },
+        });
+      }
+
+      if (existing.published_at) {
+        throw new BadRequestException({
+          error: {
+            code: 'PRIVACY_NOTICE_ALREADY_PUBLISHED',
+            message: 'Published privacy notice versions cannot be edited.',
+          },
+        });
+      }
+
+      return tx.privacyNoticeVersion.update({
+        where: { id: versionId },
+        data: {
+          effective_date: dto.effective_date ? new Date(dto.effective_date) : undefined,
+          content_html: dto.content_html,
+          content_html_ar: dto.content_html_ar,
+        },
+      });
+    });
+  }
+
   async publishVersion(tenantId: string, versionId: string) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -97,6 +134,10 @@ export class PrivacyNoticesService {
             message: `Privacy notice version with id "${versionId}" not found.`,
           },
         });
+      }
+
+      if (version.published_at) {
+        return version;
       }
 
       return tx.privacyNoticeVersion.update({

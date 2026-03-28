@@ -12,6 +12,17 @@ export interface SystemRoleSeed {
 
 export const SYSTEM_ROLES: SystemRoleSeed[] = [
   {
+    role_key: 'platform_owner',
+    display_name: 'Platform Owner',
+    role_tier: 'platform',
+    default_permissions: [
+      'tenants.manage',
+      'tenants.view',
+      'platform.impersonate',
+      'platform.reset_mfa',
+    ],
+  },
+  {
     role_key: 'school_owner',
     display_name: 'School Owner',
     role_tier: 'platform',
@@ -203,12 +214,12 @@ export const SYSTEM_ROLES: SystemRoleSeed[] = [
     role_key: 'school_vice_principal',
     display_name: 'School Vice-Principal',
     role_tier: 'admin',
-    default_permissions: [],
+    default_permissions: ['legal.view', 'legal.manage', 'privacy.view', 'privacy.manage'],
   },
   {
     role_key: 'student',
     display_name: 'Student',
     role_tier: 'parent',
-    default_permissions: [],
+    default_permissions: ['legal.view'],
   },
 ];

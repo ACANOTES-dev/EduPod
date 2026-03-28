@@ -2,7 +2,16 @@ import { useMemo } from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 
-type RoleKey = 'school_principal' | 'admin' | 'teacher' | 'accounting' | 'front_office' | 'parent' | 'school_vice_principal' | 'student';
+type RoleKey =
+  | 'school_owner'
+  | 'school_principal'
+  | 'admin'
+  | 'teacher'
+  | 'accounting'
+  | 'front_office'
+  | 'parent'
+  | 'school_vice_principal'
+  | 'student';
 
 /**
  * Returns the current user's role keys and helper to check membership.
@@ -19,7 +28,7 @@ export function useRoleCheck() {
 
   const hasRole = (role: RoleKey) => roleKeys.includes(role);
   const hasAnyRole = (...roles: RoleKey[]) => roles.some((r) => roleKeys.includes(r));
-  const isOwner = hasRole('school_principal');
+  const isOwner = hasRole('school_owner') || hasRole('school_principal');
 
   return { roleKeys, hasRole, hasAnyRole, isOwner };
 }

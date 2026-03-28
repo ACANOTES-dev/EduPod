@@ -54,6 +54,13 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Blast radius**: HIGH. Consent withdrawal is synchronous and immediately changes WhatsApp delivery, AI feature availability, allergy-report visibility, risk detection eligibility, and cross-school benchmarking participation.
 - **Rule**: Do not cache active-consent decisions or rely solely on background/materialized refresh paths for consent-gated processing. Parent self-service withdrawal must take effect on the next read.
 
+### DpaService + PrivacyNoticesService + SubProcessorsService (GdprModule)
+
+- **Exports**: `DpaService`, `PrivacyNoticesService`, `SubProcessorsService`
+- **Consumed by**: Global `DpaAcceptedGuard` (`APP_GUARD`), CommunicationsModule (`NotificationsService` via `forwardRef()`), all tenant-scoped API surfaces indirectly through the guard, the legal settings UI, the parent portal privacy notice page, and the public sub-processor register page
+- **Blast radius**: HIGH. `DpaAcceptedGuard` is global, so changing current-version lookup, acceptance checks, or the exempt-path allowlist can lock every tenant-scoped API surface. Privacy notice publish logic fans out notifications to every active tenant membership and resets acknowledgement requirements for users who only acknowledged older versions. Sub-processor register content is public and versioned, so changes affect both legal disclosure and tenant admin notification flows.
+- **Rule**: Keep the DPA guard allowlist aligned with the frontend redirect destination `/settings/legal/dpa`, and do not relax the draft-only edit rule for privacy notices after `published_at` is set.
+
 ---
 
 ## Tier 2 — Cross-Cutting Services (change = multiple domains break)
@@ -125,8 +132,8 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 ### NotificationsService + NotificationDispatchService (CommunicationsModule)
 
 - **Consumed by**: AttendanceModule (parent notifications)
-- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts.
-- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback.
+- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts plus GDPR legal/privacy fan-out notifications.
+- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. GDPR Phase E also introduces a `forwardRef()` cycle between `CommunicationsModule` and `GdprModule` because privacy notice publishes and sub-processor register updates notify tenant users/admins in-app.
 
 ### SchoolClosuresService (SchoolClosuresModule)
 

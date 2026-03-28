@@ -465,3 +465,20 @@ Consent changes are user-facing and must take effect immediately. This means con
 - cross-school benchmarking uses a live consent-aware query, not just the benchmark MV
 
 **Mitigation**: Any optimisation around consent-gated features must preserve a synchronous active-consent check on the request/job path, or do synchronous invalidation before returning success to the user.
+
+---
+
+## DZ-30: Global DPA Guard Allowlist Drift
+
+**Risk**: Schools get hard-locked out of tenant-scoped API access before they can reach the legal remediation path
+**Location**: `apps/api/src/modules/gdpr/dpa-accepted.guard.ts`, `apps/web/src/app/[locale]/(school)/layout.tsx`
+
+`DpaAcceptedGuard` is registered as a global `APP_GUARD` and blocks all tenant-scoped API traffic unless the tenant has accepted the current DPA version. This is safe only if three things stay aligned:
+
+1. The guard exempt allowlist still includes `/api/v1/legal` and `/api/v1/public`
+2. The frontend global API error handler still redirects `DPA_NOT_ACCEPTED` users to `/settings/legal/dpa`
+3. Any new onboarding/legal remediation endpoints that must remain reachable pre-acceptance are explicitly added to the allowlist
+
+There is also a Jest-only bypass (`NODE_ENV === 'test' || JEST_WORKER_ID`) so legacy suites are not globally bricked by the new guard. Tests that need real guard behaviour must explicitly unset those env vars inside the spec.
+
+**Mitigation**: Treat guard allowlist edits as cross-cutting changes. When adding tenant-scoped endpoints used during onboarding or legal recovery, verify they remain reachable before DPA acceptance. When writing guard-specific tests, temporarily disable the test env bypass inside the test process.

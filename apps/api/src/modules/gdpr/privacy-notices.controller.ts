@@ -4,13 +4,14 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Param,
   ParseUUIDPipe,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { createPrivacyNoticeSchema } from '@school/shared';
+import { createPrivacyNoticeSchema, updatePrivacyNoticeSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request } from 'express';
 
@@ -21,7 +22,10 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
-import type { CreatePrivacyNoticeDto } from './dto/create-privacy-notice.dto';
+import type {
+  CreatePrivacyNoticeDto,
+  UpdatePrivacyNoticeDto,
+} from './dto/create-privacy-notice.dto';
 import { PrivacyNoticesService } from './privacy-notices.service';
 
 @Controller('v1/privacy-notices')
@@ -54,6 +58,17 @@ export class PrivacyNoticesController {
     @Body(new ZodValidationPipe(createPrivacyNoticeSchema)) dto: CreatePrivacyNoticeDto,
   ) {
     return this.privacyNoticesService.createVersion(tenant.tenant_id, user.sub, dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(PermissionGuard)
+  @RequiresPermission('privacy.manage')
+  async update(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(updatePrivacyNoticeSchema)) dto: UpdatePrivacyNoticeDto,
+  ) {
+    return this.privacyNoticesService.updateVersion(tenant.tenant_id, id, dto);
   }
 
   @Post('acknowledge')

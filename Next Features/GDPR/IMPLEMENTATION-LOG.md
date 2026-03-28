@@ -77,7 +77,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | B     | Tokenisation Gateway     | COMPLETE    | —          | E, K, F | 5 days      | [Phase-B](./Phase-B-Tokenisation-Gateway.md)         |
 | C     | Anonymisation Overhaul   | COMPLETE    | —          | F, I    | 3 days      | [Phase-C](./Phase-C-Anonymisation-Overhaul.md)       |
 | D     | Consent Records          | COMPLETE    | A          | F       | 3–4 days    | [Phase-D](./Phase-D-Consent-Records.md)              |
-| E     | Legal & Privacy Infra    | NOT STARTED | B          | —       | 4–5 days    | [Phase-E](./Phase-E-Legal-Privacy-Infrastructure.md) |
+| E     | Legal & Privacy Infra    | COMPLETE    | B          | —       | 4–5 days    | [Phase-E](./Phase-E-Legal-Privacy-Infrastructure.md) |
 | F     | DSAR Overhaul            | NOT STARTED | B, C, D    | H       | 4–5 days    | [Phase-F](./Phase-F-DSAR-Overhaul.md)                |
 | G     | Audit Logging            | COMPLETE    | —          | J       | 2–3 days    | [Phase-G](./Phase-G-Audit-Logging.md)                |
 | H     | Data Subject Protections | NOT STARTED | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
@@ -224,6 +224,24 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Architecture files updated:** `module-blast-radius.md`, `event-job-catalog.md`, `state-machines.md`, `danger-zones.md`, `feature-map.md`
 - **Unlocks:** Contributes to Phase F (DSAR Overhaul — also requires B + C)
 - **Notes:** Parent self-service withdrawal now immediately affects WhatsApp delivery, AI feature access, gradebook risk detection, allergy-report visibility, and cross-school benchmarking participation.
+
+### Phase E: Legal & Privacy Infrastructure
+
+- **Status:** COMPLETE
+- **Completed:** 2026-03-28
+- **Implemented by:** Codex (GPT-5)
+- **Commit(s):** Pending local commit
+- **Key decisions:**
+  - Implemented the DPA as a platform-seeded versioned legal document and enforced acceptance through a global `DpaAcceptedGuard` with explicit legal/public allowlist exceptions and a frontend redirect hint
+  - Added privacy notice draft editing in addition to the create/publish endpoints because the Phase E frontend spec explicitly requires edit capability before publication
+  - Kept the guard disabled under Jest env vars so the legacy test suite remains runnable, while adding focused guard specs that explicitly disable the bypass
+- **Schema changes:** `20260329110000_add_gdpr_legal_privacy_infrastructure`
+- **New endpoints:** `GET /api/v1/legal/dpa/current`, `GET /api/v1/legal/dpa/status`, `POST /api/v1/legal/dpa/accept`, `GET /api/v1/privacy-notices`, `POST /api/v1/privacy-notices`, `PATCH /api/v1/privacy-notices/:id`, `POST /api/v1/privacy-notices/:id/publish`, `GET /api/v1/privacy-notices/current`, `POST /api/v1/privacy-notices/acknowledge`, `GET /api/v1/parent-portal/privacy-notice`, `GET /api/v1/public/sub-processors`
+- **New frontend pages:** `settings/legal/dpa`, `settings/legal/privacy-notices`, `privacy-notice`, `sub-processors`
+- **Tests added:** 11 new GDPR legal/privacy tests covering DPA guard behaviour, DPA version invalidation, privacy notice publish/re-ack flows, and public sub-processor access
+- **Architecture files updated:** `module-blast-radius.md`, `state-machines.md`, `danger-zones.md`, `feature-map.md`
+- **Unlocks:** None directly (but the `consent_records.privacy_notice_version_id` FK is now active)
+- **Notes:** The privacy notice and sub-processor register templates now reflect post-tokenisation AI processing (`Anthropic` listed as tokenised-only). Parent portal users now have a direct “How we use your data” route, and tenant admins can manage privacy notice drafts under legal settings.
 
 ---
 

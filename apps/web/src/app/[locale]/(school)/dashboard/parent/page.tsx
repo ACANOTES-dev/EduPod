@@ -143,6 +143,11 @@ export default function ParentDashboardPage() {
                     {t('parentDashboard.managePrivacyConsent')}
                   </Link>
                 </Button>
+                <Button asChild>
+                  <Link href={`/${locale}/privacy-notice`}>
+                    {t('parentDashboard.howWeUseYourData')}
+                  </Link>
+                </Button>
               </div>
             </section>
           )}

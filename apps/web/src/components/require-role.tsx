@@ -6,6 +6,7 @@ import * as React from 'react';
 import { useAuth } from '@/providers/auth-provider';
 
 type RoleKey =
+  | 'school_owner'
   | 'school_principal'
   | 'admin'
   | 'teacher'
@@ -18,17 +19,21 @@ type RoleKey =
 /** Routes that any authenticated user can access (no role check needed). */
 const UNRESTRICTED_PATHS = ['/dashboard', '/profile', '/profile/communication', '/select-school'];
 
+const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_principal', 'admin', 'school_vice_principal'];
+const STAFF_ROLES: RoleKey[] = [...ADMIN_ROLES, 'teacher', 'accounting', 'front_office'];
+const LEGAL_ROLES: RoleKey[] = [...STAFF_ROLES, 'parent', 'student'];
+
 /** Maps route prefixes to the roles allowed to access them. */
 const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   // Parent-only pages
-  { prefix: '/inquiries', roles: ['parent', 'school_principal', 'admin', 'school_vice_principal'] },
+  { prefix: '/inquiries', roles: ['parent', ...ADMIN_ROLES] },
   {
     prefix: '/announcements',
-    roles: ['parent', 'school_principal', 'admin', 'school_vice_principal'],
+    roles: ['parent', ...ADMIN_ROLES],
   },
   {
     prefix: '/applications',
-    roles: ['parent', 'school_principal', 'admin', 'school_vice_principal', 'front_office'],
+    roles: ['parent', ...ADMIN_ROLES, 'front_office'],
   },
 
   // Behaviour — parent portal (must precede /behaviour so it matches first)
@@ -36,69 +41,58 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
   // Behaviour & safeguarding — staff pages
   {
     prefix: '/behaviour',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher'],
   },
-  { prefix: '/pastoral', roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'] },
+  { prefix: '/pastoral', roles: [...ADMIN_ROLES, 'teacher'] },
   {
     prefix: '/safeguarding',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher'],
   },
 
   // Staff/admin pages — parents excluded
   {
     prefix: '/students',
-    roles: [
-      'school_principal',
-      'admin',
-      'school_vice_principal',
-      'teacher',
-      'accounting',
-      'front_office',
-    ],
+    roles: STAFF_ROLES,
   },
-  { prefix: '/staff', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/households', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/classes', roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'] },
-  { prefix: '/subjects', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/curriculum-matrix', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/promotion', roles: ['school_principal', 'admin', 'school_vice_principal'] },
+  { prefix: '/staff', roles: ADMIN_ROLES },
+  { prefix: '/households', roles: ADMIN_ROLES },
+  { prefix: '/classes', roles: [...ADMIN_ROLES, 'teacher'] },
+  { prefix: '/subjects', roles: ADMIN_ROLES },
+  { prefix: '/curriculum-matrix', roles: ADMIN_ROLES },
+  { prefix: '/promotion', roles: ADMIN_ROLES },
   {
     prefix: '/attendance',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher'],
   },
   {
     prefix: '/gradebook',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher'],
   },
-  { prefix: '/report-cards', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/rooms', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/schedules', roles: ['school_principal', 'admin', 'school_vice_principal'] },
+  { prefix: '/report-cards', roles: ADMIN_ROLES },
+  { prefix: '/rooms', roles: ADMIN_ROLES },
+  { prefix: '/schedules', roles: ADMIN_ROLES },
   {
     prefix: '/timetables',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'teacher'],
+    roles: [...ADMIN_ROLES, 'teacher'],
   },
-  { prefix: '/scheduling', roles: ['school_principal', 'admin', 'school_vice_principal'] },
+  { prefix: '/scheduling', roles: ADMIN_ROLES },
   {
     prefix: '/admissions',
-    roles: ['school_principal', 'admin', 'school_vice_principal', 'front_office'],
+    roles: [...ADMIN_ROLES, 'front_office'],
   },
-  { prefix: '/finance', roles: ['school_principal', 'admin', 'accounting'] },
-  { prefix: '/payroll', roles: ['school_principal'] },
-  { prefix: '/communications', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/approvals', roles: ['school_principal', 'admin', 'school_vice_principal'] },
+  { prefix: '/finance', roles: [...ADMIN_ROLES, 'accounting'] },
+  { prefix: '/payroll', roles: ['school_owner', 'school_principal'] },
+  { prefix: '/communications', roles: ADMIN_ROLES },
+  { prefix: '/approvals', roles: ADMIN_ROLES },
   {
     prefix: '/reports',
-    roles: [
-      'school_principal',
-      'admin',
-      'school_vice_principal',
-      'teacher',
-      'accounting',
-      'front_office',
-    ],
+    roles: STAFF_ROLES,
   },
-  { prefix: '/website', roles: ['school_principal', 'admin', 'school_vice_principal'] },
-  { prefix: '/settings', roles: ['school_principal', 'admin'] },
+  { prefix: '/website', roles: ADMIN_ROLES },
+  { prefix: '/settings/legal/privacy-notices', roles: ADMIN_ROLES },
+  { prefix: '/settings/legal', roles: LEGAL_ROLES },
+  { prefix: '/privacy-notice', roles: LEGAL_ROLES },
+  { prefix: '/settings', roles: ADMIN_ROLES },
 ];
 
 /**

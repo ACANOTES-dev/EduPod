@@ -668,7 +668,7 @@ Plus 2 more from other modules that use the notifications queue.
 **Backend**: `apps/api/src/modules/gdpr/`
 - Consent endpoints under `v1/consent` and `v1/parent-portal/consent`
 - GDPR token usage/policy endpoints under `v1/gdpr`
-- Privacy/legal content controllers for notices, DPA acceptance, and public sub-processors
+- Privacy/legal content controllers for DPA acceptance, privacy notice current/list/create/update/publish/acknowledge flows, parent privacy notice access, and the public sub-processor register
 
 **Worker jobs** (shares imports queue):
 - `compliance:execute` — Execute approved data actions
@@ -676,6 +676,10 @@ Plus 2 more from other modules that use the notifications queue.
 **Frontend**:
 - `apps/web/src/app/[locale]/(school)/settings/compliance`
 - `apps/web/src/app/[locale]/(school)/privacy-consent`
+- `apps/web/src/app/[locale]/(school)/settings/legal/dpa`
+- `apps/web/src/app/[locale]/(school)/settings/legal/privacy-notices`
+- `apps/web/src/app/[locale]/(school)/privacy-notice`
+- `apps/web/src/app/[locale]/(public)/sub-processors`
 
 ---
 

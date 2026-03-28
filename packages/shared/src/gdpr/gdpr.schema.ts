@@ -108,6 +108,13 @@ export const createPrivacyNoticeSchema = z.object({
 });
 export type CreatePrivacyNoticeDto = z.infer<typeof createPrivacyNoticeSchema>;
 
+export const updatePrivacyNoticeSchema = createPrivacyNoticeSchema
+  .partial()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one privacy notice field must be provided.',
+  });
+export type UpdatePrivacyNoticeDto = z.infer<typeof updatePrivacyNoticeSchema>;
+
 export const privacyNoticeVersionSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),

@@ -24,11 +24,15 @@ export class LegalDpaController {
   constructor(private readonly dpaService: DpaService) {}
 
   @Get('current')
+  @UseGuards(PermissionGuard)
+  @RequiresPermission('legal.view')
   async getCurrent() {
     return this.dpaService.getCurrentVersion();
   }
 
   @Get('status')
+  @UseGuards(PermissionGuard)
+  @RequiresPermission('legal.view')
   async getStatus(@CurrentTenant() tenant: TenantContext) {
     return this.dpaService.getStatus(tenant.tenant_id);
   }

@@ -1,8 +1,9 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
 import { ApprovalsModule } from '../approvals/approvals.module';
+import { GdprModule } from '../gdpr/gdpr.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 
@@ -30,6 +31,7 @@ import { WebhookService } from './webhook.service';
     PrismaModule,
     RedisModule,
     ApprovalsModule,
+    forwardRef(() => GdprModule),
     BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [
