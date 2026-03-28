@@ -21,8 +21,8 @@ const TABS: RegulatoryTab[] = [
   { key: 'des-returns', labelKey: 'nav.desReturns', href: '/des-returns' },
   { key: 'october-returns', labelKey: 'nav.octoberReturns', href: '/october-returns' },
   { key: 'ppod', labelKey: 'nav.ppod', href: '/ppod' },
-  { key: 'cba', labelKey: 'nav.cba', href: '/cba' },
-  { key: 'transfers', labelKey: 'nav.transfers', href: '/transfers' },
+  { key: 'cba', labelKey: 'nav.cba', href: '/ppod/cba' },
+  { key: 'transfers', labelKey: 'nav.transfers', href: '/ppod/transfers' },
   { key: 'anti-bullying', labelKey: 'nav.antiBullying', href: '/anti-bullying' },
   { key: 'submissions', labelKey: 'nav.submissions', href: '/submissions' },
   { key: 'safeguarding', labelKey: 'nav.safeguarding', href: '/safeguarding' },
@@ -34,11 +34,28 @@ export function RegulatoryNav() {
   const t = useTranslations('regulatory');
   const pathname = usePathname();
 
-  // Extract locale and determine active tab
+  // Extract locale and path suffix after /regulatory
   const segments = (pathname ?? '').split('/').filter(Boolean);
   const locale = segments[0] ?? 'en';
-  // Path after /regulatory — e.g., '' for dashboard, 'calendar', 'tusla', etc.
-  const regulatorySegment = segments[2] ?? '';
+  const suffix = '/' + segments.slice(2).join('/');
+
+  // Find the most specific matching tab (longest href that prefix-matches the current path)
+  const activeKey = React.useMemo(() => {
+    let bestKey = 'dashboard';
+    let bestLen = 0;
+    for (const tab of TABS) {
+      if (!tab.href) continue;
+      if (suffix === tab.href || suffix.startsWith(tab.href + '/')) {
+        if (tab.href.length > bestLen) {
+          bestLen = tab.href.length;
+          bestKey = tab.key;
+        }
+      }
+    }
+    // Dashboard matches only when no other tab matches
+    if (bestLen === 0 && (suffix === '/' || suffix === '')) bestKey = 'dashboard';
+    return bestKey;
+  }, [suffix]);
 
   return (
     <nav
@@ -46,10 +63,7 @@ export function RegulatoryNav() {
       aria-label={t('title')}
     >
       {TABS.map((tab) => {
-        const isActive =
-          tab.key === 'dashboard'
-            ? regulatorySegment === '' || regulatorySegment === 'regulatory'
-            : regulatorySegment === tab.key;
+        const isActive = tab.key === activeKey;
         return (
           <Link
             key={tab.key}
