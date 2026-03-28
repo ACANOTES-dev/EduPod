@@ -1,8 +1,11 @@
+import { createHash } from 'crypto';
+
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -38,6 +41,7 @@ export class AiSubstitutionService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -242,13 +246,30 @@ Return ONLY the JSON array. No markdown, no explanation.`;
     let rankings: AiSubstituteRanking[] = [];
 
     try {
+      const startTime = Date.now();
       const response = await this.anthropic.messages.create({
         model: 'claude-3-5-haiku-20241022',
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }],
       });
+      const elapsed = Date.now() - startTime;
 
       const content = response.content[0];
+      const rawResponseText = content?.type === 'text' && content.text ? content.text : '';
+
+      await this.aiAuditService.log({
+        tenantId,
+        aiService: 'ai_substitution',
+        subjectType: null,
+        subjectId: null,
+        modelUsed: 'claude-3-5-haiku-20241022',
+        promptHash: createHash('sha256').update(prompt).digest('hex'),
+        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+        responseSummary: rawResponseText.length > 500 ? rawResponseText.substring(0, 500) + '...' : rawResponseText,
+        inputDataCategories: ['staff_availability', 'competencies', 'cover_history'],
+        tokenised: true,
+        processingTimeMs: elapsed,
+      });
       if (content?.type === 'text' && content.text) {
         const detokenisedText = await this.gdprTokenService.processInbound(tenantId, content.text, tokenMap);
         const parsed = JSON.parse(detokenisedText) as RawAiCandidate[];

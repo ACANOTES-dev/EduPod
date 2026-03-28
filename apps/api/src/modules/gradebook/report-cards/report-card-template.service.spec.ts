@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -94,6 +95,7 @@ describe('ReportCardTemplateService — create', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -169,6 +171,7 @@ describe('ReportCardTemplateService — findAll', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -215,6 +218,7 @@ describe('ReportCardTemplateService — findOne', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -254,6 +258,7 @@ describe('ReportCardTemplateService — update', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -311,6 +316,7 @@ describe('ReportCardTemplateService — remove', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -355,6 +361,7 @@ describe('ReportCardTemplateService — setDefault', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -405,6 +412,7 @@ describe('ReportCardTemplateService — convertFromImage', () => {
         ReportCardTemplateService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -464,6 +472,50 @@ describe('ReportCardTemplateService — convertFromImage', () => {
     expect(result).toHaveProperty('template');
     expect(result).toHaveProperty('sections_json');
     expect(result.sections_json).toEqual(mockSections);
+  });
+
+  it('should log AI processing to audit trail', async () => {
+    const mockSections = [
+      { id: 's1', type: 'header', order: 1, style_variant: 'centered', enabled: true, config: {} },
+    ];
+
+    const mockAnthropicClient = {
+      messages: {
+        create: jest.fn().mockResolvedValue({
+          content: [{ type: 'text', text: JSON.stringify(mockSections) }],
+        }),
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (service as any).anthropic = mockAnthropicClient;
+
+    mockPrisma.reportCardTemplate.count.mockResolvedValue(0);
+    mockPrisma.reportCardTemplate.findFirst.mockResolvedValue(null);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ReportCardTemplateService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
+      ],
+    }).compile();
+
+    const svc = module.get<ReportCardTemplateService>(ReportCardTemplateService);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (svc as any).anthropic = mockAnthropicClient;
+
+    await svc.convertFromImage(TENANT_ID, USER_ID, Buffer.from('imagedata'), 'image/jpeg');
+
+    const mockAuditService = module.get(AiAuditService);
+    expect(mockAuditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_template_conversion',
+        tokenised: true,
+      }),
+    );
   });
 
   it('should fall back to default sections when AI returns invalid JSON', async () => {

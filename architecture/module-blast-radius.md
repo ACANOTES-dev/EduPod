@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-27
+> **Last verified**: 2026-03-28
 
 ---
 
@@ -38,6 +38,21 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 - **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
 - **Blast radius**: HIGH. Every AI service routes through this for tokenisation + audit. Changing the `processOutbound`/`processInbound` interface breaks all AI features.
 - **Rule**: The `gdpr_anonymisation_tokens` mapping table must NEVER be exposed via any API endpoint. Token values are security-sensitive.
+
+### AiAuditService (GdprModule)
+
+- **Exports**: `AiAuditService`
+- **Consumed by**: GradebookModule (ai-comments, ai-grading, ai-progress-summary, nl-query, report-card-template), ReportsModule (ai-report-narrator, ai-predictions), SchedulingModule (ai-substitution), AttendanceModule (attendance-scan), BehaviourModule (behaviour-ai)
+- **Blast radius**: MEDIUM. All 10 AI services log through this for Article 22 compliance. Changing the `log()` interface breaks audit trail for all AI features. However, `log()` is fire-and-forget — failures do NOT break AI features.
+- **Rule**: `log()` must NEVER throw. AI audit trail failures must not cascade to AI feature failures. The `ai_processing_logs` table has 24-month retention for academic appeal periods.
+
+### ConsentService (GdprModule)
+
+- **Exports**: `ConsentService`
+- **Consumed by**: GradebookModule (ai-grading, ai-comments, ai-progress-summary), CommunicationsModule (`NotificationDispatchService`)
+- **Prisma-direct consumers of `consent_records`**: RegistrationModule, AdmissionsModule, StudentsModule, Gradebook worker (`GradebookRiskDetectionProcessor`), Behaviour analytics benchmarking query
+- **Blast radius**: HIGH. Consent withdrawal is synchronous and immediately changes WhatsApp delivery, AI feature availability, allergy-report visibility, risk detection eligibility, and cross-school benchmarking participation.
+- **Rule**: Do not cache active-consent decisions or rely solely on background/materialized refresh paths for consent-gated processing. Parent self-service withdrawal must take effect on the next read.
 
 ---
 
@@ -111,6 +126,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 - **Consumed by**: AttendanceModule (parent notifications)
 - **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts.
+- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback.
 
 ### SchoolClosuresService (SchoolClosuresModule)
 
@@ -150,6 +166,7 @@ These modules have NO downstream dependents. Changes are contained:
 - ComplianceModule
 - ReportsModule (queries everything via Prisma, but nothing depends on it)
 - ParentInquiriesModule
+- SecurityIncidentsModule (platform-level, no tenant scope — reads `audit_logs` for anomaly detection, writes `security_incidents` and `security_incident_events`. No downstream dependents.)
 
 ComplianceModule note: anonymisation/export flows now import `SearchModule` and `S3Module` for secondary cleanup. Failures there leave stale search/cache/export artifacts, but the transactional DB anonymisation path still completes because post-commit cleanup is logged rather than rolled back.
 

@@ -2,6 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -23,6 +24,7 @@ const mockSettingsService = {
 
 describe('AiReportNarratorService', () => {
   let service: AiReportNarratorService;
+  let module: TestingModule;
   let mockRedisClient: { get: jest.Mock; setex: jest.Mock };
 
   beforeEach(async () => {
@@ -38,7 +40,7 @@ describe('AiReportNarratorService', () => {
     });
     mockSettingsService.getSettings.mockResolvedValue({ ai: { reportNarrationEnabled: true } });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         AiReportNarratorService,
         { provide: SettingsService, useValue: mockSettingsService },
@@ -53,6 +55,7 @@ describe('AiReportNarratorService', () => {
             processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
           },
         },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -118,6 +121,28 @@ describe('AiReportNarratorService', () => {
     expect(callArgs.messages[0]!.content).toContain('board report');
   });
 
+  it('should log AI processing to audit trail', async () => {
+    await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
+
+    const mockAuditService = module.get(AiAuditService);
+    expect(mockAuditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_report_narrator',
+        tokenised: true,
+      }),
+    );
+  });
+
+  it('should not log AI audit trail on cache hit', async () => {
+    mockRedisClient.get.mockResolvedValue('Cached narrative text.');
+
+    await service.generateNarrative(TENANT_ID, { attendance_rate: 85 }, 'attendance');
+
+    const mockAuditService = module.get(AiAuditService);
+    expect(mockAuditService.log).not.toHaveBeenCalled();
+  });
+
   it('should throw ServiceUnavailableException when ANTHROPIC_API_KEY is not set', async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
@@ -136,6 +161,7 @@ describe('AiReportNarratorService', () => {
             processInbound: jest.fn().mockImplementation(async (_t: string, r: string) => r),
           },
         },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 

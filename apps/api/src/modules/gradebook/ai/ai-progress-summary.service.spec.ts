@@ -1,7 +1,9 @@
-import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -54,6 +56,12 @@ function buildMockAnthropic(summaryText = 'Ali has shown great progress this ter
   };
 }
 
+function buildMockConsentService(granted = true) {
+  return {
+    hasConsent: jest.fn().mockResolvedValue(granted),
+  };
+}
+
 const baseStudent = {
   id: STUDENT_ID,
   first_name: 'Ali',
@@ -88,6 +96,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
   let service: AiProgressSummaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   function setupMocks(aiEnabled = true) {
     mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
@@ -103,6 +112,7 @@ describe('AiProgressSummaryService — generateSummary', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis();
+    mockConsentService = buildMockConsentService(true);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -110,7 +120,9 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -134,7 +146,9 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(false) },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
@@ -162,7 +176,9 @@ describe('AiProgressSummaryService — generateSummary', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
     service = module.get<AiProgressSummaryService>(AiProgressSummaryService);
@@ -186,6 +202,15 @@ describe('AiProgressSummaryService — generateSummary', () => {
     await expect(
       service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ForbiddenException when AI progress summary consent is not active', async () => {
+    setupMocks();
+    mockConsentService.hasConsent.mockResolvedValue(false);
+
+    await expect(
+      service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en'),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('should generate summary via Anthropic and cache the result', async () => {
@@ -228,6 +253,25 @@ describe('AiProgressSummaryService — generateSummary', () => {
     expect(result.locale).toBe('ar');
   });
 
+  it('should log AI processing to audit trail', async () => {
+    setupMocks();
+
+    await service.generateSummary(TENANT_ID, STUDENT_ID, PERIOD_ID, 'en');
+
+    const mockLog = service['aiAuditService'].log as jest.Mock;
+    expect(mockLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_progress_summary',
+        subjectType: 'student',
+        subjectId: STUDENT_ID,
+        tokenised: true,
+        modelUsed: 'claude-sonnet-4-6-20250514',
+        inputDataCategories: ['grades', 'attendance'],
+      }),
+    );
+  });
+
   it('should handle empty snapshots gracefully (no grades recorded)', async () => {
     setupMocks();
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([]);
@@ -262,7 +306,9 @@ describe('AiProgressSummaryService — invalidateCache', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: buildMockSettings(true) },
+        { provide: ConsentService, useValue: buildMockConsentService(true) },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 

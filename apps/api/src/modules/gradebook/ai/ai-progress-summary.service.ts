@@ -1,14 +1,18 @@
+import { createHash } from 'crypto';
+
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-
 import type { GdprOutboundData } from '@school/shared';
-import { SYSTEM_USER_SENTINEL } from '@school/shared';
+import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -44,7 +48,9 @@ export class AiProgressSummaryService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly settingsService: SettingsService,
+    private readonly consentService: ConsentService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -95,6 +101,20 @@ export class AiProgressSummaryService {
           code: 'AI_FEATURE_DISABLED',
           message: 'This feature requires opt-in. Enable it in Settings > AI Features.',
         },
+      });
+    }
+
+    const hasConsent = await this.consentService.hasConsent(
+      tenantId,
+      'student',
+      studentId,
+      CONSENT_TYPES.AI_PROGRESS_SUMMARY,
+    );
+
+    if (!hasConsent) {
+      throw new ForbiddenException({
+        code: 'CONSENT_REQUIRED',
+        message: 'AI progress summary consent is not active for this student.',
       });
     }
 
@@ -159,16 +179,32 @@ export class AiProgressSummaryService {
       `Generating AI progress summary for student ${studentId}, period ${periodId}`,
     );
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
     });
+    const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find(
       (b: { type: string; text?: string }) => b.type === 'text',
     );
     const rawSummary = textBlock?.text?.trim() ?? '';
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_progress_summary',
+      subjectType: 'student',
+      subjectId: studentId,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: rawSummary.length > 500 ? rawSummary.substring(0, 500) + '...' : rawSummary,
+      inputDataCategories: ['grades', 'attendance'],
+      tokenised: true,
+      processingTimeMs: elapsed,
+    });
 
     // Detokenise AI response — restore real student name
     const summary = await this.gdprTokenService.processInbound(

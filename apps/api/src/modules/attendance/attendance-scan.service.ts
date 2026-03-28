@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 import {
   BadRequestException,
@@ -8,8 +8,9 @@ import {
 } from '@nestjs/common';
 import type { GdprOutboundData, ScanResultEntry } from '@school/shared';
 
-import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -78,6 +79,7 @@ export class AttendanceScanService {
     private readonly redis: RedisService,
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -144,6 +146,7 @@ export class AttendanceScanService {
       `Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`,
     );
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
@@ -167,9 +170,24 @@ export class AttendanceScanService {
         },
       ],
     });
+    const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b: { type: string; text?: string }) => b.type === 'text');
     const aiText = textBlock?.text ?? '';
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_attendance_scan',
+      subjectType: null,
+      subjectId: null,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(SCAN_PROMPT).digest('hex'),
+      promptSummary: SCAN_PROMPT.length > 500 ? SCAN_PROMPT.substring(0, 500) + '...' : SCAN_PROMPT,
+      responseSummary: aiText.length > 500 ? aiText.substring(0, 500) + '...' : aiText,
+      inputDataCategories: ['attendance_sheet_image'],
+      tokenised: true,
+      processingTimeMs: elapsed,
+    });
 
     // 4. Parse the AI response
     const entries = this.parseScanResponse(aiText);

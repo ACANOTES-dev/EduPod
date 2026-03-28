@@ -1,8 +1,11 @@
+import { createHash } from 'crypto';
+
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 
 export interface TrendPrediction {
@@ -23,6 +26,7 @@ export class AiPredictionsService {
   constructor(
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -92,11 +96,13 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
   "narrative": "<2-3 sentence explanation of the prediction>"
 }`;
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [{ role: 'user', content: prompt }],
     });
+    const elapsed = Date.now() - startTime;
 
     const content = response.content.find((c) => c.type === 'text');
     const raw = content?.text ?? '{}';
@@ -110,16 +116,50 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
         narrative?: string;
       };
 
+      const confidenceValue = this.normaliseConfidence(parsed.confidence);
+      const confidenceScore = confidenceValue === 'high' ? 0.9 : confidenceValue === 'medium' ? 0.6 : 0.3;
+
+      await this.aiAuditService.log({
+        tenantId,
+        aiService: 'ai_predictions',
+        subjectType: null,
+        subjectId: null,
+        modelUsed: 'claude-sonnet-4-6',
+        promptHash: createHash('sha256').update(prompt).digest('hex'),
+        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+        responseSummary: raw.length > 500 ? raw.substring(0, 500) + '...' : raw,
+        inputDataCategories: ['historical_trends'],
+        tokenised: true,
+        confidenceScore,
+        processingTimeMs: elapsed,
+      });
+
       return {
         expected: Array.isArray(parsed.expected) ? parsed.expected : [],
         optimistic: Array.isArray(parsed.optimistic) ? parsed.optimistic : [],
         pessimistic: Array.isArray(parsed.pessimistic) ? parsed.pessimistic : [],
-        confidence: this.normaliseConfidence(parsed.confidence),
+        confidence: confidenceValue,
         periods_ahead: periodsAhead,
         narrative: parsed.narrative ?? 'No prediction narrative available.',
       };
     } catch {
       this.logger.warn('Failed to parse AI prediction response', { raw });
+
+      await this.aiAuditService.log({
+        tenantId,
+        aiService: 'ai_predictions',
+        subjectType: null,
+        subjectId: null,
+        modelUsed: 'claude-sonnet-4-6',
+        promptHash: createHash('sha256').update(prompt).digest('hex'),
+        promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+        responseSummary: raw.length > 500 ? raw.substring(0, 500) + '...' : raw,
+        inputDataCategories: ['historical_trends'],
+        tokenised: true,
+        confidenceScore: 0.3,
+        processingTimeMs: elapsed,
+      });
+
       return {
         expected: [],
         optimistic: [],

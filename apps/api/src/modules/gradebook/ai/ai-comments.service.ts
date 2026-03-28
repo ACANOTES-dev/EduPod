@@ -1,14 +1,18 @@
+import { createHash } from 'crypto';
+
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-
 import type { GdprOutboundData } from '@school/shared';
-import { SYSTEM_USER_SENTINEL } from '@school/shared';
+import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -43,7 +47,9 @@ export class AiCommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
+    private readonly consentService: ConsentService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -96,6 +102,20 @@ export class AiCommentsService {
           code: 'REPORT_CARD_NOT_FOUND',
           message: `Report card "${reportCardId}" not found`,
         },
+      });
+    }
+
+    const hasConsent = await this.consentService.hasConsent(
+      tenantId,
+      'student',
+      reportCard.student.id,
+      CONSENT_TYPES.AI_COMMENTS,
+    );
+
+    if (!hasConsent) {
+      throw new ForbiddenException({
+        code: 'CONSENT_REQUIRED',
+        message: 'AI comment consent is not active for this student.',
       });
     }
 
@@ -157,16 +177,32 @@ export class AiCommentsService {
       `Generating AI comment for report card ${reportCardId}, tenant ${tenantId}`,
     );
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
+    const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find(
       (b: { type: string; text?: string }) => b.type === 'text',
     );
     const rawComment = textBlock?.text?.trim() ?? '';
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_comments',
+      subjectType: 'student',
+      subjectId: reportCard.student.id,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: rawComment.length > 500 ? rawComment.substring(0, 500) + '...' : rawComment,
+      inputDataCategories: ['grades', 'attendance'],
+      tokenised: true,
+      processingTimeMs: elapsed,
+    });
 
     // Detokenise AI response — restore real student name
     const comment = await this.gdprTokenService.processInbound(

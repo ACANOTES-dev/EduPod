@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import {
   ConflictException,
   Injectable,
@@ -9,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import type { GdprOutboundData } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -56,6 +59,7 @@ export class ReportCardTemplateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -404,6 +408,7 @@ Return ONLY the JSON array, no explanation.`;
 
     this.logger.log(`Converting report card template from image for tenant ${tenantId}`);
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
@@ -427,9 +432,24 @@ Return ONLY the JSON array, no explanation.`;
         },
       ],
     });
+    const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find((b) => b.type === 'text');
     const rawText = textBlock?.text?.trim() ?? '[]';
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_template_conversion',
+      subjectType: null,
+      subjectId: null,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: rawText.length > 500 ? rawText.substring(0, 500) + '...' : rawText,
+      inputDataCategories: ['report_card_template_image'],
+      tokenised: true,
+      processingTimeMs: elapsed,
+    });
 
     let sectionsJson: TemplateSectionConfig[];
     try {

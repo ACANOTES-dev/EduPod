@@ -2,6 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -47,6 +48,7 @@ const mockSchedule = {
 
 describe('AiSubstitutionService', () => {
   let service: AiSubstitutionService;
+  let module: TestingModule;
   let mockPrisma: {
     schedule: { findFirst: jest.Mock; findMany: jest.Mock };
     staffProfile: { findMany: jest.Mock };
@@ -78,12 +80,13 @@ describe('AiSubstitutionService', () => {
 
     mockSettingsService.getSettings.mockResolvedValue({ ai: { substitutionRankingEnabled: true } });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         AiSubstitutionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -217,6 +220,35 @@ describe('AiSubstitutionService', () => {
       expect(result.data).toHaveLength(0);
     });
 
+    it('should log AI processing to audit trail', async () => {
+      mockMessagesCreate.mockResolvedValue({
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify([
+              {
+                staff_profile_id: 'staff-2',
+                confidence: 'high',
+                score: 90,
+                reasoning: 'Subject expert with low cover count',
+              },
+            ]),
+          },
+        ],
+      });
+
+      await service.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE);
+
+      const mockAuditService = module.get(AiAuditService);
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          aiService: 'ai_substitution',
+          tokenised: true,
+        }),
+      );
+    });
+
     it('should limit results to top 5', async () => {
       const candidates = Array.from({ length: 8 }, (_, i) => ({
         staff_profile_id: `staff-${i + 10}`,
@@ -249,16 +281,17 @@ describe('AiSubstitutionService', () => {
       delete process.env.ANTHROPIC_API_KEY;
 
       // Re-create service without API key
-      const module: TestingModule = await Test.createTestingModule({
+      const moduleNoKey: TestingModule = await Test.createTestingModule({
         providers: [
           AiSubstitutionService,
           { provide: PrismaService, useValue: mockPrisma },
           { provide: SettingsService, useValue: mockSettingsService },
           { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+          { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
         ],
       }).compile();
 
-      const serviceWithoutKey = module.get<AiSubstitutionService>(AiSubstitutionService);
+      const serviceWithoutKey = moduleNoKey.get<AiSubstitutionService>(AiSubstitutionService);
 
       await expect(
         serviceWithoutKey.rankSubstitutes(TENANT_ID, SCHEDULE_ID, DATE),

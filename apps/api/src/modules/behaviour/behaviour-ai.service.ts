@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import {
   ForbiddenException,
   Injectable,
@@ -15,6 +17,7 @@ import type {
   GdprOutboundData,
 } from '@school/shared';
 
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,6 +38,7 @@ export class BehaviourAIService {
     private readonly analyticsService: BehaviourAnalyticsService,
     private readonly configService: ConfigService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
     if (apiKey) {
@@ -113,6 +117,7 @@ export class BehaviourAIService {
     // Call AI
     const dataAsOf = new Date().toISOString();
     let aiResponse: string;
+    const aiStartTime = Date.now();
     try {
       aiResponse = await this.callAI(prompt, AI_TIMEOUT_MS);
     } catch (error) {
@@ -124,6 +129,21 @@ export class BehaviourAIService {
         },
       });
     }
+    const aiElapsed = Date.now() - aiStartTime;
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_behaviour_query',
+      subjectType: null,
+      subjectId: null,
+      modelUsed: 'claude-sonnet-4-5-20250514',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: aiResponse.length > 500 ? aiResponse.substring(0, 500) + '...' : aiResponse,
+      inputDataCategories: ['behaviour_analytics'],
+      tokenised: true,
+      processingTimeMs: aiElapsed,
+    });
 
     // De-tokenise AI response via GDPR gateway
     const result = await this.gdprTokenService.processInbound(tenantId, aiResponse, tokenMap);

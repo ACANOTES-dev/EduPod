@@ -1,15 +1,20 @@
+import { createHash } from 'crypto';
+
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
-import { SYSTEM_USER_SENTINEL } from '@school/shared';
+import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
-import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 
@@ -67,7 +72,9 @@ export class AiGradingService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly settingsService: SettingsService,
+    private readonly consentService: ConsentService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -129,6 +136,20 @@ export class AiGradingService {
       });
     }
 
+    const hasConsent = await this.consentService.hasConsent(
+      tenantId,
+      'student',
+      studentId,
+      CONSENT_TYPES.AI_GRADING,
+    );
+
+    if (!hasConsent) {
+      throw new ForbiddenException({
+        code: 'CONSENT_REQUIRED',
+        message: 'AI grading consent is not active for this student.',
+      });
+    }
+
     await this.enforceRateLimit(tenantId);
 
     // GDPR audit log — no personal data sent to AI, gateway call is for audit trail only
@@ -157,6 +178,7 @@ export class AiGradingService {
       `AI grading assessment ${assessmentId} for student ${studentId}, tenant ${tenantId}`,
     );
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6-20250514',
       max_tokens: 2048,
@@ -177,11 +199,30 @@ export class AiGradingService {
         },
       ],
     });
+    const elapsed = Date.now() - startTime;
 
     const textBlock = response.content.find(
       (b: { type: string; text?: string }) => b.type === 'text',
     );
-    const parsed = this.parseGradingResponse(textBlock?.text ?? '', context.maxScore);
+    const rawText = textBlock?.text ?? '';
+    const parsed = this.parseGradingResponse(rawText, context.maxScore);
+
+    const confidenceScoreMap: Record<string, number> = { high: 0.9, medium: 0.7, low: 0.4 };
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_grading',
+      subjectType: 'student',
+      subjectId: studentId,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: rawText.length > 500 ? rawText.substring(0, 500) + '...' : rawText,
+      inputDataCategories: ['student_work_image', 'assessment_rubric'],
+      tokenised: true,
+      confidenceScore: confidenceScoreMap[parsed.confidence] ?? null,
+      processingTimeMs: elapsed,
+    });
 
     return { ...parsed, student_id: studentId };
   }
@@ -239,6 +280,25 @@ export class AiGradingService {
     const results: AiGradingSuggestion[] = [];
 
     for (const img of images) {
+      if (img.student_id) {
+        const hasConsent = await this.consentService.hasConsent(
+          tenantId,
+          'student',
+          img.student_id,
+          CONSENT_TYPES.AI_GRADING,
+        );
+
+        if (!hasConsent) {
+          results.push({
+            student_id: img.student_id,
+            suggested_score: null,
+            confidence: 'low',
+            reasoning: 'AI grading consent is not active for this student.',
+          });
+          continue;
+        }
+      }
+
       if (!ALLOWED_MIME_TYPES.includes(img.mime_type as AllowedMediaType)) {
         results.push({
           student_id: img.student_id ?? null,
@@ -255,6 +315,7 @@ export class AiGradingService {
         const prompt = this.buildGradingPrompt(context);
         const base64Image = img.image_buffer.toString('base64');
 
+        const batchStartTime = Date.now();
         const response = await this.anthropic.messages.create({
           model: 'claude-sonnet-4-6-20250514',
           max_tokens: 2048,
@@ -275,14 +336,34 @@ export class AiGradingService {
             },
           ],
         });
+        const batchElapsed = Date.now() - batchStartTime;
 
         const textBlock = response.content.find(
           (b: { type: string; text?: string }) => b.type === 'text',
         );
+        const batchRawText = textBlock?.text ?? '';
         const parsed = this.parseGradingResponse(
-          textBlock?.text ?? '',
+          batchRawText,
           context.maxScore,
         );
+
+        const batchConfidenceMap: Record<string, number> = { high: 0.9, medium: 0.7, low: 0.4 };
+
+        await this.aiAuditService.log({
+          tenantId,
+          aiService: 'ai_grading_batch',
+          subjectType: 'student',
+          subjectId: img.student_id ?? null,
+          modelUsed: 'claude-sonnet-4-6-20250514',
+          promptHash: createHash('sha256').update(prompt).digest('hex'),
+          promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+          responseSummary: batchRawText.length > 500 ? batchRawText.substring(0, 500) + '...' : batchRawText,
+          inputDataCategories: ['student_work_image', 'assessment_rubric'],
+          tokenised: true,
+          confidenceScore: batchConfidenceMap[parsed.confidence] ?? null,
+          processingTimeMs: batchElapsed,
+        });
+
         results.push({ ...parsed, student_id: img.student_id ?? null });
       } catch (err) {
         this.logger.warn(

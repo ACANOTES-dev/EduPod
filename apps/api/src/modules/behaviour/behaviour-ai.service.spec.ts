@@ -34,6 +34,7 @@ jest.mock('@school/shared', () => {
 import Anthropic from '@anthropic-ai/sdk';
 import { anonymiseForAI, deAnonymiseFromAI } from '@school/shared';
 
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -103,6 +104,7 @@ const mockCategories = {
 
 describe('BehaviourAIService', () => {
   let service: BehaviourAIService;
+  let module: TestingModule;
   let mockPrisma: { auditLog: { create: jest.Mock; count: jest.Mock; findMany: jest.Mock } };
   let mockScope: { getUserScope: jest.Mock };
   let mockAnalytics: {
@@ -136,7 +138,7 @@ describe('BehaviourAIService', () => {
       get: jest.fn().mockReturnValue('test-api-key'),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         BehaviourAIService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -144,6 +146,7 @@ describe('BehaviourAIService', () => {
         { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
         { provide: ConfigService, useValue: mockConfig },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -287,6 +290,19 @@ describe('BehaviourAIService', () => {
       expect(mockPrisma.auditLog.create).not.toHaveBeenCalled();
     });
 
+    it('should log AI processing to GDPR audit trail', async () => {
+      await service.processNLQuery(TENANT_ID, USER_ID, PERMISSIONS, baseInput, enabledSettings);
+
+      const mockAuditService = module.get(AiAuditService);
+      expect(mockAuditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          aiService: 'ai_behaviour_query',
+          tokenised: true,
+        }),
+      );
+    });
+
     it('should not crash if audit log write fails', async () => {
       mockPrisma.auditLog.create.mockRejectedValueOnce(new Error('DB error'));
 
@@ -342,7 +358,7 @@ describe('BehaviourAIService', () => {
       // Build service with no API key so client is null
       mockConfig.get.mockReturnValue(undefined);
 
-      const module: TestingModule = await Test.createTestingModule({
+      const moduleNoKey: TestingModule = await Test.createTestingModule({
         providers: [
           BehaviourAIService,
           { provide: PrismaService, useValue: mockPrisma },
@@ -350,10 +366,11 @@ describe('BehaviourAIService', () => {
           { provide: BehaviourAnalyticsService, useValue: mockAnalytics },
           { provide: ConfigService, useValue: mockConfig },
           { provide: GdprTokenService, useValue: mockGdprTokenService },
+          { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
         ],
       }).compile();
 
-      const serviceNoKey = module.get<BehaviourAIService>(BehaviourAIService);
+      const serviceNoKey = moduleNoKey.get<BehaviourAIService>(BehaviourAIService);
 
       await expect(
         serviceNoKey.processNLQuery(TENANT_ID, USER_ID, PERMISSIONS, baseInput, enabledSettings),

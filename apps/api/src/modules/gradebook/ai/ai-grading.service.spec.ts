@@ -1,7 +1,9 @@
-import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
@@ -50,6 +52,12 @@ function buildMockAnthropic(responseText = '{"suggested_score": 85, "confidence"
   };
 }
 
+function buildMockConsentService(granted = true) {
+  return {
+    hasConsent: jest.fn().mockResolvedValue(granted),
+  };
+}
+
 const baseAssessment = {
   id: ASSESSMENT_ID,
   title: 'Math Quiz',
@@ -69,11 +77,13 @@ describe('AiGradingService — gradeInline', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
+  let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis(1);
     mockSettings = buildMockSettingsService(true);
+    mockConsentService = buildMockConsentService(true);
 
     mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
     mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
@@ -84,7 +94,9 @@ describe('AiGradingService — gradeInline', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -125,6 +137,14 @@ describe('AiGradingService — gradeInline', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('should throw ForbiddenException when AI grading consent is not active', async () => {
+    mockConsentService.hasConsent.mockResolvedValue(false);
+
+    await expect(
+      service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
   it('should throw NotFoundException when assessment does not exist', async () => {
     mockPrisma.assessment.findFirst.mockResolvedValue(null);
 
@@ -156,7 +176,9 @@ describe('AiGradingService — gradeInline', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
     service = module.get<AiGradingService>(AiGradingService);
@@ -165,6 +187,29 @@ describe('AiGradingService — gradeInline', () => {
     await expect(
       service.gradeInline(TENANT_ID, ASSESSMENT_ID, STUDENT_ID, Buffer.from('img'), 'image/jpeg'),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should log AI processing to audit trail', async () => {
+    await service.gradeInline(
+      TENANT_ID,
+      ASSESSMENT_ID,
+      STUDENT_ID,
+      Buffer.from('img'),
+      'image/png',
+    );
+
+    const mockLog = service['aiAuditService'].log as jest.Mock;
+    expect(mockLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_grading',
+        subjectType: 'student',
+        subjectId: STUDENT_ID,
+        tokenised: true,
+        modelUsed: 'claude-sonnet-4-6-20250514',
+        inputDataCategories: ['student_work_image', 'assessment_rubric'],
+      }),
+    );
   });
 
   it('should return low confidence and null score when AI returns invalid JSON', async () => {
@@ -190,11 +235,13 @@ describe('AiGradingService — gradeBatch', () => {
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockRedis: ReturnType<typeof buildMockRedis>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
+  let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockRedis = buildMockRedis(1);
     mockSettings = buildMockSettingsService(true);
+    mockConsentService = buildMockConsentService(true);
 
     mockPrisma.assessment.findFirst.mockResolvedValue(baseAssessment);
     mockPrisma.aiGradingInstruction.findFirst.mockResolvedValue(null);
@@ -205,7 +252,9 @@ describe('AiGradingService — gradeBatch', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -247,6 +296,17 @@ describe('AiGradingService — gradeBatch', () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.confidence).toBe('low');
     expect(results[0]?.suggested_score).toBeNull();
+  });
+
+  it('should return a consent-required result for students without active consent', async () => {
+    mockConsentService.hasConsent.mockResolvedValue(false);
+
+    const results = await service.gradeBatch(TENANT_ID, ASSESSMENT_ID, [
+      { student_id: STUDENT_ID, image_buffer: Buffer.from('img'), mime_type: 'image/jpeg' },
+    ]);
+
+    expect(results[0]?.suggested_score).toBeNull();
+    expect(results[0]?.reasoning).toContain('consent');
   });
 
   it('should return suggestions for all valid images', async () => {

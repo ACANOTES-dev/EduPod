@@ -1,8 +1,11 @@
+import { createHash } from 'crypto';
+
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
+import { AiAuditService } from '../gdpr/ai-audit.service';
 import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -17,6 +20,7 @@ export class AiReportNarratorService {
     private readonly settingsService: SettingsService,
     private readonly redis: RedisService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -78,6 +82,7 @@ export class AiReportNarratorService {
 
     const prompt = this.buildNarrativePrompt(data, reportType);
 
+    const startTime = Date.now();
     const response = await this.anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 500,
@@ -88,9 +93,24 @@ export class AiReportNarratorService {
         },
       ],
     });
+    const elapsed = Date.now() - startTime;
 
     const content = response.content.find((c) => c.type === 'text');
     const narrative = content?.text ?? 'No narrative generated.';
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_report_narrator',
+      subjectType: null,
+      subjectId: null,
+      modelUsed: 'claude-sonnet-4-6',
+      promptHash: createHash('sha256').update(prompt).digest('hex'),
+      promptSummary: prompt.length > 500 ? prompt.substring(0, 500) + '...' : prompt,
+      responseSummary: narrative.length > 500 ? narrative.substring(0, 500) + '...' : narrative,
+      inputDataCategories: ['report_data'],
+      tokenised: true,
+      processingTimeMs: elapsed,
+    });
 
     await client.setex(cacheKey, this.CACHE_TTL, narrative);
 

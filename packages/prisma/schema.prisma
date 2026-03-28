@@ -689,6 +689,13 @@ model Tenant {
   // GDPR Relations
   gdprAnonymisationTokens GdprAnonymisationToken[]
   gdprTokenUsageLogs      GdprTokenUsageLog[]
+  data_processing_agreements   DataProcessingAgreement[]
+  privacy_notice_versions      PrivacyNoticeVersion[]
+  privacy_notice_acknowledgements PrivacyNoticeAcknowledgement[]
+  consent_records              ConsentRecord[]
+  ai_processing_logs           AiProcessingLog[]
+  retention_holds              RetentionHold[]
+  retention_policies           RetentionPolicy[]
 
   @@map("tenants")
 }
@@ -1009,6 +1016,17 @@ model User {
   // GDPR Relations
   gdprUsageTriggered GdprTokenUsageLog[] @relation("gdpr_usage_triggered_by")
   gdprUsageOverrides GdprTokenUsageLog[] @relation("gdpr_usage_override_by")
+  dpa_acceptances                 DataProcessingAgreement[]      @relation("dpa_accepted_by")
+  privacy_notice_versions_created PrivacyNoticeVersion[]         @relation("privacy_notice_created_by")
+  privacy_notice_acknowledgements PrivacyNoticeAcknowledgement[] @relation("privacy_notice_acknowledged_by")
+  consent_records_granted         ConsentRecord[]                @relation("consent_granted_by")
+  ai_log_accepted_by              AiProcessingLog[]              @relation("ai_log_accepted_by")
+  retention_holds_held            RetentionHold[]                @relation("retention_held_by")
+
+  // Phase J Relations
+  created_incidents  SecurityIncident[]     @relation("incident_created_by")
+  assigned_incidents SecurityIncident[]     @relation("incident_assigned_to")
+  incident_events    SecurityIncidentEvent[] @relation("incident_event_created_by")
 
   @@map("users")
 }
@@ -7219,4 +7237,253 @@ model GdprTokenUsageLog {
 
   @@index([tenant_id, created_at], name: "idx_gdpr_usage_tenant")
   @@map("gdpr_token_usage_log")
+}
+
+model DataProcessingAgreement {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  dpa_version         String   @db.VarChar(20)
+  accepted_by_user_id String   @db.Uuid
+  accepted_at         DateTime @default(now()) @db.Timestamptz()
+  dpa_content_hash    String   @db.VarChar(128)
+  ip_address          String?  @db.VarChar(45)
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  tenant      Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  accepted_by User   @relation("dpa_accepted_by", fields: [accepted_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id], name: "idx_dpa_tenant")
+  @@map("data_processing_agreements")
+}
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model DpaVersion {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version        String   @unique @db.VarChar(20)
+  content_html   String   @db.Text
+  content_hash   String   @db.VarChar(128)
+  effective_date DateTime @db.Date
+  superseded_at  DateTime? @db.Date
+  created_at     DateTime @default(now()) @db.Timestamptz()
+
+  @@map("dpa_versions")
+}
+
+model PrivacyNoticeVersion {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  version_number     Int
+  content_html       String   @db.Text
+  content_html_ar    String?  @db.Text
+  effective_date     DateTime @db.Date
+  published_at       DateTime? @db.Timestamptz()
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+
+  tenant            Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by        User                          @relation("privacy_notice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  acknowledgements  PrivacyNoticeAcknowledgement[]
+  consent_records   ConsentRecord[]
+
+  @@unique([tenant_id, version_number])
+  @@index([tenant_id, published_at], name: "idx_privacy_notice_versions_tenant_published")
+  @@map("privacy_notice_versions")
+}
+
+model PrivacyNoticeAcknowledgement {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  user_id                   String   @db.Uuid
+  privacy_notice_version_id String   @db.Uuid
+  acknowledged_at           DateTime @default(now()) @db.Timestamptz()
+  ip_address                String?  @db.VarChar(45)
+
+  tenant                 Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  user                   User                 @relation("privacy_notice_acknowledged_by", fields: [user_id], references: [id], onDelete: Restrict)
+  privacy_notice_version PrivacyNoticeVersion @relation(fields: [privacy_notice_version_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, user_id, privacy_notice_version_id], name: "uq_privacy_notice_ack")
+  @@index([tenant_id, user_id], name: "idx_privacy_notice_ack_tenant_user")
+  @@map("privacy_notice_acknowledgements")
+}
+
+model ConsentRecord {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  subject_type              String   @db.VarChar(20)
+  subject_id                String   @db.Uuid
+  consent_type              String   @db.VarChar(50)
+  status                    String   @default("granted") @db.VarChar(20)
+  granted_at                DateTime @default(now()) @db.Timestamptz()
+  withdrawn_at              DateTime? @db.Timestamptz()
+  granted_by_user_id        String   @db.Uuid
+  evidence_type             String   @db.VarChar(30)
+  privacy_notice_version_id String?  @db.Uuid
+  notes                     String?  @db.Text
+  created_at                DateTime @default(now()) @db.Timestamptz()
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  tenant                 Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  granted_by             User                 @relation("consent_granted_by", fields: [granted_by_user_id], references: [id], onDelete: Restrict)
+  privacy_notice_version PrivacyNoticeVersion? @relation(fields: [privacy_notice_version_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, subject_type, subject_id], name: "idx_consent_tenant_subject")
+  @@index([tenant_id, consent_type], name: "idx_consent_tenant_type")
+  @@map("consent_records")
+}
+
+model AiProcessingLog {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id             String    @db.Uuid
+  ai_service            String    @db.VarChar(50)
+  subject_type          String?   @db.VarChar(20)
+  subject_id            String?   @db.Uuid
+  model_used            String?   @db.VarChar(100)
+  prompt_hash           String?   @db.VarChar(128)
+  prompt_summary        String?
+  response_summary      String?
+  input_data_categories String[]
+  tokenised             Boolean
+  token_usage_log_id    String?   @db.Uuid
+  output_used           Boolean?
+  accepted_by_user_id   String?   @db.Uuid
+  accepted_at           DateTime? @db.Timestamptz
+  rejected_reason       String?
+  confidence_score      Decimal?  @db.Decimal(3, 2)
+  processing_time_ms    Int?
+  created_at            DateTime  @default(now()) @db.Timestamptz
+
+  tenant           Tenant @relation(fields: [tenant_id], references: [id])
+  accepted_by_user User?  @relation("ai_log_accepted_by", fields: [accepted_by_user_id], references: [id])
+
+  @@index([tenant_id, created_at], name: "idx_ai_logs_tenant")
+  @@index([tenant_id, ai_service], name: "idx_ai_logs_service")
+  @@index([tenant_id, subject_type, subject_id], name: "idx_ai_logs_subject")
+  @@map("ai_processing_logs")
+}
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model SubProcessorRegisterVersion {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version            String   @unique @db.VarChar(20)
+  change_summary     String   @db.Text
+  published_at       DateTime @db.Timestamptz()
+  objection_deadline DateTime? @db.Date
+  created_at         DateTime @default(now()) @db.Timestamptz()
+
+  entries SubProcessorRegisterEntry[]
+
+  @@map("sub_processor_register_versions")
+}
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model SubProcessorRegisterEntry {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  register_version_id String   @db.Uuid
+  name                String   @db.VarChar(120)
+  purpose             String   @db.Text
+  data_categories     String   @db.Text
+  location            String   @db.VarChar(120)
+  transfer_mechanism  String   @db.VarChar(200)
+  display_order       Int      @default(0)
+  is_planned          Boolean  @default(false)
+  notes               String?  @db.Text
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  register_version SubProcessorRegisterVersion @relation(fields: [register_version_id], references: [id], onDelete: Cascade)
+
+  @@index([register_version_id, display_order], name: "idx_sub_processor_entries_version_order")
+  @@map("sub_processor_register_entries")
+}
+
+// ─── GDPR Phase I: Retention Policies ────────────────────────────────────────
+
+model RetentionPolicy {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String?  @db.Uuid
+  data_category    String   @db.VarChar(50)
+  retention_months Int
+  action_on_expiry String   @default("anonymise") @db.VarChar(20)
+  is_overridable   Boolean  @default(true)
+  statutory_basis  String?
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id], name: "idx_retention_policies_tenant")
+  @@index([data_category], name: "idx_retention_policies_category")
+  @@map("retention_policies")
+}
+
+model RetentionHold {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  subject_type    String    @db.VarChar(20)
+  subject_id      String    @db.Uuid
+  reason          String
+  held_by_user_id String    @db.Uuid
+  held_at         DateTime  @default(now()) @db.Timestamptz(6)
+  released_at     DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant  Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  held_by User   @relation("retention_held_by", fields: [held_by_user_id], references: [id])
+
+  @@index([tenant_id], name: "idx_retention_holds_tenant")
+  @@index([subject_type, subject_id], name: "idx_retention_holds_subject")
+  @@map("retention_holds")
+}
+
+// ─── Phase J: Security Incidents ────────────────────────────────────────────
+
+/// Platform-level table — NOT tenant-scoped, no RLS (incidents may span tenants)
+model SecurityIncident {
+  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  detected_at                   DateTime  @default(now()) @db.Timestamptz(6)
+  severity                      String    @db.VarChar(20)
+  incident_type                 String    @db.VarChar(50)
+  description                   String
+  affected_tenants              String[]  @db.Uuid
+  affected_data_subjects_count  Int?
+  data_categories_affected      String[]
+  containment_actions           String?
+  reported_to_controllers_at    DateTime? @db.Timestamptz(6)
+  reported_to_dpc_at            DateTime? @db.Timestamptz(6)
+  dpc_reference_number          String?   @db.VarChar(50)
+  root_cause                    String?
+  remediation                   String?
+  status                        String    @default("detected") @db.VarChar(20)
+  created_by_user_id            String    @db.Uuid
+  assigned_to_user_id           String?   @db.Uuid
+  created_at                    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  created_by  User                   @relation("incident_created_by", fields: [created_by_user_id], references: [id])
+  assigned_to User?                  @relation("incident_assigned_to", fields: [assigned_to_user_id], references: [id])
+  events      SecurityIncidentEvent[]
+
+  @@index([status], name: "idx_security_incidents_status")
+  @@index([severity, detected_at], name: "idx_security_incidents_severity_detected")
+  @@map("security_incidents")
+}
+
+/// Platform-level table — NOT tenant-scoped, no RLS
+model SecurityIncidentEvent {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  incident_id         String   @db.Uuid
+  event_type          String   @db.VarChar(30)
+  description         String
+  created_by_user_id  String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  incident   SecurityIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  created_by User             @relation("incident_event_created_by", fields: [created_by_user_id], references: [id])
+
+  @@index([incident_id, created_at], name: "idx_security_incident_events_incident")
+  @@map("security_incident_events")
 }

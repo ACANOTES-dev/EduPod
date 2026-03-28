@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import {
   BadRequestException,
   Injectable,
@@ -6,8 +8,9 @@ import {
 } from '@nestjs/common';
 import type { GdprOutboundData } from '@school/shared';
 
-import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -116,6 +119,7 @@ export class NlQueryService {
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
     private readonly gdprTokenService: GdprTokenService,
+    private readonly aiAuditService: AiAuditService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
@@ -171,7 +175,23 @@ export class NlQueryService {
     );
 
     // 1. Ask Claude to generate a structured query
+    const aiStartTime = Date.now();
     const structuredQuery = await this.generateStructuredQuery(question);
+    const aiElapsed = Date.now() - aiStartTime;
+
+    await this.aiAuditService.log({
+      tenantId,
+      aiService: 'ai_nl_query',
+      subjectType: null,
+      subjectId: null,
+      modelUsed: 'claude-sonnet-4-6-20250514',
+      promptHash: createHash('sha256').update(question).digest('hex'),
+      promptSummary: question.length > 500 ? question.substring(0, 500) + '...' : question,
+      responseSummary: JSON.stringify(structuredQuery).substring(0, 500),
+      inputDataCategories: ['gradebook_schema'],
+      tokenised: true,
+      processingTimeMs: aiElapsed,
+    });
 
     // 2. Execute the structured query via Prisma (RLS-safe)
     const data = await this.executeQuery(tenantId, structuredQuery);

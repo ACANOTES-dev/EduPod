@@ -2,6 +2,7 @@ import { BadRequestException, ServiceUnavailableException } from '@nestjs/common
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -65,6 +66,7 @@ describe('NlQueryService — processQuery', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -182,6 +184,29 @@ describe('NlQueryService — processQuery', () => {
     expect(result.structured_query.limit).toBe(200);
   });
 
+  it('should log AI processing to audit trail', async () => {
+    (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
+      JSON.stringify({ entity: 'student', filters: [], select: ['first_name'], limit: 50 }),
+    );
+
+    mockPrisma.student.findMany.mockResolvedValue([]);
+
+    await service.processQuery(TENANT_ID, USER_ID, 'show all students');
+
+    const mockLog = service['aiAuditService'].log as jest.Mock;
+    expect(mockLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_nl_query',
+        subjectType: null,
+        subjectId: null,
+        tokenised: true,
+        modelUsed: 'claude-sonnet-4-6-20250514',
+        inputDataCategories: ['gradebook_schema'],
+      }),
+    );
+  });
+
   it('should not throw if saving query history fails', async () => {
     (service as unknown as Record<string, unknown>).anthropic = buildMockAnthropic(
       JSON.stringify({ entity: 'student', filters: [], select: [], limit: 50 }),
@@ -211,6 +236,7 @@ describe('NlQueryService — getQueryHistory', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: buildMockSettingsService(true) },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 

@@ -1,7 +1,9 @@
-import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
+import { ConsentService } from '../../gdpr/consent.service';
 import { GdprTokenService } from '../../gdpr/gdpr-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -38,6 +40,12 @@ function buildMockAnthropic(responseText = 'Great student progress this term.') 
   };
 }
 
+function buildMockConsentService(granted = true) {
+  return {
+    hasConsent: jest.fn().mockResolvedValue(granted),
+  };
+}
+
 const baseReportCard = {
   id: REPORT_CARD_ID,
   tenant_id: TENANT_ID,
@@ -70,10 +78,12 @@ describe('AiCommentsService — generateComment', () => {
   let service: AiCommentsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
+  let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockSettings = buildMockSettingsService();
+    mockConsentService = buildMockConsentService(true);
 
     mockPrisma.reportCard.findFirst.mockResolvedValue(baseReportCard);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
@@ -84,7 +94,9 @@ describe('AiCommentsService — generateComment', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
@@ -127,6 +139,14 @@ describe('AiCommentsService — generateComment', () => {
     await expect(
       service.generateComment(TENANT_ID, REPORT_CARD_ID),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ForbiddenException when AI comments consent is not active', async () => {
+    mockConsentService.hasConsent.mockResolvedValue(false);
+
+    await expect(
+      service.generateComment(TENANT_ID, REPORT_CARD_ID),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('should return comment result with correct report_card_id and locale', async () => {
@@ -184,6 +204,23 @@ describe('AiCommentsService — generateComment', () => {
     expect(result.comment).toBe('');
   });
 
+  it('should log AI processing to audit trail', async () => {
+    await service.generateComment(TENANT_ID, REPORT_CARD_ID);
+
+    const mockLog = service['aiAuditService'].log as jest.Mock;
+    expect(mockLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        aiService: 'ai_comments',
+        subjectType: 'student',
+        subjectId: 'student-1',
+        tokenised: true,
+        modelUsed: 'claude-sonnet-4-6-20250514',
+        inputDataCategories: ['grades', 'attendance'],
+      }),
+    );
+  });
+
   it('should include sample reference in prompt when commentSampleReference is set', async () => {
     mockSettings.getSettings.mockResolvedValue({
       ai: {
@@ -212,10 +249,12 @@ describe('AiCommentsService — generateBatchComments', () => {
   let service: AiCommentsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockSettings: ReturnType<typeof buildMockSettingsService>;
+  let mockConsentService: ReturnType<typeof buildMockConsentService>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockSettings = buildMockSettingsService();
+    mockConsentService = buildMockConsentService(true);
 
     mockPrisma.reportCard.findFirst.mockResolvedValue(baseReportCard);
     mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue(baseSnapshots);
@@ -226,7 +265,9 @@ describe('AiCommentsService — generateBatchComments', () => {
         AiCommentsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettings },
+        { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: { processOutbound: jest.fn().mockImplementation((_t: string, _p: string, data: unknown) => ({ processedData: data, tokenMap: new Map() })), processInbound: jest.fn().mockImplementation((_tokenMap: unknown, text: string) => text) } },
+        { provide: AiAuditService, useValue: { log: jest.fn().mockResolvedValue('test-log-id') } },
       ],
     }).compile();
 
