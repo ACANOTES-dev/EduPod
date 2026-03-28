@@ -13,7 +13,7 @@ import { RegulatorySubmissionService } from './regulatory-submission.service';
 
 // ─── Validation Error Shape ──────────────────────────────────────────────────
 
-interface ValidationError {
+export interface ValidationError {
   row_index: number;
   field: string;
   message: string;
@@ -22,7 +22,7 @@ interface ValidationError {
 
 // ─── Readiness Category ──────────────────────────────────────────────────────
 
-interface ReadinessCategory {
+export interface ReadinessCategory {
   name: string;
   status: 'pass' | 'fail' | 'warning';
   message: string;

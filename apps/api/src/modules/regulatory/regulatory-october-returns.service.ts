@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-interface ReadinessCategory {
+export interface ReadinessCategory {
   field: string;
   label: string;
   required: boolean;
@@ -14,14 +14,14 @@ interface ReadinessCategory {
   count?: number;
 }
 
-interface ReadinessResult {
+export interface ReadinessResult {
   ready: boolean;
   academic_year: string;
   student_count: number;
   categories: ReadinessCategory[];
 }
 
-interface PreviewResult {
+export interface PreviewResult {
   academic_year: string;
   generated_at: string;
   summary: {
@@ -33,27 +33,27 @@ interface PreviewResult {
   };
 }
 
-interface StudentProblem {
+export interface StudentProblem {
   field: string;
   message: string;
   severity: 'error' | 'warning';
 }
 
-interface StudentIssueEntry {
+export interface StudentIssueEntry {
   student_id: string;
   student_name: string;
   student_number: string | null;
   problems: StudentProblem[];
 }
 
-interface StudentIssuesResult {
+export interface StudentIssuesResult {
   academic_year: string;
   total_students: number;
   students_with_issues: number;
   issues: StudentIssueEntry[];
 }
 
-interface ValidateStudentResult {
+export interface ValidateStudentResult {
   student_id: string;
   student_name: string;
   valid: boolean;

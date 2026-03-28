@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface CbaStatusSummary {
+export interface CbaStatusSummary {
   academic_year: string;
   total: number;
   pending: number;
@@ -17,7 +17,7 @@ interface CbaStatusSummary {
   last_synced_at: Date | null;
 }
 
-interface SyncResult {
+export interface SyncResult {
   synced_count: number;
   error_count: number;
   errors: Array<{ record_id: string; student_id: string; error: string }>;

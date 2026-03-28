@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PodDatabaseType, PodSyncLogStatus, PodSyncStatus, PodSyncType } from '@prisma/client';
 import type { PpodExportDto, PpodImportDto } from '@school/shared';
 
@@ -66,7 +66,7 @@ interface StudentSyncData {
 }
 
 /** Diff entry for a single student mapping. */
-interface DiffEntry {
+export interface DiffEntry {
   student_id: string;
   mapping_id: string;
   status: 'new' | 'changed' | 'unchanged';
@@ -475,6 +475,107 @@ export class RegulatoryPpodService {
     ]);
 
     return { data, meta: { page, pageSize, total } };
+  }
+
+  // ─── List Mapped Students ─────────────────────────────────────────────────
+
+  async listMappedStudents(
+    tenantId: string,
+    databaseType: PodDatabaseType,
+    page = 1,
+    pageSize = 20,
+  ) {
+    const where = { tenant_id: tenantId, database_type: databaseType };
+    const skip = (page - 1) * pageSize;
+
+    const [data, total] = await Promise.all([
+      this.prisma.ppodStudentMapping.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { updated_at: 'desc' },
+        include: {
+          student: {
+            select: { id: true, first_name: true, last_name: true, student_number: true },
+          },
+        },
+      }),
+      this.prisma.ppodStudentMapping.count({ where }),
+    ]);
+
+    return { data, meta: { page, pageSize, total } };
+  }
+
+  // ─── Sync Single Student ──────────────────────────────────────────────────
+
+  async syncSingleStudent(
+    tenantId: string,
+    studentId: string,
+    userId: string,
+    databaseType: PodDatabaseType,
+  ) {
+    const mapping = await this.prisma.ppodStudentMapping.findFirst({
+      where: { tenant_id: tenantId, student_id: studentId, database_type: databaseType },
+      include: { student: { select: STUDENT_SYNC_SELECT } },
+    });
+
+    if (!mapping) {
+      throw new NotFoundException({
+        code: 'PPOD_MAPPING_NOT_FOUND',
+        message: `No PPOD mapping found for student "${studentId}"`,
+      });
+    }
+
+    const student = mapping.student as unknown as StudentSyncData;
+    const podRecord = this.mapStudentToPod(student);
+    const dataSnapshot = this.buildDataSnapshot(podRecord);
+    const currentHash = this.hashData(dataSnapshot);
+
+    if (currentHash === mapping.last_sync_hash) {
+      return { status: 'unchanged', student_id: studentId, mapping_id: mapping.id };
+    }
+
+    const pushResult = await this.transport.push([podRecord]);
+    if (!pushResult.success) {
+      throw new BadRequestException({
+        code: 'PPOD_SINGLE_EXPORT_FAILED',
+        message: `Failed to export student "${studentId}"`,
+      });
+    }
+
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await prismaWithRls.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
+      await db.ppodStudentMapping.update({
+        where: { id: mapping.id },
+        data: {
+          sync_status: PodSyncStatus.synced,
+          last_synced_at: new Date(),
+          last_sync_hash: currentHash,
+          data_snapshot: dataSnapshot,
+        },
+      });
+      await db.ppodSyncLog.create({
+        data: {
+          tenant_id: tenantId,
+          database_type: databaseType,
+          sync_type: PodSyncType.manual,
+          triggered_by_id: userId,
+          started_at: new Date(),
+          completed_at: new Date(),
+          status: PodSyncLogStatus.sync_completed,
+          records_pushed: 1,
+          transport_used: 'csv',
+        },
+      });
+    });
+
+    return {
+      status: 'synced',
+      student_id: studentId,
+      mapping_id: mapping.id,
+      csv_content: pushResult.raw_content ?? '',
+    };
   }
 
   // ─── Private: PodRecord → Student data ────────────────────────────────────
