@@ -8,13 +8,14 @@ import { AccessExportService } from './access-export.service';
 import { AnonymisationService } from './anonymisation.service';
 import { ComplianceController } from './compliance.controller';
 import { ComplianceService } from './compliance.service';
+import { DsarTraversalService } from './dsar-traversal.service';
 import { RetentionHoldsController, RetentionPoliciesController } from './retention-policies.controller';
 import { RetentionPoliciesService } from './retention-policies.service';
 
 @Module({
   imports: [S3Module, SearchModule, forwardRef(() => PastoralModule)],
   controllers: [ComplianceController, RetentionPoliciesController, RetentionHoldsController],
-  providers: [ComplianceService, AnonymisationService, AccessExportService, RetentionPoliciesService],
+  providers: [ComplianceService, AnonymisationService, AccessExportService, DsarTraversalService, RetentionPoliciesService],
   exports: [ComplianceService, RetentionPoliciesService],
 })
 export class ComplianceModule {}

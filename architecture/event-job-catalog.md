@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **15 queues**, **66 job types**, **19 cron jobs**
+- **15 queues**, **67 job types**, **20 cron jobs**
 
 ---
 
@@ -971,3 +971,32 @@ Weekly cron fires
 ```
 
 **Danger**: The deletion operations are IRREVERSIBLE. The dry_run flag must be tested before first production run. Retention holds protect specific subjects from enforcement — always check `retention_holds` before deleting. Anonymise categories are intentionally deferred until the DSAR/anonymisation pipeline is mature enough for automated execution.
+
+---
+
+### compliance:deadline-check (Phase F — DSAR Deadline Tracking)
+
+**Queue**: `compliance`
+**Job constant**: `DEADLINE_CHECK_JOB`
+**Trigger**: Cron daily at 06:00 UTC (`0 6 * * *`).
+**Payload**: None (cross-tenant).
+**Processor**: `apps/worker/src/processors/compliance/deadline-check.processor.ts`
+**Added in**: Phase F
+
+**Side effects chain**:
+```
+Daily cron fires
+  -> Iterates all active tenants
+  -> For each tenant:
+     -> Queries open compliance requests (status NOT completed/rejected) with deadline_at set
+     -> Resolves effective deadline per request:
+        - extension_granted + extension_deadline_at → use extension_deadline_at
+        - otherwise → use deadline_at
+     -> For each request, based on days remaining:
+        - 4–7 days: sends in-app notification (compliance_deadline_7day) to requested_by_user
+        - 1–3 days: sends in-app notification (compliance_deadline_3day) to requested_by_user
+        - ≤0 days AND deadline_exceeded=false: sets deadline_exceeded=true, sends compliance_deadline_exceeded notification
+     -> Deduplication: checks for existing notification with same template_key + source_entity before creating
+```
+
+**Danger**: Notifications are created directly via `prisma.notification.create` (not through the dispatch queue). This means no email/WhatsApp fallback — in-app only. If the compliance admin doesn't check the app, deadline warnings are missed.

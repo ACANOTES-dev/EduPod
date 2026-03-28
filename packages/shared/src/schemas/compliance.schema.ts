@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const createComplianceRequestSchema = z.object({
-  request_type: z.enum(['access_export', 'erasure', 'rectification']),
-  subject_type: z.enum(['parent', 'student', 'household', 'user']),
+  request_type: z.enum(['access_export', 'erasure', 'rectification', 'portability']),
+  subject_type: z.enum(['parent', 'student', 'household', 'user', 'staff', 'applicant']),
   subject_id: z.string().uuid(),
 });
 
@@ -28,3 +28,22 @@ export const complianceFilterSchema = z.object({
 });
 
 export type ComplianceFilterDto = z.infer<typeof complianceFilterSchema>;
+
+export const extendComplianceRequestSchema = z.object({
+  extension_reason: z.string().min(10).max(2000),
+});
+
+export type ExtendComplianceRequestDto = z.infer<typeof extendComplianceRequestSchema>;
+
+export const complianceOverdueFilterSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type ComplianceOverdueFilterDto = z.infer<typeof complianceOverdueFilterSchema>;
+
+export const dsarExportFormatSchema = z.object({
+  format: z.enum(['json', 'csv']).default('json'),
+});
+
+export type DsarExportFormatDto = z.infer<typeof dsarExportFormatSchema>;

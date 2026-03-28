@@ -481,4 +481,100 @@ describe('AccessExportService', () => {
       expect(createRlsClient).toHaveBeenCalledWith(mockPrisma, { tenant_id: TENANT_ID });
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // exportDataPackage
+  // ---------------------------------------------------------------------------
+
+  describe('exportDataPackage()', () => {
+    const dataPackage = {
+      subject_type: 'student',
+      subject_id: STUDENT_ID,
+      collected_at: '2026-03-28T12:00:00.000Z',
+      categories: {
+        profile: { first_name: 'Alice', last_name: 'Doe' },
+        attendance: [{ id: 'att-1', status: 'present' }],
+      },
+    };
+
+    it('should export as JSON by default and upload to S3', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const result = await service.exportDataPackage(
+        TENANT_ID,
+        REQUEST_ID,
+        dataPackage,
+      );
+
+      expect(result.s3Key).toBe(expectedS3Key);
+      expect(mockS3Service.upload).toHaveBeenCalledWith(
+        TENANT_ID,
+        `compliance-exports/${REQUEST_ID}.json`,
+        expect.any(Buffer),
+        'application/json',
+      );
+
+      // Verify JSON structure
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
+      expect(uploadedJson).toHaveProperty('export_generated_at');
+      expect(uploadedJson.subject_type).toBe('student');
+      expect(uploadedJson.subject_id).toBe(STUDENT_ID);
+      expect(uploadedJson.categories.profile).toEqual({ first_name: 'Alice', last_name: 'Doe' });
+      expect(uploadedJson.categories.attendance).toHaveLength(1);
+    });
+
+    it('should export as CSV when format is csv', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.csv`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const result = await service.exportDataPackage(
+        TENANT_ID,
+        REQUEST_ID,
+        dataPackage,
+        undefined,
+        'csv',
+      );
+
+      expect(result.s3Key).toBe(expectedS3Key);
+      expect(mockS3Service.upload).toHaveBeenCalledWith(
+        TENANT_ID,
+        `compliance-exports/${REQUEST_ID}.csv`,
+        expect.any(Buffer),
+        'text/csv',
+      );
+
+      // Verify CSV content includes category headers
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const csvContent = uploadCall[2].toString('utf-8');
+      expect(csvContent).toContain('## profile');
+      expect(csvContent).toContain('## attendance');
+      expect(csvContent).toContain('first_name');
+    });
+
+    it('should merge extra sections into categories', async () => {
+      const expectedS3Key = `${TENANT_ID}/compliance-exports/${REQUEST_ID}.json`;
+      mockS3Service.upload.mockResolvedValue(expectedS3Key);
+
+      const extraSections = {
+        pastoral_dsar_records: [{ entity_type: 'cp_record', decision: 'include' }],
+      };
+
+      await service.exportDataPackage(
+        TENANT_ID,
+        REQUEST_ID,
+        dataPackage,
+        extraSections,
+      );
+
+      const uploadCall = mockS3Service.upload.mock.calls[0];
+      const uploadedJson = JSON.parse(uploadCall[2].toString('utf-8'));
+      expect(uploadedJson.categories.pastoral_dsar_records).toEqual([
+        { entity_type: 'cp_record', decision: 'include' },
+      ]);
+      // Original categories should still be present
+      expect(uploadedJson.categories.profile).toEqual({ first_name: 'Alice', last_name: 'Doe' });
+    });
+  });
 });

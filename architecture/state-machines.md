@@ -402,6 +402,8 @@ rejected*
 completed*
 ```
 - **Guarded by**: `compliance.service.ts` (implicit per-method)
+- **Side effects**: `create()` auto-sets `deadline_at = now + 30 days`. `extend()` sets `extension_granted=true`, `extension_deadline_at = deadline_at + 60 days` (Article 12(3)). `compliance:deadline-check` cron sets `deadline_exceeded=true` when effective deadline passes. Erasure execution also deletes consent records + tokenisation mappings.
+- **Subject types**: `student`, `parent`, `household`, `user`, `staff` (Phase F), `applicant` (Phase F)
 
 ---
 

@@ -78,7 +78,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | C     | Anonymisation Overhaul   | COMPLETE    | —          | F, I    | 3 days      | [Phase-C](./Phase-C-Anonymisation-Overhaul.md)       |
 | D     | Consent Records          | COMPLETE    | A          | F       | 3–4 days    | [Phase-D](./Phase-D-Consent-Records.md)              |
 | E     | Legal & Privacy Infra    | COMPLETE    | B          | —       | 4–5 days    | [Phase-E](./Phase-E-Legal-Privacy-Infrastructure.md) |
-| F     | DSAR Overhaul            | NOT STARTED | B, C, D    | H       | 4–5 days    | [Phase-F](./Phase-F-DSAR-Overhaul.md)                |
+| F     | DSAR Overhaul            | COMPLETE    | B, C, D    | H       | 4–5 days    | [Phase-F](./Phase-F-DSAR-Overhaul.md)                |
 | G     | Audit Logging            | COMPLETE    | —          | J       | 2–3 days    | [Phase-G](./Phase-G-Audit-Logging.md)                |
 | H     | Data Subject Protections | NOT STARTED | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
 | I     | Retention Engine         | COMPLETE    | C          | —       | 3–4 days    | [Phase-I](./Phase-I-Retention-Engine.md)             |
@@ -335,3 +335,31 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Architecture files updated:** `event-job-catalog.md` (2 new security crons), `state-machines.md` (SecurityIncidentStatus lifecycle), `module-blast-radius.md` (SecurityIncidentsModule in Tier 4)
 - **Unlocks:** None (terminal phase)
 - **Notes:** Detection rule thresholds are hardcoded per spec: 100 records/min for unusual access, 10 failures/5min for auth spike, 20 denials/10min for permission probe, 5 lockouts/hr for brute force, 50 records for off-hours bulk, 3 exports/hr for data export spike. Cross-tenant attempt (RLS violation) is critical severity and should never fire in normal operation. Anomaly scan runs every 15 minutes. Breach deadline runs hourly with escalation at 12h, 48h, and 72h.
+
+---
+
+### Phase F: DSAR Overhaul
+
+- **Status:** COMPLETE
+- **Completed:** 2026-03-28
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents)
+- **Commit(s):** Pending
+- **Key decisions:**
+  - `DsarTraversalService` (684 lines) is a standalone service in ComplianceModule — queries ~20 Prisma models directly, no new module imports needed
+  - Six subject types supported: `student` (19 data categories), `parent` (8), `staff` (8), `applicant` (4), `household` (6), `user` (2)
+  - Staff bank details are masked (last 4 chars only) ��� encrypted fields never exposed in DSAR exports
+  - `AccessExportService.exportDataPackage()` added alongside existing `exportSubjectData()` for backward compatibility
+  - CSV export: one section per data category, separated by headers. Arrays become CSV rows, objects become key-value pairs
+  - Deadline tracking: `deadline_at` auto-set to `created_at + 30 days` on creation. Extension grants +60 days per Article 12(3)
+  - Erasure pipeline now also deletes `consent_records` + `gdpr_anonymisation_tokens` for the subject
+  - `portability` request type treated identically to `access_export` — same traversal, same export
+  - Deadline-check cron creates in-app notifications only (no email/WhatsApp dispatch)
+  - Notification deduplication: checks for existing notification with same template_key + source_entity before creating
+- **Schema changes:** `20260329130000_add_dsar_deadline_tracking` — 6 new columns on `compliance_requests` (deadline_at, extension_granted, extension_reason, extension_deadline_at, deadline_exceeded, rectification_note), 2 new enum values on `ComplianceSubjectType` (staff, applicant), 1 new enum value on `ComplianceRequestType` (portability)
+- **New endpoints:** GET /v1/compliance-requests/overdue, POST /v1/compliance-requests/:id/extend
+- **Enhanced endpoints:** POST /v1/compliance-requests (auto-sets deadline_at), GET /v1/compliance-requests/:id (includes deadline fields), POST /v1/compliance-requests/:id/execute (uses DsarTraversalService, supports portability, erasure cleans consent+tokens)
+- **New frontend pages:** None (backend only — DSAR dashboard enhancements deferred to separate frontend ticket)
+- **Tests added:** 192 tests total — 153 API (33 DSAR traversal + 68 compliance service/access-export + 52 existing) + 39 worker (18 deadline-check + 21 existing)
+- **Architecture files updated:** `event-job-catalog.md` (compliance:deadline-check cron), `state-machines.md` (ComplianceRequestStatus side-effects), `module-blast-radius.md` (ComplianceModule note)
+- **Unlocks:** Phase H (Data Subject Protections) is now available
+- **Notes:** The DSAR traversal collects ALL records with no limits. For schools with very large datasets, the export generation may take significant time. The `DsarTraversalService` uses `Promise.all` for parallel queries within each subject type. Applicant data collection matches applications by student name (first + last) since pre-enrolment applicants may not have a linked student_id. Emergency contacts and fee assignments are included for households if the corresponding Prisma models exist.

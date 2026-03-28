@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccessExportService } from './access-export.service';
 import { AnonymisationService } from './anonymisation.service';
 import { ComplianceService } from './compliance.service';
+import { DsarTraversalService } from './dsar-traversal.service';
 
 const TENANT_ID = 'tenant-uuid-1';
 const OTHER_TENANT_ID = 'tenant-uuid-2';
@@ -58,14 +59,19 @@ describe('ComplianceService', () => {
     student: { findFirst: jest.Mock };
     household: { findFirst: jest.Mock };
     user: { findFirst: jest.Mock };
+    staffProfile: { findFirst: jest.Mock };
+    application: { findFirst: jest.Mock };
+    consentRecord: { deleteMany: jest.Mock };
+    gdprAnonymisationToken: { deleteMany: jest.Mock };
   };
-  let mockAccessExport: { exportSubjectData: jest.Mock };
+  let mockAccessExport: { exportSubjectData: jest.Mock; exportDataPackage: jest.Mock };
   let mockAnonymisation: { anonymiseSubject: jest.Mock };
   let mockPastoralDsar: {
     routeForReview: jest.Mock;
     allReviewsComplete: jest.Mock;
     getReviewedRecords: jest.Mock;
   };
+  let mockDsarTraversal: { collectAllData: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -80,10 +86,15 @@ describe('ComplianceService', () => {
       student: { findFirst: jest.fn() },
       household: { findFirst: jest.fn() },
       user: { findFirst: jest.fn() },
+      staffProfile: { findFirst: jest.fn() },
+      application: { findFirst: jest.fn() },
+      consentRecord: { deleteMany: jest.fn() },
+      gdprAnonymisationToken: { deleteMany: jest.fn() },
     };
 
     mockAccessExport = {
       exportSubjectData: jest.fn(),
+      exportDataPackage: jest.fn(),
     };
 
     mockAnonymisation = {
@@ -96,6 +107,10 @@ describe('ComplianceService', () => {
       getReviewedRecords: jest.fn().mockResolvedValue([]),
     };
 
+    mockDsarTraversal = {
+      collectAllData: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComplianceService,
@@ -103,6 +118,7 @@ describe('ComplianceService', () => {
         { provide: AccessExportService, useValue: mockAccessExport },
         { provide: AnonymisationService, useValue: mockAnonymisation },
         { provide: PastoralDsarService, useValue: mockPastoralDsar },
+        { provide: DsarTraversalService, useValue: mockDsarTraversal },
       ],
     }).compile();
 
@@ -675,7 +691,7 @@ describe('ComplianceService', () => {
   // ---------------------------------------------------------------------------
 
   describe('execute', () => {
-    it('should call accessExportService for access_export type and set export_file_key', async () => {
+    it('should call DsarTraversalService + exportDataPackage for access_export type and set export_file_key', async () => {
       const approved = buildMockRequest({
         status: 'approved',
         request_type: 'access_export',
@@ -685,9 +701,16 @@ describe('ComplianceService', () => {
         request_type: 'access_export',
         export_file_key: 'compliance-exports/request-uuid-1.json',
       });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: { profile: { first_name: 'John' } },
+      };
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
-      mockAccessExport.exportSubjectData.mockResolvedValue({
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
         s3Key: 'compliance-exports/request-uuid-1.json',
       });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
@@ -695,11 +718,16 @@ describe('ComplianceService', () => {
       const result = await service.execute(TENANT_ID, REQUEST_ID);
 
       expect(result.status).toBe('completed');
-      expect(mockAccessExport.exportSubjectData).toHaveBeenCalledWith(
+      expect(mockDsarTraversal.collectAllData).toHaveBeenCalledWith(
         TENANT_ID,
         'parent',
         SUBJECT_ID,
+      );
+      expect(mockAccessExport.exportDataPackage).toHaveBeenCalledWith(
+        TENANT_ID,
         REQUEST_ID,
+        dataPackage,
+        {},
       );
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -711,7 +739,7 @@ describe('ComplianceService', () => {
       );
     });
 
-    it('should call anonymisationService for erasure with anonymise classification', async () => {
+    it('should call anonymisationService for erasure with anonymise classification and clean up consent/tokens', async () => {
       const approved = buildMockRequest({
         status: 'approved',
         request_type: 'erasure',
@@ -725,6 +753,8 @@ describe('ComplianceService', () => {
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
       mockAnonymisation.anonymiseSubject.mockResolvedValue({ anonymised_entities: ['parent'] });
+      mockPrisma.consentRecord.deleteMany.mockResolvedValue({ count: 2 });
+      mockPrisma.gdprAnonymisationToken.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
 
       const result = await service.execute(TENANT_ID, REQUEST_ID);
@@ -735,10 +765,16 @@ describe('ComplianceService', () => {
         'parent',
         SUBJECT_ID,
       );
-      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockPrisma.consentRecord.deleteMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, subject_type: 'parent', subject_id: SUBJECT_ID },
+      });
+      expect(mockPrisma.gdprAnonymisationToken.deleteMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, entity_type: 'parent', entity_id: SUBJECT_ID },
+      });
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
     });
 
-    it('should call anonymisationService for rectification with erase classification', async () => {
+    it('should call anonymisationService for rectification with erase classification and clean up consent/tokens', async () => {
       const approved = buildMockRequest({
         status: 'approved',
         request_type: 'rectification',
@@ -752,6 +788,8 @@ describe('ComplianceService', () => {
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
       mockAnonymisation.anonymiseSubject.mockResolvedValue({ anonymised_entities: ['parent'] });
+      mockPrisma.consentRecord.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrisma.gdprAnonymisationToken.deleteMany.mockResolvedValue({ count: 0 });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
 
       const result = await service.execute(TENANT_ID, REQUEST_ID);
@@ -762,7 +800,13 @@ describe('ComplianceService', () => {
         'parent',
         SUBJECT_ID,
       );
-      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockPrisma.consentRecord.deleteMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, subject_type: 'parent', subject_id: SUBJECT_ID },
+      });
+      expect(mockPrisma.gdprAnonymisationToken.deleteMany).toHaveBeenCalledWith({
+        where: { tenant_id: TENANT_ID, entity_type: 'parent', entity_id: SUBJECT_ID },
+      });
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
     });
 
     it('should NOT call either service for erasure with retain classification', async () => {
@@ -784,7 +828,7 @@ describe('ComplianceService', () => {
       const result = await service.execute(TENANT_ID, REQUEST_ID);
 
       expect(result.status).toBe('completed');
-      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
       expect(mockAnonymisation.anonymiseSubject).not.toHaveBeenCalled();
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -805,7 +849,7 @@ describe('ComplianceService', () => {
         service.execute(TENANT_ID, REQUEST_ID),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
       expect(mockAnonymisation.anonymiseSubject).not.toHaveBeenCalled();
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -850,9 +894,16 @@ describe('ComplianceService', () => {
         subject_type: 'student',
         export_file_key: 'compliance-exports/request-uuid-1.json',
       });
+      const dataPackage = {
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: {},
+      };
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
-      mockAccessExport.exportSubjectData.mockResolvedValue({
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
         s3Key: 'compliance-exports/request-uuid-1.json',
       });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
@@ -891,7 +942,7 @@ describe('ComplianceService', () => {
       const result = await service.execute(TENANT_ID, REQUEST_ID);
 
       expect(result.status).toBe('approved');
-      expect(mockAccessExport.exportSubjectData).not.toHaveBeenCalled();
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
 
@@ -919,10 +970,17 @@ describe('ComplianceService', () => {
           record_data: { narrative: 'Included after DLP review' },
         },
       ];
+      const dataPackage = {
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: { profile: { first_name: 'Alice' } },
+      };
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
       mockPastoralDsar.getReviewedRecords.mockResolvedValue(reviewedRecords);
-      mockAccessExport.exportSubjectData.mockResolvedValue({
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
         s3Key: 'compliance-exports/request-uuid-1.json',
       });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
@@ -933,14 +991,11 @@ describe('ComplianceService', () => {
         TENANT_ID,
         REQUEST_ID,
       );
-      expect(mockAccessExport.exportSubjectData).toHaveBeenCalledWith(
+      expect(mockAccessExport.exportDataPackage).toHaveBeenCalledWith(
         TENANT_ID,
-        'student',
-        SUBJECT_ID,
         REQUEST_ID,
-        {
-          pastoral_dsar_records: reviewedRecords,
-        },
+        dataPackage,
+        { pastoral_dsar_records: reviewedRecords },
       );
     });
 
@@ -958,9 +1013,16 @@ describe('ComplianceService', () => {
         subject_type: 'parent',
         export_file_key: 'compliance-exports/request-uuid-1.json',
       });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: {},
+      };
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
-      mockAccessExport.exportSubjectData.mockResolvedValue({
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
         s3Key: 'compliance-exports/request-uuid-1.json',
       });
       mockPrisma.complianceRequest.update.mockResolvedValue(completed);
@@ -1031,6 +1093,322 @@ describe('ComplianceService', () => {
 
       await expect(
         service.getExportUrl(TENANT_ID, REQUEST_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return export_file_key for completed portability request', async () => {
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(
+        buildMockRequest({
+          request_type: 'portability',
+          status: 'completed',
+          export_file_key: 'compliance-exports/request-uuid-1.json',
+        }),
+      );
+
+      const result = await service.getExportUrl(TENANT_ID, REQUEST_ID);
+
+      expect(result).toEqual({
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // create — deadline_at
+  // ---------------------------------------------------------------------------
+
+  describe('create — deadline_at', () => {
+    it('should auto-set deadline_at to 30 days from now', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+
+      const created = buildMockRequest({ status: 'submitted' });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      const before = Date.now();
+      await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+      });
+      const after = Date.now();
+
+      const createCall = mockPrisma.complianceRequest.create.mock.calls[0]![0] as {
+        data: { deadline_at: Date };
+      };
+      const deadlineMs = createCall.data.deadline_at.getTime();
+      const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+
+      expect(deadlineMs).toBeGreaterThanOrEqual(before + thirtyDays);
+      expect(deadlineMs).toBeLessThanOrEqual(after + thirtyDays);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // extend
+  // ---------------------------------------------------------------------------
+
+  describe('extend', () => {
+    it('should grant an extension with deadline_at + 60 days', async () => {
+      const deadlineAt = new Date('2026-04-27T00:00:00.000Z');
+      const request = buildMockRequest({
+        status: 'submitted',
+        extension_granted: false,
+        deadline_at: deadlineAt,
+      });
+      const updated = buildMockRequest({
+        status: 'submitted',
+        extension_granted: true,
+        extension_reason: 'Complex request requiring more time',
+        extension_deadline_at: new Date(deadlineAt.getTime() + 60 * 24 * 60 * 60 * 1000),
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+      mockPrisma.complianceRequest.update.mockResolvedValue(updated);
+
+      const result = await service.extend(TENANT_ID, REQUEST_ID, {
+        extension_reason: 'Complex request requiring more time',
+      });
+
+      expect(result.extension_granted).toBe(true);
+      expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: REQUEST_ID },
+          data: expect.objectContaining({
+            extension_granted: true,
+            extension_reason: 'Complex request requiring more time',
+            deadline_exceeded: false,
+          }),
+        }),
+      );
+
+      // Verify the extension_deadline_at is deadline_at + 60 days
+      const updateCall = mockPrisma.complianceRequest.update.mock.calls[0]![0] as {
+        data: { extension_deadline_at: Date };
+      };
+      const expectedExtension = new Date(deadlineAt.getTime() + 60 * 24 * 60 * 60 * 1000);
+      expect(updateCall.data.extension_deadline_at.getTime()).toBe(expectedExtension.getTime());
+    });
+
+    it('should throw EXTENSION_ALREADY_GRANTED when extension already exists', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        extension_granted: true,
+        deadline_at: new Date('2026-04-27T00:00:00.000Z'),
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+
+      await expect(
+        service.extend(TENANT_ID, REQUEST_ID, {
+          extension_reason: 'Another extension attempt',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw INVALID_STATUS for completed requests', async () => {
+      const request = buildMockRequest({
+        status: 'completed',
+        extension_granted: false,
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+
+      await expect(
+        service.extend(TENANT_ID, REQUEST_ID, {
+          extension_reason: 'Try to extend completed',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw INVALID_STATUS for rejected requests', async () => {
+      const request = buildMockRequest({
+        status: 'rejected',
+        extension_granted: false,
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+
+      await expect(
+        service.extend(TENANT_ID, REQUEST_ID, {
+          extension_reason: 'Try to extend rejected',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to created_at + 30 days when deadline_at is null', async () => {
+      const createdAt = new Date('2026-03-28T00:00:00.000Z');
+      const request = buildMockRequest({
+        status: 'submitted',
+        extension_granted: false,
+        deadline_at: null,
+        created_at: createdAt,
+      });
+      const updated = buildMockRequest({ extension_granted: true });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+      mockPrisma.complianceRequest.update.mockResolvedValue(updated);
+
+      await service.extend(TENANT_ID, REQUEST_ID, {
+        extension_reason: 'Fallback deadline calculation',
+      });
+
+      const updateCall = mockPrisma.complianceRequest.update.mock.calls[0]![0] as {
+        data: { extension_deadline_at: Date };
+      };
+      const baseDeadline = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const expectedExtension = new Date(baseDeadline.getTime() + 60 * 24 * 60 * 60 * 1000);
+      expect(updateCall.data.extension_deadline_at.getTime()).toBe(expectedExtension.getTime());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // listOverdue
+  // ---------------------------------------------------------------------------
+
+  describe('listOverdue', () => {
+    it('should return only overdue requests with pagination', async () => {
+      const overdueRequest = buildMockRequest({
+        status: 'submitted',
+        deadline_at: new Date('2026-01-01'),
+        extension_granted: false,
+      });
+
+      mockPrisma.complianceRequest.findMany.mockResolvedValue([overdueRequest]);
+      mockPrisma.complianceRequest.count.mockResolvedValue(1);
+
+      const result = await service.listOverdue(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+      expect(mockPrisma.complianceRequest.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: { notIn: ['completed', 'rejected'] },
+          }),
+          skip: 0,
+          take: 20,
+          orderBy: { deadline_at: 'asc' },
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // execute — portability
+  // ---------------------------------------------------------------------------
+
+  describe('execute — portability', () => {
+    it('should treat portability the same as access_export', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'portability',
+        subject_type: 'parent',
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'portability',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: { profile: { first_name: 'John' } },
+      };
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      const result = await service.execute(TENANT_ID, REQUEST_ID);
+
+      expect(result.status).toBe('completed');
+      expect(mockDsarTraversal.collectAllData).toHaveBeenCalledWith(
+        TENANT_ID,
+        'parent',
+        SUBJECT_ID,
+      );
+      expect(mockAccessExport.exportDataPackage).toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // validateSubjectExists — staff and applicant
+  // ---------------------------------------------------------------------------
+
+  describe('validateSubjectExists — staff and applicant', () => {
+    it('should validate staff subject via staffProfile', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+
+      const created = buildMockRequest({ subject_type: 'staff', status: 'submitted' });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      const result = await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'staff',
+        subject_id: SUBJECT_ID,
+      });
+
+      expect(result.status).toBe('submitted');
+      expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith({
+        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
+        select: { id: true },
+      });
+    });
+
+    it('should validate applicant subject via application', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+
+      const created = buildMockRequest({ subject_type: 'applicant', status: 'submitted' });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      const result = await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'applicant',
+        subject_id: SUBJECT_ID,
+      });
+
+      expect(result.status).toBe('submitted');
+      expect(mockPrisma.application.findFirst).toHaveBeenCalledWith({
+        where: { id: SUBJECT_ID, tenant_id: TENANT_ID },
+        select: { id: true },
+      });
+    });
+
+    it('should throw SUBJECT_NOT_FOUND when staff does not exist', async () => {
+      mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, USER_ID, {
+          request_type: 'access_export',
+          subject_type: 'staff',
+          subject_id: SUBJECT_ID,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw SUBJECT_NOT_FOUND when applicant does not exist', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT_ID, USER_ID, {
+          request_type: 'access_export',
+          subject_type: 'applicant',
+          subject_id: SUBJECT_ID,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });

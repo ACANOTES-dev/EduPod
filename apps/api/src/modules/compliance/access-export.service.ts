@@ -79,6 +79,113 @@ export class AccessExportService {
   }
 
   /**
+   * Export a pre-collected data package (from DsarTraversalService) as JSON or CSV.
+   * Merges any extra sections into the categories before uploading.
+   */
+  async exportDataPackage(
+    tenantId: string,
+    requestId: string,
+    dataPackage: {
+      subject_type: string;
+      subject_id: string;
+      collected_at: string;
+      categories: Record<string, unknown>;
+    },
+    extraSections?: Record<string, unknown>,
+    format: 'json' | 'csv' = 'json',
+  ): Promise<{ s3Key: string }> {
+    const fullPackage = {
+      export_generated_at: new Date().toISOString(),
+      ...dataPackage,
+      categories: { ...dataPackage.categories, ...(extraSections ?? {}) },
+    };
+
+    if (format === 'csv') {
+      return this.exportAsCsv(tenantId, requestId, fullPackage);
+    }
+    return this.exportAsJson(tenantId, requestId, fullPackage);
+  }
+
+  // ─── Format-specific export helpers ─────────────────────────────────────────
+
+  private async exportAsJson(
+    tenantId: string,
+    requestId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ s3Key: string }> {
+    const jsonString = JSON.stringify(payload, null, 2);
+    const buffer = Buffer.from(jsonString, 'utf-8');
+    const s3Key = `compliance-exports/${requestId}.json`;
+
+    const fullKey = await this.s3Service.upload(tenantId, s3Key, buffer, 'application/json');
+    this.logger.log(`Exported data package to S3 key: ${fullKey}`);
+
+    return { s3Key: fullKey };
+  }
+
+  private async exportAsCsv(
+    tenantId: string,
+    requestId: string,
+    payload: Record<string, unknown>,
+  ): Promise<{ s3Key: string }> {
+    const categories = (payload.categories ?? {}) as Record<string, unknown>;
+    const sections: string[] = [];
+
+    // Metadata header
+    sections.push(
+      `# Export Generated At: ${String(payload.export_generated_at ?? '')}`,
+      `# Subject Type: ${String(payload.subject_type ?? '')}`,
+      `# Subject ID: ${String(payload.subject_id ?? '')}`,
+      '',
+    );
+
+    for (const [categoryName, categoryData] of Object.entries(categories)) {
+      sections.push(`## ${categoryName}`);
+
+      if (Array.isArray(categoryData) && categoryData.length > 0) {
+        const firstItem = categoryData[0] as Record<string, unknown>;
+        const headers = Object.keys(firstItem);
+        sections.push(headers.join(','));
+
+        for (const row of categoryData) {
+          const rowObj = row as Record<string, unknown>;
+          const values = headers.map((h) => {
+            const val = rowObj[h];
+            if (val === null || val === undefined) return '';
+            const str = String(val);
+            return str.includes(',') || str.includes('"') || str.includes('\n')
+              ? `"${str.replace(/"/g, '""')}"`
+              : str;
+          });
+          sections.push(values.join(','));
+        }
+      } else if (categoryData !== null && typeof categoryData === 'object' && !Array.isArray(categoryData)) {
+        const obj = categoryData as Record<string, unknown>;
+        sections.push('field,value');
+        for (const [key, val] of Object.entries(obj)) {
+          const valStr = val === null || val === undefined ? '' : String(val);
+          const escaped =
+            valStr.includes(',') || valStr.includes('"') || valStr.includes('\n')
+              ? `"${valStr.replace(/"/g, '""')}"`
+              : valStr;
+          sections.push(`${key},${escaped}`);
+        }
+      }
+
+      sections.push('');
+    }
+
+    const csvContent = sections.join('\n');
+    const buffer = Buffer.from(csvContent, 'utf-8');
+    const s3Key = `compliance-exports/${requestId}.csv`;
+
+    const fullKey = await this.s3Service.upload(tenantId, s3Key, buffer, 'text/csv');
+    this.logger.log(`Exported data package (CSV) to S3 key: ${fullKey}`);
+
+    return { s3Key: fullKey };
+  }
+
+  /**
    * Export parent data: profile, linked students, household membership,
    * communication preferences (preferred_contact_channels).
    */

@@ -1,0 +1,153 @@
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Inject, Logger } from '@nestjs/common';
+import { ComplianceRequestStatus, PrismaClient } from '@prisma/client';
+import { Job } from 'bullmq';
+
+import { QUEUE_NAMES } from '../../base/queue.constants';
+
+// ─── Job name ───────────────────────────────────────────────────────────────
+export const DEADLINE_CHECK_JOB = 'compliance:deadline-check';
+
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const TERMINAL_STATUSES: ComplianceRequestStatus[] = [ComplianceRequestStatus.completed, ComplianceRequestStatus.rejected];
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+// ─── Processor ──────────────────────────────────────────────────────────────
+
+@Processor(QUEUE_NAMES.COMPLIANCE)
+export class DeadlineCheckProcessor extends WorkerHost {
+  private readonly logger = new Logger(DeadlineCheckProcessor.name);
+
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+  ) {
+    super();
+  }
+
+  async process(job: Job): Promise<void> {
+    if (job.name !== DEADLINE_CHECK_JOB) return;
+
+    this.logger.log('Starting compliance deadline check');
+
+    const tenants = await this.prisma.tenant.findMany({
+      where: { status: 'active' },
+      select: { id: true },
+    });
+
+    for (const tenant of tenants) {
+      try {
+        await this.checkTenantDeadlines(tenant.id);
+      } catch (error) {
+        this.logger.error(
+          `Deadline check failed for tenant ${tenant.id}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    this.logger.log(`Compliance deadline check complete — processed ${tenants.length} tenants`);
+  }
+
+  // ─── Per-tenant deadline check ──────────────────────────────────────────
+
+  private async checkTenantDeadlines(tenantId: string): Promise<void> {
+    const now = new Date();
+
+    const requests = await this.prisma.complianceRequest.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: { notIn: TERMINAL_STATUSES },
+        deadline_at: { not: null },
+      },
+    });
+
+    let warnings = 0;
+    let exceeded = 0;
+
+    for (const request of requests) {
+      const effectiveDeadline =
+        request.extension_granted && request.extension_deadline_at
+          ? request.extension_deadline_at
+          : request.deadline_at!;
+
+      const daysRemaining = Math.ceil(
+        (effectiveDeadline.getTime() - now.getTime()) / MS_PER_DAY,
+      );
+
+      if (daysRemaining <= 0 && !request.deadline_exceeded) {
+        // Deadline exceeded — flag and notify
+        await this.prisma.complianceRequest.update({
+          where: { id: request.id },
+          data: { deadline_exceeded: true },
+        });
+        await this.sendNotificationIfNew(
+          tenantId,
+          request.id,
+          request.requested_by_user_id,
+          'compliance_deadline_exceeded',
+        );
+        exceeded++;
+      } else if (daysRemaining > 0 && daysRemaining <= 3) {
+        // 3-day warning window
+        await this.sendNotificationIfNew(
+          tenantId,
+          request.id,
+          request.requested_by_user_id,
+          'compliance_deadline_3day',
+        );
+        warnings++;
+      } else if (daysRemaining > 3 && daysRemaining <= 7) {
+        // 7-day warning window
+        await this.sendNotificationIfNew(
+          tenantId,
+          request.id,
+          request.requested_by_user_id,
+          'compliance_deadline_7day',
+        );
+        warnings++;
+      }
+    }
+
+    if (requests.length > 0) {
+      this.logger.log(
+        `Tenant ${tenantId}: checked ${requests.length} requests, ${warnings} warnings sent, ${exceeded} deadlines exceeded`,
+      );
+    }
+  }
+
+  // ─── Deduplicated notification creation ─────────────────────────────────
+
+  private async sendNotificationIfNew(
+    tenantId: string,
+    requestId: string,
+    recipientUserId: string,
+    templateKey: string,
+  ): Promise<void> {
+    const existing = await this.prisma.notification.findFirst({
+      where: {
+        tenant_id: tenantId,
+        recipient_user_id: recipientUserId,
+        template_key: templateKey,
+        source_entity_type: 'compliance_request',
+        source_entity_id: requestId,
+      },
+    });
+
+    if (existing) return;
+
+    await this.prisma.notification.create({
+      data: {
+        tenant_id: tenantId,
+        recipient_user_id: recipientUserId,
+        channel: 'in_app',
+        template_key: templateKey,
+        locale: 'en',
+        status: 'delivered',
+        payload_json: { request_id: requestId, template_key: templateKey },
+        source_entity_type: 'compliance_request',
+        source_entity_id: requestId,
+        delivered_at: new Date(),
+      },
+    });
+  }
+}

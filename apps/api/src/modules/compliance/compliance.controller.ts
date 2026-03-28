@@ -14,13 +14,17 @@ import {
   classifyComplianceRequestSchema,
   complianceDecisionSchema,
   complianceFilterSchema,
+  complianceOverdueFilterSchema,
   createComplianceRequestSchema,
+  extendComplianceRequestSchema,
 } from '@school/shared';
 import type {
   ClassifyComplianceRequestDto,
   ComplianceDecisionDto,
   ComplianceFilterDto,
+  ComplianceOverdueFilterDto,
   CreateComplianceRequestDto,
+  ExtendComplianceRequestDto,
   JwtPayload,
   TenantContext,
 } from '@school/shared';
@@ -59,6 +63,17 @@ export class ComplianceController {
     query: ComplianceFilterDto,
   ) {
     return this.complianceService.list(tenant.tenant_id, query);
+  }
+
+  // GET /v1/compliance-requests/overdue
+  @Get('overdue')
+  @RequiresPermission('compliance.manage')
+  async listOverdue(
+    @CurrentTenant() tenant: TenantContext,
+    @Query(new ZodValidationPipe(complianceOverdueFilterSchema))
+    query: ComplianceOverdueFilterDto,
+  ) {
+    return this.complianceService.listOverdue(tenant.tenant_id, query);
   }
 
   @Get(':id')
@@ -108,6 +123,19 @@ export class ComplianceController {
   @RequiresPermission('compliance.manage')
   async execute(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.complianceService.execute(tenant.tenant_id, id);
+  }
+
+  // POST /v1/compliance-requests/:id/extend
+  @Post(':id/extend')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPermission('compliance.manage')
+  async extend(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(extendComplianceRequestSchema))
+    dto: ExtendComplianceRequestDto,
+  ) {
+    return this.complianceService.extend(tenant.tenant_id, id, dto);
   }
 
   @Get(':id/export')

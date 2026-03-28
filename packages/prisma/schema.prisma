@@ -4238,6 +4238,7 @@ enum ComplianceRequestType {
   access_export
   erasure
   rectification
+  portability
 }
 
 enum ComplianceSubjectType {
@@ -4245,6 +4246,8 @@ enum ComplianceSubjectType {
   student
   household
   user
+  applicant
+  staff
 }
 
 enum ComplianceRequestStatus {
@@ -4321,9 +4324,15 @@ model ComplianceRequest {
   status               ComplianceRequestStatus   @default(submitted)
   classification       ComplianceClassification?
   decision_notes       String?
-  export_file_key      String?
-  created_at           DateTime                  @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+  export_file_key       String?
+  deadline_at           DateTime?                 @db.Timestamptz(6)
+  extension_granted     Boolean                   @default(false)
+  extension_reason      String?
+  extension_deadline_at DateTime?                 @db.Timestamptz(6)
+  deadline_exceeded     Boolean                   @default(false)
+  rectification_note    String?
+  created_at            DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
   tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)

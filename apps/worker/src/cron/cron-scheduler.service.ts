@@ -15,6 +15,7 @@ import {
   REFRESH_MV_STUDENT_SUMMARY_JOB,
 } from '../processors/behaviour/refresh-mv.processor';
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
+import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
@@ -347,5 +348,21 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${RETENTION_ENFORCEMENT_JOB} (weekly Sunday 03:00 UTC)`);
+
+    // ── compliance:deadline-check ─────────────────────────────────────────
+    // Runs daily at 06:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Checks all open compliance requests for approaching/exceeded deadlines
+    // and sends notification warnings at 7-day, 3-day, and exceeded marks.
+    await this.complianceQueue.add(
+      DEADLINE_CHECK_JOB,
+      {},
+      {
+        repeat: { pattern: '0 6 * * *' },
+        jobId: `cron:${DEADLINE_CHECK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${DEADLINE_CHECK_JOB} (daily 06:00 UTC)`);
   }
 }

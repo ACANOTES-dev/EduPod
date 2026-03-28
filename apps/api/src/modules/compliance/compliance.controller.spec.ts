@@ -4,7 +4,9 @@ import type {
   ClassifyComplianceRequestDto,
   ComplianceDecisionDto,
   ComplianceFilterDto,
+  ComplianceOverdueFilterDto,
   CreateComplianceRequestDto,
+  ExtendComplianceRequestDto,
   JwtPayload,
   TenantContext,
 } from '@school/shared';
@@ -39,11 +41,13 @@ function buildMockComplianceService() {
   return {
     create: jest.fn(),
     list: jest.fn(),
+    listOverdue: jest.fn(),
     get: jest.fn(),
     classify: jest.fn(),
     approve: jest.fn(),
     reject: jest.fn(),
     execute: jest.fn(),
+    extend: jest.fn(),
     getExportUrl: jest.fn(),
   };
 }
@@ -156,6 +160,36 @@ describe('ComplianceController', () => {
 
     expect(service.execute).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
     expect(result).toBe(expected);
+  });
+
+  describe('listOverdue', () => {
+    it('should delegate to service with tenant and query params', async () => {
+      const query: ComplianceOverdueFilterDto = { page: 1, pageSize: 20 };
+      const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+      service.listOverdue.mockResolvedValue(expected);
+
+      const result = await controller.listOverdue(mockTenant, query);
+      expect(result).toEqual(expected);
+      expect(service.listOverdue).toHaveBeenCalledWith(TENANT_ID, query);
+    });
+  });
+
+  describe('extend', () => {
+    it('should delegate to service with tenant, id, and dto', async () => {
+      const dto: ExtendComplianceRequestDto = {
+        extension_reason: 'Complex request requiring additional processing time',
+      };
+      const expected = { id: REQUEST_ID, extension_granted: true };
+      service.extend.mockResolvedValue(expected);
+
+      const result = await controller.extend(mockTenant, REQUEST_ID, dto);
+      expect(result).toEqual(expected);
+      expect(service.extend).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+        dto,
+      );
+    });
   });
 
   it('should call getExportUrl with tenant_id and request id', async () => {

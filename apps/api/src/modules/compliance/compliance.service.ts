@@ -9,6 +9,7 @@ import type {
   ComplianceDecisionDto,
   ComplianceFilterDto,
   CreateComplianceRequestDto,
+  ExtendComplianceRequestDto,
 } from '@school/shared';
 
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
@@ -16,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 import { AccessExportService } from './access-export.service';
 import { AnonymisationService } from './anonymisation.service';
+import { DsarTraversalService } from './dsar-traversal.service';
 
 @Injectable()
 export class ComplianceService {
@@ -24,6 +26,7 @@ export class ComplianceService {
     private readonly anonymisationService: AnonymisationService,
     private readonly accessExportService: AccessExportService,
     private readonly pastoralDsarService: PastoralDsarService,
+    private readonly dsarTraversalService: DsarTraversalService,
   ) {}
 
   /**
@@ -59,6 +62,7 @@ export class ComplianceService {
         subject_id: dto.subject_id,
         requested_by_user_id: userId,
         status: 'submitted',
+        deadline_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
       include: {
         requested_by: {
@@ -111,6 +115,79 @@ export class ComplianceService {
       data,
       meta: { page, pageSize, total },
     };
+  }
+
+  /**
+   * Grant a deadline extension (Article 12(3) — up to 2 additional months).
+   */
+  async extend(tenantId: string, requestId: string, dto: ExtendComplianceRequestDto) {
+    const request = await this.findOrThrow(tenantId, requestId);
+
+    if (request.status === 'completed' || request.status === 'rejected') {
+      throw new BadRequestException({
+        code: 'INVALID_STATUS',
+        message: 'Cannot extend a completed or rejected request',
+      });
+    }
+    if (request.extension_granted) {
+      throw new ConflictException({
+        code: 'EXTENSION_ALREADY_GRANTED',
+        message: 'An extension has already been granted for this request',
+      });
+    }
+
+    const baseDeadline =
+      request.deadline_at ?? new Date(request.created_at.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const extensionDeadline = new Date(baseDeadline.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+    return this.prisma.complianceRequest.update({
+      where: { id: requestId },
+      data: {
+        extension_granted: true,
+        extension_reason: dto.extension_reason,
+        extension_deadline_at: extensionDeadline,
+        deadline_exceeded: false,
+      },
+      include: {
+        requested_by: {
+          select: { id: true, first_name: true, last_name: true, email: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * List compliance requests that are past their deadline.
+   */
+  async listOverdue(tenantId: string, filters: { page: number; pageSize: number }) {
+    const now = new Date();
+    const notInStatuses: ('completed' | 'rejected')[] = ['completed', 'rejected'];
+    const where = {
+      tenant_id: tenantId,
+      status: { notIn: notInStatuses },
+      OR: [
+        { extension_granted: true, extension_deadline_at: { lt: now } },
+        { extension_granted: false, deadline_at: { lt: now } },
+      ],
+    };
+
+    const skip = (filters.page - 1) * filters.pageSize;
+    const [data, total] = await Promise.all([
+      this.prisma.complianceRequest.findMany({
+        where,
+        skip,
+        take: filters.pageSize,
+        orderBy: { deadline_at: 'asc' },
+        include: {
+          requested_by: {
+            select: { id: true, first_name: true, last_name: true, email: true },
+          },
+        },
+      }),
+      this.prisma.complianceRequest.count({ where }),
+    ]);
+
+    return { data, meta: { page: filters.page, pageSize: filters.pageSize, total } };
   }
 
   /**
@@ -265,7 +342,11 @@ export class ComplianceService {
     let exportFileKey: string | null = null;
     let pastoralReviewedRecords: unknown[] = [];
 
-    if (request.request_type === 'access_export' && request.subject_type === 'student') {
+    // Pastoral DSAR review gate for student access exports and portability
+    if (
+      (request.request_type === 'access_export' || request.request_type === 'portability') &&
+      request.subject_type === 'student'
+    ) {
       await this.pastoralDsarService.routeForReview(
         tenantId,
         requestId,
@@ -288,22 +369,26 @@ export class ComplianceService {
       );
     }
 
-    if (request.request_type === 'access_export') {
-      const result =
-        request.subject_type === 'student'
-          ? await this.accessExportService.exportSubjectData(
-              tenantId,
-              request.subject_type,
-              request.subject_id,
-              requestId,
-              { pastoral_dsar_records: pastoralReviewedRecords },
-            )
-          : await this.accessExportService.exportSubjectData(
-              tenantId,
-              request.subject_type,
-              request.subject_id,
-              requestId,
-            );
+    if (request.request_type === 'access_export' || request.request_type === 'portability') {
+      // Collect all subject data via DsarTraversalService
+      const dataPackage = await this.dsarTraversalService.collectAllData(
+        tenantId,
+        request.subject_type,
+        request.subject_id,
+      );
+
+      // Build extra sections (pastoral reviewed records for students)
+      const extraSections: Record<string, unknown> =
+        pastoralReviewedRecords.length > 0
+          ? { pastoral_dsar_records: pastoralReviewedRecords }
+          : {};
+
+      const result = await this.accessExportService.exportDataPackage(
+        tenantId,
+        requestId,
+        dataPackage,
+        extraSections,
+      );
       exportFileKey = result.s3Key;
     } else if (
       (request.request_type === 'erasure' || request.request_type === 'rectification') &&
@@ -314,6 +399,24 @@ export class ComplianceService {
         request.subject_type,
         request.subject_id,
       );
+
+      // Delete consent records for the subject
+      await this.prisma.consentRecord.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          subject_type: request.subject_type,
+          subject_id: request.subject_id,
+        },
+      });
+
+      // Delete tokenisation mappings for the subject
+      await this.prisma.gdprAnonymisationToken.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          entity_type: request.subject_type,
+          entity_id: request.subject_id,
+        },
+      });
     }
 
     return this.prisma.complianceRequest.update({
@@ -341,10 +444,10 @@ export class ComplianceService {
   async getExportUrl(tenantId: string, requestId: string) {
     const request = await this.findOrThrow(tenantId, requestId);
 
-    if (request.request_type !== 'access_export') {
+    if (request.request_type !== 'access_export' && request.request_type !== 'portability') {
       throw new NotFoundException({
         code: 'NOT_FOUND',
-        message: 'Export is only available for access_export requests',
+        message: 'Export is only available for access_export or portability requests',
       });
     }
 
@@ -447,6 +550,22 @@ export class ComplianceService {
           select: { id: true },
         });
         exists = !!household;
+        break;
+      }
+      case 'staff': {
+        const staff = await this.prisma.staffProfile.findFirst({
+          where: { id: subjectId, tenant_id: tenantId },
+          select: { id: true },
+        });
+        exists = !!staff;
+        break;
+      }
+      case 'applicant': {
+        const applicant = await this.prisma.application.findFirst({
+          where: { id: subjectId, tenant_id: tenantId },
+          select: { id: true },
+        });
+        exists = !!applicant;
         break;
       }
       case 'user': {

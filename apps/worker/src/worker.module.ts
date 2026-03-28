@@ -35,6 +35,7 @@ import { PublishAnnouncementProcessor } from './processors/communications/publis
 import { RetryFailedNotificationsProcessor } from './processors/communications/retry-failed.processor';
 import { StaleInquiryDetectionProcessor } from './processors/communications/stale-inquiry-detection.processor';
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
+import { DeadlineCheckProcessor } from './processors/compliance/deadline-check.processor';
 import { RetentionEnforcementProcessor } from './processors/compliance/retention-enforcement.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
@@ -213,6 +214,7 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     ImportFileCleanupProcessor,
     // Compliance processors
     ComplianceExecutionProcessor,
+    DeadlineCheckProcessor,
     RetentionEnforcementProcessor,
     // Payroll queue processors
     PayrollSessionGenerationProcessor,
