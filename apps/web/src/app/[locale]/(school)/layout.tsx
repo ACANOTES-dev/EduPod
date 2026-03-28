@@ -22,6 +22,7 @@ import {
   Clock,
   ClipboardCheck,
   ClipboardList,
+  FileCheck,
   FileText,
   DollarSign,
   GraduationCap,
@@ -238,6 +239,23 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [{ icon: BarChart3, labelKey: 'nav.reports', href: '/reports' }],
   },
   {
+    labelKey: 'nav.regulatory',
+    roles: ADMIN_ROLES,
+    items: [
+      { icon: Shield, labelKey: 'nav.regulatoryDashboard', href: '/regulatory' },
+      { icon: CalendarDays, labelKey: 'nav.regulatoryCalendar', href: '/regulatory/calendar' },
+      { icon: FileCheck, labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
+      { icon: FileText, labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
+      { icon: ClipboardList, labelKey: 'nav.regulatoryOctoberReturns', href: '/regulatory/october-returns' },
+      { icon: ShieldCheck, labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
+      { icon: ClipboardCheck, labelKey: 'nav.regulatoryCba', href: '/regulatory/cba' },
+      { icon: Users, labelKey: 'nav.regulatoryTransfers', href: '/regulatory/transfers' },
+      { icon: Shield, labelKey: 'nav.regulatoryAntiBullying', href: '/regulatory/anti-bullying' },
+      { icon: FileText, labelKey: 'nav.regulatorySubmissions', href: '/regulatory/submissions' },
+      { icon: ShieldCheck, labelKey: 'nav.regulatorySafeguarding', href: '/regulatory/safeguarding' },
+    ],
+  },
+  {
     labelKey: 'nav.school',
     roles: ADMIN_ROLES,
     items: [
@@ -352,6 +370,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     if (path.startsWith('/wellbeing/')) return t('nav.wellbeing');
     if (path.startsWith('/settings/legal')) return t('nav.legal');
     if (path.startsWith('/privacy-notice')) return t('nav.legal');
+    if (path.startsWith('/regulatory')) return t('nav.regulatory');
     return t('dashboard.title');
   }, [pathname, t]);
 

@@ -48,6 +48,7 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/safeguarding',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
+  { prefix: '/regulatory', roles: ADMIN_ROLES },
 
   // Staff/admin pages — parents excluded
   {
