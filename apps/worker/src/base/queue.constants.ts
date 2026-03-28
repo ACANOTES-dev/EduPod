@@ -9,6 +9,7 @@ export const QUEUE_NAMES = {
   NOTIFICATIONS: 'notifications',
   PASTORAL: 'pastoral',
   PAYROLL: 'payroll',
+  REGULATORY: 'regulatory',
   REPORTS: 'reports',
   SCHEDULING: 'scheduling',
   SEARCH_SYNC: 'search-sync',

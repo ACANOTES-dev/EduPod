@@ -3,6 +3,8 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
+import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
+import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
 import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
   BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
@@ -45,6 +47,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.WELLBEING) private readonly wellbeingQueue: Queue,
     @InjectQueue(QUEUE_NAMES.SECURITY) private readonly securityQueue: Queue,
     @InjectQueue(QUEUE_NAMES.COMPLIANCE) private readonly complianceQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -55,6 +58,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerCleanupCronJobs();
     await this.registerSecurityCronJobs();
     await this.registerComplianceCronJobs();
+    await this.registerRegulatoryCronJobs();
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -364,5 +368,39 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${DEADLINE_CHECK_JOB} (daily 06:00 UTC)`);
+  }
+
+  private async registerRegulatoryCronJobs(): Promise<void> {
+    // ── regulatory:scan-tusla-thresholds ─────────────────────────────────────
+    // Runs daily at 06:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Scans cumulative absence counts against the Tusla 20-day threshold.
+    // Creates AttendancePatternAlert records for approaching/exceeded students.
+    await this.regulatoryQueue.add(
+      REGULATORY_TUSLA_THRESHOLD_SCAN_JOB,
+      {},
+      {
+        repeat: { pattern: '0 6 * * *' },
+        jobId: `cron:${REGULATORY_TUSLA_THRESHOLD_SCAN_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REGULATORY_TUSLA_THRESHOLD_SCAN_JOB} (daily 06:00 UTC)`);
+
+    // ── regulatory:check-deadlines ───────────────────────────────────────────
+    // Runs daily at 07:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Checks regulatory calendar events for approaching deadlines based on
+    // each event's reminder_days configuration. Creates in-app notifications.
+    await this.regulatoryQueue.add(
+      REGULATORY_DEADLINE_CHECK_JOB,
+      {},
+      {
+        repeat: { pattern: '0 7 * * *' },
+        jobId: `cron:${REGULATORY_DEADLINE_CHECK_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${REGULATORY_DEADLINE_CHECK_JOB} (daily 07:00 UTC)`);
   }
 }

@@ -178,14 +178,14 @@ These modules have NO downstream dependents. Changes are contained:
 ### RegulatoryModule
 
 - **Last verified**: 2026-03-28
-- **Exports**: `RegulatoryCalendarService`, `RegulatorySubmissionService`
-- **Controllers**: 1 controller (RegulatoryController) — Phase A CRUD endpoints for calendar events and submissions
-- **Imports**: `AuthModule`
-- **Consumed by**: None yet externally
-- **Blast radius**: LOW. Self-contained module with no downstream dependents. Reads from `students`, `daily_attendance_summaries`, `attendance_records`, `behaviour_sanctions`, `behaviour_exclusion_cases`, `staff_profiles`, `subjects`, `classes` in later phases (B–E) — read-only.
-- **Cross-module Prisma-direct reads** (planned for Phases B–E): `students`, `daily_attendance_summaries`, `attendance_records`, `behaviour_sanctions`, `behaviour_exclusion_cases`, `staff_profiles`, `subjects`, `classes`, `class_enrolments`
-- **Danger**: Schema changes to `daily_attendance_summaries` or `attendance_records` will affect Tusla threshold/SAR generation (Phase B). Schema changes to `behaviour_sanctions` or `behaviour_exclusion_cases` will affect suspension/expulsion notification queries (Phase B). Schema changes to `staff_profiles` or `subjects` will affect DES September Returns pipeline (Phase C).
-- **Queues**: 5 planned jobs (Phase E): `regulatory:check-deadlines`, `regulatory:scan-tusla-thresholds`, `regulatory:schedule-ppod-sync`, `regulatory:generate-des-files`, `regulatory:cba-sync-check`
+- **Exports**: `RegulatoryCalendarService`, `RegulatorySubmissionService`, `RegulatoryDashboardService`, `RegulatoryTuslaService`, `RegulatoryDesService`, `RegulatoryOctoberReturnsService`, `RegulatoryPpodService`, `RegulatoryCbaService`, `RegulatoryDesMappingsService`, `RegulatoryTuslaMappingsService`, `RegulatoryReducedDaysService`, `RegulatoryTransfersService`
+- **Controllers**: 1 controller (RegulatoryController) — Phases A–E: calendar CRUD, submission CRUD, Tusla compliance, DES returns, October returns, PPOD/POD sync, CBA sync, transfers, dashboard
+- **Imports**: `AuthModule`, `S3Module`
+- **Consumed by**: None yet externally. Worker module has 5 processors on the `regulatory` queue.
+- **Blast radius**: LOW. Self-contained module with no downstream dependents.
+- **Cross-module Prisma-direct reads**: `students`, `daily_attendance_summaries`, `attendance_records`, `behaviour_sanctions`, `behaviour_exclusion_cases`, `staff_profiles`, `subjects`, `classes`, `class_enrolments`, `ppod_student_mappings`, `ppod_sync_logs`, `attendance_pattern_alerts`
+- **Danger**: Schema changes to `daily_attendance_summaries` or `attendance_records` will affect Tusla threshold/SAR generation and the tusla-threshold-scan worker processor. Schema changes to `behaviour_sanctions` or `behaviour_exclusion_cases` will affect suspension/expulsion notification queries. Schema changes to `staff_profiles` or `subjects` will affect DES September Returns pipeline. Schema changes to `ppod_student_mappings` or `ppod_sync_logs` will affect PPOD sync/import processors.
+- **Queues**: `regulatory` queue with 5 jobs: `regulatory:check-deadlines` (cron 07:00), `regulatory:scan-tusla-thresholds` (cron 06:00), `regulatory:generate-des-files` (on-demand), `regulatory:ppod-sync` (on-demand), `regulatory:ppod-import` (on-demand)
 
 ComplianceModule note: anonymisation/export flows now import `SearchModule` and `S3Module` for secondary cleanup. Failures there leave stale search/cache/export artifacts, but the transactional DB anonymisation path still completes because post-commit cleanup is logged rather than rolled back. Phase F added `DsarTraversalService` which queries ~20 Prisma models across all modules for DSAR data collection — no new module imports, uses direct Prisma reads. Student DSAR traversal now also includes gradebook `period_grade_snapshots`, `student_competency_snapshots`, and `student_academic_risk_alerts`. Access export / portability execution now writes an audit-only GDPR token usage log via `GdprTokenService` using the `never` DSAR policies before the compliance request is marked completed. `compliance:deadline-check` cron job added to worker (compliance queue). Erasure pipeline now also cleans up `consent_records` and `gdpr_anonymisation_tokens`.
 

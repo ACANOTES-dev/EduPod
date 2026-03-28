@@ -6,6 +6,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
+import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
@@ -111,6 +112,10 @@ describe('RegulatoryController', () => {
     syncExport: jest.Mock;
     syncStudent: jest.Mock;
   };
+  let mockDashboardService: {
+    getDashboardSummary: jest.Mock;
+    getOverdueItems: jest.Mock;
+  };
   let mockTransfersService: {
     findAll: jest.Mock;
     findOne: jest.Mock;
@@ -192,6 +197,11 @@ describe('RegulatoryController', () => {
       syncStudent: jest.fn(),
     };
 
+    mockDashboardService = {
+      getDashboardSummary: jest.fn(),
+      getOverdueItems: jest.fn(),
+    };
+
     mockTransfersService = {
       findAll: jest.fn(),
       findOne: jest.fn(),
@@ -206,6 +216,7 @@ describe('RegulatoryController', () => {
         { provide: RegulatorySubmissionService, useValue: mockSubmissionService },
         { provide: RegulatoryTuslaMappingsService, useValue: mockTuslaMappingsService },
         { provide: RegulatoryTuslaService, useValue: mockTuslaService },
+        { provide: RegulatoryDashboardService, useValue: mockDashboardService },
         { provide: RegulatoryDesMappingsService, useValue: mockDesMappingsService },
         { provide: RegulatoryDesService, useValue: mockDesService },
         { provide: RegulatoryOctoberReturnsService, useValue: mockOctoberReturnsService },
@@ -764,5 +775,36 @@ describe('RegulatoryController', () => {
     const result = await controller.updateTransfer(mockTenant, TRANSFER_ID, dto);
 
     expect(result).toEqual(expected);
+  });
+
+  // ─── Dashboard ──────────────────────────────────────────────────────────────
+
+  it('should return dashboard summary', async () => {
+    const expected = {
+      calendar: { upcoming_deadlines: 2, overdue: 1, next_deadline: null },
+      tusla: { students_approaching_threshold: 0, students_exceeded_threshold: 0, active_alerts: 0 },
+      des: { readiness_status: 'not_started', recent_submissions: 0 },
+      october_returns: { readiness_status: 'not_started' },
+      ppod: { synced: 0, pending: 0, errors: 0, last_sync_at: null },
+      cba: { pending_sync: 0, synced: 0, last_sync_at: null },
+    };
+    mockDashboardService.getDashboardSummary.mockResolvedValue(expected);
+
+    const result = await controller.getDashboardSummary(mockTenant);
+
+    expect(result).toEqual(expected);
+    expect(mockDashboardService.getDashboardSummary).toHaveBeenCalledWith(TENANT_ID);
+  });
+
+  it('should return overdue items', async () => {
+    const expected = [
+      { id: EVENT_ID, type: 'calendar_event', title: 'Overdue Event', domain: 'tusla_attendance', due_date: new Date('2026-03-01'), days_overdue: 27 },
+    ];
+    mockDashboardService.getOverdueItems.mockResolvedValue(expected);
+
+    const result = await controller.getDashboardOverdue(mockTenant);
+
+    expect(result).toEqual(expected);
+    expect(mockDashboardService.getOverdueItems).toHaveBeenCalledWith(TENANT_ID);
   });
 });

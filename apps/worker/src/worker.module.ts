@@ -71,6 +71,11 @@ import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-che
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
+import { RegulatoryDeadlineCheckProcessor } from './processors/regulatory/deadline-check.processor';
+import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-returns-generate.processor';
+import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
+import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
+import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 
 @Module({
@@ -150,6 +155,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
       {
         name: QUEUE_NAMES.COMPLIANCE,
         defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+      },
+      {
+        name: QUEUE_NAMES.REGULATORY,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
       },
     ),
   ],
@@ -242,6 +251,12 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     KeyRotationProcessor,
     AnomalyScanProcessor,
     BreachDeadlineProcessor,
+    // Regulatory queue processors
+    RegulatoryDeadlineCheckProcessor,
+    RegulatoryDesGenerateProcessor,
+    RegulatoryPpodImportProcessor,
+    RegulatoryPpodSyncProcessor,
+    RegulatoryTuslaThresholdScanProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

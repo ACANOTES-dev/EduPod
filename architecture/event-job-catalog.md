@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **15 queues**, **67 job types**, **20 cron jobs**
+- **16 queues**, **72 job types**, **22 cron jobs**
 
 ---
 
@@ -1003,41 +1003,47 @@ Daily cron fires
 
 ---
 
-## Queue: `regulatory` (PLANNED — Phase E)
+## Queue: `regulatory`
 
-> **Status**: Skeleton entries. Queue and processors will be implemented in Phase E.
+> **Status**: Implemented in Phase E. 5 jobs, 2 cron schedules.
+> **Retry**: 3 attempts, exponential backoff 5s, removeOnComplete 50, removeOnFail 200.
 
-### Job: `regulatory:check-deadlines` (PLANNED)
+### Job: `regulatory:check-deadlines`
 
 - **Trigger**: Cron — daily at 07:00 UTC
 - **Payload**: `{}` (cross-tenant)
-- **Processor**: `RegulatoryDeadlineCheckProcessor` (Phase E)
-- **Side effects**: Scans `regulatory_calendar_events` for upcoming deadlines. Creates in-app notifications based on `reminder_days` configuration.
+- **Processor**: `RegulatoryDeadlineCheckProcessor` (`apps/worker/src/processors/regulatory/deadline-check.processor.ts`)
+- **Side effects**: Iterates active tenants. For each tenant, queries `regulatory_calendar_events` where status is not terminal and `due_date - today` matches any value in the event's `reminder_days` Int[] array. Creates deduplicated in-app notifications for tenant admin users. Also flags overdue events (due_date < today).
+- **Downstream**: Creates `notification` records (channel: `in_app`, template: `regulatory_deadline_reminder` / `regulatory_deadline_overdue`).
 
-### Job: `regulatory:scan-tusla-thresholds` (PLANNED)
+### Job: `regulatory:scan-tusla-thresholds`
 
-- **Trigger**: Cron — daily at 08:00 UTC
+- **Trigger**: Cron — daily at 06:00 UTC
 - **Payload**: `{}` (cross-tenant)
-- **Processor**: `TuslaThresholdScanProcessor` (Phase E)
-- **Side effects**: Scans `daily_attendance_summaries` for students approaching or exceeding the 20-day threshold. Creates alerts for school admin.
+- **Processor**: `RegulatoryTuslaThresholdScanProcessor` (`apps/worker/src/processors/regulatory/tusla-threshold-scan.processor.ts`)
+- **Side effects**: Iterates active tenants. Counts cumulative absence days per student for the current academic year from `attendance_records`. Students at ≥80% of the 20-day Tusla threshold receive an `approaching` alert; students at ≥100% receive an `exceeded` alert. Creates `AttendancePatternAlert` records with `alert_type: 'excessive_absences'` and `details_json.source: 'tusla_threshold_scan'`. P2002 unique constraint violations are swallowed (idempotent re-runs).
+- **Downstream**: Creates `attendance_pattern_alerts` records.
 
-### Job: `regulatory:schedule-ppod-sync` (PLANNED)
+### Job: `regulatory:generate-des-files`
 
-- **Trigger**: Cron — weekly on Monday at 06:00 UTC
-- **Payload**: `{}` (cross-tenant)
-- **Processor**: `PpodSyncScheduleProcessor` (Phase E)
-- **Side effects**: Checks for changed student records since last sync. Enqueues per-tenant sync jobs if changes detected.
+- **Trigger**: On-demand (enqueued from API)
+- **Payload**: `{ tenant_id, user_id, academic_year, file_type }`
+- **Processor**: `RegulatoryDesGenerateProcessor` (`apps/worker/src/processors/regulatory/des-returns-generate.processor.ts`)
+- **Side effects**: Runs DES data collection for the specified file type (file_a, file_c, file_d, file_e, form_tl). Updates `regulatory_submissions` status to `in_progress`. Uses `TenantAwareJob` for RLS context.
+- **Downstream**: Updates `regulatory_submissions` records.
 
-### Job: `regulatory:generate-des-files` (PLANNED)
+### Job: `regulatory:ppod-sync`
 
-- **Trigger**: Manual or scheduled via calendar events
-- **Payload**: `{ tenant_id, academic_year, file_type }`
-- **Processor**: `DesFileGenerateProcessor` (Phase E)
-- **Side effects**: Runs DES data collection pipeline, validates, formats, and stores generated file in S3. Creates `RegulatorySubmission` record.
+- **Trigger**: On-demand (enqueued from API)
+- **Payload**: `{ tenant_id, user_id, database_type, scope }`
+- **Processor**: `RegulatoryPpodSyncProcessor` (`apps/worker/src/processors/regulatory/ppod-sync.processor.ts`)
+- **Side effects**: Queries active students, compares data hashes against last sync, marks changed `ppod_student_mappings` as `pending`. Creates `ppod_sync_logs` entry. Uses `TenantAwareJob` for RLS context.
+- **Downstream**: Updates `ppod_student_mappings`, creates `ppod_sync_logs` records.
 
-### Job: `regulatory:cba-sync-check` (PLANNED)
+### Job: `regulatory:ppod-import`
 
-- **Trigger**: Cron — weekly on Wednesday at 07:00 UTC
-- **Payload**: `{}` (cross-tenant)
-- **Processor**: `CbaSyncCheckProcessor` (Phase E)
-- **Side effects**: Checks for unsynced CBA results. Creates alerts for school admin when CBA results are pending sync to PPOD.
+- **Trigger**: On-demand (enqueued from API)
+- **Payload**: `{ tenant_id, user_id, database_type, csv_content }`
+- **Processor**: `RegulatoryPpodImportProcessor` (`apps/worker/src/processors/regulatory/ppod-import.processor.ts`)
+- **Side effects**: Parses CSV content, matches students by PPS number or name+DOB, creates/updates `ppod_student_mappings`. Creates `ppod_sync_logs` entry with import results. Uses `TenantAwareJob` for RLS context.
+- **Downstream**: Creates/updates `ppod_student_mappings`, creates `ppod_sync_logs` records.

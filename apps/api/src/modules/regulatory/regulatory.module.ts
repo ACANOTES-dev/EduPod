@@ -11,6 +11,7 @@ import type { PodTransport } from './adapters/pod-transport.interface';
 import { POD_TRANSPORT } from './adapters/pod-transport.interface';
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
+import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
@@ -39,6 +40,7 @@ import { RegulatoryController } from './regulatory.controller';
     },
     RegulatoryCalendarService,
     RegulatoryCbaService,
+    RegulatoryDashboardService,
     RegulatoryDesMappingsService,
     RegulatoryDesService,
     RegulatoryOctoberReturnsService,
@@ -52,6 +54,7 @@ import { RegulatoryController } from './regulatory.controller';
   exports: [
     RegulatoryCalendarService,
     RegulatoryCbaService,
+    RegulatoryDashboardService,
     RegulatoryDesMappingsService,
     RegulatoryDesService,
     RegulatoryOctoberReturnsService,

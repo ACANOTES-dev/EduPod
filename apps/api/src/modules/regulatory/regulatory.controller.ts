@@ -74,6 +74,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { RegulatoryCalendarService } from './regulatory-calendar.service';
 import { RegulatoryCbaService } from './regulatory-cba.service';
+import { RegulatoryDashboardService } from './regulatory-dashboard.service';
 import { RegulatoryDesMappingsService } from './regulatory-des-mappings.service';
 import { RegulatoryDesService } from './regulatory-des.service';
 import { RegulatoryOctoberReturnsService } from './regulatory-october-returns.service';
@@ -157,6 +158,7 @@ export class RegulatoryController {
   constructor(
     private readonly calendarService: RegulatoryCalendarService,
     private readonly cbaService: RegulatoryCbaService,
+    private readonly dashboardService: RegulatoryDashboardService,
     private readonly desMappingsService: RegulatoryDesMappingsService,
     private readonly desService: RegulatoryDesService,
     private readonly octoberReturnsService: RegulatoryOctoberReturnsService,
@@ -167,6 +169,22 @@ export class RegulatoryController {
     private readonly tuslaMappingsService: RegulatoryTuslaMappingsService,
     private readonly tuslaService: RegulatoryTuslaService,
   ) {}
+
+  // ─── Dashboard ──────────────────────────────────────────────────────────────
+
+  // GET /v1/regulatory/dashboard
+  @Get('dashboard')
+  @RequiresPermission('regulatory.view')
+  async getDashboardSummary(@CurrentTenant() tenant: TenantContext) {
+    return this.dashboardService.getDashboardSummary(tenant.tenant_id);
+  }
+
+  // GET /v1/regulatory/dashboard/overdue
+  @Get('dashboard/overdue')
+  @RequiresPermission('regulatory.view')
+  async getDashboardOverdue(@CurrentTenant() tenant: TenantContext) {
+    return this.dashboardService.getOverdueItems(tenant.tenant_id);
+  }
 
   // ─── Calendar ───────────────────────────────────────────────────────────────
 
