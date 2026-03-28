@@ -82,7 +82,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | G     | Audit Logging            | COMPLETE    | —          | J       | 2–3 days    | [Phase-G](./Phase-G-Audit-Logging.md)                |
 | H     | Data Subject Protections | NOT STARTED | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
 | I     | Retention Engine         | COMPLETE    | C          | —       | 3–4 days    | [Phase-I](./Phase-I-Retention-Engine.md)             |
-| J     | Breach Detection         | NOT STARTED | G          | —       | 3–4 days    | [Phase-J](./Phase-J-Breach-Detection.md)             |
+| J     | Breach Detection         | COMPLETE    | G          | —       | 3–4 days    | [Phase-J](./Phase-J-Breach-Detection.md)             |
 | K     | AI Decision Audit Trail  | COMPLETE    | B          | —       | 2 days      | [Phase-K](./Phase-K-AI-Audit-Trail.md)               |
 | L     | Security Hardening       | COMPLETE    | —          | —       | 4–5 days    | [Phase-L](./Phase-L-Security-Hardening.md)           |
 
@@ -292,3 +292,28 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Architecture files updated:** `module-blast-radius.md` (AiAuditService entry added under GdprModule)
 - **Unlocks:** None (terminal phase)
 - **Notes:** 24-month retention for `ai_processing_logs` aligns with academic appeal periods. The `recordDecision()` method is available for future integration with AI grading acceptance/rejection UI. All 10 AI services now log to the audit trail after every Anthropic API call, with timing, model, prompt hash, and tokenisation status.
+
+---
+
+### Phase J: Breach Detection & Management
+
+- **Status:** COMPLETE
+- **Completed:** 2026-03-28
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 7 agents)
+- **Commit(s):** 881f5ab
+- **Key decisions:**
+  - Tables are platform-level (no `tenant_id`, no RLS) — security incidents may span multiple tenants
+  - Detection rules live in the worker (`apps/worker/src/processors/security/rules/`), not the API — they query `audit_logs` directly via `$queryRaw` (safe tagged template)
+  - Types prefixed with `Security` (e.g., `SecurityIncidentStatus`) to avoid collision with behaviour module's `IncidentStatus`
+  - Processors extend `WorkerHost` (not `TenantAwareJob`) — these are cross-tenant platform operations
+  - Deduplication: anomaly scan checks for existing open incident of same `incident_type` before creating new one
+  - Escalation events are idempotent — breach-deadline processor checks for existing escalation before creating duplicates
+  - Off-hours rule uses UTC (00:00–05:00) for simplicity — per-tenant timezone enhancement deferred
+  - Controller notifications (Article 33(2)) and DPC notifications are recorded but not auto-sent — platform admin acts on the escalation events via the UI
+- **Schema changes:** `20260329120000_add_security_incidents` — `security_incidents` + `security_incident_events` tables, no RLS
+- **New endpoints:** `GET /v1/admin/security-incidents`, `POST /v1/admin/security-incidents`, `GET /v1/admin/security-incidents/:id`, `PATCH /v1/admin/security-incidents/:id`, `POST /v1/admin/security-incidents/:id/events`, `POST /v1/admin/security-incidents/:id/notify-controllers`, `POST /v1/admin/security-incidents/:id/notify-dpc`
+- **New frontend pages:** Platform admin incident dashboard (`/admin/security-incidents`), incident detail page (`/admin/security-incidents/:id`)
+- **Tests added:** 61 tests — 25 API (13 service + 12 controller) + 36 worker (14 detection rules + 12 anomaly scan + 10 breach deadline)
+- **Architecture files updated:** `event-job-catalog.md` (2 new security crons), `state-machines.md` (SecurityIncidentStatus lifecycle), `module-blast-radius.md` (SecurityIncidentsModule in Tier 4)
+- **Unlocks:** None (terminal phase)
+- **Notes:** Detection rule thresholds are hardcoded per spec: 100 records/min for unusual access, 10 failures/5min for auth spike, 20 denials/10min for permission probe, 5 lockouts/hr for brute force, 50 records for off-hours bulk, 3 exports/hr for data export spike. Cross-tenant attempt (RLS violation) is critical severity and should never fire in normal operation. Anomaly scan runs every 15 minutes. Breach deadline runs hourly with escalation at 12h, 48h, and 72h.
