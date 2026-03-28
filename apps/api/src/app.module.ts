@@ -49,6 +49,7 @@ import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SchedulingRunsModule } from './modules/scheduling-runs/scheduling-runs.module';
 import { SchoolClosuresModule } from './modules/school-closures/school-closures.module';
 import { SearchModule } from './modules/search/search.module';
+import { SecurityIncidentsModule } from './modules/security-incidents/security-incidents.module';
 import { StaffAvailabilityModule } from './modules/staff-availability/staff-availability.module';
 import { StaffPreferencesModule } from './modules/staff-preferences/staff-preferences.module';
 import { StaffProfilesModule } from './modules/staff-profiles/staff-profiles.module';
@@ -131,6 +132,7 @@ import { WebsiteModule } from './modules/website/website.module';
     RegistrationModule,
     SchedulingModule,
     StaffWellbeingModule,
+    SecurityIncidentsModule,
   ],
 })
 export class AppModule implements NestModule {

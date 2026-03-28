@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Menu,
+  ShieldAlert,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     { icon: Building2, label: 'Tenants', href: `/${locale}/admin/tenants` },
     { icon: Activity, label: 'Health', href: `/${locale}/admin/health` },
     { icon: ClipboardList, label: 'Audit Log', href: `/${locale}/admin/audit-log` },
+    { icon: ShieldAlert, label: 'Security Incidents', href: `/${locale}/admin/security-incidents` },
   ];
 
   const isActive = (href: string) => {

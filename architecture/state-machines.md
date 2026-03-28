@@ -74,7 +74,7 @@ rejected*
 withdrawn*
 ```
 - **Guarded by**: `applications.service.ts` line 542 (transition map) + dedicated methods
-- **Side effects**: `submitted` generates application number (SequenceService). `accepted` via approval triggers registration flow. `withdrawn` by applicant.
+- **Side effects**: `submitted` generates application number (SequenceService), materialises applicant consent records from `payload_json.__consents`, and may create a parent `whatsapp_channel` consent. `accepted` via approval triggers registration flow. `withdrawn` by applicant.
 - **Danger**: `draft -> submitted` is handled by a separate submission method, not the transition map. The transition map only covers post-submission states.
 
 ### FormDefinitionStatus (Admission Forms)
@@ -85,6 +85,16 @@ archived*
 ```
 - **Guarded by**: `admission-forms.service.ts`
 - **Side effects**: `published` makes form available for applications. Publishing a new version auto-archives the previous one.
+
+### ConsentRecordStatus
+```
+granted   -> [withdrawn, expired]
+withdrawn*
+expired*
+```
+- **Guarded by**: `gdpr/consent.service.ts`
+- **Side effects**: `withdrawn` takes effect synchronously on the next downstream read. WhatsApp notifications fall back to SMS, AI grading/comments/progress summaries reject requests, risk detection skips the student, allergy reports hide consent-gated rows, and cross-school benchmarking excludes the student immediately.
+- **Note**: Active uniqueness is enforced by a partial unique index on `(tenant_id, subject_type, subject_id, consent_type)` where `status = 'granted'`, so withdrawn consent can be re-granted as a new row.
 
 ---
 
@@ -197,7 +207,7 @@ delivered -> [read]
 failed    -> [queued (retry)]
 read*
 ```
-- **Side effects**: Retry is handled by `communications:retry-failed-notifications` cron job.
+- **Side effects**: Retry is handled by `communications:retry-failed-notifications` cron job. WhatsApp delivery also has a consent gate: missing active `whatsapp_channel` consent immediately transitions the original notification to `failed` and creates an SMS fallback notification.
 
 ### ParentInquiryStatus
 ```
@@ -604,3 +614,27 @@ withdrawn_appeal*
   - `active -> archived`: Record excluded from default list views, search, analytics. Still fully readable with "Include archived" toggle.
   - `archived -> anonymised`: PII fields replaced (student names → hash, free text → "[Archived content]"). Entity history logged. Meilisearch entry deleted. IRREVERSIBLE.
 - **Guarded by**: `RetentionCheckProcessor` (worker job only — no manual API transition)
+
+---
+
+## SecurityIncidentStatus (Phase J)
+
+- **Field**: `status` on `security_incidents`
+- **Values**: `detected`, `investigating`, `contained`, `reported`, `resolved`, `closed`
+- **Initial state**: `detected`
+- **Transitions**:
+  ```
+  detected      -> [investigating, contained]
+  investigating -> [contained, resolved]
+  contained     -> [reported, resolved]
+  reported      -> [resolved]
+  resolved      -> [closed]
+  closed*
+  ```
+- **Side effects**:
+  - Every transition: a `status_change` event is added to `security_incident_events` timeline
+  - `contained -> reported`: should correlate with DPC notification (72-hour Article 33 requirement)
+  - `detected` → `investigating`: acknowledges the incident, stops the 12-hour escalation cron
+- **Guarded by**: `INCIDENT_STATUS_TRANSITIONS` map in `@school/shared` + validated in `SecurityIncidentsService.update()`
+- **Platform-level**: No tenant_id. Incidents may span multiple tenants.
+- **72-hour clock**: Starts at `detected_at`. Breach deadline cron fires escalation events at 12h, 48h, and 72h for high/critical severity incidents.
