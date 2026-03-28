@@ -20,6 +20,9 @@ export interface ComplianceRequest {
   extension_deadline_at: string | null;
   deadline_exceeded: boolean;
   rectification_note: string | null;
+  age_gated_review: boolean;
+  age_gated_confirmed_by: string | null;
+  age_gated_confirmed_at: string | null;
   created_at: string;
   updated_at: string;
 }

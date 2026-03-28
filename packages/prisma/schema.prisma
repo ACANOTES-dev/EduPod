@@ -1014,8 +1014,9 @@ model User {
   staff_surveys_created StaffSurvey[] @relation("staff_survey_creator")
 
   // GDPR Relations
-  gdprUsageTriggered GdprTokenUsageLog[] @relation("gdpr_usage_triggered_by")
-  gdprUsageOverrides GdprTokenUsageLog[] @relation("gdpr_usage_override_by")
+  gdprUsageTriggered     GdprTokenUsageLog[] @relation("gdpr_usage_triggered_by")
+  gdprUsageOverrides     GdprTokenUsageLog[] @relation("gdpr_usage_override_by")
+  age_gate_confirmations ComplianceRequest[] @relation("compliance_age_gate_confirmer")
   dpa_acceptances                 DataProcessingAgreement[]      @relation("dpa_accepted_by")
   privacy_notice_versions_created PrivacyNoticeVersion[]         @relation("privacy_notice_created_by")
   privacy_notice_acknowledgements PrivacyNoticeAcknowledgement[] @relation("privacy_notice_acknowledged_by")
@@ -4331,12 +4332,16 @@ model ComplianceRequest {
   extension_deadline_at DateTime?                 @db.Timestamptz(6)
   deadline_exceeded     Boolean                   @default(false)
   rectification_note    String?
+  age_gated_review        Boolean                   @default(false)
+  age_gated_confirmed_by  String?                   @db.Uuid
+  age_gated_confirmed_at  DateTime?                 @db.Timestamptz(6)
   created_at            DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at            DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
-  tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  requested_by User   @relation("compliance_requested_by", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  tenant             Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  requested_by       User   @relation("compliance_requested_by", fields: [requested_by_user_id], references: [id], onDelete: Cascade)
+  age_gate_confirmer User?  @relation("compliance_age_gate_confirmer", fields: [age_gated_confirmed_by], references: [id], onDelete: SetNull)
 
   // Pastoral Care Relations
   pastoral_dsar_reviews PastoralDsarReview[]

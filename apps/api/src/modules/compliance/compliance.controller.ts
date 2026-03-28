@@ -15,6 +15,7 @@ import {
   complianceDecisionSchema,
   complianceFilterSchema,
   complianceOverdueFilterSchema,
+  confirmAgeGateSchema,
   createComplianceRequestSchema,
   dsarExportFormatSchema,
   extendComplianceRequestSchema,
@@ -24,6 +25,7 @@ import type {
   ComplianceDecisionDto,
   ComplianceFilterDto,
   ComplianceOverdueFilterDto,
+  ConfirmAgeGateDto,
   CreateComplianceRequestDto,
   DsarExportFormatDto,
   ExtendComplianceRequestDto,
@@ -142,6 +144,25 @@ export class ComplianceController {
     dto: ExtendComplianceRequestDto,
   ) {
     return this.complianceService.extend(tenant.tenant_id, id, dto);
+  }
+
+  // POST /v1/compliance-requests/:id/confirm-age-gate
+  @Post(':id/confirm-age-gate')
+  @HttpCode(HttpStatus.OK)
+  @RequiresPermission('compliance.manage')
+  async confirmAgeGate(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(confirmAgeGateSchema))
+    dto: ConfirmAgeGateDto,
+  ) {
+    return this.complianceService.confirmAgeGate(
+      tenant.tenant_id,
+      id,
+      user.sub,
+      dto.confirmation_notes,
+    );
   }
 
   @Get(':id/export')

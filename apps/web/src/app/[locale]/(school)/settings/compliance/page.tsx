@@ -16,8 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  toast,
 } from '@school/ui';
-import { Plus, Eye, CheckCircle, XCircle, Play, Tag } from 'lucide-react';
+import { CheckCircle, Eye, Play, Plus, ShieldCheck, Tag, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -42,6 +43,9 @@ interface ComplianceRequest {
   completed_at: string | null;
   rejected_at: string | null;
   rejection_reason: string | null;
+  age_gated_review: boolean;
+  age_gated_confirmed_by: string | null;
+  age_gated_confirmed_at: string | null;
 }
 
 interface ComplianceResponse {
@@ -303,6 +307,8 @@ export default function CompliancePage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const [newDialogOpen, setNewDialogOpen] = React.useState(false);
   const [selectedRequest, setSelectedRequest] = React.useState<ComplianceRequest | null>(null);
+  const [ageGateConfirmId, setAgeGateConfirmId] = React.useState<string | null>(null);
+  const [ageGateConfirming, setAgeGateConfirming] = React.useState(false);
 
   const fetchRequests = React.useCallback(
     async (p: number) => {
@@ -366,9 +372,23 @@ export default function CompliancePage() {
       key: 'status',
       header: t('status'),
       render: (row: ComplianceRequest) => (
-        <StatusBadge status={statusVariantMap[row.status] ?? 'neutral'} dot>
-          {row.status}
-        </StatusBadge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={statusVariantMap[row.status] ?? 'neutral'} dot>
+            {row.status}
+          </StatusBadge>
+          {row.age_gated_review && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                row.age_gated_confirmed_at
+                  ? 'bg-success-fill/10 text-success-text'
+                  : 'bg-warning-surface text-warning-text'
+              }`}
+            >
+              <ShieldCheck className="h-3 w-3" />
+              {row.age_gated_confirmed_at ? 'Age-gate confirmed' : 'Age-gate review needed'}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -382,17 +402,32 @@ export default function CompliancePage() {
       key: 'actions',
       header: t('actions'),
       render: (row: ComplianceRequest) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedRequest(row);
-          }}
-        >
-          <Eye className="me-1.5 h-3.5 w-3.5" />
-          {t('view')}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRequest(row);
+            }}
+          >
+            <Eye className="me-1.5 h-3.5 w-3.5" />
+            {t('view')}
+          </Button>
+          {row.age_gated_review && !row.age_gated_confirmed_at && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAgeGateConfirmId(row.id);
+              }}
+            >
+              <ShieldCheck className="me-1 h-3.5 w-3.5" />
+              Confirm Age-Gate
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -451,6 +486,58 @@ export default function CompliancePage() {
         onClose={() => setSelectedRequest(null)}
         onAction={() => void fetchRequests(page)}
       />
+
+      {/* Age-gate confirmation dialog */}
+      <Dialog
+        open={!!ageGateConfirmId}
+        onOpenChange={(open) => {
+          if (!open) setAgeGateConfirmId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Age-Gated DSAR</DialogTitle>
+            <DialogDescription>
+              This student is 17 or older. Per DPC guidance, please confirm that processing
+              this DSAR is in the student&apos;s best interest before it can proceed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAgeGateConfirmId(null)}
+              disabled={ageGateConfirming}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={ageGateConfirming}
+              onClick={async () => {
+                if (!ageGateConfirmId) return;
+                setAgeGateConfirming(true);
+                try {
+                  await apiClient(
+                    `/api/v1/compliance-requests/${ageGateConfirmId}/confirm-age-gate`,
+                    { method: 'POST', body: JSON.stringify({}) },
+                  );
+                  toast.success(
+                    'Age-gated review confirmed. This student is 17+ and their DSAR may proceed.',
+                  );
+                  setAgeGateConfirmId(null);
+                  void fetchRequests(page);
+                } catch {
+                  toast.error('Failed to confirm age-gated review');
+                } finally {
+                  setAgeGateConfirming(false);
+                }
+              }}
+            >
+              <ShieldCheck className="me-1.5 h-3.5 w-3.5" />
+              {ageGateConfirming ? 'Confirming...' : "Confirm — In Student's Best Interest"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

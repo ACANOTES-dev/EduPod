@@ -473,4 +473,65 @@ describe('AdmissionFormsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  // ─── Data Minimisation ────────────────────────────────────────────────────
+
+  describe('validateFieldsForDataMinimisation', () => {
+    it('should detect health keyword in field label', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'field_1', label: 'Medical Conditions' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.matched_keyword).toBe('medical');
+      expect(result[0]!.category).toBe('health');
+    });
+
+    it('should NOT flag non-special-category fields', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'student_name', label: 'Student Name' },
+      ]);
+      expect(result).toHaveLength(0);
+    });
+
+    it('should detect religion keyword', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'religion_field', label: 'Religion' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.category).toBe('religion');
+    });
+
+    it('should detect ethnicity keyword', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'ethnicity_field', label: 'Ethnicity' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.category).toBe('ethnicity');
+    });
+
+    it('should detect keyword in field_key as well as label', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'student_medical_notes', label: 'Additional Notes' },
+      ]);
+      expect(result).toHaveLength(1);
+      expect(result[0]!.matched_keyword).toBe('medical');
+    });
+
+    it('should return one warning per field even if multiple keywords match', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'health_medical', label: 'Health and Medical' },
+      ]);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should handle multiple fields with mixed results', () => {
+      const result = service.validateFieldsForDataMinimisation([
+        { field_key: 'student_name', label: 'Student Name' },
+        { field_key: 'religion', label: 'Religion' },
+        { field_key: 'student_dob', label: 'Date of Birth' },
+        { field_key: 'medical_notes', label: 'Medical Conditions' },
+      ]);
+      expect(result).toHaveLength(2);
+    });
+  });
 });

@@ -16,12 +16,14 @@ import {
 } from '@school/shared';
 import type {
   CreateFormDefinitionDto,
+  JwtPayload,
   ListFormDefinitionsQuery,
   TenantContext,
   UpdateFormDefinitionDto,
 } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -80,6 +82,47 @@ export class AdmissionFormsController {
     dto: UpdateFormDefinitionDto,
   ) {
     return this.admissionFormsService.update(tenant.tenant_id, id, dto);
+  }
+
+  // POST /v1/admission-forms/:id/validate-fields
+  @Post(':id/validate-fields')
+  @RequiresPermission('admissions.manage')
+  async validateFieldsForDataMinimisation(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: {
+      fields: Array<{ field_key: string; label: string }>;
+      justifications?: Record<string, string>;
+    },
+  ) {
+    // Verify form exists
+    await this.admissionFormsService.findOne(tenant.tenant_id, id);
+    const warnings =
+      this.admissionFormsService.validateFieldsForDataMinimisation(body.fields);
+
+    // Log overrides for flagged fields that have justifications
+    if (body.justifications) {
+      const overrides = warnings
+        .filter((w) => body.justifications?.[w.field_key])
+        .map((w) => ({
+          field_key: w.field_key,
+          field_label: w.field_label,
+          matched_keyword: w.matched_keyword,
+          justification: body.justifications![w.field_key]!,
+        }));
+
+      if (overrides.length > 0) {
+        await this.admissionFormsService.logDataMinimisationOverrides(
+          tenant.tenant_id,
+          user.sub,
+          id,
+          overrides,
+        );
+      }
+    }
+
+    return { warnings };
   }
 
   @Post(':id/publish')

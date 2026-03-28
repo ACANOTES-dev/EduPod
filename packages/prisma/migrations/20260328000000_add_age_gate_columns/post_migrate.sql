@@ -1,0 +1,2 @@
+-- Phase H: Age-gated columns on compliance_requests
+-- No new RLS policies needed — existing compliance_requests_tenant_isolation covers new columns

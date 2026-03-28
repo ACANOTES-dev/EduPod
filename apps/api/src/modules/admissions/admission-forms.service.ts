@@ -4,8 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApplicationFieldType, Prisma } from '@prisma/client';
+import { detectSpecialCategoryFields } from '@school/shared';
 import type {
   CreateFormDefinitionDto,
+  DataMinimisationWarning,
   FormFieldInput,
   ListFormDefinitionsQuery,
   UpdateFormDefinitionDto,
@@ -677,6 +679,45 @@ export class AdmissionFormsService {
       { field_key: 'student_medical_notes', label: 'Medical Notes', field_type: 'long_text', required: false, display_order: order++ },
       { field_key: 'student_allergies', label: 'Has Allergies', field_type: 'yes_no', required: false, display_order: order++ },
     ];
+  }
+
+  // ─── Data Minimisation ────────────────────────────────────────────────────
+
+  validateFieldsForDataMinimisation(
+    fields: Array<{ field_key: string; label: string }>,
+  ): DataMinimisationWarning[] {
+    return detectSpecialCategoryFields(fields);
+  }
+
+  /**
+   * Log data minimisation overrides to audit_logs when an admin
+   * justifies keeping special category fields in an admissions form.
+   */
+  async logDataMinimisationOverrides(
+    tenantId: string,
+    userId: string,
+    formId: string,
+    overrides: Array<{ field_key: string; field_label: string; matched_keyword: string; justification: string }>,
+  ): Promise<void> {
+    for (const override of overrides) {
+      await this.prisma.auditLog.create({
+        data: {
+          tenant_id: tenantId,
+          actor_user_id: userId,
+          entity_type: 'admission_form_field',
+          entity_id: formId,
+          action: 'data_minimisation_override',
+          metadata_json: {
+            field_key: override.field_key,
+            field_label: override.field_label,
+            matched_keyword: override.matched_keyword,
+            justification: override.justification,
+            dpc_guidance: 'August 2025 — special category data at pre-enrolment',
+          } as Prisma.InputJsonValue,
+          ip_address: null,
+        },
+      });
+    }
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

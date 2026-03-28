@@ -12,6 +12,7 @@ import type {
   ExtendComplianceRequestDto,
 } from '@school/shared';
 
+import { AgeGateService } from '../gdpr/age-gate.service';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -27,6 +28,7 @@ export class ComplianceService {
     private readonly accessExportService: AccessExportService,
     private readonly pastoralDsarService: PastoralDsarService,
     private readonly dsarTraversalService: DsarTraversalService,
+    private readonly ageGateService: AgeGateService,
   ) {}
 
   /**
@@ -54,6 +56,12 @@ export class ComplianceService {
       });
     }
 
+    // Check age-gate for student subjects (17+ years old per DPC guidance)
+    let ageGatedReview = false;
+    if (dto.subject_type === 'student') {
+      ageGatedReview = await this.ageGateService.checkStudentAgeGated(tenantId, dto.subject_id);
+    }
+
     const request = await this.prisma.complianceRequest.create({
       data: {
         tenant_id: tenantId,
@@ -63,6 +71,7 @@ export class ComplianceService {
         requested_by_user_id: userId,
         status: 'submitted',
         deadline_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        age_gated_review: ageGatedReview,
       },
       include: {
         requested_by: {
@@ -339,6 +348,15 @@ export class ComplianceService {
       });
     }
 
+    // Age-gate check: must be confirmed before execution
+    if (request.age_gated_review && !request.age_gated_confirmed_at) {
+      throw new BadRequestException({
+        code: 'AGE_GATE_NOT_CONFIRMED',
+        message:
+          'This request requires age-gated review confirmation before execution. The student is 17+ and per DPC guidance, school must confirm processing is in the student\'s best interest.',
+      });
+    }
+
     let exportFileKey: string | null = null;
     let pastoralReviewedRecords: unknown[] = [];
 
@@ -434,6 +452,44 @@ export class ComplianceService {
             last_name: true,
             email: true,
           },
+        },
+      },
+    });
+  }
+
+  /**
+   * Confirm age-gated review for a compliance request involving a 17+ student.
+   * Per DPC guidance, the school must confirm that processing is in the student's best interest.
+   */
+  async confirmAgeGate(tenantId: string, requestId: string, userId: string, notes?: string) {
+    const request = await this.findOrThrow(tenantId, requestId);
+
+    if (!request.age_gated_review) {
+      throw new BadRequestException({
+        code: 'NOT_AGE_GATED',
+        message: 'This request is not flagged for age-gated review',
+      });
+    }
+
+    if (request.age_gated_confirmed_at) {
+      throw new ConflictException({
+        code: 'ALREADY_CONFIRMED',
+        message: 'Age-gated review has already been confirmed for this request',
+      });
+    }
+
+    return this.prisma.complianceRequest.update({
+      where: { id: requestId },
+      data: {
+        age_gated_confirmed_by: userId,
+        age_gated_confirmed_at: new Date(),
+        decision_notes: notes
+          ? `${request.decision_notes ? request.decision_notes + '\n' : ''}[Age-gate confirmation] ${notes}`
+          : request.decision_notes,
+      },
+      include: {
+        requested_by: {
+          select: { id: true, first_name: true, last_name: true, email: true },
         },
       },
     });

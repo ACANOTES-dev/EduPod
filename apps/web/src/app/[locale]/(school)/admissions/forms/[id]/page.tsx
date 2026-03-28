@@ -1,15 +1,24 @@
 'use client';
 
+import { detectSpecialCategoryFields } from '@school/shared';
+import type { DataMinimisationWarning } from '@school/shared';
 import {
   Button,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   Input,
   Label,
-  Checkbox,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
   toast,
 } from '@school/ui';
 import {
@@ -19,6 +28,7 @@ import {
   ChevronUp,
   GripVertical,
   Plus,
+  ShieldAlert,
   Trash2,
 } from 'lucide-react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
@@ -105,19 +115,25 @@ function createEmptyField(order: number): FormField {
 function FieldCard({
   field,
   allFields,
+  warning,
+  justification,
   onUpdate,
   onRemove,
   onMoveUp,
   onMoveDown,
+  onJustify,
   isFirst,
   isLast,
 }: {
   field: FormField;
   allFields: FormField[];
+  warning?: DataMinimisationWarning;
+  justification?: string;
   onUpdate: (updated: FormField) => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onJustify: () => void;
   isFirst: boolean;
   isLast: boolean;
 }) {
@@ -131,6 +147,12 @@ function FieldCard({
         <span className="flex-1 truncate text-sm font-medium text-text-primary">
           {field.label || 'Untitled field'}
         </span>
+        {warning && (
+          <span className="flex items-center gap-1 rounded-full bg-warning-surface px-2 py-0.5 text-xs text-warning-text">
+            <ShieldAlert className="h-3 w-3" />
+            DPC Warning
+          </span>
+        )}
         <span className="text-xs text-text-tertiary">{field.field_type}</span>
 
         <div className="flex items-center gap-1">
@@ -155,6 +177,39 @@ function FieldCard({
 
       {field.expanded && (
         <div className="space-y-4 p-4">
+          {warning && (
+            <div className="rounded-lg border border-warning-border bg-warning-surface p-3">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-warning-text">Data Minimisation Warning</p>
+                  <p className="mt-1 text-xs text-warning-text/80">
+                    The DPC advises against collecting {warning.category.replace('_', ' ')} data at the pre-enrolment stage.
+                    This type of information should only be collected post-enrolment with explicit consent.
+                  </p>
+                  <p className="mt-1 text-xs text-text-tertiary">
+                    Matched keyword: &quot;{warning.matched_keyword}&quot;
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button variant="outline" size="sm" onClick={onRemove}>
+                      Remove Field
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={onJustify}>
+                      {justification ? 'Edit Justification' : 'Keep with Justification'}
+                    </Button>
+                  </div>
+                  {justification && (
+                    <div className="mt-2 rounded bg-surface-secondary p-2">
+                      <p className="text-xs text-text-secondary">
+                        <span className="font-medium">Justification:</span> {justification}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Label</Label>
@@ -337,6 +392,24 @@ export default function EditAdmissionFormPage() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
 
+  // ─── Data Minimisation Warning State ──────────────────────────────────────
+  const [dataMinWarnings, setDataMinWarnings] = React.useState<DataMinimisationWarning[]>([]);
+  const [justifications, setJustifications] = React.useState<Record<string, string>>({});
+  const [justificationDialogField, setJustificationDialogField] = React.useState<DataMinimisationWarning | null>(null);
+  const [justificationText, setJustificationText] = React.useState('');
+
+  React.useEffect(() => {
+    const warnings = detectSpecialCategoryFields(
+      fields.map((f) => ({ field_key: f.field_key, label: f.label })),
+    );
+    setDataMinWarnings(warnings);
+  }, [fields]);
+
+  const openJustificationDialog = (warning: DataMinimisationWarning) => {
+    setJustificationText(justifications[warning.field_key] ?? '');
+    setJustificationDialogField(warning);
+  };
+
   React.useEffect(() => {
     if (!id) return;
     apiClient<{ data: AdmissionFormDetail }>(`/api/v1/admission-forms/${id}`)
@@ -399,8 +472,29 @@ export default function EditAdmissionFormPage() {
       toast.error('Form name is required');
       return;
     }
+
+    // Check unjustified special category fields
+    const unjustified = dataMinWarnings.filter((w) => !justifications[w.field_key]);
+    if (unjustified.length > 0) {
+      toast.error(
+        `${unjustified.length} flagged field${unjustified.length !== 1 ? 's' : ''} require justification before saving.`,
+      );
+      return;
+    }
+
     setSaving(true);
     try {
+      // Log data minimisation overrides to audit trail before saving
+      if (dataMinWarnings.length > 0 && Object.keys(justifications).length > 0) {
+        await apiClient(`/api/v1/admission-forms/${id}/validate-fields`, {
+          method: 'POST',
+          body: JSON.stringify({
+            fields: fields.map((f) => ({ field_key: f.field_key, label: f.label })),
+            justifications,
+          }),
+        });
+      }
+
       const payload = {
         name: formName,
         status: publish ? 'published' : formStatus,
@@ -501,22 +595,99 @@ export default function EditAdmissionFormPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {fields.map((field, idx) => (
-              <FieldCard
-                key={field.id}
-                field={field}
-                allFields={fields}
-                onUpdate={(updated) => handleUpdateField(field.id, updated)}
-                onRemove={() => handleRemoveField(field.id)}
-                onMoveUp={() => handleMoveUp(idx)}
-                onMoveDown={() => handleMoveDown(idx)}
-                isFirst={idx === 0}
-                isLast={idx === fields.length - 1}
-              />
-            ))}
+            {fields.map((field, idx) => {
+              const warning = dataMinWarnings.find((w) => w.field_key === field.field_key);
+              return (
+                <FieldCard
+                  key={field.id}
+                  field={field}
+                  allFields={fields}
+                  warning={warning}
+                  justification={warning ? justifications[field.field_key] : undefined}
+                  onUpdate={(updated) => handleUpdateField(field.id, updated)}
+                  onRemove={() => handleRemoveField(field.id)}
+                  onMoveUp={() => handleMoveUp(idx)}
+                  onMoveDown={() => handleMoveDown(idx)}
+                  onJustify={() => warning && openJustificationDialog(warning)}
+                  isFirst={idx === 0}
+                  isLast={idx === fields.length - 1}
+                />
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Data Minimisation Summary */}
+      {dataMinWarnings.length > 0 && (
+        <div className="rounded-xl border border-warning-border bg-warning-surface p-4">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning-text" />
+            <div>
+              <p className="text-sm font-medium text-warning-text">
+                This form contains {dataMinWarnings.length} field{dataMinWarnings.length !== 1 ? 's' : ''} flagged for data minimisation review:
+              </p>
+              <ul className="mt-2 space-y-1">
+                {dataMinWarnings.map((w) => (
+                  <li key={w.field_key} className="flex items-center gap-2 text-xs text-warning-text/80">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-text" />
+                    &quot;{w.field_label}&quot; ({w.category.replace('_', ' ')} data)
+                    {justifications[w.field_key]
+                      ? <span className="text-success-text">— justified</span>
+                      : <span className="text-danger-text">— needs justification</span>
+                    }
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Justification Dialog */}
+      <Dialog
+        open={!!justificationDialogField}
+        onOpenChange={(open) => { if (!open) setJustificationDialogField(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Justify Special Category Field</DialogTitle>
+            <DialogDescription>
+              Field &quot;{justificationDialogField?.field_label}&quot; contains a {justificationDialogField?.category.replace('_', ' ')} keyword.
+              Please provide a justification for including this field in the pre-enrolment form.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Justification (required)</Label>
+            <Textarea
+              value={justificationText}
+              onChange={(e) => setJustificationText(e.target.value)}
+              placeholder="Explain why this field is necessary at the pre-enrolment stage..."
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setJustificationDialogField(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!justificationText.trim()}
+              onClick={() => {
+                if (justificationDialogField && justificationText.trim()) {
+                  setJustifications((prev) => ({
+                    ...prev,
+                    [justificationDialogField.field_key]: justificationText.trim(),
+                  }));
+                  setJustificationDialogField(null);
+                  setJustificationText('');
+                }
+              }}
+            >
+              Save Justification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

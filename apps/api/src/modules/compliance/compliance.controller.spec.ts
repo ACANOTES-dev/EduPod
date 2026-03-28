@@ -5,6 +5,7 @@ import type {
   ComplianceDecisionDto,
   ComplianceFilterDto,
   ComplianceOverdueFilterDto,
+  ConfirmAgeGateDto,
   CreateComplianceRequestDto,
   ExtendComplianceRequestDto,
   JwtPayload,
@@ -49,6 +50,7 @@ function buildMockComplianceService() {
     execute: jest.fn(),
     extend: jest.fn(),
     getExportUrl: jest.fn(),
+    confirmAgeGate: jest.fn(),
   };
 }
 
@@ -210,6 +212,55 @@ describe('ComplianceController', () => {
         TENANT_ID,
         REQUEST_ID,
         dto,
+      );
+    });
+  });
+
+  describe('confirmAgeGate', () => {
+    it('should delegate to service with tenant, user, id, and dto', async () => {
+      const expected = {
+        id: REQUEST_ID,
+        age_gated_review: true,
+        age_gated_confirmed_by: USER_ID,
+        age_gated_confirmed_at: new Date().toISOString(),
+      };
+      service.confirmAgeGate.mockResolvedValue(expected);
+
+      const dto: ConfirmAgeGateDto = { confirmation_notes: 'Confirmed in student best interest' };
+      const result = await controller.confirmAgeGate(
+        mockTenant,
+        mockJwtPayload,
+        REQUEST_ID,
+        dto,
+      );
+
+      expect(result).toEqual(expected);
+      expect(service.confirmAgeGate).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+        USER_ID,
+        'Confirmed in student best interest',
+      );
+    });
+
+    it('should pass undefined confirmation_notes when not provided', async () => {
+      const expected = { id: REQUEST_ID, age_gated_review: true };
+      service.confirmAgeGate.mockResolvedValue(expected);
+
+      const dto: ConfirmAgeGateDto = {};
+      const result = await controller.confirmAgeGate(
+        mockTenant,
+        mockJwtPayload,
+        REQUEST_ID,
+        dto,
+      );
+
+      expect(result).toEqual(expected);
+      expect(service.confirmAgeGate).toHaveBeenCalledWith(
+        TENANT_ID,
+        REQUEST_ID,
+        USER_ID,
+        undefined,
       );
     });
   });

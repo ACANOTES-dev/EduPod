@@ -47,3 +47,9 @@ export const dsarExportFormatSchema = z.object({
 });
 
 export type DsarExportFormatDto = z.infer<typeof dsarExportFormatSchema>;
+
+export const confirmAgeGateSchema = z.object({
+  confirmation_notes: z.string().max(2000).optional(),
+});
+
+export type ConfirmAgeGateDto = z.infer<typeof confirmAgeGateSchema>;

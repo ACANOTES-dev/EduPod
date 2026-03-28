@@ -10,7 +10,7 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
-import { Bot, HeartPulse, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Bot, HeartPulse, Info, MessageSquare, ShieldCheck } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -72,6 +72,64 @@ function formatDate(value: string | null, locale: string): string {
     day: 'numeric',
   }).format(new Date(value));
 }
+
+// ─── Age-gate banner ────────────────────────────────────────────────────────
+
+interface AgeGatedStudent {
+  student_id: string;
+  first_name: string;
+}
+
+interface AgeGateStatusResponse {
+  data: {
+    age_gated_students: AgeGatedStudent[];
+  };
+}
+
+function AgeGateBanner() {
+  const [students, setStudents] = React.useState<AgeGatedStudent[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await apiClient<AgeGateStatusResponse>(
+          '/api/v1/parent-portal/age-gate-status',
+          { silent: true },
+        );
+        if (!cancelled && res.data.age_gated_students.length > 0) {
+          setStudents(res.data.age_gated_students);
+        }
+      } catch {
+        // Endpoint may not exist yet — silently skip
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (students.length === 0) return null;
+
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/10">
+      <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-700 dark:text-blue-300" />
+      <div>
+        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+          Data Protection Rights
+        </p>
+        <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+          {students.length === 1 && students[0]
+            ? `Your child ${students[0].first_name} is 17 or older.`
+            : `${students.length} of your children are 17 or older.`}
+          {' '}Under DPC guidance, students aged 17 and over may exercise their own data
+          protection rights.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ──────────────────────────────────────────────────────────────
 
 export default function PrivacyConsentPage() {
   const t = useTranslations('privacyConsent');
@@ -142,6 +200,8 @@ export default function PrivacyConsentPage() {
           {t('description')}
         </p>
       </div>
+
+      <AgeGateBanner />
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">

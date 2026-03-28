@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 
+import { GdprModule } from '../gdpr/gdpr.module';
 import { PastoralModule } from '../pastoral/pastoral.module';
 import { S3Module } from '../s3/s3.module';
 import { SearchModule } from '../search/search.module';
@@ -13,7 +14,7 @@ import { RetentionHoldsController, RetentionPoliciesController } from './retenti
 import { RetentionPoliciesService } from './retention-policies.service';
 
 @Module({
-  imports: [S3Module, SearchModule, forwardRef(() => PastoralModule)],
+  imports: [S3Module, SearchModule, forwardRef(() => PastoralModule), GdprModule],
   controllers: [ComplianceController, RetentionPoliciesController, RetentionHoldsController],
   providers: [ComplianceService, AnonymisationService, AccessExportService, DsarTraversalService, RetentionPoliciesService],
   exports: [ComplianceService, RetentionPoliciesService],

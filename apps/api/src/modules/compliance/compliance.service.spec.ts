@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AgeGateService } from '../gdpr/age-gate.service';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -72,6 +73,10 @@ describe('ComplianceService', () => {
     getReviewedRecords: jest.Mock;
   };
   let mockDsarTraversal: { collectAllData: jest.Mock };
+  let mockAgeGateService: {
+    checkStudentAgeGated: jest.Mock;
+    isStudentAgeGated: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -111,6 +116,11 @@ describe('ComplianceService', () => {
       collectAllData: jest.fn(),
     };
 
+    mockAgeGateService = {
+      checkStudentAgeGated: jest.fn().mockResolvedValue(false),
+      isStudentAgeGated: jest.fn().mockReturnValue(false),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComplianceService,
@@ -119,6 +129,7 @@ describe('ComplianceService', () => {
         { provide: AnonymisationService, useValue: mockAnonymisation },
         { provide: PastoralDsarService, useValue: mockPastoralDsar },
         { provide: DsarTraversalService, useValue: mockDsarTraversal },
+        { provide: AgeGateService, useValue: mockAgeGateService },
       ],
     }).compile();
 
@@ -1378,6 +1389,327 @@ describe('ComplianceService', () => {
         SUBJECT_ID,
       );
       expect(mockAccessExport.exportDataPackage).toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // create — age-gate
+  // ---------------------------------------------------------------------------
+
+  describe('create — age-gate', () => {
+    it('should auto-flag age-gated review for 17+ student', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+      mockAgeGateService.checkStudentAgeGated.mockResolvedValue(true);
+
+      const created = buildMockRequest({
+        subject_type: 'student',
+        status: 'submitted',
+        age_gated_review: true,
+      });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      const result = await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+      });
+
+      expect(result.age_gated_review).toBe(true);
+      expect(mockAgeGateService.checkStudentAgeGated).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
+      expect(mockPrisma.complianceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            age_gated_review: true,
+          }),
+        }),
+      );
+    });
+
+    it('should NOT flag age-gated review for 16-year-old student', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+      mockAgeGateService.checkStudentAgeGated.mockResolvedValue(false);
+
+      const created = buildMockRequest({
+        subject_type: 'student',
+        status: 'submitted',
+        age_gated_review: false,
+      });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      const result = await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'student',
+        subject_id: SUBJECT_ID,
+      });
+
+      expect(result.age_gated_review).toBe(false);
+      expect(mockAgeGateService.checkStudentAgeGated).toHaveBeenCalledWith(TENANT_ID, SUBJECT_ID);
+      expect(mockPrisma.complianceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            age_gated_review: false,
+          }),
+        }),
+      );
+    });
+
+    it('should NOT flag age-gated review for non-student subject', async () => {
+      mockPrisma.parent.findFirst.mockResolvedValue({ id: SUBJECT_ID });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
+
+      const created = buildMockRequest({
+        subject_type: 'parent',
+        status: 'submitted',
+        age_gated_review: false,
+      });
+      mockPrisma.complianceRequest.create.mockResolvedValue(created);
+
+      await service.create(TENANT_ID, USER_ID, {
+        request_type: 'access_export',
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+      });
+
+      expect(mockAgeGateService.checkStudentAgeGated).not.toHaveBeenCalled();
+      expect(mockPrisma.complianceRequest.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            age_gated_review: false,
+          }),
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // confirmAgeGate
+  // ---------------------------------------------------------------------------
+
+  describe('confirmAgeGate', () => {
+    it('should confirm age-gated review and record confirmer', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_at: null,
+        age_gated_confirmed_by: null,
+        decision_notes: null,
+      });
+      const updated = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_by: USER_ID,
+        age_gated_confirmed_at: new Date(),
+        decision_notes: '[Age-gate confirmation] Student confirmed for processing',
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+      mockPrisma.complianceRequest.update.mockResolvedValue(updated);
+
+      const result = await service.confirmAgeGate(
+        TENANT_ID,
+        REQUEST_ID,
+        USER_ID,
+        'Student confirmed for processing',
+      );
+
+      expect(result.age_gated_confirmed_by).toBe(USER_ID);
+      expect(result.age_gated_confirmed_at).toBeTruthy();
+      expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: REQUEST_ID },
+          data: expect.objectContaining({
+            age_gated_confirmed_by: USER_ID,
+            decision_notes: '[Age-gate confirmation] Student confirmed for processing',
+          }),
+        }),
+      );
+    });
+
+    it('should preserve existing decision_notes when appending age-gate confirmation', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_at: null,
+        age_gated_confirmed_by: null,
+        decision_notes: 'Existing notes from classification',
+      });
+      const updated = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_by: USER_ID,
+        age_gated_confirmed_at: new Date(),
+        decision_notes:
+          'Existing notes from classification\n[Age-gate confirmation] Additional notes',
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+      mockPrisma.complianceRequest.update.mockResolvedValue(updated);
+
+      await service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID, 'Additional notes');
+
+      expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            decision_notes:
+              'Existing notes from classification\n[Age-gate confirmation] Additional notes',
+          }),
+        }),
+      );
+    });
+
+    it('should keep existing decision_notes unchanged when no confirmation notes provided', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_at: null,
+        age_gated_confirmed_by: null,
+        decision_notes: 'Existing notes',
+      });
+      const updated = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_by: USER_ID,
+        age_gated_confirmed_at: new Date(),
+        decision_notes: 'Existing notes',
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+      mockPrisma.complianceRequest.update.mockResolvedValue(updated);
+
+      await service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID);
+
+      expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            decision_notes: 'Existing notes',
+          }),
+        }),
+      );
+    });
+
+    it('should throw NOT_AGE_GATED if request is not age-gated', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: false,
+        age_gated_confirmed_at: null,
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+
+      await expect(
+        service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw ALREADY_CONFIRMED if already confirmed', async () => {
+      const request = buildMockRequest({
+        status: 'submitted',
+        age_gated_review: true,
+        age_gated_confirmed_at: new Date(),
+        age_gated_confirmed_by: USER_ID,
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
+
+      await expect(
+        service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // execute — age-gate block
+  // ---------------------------------------------------------------------------
+
+  describe('execute — age-gate block', () => {
+    it('should block execution if age-gated but not confirmed', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        age_gated_review: true,
+        age_gated_confirmed_at: null,
+      });
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+
+      await expect(service.execute(TENANT_ID, REQUEST_ID)).rejects.toThrow(BadRequestException);
+
+      expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
+      expect(mockAnonymisation.anonymiseSubject).not.toHaveBeenCalled();
+      expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow execution if age-gated and confirmed', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'parent',
+        age_gated_review: true,
+        age_gated_confirmed_at: new Date(),
+        age_gated_confirmed_by: USER_ID,
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: { profile: { first_name: 'John' } },
+      };
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      const result = await service.execute(TENANT_ID, REQUEST_ID, 'json');
+
+      expect(result.status).toBe('completed');
+      expect(mockDsarTraversal.collectAllData).toHaveBeenCalled();
+      expect(mockAccessExport.exportDataPackage).toHaveBeenCalled();
+    });
+
+    it('should allow execution when request is not age-gated', async () => {
+      const approved = buildMockRequest({
+        status: 'approved',
+        request_type: 'access_export',
+        subject_type: 'parent',
+        age_gated_review: false,
+        age_gated_confirmed_at: null,
+      });
+      const completed = buildMockRequest({
+        status: 'completed',
+        request_type: 'access_export',
+        export_file_key: 'compliance-exports/request-uuid-1.json',
+      });
+      const dataPackage = {
+        subject_type: 'parent',
+        subject_id: SUBJECT_ID,
+        collected_at: '2026-03-28T00:00:00.000Z',
+        categories: {},
+      };
+
+      mockPrisma.complianceRequest.findFirst.mockResolvedValue(approved);
+      mockDsarTraversal.collectAllData.mockResolvedValue(dataPackage);
+      mockAccessExport.exportDataPackage.mockResolvedValue({
+        s3Key: 'compliance-exports/request-uuid-1.json',
+      });
+      mockPrisma.complianceRequest.update.mockResolvedValue(completed);
+
+      const result = await service.execute(TENANT_ID, REQUEST_ID, 'json');
+
+      expect(result.status).toBe('completed');
     });
   });
 

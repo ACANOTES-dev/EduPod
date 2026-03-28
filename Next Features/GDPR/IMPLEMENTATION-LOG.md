@@ -80,7 +80,7 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 | E     | Legal & Privacy Infra    | COMPLETE    | B          | —       | 4–5 days    | [Phase-E](./Phase-E-Legal-Privacy-Infrastructure.md) |
 | F     | DSAR Overhaul            | COMPLETE    | B, C, D    | H       | 4–5 days    | [Phase-F](./Phase-F-DSAR-Overhaul.md)                |
 | G     | Audit Logging            | COMPLETE    | —          | J       | 2–3 days    | [Phase-G](./Phase-G-Audit-Logging.md)                |
-| H     | Data Subject Protections | NOT STARTED | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
+| H     | Data Subject Protections | COMPLETE    | F          | —       | 2 days      | [Phase-H](./Phase-H-Data-Subject-Protections.md)     |
 | I     | Retention Engine         | COMPLETE    | C          | —       | 3–4 days    | [Phase-I](./Phase-I-Retention-Engine.md)             |
 | J     | Breach Detection         | COMPLETE    | G          | —       | 3–4 days    | [Phase-J](./Phase-J-Breach-Detection.md)             |
 | K     | AI Decision Audit Trail  | COMPLETE    | B          | —       | 2 days      | [Phase-K](./Phase-K-AI-Audit-Trail.md)               |
@@ -363,3 +363,28 @@ L (Security Hardening) ──── [Independent — schedule anytime]
 - **Architecture files updated:** `event-job-catalog.md` (compliance:deadline-check cron), `state-machines.md` (ComplianceRequestStatus side-effects), `module-blast-radius.md` (ComplianceModule note)
 - **Unlocks:** Phase H (Data Subject Protections) is now available
 - **Notes:** The DSAR traversal collects ALL records with no limits. For schools with very large datasets, the export generation may take significant time. The `DsarTraversalService` uses `Promise.all` for parallel queries within each subject type. Student applications are matched by parent ID (via StudentParent join) or by name — covers both linked and unlinked applicants. Staff bank details show honest "[encrypted — available via DPO request]" message since AES ciphertext cannot be meaningfully masked without decryption. Deadline escalation: 7-day → requester, 3-day → all admin-tier users, exceeded → admins + requester. Two accepted deviations: (1) CSV export is concatenated sections, not zipped per-category files (MINOR); (2) Frontend DSAR dashboard deferred to separate ticket.
+
+---
+
+### Phase H: Data Subject Protections
+- **Status:** COMPLETE
+- **Completed:** 2026-03-28
+- **Implemented by:** Claude Opus 4.6 (parallel agent dispatch — 5 agents)
+- **Commit(s):** Pending
+- **Key decisions:**
+  - AgeGateService uses manual `fullYearsBetween` calculation (no `date-fns` dependency needed since existing API didn't import it)
+  - Age-gate auto-flags ALL DSARs for 17+ students regardless of requester type (more protective than spec's parent-only requirement — ensures school review for all age-gated cases)
+  - Student self-DSAR deferred — spec marks as "(if supported)". Students with `compliance.manage` permission can already use the existing DSAR submission flow
+  - Keyword detection runs client-side for instant feedback using shared keyword list; overrides logged to audit_logs server-side via validate-fields endpoint
+  - Age-gate confirmation appends notes to `decision_notes` rather than a separate field (simpler, keeps full audit trail in one place)
+  - Parent portal age-gate banner fetches `/api/v1/parent-portal/age-gate-status` with silent failure (endpoint does not exist yet — forward-compatible, banner simply doesn't render)
+  - Execute() blocks age-gated DSARs that haven't been confirmed by school staff
+- **Schema changes:** `20260328000000_add_age_gate_columns` (3 columns: `age_gated_review`, `age_gated_confirmed_by`, `age_gated_confirmed_at` on `compliance_requests`)
+- **New endpoints:** POST /v1/admission-forms/:id/validate-fields (admissions.manage), POST /v1/compliance-requests/:id/confirm-age-gate (compliance.manage)
+- **Enhanced endpoints:** POST /v1/compliance-requests (auto-flags age_gated_review for 17+ students), POST /v1/compliance-requests/:id/execute (blocks if age-gated and unconfirmed)
+- **New frontend pages:** None (modifications to existing pages)
+- **Frontend changes:** Form builder warnings with justification modal + form-level summary (both new and edit pages), DSAR dashboard age-gate indicator + confirmation dialog, parent portal age-gate informational banner
+- **Tests added:** 26 new — 6 AgeGateService + 7 keyword detection + 13 compliance age-gate (service + controller)
+- **Architecture files updated:** None (no new modules, queues, or cross-module dependencies)
+- **Unlocks:** None (terminal phase — all GDPR phases complete)
+- **Notes:** The keyword list covers health (16 keywords), religion (9), ethnicity (6), and other Article 9 (4) categories per DPC August 2025 guidance. Keyword matching is case-insensitive against both field label and field_key. Form-level summary blocks saving until all flagged fields are justified. All justifications are logged to `audit_logs` with entity_type `admission_form_field` and action `data_minimisation_override`.

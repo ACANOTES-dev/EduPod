@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from '../auth/auth.module';
 import { CommunicationsModule } from '../communications/communications.module';
 
+import { AgeGateService } from './age-gate.service';
 import { AiAuditController } from './ai-audit.controller';
 import { AiAuditService } from './ai-audit.service';
 import { ConsentService } from './consent.service';
@@ -32,6 +33,7 @@ import { SubProcessorsService } from './sub-processors.service';
     PublicSubProcessorsController,
   ],
   providers: [
+    AgeGateService,
     AiAuditService,
     ConsentService,
     GdprTokenService,
@@ -45,6 +47,7 @@ import { SubProcessorsService } from './sub-processors.service';
     },
   ],
   exports: [
+    AgeGateService,
     AiAuditService,
     ConsentService,
     GdprTokenService,
