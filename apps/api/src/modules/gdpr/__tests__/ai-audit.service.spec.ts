@@ -484,7 +484,7 @@ describe('AiAuditService', () => {
 // ─── RLS Isolation ─────────────────────────────────────────────────────────────
 
 describe('AiAuditService — RLS isolation', () => {
-  const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const _TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
   let service: AiAuditService;
