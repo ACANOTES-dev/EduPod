@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -21,6 +25,11 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
+
+            echo "=== Waiting for deploy lock ==="
+            exec 9>/tmp/edupod-deploy.lock
+            flock 9
+
             cd /opt/edupod/app
 
             echo "=== Pulling latest code ==="

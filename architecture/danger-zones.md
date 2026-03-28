@@ -482,3 +482,21 @@ Consent changes are user-facing and must take effect immediately. This means con
 There is also a Jest-only bypass (`NODE_ENV === 'test' || JEST_WORKER_ID`) so legacy suites are not globally bricked by the new guard. Tests that need real guard behaviour must explicitly unset those env vars inside the spec.
 
 **Mitigation**: Treat guard allowlist edits as cross-cutting changes. When adding tenant-scoped endpoints used during onboarding or legal recovery, verify they remain reachable before DPA acceptance. When writing guard-specific tests, temporarily disable the test env bypass inside the test process.
+
+---
+
+## DZ-31: Production Deploys Share One Mutable Worktree
+
+**Risk**: Parallel GitHub Actions deploys corrupting live builds on the server
+**Location**: `.github/workflows/deploy.yml`, `/opt/edupod/app`
+
+Production deploys build directly inside a single shared checkout on the server. That checkout contains mutable build outputs (`apps/web/.next`, `apps/api/dist`, `apps/worker/dist`). If two deploy jobs touch it at the same time, one job can delete output directories while the other is still building.
+
+The failure mode is non-deterministic and server-only. The same commit may pass CI and still fail deploy with errors such as:
+- Next.js missing `pages-manifest.json` during `Collecting page data`
+- NestJS `ENOTEMPTY` / `rmdir` failures while clearing `dist`
+
+**Mitigation**:
+- `Deploy to Production` must stay serialized via GitHub Actions `concurrency`
+- The remote deploy script must take a server-side lock before mutating `/opt/edupod/app`
+- Any future manual deploy script must respect the same lock or it can reintroduce the race
