@@ -48,6 +48,14 @@ function buildMockPrisma() {
       findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    application: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    parentInquiryMessage: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     $transaction: jest.fn(),
     $executeRaw: jest.fn(),
   };
@@ -536,6 +544,362 @@ describe('RetentionEnforcementProcessor', () => {
             data_category: 'student_records',
             records_affected: 0,
             skipped_reason: 'anonymisation_deferred',
+          }),
+        }),
+      });
+    });
+  });
+
+  // ─── Rejected admissions (special case) ──────────────────────────────
+
+  describe('enforceForTenant — rejected admissions', () => {
+    it('should delete rejected application records past retention cutoff', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'rejected_admissions',
+          retention_months: 6,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+
+      const expiredAppIds = [
+        { id: 'eeee0001-0000-0000-0000-000000000001' },
+        { id: 'eeee0002-0000-0000-0000-000000000002' },
+      ];
+      mockPrisma.application.findMany.mockResolvedValue(expiredAppIds);
+      mockPrisma.application.deleteMany.mockResolvedValue({ count: 2 });
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      // Should query with status: 'rejected' and updated_at filter
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A_ID,
+          status: 'rejected',
+          updated_at: { lt: expect.any(Date) },
+        },
+        select: { id: true },
+      });
+
+      // Should delete via transaction
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+
+      // Audit log records deletion
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'rejected_admissions',
+          metadata_json: expect.objectContaining({
+            records_affected: 2,
+            dry_run: false,
+          }),
+        }),
+      });
+    });
+
+    it('should skip rejected admissions with active holds', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'rejected_admissions',
+          retention_months: 6,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      const heldId = 'eeee0001-0000-0000-0000-000000000001';
+      mockPrisma.retentionHold.findMany.mockResolvedValue([
+        { subject_type: 'rejected_admissions', subject_id: heldId },
+      ]);
+
+      mockPrisma.application.findMany.mockResolvedValue([
+        { id: heldId },
+      ]);
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      // All records held — no transaction
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            records_affected: 0,
+          }),
+        }),
+      });
+    });
+  });
+
+  // ─── Parent inquiry messages ─────────────────────────────────────────
+
+  describe('enforceForTenant — parent inquiry messages', () => {
+    it('should delete expired parent inquiry message records', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'parent_inquiry_messages',
+          retention_months: 12,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+
+      const expiredIds = [
+        { id: 'ffff0001-0000-0000-0000-000000000001' },
+      ];
+      mockPrisma.parentInquiryMessage.findMany.mockResolvedValue(expiredIds);
+      mockPrisma.parentInquiryMessage.deleteMany.mockResolvedValue({ count: 1 });
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      // Should query with standard created_at filter (no extra status filter)
+      expect(mockPrisma.parentInquiryMessage.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A_ID,
+          created_at: { lt: expect.any(Date) },
+        },
+        select: { id: true },
+      });
+
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'parent_inquiry_messages',
+          metadata_json: expect.objectContaining({
+            records_affected: 1,
+            dry_run: false,
+          }),
+        }),
+      });
+    });
+  });
+
+  // ─── Archive action ──────────────────────────────────────────────────
+
+  describe('enforceForTenant — archive action', () => {
+    it('should log archive intent and skip without executing', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'some_archivable_category',
+          retention_months: 60,
+          action_on_expiry: 'archive',
+        },
+      ]);
+
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      // No actual record operations
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+
+      // Audit log should reflect deferred archiving
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            data_category: 'some_archivable_category',
+            action_on_expiry: 'archive',
+            records_affected: 0,
+            skipped_reason: 'archive_deferred',
+          }),
+        }),
+      });
+    });
+  });
+
+  // ─── Idempotency ─────────────────────────────────────────────────────
+
+  describe('enforceForTenant — idempotency', () => {
+    it('should find nothing to delete on second run after records were already removed', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'communications_notifications',
+          retention_months: 12,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+
+      const expiredIds = [
+        { id: 'idem0001-0000-0000-0000-000000000001' },
+        { id: 'idem0002-0000-0000-0000-000000000002' },
+      ];
+
+      // First run: records exist and are deleted
+      mockPrisma.notification.findMany.mockResolvedValue(expiredIds);
+      mockPrisma.notification.deleteMany.mockResolvedValue({ count: 2 });
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            records_affected: 2,
+          }),
+        }),
+      });
+
+      // Reset mocks for second run
+      jest.clearAllMocks();
+
+      // Re-stub tenant and policy queries (cleared by clearAllMocks)
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'communications_notifications',
+          retention_months: 12,
+          action_on_expiry: 'delete',
+        },
+      ]);
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+
+      // Second run: records already deleted — findMany returns empty
+      mockPrisma.notification.findMany.mockResolvedValue([]);
+
+      await processor.process(job);
+
+      // No transaction needed — nothing to delete
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+
+      // Audit log records 0 affected
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            records_affected: 0,
+          }),
+        }),
+      });
+    });
+  });
+
+  // ─── Hold release then enforce ────────────────────────────────────────
+
+  describe('enforceForTenant — hold release then enforce', () => {
+    it('should skip held subjects, then enforce after hold is released', async () => {
+      const heldId = 'hold0001-0000-0000-0000-000000000001';
+      const unheldId = 'hold0002-0000-0000-0000-000000000002';
+
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'communications_notifications',
+          retention_months: 12,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      // First run: hold active on heldId
+      mockPrisma.retentionHold.findMany.mockResolvedValue([
+        { subject_type: 'communications_notifications', subject_id: heldId },
+      ]);
+
+      mockPrisma.notification.findMany.mockResolvedValue([
+        { id: heldId },
+        { id: unheldId },
+      ]);
+      mockPrisma.notification.deleteMany.mockResolvedValue({ count: 1 });
+
+      // Re-wire $transaction for this describe block
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+        const txProxy: MockPrisma = {
+          ...mockPrisma,
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+        };
+        return fn(txProxy);
+      });
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      // Only the unheld record should be deleted
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            records_affected: 1,
+          }),
+        }),
+      });
+
+      // Reset for second run
+      jest.clearAllMocks();
+
+      // Re-wire $transaction again after clearAllMocks
+      mockPrisma.$transaction.mockImplementation(async (fn: (tx: MockPrisma) => Promise<unknown>) => {
+        const txProxy: MockPrisma = {
+          ...mockPrisma,
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+        };
+        return fn(txProxy);
+      });
+
+      // Second run: hold released — heldId is now eligible
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'communications_notifications',
+          retention_months: 12,
+          action_on_expiry: 'delete',
+        },
+      ]);
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]); // No holds
+
+      // Only the previously-held record remains
+      mockPrisma.notification.findMany.mockResolvedValue([{ id: heldId }]);
+      mockPrisma.notification.deleteMany.mockResolvedValue({ count: 1 });
+
+      await processor.process(job);
+
+      // Now the previously held record is deleted
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata_json: expect.objectContaining({
+            records_affected: 1,
           }),
         }),
       });

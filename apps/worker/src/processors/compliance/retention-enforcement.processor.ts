@@ -16,7 +16,7 @@ const BATCH_SIZE = 100;
 /** Categories where the action is a straightforward deleteMany */
 const DELETABLE_CATEGORIES: Record<
   string,
-  { model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog'; dateField: string }
+  { model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage'; dateField: string }
 > = {
   communications_notifications: { model: 'notification', dateField: 'created_at' },
   audit_logs: { model: 'auditLog', dateField: 'created_at' },
@@ -24,6 +24,7 @@ const DELETABLE_CATEGORIES: Record<
   nl_query_history: { model: 'nlQueryHistory', dateField: 'created_at' },
   ai_processing_logs: { model: 'gdprTokenUsageLog', dateField: 'created_at' },
   tokenisation_usage_logs: { model: 'gdprTokenUsageLog', dateField: 'created_at' },
+  parent_inquiry_messages: { model: 'parentInquiryMessage', dateField: 'created_at' },
 };
 
 /**
@@ -218,6 +219,11 @@ export class RetentionEnforcementProcessor extends WorkerHost {
       return this.deleteComplianceExports(tenantId, policy, cutoffDate, dryRun);
     }
 
+    // rejected_admissions — special handling (extra status filter)
+    if (data_category === 'rejected_admissions' && action_on_expiry === 'delete') {
+      return this.deleteRejectedAdmissions(tenantId, policy, cutoffDate, holdSet, dryRun);
+    }
+
     // behaviour_records — skip (complex anonymisation)
     if (data_category === 'behaviour_records') {
       this.logger.log(`Skipping ${data_category} — behaviour anonymisation is complex, deferred`);
@@ -229,6 +235,11 @@ export class RetentionEnforcementProcessor extends WorkerHost {
         dry_run: dryRun,
         skipped_reason: 'complex_anonymisation_deferred',
       };
+    }
+
+    // archive — no infrastructure yet, log and skip
+    if (action_on_expiry === 'archive') {
+      return this.handleArchiveCategory(tenantId, policy, cutoffDate, dryRun);
     }
 
     // Unknown category — log and skip
@@ -316,7 +327,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
   private async findExpiredRecordIds(
     tenantId: string,
-    model: keyof typeof DELETABLE_CATEGORIES extends string ? 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' : never,
+    model: keyof typeof DELETABLE_CATEGORIES extends string ? 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage' : never,
     cutoffDate: Date,
     holdSet: Set<string>,
     dataCategory: string,
@@ -346,7 +357,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
   private async deleteChunk(
     tenantId: string,
-    model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog',
+    model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage',
     ids: string[],
   ): Promise<number> {
     const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -467,6 +478,116 @@ export class RetentionEnforcementProcessor extends WorkerHost {
       records_affected: totalCleared,
       retention_months,
       dry_run: false,
+    };
+  }
+
+  // ─── Delete rejected admissions (special case — extra status filter) ──
+
+  private async deleteRejectedAdmissions(
+    tenantId: string,
+    policy: MergedPolicy,
+    cutoffDate: Date,
+    holdSet: Set<string>,
+    dryRun: boolean,
+  ): Promise<EnforcementSummary> {
+    const { data_category, action_on_expiry, retention_months } = policy;
+
+    const records: Array<{ id: string }> = await this.prisma.application.findMany({
+      where: {
+        tenant_id: tenantId,
+        status: 'rejected',
+        updated_at: { lt: cutoffDate },
+      },
+      select: { id: true },
+    });
+
+    // Filter out records with active holds
+    const eligibleIds =
+      holdSet.size > 0
+        ? records.filter((r) => !holdSet.has(`${data_category}:${r.id}`)).map((r) => r.id)
+        : records.map((r) => r.id);
+
+    if (eligibleIds.length === 0) {
+      this.logger.log(`No expired records for ${data_category} (tenant ${tenantId})`);
+      return {
+        data_category,
+        action_on_expiry,
+        records_affected: 0,
+        retention_months,
+        dry_run: dryRun,
+      };
+    }
+
+    if (dryRun) {
+      this.logger.log(
+        `[DRY RUN] Would delete ${eligibleIds.length} ${data_category} records for tenant ${tenantId}`,
+      );
+      return {
+        data_category,
+        action_on_expiry,
+        records_affected: eligibleIds.length,
+        retention_months,
+        dry_run: true,
+      };
+    }
+
+    let totalDeleted = 0;
+    for (let i = 0; i < eligibleIds.length; i += BATCH_SIZE) {
+      const chunk = eligibleIds.slice(i, i + BATCH_SIZE);
+      const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}::text, true)`;
+        await tx.$executeRaw`SELECT set_config('app.current_user_id', ${SYSTEM_USER_SENTINEL}::text, true)`;
+
+        const db = tx as unknown as PrismaClient;
+        const deleteResult = await db.application.deleteMany({
+          where: { id: { in: chunk } },
+        });
+        return deleteResult.count;
+      });
+      totalDeleted += result;
+    }
+
+    this.logger.log(
+      `Deleted ${totalDeleted} ${data_category} records for tenant ${tenantId}`,
+    );
+
+    return {
+      data_category,
+      action_on_expiry,
+      records_affected: totalDeleted,
+      retention_months,
+      dry_run: false,
+    };
+  }
+
+  // ─── Archive category (deferred — no infrastructure yet) ───────────────
+
+  /**
+   * For categories with action_on_expiry = 'archive', log the intent but do not
+   * execute. There is no archive/cold-storage infrastructure yet.
+   * TODO: Implement archive pipeline (cold storage / separate schema) when needed.
+   */
+  private async handleArchiveCategory(
+    _tenantId: string,
+    policy: MergedPolicy,
+    cutoffDate: Date,
+    dryRun: boolean,
+  ): Promise<EnforcementSummary> {
+    const { data_category, action_on_expiry, retention_months } = policy;
+
+    this.logger.log(
+      `[DEFERRED] Category ${data_category} requires archiving — ` +
+        `cutoff ${cutoffDate.toISOString()}, action=${action_on_expiry}. ` +
+        `No archive infrastructure exists yet; skipping.`,
+    );
+
+    return {
+      data_category,
+      action_on_expiry,
+      records_affected: 0,
+      retention_months,
+      dry_run: dryRun,
+      skipped_reason: 'archive_deferred',
     };
   }
 

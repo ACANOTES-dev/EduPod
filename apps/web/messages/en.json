@@ -4141,7 +4141,10 @@
     "holdCreated": "Legal hold placed successfully.",
     "holdReleased": "Legal hold released.",
     "noActiveHolds": "No active legal holds.",
-    "holdError": "Failed to manage legal hold."
+    "holdError": "Failed to manage legal hold.",
+    "saveConfirmPrompt": "Are you sure? This will change the retention period for {category}.",
+    "confirmChange": "Confirm Change",
+    "back": "Back"
   },
   "legal": {
     "dpaTab": "DPA",

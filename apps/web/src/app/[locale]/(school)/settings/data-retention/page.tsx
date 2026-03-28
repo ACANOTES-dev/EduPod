@@ -91,13 +91,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   s3_compliance_exports: 'Compliance Exports',
 };
 
-const SUBJECT_TYPES = [
-  'student',
-  'staff',
-  'household',
-  'financial_record',
-  'payroll_record',
-] as const;
+const SUBJECT_TYPES = ['student', 'parent', 'staff', 'household'] as const;
+
+const SUBJECT_TYPE_LABELS: Record<typeof SUBJECT_TYPES[number], string> = {
+  student: 'Student',
+  parent: 'Parent',
+  staff: 'Staff',
+  household: 'Household',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ export default function DataRetentionSettingsPage() {
   const [editPolicy, setEditPolicy] = React.useState<RetentionPolicy | null>(null);
   const [editMonths, setEditMonths] = React.useState<number>(0);
   const [editSaving, setEditSaving] = React.useState(false);
+  const [editConfirming, setEditConfirming] = React.useState(false);
 
   // ─── Preview dialog ──────────────────────────────────────────────────────
   const [previewOpen, setPreviewOpen] = React.useState(false);
@@ -200,12 +202,18 @@ export default function DataRetentionSettingsPage() {
   const handleEditOpen = React.useCallback((policy: RetentionPolicy) => {
     setEditPolicy(policy);
     setEditMonths(policy.retention_months);
+    setEditConfirming(false);
   }, []);
 
   const handleEditSave = React.useCallback(async () => {
     if (!editPolicy) return;
     if (editMonths < editPolicy.default_retention_months) {
       toast.error(t('belowMinimum'));
+      return;
+    }
+    // First click: enter confirming state — require a second click to actually save
+    if (!editConfirming) {
+      setEditConfirming(true);
       return;
     }
     setEditSaving(true);
@@ -217,13 +225,14 @@ export default function DataRetentionSettingsPage() {
       setPolicies((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       toast.success(t('saved'));
       setEditPolicy(null);
+      setEditConfirming(false);
     } catch (err) {
       console.error('[DataRetentionSettingsPage.handleEditSave]', err);
       toast.error(t('fetchError'));
     } finally {
       setEditSaving(false);
     }
-  }, [editPolicy, editMonths, t]);
+  }, [editPolicy, editMonths, editConfirming, t]);
 
   const handlePreview = React.useCallback(async () => {
     setPreviewOpen(true);
@@ -472,7 +481,7 @@ export default function DataRetentionSettingsPage() {
       </div>
 
       {/* ── Edit Policy Dialog ──────────────────────────────────────────────── */}
-      <Dialog open={editPolicy !== null} onOpenChange={(open) => { if (!open) setEditPolicy(null); }}>
+      <Dialog open={editPolicy !== null} onOpenChange={(open) => { if (!open) { setEditPolicy(null); setEditConfirming(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('editRetention')}</DialogTitle>
@@ -488,7 +497,7 @@ export default function DataRetentionSettingsPage() {
                 type="number"
                 min={editPolicy?.default_retention_months ?? 1}
                 value={editMonths}
-                onChange={(e) => setEditMonths(Number(e.target.value))}
+                onChange={(e) => { setEditMonths(Number(e.target.value)); setEditConfirming(false); }}
                 className="w-full text-base"
               />
               {editPolicy && (
@@ -498,12 +507,20 @@ export default function DataRetentionSettingsPage() {
               )}
             </div>
           </div>
+          {editConfirming && editPolicy && (
+            <p className="px-1 text-sm text-warning-text">
+              {t('saveConfirmPrompt', { category: CATEGORY_LABELS[editPolicy.data_category] ?? editPolicy.data_category })}
+            </p>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditPolicy(null)}>
-              {t('cancel')}
+            <Button
+              variant="outline"
+              onClick={() => { if (editConfirming) { setEditConfirming(false); } else { setEditPolicy(null); } }}
+            >
+              {editConfirming ? t('back') : t('cancel')}
             </Button>
             <Button onClick={handleEditSave} disabled={editSaving}>
-              {t('save')}
+              {editConfirming ? t('confirmChange') : t('save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -583,7 +600,7 @@ export default function DataRetentionSettingsPage() {
                 <SelectContent>
                   {SUBJECT_TYPES.map((st) => (
                     <SelectItem key={st} value={st}>
-                      {st.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {SUBJECT_TYPE_LABELS[st]}
                     </SelectItem>
                   ))}
                 </SelectContent>

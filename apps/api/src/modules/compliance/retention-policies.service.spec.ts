@@ -12,6 +12,7 @@ import { RetentionPoliciesService } from './retention-policies.service';
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
+const TENANT_B_ID = '99999999-9999-9999-9999-999999999999';
 const USER_ID = '22222222-2222-2222-2222-222222222222';
 const POLICY_ID = '33333333-3333-3333-3333-333333333333';
 const OVERRIDE_ID = '44444444-4444-4444-4444-444444444444';
@@ -152,6 +153,30 @@ describe('RetentionPoliciesService', () => {
       expect(auditLogs!.is_override).toBe(false);
       expect(auditLogs!.default_retention_months).toBe(84);
       expect(auditLogs!.tenant_id).toBeNull();
+    });
+
+    it('should NOT leak Tenant A overrides into Tenant B results (RLS cross-tenant isolation)', async () => {
+      // Tenant A has a custom override for attendance_records (36 months)
+      // When we call getEffectivePolicies for Tenant B, it must never surface that override
+
+      const defaultA = makePlatformDefault('attendance_records', 24);
+      const defaultB = makePlatformDefault('audit_logs', 84, {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      });
+
+      prisma.retentionPolicy.findMany
+        .mockResolvedValueOnce([defaultA, defaultB]) // first call: platform defaults (tenant_id = null)
+        .mockResolvedValueOnce([]); // second call: Tenant B's overrides — none exist
+
+      const result = await service.getEffectivePolicies(TENANT_B_ID);
+
+      // Every returned policy must be a platform default — no overrides for Tenant B
+      expect(result.data.every((p) => p.is_override === false)).toBe(true);
+
+      // Confirm the tenant override query was scoped exclusively to Tenant B
+      const findManyCalls = prisma.retentionPolicy.findMany.mock.calls;
+      expect(findManyCalls).toHaveLength(2);
+      expect(findManyCalls[1]![0]).toMatchObject({ where: { tenant_id: TENANT_B_ID } });
     });
   });
 
