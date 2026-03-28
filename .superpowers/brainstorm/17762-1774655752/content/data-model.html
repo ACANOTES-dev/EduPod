@@ -1,0 +1,149 @@
+<h2>Section 1: Data Model</h2>
+<p class="subtitle">New tables for the Early Warning module — all tenant-scoped with RLS</p>
+
+<div class="section">
+  <h3>Entity Relationship Overview</h3>
+  <div class="mockup">
+    <div class="mockup-header">Early Warning Data Model</div>
+    <div class="mockup-body" style="padding: 24px; font-family: monospace; font-size: 13px; line-height: 1.6;">
+
+      <!-- Student Risk Profile -->
+      <div style="background: #1a1a2e; border: 2px solid #e2b340; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div style="color: #e2b340; font-weight: bold; font-size: 15px; margin-bottom: 8px;">student_risk_profiles</div>
+        <div style="color: #ccc; font-size: 12px; margin-bottom: 12px;">One row per student per academic year. The "current state" table.</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+          <span style="color: #f8f8f2;">id <span style="color: #888;">UUID PK</span></span>
+          <span style="color: #f8f8f2;">tenant_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">student_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">academic_year_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #50fa7b;">composite_score <span style="color: #888;">NUMERIC(5,2) 0-100</span></span>
+          <span style="color: #50fa7b;">risk_tier <span style="color: #888;">ENUM green/yellow/amber/red</span></span>
+          <span style="color: #50fa7b;">tier_entered_at <span style="color: #888;">TIMESTAMPTZ</span></span>
+          <span style="color: #8be9fd;">attendance_score <span style="color: #888;">NUMERIC(5,2)</span></span>
+          <span style="color: #8be9fd;">grades_score <span style="color: #888;">NUMERIC(5,2)</span></span>
+          <span style="color: #8be9fd;">behaviour_score <span style="color: #888;">NUMERIC(5,2)</span></span>
+          <span style="color: #8be9fd;">wellbeing_score <span style="color: #888;">NUMERIC(5,2)</span></span>
+          <span style="color: #8be9fd;">engagement_score <span style="color: #888;">NUMERIC(5,2)</span></span>
+          <span style="color: #bd93f9;">signal_summary_json <span style="color: #888;">JSONB — NL text + data points</span></span>
+          <span style="color: #bd93f9;">trend_json <span style="color: #888;">JSONB — last 30 daily scores</span></span>
+          <span style="color: #ff79c6;">assigned_to_user_id <span style="color: #888;">UUID FK NULLABLE</span></span>
+          <span style="color: #ff79c6;">assigned_at <span style="color: #888;">TIMESTAMPTZ NULLABLE</span></span>
+          <span style="color: #f8f8f2;">last_computed_at <span style="color: #888;">TIMESTAMPTZ NOT NULL</span></span>
+          <span style="color: #f8f8f2;">created_at <span style="color: #888;">TIMESTAMPTZ DEFAULT now()</span></span>
+          <span style="color: #f8f8f2;">updated_at <span style="color: #888;">TIMESTAMPTZ @updatedAt</span></span>
+        </div>
+        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+          UNIQUE (tenant_id, student_id, academic_year_id) &nbsp;|&nbsp; INDEX (tenant_id, risk_tier) &nbsp;|&nbsp; INDEX (tenant_id, composite_score DESC)
+        </div>
+      </div>
+
+      <!-- Student Risk Signal -->
+      <div style="background: #1a1a2e; border: 2px solid #8be9fd; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div style="color: #8be9fd; font-weight: bold; font-size: 15px; margin-bottom: 8px;">student_risk_signals</div>
+        <div style="color: #ccc; font-size: 12px; margin-bottom: 12px;">Append-only audit trail. One row per signal detection event. Enables trend analysis and historical validation.</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+          <span style="color: #f8f8f2;">id <span style="color: #888;">UUID PK</span></span>
+          <span style="color: #f8f8f2;">tenant_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">student_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">academic_year_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #50fa7b;">domain <span style="color: #888;">ENUM attendance/grades/behaviour/wellbeing/engagement</span></span>
+          <span style="color: #50fa7b;">signal_type <span style="color: #888;">VARCHAR — e.g. 'consecutive_absences'</span></span>
+          <span style="color: #50fa7b;">severity <span style="color: #888;">ENUM low/medium/high/critical</span></span>
+          <span style="color: #50fa7b;">score_contribution <span style="color: #888;">NUMERIC(5,2) — points added</span></span>
+          <span style="color: #bd93f9;">details_json <span style="color: #888;">JSONB — signal-specific data</span></span>
+          <span style="color: #f8f8f2;">source_entity_type <span style="color: #888;">VARCHAR — e.g. 'AttendancePatternAlert'</span></span>
+          <span style="color: #f8f8f2;">source_entity_id <span style="color: #888;">UUID — FK to source record</span></span>
+          <span style="color: #f8f8f2;">detected_at <span style="color: #888;">TIMESTAMPTZ NOT NULL</span></span>
+          <span style="color: #f8f8f2;">created_at <span style="color: #888;">TIMESTAMPTZ DEFAULT now()</span></span>
+        </div>
+        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+          NO updated_at (append-only) &nbsp;|&nbsp; INDEX (tenant_id, student_id, detected_at DESC) &nbsp;|&nbsp; INDEX (tenant_id, domain, detected_at DESC)
+        </div>
+      </div>
+
+      <!-- Early Warning Tier Transition -->
+      <div style="background: #1a1a2e; border: 2px solid #ff79c6; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div style="color: #ff79c6; font-weight: bold; font-size: 15px; margin-bottom: 8px;">early_warning_tier_transitions</div>
+        <div style="color: #ccc; font-size: 12px; margin-bottom: 12px;">Append-only. Logs every tier change. Drives notifications, hysteresis checks, and historical analysis.</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+          <span style="color: #f8f8f2;">id <span style="color: #888;">UUID PK</span></span>
+          <span style="color: #f8f8f2;">tenant_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">student_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #f8f8f2;">profile_id <span style="color: #888;">UUID FK NOT NULL</span></span>
+          <span style="color: #50fa7b;">from_tier <span style="color: #888;">ENUM green/yellow/amber/red NULLABLE</span></span>
+          <span style="color: #50fa7b;">to_tier <span style="color: #888;">ENUM green/yellow/amber/red NOT NULL</span></span>
+          <span style="color: #50fa7b;">composite_score <span style="color: #888;">NUMERIC(5,2) — score at transition</span></span>
+          <span style="color: #bd93f9;">trigger_signals_json <span style="color: #888;">JSONB — which signals caused the change</span></span>
+          <span style="color: #ff79c6;">routed_to_user_id <span style="color: #888;">UUID FK NULLABLE</span></span>
+          <span style="color: #ff79c6;">notification_id <span style="color: #888;">UUID FK NULLABLE — links to Notification</span></span>
+          <span style="color: #f8f8f2;">transitioned_at <span style="color: #888;">TIMESTAMPTZ NOT NULL</span></span>
+          <span style="color: #f8f8f2;">created_at <span style="color: #888;">TIMESTAMPTZ DEFAULT now()</span></span>
+        </div>
+        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+          NO updated_at (append-only) &nbsp;|&nbsp; INDEX (tenant_id, student_id, transitioned_at DESC) &nbsp;|&nbsp; INDEX (tenant_id, to_tier, transitioned_at DESC)
+        </div>
+      </div>
+
+      <!-- Early Warning Config -->
+      <div style="background: #1a1a2e; border: 2px solid #50fa7b; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <div style="color: #50fa7b; font-weight: bold; font-size: 15px; margin-bottom: 8px;">early_warning_configs</div>
+        <div style="color: #ccc; font-size: 12px; margin-bottom: 12px;">Per-tenant configuration. Weights, thresholds, routing rules, hysteresis buffer, digest schedule.</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+          <span style="color: #f8f8f2;">id <span style="color: #888;">UUID PK</span></span>
+          <span style="color: #f8f8f2;">tenant_id <span style="color: #888;">UUID FK NOT NULL UNIQUE</span></span>
+          <span style="color: #50fa7b;">is_enabled <span style="color: #888;">BOOLEAN DEFAULT false</span></span>
+          <span style="color: #8be9fd;">weights_json <span style="color: #888;">JSONB — {attendance: 25, grades: 25, ...}</span></span>
+          <span style="color: #8be9fd;">thresholds_json <span style="color: #888;">JSONB — {green: 0, yellow: 30, amber: 50, red: 75}</span></span>
+          <span style="color: #8be9fd;">hysteresis_buffer <span style="color: #888;">INTEGER DEFAULT 10 — points below threshold to downgrade</span></span>
+          <span style="color: #ff79c6;">routing_rules_json <span style="color: #888;">JSONB — tier → role/user mapping</span></span>
+          <span style="color: #bd93f9;">digest_day <span style="color: #888;">INTEGER DEFAULT 1 — day of week (1=Mon)</span></span>
+          <span style="color: #bd93f9;">digest_recipients_json <span style="color: #888;">JSONB — user IDs or role filters</span></span>
+          <span style="color: #bd93f9;">high_severity_events_json <span style="color: #888;">JSONB — which events trigger intraday recompute</span></span>
+          <span style="color: #f8f8f2;">created_at <span style="color: #888;">TIMESTAMPTZ DEFAULT now()</span></span>
+          <span style="color: #f8f8f2;">updated_at <span style="color: #888;">TIMESTAMPTZ @updatedAt</span></span>
+        </div>
+        <div style="margin-top: 10px; color: #888; font-size: 11px;">
+          UNIQUE (tenant_id) &nbsp;|&nbsp; All JSONB fields have Zod schemas with .default() values
+        </div>
+      </div>
+
+      <!-- Relationships Legend -->
+      <div style="background: #1a1a2e; border: 1px solid #444; border-radius: 8px; padding: 16px;">
+        <div style="color: #f8f8f2; font-weight: bold; margin-bottom: 8px;">Colour Legend</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px;">
+          <span style="color: #f8f8f2;">White — identifiers & timestamps</span>
+          <span style="color: #50fa7b;">Green — classification / status fields</span>
+          <span style="color: #8be9fd;">Cyan — score / metric fields</span>
+          <span style="color: #bd93f9;">Purple — JSONB structured data</span>
+          <span style="color: #ff79c6;">Pink — routing / assignment fields</span>
+          <span style="color: #e2b340;">Gold border — mutable (updated daily)</span>
+          <span style="color: #8be9fd;">Cyan border — append-only audit trail</span>
+          <span style="color: #ff79c6;">Pink border — append-only transitions</span>
+          <span style="color: #50fa7b;">Green border — configuration (rarely changes)</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Key Design Decisions</h3>
+  <div style="display: grid; gap: 12px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>student_risk_profiles</strong> — one row per student per academic year. Updated in-place during each computation cycle. Stores the <em>current state</em> including composite score, 5 sub-scores, NL summary, and 30-day trend array. This is what the dashboard queries.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>student_risk_signals</strong> — append-only log of every individual signal detected (e.g., "3 consecutive absences", "grade dropped below class mean by 15%"). Enables drill-down from a score to the specific data points that produced it. Source entity FK links back to the original record in each domain.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>early_warning_tier_transitions</strong> — append-only log of every tier change. Drives hysteresis (check last transition before downgrading), notification dispatch (only notify on actual tier changes), and historical analysis (how long do students spend in each tier?).
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>early_warning_configs</strong> — one row per tenant. All JSONB fields have Zod schemas with <code>.default()</code> so new tenants get sensible defaults without migration. Follows the existing <code>TenantSetting</code> pattern but as a dedicated table for type safety.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>No separate cohort table</strong> — cohort/heatmap views are computed on-the-fly by aggregating student_risk_profiles grouped by year_group, class, or subject. Avoids maintaining another denormalized table. If performance becomes an issue, we add a materialized view later.
+    </div>
+  </div>
+</div>

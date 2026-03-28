@@ -30,6 +30,7 @@ const MODULE_KEYS = [
   'admissions', 'attendance', 'gradebook', 'finance', 'payroll',
   'communications', 'website', 'analytics', 'compliance',
   'parent_inquiries', 'auto_scheduling', 'staff_wellbeing',
+  'behaviour', 'pastoral', 'ai_functions',
 ];
 
 const NOTIFICATION_TYPES = [
@@ -457,6 +458,12 @@ async function main() {
     });
     try {
       await redisClient.sadd('platform_owner_user_ids', platformUser.id);
+      if (tenantMap.size > 0) {
+        const tenantModuleKeys = Array.from(tenantMap.values()).map(
+          (tenantId) => `tenant_modules:${tenantId}`,
+        );
+        await redisClient.del(...tenantModuleKeys);
+      }
       console.log(`  Platform owner ${platformUser.id} added to Redis set.`);
     } finally {
       await redisClient.quit();

@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPod — Options A, B, C Side by Side</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: #0C0A09;
+    color: #FAFAF9;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: #78716C;
+  }
+
+  /* Tab switcher for Home vs Module */
+  .view-switch {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 32px;
+  }
+  .view-btn {
+    padding: 10px 28px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #78716C;
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .view-btn:hover { border-color: #44403C; color: #A8A29E; }
+  .view-btn.active {
+    background: #10B981;
+    color: #fff;
+    border-color: #10B981;
+  }
+
+  .view-layer { display: none; }
+  .view-layer.active { display: block; }
+
+  /* Three columns */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+
+  .option-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .option-label {
+    text-align: center;
+    padding: 10px;
+  }
+  .option-label .ol-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .ol-a .ol-badge { background: rgba(16,185,129,0.15); color: #10B981; }
+  .ol-b .ol-badge { background: rgba(139,92,246,0.15); color: #A78BFA; }
+  .ol-c .ol-badge { background: rgba(249,115,22,0.15); color: #FB923C; }
+
+  .option-label h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .option-label p {
+    font-size: 11px;
+    color: #78716C;
+    line-height: 1.5;
+  }
+
+  /* Mockup frame — scaled down */
+  .mini-frame {
+    background: #FEFDFB;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    font-size: 10px;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+  }
+  .mini-frame:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .mini-frame.selected {
+    border-color: #10B981;
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.15), 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  /* ═══════════════════════════════════════════
+     OPTION A — The Unified Layers
+     ═══════════════════════════════════════════ */
+
+  /* A: Top bar */
+  .a-topbar {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    height: 32px;
+    border-bottom: 1px solid #E7E5E4;
+    background: #fff;
+    gap: 10px;
+  }
+  .a-logo {
+    width: 16px; height: 16px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .a-hub {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    justify-content: center;
+  }
+  .a-hub-item {
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: 500;
+    color: #78716C;
+    border-radius: 999px;
+  }
+  .a-hub-item.active {
+    background: #ECFDF5;
+    color: #047857;
+    font-weight: 600;
+  }
+  .a-right {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .a-search {
+    background: #F5F5F4; border-radius: 999px;
+    padding: 2px 8px; font-size: 8px; color: #A8A29E;
+  }
+  .a-avatar {
+    width: 14px; height: 14px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+  }
+
+  /* A: Home content */
+  .a-home {
+    padding: 14px 14px 18px;
+    background: #FEFDFB;
+  }
+  .a-greeting {
+    font-size: 13px; font-weight: 700; color: #1C1917; margin-bottom: 2px;
+  }
+  .a-sub {
+    font-size: 8px; color: #78716C; margin-bottom: 10px;
+  }
+  .a-chips {
+    display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .a-chip {
+    padding: 4px 8px; border-radius: 8px;
+    font-size: 8px; font-weight: 500;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .a-chip.danger { background: #FFF1F2; color: #9F1239; }
+  .a-chip.warning { background: #FFFBEB; color: #92400E; }
+  .a-chip.info { background: #EFF6FF; color: #1E40AF; }
+  .a-chip-dot { width: 4px; height: 4px; border-radius: 999px; }
+  .a-chip.danger .a-chip-dot { background: #F43F5E; }
+  .a-chip.warning .a-chip-dot { background: #F59E0B; }
+  .a-chip.info .a-chip-dot { background: #3B82F6; }
+
+  .a-zones {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px;
+  }
+  .a-zone {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px;
+  }
+  .a-zone-head {
+    display: flex; align-items: center; gap: 5px; margin-bottom: 5px;
+  }
+  .a-zone-icon {
+    width: 20px; height: 20px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; font-size: 10px;
+  }
+  .a-zone-icon.zp { background: rgba(59,130,246,0.1); }
+  .a-zone-icon.zl { background: rgba(139,92,246,0.1); }
+  .a-zone-icon.zo { background: rgba(249,115,22,0.1); }
+  .a-zone-icon.zf { background: rgba(16,185,129,0.1); }
+  .a-zone h4 { font-size: 9px; font-weight: 600; color: #1C1917; }
+  .a-zone-stat { font-size: 8px; color: #78716C; }
+  .a-zone-alert { font-size: 8px; color: #DC2626; font-weight: 500; }
+
+  .a-bottom {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .a-panel {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px;
+  }
+  .a-panel h4 { font-size: 9px; font-weight: 600; color: #1C1917; margin-bottom: 6px; }
+  .a-qa { display: flex; flex-wrap: wrap; gap: 4px; }
+  .a-qa-chip {
+    background: #F5F5F4; padding: 3px 7px; border-radius: 999px;
+    font-size: 7px; font-weight: 500; color: #44403C;
+  }
+  .a-act-item {
+    display: flex; align-items: center; gap: 5px;
+    padding: 3px 0; font-size: 8px; color: #44403C;
+  }
+  .a-act-dot { width: 4px; height: 4px; border-radius: 999px; background: #D6D3D1; }
+  .a-act-time { margin-left: auto; font-size: 7px; color: #A8A29E; }
+
+  /* A: Module view */
+  .a-module-body {
+    display: flex;
+    min-height: 280px;
+  }
+  .a-sidebar {
+    width: 120px;
+    background: #FAFAF9;
+    border-right: 1px solid #E7E5E4;
+    padding: 10px 6px;
+    flex-shrink: 0;
+  }
+  .a-sb-label {
+    font-size: 7px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #A8A29E; padding: 0 6px; margin-bottom: 4px; margin-top: 8px;
+  }
+  .a-sb-label:first-child { margin-top: 0; }
+  .a-sb-item {
+    padding: 4px 6px; font-size: 8px; color: #78716C; border-radius: 5px; margin-bottom: 1px;
+  }
+  .a-sb-item.active { background: #ECFDF5; color: #047857; font-weight: 500; }
+  .a-mod-content {
+    flex: 1; padding: 12px 14px; background: #FEFDFB;
+  }
+  .a-mod-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .a-mod-title { font-size: 12px; font-weight: 700; color: #1C1917; }
+  .a-mod-btn {
+    font-size: 8px; font-weight: 600; color: #fff; background: #047857;
+    padding: 4px 10px; border-radius: 999px; border: none;
+  }
+  .a-stats { display: flex; gap: 6px; margin-bottom: 10px; }
+  .a-stat {
+    flex: 1; background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px;
+  }
+  .a-stat-label { font-size: 7px; text-transform: uppercase; color: #A8A29E; letter-spacing: 0.04em; }
+  .a-stat-val { font-size: 14px; font-weight: 600; color: #1C1917; }
+  .a-stat-val.danger { color: #DC2626; }
+  .a-stat-val.success { color: #059669; }
+  .a-table {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; overflow: hidden;
+  }
+  .a-t-head {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    padding: 5px 8px; background: #FAFAF9; border-bottom: 1px solid #E7E5E4;
+    font-size: 7px; font-weight: 600; text-transform: uppercase; color: #A8A29E;
+  }
+  .a-t-row {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    padding: 6px 8px; border-bottom: 1px solid #F5F5F4; font-size: 8px; color: #44403C;
+  }
+  .a-t-row:last-child { border-bottom: none; }
+  .a-badge {
+    display: inline-flex; padding: 1px 6px; border-radius: 999px; font-size: 7px; font-weight: 500;
+  }
+  .a-badge.paid { background: #ECFDF5; color: #059669; }
+  .a-badge.overdue { background: #FFF1F2; color: #9F1239; }
+
+  /* ═══════════════════════════════════════════
+     OPTION B — The Dock & Bento
+     ═══════════════════════════════════════════ */
+  .b-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; height: 30px; border-bottom: 1px solid #E7E5E4; background: #fff;
+  }
+  .b-logo { display: flex; align-items: center; gap: 6px; }
+  .b-logo-icon { width: 16px; height: 16px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 4px; }
+  .b-logo-text { font-size: 10px; font-weight: 700; color: #1C1917; }
+  .b-bc { font-size: 9px; color: #A8A29E; }
+  .b-bc .current { color: #1C1917; font-weight: 600; }
+
+  .b-home { padding: 12px 14px 50px; background: #FEFDFB; position: relative; min-height: 380px; }
+  .b-greeting { font-size: 13px; font-weight: 700; color: #1C1917; margin-bottom: 2px; }
+  .b-sub { font-size: 8px; color: #78716C; margin-bottom: 10px; }
+
+  .b-bento {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-auto-rows: minmax(40px, auto);
+    gap: 6px;
+  }
+  .b-card {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px; overflow: hidden;
+  }
+  .b-hero { grid-column: span 5; grid-row: span 2; }
+  .b-tall { grid-column: span 3; grid-row: span 2; }
+  .b-std { grid-column: span 2; }
+  .b-wide { grid-column: span 4; }
+
+  .b-card h4 { font-size: 9px; font-weight: 600; color: #1C1917; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+  .b-card-sub { font-size: 7px; color: #A8A29E; margin-bottom: 6px; }
+
+  .b-pri-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 0; border-top: 1px solid #F5F5F4; font-size: 8px; color: #1C1917;
+  }
+  .b-pri-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .b-pri-dot.urgent { background: #F43F5E; }
+  .b-pri-dot.warning { background: #F59E0B; }
+  .b-pri-dot.info { background: #3B82F6; }
+  .b-pri-text { flex: 1; }
+  .b-pri-btn {
+    font-size: 7px; font-weight: 600; color: #059669; padding: 2px 8px;
+    background: #ECFDF5; border-radius: 999px; border: none; flex-shrink: 0;
+  }
+
+  .b-live-stat { text-align: center; padding: 8px; background: #F5F5F4; border-radius: 6px; margin-bottom: 5px; }
+  .b-ls-val { font-size: 16px; font-weight: 700; color: #1C1917; }
+  .b-ls-label { font-size: 7px; color: #78716C; }
+  .b-ls-trend { font-size: 7px; font-weight: 500; }
+  .b-ls-trend.up { color: #059669; }
+
+  .b-zone-stat { font-size: 7px; color: #78716C; }
+  .b-zone-alert { font-size: 7px; color: #DC2626; font-weight: 500; }
+
+  .b-qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .b-qa-item {
+    padding: 4px; background: #F5F5F4; border-radius: 5px;
+    font-size: 7px; font-weight: 500; color: #44403C; text-align: center;
+  }
+
+  /* B: Dock */
+  .b-dock-wrap {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  }
+  .b-dock {
+    display: flex; align-items: center; gap: 3px;
+    background: rgba(28,25,23,0.92); backdrop-filter: blur(12px);
+    padding: 5px 8px; border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+  .b-dock-item {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; position: relative;
+  }
+  .b-dock-item.active { background: rgba(16,185,129,0.25); }
+  .b-dock-item.active::after {
+    content: ''; position: absolute; bottom: 1px;
+    width: 3px; height: 3px; border-radius: 999px; background: #10B981;
+  }
+  .b-dock-sep {
+    width: 1px; height: 18px; background: rgba(255,255,255,0.12); margin: 0 2px;
+  }
+
+  /* B: Module view */
+  .b-module { padding: 12px 14px 50px; background: #FEFDFB; position: relative; min-height: 310px; }
+  .b-mod-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .b-mod-title { font-size: 12px; font-weight: 700; color: #1C1917; }
+  .b-tabs {
+    display: flex; gap: 1px; margin-bottom: 10px;
+    border-bottom: 1px solid #E7E5E4; padding-bottom: 0;
+  }
+  .b-tab {
+    padding: 5px 8px; font-size: 8px; font-weight: 500; color: #78716C;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .b-tab.active { color: #047857; border-bottom-color: #10B981; font-weight: 600; }
+  .b-tab .b-tab-ct {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 12px; height: 10px; background: #F5F5F4; border-radius: 999px;
+    font-size: 7px; font-weight: 600; margin-left: 3px; padding: 0 3px;
+  }
+  .b-tab.active .b-tab-ct { background: #ECFDF5; color: #047857; }
+
+  /* ═══════════════════════════════════════════
+     OPTION C — The Morphing Shell
+     ═══════════════════════════════════════════ */
+  .c-morph {
+    display: flex; align-items: center; padding: 0 12px; height: 32px;
+    background: #1C1917; gap: 10px;
+  }
+  .c-logo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .c-logo-icon { width: 16px; height: 16px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 4px; }
+  .c-logo-text { font-size: 10px; font-weight: 700; color: #FAFAF9; }
+  .c-hub { display: flex; align-items: center; gap: 2px; flex: 1; justify-content: center; }
+  .c-hub-item {
+    padding: 3px 8px; font-size: 9px; font-weight: 500;
+    color: rgba(250,250,249,0.45); border-radius: 999px;
+  }
+  .c-hub-item.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .c-right { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .c-search {
+    background: rgba(255,255,255,0.08); border-radius: 999px;
+    padding: 2px 8px; font-size: 8px; color: rgba(250,250,249,0.35);
+  }
+  .c-avatar { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#6EE7B7); border-radius: 999px; }
+
+  .c-strip {
+    display: flex; align-items: center; padding: 0 12px; height: 26px;
+    background: #292524; gap: 2px;
+  }
+  .c-strip-tab {
+    padding: 3px 8px; font-size: 8px; font-weight: 500;
+    color: rgba(250,250,249,0.35); border-radius: 6px;
+  }
+  .c-strip-tab.active { color: #FAFAF9; background: rgba(255,255,255,0.1); font-weight: 600; }
+  .c-strip-ct {
+    display: inline-flex; min-width: 12px; height: 10px; border-radius: 999px;
+    font-size: 7px; font-weight: 600; margin-left: 3px; padding: 0 3px;
+    background: rgba(255,255,255,0.1);
+  }
+  .c-strip-tab.active .c-strip-ct { background: rgba(16,185,129,0.25); color: #6EE7B7; }
+
+  /* C: Home — feed layout */
+  .c-home {
+    padding: 12px 14px; background: #FEFDFB; min-height: 340px;
+  }
+  .c-greeting-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+  .c-greeting { font-size: 13px; font-weight: 700; color: #1C1917; }
+  .c-sub { font-size: 8px; color: #78716C; margin-top: 2px; }
+  .c-live-tag {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 8px; color: #78716C; background: #F5F5F4;
+    padding: 3px 8px; border-radius: 999px;
+  }
+  .c-pulse {
+    width: 4px; height: 4px; border-radius: 999px; background: #10B981;
+    animation: cpulse 2s ease-in-out infinite;
+  }
+  @keyframes cpulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .c-layout { display: grid; grid-template-columns: 1fr 140px; gap: 10px; }
+
+  .c-feed-card {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .c-feed-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px 5px;
+  }
+  .c-feed-head h4 { font-size: 9px; font-weight: 600; color: #1C1917; display: flex; align-items: center; gap: 4px; }
+  .c-feed-count {
+    font-size: 7px; font-weight: 600; padding: 1px 5px; border-radius: 999px;
+    background: #FFF1F2; color: #DC2626;
+  }
+  .c-feed-link { font-size: 7px; color: #059669; font-weight: 500; }
+
+  .c-feed-item {
+    display: flex; align-items: flex-start; gap: 6px;
+    padding: 6px 10px; border-top: 1px solid #F5F5F4;
+  }
+  .c-fi-icon {
+    width: 20px; height: 20px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; flex-shrink: 0;
+  }
+  .c-fi-danger { background: rgba(244,63,94,0.1); }
+  .c-fi-warning { background: rgba(245,158,11,0.1); }
+  .c-fi-info { background: rgba(59,130,246,0.1); }
+  .c-fi-success { background: rgba(16,185,129,0.1); }
+  .c-fi-body { flex: 1; min-width: 0; }
+  .c-fi-title { font-size: 8px; font-weight: 500; color: #1C1917; }
+  .c-fi-desc { font-size: 7px; color: #78716C; }
+  .c-fi-btn {
+    font-size: 7px; font-weight: 600; color: #059669; padding: 2px 7px;
+    background: #ECFDF5; border-radius: 999px; border: none; flex-shrink: 0; margin-top: 2px;
+  }
+
+  /* C: Context panel */
+  .c-ctx-card {
+    background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px;
+    margin-bottom: 8px;
+  }
+  .c-ctx-card h4 { font-size: 8px; font-weight: 600; color: #1C1917; margin-bottom: 6px; }
+  .c-stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 0;
+  }
+  .c-sr-label { font-size: 7px; color: #78716C; display: flex; align-items: center; gap: 4px; }
+  .c-sr-icon {
+    width: 16px; height: 16px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; font-size: 8px;
+  }
+  .c-sr-val { font-size: 10px; font-weight: 700; color: #1C1917; }
+
+  .c-progress-item { margin-bottom: 6px; }
+  .c-progress-label { display: flex; justify-content: space-between; font-size: 7px; color: #78716C; margin-bottom: 3px; }
+  .c-progress-label strong { color: #1C1917; }
+  .c-progress-bar { height: 4px; background: #F5F5F4; border-radius: 999px; overflow: hidden; }
+  .c-progress-fill { height: 100%; border-radius: 999px; }
+  .cpf-em { background: #10B981; }
+  .cpf-am { background: #F59E0B; }
+  .cpf-bl { background: #3B82F6; }
+
+  .c-nav-pills { display: flex; flex-wrap: wrap; gap: 3px; }
+  .c-nav-pill {
+    padding: 3px 6px; background: #F5F5F4; border-radius: 5px;
+    font-size: 7px; font-weight: 500; color: #44403C;
+  }
+
+  /* C: Module view */
+  .c-module { padding: 12px 14px; background: #FEFDFB; min-height: 270px; }
+
+  /* ═══════════════════════════════════════════
+     SHARED MODULE ELEMENTS (reused in A/B/C module views)
+     ═══════════════════════════════════════════ */
+  .shared-stats { display: flex; gap: 6px; margin-bottom: 10px; }
+  .shared-stat { flex: 1; background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px; }
+  .ss-label { font-size: 7px; text-transform: uppercase; color: #A8A29E; letter-spacing: 0.04em; }
+  .ss-val { font-size: 14px; font-weight: 600; color: #1C1917; }
+  .ss-val.danger { color: #DC2626; }
+  .ss-val.success { color: #059669; }
+  .shared-table { background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; overflow: hidden; }
+  .st-head {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    padding: 5px 8px; background: #FAFAF9; border-bottom: 1px solid #E7E5E4;
+    font-size: 7px; font-weight: 600; text-transform: uppercase; color: #A8A29E;
+  }
+  .st-row {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    padding: 6px 8px; border-bottom: 1px solid #F5F5F4; font-size: 8px; color: #44403C;
+  }
+  .st-row:last-child { border-bottom: none; }
+  .st-badge { display: inline-flex; padding: 1px 6px; border-radius: 999px; font-size: 7px; font-weight: 500; }
+  .st-badge.paid { background: #ECFDF5; color: #059669; }
+  .st-badge.overdue { background: #FFF1F2; color: #9F1239; }
+  .st-badge.pending { background: #FFFBEB; color: #92400E; }
+
+  /* Selection indicator */
+  .select-hint {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: #44403C;
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 12px;
+    padding: 14px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>A vs B vs C</h1>
+  <p>Same data. Same features. Three different expressions. Click to switch between Home and Module views.</p>
+</div>
+
+<div class="view-switch">
+  <button class="view-btn active" onclick="switchView('home', this)">Home / Dashboard</button>
+  <button class="view-btn" onclick="switchView('module', this)">Inside Finance</button>
+</div>
+
+<!-- ═══════════════ HOME VIEW ═══════════════ -->
+<div class="view-layer active" id="view-home">
+  <div class="compare-row">
+    <!-- OPTION A HOME -->
+    <div class="option-col">
+      <div class="option-label ol-a">
+        <div class="ol-badge">Option A</div>
+        <h2>The Unified Layers</h2>
+        <p>White hub bar top · Zone card grid · Sidebar in modules</p>
+      </div>
+      <div class="mini-frame" data-choice="a-home" onclick="toggleSelect(this)">
+        <div class="a-topbar">
+          <div class="a-logo"></div>
+          <div class="a-hub">
+            <div class="a-hub-item active">Home</div>
+            <div class="a-hub-item">People</div>
+            <div class="a-hub-item">Learning</div>
+            <div class="a-hub-item">Ops</div>
+            <div class="a-hub-item">Finance</div>
+            <div class="a-hub-item">Reports</div>
+          </div>
+          <div class="a-right">
+            <div class="a-search">⌘K</div>
+            <div class="a-avatar"></div>
+          </div>
+        </div>
+        <div class="a-home">
+          <div class="a-greeting">Good morning, Ram</div>
+          <div class="a-sub">Thursday 27 March · NHQS · 3 items need attention</div>
+          <div class="a-chips">
+            <div class="a-chip danger"><span class="a-chip-dot"></span> 3 invoices overdue</div>
+            <div class="a-chip warning"><span class="a-chip-dot"></span> Kelly admission</div>
+            <div class="a-chip info"><span class="a-chip-dot"></span> Survey 18/32</div>
+          </div>
+          <div class="a-zones">
+            <div class="a-zone"><div class="a-zone-head"><div class="a-zone-icon zp">👥</div><h4>People</h4></div><div class="a-zone-stat">209 students · 32 staff</div><div class="a-zone-alert">8 incomplete</div></div>
+            <div class="a-zone"><div class="a-zone-head"><div class="a-zone-icon zl">📚</div><h4>Learning</h4></div><div class="a-zone-stat">15 classes</div><div class="a-zone-stat">4 assessments due</div></div>
+            <div class="a-zone"><div class="a-zone-head"><div class="a-zone-icon zo">⚡</div><h4>Operations</h4></div><div class="a-zone-stat">2 admissions</div><div class="a-zone-stat">0 approvals</div></div>
+            <div class="a-zone"><div class="a-zone-head"><div class="a-zone-icon zf">💰</div><h4>Finance</h4></div><div class="a-zone-stat">€12.4k collected</div><div class="a-zone-alert">3 overdue</div></div>
+          </div>
+          <div class="a-bottom">
+            <div class="a-panel"><h4>Quick Actions</h4><div class="a-qa"><div class="a-qa-chip">+ Register</div><div class="a-qa-chip">📝 Attendance</div><div class="a-qa-chip">📄 Invoice</div><div class="a-qa-chip">📢 Announce</div></div></div>
+            <div class="a-panel"><h4>Recent Activity</h4><div class="a-act-item"><span class="a-act-dot"></span>Payment — Evans<span class="a-act-time">2h</span></div><div class="a-act-item"><span class="a-act-dot"></span>Grades — Year 5<span class="a-act-time">3h</span></div><div class="a-act-item"><span class="a-act-dot"></span>Inquiry — Hassan<span class="a-act-time">5h</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B HOME -->
+    <div class="option-col">
+      <div class="option-label ol-b">
+        <div class="ol-badge">Option B</div>
+        <h2>The Dock & Bento</h2>
+        <p>Floating dock bottom · Bento grid · Tabs in modules</p>
+      </div>
+      <div class="mini-frame" data-choice="b-home" onclick="toggleSelect(this)">
+        <div class="b-topbar">
+          <div class="b-logo"><div class="b-logo-icon"></div><span class="b-logo-text">EduPod</span></div>
+          <div class="b-bc"><span class="current">Home</span></div>
+          <div class="a-right"><div class="a-search">⌘K</div><div class="a-avatar"></div></div>
+        </div>
+        <div class="b-home">
+          <div class="b-greeting">Good morning, Ram</div>
+          <div class="b-sub">Thursday 27 March · NHQS</div>
+          <div class="b-bento">
+            <div class="b-card b-hero">
+              <h4>⚡ Today's Priorities</h4>
+              <div class="b-card-sub">3 items need attention</div>
+              <div class="b-pri-item"><span class="b-pri-dot urgent"></span><span class="b-pri-text">3 invoices overdue — €2,340</span><button class="b-pri-btn">Review</button></div>
+              <div class="b-pri-item"><span class="b-pri-dot warning"></span><span class="b-pri-text">Kelly admission awaiting</span><button class="b-pri-btn">Approve</button></div>
+              <div class="b-pri-item"><span class="b-pri-dot info"></span><span class="b-pri-text">Wellbeing survey — 18/32</span><button class="b-pri-btn">View</button></div>
+            </div>
+            <div class="b-card b-tall">
+              <h4>📊 Right Now</h4>
+              <div class="b-live-stat"><div class="b-ls-val">209</div><div class="b-ls-label">Students</div><div class="b-ls-trend up">+12 term</div></div>
+              <div class="b-live-stat"><div class="b-ls-val">98%</div><div class="b-ls-label">Attendance</div><div class="b-ls-trend up">↑ from 95%</div></div>
+              <div class="b-live-stat"><div class="b-ls-val">€12.4k</div><div class="b-ls-label">Collected</div></div>
+            </div>
+            <div class="b-card b-std"><h4>👥 People</h4><div class="b-zone-stat">209 students · 32 staff</div><div class="b-zone-alert">8 incomplete</div></div>
+            <div class="b-card b-std"><h4>📚 Learning</h4><div class="b-zone-stat">15 classes</div><div class="b-zone-stat">4 due</div></div>
+            <div class="b-card b-std"><h4>⚡ Ops</h4><div class="b-zone-stat">2 admissions</div></div>
+            <div class="b-card b-std"><h4>💰 Finance</h4><div class="b-zone-stat">€12.4k</div><div class="b-zone-alert">3 overdue</div></div>
+            <div class="b-card b-wide"><h4>🚀 Quick Actions</h4><div class="b-qa-grid"><div class="b-qa-item">+ Register</div><div class="b-qa-item">📝 Attendance</div><div class="b-qa-item">📄 Invoice</div><div class="b-qa-item">📢 Announce</div></div></div>
+            <div class="b-card b-wide"><h4>🛡️ Behaviour & Wellbeing</h4><div class="b-zone-stat">2 incidents · 14 recognitions · Survey 18/32</div></div>
+          </div>
+          <div class="b-dock-wrap"><div class="b-dock">
+            <div class="b-dock-item active">🏠</div>
+            <div class="b-dock-item">👥</div>
+            <div class="b-dock-item">📚</div>
+            <div class="b-dock-item">⚡</div>
+            <div class="b-dock-sep"></div>
+            <div class="b-dock-item">💰</div>
+            <div class="b-dock-item">📊</div>
+            <div class="b-dock-item">⚙️</div>
+            <div class="b-dock-sep"></div>
+            <div class="b-dock-item">🔍</div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C HOME -->
+    <div class="option-col">
+      <div class="option-label ol-c">
+        <div class="ol-badge">Option C</div>
+        <h2>The Morphing Shell</h2>
+        <p>Dark cinematic bar · Feed + context panel · Bar expands in modules</p>
+      </div>
+      <div class="mini-frame" data-choice="c-home" onclick="toggleSelect(this)">
+        <div class="c-morph">
+          <div class="c-logo"><div class="c-logo-icon"></div><span class="c-logo-text">EduPod</span></div>
+          <div class="c-hub">
+            <div class="c-hub-item active">Home</div>
+            <div class="c-hub-item">People</div>
+            <div class="c-hub-item">Learning</div>
+            <div class="c-hub-item">Ops</div>
+            <div class="c-hub-item">Finance</div>
+            <div class="c-hub-item">Reports</div>
+          </div>
+          <div class="c-right"><div class="c-search">⌘K</div><div class="c-avatar"></div></div>
+        </div>
+        <div class="c-home">
+          <div class="c-greeting-row">
+            <div><div class="c-greeting">Good morning, Ram</div><div class="c-sub">Thursday 27 March · NHQS</div></div>
+            <div class="c-live-tag"><div class="c-pulse"></div> 3 items</div>
+          </div>
+          <div class="c-layout">
+            <div>
+              <div class="c-feed-card">
+                <div class="c-feed-head"><h4>Needs Attention <span class="c-feed-count">3</span></h4><span class="c-feed-link">All →</span></div>
+                <div class="c-feed-item"><div class="c-fi-icon c-fi-danger">💰</div><div class="c-fi-body"><div class="c-fi-title">3 invoices overdue — €2,340</div><div class="c-fi-desc">Kelly · Thompson · Johnston</div></div><button class="c-fi-btn">Review</button></div>
+                <div class="c-feed-item"><div class="c-fi-icon c-fi-warning">📋</div><div class="c-fi-body"><div class="c-fi-title">Kelly admission awaiting</div><div class="c-fi-desc">Applied 3 days ago</div></div><button class="c-fi-btn">Approve</button></div>
+                <div class="c-feed-item"><div class="c-fi-icon c-fi-info">📊</div><div class="c-fi-body"><div class="c-fi-title">Survey closes Friday</div><div class="c-fi-desc">18/32 responded</div></div><button class="c-fi-btn">View</button></div>
+              </div>
+              <div class="c-feed-card">
+                <div class="c-feed-head"><h4>Today's Activity</h4></div>
+                <div class="c-feed-item"><div class="c-fi-icon c-fi-success">💳</div><div class="c-fi-body"><div class="c-fi-title">Payment — Evans</div></div></div>
+                <div class="c-feed-item"><div class="c-fi-icon c-fi-info">📝</div><div class="c-fi-body"><div class="c-fi-title">Grades — Year 5</div></div></div>
+              </div>
+            </div>
+            <div>
+              <div class="c-ctx-card">
+                <h4>📊 Snapshot</h4>
+                <div class="c-stat-row"><span class="c-sr-label"><span class="c-sr-icon" style="background:rgba(59,130,246,0.1)">👥</span> Students</span><span class="c-sr-val">209</span></div>
+                <div class="c-stat-row"><span class="c-sr-label"><span class="c-sr-icon" style="background:rgba(139,92,246,0.1)">👨‍🏫</span> Staff</span><span class="c-sr-val">32</span></div>
+                <div class="c-stat-row"><span class="c-sr-label"><span class="c-sr-icon" style="background:rgba(245,158,11,0.1)">📊</span> Attend.</span><span class="c-sr-val">98%</span></div>
+              </div>
+              <div class="c-ctx-card">
+                <h4>📈 This Week</h4>
+                <div class="c-progress-item"><div class="c-progress-label"><span>Attendance</span><strong>97%</strong></div><div class="c-progress-bar"><div class="c-progress-fill cpf-em" style="width:97%"></div></div></div>
+                <div class="c-progress-item"><div class="c-progress-label"><span>Survey</span><strong>56%</strong></div><div class="c-progress-bar"><div class="c-progress-fill cpf-am" style="width:56%"></div></div></div>
+                <div class="c-progress-item"><div class="c-progress-label"><span>Fees</span><strong>60%</strong></div><div class="c-progress-bar"><div class="c-progress-fill cpf-bl" style="width:60%"></div></div></div>
+              </div>
+              <div class="c-ctx-card">
+                <h4>🚀 Quick</h4>
+                <div class="c-nav-pills">
+                  <div class="c-nav-pill">➕ Register</div><div class="c-nav-pill">📝 Attend</div>
+                  <div class="c-nav-pill">📄 Invoice</div><div class="c-nav-pill">📢 Announce</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODULE VIEW ═══════════════ -->
+<div class="view-layer" id="view-module">
+  <div class="compare-row">
+    <!-- OPTION A MODULE -->
+    <div class="option-col">
+      <div class="option-label ol-a">
+        <div class="ol-badge">Option A</div>
+        <h2>Module: Sidebar</h2>
+        <p>Hub bar stays · Sidebar appears for complex modules</p>
+      </div>
+      <div class="mini-frame" data-choice="a-module" onclick="toggleSelect(this)">
+        <div class="a-topbar">
+          <div class="a-logo"></div>
+          <div class="a-hub">
+            <div class="a-hub-item">Home</div>
+            <div class="a-hub-item">People</div>
+            <div class="a-hub-item">Learning</div>
+            <div class="a-hub-item">Ops</div>
+            <div class="a-hub-item active">Finance</div>
+            <div class="a-hub-item">Reports</div>
+          </div>
+          <div class="a-right"><div class="a-search">⌘K</div><div class="a-avatar"></div></div>
+        </div>
+        <div class="a-module-body">
+          <div class="a-sidebar">
+            <div class="a-sb-label">Billing</div>
+            <div class="a-sb-item">Fee Structures</div>
+            <div class="a-sb-item active">Invoices</div>
+            <div class="a-sb-item">Payments</div>
+            <div class="a-sb-item">Credits</div>
+            <div class="a-sb-item">Refunds</div>
+            <div class="a-sb-label">Planning</div>
+            <div class="a-sb-item">Assignments</div>
+            <div class="a-sb-item">Plans</div>
+            <div class="a-sb-item">Discounts</div>
+            <div class="a-sb-label">Insights</div>
+            <div class="a-sb-item">Statements</div>
+            <div class="a-sb-item">Reports</div>
+            <div class="a-sb-item">Audit</div>
+          </div>
+          <div class="a-mod-content">
+            <div class="a-mod-header"><div class="a-mod-title">Invoices</div><button class="a-mod-btn">+ New</button></div>
+            <div class="shared-stats">
+              <div class="shared-stat"><div class="ss-label">Outstanding</div><div class="ss-val danger">€8,240</div></div>
+              <div class="shared-stat"><div class="ss-label">Collected</div><div class="ss-val success">€12,400</div></div>
+              <div class="shared-stat"><div class="ss-label">Overdue</div><div class="ss-val danger">3</div></div>
+            </div>
+            <div class="shared-table">
+              <div class="st-head"><div>Household</div><div>Amount</div><div>Status</div><div></div></div>
+              <div class="st-row"><div>Kelly Family</div><div>€1,200</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+              <div class="st-row"><div>Thompson</div><div>€800</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+              <div class="st-row"><div>Evans Family</div><div>€1,200</div><div><span class="st-badge paid">Paid</span></div><div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B MODULE -->
+    <div class="option-col">
+      <div class="option-label ol-b">
+        <div class="ol-badge">Option B</div>
+        <h2>Module: Tabs</h2>
+        <p>Dock stays · Horizontal tabs · Full width</p>
+      </div>
+      <div class="mini-frame" data-choice="b-module" onclick="toggleSelect(this)">
+        <div class="b-topbar">
+          <div class="b-logo"><div class="b-logo-icon"></div><span class="b-logo-text">EduPod</span></div>
+          <div class="b-bc">Finance <span style="color:#D6D3D1">›</span> <span class="current">Invoices</span></div>
+          <div class="a-right"><div class="a-search">⌘K</div><div class="a-avatar"></div></div>
+        </div>
+        <div class="b-module">
+          <div class="b-mod-header"><div class="b-mod-title">Finance</div><button class="a-mod-btn">+ New</button></div>
+          <div class="b-tabs">
+            <div class="b-tab">Overview</div>
+            <div class="b-tab">Fees</div>
+            <div class="b-tab active">Invoices <span class="b-tab-ct">24</span></div>
+            <div class="b-tab">Payments <span class="b-tab-ct">18</span></div>
+            <div class="b-tab">Credits</div>
+            <div class="b-tab">Refunds</div>
+            <div class="b-tab">Plans</div>
+            <div class="b-tab">Reports</div>
+          </div>
+          <div class="shared-stats">
+            <div class="shared-stat"><div class="ss-label">Outstanding</div><div class="ss-val danger">€8,240</div></div>
+            <div class="shared-stat"><div class="ss-label">Collected</div><div class="ss-val success">€12,400</div></div>
+            <div class="shared-stat"><div class="ss-label">Overdue</div><div class="ss-val danger">3</div></div>
+            <div class="shared-stat"><div class="ss-label">Pending</div><div class="ss-val">2</div></div>
+          </div>
+          <div class="shared-table">
+            <div class="st-head"><div>Household</div><div>Amount</div><div>Status</div><div></div></div>
+            <div class="st-row"><div>Kelly Family</div><div>€1,200</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+            <div class="st-row"><div>Thompson</div><div>€800</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+            <div class="st-row"><div>Evans Family</div><div>€1,200</div><div><span class="st-badge paid">Paid</span></div><div></div></div>
+          </div>
+          <div class="b-dock-wrap"><div class="b-dock">
+            <div class="b-dock-item">🏠</div><div class="b-dock-item">👥</div><div class="b-dock-item">📚</div><div class="b-dock-item">⚡</div>
+            <div class="b-dock-sep"></div>
+            <div class="b-dock-item active">💰</div><div class="b-dock-item">📊</div><div class="b-dock-item">⚙️</div>
+            <div class="b-dock-sep"></div>
+            <div class="b-dock-item">🔍</div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C MODULE -->
+    <div class="option-col">
+      <div class="option-label ol-c">
+        <div class="ol-badge">Option C</div>
+        <h2>Module: Morph Strip</h2>
+        <p>Dark bar expands · Sub-tabs in the bar · Full width</p>
+      </div>
+      <div class="mini-frame" data-choice="c-module" onclick="toggleSelect(this)">
+        <div class="c-morph">
+          <div class="c-logo"><div class="c-logo-icon"></div><span class="c-logo-text">EduPod</span></div>
+          <div class="c-hub">
+            <div class="c-hub-item">Home</div>
+            <div class="c-hub-item">People</div>
+            <div class="c-hub-item">Learning</div>
+            <div class="c-hub-item">Ops</div>
+            <div class="c-hub-item active">Finance</div>
+            <div class="c-hub-item">Reports</div>
+          </div>
+          <div class="c-right"><div class="c-search">⌘K</div><div class="c-avatar"></div></div>
+        </div>
+        <div class="c-strip">
+          <div class="c-strip-tab">Overview</div>
+          <div class="c-strip-tab">Fees</div>
+          <div class="c-strip-tab active">Invoices <span class="c-strip-ct">24</span></div>
+          <div class="c-strip-tab">Payments <span class="c-strip-ct">18</span></div>
+          <div class="c-strip-tab">Credits</div>
+          <div class="c-strip-tab">Refunds</div>
+          <div class="c-strip-tab">Reports</div>
+        </div>
+        <div class="c-module">
+          <div class="a-mod-header"><div class="a-mod-title">Invoices</div><button class="a-mod-btn">+ New</button></div>
+          <div class="shared-stats">
+            <div class="shared-stat"><div class="ss-label">Outstanding</div><div class="ss-val danger">€8,240</div></div>
+            <div class="shared-stat"><div class="ss-label">Collected</div><div class="ss-val success">€12,400</div></div>
+            <div class="shared-stat"><div class="ss-label">Overdue</div><div class="ss-val danger">3</div></div>
+            <div class="shared-stat"><div class="ss-label">Pending</div><div class="ss-val">2</div></div>
+          </div>
+          <div class="shared-table">
+            <div class="st-head"><div>Household</div><div>Amount</div><div>Status</div><div></div></div>
+            <div class="st-row"><div>Kelly Family</div><div>€1,200</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+            <div class="st-row"><div>Thompson</div><div>€800</div><div><span class="st-badge overdue">Overdue</span></div><div></div></div>
+            <div class="st-row"><div>Evans Family</div><div>€1,200</div><div><span class="st-badge paid">Paid</span></div><div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="select-hint">Click any mockup to select it. Switch between Home and Module views to compare both layers.</div>
+
+<script>
+  function switchView(view, btn) {
+    document.querySelectorAll('.view-layer').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('view-' + view).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleSelect(el) {
+    el.classList.toggle('selected');
+    const choice = el.dataset.choice;
+    const isSelected = el.classList.contains('selected');
+    if (window.__recordEvent) {
+      window.__recordEvent({ type: 'click', choice: choice, text: (isSelected ? 'Selected ' : 'Deselected ') + choice });
+    }
+  }
+</script>
+</body>
+</html>

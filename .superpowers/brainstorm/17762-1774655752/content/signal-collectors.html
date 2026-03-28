@@ -1,0 +1,337 @@
+<h2>Section 2: Signal Collectors</h2>
+<p class="subtitle">One thin adapter per domain. Queries existing tables, outputs a normalized SignalResult for the scoring engine.</p>
+
+<div class="section">
+  <h3>Collector Interface</h3>
+  <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; line-height: 1.7; color: #f8f8f2; margin-bottom: 20px;">
+    <span style="color: #ff79c6;">interface</span> <span style="color: #50fa7b;">SignalResult</span> {<br>
+    &nbsp;&nbsp;domain: <span style="color: #f1fa8c;">'attendance'</span> | <span style="color: #f1fa8c;">'grades'</span> | <span style="color: #f1fa8c;">'behaviour'</span> | <span style="color: #f1fa8c;">'wellbeing'</span> | <span style="color: #f1fa8c;">'engagement'</span>;<br>
+    &nbsp;&nbsp;rawScore: <span style="color: #8be9fd;">number</span>; <span style="color: #6272a4;">// 0-100 normalized</span><br>
+    &nbsp;&nbsp;signals: <span style="color: #50fa7b;">DetectedSignal</span>[]; <span style="color: #6272a4;">// individual data points</span><br>
+    &nbsp;&nbsp;summaryFragments: <span style="color: #8be9fd;">string</span>[]; <span style="color: #6272a4;">// NL sentences for this domain</span><br>
+    }<br><br>
+    <span style="color: #ff79c6;">interface</span> <span style="color: #50fa7b;">DetectedSignal</span> {<br>
+    &nbsp;&nbsp;signalType: <span style="color: #8be9fd;">string</span>; <span style="color: #6272a4;">// e.g. 'consecutive_absences'</span><br>
+    &nbsp;&nbsp;severity: <span style="color: #f1fa8c;">'low'</span> | <span style="color: #f1fa8c;">'medium'</span> | <span style="color: #f1fa8c;">'high'</span> | <span style="color: #f1fa8c;">'critical'</span>;<br>
+    &nbsp;&nbsp;scoreContribution: <span style="color: #8be9fd;">number</span>; <span style="color: #6272a4;">// how many points this adds</span><br>
+    &nbsp;&nbsp;details: <span style="color: #8be9fd;">Record</span>&lt;<span style="color: #8be9fd;">string</span>, <span style="color: #8be9fd;">unknown</span>&gt;; <span style="color: #6272a4;">// signal-specific data</span><br>
+    &nbsp;&nbsp;sourceEntityType: <span style="color: #8be9fd;">string</span>;<br>
+    &nbsp;&nbsp;sourceEntityId: <span style="color: #8be9fd;">string</span>;<br>
+    &nbsp;&nbsp;summaryFragment: <span style="color: #8be9fd;">string</span>; <span style="color: #6272a4;">// "Absent 3 consecutive days (Mar 25-27)"</span><br>
+    }
+  </div>
+</div>
+
+<!-- Attendance Collector -->
+<div class="section">
+  <div style="background: #1a1a2e; border: 2px solid #ff5555; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <div style="background: #ff5555; color: #000; font-weight: bold; padding: 4px 12px; border-radius: 4px; font-size: 13px;">1</div>
+      <h3 style="margin: 0; color: #ff5555;">AttendanceSignalCollector</h3>
+      <span style="color: #888; font-size: 12px;">attendance-signal.collector.ts</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="label" style="color: #888;">DATA SOURCES</div>
+      <div style="color: #ccc; font-size: 13px;">
+        <code>DailyAttendanceSummary</code> (last 30 days) &nbsp;·&nbsp;
+        <code>AttendancePatternAlert</code> (active alerts) &nbsp;·&nbsp;
+        <code>AttendanceRecord</code> (recent for streak calc)
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="label" style="color: #888;">SIGNALS DETECTED</div>
+      <table style="width: 100%; color: #ccc; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2; width: 35%;">attendance_rate_decline</td>
+          <td style="padding: 6px 0;">30-day attendance % below tenant threshold (default 90%)</td>
+          <td style="padding: 6px 0; color: #ff5555; text-align: right;">+10-30 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">consecutive_absences</td>
+          <td style="padding: 6px 0;">3+ consecutive days absent (excl. school closures)</td>
+          <td style="padding: 6px 0; color: #ff5555; text-align: right;">+15-25 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">recurring_day_pattern</td>
+          <td style="padding: 6px 0;">Same day absent 3+ times in 4 weeks (mirrors existing alert)</td>
+          <td style="padding: 6px 0; color: #ff5555; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">chronic_tardiness</td>
+          <td style="padding: 6px 0;">Late arrivals > 20% of attended days in 30-day window</td>
+          <td style="padding: 6px 0; color: #ff5555; text-align: right;">+5-15 pts</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #f8f8f2;">attendance_trajectory</td>
+          <td style="padding: 6px 0;">Week-over-week attendance rate declining for 3+ consecutive weeks</td>
+          <td style="padding: 6px 0; color: #ff5555; text-align: right;">+10-20 pts</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="label" style="color: #888;">SCORING</div>
+      <div style="color: #ccc; font-size: 13px;">
+        rawScore = <code>min(100, sum(signal contributions))</code>. Capped at 100. Leverages existing <code>AttendancePatternAlert</code> records — if an active alert exists, its type maps directly to a signal.
+      </div>
+    </div>
+  </div>
+
+  <!-- Grades Collector -->
+  <div style="background: #1a1a2e; border: 2px solid #8be9fd; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <div style="background: #8be9fd; color: #000; font-weight: bold; padding: 4px 12px; border-radius: 4px; font-size: 13px;">2</div>
+      <h3 style="margin: 0; color: #8be9fd;">GradesSignalCollector</h3>
+      <span style="color: #888; font-size: 12px;">grades-signal.collector.ts</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="label" style="color: #888;">DATA SOURCES</div>
+      <div style="color: #ccc; font-size: 13px;">
+        <code>StudentAcademicRiskAlert</code> (active alerts) &nbsp;·&nbsp;
+        <code>PeriodGradeSnapshot</code> (current + previous period) &nbsp;·&nbsp;
+        <code>Grade</code> (recent assessments for missing work) &nbsp;·&nbsp;
+        <code>ProgressReportEntry</code> (trend direction)
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="label" style="color: #888;">SIGNALS DETECTED</div>
+      <table style="width: 100%; color: #ccc; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2; width: 35%;">below_class_mean</td>
+          <td style="padding: 6px 0;">Student avg below class mean by configurable % (maps to existing risk alert)</td>
+          <td style="padding: 6px 0; color: #8be9fd; text-align: right;">+10-30 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">grade_trajectory_decline</td>
+          <td style="padding: 6px 0;">PeriodGradeSnapshot shows decline across consecutive periods</td>
+          <td style="padding: 6px 0; color: #8be9fd; text-align: right;">+10-25 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">missing_assessments</td>
+          <td style="padding: 6px 0;">More than 2 assessments with <code>is_missing = true</code> in current period</td>
+          <td style="padding: 6px 0; color: #8be9fd; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">score_anomaly</td>
+          <td style="padding: 6px 0;">Score >2 std dev below class (maps to existing risk alert)</td>
+          <td style="padding: 6px 0; color: #8be9fd; text-align: right;">+15-25 pts</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #f8f8f2;">multi_subject_decline</td>
+          <td style="padding: 6px 0;">Decline in 3+ subjects simultaneously — systemic issue</td>
+          <td style="padding: 6px 0; color: #8be9fd; text-align: right;">+15-30 pts</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="label" style="color: #888;">SCORING</div>
+      <div style="color: #ccc; font-size: 13px;">
+        rawScore = <code>min(100, sum(signal contributions))</code>. Directly consumes existing <code>StudentAcademicRiskAlert</code> records — at_risk_low/medium/high map to score bands. Adds missing assessment and trajectory signals on top.
+      </div>
+    </div>
+  </div>
+
+  <!-- Behaviour Collector -->
+  <div style="background: #1a1a2e; border: 2px solid #ffb86c; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <div style="background: #ffb86c; color: #000; font-weight: bold; padding: 4px 12px; border-radius: 4px; font-size: 13px;">3</div>
+      <h3 style="margin: 0; color: #ffb86c;">BehaviourSignalCollector</h3>
+      <span style="color: #888; font-size: 12px;">behaviour-signal.collector.ts</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="label" style="color: #888;">DATA SOURCES</div>
+      <div style="color: #ccc; font-size: 13px;">
+        <code>BehaviourAlert</code> (active alerts) &nbsp;·&nbsp;
+        <code>BehaviourIncidentParticipant</code> (role=subject, last 30 days) &nbsp;·&nbsp;
+        <code>BehaviourSanction</code> (active sanctions) &nbsp;·&nbsp;
+        <code>BehaviourExclusionCase</code> (current year) &nbsp;·&nbsp;
+        <code>BehaviourIntervention</code> (active interventions)
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="label" style="color: #888;">SIGNALS DETECTED</div>
+      <table style="width: 100%; color: #ccc; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2; width: 35%;">incident_frequency</td>
+          <td style="padding: 6px 0;">3+ negative incidents in 14-day window</td>
+          <td style="padding: 6px 0; color: #ffb86c; text-align: right;">+10-25 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">escalating_severity</td>
+          <td style="padding: 6px 0;">Average incident severity increasing over 30 days</td>
+          <td style="padding: 6px 0; color: #ffb86c; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">active_sanction</td>
+          <td style="padding: 6px 0;">Currently serving detention/suspension</td>
+          <td style="padding: 6px 0; color: #ffb86c; text-align: right;">+15-30 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">exclusion_history</td>
+          <td style="padding: 6px 0;">Any exclusion case this academic year</td>
+          <td style="padding: 6px 0; color: #ffb86c; text-align: right;">+20-35 pts</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #f8f8f2;">failed_intervention</td>
+          <td style="padding: 6px 0;">Behaviour intervention with status closed_unsuccessful or overdue</td>
+          <td style="padding: 6px 0; color: #ffb86c; text-align: right;">+10-20 pts</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="label" style="color: #888;">SCORING</div>
+      <div style="color: #ccc; font-size: 13px;">
+        rawScore = <code>min(100, sum(signal contributions))</code>. Consumes existing <code>BehaviourAlert</code> records for pattern-based signals. Adds sanction/exclusion/intervention signals. Only counts negative polarity incidents.
+      </div>
+    </div>
+  </div>
+
+  <!-- Wellbeing Collector -->
+  <div style="background: #1a1a2e; border: 2px solid #bd93f9; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <div style="background: #bd93f9; color: #000; font-weight: bold; padding: 4px 12px; border-radius: 4px; font-size: 13px;">4</div>
+      <h3 style="margin: 0; color: #bd93f9;">WellbeingSignalCollector</h3>
+      <span style="color: #888; font-size: 12px;">wellbeing-signal.collector.ts</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="label" style="color: #888;">DATA SOURCES</div>
+      <div style="color: #ccc; font-size: 13px;">
+        <code>StudentCheckin</code> (last 30 days) &nbsp;·&nbsp;
+        <code>PastoralConcern</code> (open/investigating/monitoring) &nbsp;·&nbsp;
+        <code>PastoralCase</code> (open cases) &nbsp;·&nbsp;
+        <code>PastoralReferral</code> (pending/active) &nbsp;·&nbsp;
+        <code>CriticalIncidentAffected</code> (current year)
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="label" style="color: #888;">SIGNALS DETECTED</div>
+      <table style="width: 100%; color: #ccc; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2; width: 35%;">declining_wellbeing_score</td>
+          <td style="padding: 6px 0;">StudentCheckin wellbeing_score trending down over 3+ check-ins</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+10-25 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">low_mood_pattern</td>
+          <td style="padding: 6px 0;">Mood consistently negative across last 3 check-ins</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">active_pastoral_concern</td>
+          <td style="padding: 6px 0;">Open concern with severity medium+ against this student</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+15-30 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">active_pastoral_case</td>
+          <td style="padding: 6px 0;">Student linked to an open pastoral case</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">external_referral</td>
+          <td style="padding: 6px 0;">Active referral to CAMHS/SENCO/external agency</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+15-25 pts</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #f8f8f2;">critical_incident_affected</td>
+          <td style="padding: 6px 0;">Student affected by a critical incident this year</td>
+          <td style="padding: 6px 0; color: #bd93f9; text-align: right;">+20-35 pts</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="label" style="color: #888;">SCORING</div>
+      <div style="color: #ccc; font-size: 13px;">
+        rawScore = <code>min(100, sum(signal contributions))</code>. Note: does NOT access <code>survey_responses</code> (DZ-27: no tenant_id, anonymity-by-design). Only uses student-attributed pastoral data.
+      </div>
+    </div>
+  </div>
+
+  <!-- Parent Engagement Collector -->
+  <div style="background: #1a1a2e; border: 2px solid #50fa7b; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <div style="background: #50fa7b; color: #000; font-weight: bold; padding: 4px 12px; border-radius: 4px; font-size: 13px;">5</div>
+      <h3 style="margin: 0; color: #50fa7b;">EngagementSignalCollector</h3>
+      <span style="color: #888; font-size: 12px;">engagement-signal.collector.ts</span>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <div class="label" style="color: #888;">DATA SOURCES</div>
+      <div style="color: #ccc; font-size: 13px;">
+        <code>Notification</code> (parent-targeted, last 30 days) &nbsp;·&nbsp;
+        <code>ParentInquiry</code> (activity this year) &nbsp;·&nbsp;
+        <code>StudentParent → Parent → User</code> (last_login_at) &nbsp;·&nbsp;
+        <code>BehaviourParentAcknowledgement</code> (response times)
+      </div>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="label" style="color: #888;">SIGNALS DETECTED</div>
+      <table style="width: 100%; color: #ccc; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2; width: 35%;">low_notification_read_rate</td>
+          <td style="padding: 6px 0;">Less than 30% of in-app notifications read in last 30 days</td>
+          <td style="padding: 6px 0; color: #50fa7b; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">no_portal_login</td>
+          <td style="padding: 6px 0;">No parent has logged in within configurable days (default 21)</td>
+          <td style="padding: 6px 0; color: #50fa7b; text-align: right;">+15-25 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">no_parent_inquiry</td>
+          <td style="padding: 6px 0;">Zero parent-initiated communication this academic year</td>
+          <td style="padding: 6px 0; color: #50fa7b; text-align: right;">+5-15 pts</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 6px 0; color: #f8f8f2;">slow_acknowledgement</td>
+          <td style="padding: 6px 0;">Behaviour incident acknowledgement takes >72 hours average</td>
+          <td style="padding: 6px 0; color: #50fa7b; text-align: right;">+10-20 pts</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #f8f8f2;">disengagement_trajectory</td>
+          <td style="padding: 6px 0;">Login frequency and read rate both declining over 4 weeks</td>
+          <td style="padding: 6px 0; color: #50fa7b; text-align: right;">+10-20 pts</td>
+        </tr>
+      </table>
+    </div>
+
+    <div>
+      <div class="label" style="color: #888;">SCORING</div>
+      <div style="color: #ccc; font-size: 13px;">
+        rawScore = <code>min(100, sum(signal contributions))</code>. Resolves student → parents via <code>StudentParent</code> junction. If student has multiple parents, uses the <em>most engaged</em> parent's metrics (best-case, not worst-case) to avoid penalising single-parent households.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Architecture Notes</h3>
+  <div style="display: grid; gap: 12px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>Each collector is a standalone injectable class</strong> — <code>@Injectable()</code> with <code>PrismaService</code> dependency only. No cross-collector dependencies. The scoring engine calls all 5 and merges results.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>Collectors reuse existing alert records</strong> — AttendancePatternAlert, StudentAcademicRiskAlert, BehaviourAlert are consumed as inputs, not duplicated. The early warning system adds cross-domain correlation on top.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>Score ranges are configurable per signal type</strong> — the min/max point ranges shown above are defaults stored in <code>early_warning_configs.weights_json</code>. Schools can tune individual signal contributions.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>DZ-27 respected</strong> — WellbeingSignalCollector never touches <code>survey_responses</code> (no tenant_id, anonymity-by-design). Only uses student-attributed pastoral records.
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 12px;">
+      <strong>Engagement uses best-parent metric</strong> — for fairness. A student with one very engaged parent and one disengaged parent shouldn't be flagged for engagement risk. This is a deliberate design choice to avoid false positives in separated families.
+    </div>
+  </div>
+</div>

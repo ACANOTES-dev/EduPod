@@ -422,7 +422,7 @@ CREATE INDEX IF NOT EXISTS idx_behaviour_incidents_active_retention
 -- Active legal holds partial index
 CREATE INDEX IF NOT EXISTS idx_behaviour_legal_holds_active
   ON behaviour_legal_holds (tenant_id, entity_type, entity_id, status)
-  WHERE status = 'active_hold';
+  WHERE status = 'active';
 
 
 -- ─── 4. Materialised Views ─────────────────────────────────────────────────────

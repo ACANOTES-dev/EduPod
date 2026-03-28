@@ -21,12 +21,12 @@ const mockRlsTx = {
   cpRecord: {
     create: jest.fn(),
     findMany: jest.fn(),
-    findUnique: jest.fn(),
+    findFirst: jest.fn(),
     update: jest.fn(),
     count: jest.fn(),
   },
   pastoralConcern: {
-    findUnique: jest.fn(),
+    findFirst: jest.fn(),
   },
 };
 
@@ -103,7 +103,7 @@ describe('CpRecordService', () => {
     };
 
     it('creates a CP record with valid data and logs audit event', async () => {
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue({
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({
         id: CONCERN_ID,
         tier: 3,
       });
@@ -148,7 +148,7 @@ describe('CpRecordService', () => {
     });
 
     it('validates concern is tier=3 before creating', async () => {
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue({
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({
         id: CONCERN_ID,
         tier: 2, // Not tier 3
       });
@@ -161,7 +161,7 @@ describe('CpRecordService', () => {
     });
 
     it('throws NotFoundException if linked concern does not exist', async () => {
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue(null);
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue(null);
 
       await expect(
         service.create(TENANT_ID, USER_ID, baseDto, '127.0.0.1'),
@@ -175,7 +175,7 @@ describe('CpRecordService', () => {
         '../../../common/middleware/rls.middleware',
       ) as { createRlsClient: jest.Mock };
 
-      mockRlsTx.pastoralConcern.findUnique.mockResolvedValue({
+      mockRlsTx.pastoralConcern.findFirst.mockResolvedValue({
         id: CONCERN_ID,
         tier: 3,
       });
@@ -278,7 +278,7 @@ describe('CpRecordService', () => {
 
   describe('getById', () => {
     it('returns a CP record with full details', async () => {
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(makeCpRecord());
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(makeCpRecord());
 
       const result = await service.getById(
         TENANT_ID,
@@ -296,7 +296,7 @@ describe('CpRecordService', () => {
     });
 
     it('logs cp_record_accessed audit event on read', async () => {
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(makeCpRecord());
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(makeCpRecord());
 
       await service.getById(TENANT_ID, USER_ID, RECORD_ID, '127.0.0.1');
 
@@ -319,7 +319,7 @@ describe('CpRecordService', () => {
     });
 
     it('throws NotFoundException when record does not exist', async () => {
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getById(TENANT_ID, USER_ID, RECORD_ID, null),
@@ -335,7 +335,7 @@ describe('CpRecordService', () => {
       ) as { createRlsClient: jest.Mock };
 
       // Simulate that RLS returns null for records not accessible to this user
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getById(TENANT_ID, USER_ID_OTHER, RECORD_ID, null),
@@ -362,7 +362,7 @@ describe('CpRecordService', () => {
         updated_at: new Date('2026-03-27T12:00:00Z'),
       });
 
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(existing);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(existing);
       mockRlsTx.cpRecord.update.mockResolvedValue(updated);
 
       const result = await service.update(
@@ -388,7 +388,7 @@ describe('CpRecordService', () => {
       const existing = makeCpRecord();
       const updated = makeCpRecord({ legal_hold: true });
 
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(existing);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(existing);
       mockRlsTx.cpRecord.update.mockResolvedValue(updated);
 
       const result = await service.update(
@@ -409,7 +409,7 @@ describe('CpRecordService', () => {
         tusla_contact_date: new Date(contactDate),
       });
 
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(existing);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(existing);
       mockRlsTx.cpRecord.update.mockResolvedValue(updated);
 
       const result = await service.update(
@@ -425,7 +425,7 @@ describe('CpRecordService', () => {
 
     it('logs audit event on update', async () => {
       const existing = makeCpRecord();
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(existing);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(existing);
       mockRlsTx.cpRecord.update.mockResolvedValue(
         makeCpRecord({ legal_hold: true }),
       );
@@ -450,7 +450,7 @@ describe('CpRecordService', () => {
     });
 
     it('throws NotFoundException when record does not exist', async () => {
-      mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
+      mockRlsTx.cpRecord.findFirst.mockResolvedValue(null);
 
       await expect(
         service.update(

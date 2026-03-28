@@ -47,14 +47,18 @@ CREATE POLICY teacher_scheduling_configs_tenant_isolation ON teacher_scheduling_
 -- ─── set_updated_at Triggers ────────────────────────────────────────────────
 -- (room_closures and break_group_year_groups have no updated_at — append-only / no update)
 
+DROP TRIGGER IF EXISTS set_curriculum_requirements_updated_at ON curriculum_requirements;
 CREATE TRIGGER set_curriculum_requirements_updated_at BEFORE UPDATE ON curriculum_requirements
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_teacher_competencies_updated_at ON teacher_competencies;
 CREATE TRIGGER set_teacher_competencies_updated_at BEFORE UPDATE ON teacher_competencies
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_break_groups_updated_at ON break_groups;
 CREATE TRIGGER set_break_groups_updated_at BEFORE UPDATE ON break_groups
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS set_teacher_scheduling_configs_updated_at ON teacher_scheduling_configs;
 CREATE TRIGGER set_teacher_scheduling_configs_updated_at BEFORE UPDATE ON teacher_scheduling_configs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

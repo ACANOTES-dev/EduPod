@@ -108,8 +108,8 @@ export class CpRecordService {
 
       // Verify the linked concern exists and is tier=3
       if (dto.concern_id) {
-        const concern = await db.pastoralConcern.findUnique({
-          where: { id: dto.concern_id },
+        const concern = await db.pastoralConcern.findFirst({
+          where: { id: dto.concern_id, tenant_id: tenantId },
           select: { id: true, tier: true },
         });
 
@@ -261,8 +261,8 @@ export class CpRecordService {
     const record = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      return db.cpRecord.findUnique({
-        where: { id: recordId },
+      return db.cpRecord.findFirst({
+        where: { id: recordId, tenant_id: tenantId },
         include: {
           logged_by: { select: { first_name: true, last_name: true } },
         },
@@ -318,8 +318,8 @@ export class CpRecordService {
     const updated = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const existing = await db.cpRecord.findUnique({
-        where: { id: recordId },
+      const existing = await db.cpRecord.findFirst({
+        where: { id: recordId, tenant_id: tenantId },
       });
 
       if (!existing) {

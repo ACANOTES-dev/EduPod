@@ -85,13 +85,18 @@ As agents complete, track progress. Once ALL agents have returned:
    - Permission/guard tests for controllers
 5. Iterate until **all unit tests pass**.
 
-## Phase 6 — Commit & Deploy
+## Phase 6 — Report (NO commit, NO deploy)
 
-1. Stage all new and modified files. Be specific — no `git add .`.
-2. Commit with a conventional commit message summarising all sub-phases.
-3. Push and monitor CI with `gh run watch`.
-4. If CI fails, read logs with `gh run view --log-failed`, fix, commit, push again.
-5. Report final test count and deployment status to the user.
+**`/agents` does NOT commit or deploy.** That is `/agents2`'s job after gap remediation.
+
+1. Report the final state to the user:
+   - Total files created/modified
+   - Test count and pass/fail status
+   - Type-check and lint status
+   - List of all new/modified files ready for review
+2. Tell the user: **"Ready for `/check` then `/agents2`."**
+
+Do NOT stage, commit, or push. All changes stay unstaged in the working tree.
 
 ---
 

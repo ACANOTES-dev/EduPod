@@ -9,7 +9,9 @@ Production server is `edupod-prod-1` on Hetzner. SSH access is used for:
 - Manual deploys when GitHub Actions pipeline fails
 - Server-side debugging
 
-**Note:** The exact SSH command (user, IP, key path) was in a previous memory that was lost. Verify with user before first SSH in a new session.
+**SSH key:** `~/.ssh/id_ed25519`
+
+**Note:** The exact SSH command (user, IP) was in a previous memory that was lost. Verify with user before first SSH in a new session. Never store passphrases or credentials in memory files.
 
 Manual deploy sequence on server:
 1. `cd /path/to/app` (verify actual path)

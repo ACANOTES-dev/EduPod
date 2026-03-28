@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPod — Fonts & Themes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Figtree:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #0C0A09;
+    color: #FAFAF9;
+    min-height: 100vh;
+    padding: 40px 24px 80px;
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-header p { font-size: 13px; color: #78716C; }
+
+  /* Section tabs */
+  .section-switch {
+    display: flex; justify-content: center; gap: 4px; margin-bottom: 40px;
+  }
+  .sec-btn {
+    padding: 10px 28px; font-size: 13px; font-weight: 600; color: #78716C;
+    background: #1C1917; border: 1px solid #292524; border-radius: 999px;
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+  .sec-btn:hover { border-color: #44403C; color: #A8A29E; }
+  .sec-btn.active { background: #10B981; color: #fff; border-color: #10B981; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .section-title {
+    text-align: center; margin-bottom: 24px;
+  }
+  .section-title h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .section-title p { font-size: 13px; color: #78716C; max-width: 500px; margin: 0 auto; }
+
+  /* ═══════════════════════════════════════════
+     FONTS SECTION
+     ═══════════════════════════════════════════ */
+  .font-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .font-col {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .font-label {
+    text-align: center; padding: 10px;
+  }
+  .font-label .fl-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .fl-1 .fl-badge { background: rgba(16,185,129,0.15); color: #10B981; }
+  .fl-2 .fl-badge { background: rgba(59,130,246,0.15); color: #60A5FA; }
+  .fl-3 .fl-badge { background: rgba(245,158,11,0.15); color: #FBBF24; }
+  .font-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .font-label p { font-size: 11px; color: #78716C; line-height: 1.5; }
+
+  .font-frame {
+    background: #FEFDFB;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+  }
+  .font-frame:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .font-frame.selected {
+    border-color: #10B981;
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.15), 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  /* Font 1: Plus Jakarta Sans */
+  .ff-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+  /* Font 2: DM Sans */
+  .ff-dm { font-family: 'DM Sans', sans-serif; }
+  /* Font 3: Figtree */
+  .ff-figtree { font-family: 'Figtree', sans-serif; }
+
+  /* Shared mini-mockup styles for font comparison */
+  .fm-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #1C1917; gap: 8px;
+  }
+  .fm-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; flex-shrink: 0; }
+  .fm-logo-text { font-size: 10px; font-weight: 700; color: #FAFAF9; }
+  .fm-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .fm-hub-item { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(250,250,249,0.4); border-radius: 999px; }
+  .fm-hub-item.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .fm-search { font-size: 7px; color: rgba(250,250,249,0.3); }
+  .fm-avatar { width: 12px; height: 12px; background: linear-gradient(135deg,#10B981,#6EE7B7); border-radius: 999px; }
+
+  .fm-content { padding: 14px; background: #FEFDFB; }
+  .fm-greeting { font-size: 14px; font-weight: 700; color: #1C1917; letter-spacing: -0.02em; margin-bottom: 2px; }
+  .fm-sub { font-size: 8px; color: #78716C; margin-bottom: 10px; }
+
+  .fm-feed-card { background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+  .fm-feed-head { padding: 8px 10px 5px; }
+  .fm-feed-head h4 { font-size: 10px; font-weight: 600; color: #1C1917; }
+  .fm-feed-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px; border-top: 1px solid #F5F5F4;
+  }
+  .fm-fi-icon {
+    width: 18px; height: 18px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0;
+  }
+  .fm-fi-d { background: rgba(244,63,94,0.1); }
+  .fm-fi-w { background: rgba(245,158,11,0.1); }
+  .fm-fi-i { background: rgba(59,130,246,0.1); }
+  .fm-fi-text { flex: 1; }
+  .fm-fi-title { font-size: 9px; font-weight: 500; color: #1C1917; }
+  .fm-fi-desc { font-size: 7px; color: #78716C; }
+  .fm-fi-btn {
+    font-size: 7px; font-weight: 600; color: #059669; padding: 2px 8px;
+    background: #ECFDF5; border-radius: 999px; border: none; flex-shrink: 0;
+  }
+
+  .fm-stats { display: flex; gap: 6px; }
+  .fm-stat { flex: 1; background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px; text-align: center; }
+  .fm-stat-val { font-size: 16px; font-weight: 700; color: #1C1917; }
+  .fm-stat-label { font-size: 7px; color: #78716C; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  /* Font specimen */
+  .specimen {
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .spec-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 6px 0; border-bottom: 1px solid #292524;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-label { font-size: 9px; color: #78716C; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+  .spec-sample { color: #FAFAF9; }
+  .spec-sample.h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .spec-sample.h2 { font-size: 15px; font-weight: 600; }
+  .spec-sample.body { font-size: 12px; font-weight: 400; }
+  .spec-sample.small { font-size: 10px; font-weight: 400; color: #A8A29E; }
+  .spec-sample.label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #A8A29E; }
+  .spec-sample.stat { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .spec-sample.btn { font-size: 11px; font-weight: 600; background: #047857; color: #fff; padding: 4px 12px; border-radius: 999px; display: inline-block; }
+
+  /* ═══════════════════════════════════════════
+     THEMES SECTION
+     ═══════════════════════════════════════════ */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .theme-col { display: flex; flex-direction: column; gap: 12px; }
+  .theme-label { text-align: center; padding: 10px; }
+  .theme-label .tl-badge {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 14px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .tl-1 .tl-badge { background: rgba(16,185,129,0.15); color: #10B981; }
+  .tl-2 .tl-badge { background: rgba(245,158,11,0.15); color: #FBBF24; }
+  .tl-3 .tl-badge { background: rgba(139,92,246,0.15); color: #A78BFA; }
+  .theme-label h3 { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .theme-label p { font-size: 11px; color: #78716C; line-height: 1.5; }
+
+  .theme-pair {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .theme-mode-label {
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #78716C; text-align: center;
+  }
+
+  .theme-frame {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+  }
+  .theme-frame:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 28px rgba(0,0,0,0.35);
+  }
+  .theme-frame.selected {
+    border-color: #10B981;
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.15), 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  /* ─── THEME 1: Always Dark Bar ─── */
+  /* Light mode */
+  .t1-light { background: #FEFDFB; }
+  .t1-light .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #1C1917; gap: 8px;
+  }
+  .t1-light .t-bar .t-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; }
+  .t1-light .t-bar .t-text { font-size: 10px; font-weight: 700; color: #FAFAF9; }
+  .t1-light .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t1-light .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(250,250,249,0.4); border-radius: 999px; }
+  .t1-light .t-bar .t-h.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .t1-light .t-content { padding: 12px; }
+  .t1-light .t-greeting { font-size: 13px; font-weight: 700; color: #1C1917; margin-bottom: 2px; }
+  .t1-light .t-sub { font-size: 8px; color: #78716C; margin-bottom: 8px; }
+  .t1-light .t-card { background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t1-light .t-card h4 { font-size: 9px; font-weight: 600; color: #1C1917; margin-bottom: 4px; }
+  .t1-light .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #44403C; border-top: 1px solid #F5F5F4; }
+  .t1-light .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t1-light .t-dot.r { background: #F43F5E; } .t1-light .t-dot.y { background: #F59E0B; } .t1-light .t-dot.b { background: #3B82F6; }
+  .t1-light .t-btn { font-size: 7px; font-weight: 600; color: #059669; padding: 2px 7px; background: #ECFDF5; border-radius: 999px; margin-left: auto; }
+  .t1-light .t-stats { display: flex; gap: 4px; }
+  .t1-light .t-stat { flex: 1; background: #F5F5F4; border-radius: 6px; padding: 6px; text-align: center; }
+  .t1-light .t-sv { font-size: 14px; font-weight: 700; color: #1C1917; }
+  .t1-light .t-sl { font-size: 7px; color: #78716C; }
+
+  /* Dark mode — bar stays same dark */
+  .t1-dark { background: #1C1917; }
+  .t1-dark .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #0C0A09; gap: 8px;
+  }
+  .t1-dark .t-bar .t-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; }
+  .t1-dark .t-bar .t-text { font-size: 10px; font-weight: 700; color: #FAFAF9; }
+  .t1-dark .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t1-dark .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(250,250,249,0.4); border-radius: 999px; }
+  .t1-dark .t-bar .t-h.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .t1-dark .t-content { padding: 12px; }
+  .t1-dark .t-greeting { font-size: 13px; font-weight: 700; color: #FAFAF9; margin-bottom: 2px; }
+  .t1-dark .t-sub { font-size: 8px; color: #A8A29E; margin-bottom: 8px; }
+  .t1-dark .t-card { background: #292524; border: 1px solid #44403C; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t1-dark .t-card h4 { font-size: 9px; font-weight: 600; color: #FAFAF9; margin-bottom: 4px; }
+  .t1-dark .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #D6D3D1; border-top: 1px solid #44403C; }
+  .t1-dark .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t1-dark .t-dot.r { background: #FB7185; } .t1-dark .t-dot.y { background: #FBBF24; } .t1-dark .t-dot.b { background: #60A5FA; }
+  .t1-dark .t-btn { font-size: 7px; font-weight: 600; color: #6EE7B7; padding: 2px 7px; background: rgba(16,185,129,0.15); border-radius: 999px; margin-left: auto; }
+  .t1-dark .t-stats { display: flex; gap: 4px; }
+  .t1-dark .t-stat { flex: 1; background: #292524; border: 1px solid #44403C; border-radius: 6px; padding: 6px; text-align: center; }
+  .t1-dark .t-sv { font-size: 14px; font-weight: 700; color: #FAFAF9; }
+  .t1-dark .t-sl { font-size: 7px; color: #A8A29E; }
+
+  /* ─── THEME 2: Warm Stone Dark ─── */
+  .t2-light { background: #FAF9F7; }
+  .t2-light .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #1C1917; gap: 8px;
+  }
+  .t2-light .t-bar .t-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; }
+  .t2-light .t-bar .t-text { font-size: 10px; font-weight: 700; color: #FAFAF9; }
+  .t2-light .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t2-light .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(250,250,249,0.4); border-radius: 999px; }
+  .t2-light .t-bar .t-h.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .t2-light .t-content { padding: 12px; }
+  .t2-light .t-greeting { font-size: 13px; font-weight: 700; color: #1C1917; margin-bottom: 2px; }
+  .t2-light .t-sub { font-size: 8px; color: #78716C; margin-bottom: 8px; }
+  .t2-light .t-card { background: #fff; border: 1px solid #E7E5E4; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t2-light .t-card h4 { font-size: 9px; font-weight: 600; color: #1C1917; margin-bottom: 4px; }
+  .t2-light .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #44403C; border-top: 1px solid #F5F5F4; }
+  .t2-light .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t2-light .t-dot.r { background: #F43F5E; } .t2-light .t-dot.y { background: #F59E0B; } .t2-light .t-dot.b { background: #3B82F6; }
+  .t2-light .t-btn { font-size: 7px; font-weight: 600; color: #059669; padding: 2px 7px; background: #ECFDF5; border-radius: 999px; margin-left: auto; }
+  .t2-light .t-stats { display: flex; gap: 4px; }
+  .t2-light .t-stat { flex: 1; background: #F5F4F1; border-radius: 6px; padding: 6px; text-align: center; }
+  .t2-light .t-sv { font-size: 14px; font-weight: 700; color: #1C1917; }
+  .t2-light .t-sl { font-size: 7px; color: #78716C; }
+
+  /* Warm stone dark */
+  .t2-dark { background: #1A1816; }
+  .t2-dark .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #12100E; gap: 8px;
+    border-bottom: 1px solid #2A2623;
+  }
+  .t2-dark .t-bar .t-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; }
+  .t2-dark .t-bar .t-text { font-size: 10px; font-weight: 700; color: #F5F0EB; }
+  .t2-dark .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t2-dark .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(245,240,235,0.4); border-radius: 999px; }
+  .t2-dark .t-bar .t-h.active { background: rgba(16,185,129,0.2); color: #6EE7B7; font-weight: 600; }
+  .t2-dark .t-content { padding: 12px; }
+  .t2-dark .t-greeting { font-size: 13px; font-weight: 700; color: #F5F0EB; margin-bottom: 2px; }
+  .t2-dark .t-sub { font-size: 8px; color: #9C9590; margin-bottom: 8px; }
+  .t2-dark .t-card { background: #242120; border: 1px solid #3A3532; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t2-dark .t-card h4 { font-size: 9px; font-weight: 600; color: #F5F0EB; margin-bottom: 4px; }
+  .t2-dark .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #C8C0B8; border-top: 1px solid #3A3532; }
+  .t2-dark .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t2-dark .t-dot.r { background: #FB7185; } .t2-dark .t-dot.y { background: #FBBF24; } .t2-dark .t-dot.b { background: #60A5FA; }
+  .t2-dark .t-btn { font-size: 7px; font-weight: 600; color: #6EE7B7; padding: 2px 7px; background: rgba(16,185,129,0.12); border-radius: 999px; margin-left: auto; }
+  .t2-dark .t-stats { display: flex; gap: 4px; }
+  .t2-dark .t-stat { flex: 1; background: #242120; border: 1px solid #3A3532; border-radius: 6px; padding: 6px; text-align: center; }
+  .t2-dark .t-sv { font-size: 14px; font-weight: 700; color: #F5F0EB; }
+  .t2-dark .t-sl { font-size: 7px; color: #9C9590; }
+
+  /* ─── THEME 3: Midnight Emerald ─── */
+  .t3-light { background: #F8FDFB; }
+  .t3-light .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #064E3B; gap: 8px;
+  }
+  .t3-light .t-bar .t-logo { width: 14px; height: 14px; background: rgba(255,255,255,0.2); border-radius: 3px; }
+  .t3-light .t-bar .t-text { font-size: 10px; font-weight: 700; color: #ECFDF5; }
+  .t3-light .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t3-light .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(236,253,245,0.5); border-radius: 999px; }
+  .t3-light .t-bar .t-h.active { background: rgba(255,255,255,0.15); color: #D1FAE5; font-weight: 600; }
+  .t3-light .t-content { padding: 12px; }
+  .t3-light .t-greeting { font-size: 13px; font-weight: 700; color: #064E3B; margin-bottom: 2px; }
+  .t3-light .t-sub { font-size: 8px; color: #6B8F80; margin-bottom: 8px; }
+  .t3-light .t-card { background: #fff; border: 1px solid #D1FAE5; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t3-light .t-card h4 { font-size: 9px; font-weight: 600; color: #064E3B; margin-bottom: 4px; }
+  .t3-light .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #374F44; border-top: 1px solid #ECFDF5; }
+  .t3-light .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t3-light .t-dot.r { background: #F43F5E; } .t3-light .t-dot.y { background: #F59E0B; } .t3-light .t-dot.b { background: #3B82F6; }
+  .t3-light .t-btn { font-size: 7px; font-weight: 600; color: #047857; padding: 2px 7px; background: #D1FAE5; border-radius: 999px; margin-left: auto; }
+  .t3-light .t-stats { display: flex; gap: 4px; }
+  .t3-light .t-stat { flex: 1; background: #ECFDF5; border-radius: 6px; padding: 6px; text-align: center; }
+  .t3-light .t-sv { font-size: 14px; font-weight: 700; color: #064E3B; }
+  .t3-light .t-sl { font-size: 7px; color: #6B8F80; }
+
+  /* Midnight emerald dark */
+  .t3-dark { background: #0A1F18; }
+  .t3-dark .t-bar {
+    display: flex; align-items: center; padding: 0 12px; height: 30px;
+    background: #041410; gap: 8px;
+    border-bottom: 1px solid #143028;
+  }
+  .t3-dark .t-bar .t-logo { width: 14px; height: 14px; background: linear-gradient(135deg,#10B981,#059669); border-radius: 3px; }
+  .t3-dark .t-bar .t-text { font-size: 10px; font-weight: 700; color: #D1FAE5; }
+  .t3-dark .t-bar .t-hub { display: flex; gap: 2px; flex: 1; justify-content: center; }
+  .t3-dark .t-bar .t-h { padding: 2px 7px; font-size: 8px; font-weight: 500; color: rgba(209,250,229,0.35); border-radius: 999px; }
+  .t3-dark .t-bar .t-h.active { background: rgba(16,185,129,0.25); color: #6EE7B7; font-weight: 600; }
+  .t3-dark .t-content { padding: 12px; }
+  .t3-dark .t-greeting { font-size: 13px; font-weight: 700; color: #D1FAE5; margin-bottom: 2px; }
+  .t3-dark .t-sub { font-size: 8px; color: #5E8A78; margin-bottom: 8px; }
+  .t3-dark .t-card { background: #0F2920; border: 1px solid #1A3D30; border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .t3-dark .t-card h4 { font-size: 9px; font-weight: 600; color: #D1FAE5; margin-bottom: 4px; }
+  .t3-dark .t-item { display: flex; align-items: center; gap: 5px; padding: 4px 0; font-size: 8px; color: #8FB8A8; border-top: 1px solid #1A3D30; }
+  .t3-dark .t-dot { width: 5px; height: 5px; border-radius: 999px; flex-shrink: 0; }
+  .t3-dark .t-dot.r { background: #FB7185; } .t3-dark .t-dot.y { background: #FBBF24; } .t3-dark .t-dot.b { background: #60A5FA; }
+  .t3-dark .t-btn { font-size: 7px; font-weight: 600; color: #6EE7B7; padding: 2px 7px; background: rgba(16,185,129,0.15); border-radius: 999px; margin-left: auto; }
+  .t3-dark .t-stats { display: flex; gap: 4px; }
+  .t3-dark .t-stat { flex: 1; background: #0F2920; border: 1px solid #1A3D30; border-radius: 6px; padding: 6px; text-align: center; }
+  .t3-dark .t-sv { font-size: 14px; font-weight: 700; color: #D1FAE5; }
+  .t3-dark .t-sl { font-size: 7px; color: #5E8A78; }
+
+  .theme-note {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 11px;
+    color: #44403C;
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 10px;
+    padding: 12px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .theme-note strong { color: #F43F5E; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Fonts & Themes</h1>
+  <p>Two decisions. Three options each. All shown on Option C's Morphing Shell.</p>
+</div>
+
+<div class="section-switch">
+  <button class="sec-btn active" onclick="switchSec('fonts', this)">Fonts</button>
+  <button class="sec-btn" onclick="switchSec('themes', this)">Light & Dark Mode</button>
+</div>
+
+<!-- ═══════════════ FONTS ═══════════════ -->
+<div class="section active" id="sec-fonts">
+  <div class="section-title">
+    <h2>Three Font Personalities</h2>
+    <p>Same layout, same content. The font changes the entire personality. Click to select.</p>
+  </div>
+
+  <div class="font-grid">
+    <!-- FONT 1: Plus Jakarta Sans -->
+    <div class="font-col">
+      <div class="font-label fl-1">
+        <div class="fl-badge">Font A</div>
+        <h3>Plus Jakarta Sans</h3>
+        <p>Your current font. Warm geometric, friendly, modern. The ClassDojo energy — approachable without being childish.</p>
+      </div>
+      <div class="font-frame ff-jakarta" data-choice="font-jakarta" onclick="toggleSelect(this)">
+        <div class="fm-bar">
+          <div class="fm-logo"></div><span class="fm-logo-text" style="font-family:'Plus Jakarta Sans'">EduPod</span>
+          <div class="fm-hub">
+            <div class="fm-hub-item active">Home</div>
+            <div class="fm-hub-item">People</div>
+            <div class="fm-hub-item">Learning</div>
+            <div class="fm-hub-item">Finance</div>
+          </div>
+          <div class="fm-search">⌘K</div>
+        </div>
+        <div class="fm-content">
+          <div class="fm-greeting">Good morning, Ram</div>
+          <div class="fm-sub">Thursday 27 March · NHQS</div>
+          <div class="fm-feed-card">
+            <div class="fm-feed-head"><h4>Needs Your Attention</h4></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-d">💰</div><div class="fm-fi-text"><div class="fm-fi-title">3 invoices overdue — €2,340</div><div class="fm-fi-desc">Kelly · Thompson · Johnston</div></div><div class="fm-fi-btn">Review</div></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-w">📋</div><div class="fm-fi-text"><div class="fm-fi-title">Kelly admission awaiting approval</div><div class="fm-fi-desc">Applied 3 days ago · 2 students</div></div><div class="fm-fi-btn">Approve</div></div>
+          </div>
+          <div class="fm-stats">
+            <div class="fm-stat"><div class="fm-stat-val">209</div><div class="fm-stat-label">Students</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">98%</div><div class="fm-stat-label">Attendance</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">€12.4k</div><div class="fm-stat-label">Collected</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="specimen ff-jakarta">
+        <div class="spec-row"><span class="spec-label">Heading</span><span class="spec-sample h1">Good morning, Ram</span></div>
+        <div class="spec-row"><span class="spec-label">Subheading</span><span class="spec-sample h2">Today's Priorities</span></div>
+        <div class="spec-row"><span class="spec-label">Body</span><span class="spec-sample body">3 invoices overdue — €2,340 total</span></div>
+        <div class="spec-row"><span class="spec-label">Small</span><span class="spec-sample small">Applied 3 days ago · 2 students</span></div>
+        <div class="spec-row"><span class="spec-label">Label</span><span class="spec-sample label">Total Students</span></div>
+        <div class="spec-row"><span class="spec-label">Stat</span><span class="spec-sample stat">€12,400</span></div>
+        <div class="spec-row"><span class="spec-label">Button</span><span class="spec-sample btn">+ New Invoice</span></div>
+      </div>
+    </div>
+
+    <!-- FONT 2: DM Sans -->
+    <div class="font-col">
+      <div class="font-label fl-2">
+        <div class="fl-badge">Font B</div>
+        <h3>DM Sans</h3>
+        <p>Clean geometric with subtle rounded terminals. Tighter tracking, more contemporary SaaS feel. The Linear/Stripe energy — precise and confident.</p>
+      </div>
+      <div class="font-frame ff-dm" data-choice="font-dm" onclick="toggleSelect(this)">
+        <div class="fm-bar">
+          <div class="fm-logo"></div><span class="fm-logo-text" style="font-family:'DM Sans'">EduPod</span>
+          <div class="fm-hub">
+            <div class="fm-hub-item active">Home</div>
+            <div class="fm-hub-item">People</div>
+            <div class="fm-hub-item">Learning</div>
+            <div class="fm-hub-item">Finance</div>
+          </div>
+          <div class="fm-search">⌘K</div>
+        </div>
+        <div class="fm-content">
+          <div class="fm-greeting">Good morning, Ram</div>
+          <div class="fm-sub">Thursday 27 March · NHQS</div>
+          <div class="fm-feed-card">
+            <div class="fm-feed-head"><h4>Needs Your Attention</h4></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-d">💰</div><div class="fm-fi-text"><div class="fm-fi-title">3 invoices overdue — €2,340</div><div class="fm-fi-desc">Kelly · Thompson · Johnston</div></div><div class="fm-fi-btn">Review</div></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-w">📋</div><div class="fm-fi-text"><div class="fm-fi-title">Kelly admission awaiting approval</div><div class="fm-fi-desc">Applied 3 days ago · 2 students</div></div><div class="fm-fi-btn">Approve</div></div>
+          </div>
+          <div class="fm-stats">
+            <div class="fm-stat"><div class="fm-stat-val">209</div><div class="fm-stat-label">Students</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">98%</div><div class="fm-stat-label">Attendance</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">€12.4k</div><div class="fm-stat-label">Collected</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="specimen ff-dm">
+        <div class="spec-row"><span class="spec-label">Heading</span><span class="spec-sample h1">Good morning, Ram</span></div>
+        <div class="spec-row"><span class="spec-label">Subheading</span><span class="spec-sample h2">Today's Priorities</span></div>
+        <div class="spec-row"><span class="spec-label">Body</span><span class="spec-sample body">3 invoices overdue — €2,340 total</span></div>
+        <div class="spec-row"><span class="spec-label">Small</span><span class="spec-sample small">Applied 3 days ago · 2 students</span></div>
+        <div class="spec-row"><span class="spec-label">Label</span><span class="spec-sample label">Total Students</span></div>
+        <div class="spec-row"><span class="spec-label">Stat</span><span class="spec-sample stat">€12,400</span></div>
+        <div class="spec-row"><span class="spec-label">Button</span><span class="spec-sample btn">+ New Invoice</span></div>
+      </div>
+    </div>
+
+    <!-- FONT 3: Figtree -->
+    <div class="font-col">
+      <div class="font-label fl-3">
+        <div class="fl-badge">Font C</div>
+        <h3>Figtree</h3>
+        <p>Newer Google Font. Geometric with warmth, slightly more open counters. Designed for interfaces. The sweet spot — friendly like Jakarta but crisper at small sizes.</p>
+      </div>
+      <div class="font-frame ff-figtree" data-choice="font-figtree" onclick="toggleSelect(this)">
+        <div class="fm-bar">
+          <div class="fm-logo"></div><span class="fm-logo-text" style="font-family:'Figtree'">EduPod</span>
+          <div class="fm-hub">
+            <div class="fm-hub-item active">Home</div>
+            <div class="fm-hub-item">People</div>
+            <div class="fm-hub-item">Learning</div>
+            <div class="fm-hub-item">Finance</div>
+          </div>
+          <div class="fm-search">⌘K</div>
+        </div>
+        <div class="fm-content">
+          <div class="fm-greeting">Good morning, Ram</div>
+          <div class="fm-sub">Thursday 27 March · NHQS</div>
+          <div class="fm-feed-card">
+            <div class="fm-feed-head"><h4>Needs Your Attention</h4></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-d">💰</div><div class="fm-fi-text"><div class="fm-fi-title">3 invoices overdue — €2,340</div><div class="fm-fi-desc">Kelly · Thompson · Johnston</div></div><div class="fm-fi-btn">Review</div></div>
+            <div class="fm-feed-item"><div class="fm-fi-icon fm-fi-w">📋</div><div class="fm-fi-text"><div class="fm-fi-title">Kelly admission awaiting approval</div><div class="fm-fi-desc">Applied 3 days ago · 2 students</div></div><div class="fm-fi-btn">Approve</div></div>
+          </div>
+          <div class="fm-stats">
+            <div class="fm-stat"><div class="fm-stat-val">209</div><div class="fm-stat-label">Students</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">98%</div><div class="fm-stat-label">Attendance</div></div>
+            <div class="fm-stat"><div class="fm-stat-val">€12.4k</div><div class="fm-stat-label">Collected</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="specimen ff-figtree">
+        <div class="spec-row"><span class="spec-label">Heading</span><span class="spec-sample h1">Good morning, Ram</span></div>
+        <div class="spec-row"><span class="spec-label">Subheading</span><span class="spec-sample h2">Today's Priorities</span></div>
+        <div class="spec-row"><span class="spec-label">Body</span><span class="spec-sample body">3 invoices overdue — €2,340 total</span></div>
+        <div class="spec-row"><span class="spec-label">Small</span><span class="spec-sample small">Applied 3 days ago · 2 students</span></div>
+        <div class="spec-row"><span class="spec-label">Label</span><span class="spec-sample label">Total Students</span></div>
+        <div class="spec-row"><span class="spec-label">Stat</span><span class="spec-sample stat">€12,400</span></div>
+        <div class="spec-row"><span class="spec-label">Button</span><span class="spec-sample btn">+ New Invoice</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ THEMES ═══════════════ -->
+<div class="section" id="sec-themes">
+  <div class="section-title">
+    <h2>Three Theme Treatments</h2>
+    <p>Each shows light mode (top) and dark mode (bottom). All use CSS custom properties — <strong>no hardcoded colours, ever.</strong></p>
+  </div>
+
+  <div class="theme-note">
+    <strong>About your white-text-on-light-mode bug:</strong> All three options use design tokens (CSS variables) that swap per theme. Buttons use <code>var(--btn-text)</code> not <code>#fff</code>. This structurally prevents the invisible-button problem.
+  </div>
+
+  <div class="theme-grid" style="margin-top: 24px;">
+    <!-- THEME 1 -->
+    <div class="theme-col">
+      <div class="theme-label tl-1">
+        <div class="tl-badge">Theme A</div>
+        <h3>Stone Neutral</h3>
+        <p>Always-dark bar. Content swaps between warm white and cool stone grey. Neutral, professional, easy on the eyes.</p>
+      </div>
+      <div class="theme-pair" data-choice="theme-stone" onclick="toggleSelect(this.querySelector('.theme-frame:first-child'))">
+        <div class="theme-mode-label">Light</div>
+        <div class="theme-frame t1-light" data-choice="theme-stone" onclick="event.stopPropagation(); toggleSelect(this.parentElement.parentElement.querySelector('.theme-frame'))">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+        <div class="theme-mode-label">Dark</div>
+        <div class="theme-frame t1-dark" data-choice="theme-stone" onclick="event.stopPropagation(); toggleSelect(this)">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THEME 2 -->
+    <div class="theme-col">
+      <div class="theme-label tl-2">
+        <div class="tl-badge">Theme B</div>
+        <h3>Warm Stone</h3>
+        <p>Warmer undertones throughout. Light mode has cream-tinted whites. Dark mode uses brown-warm greys instead of blue-cool greys. Feels more human, less clinical.</p>
+      </div>
+      <div class="theme-pair">
+        <div class="theme-mode-label">Light</div>
+        <div class="theme-frame t2-light" data-choice="theme-warm" onclick="toggleSelect(this)">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+        <div class="theme-mode-label">Dark</div>
+        <div class="theme-frame t2-dark" data-choice="theme-warm" onclick="toggleSelect(this)">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- THEME 3 -->
+    <div class="theme-col">
+      <div class="theme-label tl-3">
+        <div class="tl-badge">Theme C</div>
+        <h3>Midnight Emerald</h3>
+        <p>Brand-tinted throughout. Light mode has a subtle green tint. Dark mode is a deep emerald midnight. The bar uses brand-dark green. Distinctive, premium, uniquely EduPod.</p>
+      </div>
+      <div class="theme-pair">
+        <div class="theme-mode-label">Light</div>
+        <div class="theme-frame t3-light" data-choice="theme-emerald" onclick="toggleSelect(this)">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+        <div class="theme-mode-label">Dark</div>
+        <div class="theme-frame t3-dark" data-choice="theme-emerald" onclick="toggleSelect(this)">
+          <div class="t-bar"><div class="t-logo"></div><span class="t-text">EduPod</span><div class="t-hub"><div class="t-h active">Home</div><div class="t-h">People</div><div class="t-h">Finance</div></div></div>
+          <div class="t-content">
+            <div class="t-greeting">Good morning, Ram</div>
+            <div class="t-sub">Thursday 27 March · NHQS</div>
+            <div class="t-card"><h4>Needs Attention</h4>
+              <div class="t-item"><span class="t-dot r"></span>3 invoices overdue<span class="t-btn">Review</span></div>
+              <div class="t-item"><span class="t-dot y"></span>Kelly admission<span class="t-btn">Approve</span></div>
+            </div>
+            <div class="t-stats"><div class="t-stat"><div class="t-sv">209</div><div class="t-sl">Students</div></div><div class="t-stat"><div class="t-sv">98%</div><div class="t-sl">Attend.</div></div><div class="t-stat"><div class="t-sv">€12.4k</div><div class="t-sl">Collected</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchSec(sec, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sec-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('sec-' + sec).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function toggleSelect(el) {
+    if (!el) return;
+    el.classList.toggle('selected');
+    const choice = el.dataset.choice;
+    if (choice && window.__recordEvent) {
+      window.__recordEvent({ type: 'click', choice: choice, text: (el.classList.contains('selected') ? 'Selected ' : 'Deselected ') + choice });
+    }
+  }
+</script>
+</body>
+</html>

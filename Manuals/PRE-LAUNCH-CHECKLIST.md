@@ -246,6 +246,7 @@ Items flagged during ongoing development work that are deferred to the pre-launc
 | 1 | Backup SSH key before going live | Memory: project_pre_launch_actions.md | 2026-03-25 | Ensure SSH key is backed up securely |
 | 2 | Verify system role permissions and tiers | Roles refactor session (2026-03-25) | 2026-03-25 | Review all 9 system roles: (1) confirm each role's `role_tier` is correct (some permissions were seeded at mismatched tiers, e.g. Teacher has admin-tier permissions like `students.view`); (2) verify default permission sets are appropriate for each role; (3) confirm School Vice-Principal and Student have the right initial permissions configured; (4) verify the School Owner (platform) role has correct immutable permissions excluding privacy-sensitive access to individual accounts |
 | 3 | Verify per-tenant HMAC secret for staff wellbeing surveys | Staff Wellbeing spec (2026-03-27) | 2026-03-27 | Verify HMAC secret auto-generation works on first survey creation, encrypted storage is correct (AES-256), and secrets are independent across both confirmed tenants. Test participation token flow end-to-end on both tenants. |
+| 4 | Rotate SSH key passphrase | Conversation (2026-03-27) | 2026-03-27 | Passphrase for `~/.ssh/id_ed25519` was exposed in a chat session. Walk user through: (1) `ssh-keygen -p -f ~/.ssh/id_ed25519` to change passphrase, (2) verify SSH to production still works, (3) update any keychain entries if macOS Keychain was storing the old passphrase. |
 | | | | | |
 
 ---

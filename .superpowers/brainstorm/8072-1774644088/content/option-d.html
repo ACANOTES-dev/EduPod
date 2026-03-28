@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduPod — Option D: The Canvas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+    background: #0C0A09;
+    color: #FAFAF9;
+    min-height: 100vh;
+    padding: 40px 32px 80px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .header .label {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 999px;
+    background: rgba(20, 184, 166, 0.15);
+    color: #2DD4BF;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #14B8A6, #99F6E4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    font-size: 15px;
+    color: #A8A29E;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .section-label {
+    text-align: center;
+    margin-bottom: 20px;
+    margin-top: 64px;
+  }
+  .section-label h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .section-label p {
+    font-size: 13px;
+    color: #78716C;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  .mockup-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .mockup-frame {
+    background: #FEFDFB;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+  }
+
+  /* ─── SLIM LEFT RAIL + TOP BAR COMBO ─── */
+  .app-shell {
+    display: flex;
+    min-height: 560px;
+  }
+
+  .left-rail {
+    width: 64px;
+    background: #1C1917;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 0;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .rail-logo {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .rail-logo:hover { transform: scale(1.08); }
+
+  .rail-item {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .rail-item:hover {
+    background: rgba(255,255,255,0.08);
+  }
+  .rail-item.active {
+    background: rgba(16, 185, 129, 0.2);
+  }
+  .rail-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: #10B981;
+    border-radius: 0 3px 3px 0;
+  }
+  .rail-item .rail-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    min-width: 14px;
+    height: 14px;
+    background: #F43F5E;
+    border-radius: 999px;
+    font-size: 8px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    border: 2px solid #1C1917;
+  }
+  .rail-spacer { flex: 1; }
+  .rail-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10B981, #6EE7B7);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Top contextual bar */
+  .ctx-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 52px;
+    border-bottom: 1px solid #E7E5E4;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .ctx-bar .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .ctx-bar .bc-item {
+    color: #A8A29E;
+    font-weight: 500;
+  }
+  .ctx-bar .bc-current {
+    color: #1C1917;
+    font-weight: 600;
+  }
+  .ctx-bar .bc-sep { color: #D6D3D1; font-size: 12px; }
+
+  .ctx-bar .ctx-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .search-pill {
+    background: #F5F5F4;
+    border: 1px solid #E7E5E4;
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 12px;
+    color: #A8A29E;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .kbd {
+    background: #fff;
+    border: 1px solid #D6D3D1;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: #78716C;
+  }
+  .bell-wrap {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    border: 2px solid #D6D3D1;
+    cursor: pointer;
+  }
+  .bell-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 8px;
+    height: 8px;
+    background: #F43F5E;
+    border-radius: 999px;
+    border: 2px solid #fff;
+  }
+
+  /* ─── CANVAS HOME ─── */
+  .canvas {
+    flex: 1;
+    padding: 28px 32px;
+    background: #FEFDFB;
+    overflow-y: auto;
+  }
+
+  .greeting-bar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .greeting {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.02em;
+  }
+  .greeting-sub {
+    font-size: 13px;
+    color: #78716C;
+    margin-top: 4px;
+  }
+  .today-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #78716C;
+    background: #F5F5F4;
+    padding: 7px 14px;
+    border-radius: 999px;
+  }
+  .today-tag .pulse {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: #10B981;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  /* 3-column canvas grid */
+  .canvas-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 340px;
+    gap: 16px;
+  }
+
+  .canvas-card {
+    background: #fff;
+    border: 1px solid #E7E5E4;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .canvas-card:hover {
+    border-color: #D6D3D1;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .canvas-card.span-2 { grid-column: span 2; }
+  .canvas-card.span-full { grid-column: span 3; }
+
+  .cc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+  }
+  .cc-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1C1917;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cc-header .cc-count {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #FFF1F2;
+    color: #DC2626;
+  }
+  .cc-header .cc-link {
+    font-size: 11px;
+    font-weight: 500;
+    color: #059669;
+    cursor: pointer;
+  }
+
+  /* Priority items */
+  .pri-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 20px;
+    border-top: 1px solid #F5F5F4;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .pri-item:hover { background: #FAFAF9; }
+  .pri-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+  .pri-dot.urgent { background: #F43F5E; }
+  .pri-dot.warning { background: #F59E0B; }
+  .pri-dot.info { background: #3B82F6; }
+  .pri-text { flex: 1; font-size: 13px; color: #1C1917; font-weight: 500; }
+  .pri-meta { font-size: 11px; color: #A8A29E; flex-shrink: 0; }
+  .pri-btn {
+    font-size: 11px; font-weight: 600; color: #059669;
+    padding: 4px 12px; background: #ECFDF5; border-radius: 999px;
+    border: none; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* Domain cards — mini zones */
+  .domain-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid #F5F5F4;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .domain-row:hover { background: #FAFAF9; }
+  .domain-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .di-blue { background: rgba(59,130,246,0.1); }
+  .di-purple { background: rgba(139,92,246,0.1); }
+  .di-orange { background: rgba(249,115,22,0.1); }
+  .di-emerald { background: rgba(16,185,129,0.1); }
+  .di-amber { background: rgba(245,158,11,0.1); }
+  .di-teal { background: rgba(20,184,166,0.1); }
+  .di-rose { background: rgba(244,63,94,0.1); }
+  .di-indigo { background: rgba(99,102,241,0.1); }
+
+  .domain-info { flex: 1; }
+  .domain-info .di-name { font-size: 13px; font-weight: 600; color: #1C1917; }
+  .domain-info .di-stat { font-size: 11px; color: #78716C; margin-top: 1px; }
+  .domain-arrow { color: #D6D3D1; font-size: 14px; }
+
+  /* Activity feed compact */
+  .act-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; border-top: 1px solid #F5F5F4;
+    font-size: 12px; color: #44403C;
+  }
+  .act-icon {
+    width: 28px; height: 28px; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+    background: #F5F5F4;
+  }
+  .act-text { flex: 1; }
+  .act-time { font-size: 11px; color: #A8A29E; flex-shrink: 0; }
+
+  /* Stat row */
+  .stat-mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #F5F5F4;
+    border-top: 1px solid #E7E5E4;
+  }
+  .stat-mini {
+    background: #fff;
+    padding: 16px 20px;
+    text-align: center;
+  }
+  .stat-mini .sm-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1C1917;
+    letter-spacing: -0.02em;
+  }
+  .stat-mini .sm-label {
+    font-size: 10px;
+    color: #78716C;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+  .stat-mini .sm-trend {
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+  .sm-trend.up { color: #059669; }
+  .sm-trend.down { color: #DC2626; }
+
+  /* Quick actions grid */
+  .qa-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px 20px 18px;
+  }
+  .qa-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; background: #F5F5F4; border-radius: 10px;
+    font-size: 12px; font-weight: 500; color: #44403C; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .qa-item:hover { background: #ECFDF5; color: #047857; }
+  .qa-emoji { font-size: 14px; }
+
+  /* ─── MODULE VIEW ─── */
+  .module-tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 28px;
+    height: 44px;
+    border-bottom: 1px solid #E7E5E4;
+    background: #FAFAF9;
+    flex-shrink: 0;
+  }
+  .mt-item {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #78716C;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mt-item:hover { background: #F5F5F4; color: #1C1917; }
+  .mt-item.active {
+    background: #fff;
+    color: #1C1917;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .mt-item .mt-ct {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 16px; border-radius: 999px;
+    font-size: 10px; font-weight: 600; margin-left: 4px; padding: 0 5px;
+    background: #F5F5F4;
+  }
+  .mt-item.active .mt-ct { background: #ECFDF5; color: #047857; }
+
+  .module-content {
+    flex: 1;
+    padding: 24px 28px;
+    background: #FEFDFB;
+  }
+  .mc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .mc-title { font-size: 18px; font-weight: 700; color: #1C1917; }
+  .mc-actions { display: flex; gap: 10px; }
+  .btn-primary {
+    background: #047857; color: #fff; font-size: 13px; font-weight: 600;
+    padding: 9px 20px; border-radius: 999px; border: none;
+  }
+  .btn-ghost {
+    background: transparent; color: #78716C; font-size: 13px; font-weight: 500;
+    padding: 9px 20px; border-radius: 999px; border: 1px solid #E7E5E4;
+  }
+
+  .fin-stats { display: flex; gap: 12px; margin-bottom: 18px; }
+  .fin-stat {
+    flex: 1; background: #fff; border: 1px solid #E7E5E4;
+    border-radius: 12px; padding: 14px;
+  }
+  .fin-stat .fs-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #A8A29E; margin-bottom: 3px;
+  }
+  .fin-stat .fs-val { font-size: 20px; font-weight: 600; color: #1C1917; }
+  .fin-stat .fs-val.danger { color: #DC2626; }
+  .fin-stat .fs-val.success { color: #059669; }
+
+  .table-mock {
+    background: #fff; border: 1px solid #E7E5E4;
+    border-radius: 12px; overflow: hidden;
+  }
+  .t-header {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 10px 16px; background: #FAFAF9; border-bottom: 1px solid #E7E5E4;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: #A8A29E;
+  }
+  .t-row {
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+    padding: 12px 16px; border-bottom: 1px solid #F5F5F4;
+    font-size: 13px; color: #44403C; align-items: center;
+  }
+  .t-row:last-child { border-bottom: none; }
+  .t-badge {
+    display: inline-flex; padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 500;
+  }
+  .t-badge.paid { background: #ECFDF5; color: #059669; }
+  .t-badge.overdue { background: #FFF1F2; color: #9F1239; }
+  .t-badge.pending { background: #FFFBEB; color: #92400E; }
+  .t-link { color: #059669; font-size: 12px; font-weight: 500; }
+
+  /* ─── COMPARISON ─── */
+  .explanation {
+    max-width: 1100px;
+    margin: 60px auto 0;
+    background: #1C1917;
+    border: 1px solid #292524;
+    border-radius: 20px;
+    padding: 36px;
+  }
+  .explanation h2 { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+  .take-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .take-card {
+    background: #292524;
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .take-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .take-card p { font-size: 12px; color: #A8A29E; line-height: 1.6; }
+
+  .db { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 999px; letter-spacing: 0.04em; margin-left: 4px; vertical-align: middle; }
+  .db-d { background: rgba(20,184,166,0.15); color: #2DD4BF; }
+  .db-abc { background: rgba(168,162,158,0.1); color: #78716C; }
+
+  .verdict {
+    margin-top: 28px;
+    padding-top: 28px;
+    border-top: 1px solid #292524;
+    text-align: center;
+  }
+  .verdict p {
+    font-size: 14px;
+    color: #78716C;
+    line-height: 1.7;
+    max-width: 660px;
+    margin: 0 auto;
+  }
+  .verdict strong { color: #FAFAF9; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="label">Option D</div>
+    <h1>The Canvas</h1>
+    <p>What if the navigation wasn't at the top or bottom — but on the side, permanently, as a dark icon rail? Not a sidebar. A 64px strip with 7 icons. The rest is your canvas. Three columns of living content on home. Full-width workspace inside modules. The rail is always there but never in the way.</p>
+  </div>
+
+  <!-- ─── HOME VIEW ─── -->
+  <div class="section-label">
+    <h2>The Home — Three-Column Canvas</h2>
+    <p>A dark icon rail on the left (always present, 64px). A contextual top bar with breadcrumbs. And a 3-column canvas: priorities, domain cards, and a live stats + actions panel.</p>
+  </div>
+
+  <div class="mockup-wrapper">
+    <div class="mockup-frame">
+      <div class="app-shell">
+        <!-- DARK ICON RAIL -->
+        <div class="left-rail">
+          <div class="rail-logo"></div>
+          <div class="rail-item active">🏠</div>
+          <div class="rail-item">👥</div>
+          <div class="rail-item">📚</div>
+          <div class="rail-item">
+            ⚡
+            <div class="rail-badge">2</div>
+          </div>
+          <div class="rail-item">
+            💰
+            <div class="rail-badge">3</div>
+          </div>
+          <div class="rail-item">📊</div>
+          <div class="rail-item">⚙️</div>
+          <div class="rail-spacer"></div>
+          <div class="rail-item">🔍</div>
+          <div class="rail-avatar"></div>
+        </div>
+
+        <div class="main-area">
+          <!-- TOP BAR -->
+          <div class="ctx-bar">
+            <div class="breadcrumb">
+              <span class="bc-current">Home</span>
+            </div>
+            <div class="ctx-right">
+              <div class="search-pill">Search anything... <span class="kbd">⌘K</span></div>
+              <div class="bell-wrap"><div class="bell-dot"></div></div>
+            </div>
+          </div>
+
+          <!-- 3-COLUMN CANVAS -->
+          <div class="canvas">
+            <div class="greeting-bar">
+              <div>
+                <div class="greeting">Good morning, Ram</div>
+                <div class="greeting-sub">Thursday 27 March · NHQS</div>
+              </div>
+              <div class="today-tag">
+                <div class="pulse"></div>
+                3 items need attention
+              </div>
+            </div>
+
+            <div class="canvas-grid">
+              <!-- COL 1: Priorities -->
+              <div class="canvas-card">
+                <div class="cc-header">
+                  <h3>Needs Attention <span class="cc-count">3</span></h3>
+                  <span class="cc-link">View all →</span>
+                </div>
+                <div class="pri-item">
+                  <span class="pri-dot urgent"></span>
+                  <span class="pri-text">3 invoices overdue — €2,340</span>
+                  <button class="pri-btn">Review</button>
+                </div>
+                <div class="pri-item">
+                  <span class="pri-dot warning"></span>
+                  <span class="pri-text">Kelly admission awaiting approval</span>
+                  <button class="pri-btn">Approve</button>
+                </div>
+                <div class="pri-item">
+                  <span class="pri-dot info"></span>
+                  <span class="pri-text">Wellbeing survey — 18/32 responded</span>
+                  <button class="pri-btn">View</button>
+                </div>
+              </div>
+
+              <!-- COL 2: Domain cards as list -->
+              <div class="canvas-card">
+                <div class="cc-header">
+                  <h3>Your School</h3>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-blue">👥</div>
+                  <div class="domain-info">
+                    <div class="di-name">People</div>
+                    <div class="di-stat">209 students · 32 staff</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-purple">📚</div>
+                  <div class="domain-info">
+                    <div class="di-name">Learning</div>
+                    <div class="di-stat">15 classes · 4 assessments due</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-orange">⚡</div>
+                  <div class="domain-info">
+                    <div class="di-name">Operations</div>
+                    <div class="di-stat">2 admissions · 0 approvals</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-emerald">💰</div>
+                  <div class="domain-info">
+                    <div class="di-name">Finance</div>
+                    <div class="di-stat">€12.4k collected · 3 overdue</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-amber">🛡️</div>
+                  <div class="domain-info">
+                    <div class="di-name">Behaviour</div>
+                    <div class="di-stat">2 open incidents · 14 recognitions</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+                <div class="domain-row">
+                  <div class="domain-icon di-teal">📅</div>
+                  <div class="domain-info">
+                    <div class="di-name">Scheduling</div>
+                    <div class="di-stat">1 substitution needed</div>
+                  </div>
+                  <span class="domain-arrow">›</span>
+                </div>
+              </div>
+
+              <!-- COL 3: Stats + Activity + Quick Actions -->
+              <div class="canvas-card" style="grid-row: span 2;">
+                <div class="stat-mini-grid">
+                  <div class="stat-mini">
+                    <div class="sm-val">209</div>
+                    <div class="sm-label">Students</div>
+                    <div class="sm-trend up">+12 term</div>
+                  </div>
+                  <div class="stat-mini">
+                    <div class="sm-val">98%</div>
+                    <div class="sm-label">Attendance</div>
+                    <div class="sm-trend up">↑ from 95%</div>
+                  </div>
+                  <div class="stat-mini">
+                    <div class="sm-val">€12.4k</div>
+                    <div class="sm-label">Collected</div>
+                    <div class="sm-trend down">€2.3k due</div>
+                  </div>
+                  <div class="stat-mini">
+                    <div class="sm-val">32</div>
+                    <div class="sm-label">Staff</div>
+                    <div class="sm-trend up">Full capacity</div>
+                  </div>
+                </div>
+                <div class="cc-header" style="padding-top: 18px;">
+                  <h3>🚀 Quick Actions</h3>
+                </div>
+                <div class="qa-grid">
+                  <div class="qa-item"><span class="qa-emoji">➕</span> Register</div>
+                  <div class="qa-item"><span class="qa-emoji">📝</span> Attendance</div>
+                  <div class="qa-item"><span class="qa-emoji">📄</span> Invoice</div>
+                  <div class="qa-item"><span class="qa-emoji">📢</span> Announce</div>
+                  <div class="qa-item"><span class="qa-emoji">🔍</span> Find student</div>
+                  <div class="qa-item"><span class="qa-emoji">📊</span> Reports</div>
+                </div>
+              </div>
+
+              <!-- Activity — spanning 2 cols -->
+              <div class="canvas-card span-2">
+                <div class="cc-header">
+                  <h3>Today's Activity</h3>
+                  <span class="cc-link">View all →</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                  <div>
+                    <div class="act-item">
+                      <div class="act-icon">💳</div>
+                      <span class="act-text">Payment received — Evans</span>
+                      <span class="act-time">2h ago</span>
+                    </div>
+                    <div class="act-item">
+                      <div class="act-icon">📝</div>
+                      <span class="act-text">Grades published — Year 5</span>
+                      <span class="act-time">3h ago</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="act-item">
+                      <div class="act-icon">💬</div>
+                      <span class="act-text">New inquiry — Hassan</span>
+                      <span class="act-time">5h ago</span>
+                    </div>
+                    <div class="act-item">
+                      <div class="act-icon">✅</div>
+                      <span class="act-text">Attendance — Year 3</span>
+                      <span class="act-time">6h ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MODULE VIEW ─── -->
+  <div class="section-label">
+    <h2>Inside a Module — Rail Stays, Tabs Appear</h2>
+    <p>The dark rail stays. A tab strip slides in below the top bar for module sub-pages. Content area gets the full remaining width. The rail is so narrow (64px) that it costs almost nothing.</p>
+  </div>
+
+  <div class="mockup-wrapper">
+    <div class="mockup-frame">
+      <div class="app-shell" style="min-height: 440px;">
+        <!-- DARK ICON RAIL — Finance active -->
+        <div class="left-rail">
+          <div class="rail-logo"></div>
+          <div class="rail-item">🏠</div>
+          <div class="rail-item">👥</div>
+          <div class="rail-item">📚</div>
+          <div class="rail-item">⚡</div>
+          <div class="rail-item active">💰</div>
+          <div class="rail-item">📊</div>
+          <div class="rail-item">⚙️</div>
+          <div class="rail-spacer"></div>
+          <div class="rail-item">🔍</div>
+          <div class="rail-avatar"></div>
+        </div>
+
+        <div class="main-area">
+          <div class="ctx-bar">
+            <div class="breadcrumb">
+              <span class="bc-item">Finance</span>
+              <span class="bc-sep">›</span>
+              <span class="bc-current">Invoices</span>
+            </div>
+            <div class="ctx-right">
+              <div class="search-pill">Search... <span class="kbd">⌘K</span></div>
+              <div class="bell-wrap"></div>
+            </div>
+          </div>
+
+          <!-- Module tabs -->
+          <div class="module-tabs">
+            <div class="mt-item">Overview</div>
+            <div class="mt-item">Fee Structures</div>
+            <div class="mt-item active">Invoices <span class="mt-ct">24</span></div>
+            <div class="mt-item">Payments <span class="mt-ct">18</span></div>
+            <div class="mt-item">Credits</div>
+            <div class="mt-item">Refunds</div>
+            <div class="mt-item">Plans</div>
+            <div class="mt-item">Statements</div>
+            <div class="mt-item">Reports</div>
+          </div>
+
+          <div class="module-content">
+            <div class="mc-header">
+              <div class="mc-title">Invoices</div>
+              <div class="mc-actions">
+                <button class="btn-ghost">Export</button>
+                <button class="btn-primary">+ New Invoice</button>
+              </div>
+            </div>
+
+            <div class="fin-stats">
+              <div class="fin-stat">
+                <div class="fs-label">Outstanding</div>
+                <div class="fs-val danger">€8,240</div>
+              </div>
+              <div class="fin-stat">
+                <div class="fs-label">Collected</div>
+                <div class="fs-val success">€12,400</div>
+              </div>
+              <div class="fin-stat">
+                <div class="fs-label">Overdue</div>
+                <div class="fs-val danger">3</div>
+              </div>
+              <div class="fin-stat">
+                <div class="fs-label">Pending</div>
+                <div class="fs-val">2</div>
+              </div>
+            </div>
+
+            <div class="table-mock">
+              <div class="t-header">
+                <div>Household</div>
+                <div>Invoice #</div>
+                <div>Amount</div>
+                <div>Status</div>
+                <div></div>
+              </div>
+              <div class="t-row">
+                <div>The Kelly Family</div>
+                <div>INV-2603-0014</div>
+                <div>€1,200</div>
+                <div><span class="t-badge overdue">Overdue</span></div>
+                <div><span class="t-link">View →</span></div>
+              </div>
+              <div class="t-row">
+                <div>Thompson Family</div>
+                <div>INV-2603-0013</div>
+                <div>€800</div>
+                <div><span class="t-badge overdue">Overdue</span></div>
+                <div><span class="t-link">View →</span></div>
+              </div>
+              <div class="t-row">
+                <div>The Evans Family</div>
+                <div>INV-2603-0012</div>
+                <div>€1,200</div>
+                <div><span class="t-badge paid">Paid</span></div>
+                <div><span class="t-link">View →</span></div>
+              </div>
+              <div class="t-row">
+                <div>Doyle Family</div>
+                <div>INV-2603-0011</div>
+                <div>€600</div>
+                <div><span class="t-badge pending">Pending</span></div>
+                <div><span class="t-link">View →</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── WHAT MAKES D DIFFERENT ─── -->
+  <div class="explanation">
+    <h2>What makes Option D unique</h2>
+    <div class="take-grid">
+      <div class="take-card">
+        <h3>The Rail <span class="db db-d">D</span></h3>
+        <p>A permanent dark 64px icon rail on the left. Not a sidebar — it has no text, no expansion, no sub-menus. Just 7 icons + search + avatar. It's the thinnest possible global navigation that still gives you one-click access to every domain. The emerald accent bar on the active item tells you where you are at a glance.</p>
+      </div>
+      <div class="take-card">
+        <h3>Three-Column Home <span class="db db-d">D</span></h3>
+        <p>The extra width freed by having no top hub bar allows a true 3-column canvas: priorities (left), domain cards as a compact list (centre), and stats + quick actions (right). More information density without feeling cramped — because each column has a clear purpose.</p>
+      </div>
+      <div class="take-card">
+        <h3>Domain Cards as List <span class="db db-d">D</span></h3>
+        <p>Instead of a grid of cards (A) or a bento (B), domains are presented as a navigable list with icons, names, and live stats. Takes less space, shows more domains at once, and the chevron makes each row feel like a portal into that world. More like iOS Settings than a dashboard.</p>
+      </div>
+      <div class="take-card">
+        <h3>Best of All Worlds <span class="db db-d">D</span></h3>
+        <p>D takes the rail from B's dock concept and puts it on the side. Takes the tab-based module navigation from B and C. Takes the priority feed from C. And takes the domain cards from A. It's the most balanced — nothing extreme, nothing safe, just intentional.</p>
+      </div>
+    </div>
+    <div class="verdict">
+      <p><strong>D is the pragmatist's dream.</strong> The rail is always there but costs only 64px. Modules use tabs for full-width content. The home has density without clutter. It's the option that would feel most natural to an admin who lives in this app 8 hours a day — always oriented, never hunting, never overwhelmed. It's not the most dramatic option. It's the most <em>livable</em> one.</p>
+    </div>
+  </div>
+
+</body>
+</html>

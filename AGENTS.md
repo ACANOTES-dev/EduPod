@@ -4,6 +4,66 @@
 
 Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~288k lines of code. Two confirmed tenants pending onboarding.
 
+---
+
+## Project Context & Working Principles
+
+This section is the institutional knowledge of the project. Read it before doing anything.
+
+### Who You're Working For
+
+The user is **Ramadan (Ram) Duadu** — the founder and sole developer of EduPod. Not an employee, not a contractor. Every product decision is his. "Yusuf Rahman" in seed data is a test user, not a real person.
+
+### Product Philosophy
+
+1. **Everything must be tenant-configurable.** The system adapts to the school, never the other way around. Schools have wildly different policies, workflows, and terminology. If you're building a feature and wondering whether a behaviour should be configurable per tenant — the answer is yes.
+
+2. **Hide the complexity.** The product is technically sophisticated but the interface must be simple and friendly. Users are teachers, parents, and school admins — not engineers. If a school admin needs training to use a feature, the feature has failed. The bar is "a teacher can figure this out in 30 seconds." Never expose IDs, technical status names, or system terminology in the UI.
+
+### Target Market
+
+EduPod is an **Irish product with national aspirations**. Ireland is the sole target market. All compliance (Tusla, DES Returns, P-POD), payroll (Irish PAYE/PRSI/USC), and integration decisions (HEAnet/SMIS framework) are Ireland-specific. The multilingual support exists because Irish schools have diverse student populations, not because the product targets other countries.
+
+### Infrastructure
+
+- **Production:** Hetzner VPS (`edupod-prod-1`), PM2 process manager
+- **CI/CD:** GitHub Actions deploys on push to main
+- **Domain:** edupod.app with tenant subdomains
+- **Database:** PostgreSQL with PgBouncer (transaction mode)
+- **Cache/Queues:** Redis (BullMQ)
+- **No staging environment** — every push to main is a production deploy. Treat accordingly.
+
+### Non-Negotiable Workflow Rules
+
+- **CI pre-flight before every push:** `turbo type-check` and `turbo lint` must both pass. Never push code that fails either. This is non-negotiable regardless of how small the change is.
+- **Architecture files must stay current (#1 rule):** Every code change must be assessed for whether it affects files in `architecture/`. If it does, update them as part of the same change. A code change without its corresponding architecture update is incomplete. At 300k+ LOC, these files are the only way to understand cross-cutting concerns. Read `architecture/pre-flight-checklist.md` before making changes.
+- **Pre-launch items:** Anything deferred to "before we go live" goes to `Manuals/PRE-LAUNCH-CHECKLIST.md` → Part 5. Not in comments, not in memory, not in TODO files.
+
+### Roadmap
+
+Specs for future work live at `Roadmap/` in the repo root:
+
+```
+Roadmap/
+├── Phase-1/                        # Feature expansions (next after current work)
+│   ├── Expansion-A/                # DES Returns, P-POD, POD, Tusla, SMIS
+│   ├── Expansion-B/                # SEN, Predictive Early Warning, Smart Parent Digest
+│   ├── Expansion-C/                # Events, Digital Forms, Google/MS, Parent Conferences, Homework
+│   ├── Expansion-D/                # Staff CPD, Leave/Substitution, Board of Management, ETB
+│   └── Expansion-E/                # Payroll Integration
+├── Phase-2/                        # UI Revamp + Multilingual (10 languages)
+└── Phase-3/                        # Mobile App (iOS/Android)
+```
+
+Expansions within Phase-1 are executed in order (A, B, C, D, E). Phases are sequential.
+
+### Local Dev Quirks
+
+- **iCloud cache eviction:** The repo lives in iCloud Drive. macOS can evict `node_modules` to free storage. If builds fail with missing modules, re-run `pnpm install`.
+- **.app HSTS:** The `edupod.app` TLD has HSTS preloaded in all browsers — local dev must use `localhost`, not `.app` domains.
+
+---
+
 ## Reference Documents
 
 ```

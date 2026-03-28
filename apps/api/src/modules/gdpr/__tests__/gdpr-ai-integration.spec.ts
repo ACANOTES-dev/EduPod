@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
+import { AiAuditService } from '../../gdpr/ai-audit.service';
 import { ConsentService } from '../../gdpr/consent.service';
 import { AiCommentsService } from '../../gradebook/ai/ai-comments.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -47,6 +48,7 @@ describe('AI Comments GDPR Integration', () => {
     processOutbound: jest.Mock;
     processInbound: jest.Mock;
   };
+  let mockAiAuditService: { log: jest.Mock };
   let mockConsentService: { hasConsent: jest.Mock };
   let mockSettingsService: { getSettings: jest.Mock };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +62,10 @@ describe('AI Comments GDPR Integration', () => {
 
     mockSettingsService = {
       getSettings: jest.fn(),
+    };
+
+    mockAiAuditService = {
+      log: jest.fn().mockResolvedValue('ai-log-id'),
     };
 
     mockConsentService = {
@@ -98,6 +104,7 @@ describe('AI Comments GDPR Integration', () => {
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: mockAiAuditService },
       ],
     }).compile();
 
@@ -248,6 +255,7 @@ describe('AI Comments GDPR Integration', () => {
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: ConsentService, useValue: mockConsentService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: mockAiAuditService },
       ],
     }).compile();
 
@@ -270,6 +278,7 @@ describe('AI Substitution GDPR Integration', () => {
     processOutbound: jest.Mock;
     processInbound: jest.Mock;
   };
+  let mockAiAuditService: { log: jest.Mock };
   let mockSettingsService: { getSettings: jest.Mock };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockPrisma: any;
@@ -282,6 +291,10 @@ describe('AI Substitution GDPR Integration', () => {
 
     mockSettingsService = {
       getSettings: jest.fn(),
+    };
+
+    mockAiAuditService = {
+      log: jest.fn().mockResolvedValue('ai-log-id'),
     };
 
     mockPrisma = {
@@ -327,6 +340,7 @@ describe('AI Substitution GDPR Integration', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SettingsService, useValue: mockSettingsService },
         { provide: GdprTokenService, useValue: mockGdprTokenService },
+        { provide: AiAuditService, useValue: mockAiAuditService },
       ],
     }).compile();
 

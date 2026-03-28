@@ -1,0 +1,220 @@
+<h2>Section 3: Scoring Engine</h2>
+<p class="subtitle">Pure computation — no DB access. Takes SignalResults in, produces RiskAssessment out. The reusable core for ETB.</p>
+
+<div class="section">
+  <h3>Scoring Pipeline</h3>
+  <div class="mockup">
+    <div class="mockup-header">Computation Flow</div>
+    <div class="mockup-body" style="padding: 24px;">
+
+      <!-- Pipeline visualization -->
+      <div style="display: flex; flex-direction: column; gap: 4px; font-family: monospace; font-size: 13px;">
+
+        <!-- Step 1: Input -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #ff5555; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">1</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Receive 5× SignalResult</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">
+              attendance.rawScore=65 &nbsp;·&nbsp; grades.rawScore=72 &nbsp;·&nbsp; behaviour.rawScore=40 &nbsp;·&nbsp; wellbeing.rawScore=55 &nbsp;·&nbsp; engagement.rawScore=80
+            </div>
+          </div>
+        </div>
+
+        <div style="color: #444; text-align: center;">↓</div>
+
+        <!-- Step 2: Weight -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #8be9fd; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">2</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Apply tenant weights</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">
+              Default: attendance=25%, grades=25%, behaviour=20%, wellbeing=20%, engagement=10%
+            </div>
+            <div style="color: #8be9fd; font-size: 12px; margin-top: 4px;">
+              weighted = (65×0.25) + (72×0.25) + (40×0.20) + (55×0.20) + (80×0.10) = <strong>61.25</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="color: #444; text-align: center;">↓</div>
+
+        <!-- Step 3: Cross-domain boost -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #ffb86c; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">3</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Cross-domain correlation boost</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">
+              If 3+ domains have rawScore ≥ 40: apply +5 boost (multi-signal concern)<br>
+              If 4+ domains have rawScore ≥ 40: apply +10 boost (systemic concern)<br>
+              If all 5 domains have rawScore ≥ 40: apply +15 boost (critical pattern)
+            </div>
+            <div style="color: #ffb86c; font-size: 12px; margin-top: 4px;">
+              4 domains ≥ 40 → +10 boost → <strong>71.25</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="color: #444; text-align: center;">↓</div>
+
+        <!-- Step 4: Tier assignment -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #50fa7b; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">4</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Assign tier (with hysteresis)</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">See hysteresis logic below</div>
+            <div style="color: #50fa7b; font-size: 12px; margin-top: 4px;">
+              71.25 ≥ amber threshold (50) → tier = <strong style="color: #ffb86c;">amber</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="color: #444; text-align: center;">↓</div>
+
+        <!-- Step 5: Summary -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #bd93f9; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">5</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Generate NL summary + trend</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">
+              Merge summaryFragments from all collectors. Sort by score contribution (highest first). Prepend trend sentence.
+            </div>
+            <div style="color: #bd93f9; font-size: 12px; margin-top: 4px; font-style: italic;">
+              "Risk score increased from 48 to 71 over the past 3 weeks. Maths grade dropped from B+ to C- this period. Absent 4 of last 10 school days. No parent portal login in 26 days. Two behaviour incidents in the last 14 days."
+            </div>
+          </div>
+        </div>
+
+        <div style="color: #444; text-align: center;">↓</div>
+
+        <!-- Step 6: Output -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="background: #ff79c6; color: #000; padding: 4px 10px; border-radius: 4px; font-weight: bold; min-width: 24px; text-align: center;">6</div>
+          <div style="flex: 1; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 12px;">
+            <div style="color: #f8f8f2; font-weight: bold;">Return RiskAssessment</div>
+            <div style="color: #888; font-size: 12px; margin-top: 4px;">
+              { compositeScore, riskTier, domainScores, signals, summaryText, trendData, tierChanged, previousTier }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hysteresis Logic -->
+<div class="section">
+  <h3>Hysteresis Logic</h3>
+  <div class="mockup">
+    <div class="mockup-header">Tier Transition Rules — Prevents Alert Fatigue</div>
+    <div class="mockup-body" style="padding: 24px;">
+
+      <!-- Tier thresholds visualization -->
+      <div style="margin-bottom: 24px;">
+        <div style="display: flex; height: 40px; border-radius: 6px; overflow: hidden; font-family: monospace; font-size: 12px; font-weight: bold;">
+          <div style="flex: 30; background: #50fa7b; color: #000; display: flex; align-items: center; justify-content: center;">GREEN 0-29</div>
+          <div style="flex: 20; background: #f1fa8c; color: #000; display: flex; align-items: center; justify-content: center;">YELLOW 30-49</div>
+          <div style="flex: 25; background: #ffb86c; color: #000; display: flex; align-items: center; justify-content: center;">AMBER 50-74</div>
+          <div style="flex: 25; background: #ff5555; color: #000; display: flex; align-items: center; justify-content: center;">RED 75-100</div>
+        </div>
+      </div>
+
+      <div style="font-family: monospace; font-size: 13px; color: #ccc;">
+        <div style="margin-bottom: 16px;">
+          <div style="color: #f8f8f2; font-weight: bold; margin-bottom: 8px;">Upgrading (getting worse) — immediate:</div>
+          <div style="color: #ccc; padding-left: 16px;">
+            Score crosses threshold → tier changes immediately<br>
+            Score 71 → 75: instantly promoted to <span style="color: #ff5555;">RED</span><br>
+            <span style="color: #888;">Rationale: deterioration should never be delayed</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div style="color: #f8f8f2; font-weight: bold; margin-bottom: 8px;">Downgrading (improving) — requires buffer:</div>
+          <div style="color: #ccc; padding-left: 16px;">
+            Score must drop <span style="color: #50fa7b;">hysteresis_buffer</span> (default 10) points below current tier's entry threshold<br>
+            Student in <span style="color: #ff5555;">RED</span> (entered at 75): must score ≤ 65 to drop to <span style="color: #ffb86c;">AMBER</span><br>
+            Student in <span style="color: #ffb86c;">AMBER</span> (entered at 50): must score ≤ 40 to drop to <span style="color: #f1fa8c;">YELLOW</span><br>
+            Student in <span style="color: #f1fa8c;">YELLOW</span> (entered at 30): must score ≤ 20 to drop to <span style="color: #50fa7b;">GREEN</span><br>
+            <span style="color: #888;">Rationale: prevents oscillation at boundaries, ensures genuine improvement before removing alerts</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="color: #f8f8f2; font-weight: bold; margin-bottom: 8px;">Example — no oscillation:</div>
+          <div style="color: #ccc; padding-left: 16px;">
+            Day 1: score 73 → <span style="color: #ffb86c;">AMBER</span><br>
+            Day 2: score 76 → <span style="color: #ff5555;">RED</span> (upgrade, immediate)<br>
+            Day 3: score 72 → stays <span style="color: #ff5555;">RED</span> (72 > 65 = threshold - buffer)<br>
+            Day 4: score 68 → stays <span style="color: #ff5555;">RED</span> (68 > 65)<br>
+            Day 5: score 64 → <span style="color: #ffb86c;">AMBER</span> (64 ≤ 65, genuine improvement confirmed)<br>
+            <span style="color: #888;">Without hysteresis, this student would have bounced RED→AMBER→RED generating 3 notifications</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Cross-Domain Boost -->
+<div class="section">
+  <h3>Cross-Domain Correlation Boost</h3>
+  <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 16px; font-size: 14px;">
+    <p>This is the feature's core value — the thing no competitor does. A student with a 40 in attendance alone is mildly concerning. A student with 40 in attendance AND 40 in grades AND 40 in behaviour is a crisis pattern.</p>
+    <p style="margin-top: 12px;">The boost is deliberately modest (+5/+10/+15) — it's a nudge, not a multiplier. It ensures multi-domain students surface above single-domain students with the same weighted average, without dramatically inflating scores.</p>
+    <p style="margin-top: 12px;">The 40-point domain threshold for "concerning" is configurable per tenant in <code>early_warning_configs</code>.</p>
+  </div>
+</div>
+
+<!-- NL Summary Generation -->
+<div class="section">
+  <h3>Natural Language Summary</h3>
+  <div style="background: rgba(255,255,255,0.05); border-radius: 6px; padding: 16px;">
+    <div style="font-size: 14px; margin-bottom: 16px;">
+      Template-based string construction. No AI API call. Fully deterministic. Each signal's <code>summaryFragment</code> is a pre-formatted sentence generated by its collector using concrete data.
+    </div>
+
+    <div style="background: #1a1a2e; border-radius: 6px; padding: 16px; font-family: monospace; font-size: 13px; color: #ccc; line-height: 1.8;">
+      <span style="color: #6272a4;">// Scoring engine assembles the final summary:</span><br>
+      <span style="color: #ff79c6;">const</span> trendSentence = buildTrendSentence(currentScore, trendData);<br>
+      <span style="color: #6272a4;">// → "Risk score increased from 48 to 71 over the past 3 weeks."</span><br><br>
+      <span style="color: #ff79c6;">const</span> signalSentences = allSignals<br>
+      &nbsp;&nbsp;.sort((a, b) => b.scoreContribution - a.scoreContribution)<br>
+      &nbsp;&nbsp;.slice(0, 5) <span style="color: #6272a4;">// top 5 contributors</span><br>
+      &nbsp;&nbsp;.map(s => s.summaryFragment);<br>
+      <span style="color: #6272a4;">// → ["Maths grade dropped from B+ to C-...", "Absent 4 of last 10...", ...]</span><br><br>
+      <span style="color: #ff79c6;">return</span> [trendSentence, ...signalSentences].join(<span style="color: #f1fa8c;">' '</span>);
+    </div>
+
+    <div style="margin-top: 16px;">
+      <div class="label" style="color: #888;">EXAMPLE OUTPUT</div>
+      <div style="background: #1a1a2e; border-left: 3px solid #ffb86c; padding: 12px; border-radius: 0 6px 6px 0; color: #ccc; font-size: 13px; line-height: 1.6; font-style: italic;">
+        "Risk score increased from 48 to 71 over the past 3 weeks. Maths grade dropped from B+ to C- this period. Absent 4 of the last 10 school days including 3 consecutive days (Mar 25-27). Two negative behaviour incidents in the last 14 days. No parent portal login in 26 days."
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Output Interface -->
+<div class="section">
+  <h3>Output: RiskAssessment Interface</h3>
+  <div style="background: #1a1a2e; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; line-height: 1.7; color: #f8f8f2;">
+    <span style="color: #ff79c6;">interface</span> <span style="color: #50fa7b;">RiskAssessment</span> {<br>
+    &nbsp;&nbsp;compositeScore: <span style="color: #8be9fd;">number</span>; <span style="color: #6272a4;">// 0-100</span><br>
+    &nbsp;&nbsp;riskTier: <span style="color: #f1fa8c;">'green'</span> | <span style="color: #f1fa8c;">'yellow'</span> | <span style="color: #f1fa8c;">'amber'</span> | <span style="color: #f1fa8c;">'red'</span>;<br>
+    &nbsp;&nbsp;domainScores: {<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;attendance: <span style="color: #8be9fd;">number</span>;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;grades: <span style="color: #8be9fd;">number</span>;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;behaviour: <span style="color: #8be9fd;">number</span>;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;wellbeing: <span style="color: #8be9fd;">number</span>;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;engagement: <span style="color: #8be9fd;">number</span>;<br>
+    &nbsp;&nbsp;};<br>
+    &nbsp;&nbsp;crossDomainBoost: <span style="color: #8be9fd;">number</span>; <span style="color: #6272a4;">// 0, 5, 10, or 15</span><br>
+    &nbsp;&nbsp;signals: <span style="color: #50fa7b;">DetectedSignal</span>[]; <span style="color: #6272a4;">// all signals from all collectors</span><br>
+    &nbsp;&nbsp;summaryText: <span style="color: #8be9fd;">string</span>; <span style="color: #6272a4;">// the NL summary</span><br>
+    &nbsp;&nbsp;trendData: <span style="color: #8be9fd;">number</span>[]; <span style="color: #6272a4;">// last 30 daily composite scores</span><br>
+    &nbsp;&nbsp;tierChanged: <span style="color: #8be9fd;">boolean</span>; <span style="color: #6272a4;">// did the tier change this computation?</span><br>
+    &nbsp;&nbsp;previousTier: <span style="color: #50fa7b;">RiskTier</span> | <span style="color: #8be9fd;">null</span>; <span style="color: #6272a4;">// null if first computation</span><br>
+    }
+  </div>
+</div>
