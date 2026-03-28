@@ -994,8 +994,8 @@ Daily cron fires
         - otherwise → use deadline_at
      -> For each request, based on days remaining:
         - 4–7 days: sends in-app notification (compliance_deadline_7day) to requested_by_user
-        - 1–3 days: sends in-app notification (compliance_deadline_3day) to requested_by_user
-        - ≤0 days AND deadline_exceeded=false: sets deadline_exceeded=true, sends compliance_deadline_exceeded notification
+        - 1–3 days: sends in-app notification (compliance_deadline_3day) to admin-tier tenant users
+        - ≤0 days AND deadline_exceeded=false: sets deadline_exceeded=true, sends compliance_deadline_exceeded notification to admin-tier tenant users, requested_by_user, and platform owners from Redis `platform_owner_user_ids`
      -> Deduplication: checks for existing notification with same template_key + source_entity before creating
 ```
 

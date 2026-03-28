@@ -10,9 +10,12 @@ import type {
   ComplianceFilterDto,
   CreateComplianceRequestDto,
   ExtendComplianceRequestDto,
+  GdprEntityType,
+  GdprOutboundData,
 } from '@school/shared';
 
 import { AgeGateService } from '../gdpr/age-gate.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -29,6 +32,7 @@ export class ComplianceService {
     private readonly pastoralDsarService: PastoralDsarService,
     private readonly dsarTraversalService: DsarTraversalService,
     private readonly ageGateService: AgeGateService,
+    private readonly gdprTokenService: GdprTokenService,
   ) {}
 
   /**
@@ -408,6 +412,12 @@ export class ComplianceService {
         extraSections,
         format,
       );
+      await this.gdprTokenService.processOutbound(
+        tenantId,
+        this.getAccessExportType(request.request_type),
+        this.buildGdprAuditData(request.subject_type, request.subject_id),
+        request.requested_by_user_id,
+      );
       exportFileKey = result.s3Key;
     } else if (
       (request.request_type === 'erasure' || request.request_type === 'rectification') &&
@@ -572,6 +582,39 @@ export class ComplianceService {
     }
 
     return request;
+  }
+
+  private getAccessExportType(requestType: string): string {
+    return requestType === 'portability'
+      ? 'dsar_portability'
+      : 'dsar_access_export';
+  }
+
+  private buildGdprAuditData(subjectType: string, subjectId: string): GdprOutboundData {
+    const gdprEntityTypes = new Set<GdprEntityType>([
+      'student',
+      'parent',
+      'staff',
+      'household',
+    ]);
+
+    if (gdprEntityTypes.has(subjectType as GdprEntityType)) {
+      return {
+        entities: [
+          {
+            type: subjectType as GdprEntityType,
+            id: subjectId,
+            fields: {},
+          },
+        ],
+        entityCount: 1,
+      };
+    }
+
+    return {
+      entities: [],
+      entityCount: 1,
+    };
   }
 
   /**

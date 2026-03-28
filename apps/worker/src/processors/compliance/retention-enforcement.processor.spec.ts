@@ -40,6 +40,10 @@ function buildMockPrisma() {
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
+    aiProcessingLog: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     gdprTokenUsageLog: {
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -691,6 +695,48 @@ describe('RetentionEnforcementProcessor', () => {
           }),
         }),
       });
+    });
+  });
+
+  // ─── AI processing logs ───────────────────────────────────────────────
+
+  describe('enforceForTenant — ai processing logs', () => {
+    it('should delete expired AI processing logs using the aiProcessingLog delegate', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([
+        { id: TENANT_A_ID, name: 'School A' },
+      ]);
+
+      mockPrisma.retentionPolicy.findMany.mockResolvedValue([
+        {
+          tenant_id: null,
+          data_category: 'ai_processing_logs',
+          retention_months: 24,
+          action_on_expiry: 'delete',
+        },
+      ]);
+
+      mockPrisma.retentionHold.findMany.mockResolvedValue([]);
+      mockPrisma.aiProcessingLog.findMany.mockResolvedValue([
+        { id: 'aipl0001-0000-0000-0000-000000000001' },
+      ]);
+      mockPrisma.aiProcessingLog.deleteMany.mockResolvedValue({ count: 1 });
+
+      const job = buildMockJob(RETENTION_ENFORCEMENT_JOB);
+      await processor.process(job);
+
+      expect(mockPrisma.aiProcessingLog.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: TENANT_A_ID,
+          created_at: { lt: expect.any(Date) },
+        },
+        select: { id: true },
+      });
+      expect(mockPrisma.aiProcessingLog.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['aipl0001-0000-0000-0000-000000000001'] },
+        },
+      });
+      expect(mockPrisma.gdprTokenUsageLog.deleteMany).not.toHaveBeenCalled();
     });
   });
 

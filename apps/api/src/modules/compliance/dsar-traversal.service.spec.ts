@@ -27,7 +27,10 @@ interface MockPrisma {
   attendanceRecord: Pick<MockModel, 'findMany'>;
   attendancePatternAlert: Pick<MockModel, 'findMany'>;
   grade: Pick<MockModel, 'findMany'>;
+  periodGradeSnapshot: Pick<MockModel, 'findMany'>;
+  studentCompetencySnapshot: Pick<MockModel, 'findMany'>;
   gpaSnapshot: Pick<MockModel, 'findMany'>;
+  studentAcademicRiskAlert: Pick<MockModel, 'findMany'>;
   progressReport: Pick<MockModel, 'findMany'>;
   reportCard: Pick<MockModel, 'findMany'>;
   behaviourIncidentParticipant: Pick<MockModel, 'findMany'>;
@@ -84,7 +87,16 @@ function buildMockPrisma(): MockPrisma {
     grade: {
       findMany: jest.fn().mockResolvedValue([]),
     },
+    periodGradeSnapshot: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    studentCompetencySnapshot: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     gpaSnapshot: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    studentAcademicRiskAlert: {
       findMany: jest.fn().mockResolvedValue([]),
     },
     progressReport: {
@@ -263,7 +275,10 @@ describe('DsarTraversalService', () => {
       expect(cats).toHaveProperty('attendance_records');
       expect(cats).toHaveProperty('attendance_pattern_alerts');
       expect(cats).toHaveProperty('grades');
+      expect(cats).toHaveProperty('period_grade_snapshots');
+      expect(cats).toHaveProperty('competency_snapshots');
       expect(cats).toHaveProperty('gpa_snapshots');
+      expect(cats).toHaveProperty('academic_risk_alerts');
       expect(cats).toHaveProperty('progress_reports');
       expect(cats).toHaveProperty('report_cards');
       expect(cats).toHaveProperty('behaviour_incidents');
@@ -305,6 +320,33 @@ describe('DsarTraversalService', () => {
 
       // Grades — no take limit
       expect(mockPrisma.grade.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            tenant_id: TENANT_ID,
+          }),
+        }),
+      );
+
+      expect(mockPrisma.periodGradeSnapshot.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            tenant_id: TENANT_ID,
+          }),
+        }),
+      );
+
+      expect(mockPrisma.studentCompetencySnapshot.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            student_id: STUDENT_ID,
+            tenant_id: TENANT_ID,
+          }),
+        }),
+      );
+
+      expect(mockPrisma.studentAcademicRiskAlert.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             student_id: STUDENT_ID,

@@ -111,7 +111,10 @@ export class DsarTraversalService {
       attendanceRecords,
       attendancePatternAlerts,
       grades,
+      periodGradeSnapshots,
+      competencySnapshots,
       gpaSnapshots,
+      academicRiskAlerts,
       progressReports,
       reportCards,
       behaviourParticipants,
@@ -145,10 +148,28 @@ export class DsarTraversalService {
         orderBy: { created_at: 'desc' },
       }),
 
+      // Period grade snapshots
+      this.prisma.periodGradeSnapshot.findMany({
+        where: { student_id: studentId, ...where },
+        orderBy: { snapshot_at: 'desc' },
+      }),
+
+      // Competency snapshots
+      this.prisma.studentCompetencySnapshot.findMany({
+        where: { student_id: studentId, ...where },
+        orderBy: { last_updated: 'desc' },
+      }),
+
       // GPA snapshots
       this.prisma.gpaSnapshot.findMany({
         where: { student_id: studentId, ...where },
         orderBy: { snapshot_at: 'desc' },
+      }),
+
+      // Academic risk alerts
+      this.prisma.studentAcademicRiskAlert.findMany({
+        where: { student_id: studentId, ...where },
+        orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],
       }),
 
       // Progress reports + entries
@@ -262,7 +283,10 @@ export class DsarTraversalService {
       attendance_records: attendanceRecords,
       attendance_pattern_alerts: attendancePatternAlerts,
       grades,
+      period_grade_snapshots: periodGradeSnapshots,
+      competency_snapshots: competencySnapshots,
       gpa_snapshots: gpaSnapshots,
+      academic_risk_alerts: academicRiskAlerts,
       progress_reports: progressReports,
       report_cards: reportCards,
       behaviour_incidents: behaviourParticipants,

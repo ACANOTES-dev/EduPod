@@ -12,17 +12,25 @@ export const RETENTION_ENFORCEMENT_JOB = 'data-retention:enforce';
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const BATCH_SIZE = 100;
+type DeletableModel =
+  | 'notification'
+  | 'auditLog'
+  | 'contactFormSubmission'
+  | 'nlQueryHistory'
+  | 'gdprTokenUsageLog'
+  | 'aiProcessingLog'
+  | 'parentInquiryMessage';
 
 /** Categories where the action is a straightforward deleteMany */
 const DELETABLE_CATEGORIES: Record<
   string,
-  { model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage'; dateField: string }
+  { model: DeletableModel; dateField: string }
 > = {
   communications_notifications: { model: 'notification', dateField: 'created_at' },
   audit_logs: { model: 'auditLog', dateField: 'created_at' },
   contact_form_submissions: { model: 'contactFormSubmission', dateField: 'created_at' },
   nl_query_history: { model: 'nlQueryHistory', dateField: 'created_at' },
-  ai_processing_logs: { model: 'gdprTokenUsageLog', dateField: 'created_at' },
+  ai_processing_logs: { model: 'aiProcessingLog', dateField: 'created_at' },
   tokenisation_usage_logs: { model: 'gdprTokenUsageLog', dateField: 'created_at' },
   parent_inquiry_messages: { model: 'parentInquiryMessage', dateField: 'created_at' },
 };
@@ -327,7 +335,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
   private async findExpiredRecordIds(
     tenantId: string,
-    model: keyof typeof DELETABLE_CATEGORIES extends string ? 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage' : never,
+    model: DeletableModel,
     cutoffDate: Date,
     holdSet: Set<string>,
     dataCategory: string,
@@ -357,7 +365,7 @@ export class RetentionEnforcementProcessor extends WorkerHost {
 
   private async deleteChunk(
     tenantId: string,
-    model: 'notification' | 'auditLog' | 'contactFormSubmission' | 'nlQueryHistory' | 'gdprTokenUsageLog' | 'parentInquiryMessage',
+    model: DeletableModel,
     ids: string[],
   ): Promise<number> {
     const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {

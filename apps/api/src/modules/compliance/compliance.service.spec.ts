@@ -6,6 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AgeGateService } from '../gdpr/age-gate.service';
+import { GdprTokenService } from '../gdpr/gdpr-token.service';
 import { PastoralDsarService } from '../pastoral/services/pastoral-dsar.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -73,6 +74,7 @@ describe('ComplianceService', () => {
     getReviewedRecords: jest.Mock;
   };
   let mockDsarTraversal: { collectAllData: jest.Mock };
+  let mockGdprTokenService: { processOutbound: jest.Mock };
   let mockAgeGateService: {
     checkStudentAgeGated: jest.Mock;
     isStudentAgeGated: jest.Mock;
@@ -116,6 +118,13 @@ describe('ComplianceService', () => {
       collectAllData: jest.fn(),
     };
 
+    mockGdprTokenService = {
+      processOutbound: jest.fn().mockResolvedValue({
+        processedData: { entities: [], entityCount: 1 },
+        tokenMap: null,
+      }),
+    };
+
     mockAgeGateService = {
       checkStudentAgeGated: jest.fn().mockResolvedValue(false),
       isStudentAgeGated: jest.fn().mockReturnValue(false),
@@ -130,6 +139,7 @@ describe('ComplianceService', () => {
         { provide: PastoralDsarService, useValue: mockPastoralDsar },
         { provide: DsarTraversalService, useValue: mockDsarTraversal },
         { provide: AgeGateService, useValue: mockAgeGateService },
+        { provide: GdprTokenService, useValue: mockGdprTokenService },
       ],
     }).compile();
 
@@ -741,6 +751,21 @@ describe('ComplianceService', () => {
         {},
         'json',
       );
+      expect(mockGdprTokenService.processOutbound).toHaveBeenCalledWith(
+        TENANT_ID,
+        'dsar_access_export',
+        {
+          entities: [
+            {
+              type: 'parent',
+              id: SUBJECT_ID,
+              fields: {},
+            },
+          ],
+          entityCount: 1,
+        },
+        USER_ID,
+      );
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -785,6 +810,21 @@ describe('ComplianceService', () => {
         {},
         'csv',
       );
+      expect(mockGdprTokenService.processOutbound).toHaveBeenCalledWith(
+        TENANT_ID,
+        'dsar_access_export',
+        {
+          entities: [
+            {
+              type: 'parent',
+              id: SUBJECT_ID,
+              fields: {},
+            },
+          ],
+          entityCount: 1,
+        },
+        USER_ID,
+      );
     });
 
     it('should call anonymisationService for erasure with anonymise classification and clean up consent/tokens', async () => {
@@ -820,6 +860,7 @@ describe('ComplianceService', () => {
         where: { tenant_id: TENANT_ID, entity_type: 'parent', entity_id: SUBJECT_ID },
       });
       expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
+      expect(mockGdprTokenService.processOutbound).not.toHaveBeenCalled();
     });
 
     it('should call anonymisationService for rectification with erase classification and clean up consent/tokens', async () => {
@@ -855,6 +896,7 @@ describe('ComplianceService', () => {
         where: { tenant_id: TENANT_ID, entity_type: 'parent', entity_id: SUBJECT_ID },
       });
       expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
+      expect(mockGdprTokenService.processOutbound).not.toHaveBeenCalled();
     });
 
     it('should NOT call either service for erasure with retain classification', async () => {
@@ -878,6 +920,7 @@ describe('ComplianceService', () => {
       expect(result.status).toBe('completed');
       expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
       expect(mockAnonymisation.anonymiseSubject).not.toHaveBeenCalled();
+      expect(mockGdprTokenService.processOutbound).not.toHaveBeenCalled();
       expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -1389,6 +1432,21 @@ describe('ComplianceService', () => {
         SUBJECT_ID,
       );
       expect(mockAccessExport.exportDataPackage).toHaveBeenCalled();
+      expect(mockGdprTokenService.processOutbound).toHaveBeenCalledWith(
+        TENANT_ID,
+        'dsar_portability',
+        {
+          entities: [
+            {
+              type: 'parent',
+              id: SUBJECT_ID,
+              fields: {},
+            },
+          ],
+          entityCount: 1,
+        },
+        USER_ID,
+      );
     });
   });
 

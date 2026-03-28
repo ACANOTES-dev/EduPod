@@ -4,6 +4,7 @@ import { ComplianceRequestStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { getRedisClient } from '../../base/redis.helpers';
 
 // ─── Job name ───────────────────────────────────────────────────────────────
 export const DEADLINE_CHECK_JOB = 'compliance:deadline-check';
@@ -75,14 +76,16 @@ export class DeadlineCheckProcessor extends WorkerHost {
       );
 
       if (daysRemaining <= 0 && !request.deadline_exceeded) {
-        // Deadline exceeded — flag and notify all admins + requester
+        // Deadline exceeded — flag and notify tenant admins, platform admins, + requester
         await this.prisma.complianceRequest.update({
           where: { id: request.id },
           data: { deadline_exceeded: true },
         });
         const adminUserIds = await this.getAdminUserIds(tenantId);
+        const platformAdminUserIds = await this.getPlatformAdminUserIds();
         const exceededRecipients = new Set([
           ...adminUserIds,
+          ...platformAdminUserIds,
           request.requested_by_user_id,
         ]);
         for (const userId of exceededRecipients) {
@@ -139,6 +142,19 @@ export class DeadlineCheckProcessor extends WorkerHost {
       },
     });
     return [...new Set(adminMemberships.map((mr) => mr.membership.user_id))];
+  }
+
+  private async getPlatformAdminUserIds(): Promise<string[]> {
+    try {
+      const client = getRedisClient();
+      const userIds = await client.smembers('platform_owner_user_ids');
+      return [...new Set(userIds.filter(Boolean))];
+    } catch (error) {
+      this.logger.error(
+        `Unable to resolve platform admin recipients for deadline escalation: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
   }
 
   // ─── Deduplicated notification creation ─────────────────────────────────

@@ -1,10 +1,16 @@
 import { Test } from '@nestjs/testing';
 import { Job } from 'bullmq';
 
+import { getRedisClient } from '../../base/redis.helpers';
+
 import {
   DEADLINE_CHECK_JOB,
   DeadlineCheckProcessor,
 } from './deadline-check.processor';
+
+jest.mock('../../base/redis.helpers', () => ({
+  getRedisClient: jest.fn(),
+}));
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -14,6 +20,7 @@ const REQUEST_ID = 'aaaa0001-0000-0000-0000-000000000001';
 const USER_ID = 'bbbb0001-0000-0000-0000-000000000001';
 const ADMIN_USER_A = 'dddd0001-0000-0000-0000-000000000001';
 const ADMIN_USER_B = 'dddd0002-0000-0000-0000-000000000002';
+const PLATFORM_ADMIN_USER = 'eeee0001-0000-0000-0000-000000000001';
 
 function daysFromNow(days: number): Date {
   const date = new Date();
@@ -87,9 +94,14 @@ function buildMockJob(
 describe('DeadlineCheckProcessor', () => {
   let processor: DeadlineCheckProcessor;
   let mockPrisma: MockPrisma;
+  let mockRedisClient: { smembers: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
+    mockRedisClient = {
+      smembers: jest.fn().mockResolvedValue([]),
+    };
+    (getRedisClient as jest.Mock).mockReturnValue(mockRedisClient);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -262,7 +274,7 @@ describe('DeadlineCheckProcessor', () => {
   // ─── Deadline exceeded ────────────────────────────────────────────────
 
   describe('checkTenantDeadlines — deadline exceeded', () => {
-    it('should set deadline_exceeded=true and notify admins + requester when past deadline', async () => {
+    it('should set deadline_exceeded=true and notify tenant admins, platform admins, and requester when past deadline', async () => {
       mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
       mockPrisma.complianceRequest.findMany.mockResolvedValue([
         buildRequest({
@@ -271,6 +283,7 @@ describe('DeadlineCheckProcessor', () => {
         }),
       ]);
       mockPrisma.notification.findFirst.mockResolvedValue(null);
+      mockRedisClient.smembers.mockResolvedValue([PLATFORM_ADMIN_USER]);
 
       const job = buildMockJob(DEADLINE_CHECK_JOB);
       await processor.process(job);
@@ -280,8 +293,8 @@ describe('DeadlineCheckProcessor', () => {
         data: { deadline_exceeded: true },
       });
 
-      // Notifies both admin users + the requester = 3 notifications
-      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(3);
+      // Notifies both tenant admins + platform admin + the requester = 4 notifications
+      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(4);
       expect(mockPrisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           recipient_user_id: ADMIN_USER_A,
@@ -299,6 +312,13 @@ describe('DeadlineCheckProcessor', () => {
       expect(mockPrisma.notification.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           recipient_user_id: USER_ID,
+          template_key: 'compliance_deadline_exceeded',
+          source_entity_id: REQUEST_ID,
+        }),
+      });
+      expect(mockPrisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recipient_user_id: PLATFORM_ADMIN_USER,
           template_key: 'compliance_deadline_exceeded',
           source_entity_id: REQUEST_ID,
         }),
@@ -349,6 +369,23 @@ describe('DeadlineCheckProcessor', () => {
         where: { id: REQUEST_ID },
         data: { deadline_exceeded: true },
       });
+    });
+
+    it('should continue without platform admin notifications when Redis lookup fails', async () => {
+      mockPrisma.tenant.findMany.mockResolvedValue([{ id: TENANT_A_ID }]);
+      mockPrisma.complianceRequest.findMany.mockResolvedValue([
+        buildRequest({
+          deadline_at: daysFromNow(-1),
+          deadline_exceeded: false,
+        }),
+      ]);
+      mockPrisma.notification.findFirst.mockResolvedValue(null);
+      mockRedisClient.smembers.mockRejectedValue(new Error('redis unavailable'));
+
+      const job = buildMockJob(DEADLINE_CHECK_JOB);
+      await processor.process(job);
+
+      expect(mockPrisma.notification.create).toHaveBeenCalledTimes(3);
     });
   });
 
