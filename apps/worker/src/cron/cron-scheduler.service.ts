@@ -2,9 +2,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
+import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
+
 import { QUEUE_NAMES } from '../base/queue.constants';
-import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
-import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
 import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
   BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
@@ -23,6 +23,8 @@ import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-ri
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
+import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
+import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
 import { BREACH_DEADLINE_JOB } from '../processors/security/breach-deadline.processor';
 import { CLEANUP_PARTICIPATION_TOKENS_JOB } from '../processors/wellbeing/cleanup-participation-tokens.processor';
@@ -47,10 +49,12 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.WELLBEING) private readonly wellbeingQueue: Queue,
     @InjectQueue(QUEUE_NAMES.SECURITY) private readonly securityQueue: Queue,
     @InjectQueue(QUEUE_NAMES.COMPLIANCE) private readonly complianceQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
+    await this.registerEarlyWarningCronJobs();
     await this.registerGradebookCronJobs();
     await this.registerBehaviourCronJobs();
     await this.registerNotificationsCronJobs();
@@ -59,6 +63,37 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerSecurityCronJobs();
     await this.registerComplianceCronJobs();
     await this.registerRegulatoryCronJobs();
+  }
+
+  private async registerEarlyWarningCronJobs(): Promise<void> {
+    // ── early-warning:compute-daily ───────────────────────────────────────────
+    // Runs daily at 01:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Iterates all tenants with early_warning enabled.
+    await this.earlyWarningQueue.add(
+      EARLY_WARNING_COMPUTE_DAILY_JOB,
+      {},
+      {
+        repeat: { pattern: '0 1 * * *' },
+        jobId: `cron:${EARLY_WARNING_COMPUTE_DAILY_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${EARLY_WARNING_COMPUTE_DAILY_JOB} (daily 01:00 UTC)`);
+
+    // ── early-warning:weekly-digest ───────────────────────────────────────────
+    // Runs daily at 07:00 UTC. Cross-tenant — processor filters by digest_day.
+    await this.earlyWarningQueue.add(
+      EARLY_WARNING_WEEKLY_DIGEST_JOB,
+      {},
+      {
+        repeat: { pattern: '0 7 * * *' },
+        jobId: `cron:${EARLY_WARNING_WEEKLY_DIGEST_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${EARLY_WARNING_WEEKLY_DIGEST_JOB} (daily 07:00 UTC)`);
   }
 
   private async registerGradebookCronJobs(): Promise<void> {

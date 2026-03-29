@@ -27,6 +27,9 @@ import { RetentionCheckProcessor } from './processors/behaviour/retention-check.
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
+import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
+import { ComputeStudentProcessor } from './processors/early-warning/compute-student.processor';
+import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
 import { InquiryNotificationProcessor } from './processors/communications/inquiry-notification.processor';
@@ -261,6 +264,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     RegulatoryPpodImportProcessor,
     RegulatoryPpodSyncProcessor,
     RegulatoryTuslaThresholdScanProcessor,
+    // Early Warning queue processors
+    ComputeDailyProcessor,
+    ComputeStudentProcessor,
+    WeeklyDigestProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

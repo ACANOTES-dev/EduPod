@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-28
+> **Last verified**: 2026-03-29
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **16 queues**, **72 job types**, **22 cron jobs**
+- **17 queues**, **75 job types**, **24 cron jobs**
 
 ---
 
@@ -1047,3 +1047,34 @@ Daily cron fires
 - **Processor**: `RegulatoryPpodImportProcessor` (`apps/worker/src/processors/regulatory/ppod-import.processor.ts`)
 - **Side effects**: Parses CSV content, matches students by PPS number or name+DOB, creates/updates `ppod_student_mappings`. Creates `ppod_sync_logs` entry with import results. Uses `TenantAwareJob` for RLS context.
 - **Downstream**: Creates/updates `ppod_student_mappings`, creates `ppod_sync_logs` records.
+
+---
+
+## Queue: `EARLY_WARNING` (`early-warning`)
+
+**Queue constant**: `QUEUE_NAMES.EARLY_WARNING`
+**Default job options**: `{ attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 }`
+
+### Job: `early-warning:compute-daily`
+
+- **Trigger**: Cron — daily at 01:00 UTC (cross-tenant, no `tenant_id` in payload)
+- **Payload**: `{}` (cross-tenant cron mode) or `{ tenant_id }` (per-tenant mode)
+- **Processor**: `ComputeDailyProcessor` (`apps/worker/src/processors/early-warning/compute-daily.processor.ts`)
+- **Side effects**: For all active tenants with `early_warning_configs.is_enabled = true`: runs 5 signal collectors per student, computes composite risk score, upserts `student_risk_profiles`, appends to `student_risk_signals`, creates `early_warning_tier_transitions` on tier change, creates `notifications` for tier-change recipients, creates draft `pastoral_interventions` for red-tier entries.
+- **Downstream**: Reads from `daily_attendance_summaries`, `attendance_pattern_alerts`, `gradebook_assessments`, `behaviour_incidents`, `pastoral_concerns`, `pastoral_cases`, `notifications`, `class_enrolments`, `class_staff`, `staff_profiles`, `membership_roles`.
+
+### Job: `early-warning:compute-student`
+
+- **Trigger**: Event-driven — enqueued by `evaluate-policy.processor.ts` (suspension), `notify-concern.processor.ts` (critical incident), `attendance-pattern-detection.processor.ts` (excessive absences), or `EarlyWarningTriggerService` (API-side)
+- **Payload**: `{ tenant_id, student_id, trigger_event }`
+- **Processor**: `ComputeStudentProcessor` (`apps/worker/src/processors/early-warning/compute-student.processor.ts`)
+- **Side effects**: Same as compute-daily, but for a single student. Validates `trigger_event` against `early_warning_configs.high_severity_events_json` before processing.
+- **Downstream**: Same as compute-daily.
+
+### Job: `early-warning:weekly-digest`
+
+- **Trigger**: Cron — daily at 07:00 UTC (cross-tenant, filtered by `digest_day`)
+- **Payload**: `{}` (cross-tenant cron mode) or `{ tenant_id }` (per-tenant mode)
+- **Processor**: `WeeklyDigestProcessor` (`apps/worker/src/processors/early-warning/weekly-digest.processor.ts`)
+- **Side effects**: Builds tier distribution summary, identifies top at-risk students, counts week-over-week transitions. Creates `notifications` with `template_key: 'early_warning_weekly_digest'` and `channel: 'email'` for each recipient in `early_warning_configs.digest_recipients_json`.
+- **Downstream**: Reads from `student_risk_profiles`, `early_warning_tier_transitions`, `students`. Creates `notifications`.

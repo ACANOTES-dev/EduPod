@@ -1,7 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { Job } from 'bullmq';
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
+import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
@@ -56,7 +57,10 @@ const DEFAULT_CONFIG: PatternDetectionConfig = {
 export class AttendancePatternDetectionProcessor extends WorkerHost {
   private readonly logger = new Logger(AttendancePatternDetectionProcessor.name);
 
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
+  ) {
     super();
   }
 
@@ -79,6 +83,22 @@ export class AttendancePatternDetectionProcessor extends WorkerHost {
 
     const innerJob = new AttendancePatternDetectionJob(this.prisma);
     await innerJob.execute(job.data);
+
+    // ── Early warning intraday trigger for excessive absences ──────────────
+    for (const studentId of innerJob.excessiveAbsenceStudentIds) {
+      await this.earlyWarningQueue.add(
+        EARLY_WARNING_COMPUTE_STUDENT_JOB,
+        {
+          tenant_id: job.data.tenant_id,
+          student_id: studentId,
+          trigger_event: 'third_consecutive_absence',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
+      this.logger.log(
+        `Enqueued early warning recompute for student ${studentId} (trigger: third_consecutive_absence)`,
+      );
+    }
   }
 }
 
@@ -86,6 +106,9 @@ export class AttendancePatternDetectionProcessor extends WorkerHost {
 
 class AttendancePatternDetectionJob extends TenantAwareJob<AttendancePatternDetectionPayload> {
   private readonly logger = new Logger(AttendancePatternDetectionJob.name);
+
+  /** Student IDs that triggered excessive absence alerts. Read after execute(). */
+  public excessiveAbsenceStudentIds: string[] = [];
 
   protected async processJob(
     data: AttendancePatternDetectionPayload,
@@ -232,7 +255,7 @@ class AttendancePatternDetectionJob extends TenantAwareJob<AttendancePatternDete
     });
 
     if (absenceCount >= config.excessiveAbsenceThreshold) {
-      return this.createAlertSafe(tx, {
+      const created = await this.createAlertSafe(tx, {
         tenant_id: tenantId,
         student_id: studentId,
         alert_type: 'excessive_absences',
@@ -244,6 +267,10 @@ class AttendancePatternDetectionJob extends TenantAwareJob<AttendancePatternDete
           window_days: config.excessiveAbsenceWindowDays,
         },
       });
+      if (created > 0) {
+        this.excessiveAbsenceStudentIds.push(studentId);
+      }
+      return created;
     }
 
     return 0;

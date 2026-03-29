@@ -1,12 +1,13 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
 import {
+  EARLY_WARNING_COMPUTE_STUDENT_JOB,
   EvaluatedInputSchema,
   PolicyCondition,
   PolicyConditionSchema,
 } from '@school/shared';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -41,6 +42,7 @@ export class EvaluatePolicyProcessor extends WorkerHost {
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
   ) {
     super();
   }
@@ -62,6 +64,22 @@ export class EvaluatePolicyProcessor extends WorkerHost {
 
     const evaluator = new EvaluatePolicyJob(this.prisma);
     await evaluator.execute(job.data);
+
+    // ── Early warning intraday trigger ──────────────────────────────────────
+    for (const studentId of evaluator.exclusionAffectedStudentIds) {
+      await this.earlyWarningQueue.add(
+        EARLY_WARNING_COMPUTE_STUDENT_JOB,
+        {
+          tenant_id: job.data.tenant_id,
+          student_id: studentId,
+          trigger_event: 'suspension',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
+      this.logger.log(
+        `Enqueued early warning recompute for student ${studentId} (trigger: suspension)`,
+      );
+    }
   }
 }
 
@@ -69,6 +87,9 @@ export class EvaluatePolicyProcessor extends WorkerHost {
 
 class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
   private readonly logger = new Logger(EvaluatePolicyJob.name);
+
+  /** Student IDs that received exclusion/suspension-related actions. Read after execute(). */
+  public exclusionAffectedStudentIds: string[] = [];
 
   protected async processJob(
     data: EvaluatePolicyPayload,
@@ -573,6 +594,14 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
           // notify_roles, notify_users, auto_escalate, create_sanction, create_intervention
           // These are handled minimally — full implementation deferred to action-specific services
           break;
+      }
+
+      // Track exclusion-related actions for early warning intraday trigger
+      if (
+        ['create_sanction', 'auto_escalate'].includes(action.action_type) &&
+        participant.student_id
+      ) {
+        this.exclusionAffectedStudentIds.push(participant.student_id);
       }
 
       await tx.behaviourPolicyActionExecution.create({

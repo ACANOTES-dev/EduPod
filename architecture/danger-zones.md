@@ -2,7 +2,7 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-03-27
+> **Last verified**: 2026-03-29
 
 ---
 
@@ -501,3 +501,24 @@ The failure mode is non-deterministic and server-only. The same commit may pass 
 - The remote deploy script must take a server-side lock before mutating `/opt/edupod/app`
 - Smoke checks must fail the workflow and print PM2 diagnostics if the web or API process is not actually serving
 - Any future manual deploy script must respect the same lock or it can reintroduce the race
+
+---
+
+## DZ-32: Early Warning Intraday Triggers From Worker Processors
+
+**Risk**: Silent data desync if early warning queue is down; unbounded fan-out for large behaviour incidents
+**Location**: `apps/worker/src/processors/behaviour/evaluate-policy.processor.ts`, `apps/worker/src/processors/pastoral/notify-concern.processor.ts`, `apps/worker/src/processors/attendance-pattern-detection.processor.ts`
+
+Three worker processors (evaluate-policy, notify-concern, attendance-pattern-detection) enqueue `early-warning:compute-student` jobs onto the EARLY_WARNING queue as fire-and-forget side effects. If the EARLY_WARNING queue is down or backlogged, the original processor still completes ��� the student's risk profile just won't be recomputed until the next daily cron run.
+
+The compute-student processor validates `early_warning_configs.is_enabled` and `high_severity_events_json` before processing. If the tenant has early warning disabled, the job is a silent no-op.
+
+**Specific risks**:
+- **evaluate-policy** tracks `exclusionAffectedStudentIds` — if a behaviour incident has many student participants receiving exclusion-type actions, each one enqueues a separate compute job. A mass incident could generate dozens of recompute jobs simultaneously.
+- **notify-concern** only triggers for `severity === 'critical'`, limiting fan-out.
+- **attendance-pattern-detection** only triggers for excessive absence alerts, limiting fan-out.
+
+**Mitigation**:
+- The daily cron at 01:00 UTC provides a backstop — even if intraday triggers fail, profiles are refreshed nightly
+- BullMQ deduplication via `jobId` is NOT used for compute-student (each trigger is independently valuable), so the same student may be recomputed multiple times in a day — this is safe but wasteful
+- If queue backlog becomes an issue, consider adding a dedup window (e.g., skip if student was recomputed within the last 5 minutes)

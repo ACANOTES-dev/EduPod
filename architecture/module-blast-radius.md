@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-28
+> **Last verified**: 2026-03-29
 
 ---
 
@@ -177,7 +177,7 @@ These modules have NO downstream dependents. Changes are contained:
 
 ### RegulatoryModule
 
-- **Last verified**: 2026-03-28
+- **Last verified**: 2026-03-29
 - **Exports**: `RegulatoryCalendarService`, `RegulatorySubmissionService`, `RegulatoryDashboardService`, `RegulatoryTuslaService`, `RegulatoryDesService`, `RegulatoryOctoberReturnsService`, `RegulatoryPpodService`, `RegulatoryCbaService`, `RegulatoryDesMappingsService`, `RegulatoryTuslaMappingsService`, `RegulatoryReducedDaysService`, `RegulatoryTransfersService`
 - **Controllers**: 1 controller (RegulatoryController) — Phases A–E: calendar CRUD, submission CRUD, Tusla compliance, DES returns, October returns, PPOD/POD sync, CBA sync, transfers, dashboard
 - **Imports**: `AuthModule`, `S3Module`
@@ -279,3 +279,25 @@ Known Prisma-direct consumers:
   - SubstitutionRecord model changes affect cover fairness and absence trends
   - EncryptionService interface changes affect HMAC secret management
 - **Special risk**: `survey_responses` table has NO tenant_id and NO RLS — see DZ-27 in danger-zones.md
+
+---
+
+## EarlyWarningModule
+
+**Location**: `apps/api/src/modules/early-warning/early-warning.module.ts`
+
+- **Exports**: `EarlyWarningTriggerService`, `EarlyWarningRoutingService`, 5× signal collectors
+- **Consumed by**:
+  - Worker: `evaluate-policy.processor.ts` (behaviour module), `notify-concern.processor.ts` (pastoral module), `attendance-pattern-detection.processor.ts` (attendance module) — all enqueue `early-warning:compute-student` jobs directly onto the EARLY_WARNING queue
+  - API: Phase E (upcoming) — `EarlyWarningController`, `EarlyWarningService` will consume routing and trigger services
+- **Consumes**:
+  - `PrismaModule` → `PrismaService` (DB access for signal collectors, routing resolution, trigger config checks)
+  - `BullModule` → `early-warning` queue (for `EarlyWarningTriggerService` to enqueue compute-student jobs)
+  - Reads from: `early_warning_configs`, `student_risk_profiles`, `student_risk_signals`, `early_warning_tier_transitions`, `class_enrolments`, `class_staff`, `staff_profiles`, `membership_roles`, `students`, `notifications`, `pastoral_cases`, `pastoral_interventions`
+- **Blast radius**: Changes to `EarlyWarningTriggerService` interface affect any module that calls `triggerStudentRecompute()`. Changes to routing resolution logic affect notification delivery for tier changes.
+- **Reverse blast radius** (changes to these modules affect early-warning):
+  - `attendance` module: `daily_attendance_summaries`, `attendance_pattern_alerts` are read by the attendance signal collector
+  - `gradebook` module: assessment data read by the grades signal collector
+  - `behaviour` module: incident data read by the behaviour signal collector
+  - `pastoral` module: concern/case data read by the wellbeing signal collector; `pastoral_interventions` table written to on red-tier entries
+  - Schema changes to `class_staff`, `staff_profiles`, `membership_roles` affect recipient routing resolution

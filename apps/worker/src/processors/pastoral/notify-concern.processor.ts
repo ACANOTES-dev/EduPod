@@ -1,6 +1,7 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
@@ -60,6 +61,8 @@ export class NotifyConcernProcessor extends WorkerHost {
 
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    @InjectQueue(QUEUE_NAMES.EARLY_WARNING)
+    private readonly earlyWarningQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS)
     private readonly notificationsQueue: Queue,
     @InjectQueue(QUEUE_NAMES.PASTORAL)
@@ -127,6 +130,25 @@ export class NotifyConcernProcessor extends WorkerHost {
       this.logger.log(
         `Enqueued escalation timeout ${escalationJob.escalation_type} for concern ${concern_id} ` +
           `with ${escalationJob.delay_ms / 60_000}-minute delay (jobId: ${jobId})`,
+      );
+    }
+
+    // ── Early warning intraday trigger for critical concerns ──────────────
+    if (
+      job.data.severity === 'critical' &&
+      job.data.student_id
+    ) {
+      await this.earlyWarningQueue.add(
+        EARLY_WARNING_COMPUTE_STUDENT_JOB,
+        {
+          tenant_id: job.data.tenant_id,
+          student_id: job.data.student_id,
+          trigger_event: 'critical_incident',
+        },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
+      this.logger.log(
+        `Enqueued early warning recompute for student ${job.data.student_id} (trigger: critical_incident)`,
       );
     }
   }
