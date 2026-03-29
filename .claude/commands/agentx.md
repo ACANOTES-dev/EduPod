@@ -44,9 +44,9 @@ The user provides a subplan identifier and optionally a spec path:
        - [X]: COMPLETE ✓  (.status/Phase-X.complete exists)
        - [Y]: NOT COMPLETE — waiting (.status/Phase-Y.complete not found)
        - [Z]: NOT COMPLETE — waiting (.status/Phase-Z.complete not found)
-     Polling every 5 minutes...
+     Polling every 15 minutes...
      ```
-   - Run `sleep 300` (5 minutes).
+   - Run `sleep 900` (15 minutes).
    - **Re-check the `.status/` files** (do not re-read the implementation log — it never changes).
    - Repeat this loop until all dependency `.complete` files exist.
    - On each poll, print: `🔄 [HH:MM] — still waiting for [Y], [Z]...`
@@ -99,7 +99,7 @@ This is the single commit and deploy point for the entire pipeline.
 
 4. **Check all lower-d subplans in the same wave** by looking for their `.status/Phase-[Y].complete` files.
    - If all exist → push, monitor CI with `gh run watch`.
-   - If any are missing → **poll with the same 5-minute loop as Stage 1**, checking `.status/Phase-[Y].complete` existence, until all lower-d phases are complete, then push.
+   - If any are missing → **poll with the same 15-minute loop as Stage 1**, checking `.status/Phase-[Y].complete` existence, until all lower-d phases are complete, then push.
 
 ### After push
 

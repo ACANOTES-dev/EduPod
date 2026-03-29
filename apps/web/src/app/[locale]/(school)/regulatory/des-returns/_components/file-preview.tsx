@@ -9,10 +9,13 @@ import * as React from 'react';
 export interface DesPreviewResponse {
   file_type: string;
   academic_year: string;
-  row_count: number;
-  columns: string[];
-  sample_rows: Array<Record<string, string | number | null>>;
-  validation_warnings: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
+  row_count?: number;
+  record_count?: number;
+  columns: Array<string | { header: string; field: string }>;
+  sample_rows?: Array<Record<string, string | number | null>>;
+  rows?: Array<Record<string, string | number | null>>;
+  validation_warnings?: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
+  validation_errors?: Array<{ row_index: number; field: string; message: string; severity: 'error' | 'warning' }>;
 }
 
 interface FilePreviewProps {
@@ -61,7 +64,7 @@ function PreviewSkeleton() {
 function ValidationWarnings({
   warnings,
 }: {
-  warnings: DesPreviewResponse['validation_warnings'];
+  warnings: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
 }) {
   if (warnings.length === 0) return null;
 
@@ -124,6 +127,13 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
     );
   }
 
+  const rowCount = preview.row_count ?? preview.record_count ?? 0;
+  const sampleRows = preview.sample_rows ?? preview.rows ?? [];
+  const warnings = preview.validation_warnings ?? preview.validation_errors ?? [];
+  const columnLabels = preview.columns.map((column) =>
+    typeof column === 'string' ? column : column.header,
+  );
+
   return (
     <div className="space-y-4">
       {/* ─── Header ──────────────────────────────────────────────────────── */}
@@ -132,20 +142,20 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
           {FILE_TYPE_LABELS[preview.file_type] ?? preview.file_type}
         </p>
         <p className="text-sm text-text-secondary">
-          {preview.row_count} row{preview.row_count !== 1 ? 's' : ''}
+          {rowCount} row{rowCount !== 1 ? 's' : ''}
         </p>
       </div>
 
       {/* ─── Validation Warnings ─────────────────────────────────────────── */}
-      <ValidationWarnings warnings={preview.validation_warnings} />
+      <ValidationWarnings warnings={warnings} />
 
       {/* ─── Data Table ──────────────────────────────────────────────────── */}
-      {preview.columns.length > 0 && preview.sample_rows.length > 0 ? (
+      {columnLabels.length > 0 && sampleRows.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                {preview.columns.map((col) => (
+                {columnLabels.map((col) => (
                   <th
                     key={col}
                     className={cn(
@@ -158,12 +168,12 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {preview.sample_rows.map((row, rowIdx) => (
+              {sampleRows.map((row, rowIdx) => (
                 <tr
                   key={rowIdx}
                   className="transition-colors hover:bg-surface-secondary"
                 >
-                  {preview.columns.map((col) => (
+                  {columnLabels.map((col) => (
                     <td
                       key={col}
                       className="whitespace-nowrap px-3 py-2 text-text-primary"
@@ -184,9 +194,9 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
         </div>
       )}
 
-      {preview.sample_rows.length > 0 && preview.row_count > preview.sample_rows.length && (
+      {sampleRows.length > 0 && rowCount > sampleRows.length && (
         <p className="text-xs text-text-tertiary">
-          Showing {preview.sample_rows.length} of {preview.row_count} rows.
+          Showing {sampleRows.length} of {rowCount} rows.
         </p>
       )}
     </div>

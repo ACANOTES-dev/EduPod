@@ -224,13 +224,19 @@ export class RegulatoryDesService {
     const rawRows = await this.collectRows(tenantId, fileType, academicYear);
     const validationErrors = this.validateRows(fileType, rawRows);
     const { columns, rows } = this.formatRows(fileType, rawRows);
+    const previewColumns = columns.map((column) => column.header);
+    const sampleRows = rows.slice(0, 10);
 
     return {
       file_type: fileType,
       academic_year: academicYear,
-      columns,
+      columns: previewColumns,
+      column_defs: columns,
+      sample_rows: sampleRows,
       rows,
+      row_count: rows.length,
       record_count: rows.length,
+      validation_warnings: validationErrors,
       validation_errors: validationErrors,
     };
   }
@@ -245,6 +251,7 @@ export class RegulatoryDesService {
     const { columns, rows } = this.formatRows(fileType, rawRows);
 
     const result = this.exporter.export(fileType, rows, columns);
+    const generatedAt = new Date().toISOString();
 
     const s3Key = `regulatory/des/${academicYear}/${result.filename}`;
     await this.s3Service.upload(tenantId, s3Key, result.content, result.content_type);
@@ -269,7 +276,19 @@ export class RegulatoryDesService {
       `Generated DES ${fileType} for tenant ${tenantId}, academic year ${academicYear}: ${result.record_count} records`,
     );
 
-    return submission;
+    return {
+      submission_id: submission.id,
+      file_type: fileType,
+      academic_year: academicYear,
+      row_count: result.record_count,
+      record_count: result.record_count,
+      csv_content: result.content.toString('utf-8'),
+      generated_at: generatedAt,
+      file_key: `${tenantId}/${s3Key}`,
+      file_hash: fileHash,
+      validation_warnings: validationErrors,
+      validation_errors: validationErrors,
+    };
   }
 
   // ─── Private: Validate File Type ───────────────────────────────────────────

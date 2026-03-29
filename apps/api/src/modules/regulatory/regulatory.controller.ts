@@ -515,7 +515,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/readiness
   @Get('october-returns/readiness')
-  @RequiresPermission('regulatory.manage_des')
+  @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsReadiness(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(octoberReturnsReadinessSchema)) query: OctoberReturnsReadinessDto,
@@ -525,7 +525,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/preview
   @Get('october-returns/preview')
-  @RequiresPermission('regulatory.manage_des')
+  @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsPreview(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(octoberReturnsReadinessSchema)) query: OctoberReturnsReadinessDto,
@@ -535,7 +535,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/october-returns/issues
   @Get('october-returns/issues')
-  @RequiresPermission('regulatory.manage_des')
+  @RequiresPermission('regulatory.manage_october_returns')
   async octoberReturnsIssues(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(octoberReturnsReadinessSchema)) query: OctoberReturnsReadinessDto,
@@ -653,7 +653,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/cba/status
   @Get('cba/status')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_cba')
   async getCbaStatus(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(cbaStatusQuerySchema)) query: CbaStatusQueryDto,
@@ -663,7 +663,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/cba/pending
   @Get('cba/pending')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_cba')
   async getCbaPending(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(cbaPendingQuerySchema)) query: CbaPendingQueryDto,
@@ -678,7 +678,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/cba/sync
   @Post('cba/sync')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_cba')
   @HttpCode(HttpStatus.OK)
   async syncCba(
     @CurrentTenant() tenant: TenantContext,
@@ -690,7 +690,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/cba/sync/:studentId
   @Post('cba/sync/:studentId')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_cba')
   @HttpCode(HttpStatus.OK)
   async syncCbaStudent(
     @CurrentTenant() tenant: TenantContext,
@@ -705,7 +705,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/transfers
   @Get('transfers')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_transfers')
   async listTransfers(
     @CurrentTenant() tenant: TenantContext,
     @Query(new ZodValidationPipe(listTransfersQuerySchema)) query: ListTransfersQueryDto,
@@ -715,7 +715,7 @@ export class RegulatoryController {
 
   // POST /v1/regulatory/transfers
   @Post('transfers')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_transfers')
   @HttpCode(HttpStatus.CREATED)
   async createTransfer(
     @CurrentTenant() tenant: TenantContext,
@@ -727,7 +727,7 @@ export class RegulatoryController {
 
   // GET /v1/regulatory/transfers/:id
   @Get('transfers/:id')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_transfers')
   async getTransfer(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -737,7 +737,7 @@ export class RegulatoryController {
 
   // PATCH /v1/regulatory/transfers/:id
   @Patch('transfers/:id')
-  @RequiresPermission('regulatory.manage_ppod')
+  @RequiresPermission('regulatory.manage_transfers')
   async updateTransfer(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,

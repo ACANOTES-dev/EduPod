@@ -13,11 +13,17 @@ import { FilePreview } from './file-preview';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DesGenerateResponse {
+  submission_id: string;
   file_type: string;
   academic_year: string;
   row_count: number;
+  record_count: number;
   csv_content: string;
   generated_at: string;
+  file_key: string;
+  file_hash: string;
+  validation_warnings: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
+  validation_errors: Array<{ row_index: number; field: string; message: string; severity: 'error' | 'warning' }>;
 }
 
 // ─── File Type Definitions ────────────────────────────────────────────────────
@@ -28,6 +34,10 @@ interface FileTypeOption {
   description: string;
 }
 
+const SUPPORTED_FILE_TYPES = ['file_a', 'file_c', 'file_d', 'file_e', 'form_tl'] as const;
+type SupportedFileType = (typeof SUPPORTED_FILE_TYPES)[number];
+
+// File B remains intentionally excluded until the backend pipeline is implemented.
 const FILE_TYPE_OPTIONS: FileTypeOption[] = [
   { value: 'file_a', label: 'File A', description: 'Staff Returns' },
   { value: 'file_c', label: 'File C', description: 'Class Returns' },
@@ -58,6 +68,10 @@ function downloadCsv(content: string, filename: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function isSupportedFileType(fileType: string): fileType is SupportedFileType {
+  return (SUPPORTED_FILE_TYPES as readonly string[]).includes(fileType);
 }
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
@@ -367,7 +381,7 @@ export function FileGenerationWizard() {
   const [isGenerating, setIsGenerating] = React.useState(false);
 
   // ─── Preview fetch ─────────────────────────────────────────────────────────
-  const fetchPreview = React.useCallback(async (fileType: string, year: string) => {
+  const fetchPreview = React.useCallback(async (fileType: SupportedFileType, year: string) => {
     setIsPreviewLoading(true);
     setPreview(null);
     try {
@@ -385,7 +399,7 @@ export function FileGenerationWizard() {
   }, []);
 
   // ─── Generate file ─────────────────────────────────────────────────────────
-  const generateFile = React.useCallback(async (fileType: string, year: string) => {
+  const generateFile = React.useCallback(async (fileType: SupportedFileType, year: string) => {
     setIsGenerating(true);
     setGenerateResult(null);
     try {
@@ -407,7 +421,7 @@ export function FileGenerationWizard() {
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
   function handleNextToPreview() {
-    if (!selectedFileType || !academicYear.trim()) return;
+    if (!selectedFileType || !academicYear.trim() || !isSupportedFileType(selectedFileType)) return;
     setStep(2);
     void fetchPreview(selectedFileType, academicYear);
   }
@@ -418,7 +432,7 @@ export function FileGenerationWizard() {
   }
 
   function handleGenerate() {
-    if (!selectedFileType || !academicYear.trim()) return;
+    if (!selectedFileType || !academicYear.trim() || !isSupportedFileType(selectedFileType)) return;
     setStep(3);
     void generateFile(selectedFileType, academicYear);
   }
@@ -438,7 +452,7 @@ export function FileGenerationWizard() {
 
   // ─── Check for blocking errors in preview ──────────────────────────────────
   const hasErrors = React.useMemo(
-    () => (preview?.validation_warnings ?? []).some((w) => w.severity === 'error'),
+    () => (preview?.validation_warnings ?? preview?.validation_errors ?? []).some((w) => w.severity === 'error'),
     [preview],
   );
 

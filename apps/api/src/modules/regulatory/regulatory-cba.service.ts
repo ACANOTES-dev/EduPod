@@ -107,6 +107,11 @@ export class RegulatoryCbaService {
 
   // ─── Sync Export (Bulk) ───────────────────────────────────────────────────────
 
+  /**
+   * v1 does not push CBA data directly to PPOD because esinet has no real-time API.
+   * This method validates pending records and marks them ready for the next manual
+   * PPOD export batch rather than producing an outbound transport payload itself.
+   */
   async syncExport(tenantId: string, _userId: string, dto: CbaSyncDto): Promise<SyncResult> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

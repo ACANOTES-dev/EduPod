@@ -92,14 +92,28 @@ function buildMockExporter(): DesFileExporter {
 interface PreviewResult {
   file_type: string;
   academic_year: string;
-  columns: Array<{ header: string; field: string }>;
+  columns: string[];
+  column_defs: Array<{ header: string; field: string }>;
+  sample_rows: Array<Record<string, string | number | null>>;
   rows: Array<Record<string, string | number | null>>;
+  row_count: number;
   record_count: number;
+  validation_warnings: Array<{ row_index: number; field: string; message: string; severity: string }>;
   validation_errors: Array<{ row_index: number; field: string; message: string; severity: string }>;
 }
 
 interface GenerateResult {
-  id: string;
+  submission_id: string;
+  file_type: string;
+  academic_year: string;
+  row_count: number;
+  record_count: number;
+  csv_content: string;
+  generated_at: string;
+  file_key: string;
+  file_hash: string;
+  validation_warnings: Array<{ row_index: number; field: string; message: string; severity: string }>;
+  validation_errors: Array<{ row_index: number; field: string; message: string; severity: string }>;
 }
 
 // ─── Test Suite ──────────────────────────────────────────────────────────────
@@ -216,12 +230,14 @@ describe('RegulatoryDesService', () => {
 
       expect(result.file_type).toBe('file_a');
       expect(result.columns).toHaveLength(5);
-      const firstCol = result.columns[0]!;
-      expect(firstCol.field).toBe('teacher_number');
+      expect(result.columns[0]).toBe('Teacher Number');
+      expect(result.column_defs[0]?.field).toBe('teacher_number');
+      expect(result.sample_rows).toHaveLength(1);
       expect(result.rows).toHaveLength(1);
       const firstRow = result.rows[0]!;
       expect(firstRow.first_name).toBe('John');
       expect(firstRow.teacher_number).toBe('T001');
+      expect(result.row_count).toBe(1);
       expect(result.record_count).toBe(1);
     });
 
@@ -369,7 +385,12 @@ describe('RegulatoryDesService', () => {
 
       const result = await service.generateFile(TENANT_ID, USER_ID, 'file_a', ACADEMIC_YEAR) as GenerateResult;
 
-      expect(result.id).toBe(SUBMISSION_ID);
+      expect(result.submission_id).toBe(SUBMISSION_ID);
+      expect(result.file_type).toBe('file_a');
+      expect(result.academic_year).toBe(ACADEMIC_YEAR);
+      expect(result.row_count).toBe(2);
+      expect(result.csv_content).toBe('test-content');
+      expect(result.generated_at).toBeDefined();
 
       // Exporter was called
       expect(mockExporter.export).toHaveBeenCalledWith(
@@ -411,6 +432,8 @@ describe('RegulatoryDesService', () => {
           file_hash: expect.stringMatching(/^[a-f0-9]{32}$/),
         }),
       );
+      expect(result.file_key).toContain(TENANT_ID);
+      expect(result.file_hash).toMatch(/^[a-f0-9]{32}$/);
     });
 
     it('should generate File E with correct record count', async () => {
@@ -435,7 +458,7 @@ describe('RegulatoryDesService', () => {
 
       const result = await service.generateFile(TENANT_ID, USER_ID, 'file_e', ACADEMIC_YEAR) as GenerateResult;
 
-      expect(result.id).toBe(SUBMISSION_ID);
+      expect(result.submission_id).toBe(SUBMISSION_ID);
       expect(mockSubmissionService.create).toHaveBeenCalledWith(
         TENANT_ID,
         USER_ID,
@@ -583,7 +606,10 @@ describe('RegulatoryDesService', () => {
       const result: PreviewResult = await service.previewFile(TENANT_ID, 'file_a', ACADEMIC_YEAR);
 
       expect(result.rows).toHaveLength(0);
+      expect(result.sample_rows).toHaveLength(0);
+      expect(result.row_count).toBe(0);
       expect(result.record_count).toBe(0);
+      expect(result.validation_warnings).toHaveLength(0);
       expect(result.validation_errors).toHaveLength(0);
     });
   });
