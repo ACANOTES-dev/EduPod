@@ -1055,8 +1055,9 @@ model User {
   reg_transfers_initiated  InterSchoolTransfer[]     @relation("reg_transfer_initiated_by")
 
   // Early Warning Relations
-  ew_risk_profiles_assigned     StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
-  ew_tier_transitions_routed_to EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
+  ew_risk_profiles_assigned      StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
+  ew_risk_profiles_acknowledged  StudentRiskProfile[]         @relation("ew_risk_profile_acknowledged_by")
+  ew_tier_transitions_routed_to  EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
 
   @@map("users")
 }
@@ -7929,6 +7930,8 @@ model StudentRiskProfile {
   trend_json          Json?
   assigned_to_user_id String?              @db.Uuid
   assigned_at         DateTime?            @db.Timestamptz(6)
+  acknowledged_by_user_id String?          @db.Uuid
+  acknowledged_at     DateTime?            @db.Timestamptz(6)
   last_computed_at    DateTime             @default(now()) @db.Timestamptz(6)
   created_at          DateTime             @default(now()) @db.Timestamptz(6)
   updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
@@ -7937,7 +7940,8 @@ model StudentRiskProfile {
   tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   student       Student      @relation("ew_risk_profile_student", fields: [student_id], references: [id], onDelete: Restrict)
   academic_year AcademicYear @relation("ew_risk_profile_academic_year", fields: [academic_year_id], references: [id], onDelete: Restrict)
-  assigned_to   User?        @relation("ew_risk_profile_assigned_to", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+  assigned_to     User?        @relation("ew_risk_profile_assigned_to", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+  acknowledged_by User?        @relation("ew_risk_profile_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
 
   tier_transitions EarlyWarningTierTransition[]
 

@@ -131,13 +131,121 @@ export type EarlyWarningListQueryDto = z.infer<typeof earlyWarningListQuerySchem
 
 export const cohortQuerySchema = z.object({
   group_by: z.enum(['year_group', 'class', 'subject', 'domain']),
-  period: z.string().optional(),
+  period: z.enum(['current', '7d', '30d', '90d', 'academic_year']).default('current'),
   year_group_id: z.string().uuid().optional(),
   class_id: z.string().uuid().optional(),
+  tier: riskTierSchema.optional(),
 });
 export type CohortQueryDto = z.infer<typeof cohortQuerySchema>;
+export type CohortQuery = z.infer<typeof cohortQuerySchema>;
 
 export const assignStudentSchema = z.object({
   assigned_to_user_id: z.string().uuid(),
 });
 export type AssignStudentDto = z.infer<typeof assignStudentSchema>;
+
+// ─── GET /v1/early-warnings — List risk profiles ────────────────────────────
+
+export const listEarlyWarningsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  sort: z.enum(['composite_score', 'student_name', 'tier_entered_at']).default('composite_score'),
+  order: z.enum(['asc', 'desc']).default('desc'),
+  tier: riskTierSchema.optional(),
+  year_group_id: z.string().uuid().optional(),
+  class_id: z.string().uuid().optional(),
+  search: z.string().max(200).optional(),
+});
+export type ListEarlyWarningsQuery = z.infer<typeof listEarlyWarningsQuerySchema>;
+
+// ─── GET /v1/early-warnings/summary — Tier distribution ─────────────────────
+
+export const earlyWarningSummaryQuerySchema = z.object({
+  year_group_id: z.string().uuid().optional(),
+  class_id: z.string().uuid().optional(),
+});
+export type EarlyWarningSummaryQuery = z.infer<typeof earlyWarningSummaryQuerySchema>;
+
+// ─── Response Types ─────────────────────────────────────────────────────────
+
+export interface EarlyWarningListItem {
+  id: string;
+  student_id: string;
+  student_name: string;
+  composite_score: number;
+  risk_tier: string;
+  tier_entered_at: string;
+  attendance_score: number;
+  grades_score: number;
+  behaviour_score: number;
+  wellbeing_score: number;
+  engagement_score: number;
+  top_signal: string | null;
+  trend_json: number[];
+  assigned_to_user_id: string | null;
+  assigned_to_name: string | null;
+  last_computed_at: string;
+}
+
+export interface EarlyWarningSummary {
+  green: number;
+  yellow: number;
+  amber: number;
+  red: number;
+  total: number;
+}
+
+export interface CohortCell {
+  groupKey: string;
+  groupId: string;
+  studentCount: number;
+  avgCompositeScore: number;
+  avgAttendanceScore: number;
+  avgGradesScore: number;
+  avgBehaviourScore: number;
+  avgWellbeingScore: number;
+  avgEngagementScore: number;
+  tierDistribution: { green: number; yellow: number; amber: number; red: number };
+}
+
+export interface StudentRiskDetail {
+  id: string;
+  student_id: string;
+  student_name: string;
+  academic_year_id: string;
+  composite_score: number;
+  risk_tier: string;
+  tier_entered_at: string;
+  attendance_score: number;
+  grades_score: number;
+  behaviour_score: number;
+  wellbeing_score: number;
+  engagement_score: number;
+  signal_summary_json: Record<string, unknown>;
+  trend_json: number[];
+  assigned_to_user_id: string | null;
+  assigned_to_name: string | null;
+  assigned_at: string | null;
+  last_computed_at: string;
+  signals: StudentRiskSignalItem[];
+  transitions: TierTransitionItem[];
+}
+
+export interface StudentRiskSignalItem {
+  id: string;
+  domain: string;
+  signal_type: string;
+  severity: string;
+  score_contribution: number;
+  details_json: Record<string, unknown>;
+  detected_at: string;
+}
+
+export interface TierTransitionItem {
+  id: string;
+  from_tier: string | null;
+  to_tier: string;
+  composite_score: number;
+  trigger_signals_json: Record<string, unknown>;
+  transitioned_at: string;
+}
