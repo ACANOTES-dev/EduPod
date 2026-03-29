@@ -2,7 +2,25 @@
 
 ## What This Is
 
-Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~288k lines of code. Two confirmed tenants pending onboarding.
+Multi-tenant school management SaaS. Single PostgreSQL database, shared schema, Row-Level Security isolation. NestJS modular monolith backend, Next.js App Router frontend, BullMQ worker service. Bilingual English/Arabic with full RTL. ~721k tracked lines across code, docs, and config. Two confirmed tenants pending onboarding.
+
+### Codebase Scale
+
+As of **2026-03-29**, the monorepo consists of **~721k tracked lines** across **2,588 tracked files** (excluding dependencies, builds, and config caches).
+
+**Top 7 Language Breakdown:**
+- **TypeScript (incl. TSX):** 516,387 lines
+- **Markdown:** 141,611 lines
+- **YAML:** 17,017 lines
+- **JSON:** 15,811 lines
+- **SQL:** 11,164 lines
+- **HTML:** 9,752 lines
+- **Prisma Schema:** 8,025 lines
+
+**Test Suite Scale:**
+- **Test File Count:** 569 test files (`.spec.ts`, `.test.ts`, `.e2e-spec.ts`)
+- **Cumulative Test Lines:** 174,698 lines of test code
+- **Explicit Test Declarations:** 5,945 tracked `it()` / `test()` calls across repo test files
 
 ---
 
