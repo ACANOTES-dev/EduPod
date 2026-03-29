@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-
 import type { SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';

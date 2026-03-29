@@ -1,5 +1,5 @@
 import { HysteresisEvaluator } from './hysteresis.evaluator';
-import type { RiskTier, ThresholdConfig } from './types';
+import type { ThresholdConfig } from './types';
 import { DEFAULT_HYSTERESIS_BUFFER, DEFAULT_THRESHOLDS } from './types';
 
 describe('HysteresisEvaluator', () => {

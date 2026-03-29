@@ -2,7 +2,6 @@ import { ScoringEngine } from './scoring.engine';
 import type {
   DetectedSignal,
   SignalResult,
-  ThresholdConfig,
   WeightConfig,
 } from './types';
 import {
