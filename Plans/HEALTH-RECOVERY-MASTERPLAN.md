@@ -35,7 +35,7 @@ The biggest issue is not lack of code or lack of tests. It is that **the final r
 - Two S3-dependent tests are skipped
 - Lint still allows warnings
 - A few high-risk areas are protected by convention and volume of tests rather than by dedicated release gates
-- There is still no true pre-production verification lane, which is incompatible with a real `10/10` immediate-release claim
+- There is still no formally separated pre-launch hosted lane and launch-production lane, which is incompatible with a real `10/10` immediate-release claim until the environment split is completed
 
 This masterplan is designed to close those gaps **without sacrificing feature completeness**.
 
@@ -475,9 +475,26 @@ These are the minimum flows that should be runnable before a high-stakes release
 4. Add backup-restore rehearsal.
 5. Add deploy smoke tests against a production-like environment before tenant onboarding.
 
+#### Environment strategy context
+
+The founder's current environment strategy is intentional, not accidental:
+
+- `local` is the development environment
+- the current hosted environment labeled `production` is being used as a **real web-deployed proving ground**
+- this current hosted environment is intended to be **renamed/repositioned as staging before launch**
+- a separate, cleaner tenant-facing production environment will be created for actual launch
+
+This is a valid strategy for avoiding a false sense of confidence from purely local development. It front-loads the pain of real deployment, real infrastructure behavior, real networking, and real process orchestration.
+
 #### Hard truth
 
-Because **every push to `main` deploys to production** and there is **currently no staging environment**, the codebase cannot honestly be called `10/10 immediate-release ready` for high-paying tenants until this changes.
+The hard truth is not that this strategy was wrong. The hard truth is that **until the hosted proving ground is formally split into `staging` and a new launch `production` environment**, the operational posture still behaves like direct-to-production deployment.
+
+So the precise statement is:
+
+- the current setup is a sensible **pre-launch hosted integration strategy**
+- but it is **not yet a world-class launch architecture**
+- and the codebase cannot honestly be called `10/10 immediate-release ready` for high-paying tenants until the environment split is completed
 
 A truly world-class posture needs one of:
 
