@@ -22,6 +22,7 @@ import { ConfigModule } from './modules/config/config.module';
 import { ConfigurationModule } from './modules/configuration/configuration.module';
 import { CriticalIncidentsModule } from './modules/critical-incidents/critical-incidents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { EarlyWarningModule } from './modules/early-warning/early-warning.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { GdprModule } from './modules/gdpr/gdpr.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
@@ -114,6 +115,7 @@ import { WebsiteModule } from './modules/website/website.module';
     PastoralDsarModule,
     SearchModule,
     DashboardModule,
+    EarlyWarningModule,
     PeriodGridModule,
     ClassRequirementsModule,
     StaffAvailabilityModule,

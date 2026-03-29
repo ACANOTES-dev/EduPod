@@ -687,15 +687,15 @@ model Tenant {
   survey_questions SurveyQuestion[]
 
   // GDPR Relations
-  gdprAnonymisationTokens GdprAnonymisationToken[]
-  gdprTokenUsageLogs      GdprTokenUsageLog[]
-  data_processing_agreements   DataProcessingAgreement[]
-  privacy_notice_versions      PrivacyNoticeVersion[]
+  gdprAnonymisationTokens         GdprAnonymisationToken[]
+  gdprTokenUsageLogs              GdprTokenUsageLog[]
+  data_processing_agreements      DataProcessingAgreement[]
+  privacy_notice_versions         PrivacyNoticeVersion[]
   privacy_notice_acknowledgements PrivacyNoticeAcknowledgement[]
-  consent_records              ConsentRecord[]
-  ai_processing_logs           AiProcessingLog[]
-  retention_holds              RetentionHold[]
-  retention_policies           RetentionPolicy[]
+  consent_records                 ConsentRecord[]
+  ai_processing_logs              AiProcessingLog[]
+  retention_holds                 RetentionHold[]
+  retention_policies              RetentionPolicy[]
 
   // Regulatory Portal Relations
   regulatory_calendar_events  RegulatoryCalendarEvent[]
@@ -707,6 +707,12 @@ model Tenant {
   ppod_sync_logs              PpodSyncLog[]
   ppod_cba_sync_records       PpodCbaSyncRecord[]
   inter_school_transfers      InterSchoolTransfer[]
+
+  // Early Warning Relations
+  student_risk_profiles          StudentRiskProfile[]
+  student_risk_signals           StudentRiskSignal[]
+  early_warning_tier_transitions EarlyWarningTierTransition[]
+  early_warning_configs          EarlyWarningConfig?
 
   @@map("tenants")
 }
@@ -1025,9 +1031,9 @@ model User {
   staff_surveys_created StaffSurvey[] @relation("staff_survey_creator")
 
   // GDPR Relations
-  gdprUsageTriggered     GdprTokenUsageLog[] @relation("gdpr_usage_triggered_by")
-  gdprUsageOverrides     GdprTokenUsageLog[] @relation("gdpr_usage_override_by")
-  age_gate_confirmations ComplianceRequest[] @relation("compliance_age_gate_confirmer")
+  gdprUsageTriggered              GdprTokenUsageLog[]            @relation("gdpr_usage_triggered_by")
+  gdprUsageOverrides              GdprTokenUsageLog[]            @relation("gdpr_usage_override_by")
+  age_gate_confirmations          ComplianceRequest[]            @relation("compliance_age_gate_confirmer")
   dpa_acceptances                 DataProcessingAgreement[]      @relation("dpa_accepted_by")
   privacy_notice_versions_created PrivacyNoticeVersion[]         @relation("privacy_notice_created_by")
   privacy_notice_acknowledgements PrivacyNoticeAcknowledgement[] @relation("privacy_notice_acknowledged_by")
@@ -1036,8 +1042,8 @@ model User {
   retention_holds_held            RetentionHold[]                @relation("retention_held_by")
 
   // Phase J Relations
-  created_incidents  SecurityIncident[]     @relation("incident_created_by")
-  assigned_incidents SecurityIncident[]     @relation("incident_assigned_to")
+  created_incidents  SecurityIncident[]      @relation("incident_created_by")
+  assigned_incidents SecurityIncident[]      @relation("incident_assigned_to")
   incident_events    SecurityIncidentEvent[] @relation("incident_event_created_by")
 
   // Regulatory Portal Relations
@@ -1047,6 +1053,10 @@ model User {
   reg_reduced_day_approver ReducedSchoolDay[]        @relation("reg_reduced_school_day_approver")
   reg_sync_triggered       PpodSyncLog[]             @relation("reg_sync_triggered_by")
   reg_transfers_initiated  InterSchoolTransfer[]     @relation("reg_transfer_initiated_by")
+
+  // Early Warning Relations
+  ew_risk_profiles_assigned     StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
+  ew_tier_transitions_routed_to EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
 
   @@map("users")
 }
@@ -1478,10 +1488,15 @@ model Student {
   pc_checkins                  StudentCheckin[]                 @relation("pc_checkin_student")
 
   // Regulatory Portal Relations
-  reg_reduced_school_days  ReducedSchoolDay[]     @relation("reg_reduced_school_day_student")
-  reg_ppod_mappings        PpodStudentMapping[]   @relation("reg_ppod_student_mapping")
-  reg_cba_sync_records     PpodCbaSyncRecord[]    @relation("reg_cba_sync_student")
-  reg_transfers            InterSchoolTransfer[]  @relation("reg_transfer_student")
+  reg_reduced_school_days ReducedSchoolDay[]    @relation("reg_reduced_school_day_student")
+  reg_ppod_mappings       PpodStudentMapping[]  @relation("reg_ppod_student_mapping")
+  reg_cba_sync_records    PpodCbaSyncRecord[]   @relation("reg_cba_sync_student")
+  reg_transfers           InterSchoolTransfer[] @relation("reg_transfer_student")
+
+  // Early Warning Relations
+  ew_risk_profiles    StudentRiskProfile[]         @relation("ew_risk_profile_student")
+  ew_risk_signals     StudentRiskSignal[]          @relation("ew_risk_signal_student")
+  ew_tier_transitions EarlyWarningTierTransition[] @relation("ew_tier_transition_student")
 
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
@@ -1609,6 +1624,10 @@ model AcademicYear {
   bh_incidents          BehaviourIncident[]         @relation("bh_incident_academic_year")
   bh_recognition_awards BehaviourRecognitionAward[] @relation("bh_award_academic_year")
   bh_house_memberships  BehaviourHouseMembership[]  @relation("bh_house_member_year")
+
+  // Early Warning Relations
+  ew_risk_profiles StudentRiskProfile[] @relation("ew_risk_profile_academic_year")
+  ew_risk_signals  StudentRiskSignal[]  @relation("ew_risk_signal_academic_year")
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -4168,6 +4187,9 @@ model Notification {
   bh_amendment_original_notif   BehaviourAmendmentNotice[]       @relation("bh_amendment_original_notif")
   bh_amendment_correction_notif BehaviourAmendmentNotice[]       @relation("bh_amendment_correction_notif")
 
+  // Early Warning Relations
+  ew_tier_transitions EarlyWarningTierTransition[] @relation("ew_tier_transition_notification")
+
   @@index([tenant_id, recipient_user_id, status], name: "idx_notifications_tenant_recipient")
   @@map("notifications")
 }
@@ -4344,27 +4366,27 @@ model AuditLog {
 // ─── P8: Compliance Requests ────────────────────────────────────────────────
 
 model ComplianceRequest {
-  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id            String                    @db.Uuid
-  request_type         ComplianceRequestType
-  subject_type         ComplianceSubjectType
-  subject_id           String                    @db.Uuid
-  requested_by_user_id String                    @db.Uuid
-  status               ComplianceRequestStatus   @default(submitted)
-  classification       ComplianceClassification?
-  decision_notes       String?
-  export_file_key       String?
-  deadline_at           DateTime?                 @db.Timestamptz(6)
-  extension_granted     Boolean                   @default(false)
-  extension_reason      String?
-  extension_deadline_at DateTime?                 @db.Timestamptz(6)
-  deadline_exceeded     Boolean                   @default(false)
-  rectification_note    String?
-  age_gated_review        Boolean                   @default(false)
-  age_gated_confirmed_by  String?                   @db.Uuid
-  age_gated_confirmed_at  DateTime?                 @db.Timestamptz(6)
-  created_at            DateTime                  @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
+  id                     String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String                    @db.Uuid
+  request_type           ComplianceRequestType
+  subject_type           ComplianceSubjectType
+  subject_id             String                    @db.Uuid
+  requested_by_user_id   String                    @db.Uuid
+  status                 ComplianceRequestStatus   @default(submitted)
+  classification         ComplianceClassification?
+  decision_notes         String?
+  export_file_key        String?
+  deadline_at            DateTime?                 @db.Timestamptz(6)
+  extension_granted      Boolean                   @default(false)
+  extension_reason       String?
+  extension_deadline_at  DateTime?                 @db.Timestamptz(6)
+  deadline_exceeded      Boolean                   @default(false)
+  rectification_note     String?
+  age_gated_review       Boolean                   @default(false)
+  age_gated_confirmed_by String?                   @db.Uuid
+  age_gated_confirmed_at DateTime?                 @db.Timestamptz(6)
+  created_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                  @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
   tenant             Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -5430,6 +5452,36 @@ enum CriticalIncidentImpactLevel {
   indirect
 }
 
+// ─── Early Warning Enums ────────────────────────────────────────────────────
+
+enum EarlyWarningRiskTier {
+  green
+  yellow
+  amber
+  red
+
+  @@map("early_warning_risk_tier")
+}
+
+enum EarlyWarningDomain {
+  attendance
+  grades
+  behaviour
+  wellbeing
+  engagement
+
+  @@map("early_warning_domain")
+}
+
+enum EarlyWarningSignalSeverity {
+  low
+  medium
+  high
+  critical
+
+  @@map("early_warning_signal_severity")
+}
+
 // ─── Regulatory Portal Enums ────────────────────────────────────────────────
 
 enum RegulatoryDomain {
@@ -5450,12 +5502,12 @@ enum RegulatoryDomain {
 }
 
 enum RegulatorySubmissionStatus {
-  reg_not_started    @map("not_started")
-  reg_in_progress    @map("in_progress")
+  reg_not_started  @map("not_started")
+  reg_in_progress  @map("in_progress")
   ready_for_review
-  reg_submitted      @map("submitted")
-  reg_accepted       @map("accepted")
-  reg_rejected       @map("rejected")
+  reg_submitted    @map("submitted")
+  reg_accepted     @map("accepted")
+  reg_rejected     @map("rejected")
   overdue
 }
 
@@ -5470,9 +5522,9 @@ enum TuslaAbsenceCategory {
   illness
   urgent_family_reason
   holiday
-  tusla_suspension  @map("suspension")
-  tusla_expulsion   @map("expulsion")
-  tusla_other       @map("other")
+  tusla_suspension     @map("suspension")
+  tusla_expulsion      @map("expulsion")
+  tusla_other          @map("other")
   unexplained
 }
 
@@ -5481,7 +5533,7 @@ enum ReducedSchoolDayReason {
   medical_needs
   phased_return
   assessment_pending
-  rsd_other @map("other")
+  rsd_other            @map("other")
 }
 
 enum PodDatabaseType {
@@ -5490,10 +5542,10 @@ enum PodDatabaseType {
 }
 
 enum PodSyncStatus {
-  pod_pending        @map("pending")
+  pod_pending    @map("pending")
   synced
   changed
-  pod_error          @map("error")
+  pod_error      @map("error")
   not_applicable
 }
 
@@ -5504,10 +5556,10 @@ enum PodSyncType {
 }
 
 enum PodSyncLogStatus {
-  sync_in_progress @map("in_progress")
-  sync_completed   @map("completed")
+  sync_in_progress      @map("in_progress")
+  sync_completed        @map("completed")
   completed_with_errors
-  sync_failed      @map("failed")
+  sync_failed           @map("failed")
 }
 
 enum TransferDirection {
@@ -7245,21 +7297,21 @@ model StudentCheckin {
 // ─── Staff Wellbeing ──────────────────────────────────────────────────────────
 
 model StaffSurvey {
-  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id               String   @db.Uuid
-  title                   String   @db.VarChar(255)
-  description             String?  @db.Text
-  status                  String   @default("draft") @db.VarChar(20)
-  frequency               String   @default("fortnightly") @db.VarChar(20)
-  window_opens_at         DateTime @db.Timestamptz()
-  window_closes_at        DateTime @db.Timestamptz()
-  results_released        Boolean  @default(false)
-  min_response_threshold  Int
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @db.Uuid
+  title                     String   @db.VarChar(255)
+  description               String?  @db.Text
+  status                    String   @default("draft") @db.VarChar(20)
+  frequency                 String   @default("fortnightly") @db.VarChar(20)
+  window_opens_at           DateTime @db.Timestamptz()
+  window_closes_at          DateTime @db.Timestamptz()
+  results_released          Boolean  @default(false)
+  min_response_threshold    Int
   dept_drill_down_threshold Int
-  moderation_enabled      Boolean  @default(true)
-  created_by              String   @db.Uuid
-  created_at              DateTime @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  moderation_enabled        Boolean  @default(true)
+  created_by                String   @db.Uuid
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
   tenant        Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -7285,8 +7337,8 @@ model SurveyQuestion {
   created_at    DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
-  tenant    Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  survey    StaffSurvey @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+  tenant    Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  survey    StaffSurvey      @relation(fields: [survey_id], references: [id], onDelete: Cascade)
   responses SurveyResponse[]
 
   @@index([survey_id, display_order], map: "idx_survey_questions_survey")
@@ -7399,32 +7451,32 @@ model DataProcessingAgreement {
 
 /// Platform-level table — NOT tenant-scoped, no RLS
 model DpaVersion {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  version        String   @unique @db.VarChar(20)
-  content_html   String   @db.Text
-  content_hash   String   @db.VarChar(128)
-  effective_date DateTime @db.Date
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version        String    @unique @db.VarChar(20)
+  content_html   String    @db.Text
+  content_hash   String    @db.VarChar(128)
+  effective_date DateTime  @db.Date
   superseded_at  DateTime? @db.Date
-  created_at     DateTime @default(now()) @db.Timestamptz()
+  created_at     DateTime  @default(now()) @db.Timestamptz()
 
   @@map("dpa_versions")
 }
 
 model PrivacyNoticeVersion {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id          String   @db.Uuid
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String    @db.Uuid
   version_number     Int
-  content_html       String   @db.Text
-  content_html_ar    String?  @db.Text
-  effective_date     DateTime @db.Date
+  content_html       String    @db.Text
+  content_html_ar    String?   @db.Text
+  effective_date     DateTime  @db.Date
   published_at       DateTime? @db.Timestamptz()
-  created_by_user_id String   @db.Uuid
-  created_at         DateTime @default(now()) @db.Timestamptz()
+  created_by_user_id String    @db.Uuid
+  created_at         DateTime  @default(now()) @db.Timestamptz()
 
-  tenant            Tenant                        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  created_by        User                          @relation("privacy_notice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
-  acknowledgements  PrivacyNoticeAcknowledgement[]
-  consent_records   ConsentRecord[]
+  tenant           Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  created_by       User                           @relation("privacy_notice_created_by", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  acknowledgements PrivacyNoticeAcknowledgement[]
+  consent_records  ConsentRecord[]
 
   @@unique([tenant_id, version_number])
   @@index([tenant_id, published_at], name: "idx_privacy_notice_versions_tenant_published")
@@ -7449,23 +7501,23 @@ model PrivacyNoticeAcknowledgement {
 }
 
 model ConsentRecord {
-  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id                 String   @db.Uuid
-  subject_type              String   @db.VarChar(20)
-  subject_id                String   @db.Uuid
-  consent_type              String   @db.VarChar(50)
-  status                    String   @default("granted") @db.VarChar(20)
-  granted_at                DateTime @default(now()) @db.Timestamptz()
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String    @db.Uuid
+  subject_type              String    @db.VarChar(20)
+  subject_id                String    @db.Uuid
+  consent_type              String    @db.VarChar(50)
+  status                    String    @default("granted") @db.VarChar(20)
+  granted_at                DateTime  @default(now()) @db.Timestamptz()
   withdrawn_at              DateTime? @db.Timestamptz()
-  granted_by_user_id        String   @db.Uuid
-  evidence_type             String   @db.VarChar(30)
-  privacy_notice_version_id String?  @db.Uuid
-  notes                     String?  @db.Text
-  created_at                DateTime @default(now()) @db.Timestamptz()
-  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz()
+  granted_by_user_id        String    @db.Uuid
+  evidence_type             String    @db.VarChar(30)
+  privacy_notice_version_id String?   @db.Uuid
+  notes                     String?   @db.Text
+  created_at                DateTime  @default(now()) @db.Timestamptz()
+  updated_at                DateTime  @default(now()) @updatedAt @db.Timestamptz()
 
-  tenant                 Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  granted_by             User                 @relation("consent_granted_by", fields: [granted_by_user_id], references: [id], onDelete: Restrict)
+  tenant                 Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  granted_by             User                  @relation("consent_granted_by", fields: [granted_by_user_id], references: [id], onDelete: Restrict)
   privacy_notice_version PrivacyNoticeVersion? @relation(fields: [privacy_notice_version_id], references: [id], onDelete: SetNull)
 
   @@index([tenant_id, subject_type, subject_id], name: "idx_consent_tenant_subject")
@@ -7505,12 +7557,12 @@ model AiProcessingLog {
 
 /// Platform-level table — NOT tenant-scoped, no RLS
 model SubProcessorRegisterVersion {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  version            String   @unique @db.VarChar(20)
-  change_summary     String   @db.Text
-  published_at       DateTime @db.Timestamptz()
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  version            String    @unique @db.VarChar(20)
+  change_summary     String    @db.Text
+  published_at       DateTime  @db.Timestamptz()
   objection_deadline DateTime? @db.Date
-  created_at         DateTime @default(now()) @db.Timestamptz()
+  created_at         DateTime  @default(now()) @db.Timestamptz()
 
   entries SubProcessorRegisterEntry[]
 
@@ -7582,29 +7634,29 @@ model RetentionHold {
 
 /// Platform-level table — NOT tenant-scoped, no RLS (incidents may span tenants)
 model SecurityIncident {
-  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  detected_at                   DateTime  @default(now()) @db.Timestamptz(6)
-  severity                      String    @db.VarChar(20)
-  incident_type                 String    @db.VarChar(50)
-  description                   String
-  affected_tenants              String[]  @db.Uuid
-  affected_data_subjects_count  Int?
-  data_categories_affected      String[]
-  containment_actions           String?
-  reported_to_controllers_at    DateTime? @db.Timestamptz(6)
-  reported_to_dpc_at            DateTime? @db.Timestamptz(6)
-  dpc_reference_number          String?   @db.VarChar(50)
-  root_cause                    String?
-  remediation                   String?
-  status                        String    @default("detected") @db.VarChar(20)
-  created_by_user_id            String    @db.Uuid
-  assigned_to_user_id           String?   @db.Uuid
-  created_at                    DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at                    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  id                           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  detected_at                  DateTime  @default(now()) @db.Timestamptz(6)
+  severity                     String    @db.VarChar(20)
+  incident_type                String    @db.VarChar(50)
+  description                  String
+  affected_tenants             String[]  @db.Uuid
+  affected_data_subjects_count Int?
+  data_categories_affected     String[]
+  containment_actions          String?
+  reported_to_controllers_at   DateTime? @db.Timestamptz(6)
+  reported_to_dpc_at           DateTime? @db.Timestamptz(6)
+  dpc_reference_number         String?   @db.VarChar(50)
+  root_cause                   String?
+  remediation                  String?
+  status                       String    @default("detected") @db.VarChar(20)
+  created_by_user_id           String    @db.Uuid
+  assigned_to_user_id          String?   @db.Uuid
+  created_at                   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
-  created_by  User                   @relation("incident_created_by", fields: [created_by_user_id], references: [id])
-  assigned_to User?                  @relation("incident_assigned_to", fields: [assigned_to_user_id], references: [id])
+  created_by  User                    @relation("incident_created_by", fields: [created_by_user_id], references: [id])
+  assigned_to User?                   @relation("incident_assigned_to", fields: [assigned_to_user_id], references: [id])
   events      SecurityIncidentEvent[]
 
   @@index([status], name: "idx_security_incidents_status")
@@ -7614,12 +7666,12 @@ model SecurityIncident {
 
 /// Platform-level table — NOT tenant-scoped, no RLS
 model SecurityIncidentEvent {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  incident_id         String   @db.Uuid
-  event_type          String   @db.VarChar(30)
-  description         String
-  created_by_user_id  String   @db.Uuid
-  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  incident_id        String   @db.Uuid
+  event_type         String   @db.VarChar(30)
+  description        String
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz(6)
 
   // Relations
   incident   SecurityIncident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
@@ -7661,24 +7713,24 @@ model RegulatoryCalendarEvent {
 }
 
 model RegulatorySubmission {
-  id              String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id       String                     @db.Uuid
-  domain          RegulatoryDomain
-  submission_type String                     @db.VarChar(100)
-  academic_year   String                     @db.VarChar(20)
-  period_label    String?                    @db.VarChar(50)
-  status          RegulatorySubmissionStatus
-  generated_at    DateTime?                  @db.Timestamptz()
-  generated_by_id String?                    @db.Uuid
-  submitted_at    DateTime?                  @db.Timestamptz()
-  submitted_by_id String?                    @db.Uuid
-  file_key        String?                    @db.VarChar(500)
-  file_hash       String?                    @db.VarChar(64)
-  record_count    Int?
+  id                String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                     @db.Uuid
+  domain            RegulatoryDomain
+  submission_type   String                     @db.VarChar(100)
+  academic_year     String                     @db.VarChar(20)
+  period_label      String?                    @db.VarChar(50)
+  status            RegulatorySubmissionStatus
+  generated_at      DateTime?                  @db.Timestamptz()
+  generated_by_id   String?                    @db.Uuid
+  submitted_at      DateTime?                  @db.Timestamptz()
+  submitted_by_id   String?                    @db.Uuid
+  file_key          String?                    @db.VarChar(500)
+  file_hash         String?                    @db.VarChar(64)
+  record_count      Int?
   validation_errors Json?
-  notes           String?                    @db.Text
-  created_at      DateTime                   @default(now()) @db.Timestamptz()
-  updated_at      DateTime                   @default(now()) @updatedAt @db.Timestamptz()
+  notes             String?                    @db.Text
+  created_at        DateTime                   @default(now()) @db.Timestamptz()
+  updated_at        DateTime                   @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant       Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -7709,23 +7761,23 @@ model TuslaAbsenceCodeMapping {
 }
 
 model ReducedSchoolDay {
-  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String                @db.Uuid
-  student_id          String                @db.Uuid
-  start_date          DateTime              @db.Date
-  end_date            DateTime?             @db.Date
-  hours_per_day       Decimal               @db.Decimal(4, 2)
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String                 @db.Uuid
+  student_id          String                 @db.Uuid
+  start_date          DateTime               @db.Date
+  end_date            DateTime?              @db.Date
+  hours_per_day       Decimal                @db.Decimal(4, 2)
   reason              ReducedSchoolDayReason
-  reason_detail       String?               @db.Text
-  approved_by_id      String                @db.Uuid
-  parent_consent_date DateTime?             @db.Date
-  review_date         DateTime?             @db.Date
-  tusla_notified      Boolean               @default(false)
-  tusla_notified_at   DateTime?             @db.Timestamptz()
-  is_active           Boolean               @default(true)
-  notes               String?               @db.Text
-  created_at          DateTime              @default(now()) @db.Timestamptz()
-  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz()
+  reason_detail       String?                @db.Text
+  approved_by_id      String                 @db.Uuid
+  parent_consent_date DateTime?              @db.Date
+  review_date         DateTime?              @db.Date
+  tusla_notified      Boolean                @default(false)
+  tusla_notified_at   DateTime?              @db.Timestamptz()
+  is_active           Boolean                @default(true)
+  notes               String?                @db.Text
+  created_at          DateTime               @default(now()) @db.Timestamptz()
+  updated_at          DateTime               @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -7758,18 +7810,18 @@ model DesSubjectCodeMapping {
 }
 
 model PpodStudentMapping {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id      String        @db.Uuid
-  student_id     String        @db.Uuid
-  database_type  PodDatabaseType
-  external_id    String?       @db.VarChar(50)
-  sync_status    PodSyncStatus @default(pod_pending)
-  last_synced_at DateTime?     @db.Timestamptz()
-  last_sync_hash String?       @db.VarChar(64)
-  last_sync_error String?      @db.Text
-  data_snapshot  Json?
-  created_at     DateTime      @default(now()) @db.Timestamptz()
-  updated_at     DateTime      @default(now()) @updatedAt @db.Timestamptz()
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String          @db.Uuid
+  student_id      String          @db.Uuid
+  database_type   PodDatabaseType
+  external_id     String?         @db.VarChar(50)
+  sync_status     PodSyncStatus   @default(pod_pending)
+  last_synced_at  DateTime?       @db.Timestamptz()
+  last_sync_hash  String?         @db.VarChar(64)
+  last_sync_error String?         @db.Text
+  data_snapshot   Json?
+  created_at      DateTime        @default(now()) @db.Timestamptz()
+  updated_at      DateTime        @default(now()) @updatedAt @db.Timestamptz()
 
   // Relations
   tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
@@ -7856,4 +7908,114 @@ model InterSchoolTransfer {
   @@index([tenant_id, status], name: "idx_transfer_status")
   @@index([tenant_id, direction, status], name: "idx_transfer_direction_status")
   @@map("inter_school_transfers")
+}
+
+// ─── Early Warning System ───────────────────────────────────────────────────
+
+model StudentRiskProfile {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String               @db.Uuid
+  student_id          String               @db.Uuid
+  academic_year_id    String               @db.Uuid
+  composite_score     Decimal              @default(0) @db.Decimal(5, 2)
+  risk_tier           EarlyWarningRiskTier @default(green)
+  tier_entered_at     DateTime?            @db.Timestamptz(6)
+  attendance_score    Decimal              @default(0) @db.Decimal(5, 2)
+  grades_score        Decimal              @default(0) @db.Decimal(5, 2)
+  behaviour_score     Decimal              @default(0) @db.Decimal(5, 2)
+  wellbeing_score     Decimal              @default(0) @db.Decimal(5, 2)
+  engagement_score    Decimal              @default(0) @db.Decimal(5, 2)
+  signal_summary_json Json?
+  trend_json          Json?
+  assigned_to_user_id String?              @db.Uuid
+  assigned_at         DateTime?            @db.Timestamptz(6)
+  last_computed_at    DateTime             @default(now()) @db.Timestamptz(6)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student       Student      @relation("ew_risk_profile_student", fields: [student_id], references: [id], onDelete: Restrict)
+  academic_year AcademicYear @relation("ew_risk_profile_academic_year", fields: [academic_year_id], references: [id], onDelete: Restrict)
+  assigned_to   User?        @relation("ew_risk_profile_assigned_to", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+
+  tier_transitions EarlyWarningTierTransition[]
+
+  @@unique([tenant_id, student_id, academic_year_id], name: "uq_risk_profile_tenant_student_year")
+  @@index([tenant_id, risk_tier], map: "idx_risk_profiles_tenant_tier")
+  @@index([tenant_id, composite_score(sort: Desc)], map: "idx_risk_profiles_tenant_score")
+  @@map("student_risk_profiles")
+}
+
+/// Append-only signal audit trail. No updated_at.
+model StudentRiskSignal {
+  id                 String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String                     @db.Uuid
+  student_id         String                     @db.Uuid
+  academic_year_id   String                     @db.Uuid
+  domain             EarlyWarningDomain
+  signal_type        String                     @db.VarChar(100)
+  severity           EarlyWarningSignalSeverity
+  score_contribution Decimal                    @db.Decimal(5, 2)
+  details_json       Json?
+  source_entity_type String                     @db.VarChar(100)
+  source_entity_id   String                     @db.Uuid
+  detected_at        DateTime                   @db.Timestamptz(6)
+  created_at         DateTime                   @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student       Student      @relation("ew_risk_signal_student", fields: [student_id], references: [id], onDelete: Restrict)
+  academic_year AcademicYear @relation("ew_risk_signal_academic_year", fields: [academic_year_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, student_id, detected_at(sort: Desc)], map: "idx_risk_signals_tenant_student_detected")
+  @@index([tenant_id, domain, detected_at(sort: Desc)], map: "idx_risk_signals_tenant_domain_detected")
+  @@map("student_risk_signals")
+}
+
+/// Append-only tier transition log. No updated_at.
+model EarlyWarningTierTransition {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                @db.Uuid
+  student_id           String                @db.Uuid
+  profile_id           String                @db.Uuid
+  from_tier            EarlyWarningRiskTier?
+  to_tier              EarlyWarningRiskTier
+  composite_score      Decimal               @db.Decimal(5, 2)
+  trigger_signals_json Json?
+  routed_to_user_id    String?               @db.Uuid
+  notification_id      String?               @db.Uuid
+  transitioned_at      DateTime              @db.Timestamptz(6)
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  tenant       Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student      Student            @relation("ew_tier_transition_student", fields: [student_id], references: [id], onDelete: Restrict)
+  profile      StudentRiskProfile @relation(fields: [profile_id], references: [id], onDelete: Cascade)
+  routed_to    User?              @relation("ew_tier_transition_routed_to", fields: [routed_to_user_id], references: [id], onDelete: SetNull)
+  notification Notification?      @relation("ew_tier_transition_notification", fields: [notification_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, student_id, transitioned_at(sort: Desc)], map: "idx_tier_transitions_tenant_student_at")
+  @@index([tenant_id, to_tier, transitioned_at(sort: Desc)], map: "idx_tier_transitions_tenant_tier_at")
+  @@map("early_warning_tier_transitions")
+}
+
+model EarlyWarningConfig {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                 String   @unique @db.Uuid
+  is_enabled                Boolean  @default(false)
+  weights_json              Json     @default("{\"attendance\":25,\"grades\":25,\"behaviour\":20,\"wellbeing\":20,\"engagement\":10}")
+  thresholds_json           Json     @default("{\"green\":0,\"yellow\":30,\"amber\":50,\"red\":75}")
+  hysteresis_buffer         Int      @default(10)
+  routing_rules_json        Json     @default("{\"yellow\":{\"role\":\"homeroom_teacher\"},\"amber\":{\"role\":\"year_head\"},\"red\":{\"roles\":[\"principal\",\"pastoral_lead\"]}}")
+  digest_day                Int      @default(1)
+  digest_recipients_json    Json     @default("[]")
+  high_severity_events_json Json     @default("[\"suspension\",\"critical_incident\",\"third_consecutive_absence\"]")
+  created_at                DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("early_warning_configs")
 }

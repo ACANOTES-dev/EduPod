@@ -151,6 +151,9 @@ export * from './security';
 // Regulatory Portal
 export * from './regulatory';
 
+// Early Warning System
+export * from './early-warning';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

@@ -213,4 +213,10 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'wellbeing.moderate_surveys', description: 'Access moderation queue, approve/flag/redact responses', permission_tier: 'admin' },
   { permission_key: 'wellbeing.view_board_report', description: 'View and generate termly board wellbeing report', permission_tier: 'admin' },
   { permission_key: 'wellbeing.manage_resources', description: 'Edit EAP and support resource configuration', permission_tier: 'admin' },
+
+  // ─── Early Warning System ─────────────────────────────────────────────────
+  { permission_key: 'early_warning.view', description: 'View early warning risk profiles', permission_tier: 'staff' },
+  { permission_key: 'early_warning.manage', description: 'Manage early warning configuration', permission_tier: 'admin' },
+  { permission_key: 'early_warning.acknowledge', description: 'Acknowledge reviewed risk profiles', permission_tier: 'staff' },
+  { permission_key: 'early_warning.assign', description: 'Assign staff to risk profiles', permission_tier: 'admin' },
 ];

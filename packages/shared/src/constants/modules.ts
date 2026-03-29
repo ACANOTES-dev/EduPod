@@ -8,6 +8,7 @@ export const MODULE_KEYS = [
   'website',
   'analytics',
   'compliance',
+  'early_warning',
   'parent_inquiries',
   'auto_scheduling',
   'ai_functions',

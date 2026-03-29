@@ -160,6 +160,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
         name: QUEUE_NAMES.REGULATORY,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
       },
+      {
+        name: QUEUE_NAMES.EARLY_WARNING,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
     ),
   ],
   controllers: [WorkerHealthController],
