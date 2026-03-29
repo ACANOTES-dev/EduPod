@@ -1,15 +1,15 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
+import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from '@school/shared';
 import { Button, toast } from '@school/ui';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 
-import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from '@school/shared';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

@@ -11,8 +11,8 @@ import {
   SelectValue,
 } from '@school/ui';
 import { Save } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';

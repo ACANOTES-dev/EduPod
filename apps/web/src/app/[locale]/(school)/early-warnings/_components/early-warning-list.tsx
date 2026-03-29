@@ -10,12 +10,11 @@ import {
   toast,
 } from '@school/ui';
 import { useTranslations } from 'next-intl';
-import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
-import type { RiskProfileListItem, RiskProfileListResponse, RiskTier } from '@/lib/early-warning';
+import type { RiskProfileListItem, RiskProfileListResponse } from '@/lib/early-warning';
 import { TIER_ORDER } from '@/lib/early-warning';
 
 import { RiskTierBadge } from './risk-tier-badge';
@@ -36,8 +35,6 @@ interface ClassOption {
 
 export function EarlyWarningList() {
   const t = useTranslations('early_warning');
-  const pathname = usePathname();
-  const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
 
   // ─── State ──────────────────────────────────────────────────────────────────
   const [data, setData] = React.useState<RiskProfileListItem[]>([]);

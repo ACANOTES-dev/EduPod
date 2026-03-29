@@ -13,18 +13,19 @@ import {
 } from '@school/ui';
 import { ArrowUpRight, Link2, ListChecks, Send, Shuffle, UserRoundPlus } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { PageHeader } from '@/components/page-header';
 import {
   PastoralCaseStatusBadge,
   PastoralSeverityBadge,
   PastoralTierBadge,
 } from '@/components/pastoral/pastoral-badges';
 import { SearchPicker } from '@/components/pastoral/search-picker';
-import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
   formatPastoralValue,
   getLocaleFromPathname,
@@ -37,7 +38,6 @@ import {
   type PastoralConcernListItem,
   type SearchOption,
 } from '@/lib/pastoral';
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 export default function PastoralCaseDetailPage() {
   const t = useTranslations('pastoral.caseDetail');

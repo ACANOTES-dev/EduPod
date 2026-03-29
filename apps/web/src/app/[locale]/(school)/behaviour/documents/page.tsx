@@ -16,8 +16,8 @@ import {
   SelectValue,
 } from '@school/ui';
 import { Download, Eye, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';

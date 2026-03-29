@@ -11,8 +11,8 @@ import {
 } from '@school/ui';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';

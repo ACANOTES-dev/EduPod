@@ -1,8 +1,8 @@
 'use client';
 
 import { toast } from '@school/ui';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';

@@ -3,14 +3,15 @@
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
-import { PastoralCriticalIncidentStatusBadge } from '@/components/pastoral/pastoral-badges';
 import { PageHeader } from '@/components/page-header';
+import { PastoralCriticalIncidentStatusBadge } from '@/components/pastoral/pastoral-badges';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 import {
   formatPastoralValue,
   getLocaleFromPathname,
@@ -22,7 +23,6 @@ import {
   type PastoralApiListResponse,
   type PastoralCriticalIncidentListItem,
 } from '@/lib/pastoral';
-import { formatDate } from '@/lib/format-date';
 
 const PAGE_SIZE = 20;
 

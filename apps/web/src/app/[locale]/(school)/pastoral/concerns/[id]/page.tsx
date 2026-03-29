@@ -3,13 +3,14 @@
 import { Badge, Button } from '@school/ui';
 import { Edit3, Eye, FileClock, Link2, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { PageHeader } from '@/components/page-header';
+import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
   formatPastoralValue,
   formatShortId,
@@ -18,7 +19,6 @@ import {
   type PastoralApiListResponse,
   type PastoralConcernDetail,
 } from '@/lib/pastoral';
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 interface PastoralEvent {
   id: string;

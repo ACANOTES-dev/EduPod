@@ -12,8 +12,8 @@ import {
   Textarea,
 } from '@school/ui';
 import { RotateCw, Save } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';

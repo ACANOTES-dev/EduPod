@@ -7,8 +7,8 @@ import {
   type PrivacyNoticeVersion,
 } from '@school/shared';
 import { Button, Input, Label, TipTapEditor, toast } from '@school/ui';
-import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 

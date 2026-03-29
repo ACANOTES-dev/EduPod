@@ -12,8 +12,8 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';

@@ -14,8 +14,8 @@ import {
 } from '@school/ui';
 import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';

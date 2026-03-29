@@ -15,9 +15,10 @@ import { Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { SearchPicker } from '@/components/pastoral/search-picker';
 import { PageHeader } from '@/components/page-header';
+import { SearchPicker } from '@/components/pastoral/search-picker';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 import {
   PASTORAL_CHECKIN_FLAG_REASONS,
   searchStudents,
@@ -31,7 +32,6 @@ import {
   type PastoralMoodTrendDataPoint,
   type SearchOption,
 } from '@/lib/pastoral';
-import { formatDate } from '@/lib/format-date';
 
 function toDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);

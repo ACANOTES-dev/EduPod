@@ -1,6 +1,10 @@
 'use client';
 
 import {
+  SECURITY_INCIDENT_EVENT_TYPES,
+  SECURITY_INCIDENT_STATUS_TRANSITIONS,
+} from '@school/shared';
+import {
   Badge,
   Button,
   Dialog,
@@ -32,10 +36,6 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import {
-  SECURITY_INCIDENT_EVENT_TYPES,
-  SECURITY_INCIDENT_STATUS_TRANSITIONS,
-} from '@school/shared';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';

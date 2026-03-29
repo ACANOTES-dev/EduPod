@@ -3,8 +3,8 @@
 import { Badge, Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';

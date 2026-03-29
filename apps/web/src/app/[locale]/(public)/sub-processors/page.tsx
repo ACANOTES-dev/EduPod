@@ -2,10 +2,10 @@
 
 import type { SubProcessorRegisterVersion } from '@school/shared';
 import { Button } from '@school/ui';
-import Link from 'next/link';
-import * as React from 'react';
 import { ArrowLeftRight, Globe2, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';

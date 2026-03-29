@@ -25,8 +25,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- used in StatusTimeline and AppealDetailPage
-import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';

@@ -1,6 +1,11 @@
 'use client';
 
 import {
+  SECURITY_INCIDENT_SEVERITIES,
+  SECURITY_INCIDENT_STATUSES,
+  SECURITY_INCIDENT_TYPES,
+} from '@school/shared';
+import {
   Badge,
   Button,
   Dialog,
@@ -24,11 +29,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
 
-import {
-  SECURITY_INCIDENT_SEVERITIES,
-  SECURITY_INCIDENT_STATUSES,
-  SECURITY_INCIDENT_TYPES,
-} from '@school/shared';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
