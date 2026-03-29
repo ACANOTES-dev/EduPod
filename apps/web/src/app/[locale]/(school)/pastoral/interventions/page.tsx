@@ -8,14 +8,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
 import {
   PastoralActionStatusBadge,
   PastoralInterventionStatusBadge,
   PastoralTierBadge,
 } from '@/components/pastoral/pastoral-badges';
 import { SearchPicker } from '@/components/pastoral/search-picker';
-import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 import {
   getLocaleFromPathname,
   normalizeActionStatus,
@@ -26,7 +27,6 @@ import {
   type PastoralInterventionListItem,
   type SearchOption,
 } from '@/lib/pastoral';
-import { formatDate } from '@/lib/format-date';
 
 const PAGE_SIZE = 20;
 

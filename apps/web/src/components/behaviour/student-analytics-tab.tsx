@@ -82,7 +82,7 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
         }
       })
       .finally(() => setLoading(false));
-  }, [studentId]);
+  }, [studentId, t]);
 
   // ─── Loading state ──────────────────────────────────────────────────────────
 

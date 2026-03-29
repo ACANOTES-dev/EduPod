@@ -1,9 +1,5 @@
 'use client';
 
-import { Info, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 import {
   Badge,
   Button,
@@ -20,6 +16,9 @@ import {
   TooltipTrigger,
   cn,
 } from '@school/ui';
+import { Info, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
 
 interface GdprProtectionBadgeProps {
   /** The tokenisation policy: 'always' | 'never' | 'configurable' */

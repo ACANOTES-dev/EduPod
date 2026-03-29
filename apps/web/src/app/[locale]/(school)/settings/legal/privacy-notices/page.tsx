@@ -7,10 +7,10 @@ import {
   type PrivacyNoticeVersion,
 } from '@school/shared';
 import { Button, Input, Label, TipTapEditor, toast } from '@school/ui';
+import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useLocale, useTranslations } from 'next-intl';
 
 import { LegalDocument } from '@/components/legal/legal-document';
 import { PageHeader } from '@/components/page-header';

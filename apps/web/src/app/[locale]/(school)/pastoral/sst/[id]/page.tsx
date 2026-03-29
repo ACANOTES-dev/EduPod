@@ -16,9 +16,10 @@ import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
 
-import { SearchPicker } from '@/components/pastoral/search-picker';
 import { PageHeader } from '@/components/page-header';
+import { SearchPicker } from '@/components/pastoral/search-picker';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
   normalizeMeetingStatus,
   searchStaff,
@@ -28,7 +29,6 @@ import {
   type SstAgendaItem,
   type SstMeetingDetail,
 } from '@/lib/pastoral';
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 export default function SstMeetingDetailPage() {
   const t = useTranslations('pastoral.sstDetail');

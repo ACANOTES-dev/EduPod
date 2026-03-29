@@ -18,6 +18,7 @@ import * as React from 'react';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+import { formatDateTime } from '@/lib/format-date';
 import {
   getLocaleFromPathname,
   normalizeMeetingStatus,
@@ -25,7 +26,6 @@ import {
   type PastoralApiListResponse,
   type SstMeetingListItem,
 } from '@/lib/pastoral';
-import { formatDateTime } from '@/lib/format-date';
 
 const PAGE_SIZE = 20;
 

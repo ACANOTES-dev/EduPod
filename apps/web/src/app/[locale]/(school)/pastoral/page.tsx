@@ -16,9 +16,10 @@ import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
-import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { PageHeader } from '@/components/page-header';
+import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
   formatPastoralValue,
   formatShortId,
@@ -27,7 +28,6 @@ import {
   type PastoralCaseListItem,
   type PastoralConcernListItem,
 } from '@/lib/pastoral';
-import { formatDate, formatDateTime } from '@/lib/format-date';
 
 interface EscalationDashboardResponse {
   data: {
