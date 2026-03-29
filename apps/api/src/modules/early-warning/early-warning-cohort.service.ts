@@ -1,9 +1,21 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { CohortCell, CohortQuery } from '@school/shared';
+import type { CohortQuery } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+interface CohortResponseRow {
+  group_id: string;
+  group_name: string;
+  student_count: number;
+  avg_composite: number;
+  avg_attendance: number;
+  avg_grades: number;
+  avg_behaviour: number;
+  avg_wellbeing: number;
+  avg_engagement: number;
+}
 
 interface RoleScopeFilter {
   studentIds?: string[];
@@ -115,7 +127,7 @@ export class EarlyWarningCohortService {
     userId: string,
     membershipId: string | null,
     query: CohortQuery,
-  ): Promise<{ data: CohortCell[] }> {
+  ): Promise<{ data: CohortResponseRow[] }> {
     const [scope, academicYear] = await Promise.all([
       this.resolveRoleScope(tenantId, userId, membershipId),
       this.prisma.academicYear.findFirst({
@@ -200,7 +212,8 @@ export class EarlyWarningCohortService {
     }
 
     // Compute aggregates per group
-    const data: CohortCell[] = [];
+    const isDomainPivot = query.group_by === 'domain';
+    const data: CohortResponseRow[] = [];
     for (const group of groups.values()) {
       const n = group.profiles.length;
       if (n === 0) continue;
@@ -224,22 +237,27 @@ export class EarlyWarningCohortService {
         if (tier in tierDist) tierDist[tier]++;
       }
 
+      // When pivoting by domain, use the domain-specific score as the composite
+      // so each row's "avg score" reflects that domain, not the overall composite.
+      const domainAvg = isDomainPivot
+        ? this.getDomainAvg(group.groupId, { sumAttendance, sumGrades, sumBehaviour, sumWellbeing, sumEngagement }, n)
+        : Math.round((sumComposite / n) * 100) / 100;
+
       data.push({
-        groupKey: group.groupKey,
-        groupId: group.groupId,
-        studentCount: n,
-        avgCompositeScore: Math.round((sumComposite / n) * 100) / 100,
-        avgAttendanceScore: Math.round((sumAttendance / n) * 100) / 100,
-        avgGradesScore: Math.round((sumGrades / n) * 100) / 100,
-        avgBehaviourScore: Math.round((sumBehaviour / n) * 100) / 100,
-        avgWellbeingScore: Math.round((sumWellbeing / n) * 100) / 100,
-        avgEngagementScore: Math.round((sumEngagement / n) * 100) / 100,
-        tierDistribution: tierDist,
+        group_id: group.groupId,
+        group_name: group.groupKey,
+        student_count: n,
+        avg_composite: domainAvg,
+        avg_attendance: Math.round((sumAttendance / n) * 100) / 100,
+        avg_grades: Math.round((sumGrades / n) * 100) / 100,
+        avg_behaviour: Math.round((sumBehaviour / n) * 100) / 100,
+        avg_wellbeing: Math.round((sumWellbeing / n) * 100) / 100,
+        avg_engagement: Math.round((sumEngagement / n) * 100) / 100,
       });
     }
 
-    // Sort by avgCompositeScore descending
-    data.sort((a, b) => b.avgCompositeScore - a.avgCompositeScore);
+    // Sort by avg_composite descending
+    data.sort((a, b) => b.avg_composite - a.avg_composite);
 
     return { data };
   }
@@ -276,7 +294,8 @@ export class EarlyWarningCohortService {
         return entries;
       }
       case 'domain': {
-        // When grouping by domain, each profile produces 5 entries (one per domain)
+        // Each profile contributes to every domain bucket — the aggregation
+        // step uses the domain-specific score rather than the composite.
         return [
           { groupId: 'attendance', groupKey: 'Attendance' },
           { groupId: 'grades', groupKey: 'Grades' },
@@ -286,5 +305,21 @@ export class EarlyWarningCohortService {
         ];
       }
     }
+  }
+
+  private getDomainAvg(
+    domainId: string,
+    sums: { sumAttendance: number; sumGrades: number; sumBehaviour: number; sumWellbeing: number; sumEngagement: number },
+    n: number,
+  ): number {
+    const map: Record<string, number> = {
+      attendance: sums.sumAttendance,
+      grades: sums.sumGrades,
+      behaviour: sums.sumBehaviour,
+      wellbeing: sums.sumWellbeing,
+      engagement: sums.sumEngagement,
+    };
+    const sum = map[domainId] ?? 0;
+    return Math.round((sum / n) * 100) / 100;
   }
 }

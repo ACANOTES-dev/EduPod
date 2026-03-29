@@ -33,6 +33,9 @@ function buildMockPrisma() {
     membershipRole: {
       findMany: jest.fn(),
     },
+    class: {
+      findMany: jest.fn(),
+    },
   };
 }
 
@@ -86,6 +89,10 @@ describe('EarlyWarningRoutingService', () => {
       mockPrisma.student.findFirst.mockResolvedValue({ year_group_id: 'yg-1' });
       mockPrisma.membershipRole.findMany.mockResolvedValue([
         { membership: { user_id: YEAR_HEAD_USER_ID } },
+      ]);
+      mockPrisma.class.findMany.mockResolvedValue([{ id: CLASS_ID }]);
+      mockPrisma.classStaff.findMany.mockResolvedValue([
+        { staff_profile: { user_id: YEAR_HEAD_USER_ID } },
       ]);
 
       const result = await service.resolveRecipients(

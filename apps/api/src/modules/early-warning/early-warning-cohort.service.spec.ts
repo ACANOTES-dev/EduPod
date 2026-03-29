@@ -134,19 +134,16 @@ describe('EarlyWarningCohortService', () => {
 
       expect(result.data).toHaveLength(2);
 
-      // Sorted by avgCompositeScore desc → 2nd Year (80) first, 1st Year (50) second
+      // Sorted by avg_composite desc → 2nd Year (80) first, 1st Year (50) second
       const secondYear = result.data[0]!;
-      expect(secondYear.groupKey).toBe('2nd Year');
-      expect(secondYear.studentCount).toBe(1);
-      expect(secondYear.avgCompositeScore).toBe(80);
-      expect(secondYear.tierDistribution.red).toBe(1);
+      expect(secondYear.group_name).toBe('2nd Year');
+      expect(secondYear.student_count).toBe(1);
+      expect(secondYear.avg_composite).toBe(80);
 
       const firstYear = result.data[1]!;
-      expect(firstYear.groupKey).toBe('1st Year');
-      expect(firstYear.studentCount).toBe(2);
-      expect(firstYear.avgCompositeScore).toBe(50);
-      expect(firstYear.tierDistribution.amber).toBe(1);
-      expect(firstYear.tierDistribution.yellow).toBe(1);
+      expect(firstYear.group_name).toBe('1st Year');
+      expect(firstYear.student_count).toBe(2);
+      expect(firstYear.avg_composite).toBe(50);
     });
 
     it('should throw NotFoundException when no active academic year', async () => {
@@ -201,7 +198,7 @@ describe('EarlyWarningCohortService', () => {
       );
 
       expect(result.data).toHaveLength(2);
-      const classNames = result.data.map((c) => c.groupKey);
+      const classNames = result.data.map((c) => c.group_name);
       expect(classNames).toContain('Maths A');
       expect(classNames).toContain('English B');
     });

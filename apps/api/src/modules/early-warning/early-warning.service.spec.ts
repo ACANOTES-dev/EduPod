@@ -132,12 +132,20 @@ describe('EarlyWarningService', () => {
           behaviour_score: 55,
           wellbeing_score: 50,
           engagement_score: 40,
-          signal_summary_json: { topSignal: 'Absent 3 consecutive days' },
-          trend_json: [50, 55, 60, 65],
+          signal_summary_json: {
+            topSignals: [{ summaryFragment: 'Absent 3 consecutive days' }],
+          },
+          trend_json: { dailyScores: [50, 55, 60, 65] },
           assigned_to_user_id: null,
           last_computed_at: new Date('2026-03-28'),
-          student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
-          assigned_to_user: null,
+          student: {
+            id: STUDENT_ID,
+            first_name: 'John',
+            last_name: 'Doe',
+            year_group: { name: 'Year 5' },
+            class_enrolments: [{ class_entity: { name: '5A' } }],
+          },
+          assigned_to: null,
         },
       ]);
 
@@ -148,6 +156,9 @@ describe('EarlyWarningService', () => {
       expect(result.data[0]!.student_name).toBe('John Doe');
       expect(result.data[0]!.composite_score).toBe(65);
       expect(result.data[0]!.top_signal).toBe('Absent 3 consecutive days');
+      expect(result.data[0]!.year_group_name).toBe('Year 5');
+      expect(result.data[0]!.class_name).toBe('5A');
+      expect(result.data[0]!.trend_data).toEqual([50, 55, 60, 65]);
     });
 
     it('should throw NotFoundException when no active academic year', async () => {
@@ -242,10 +253,10 @@ describe('EarlyWarningService', () => {
         behaviour_score: 55,
         wellbeing_score: 50,
         engagement_score: 40,
-        signal_summary_json: { text: 'Test summary' },
-        trend_json: [50, 55, 60, 65],
+        signal_summary_json: { summaryText: 'Test summary' },
+        trend_json: { dailyScores: [50, 55, 60, 65] },
         assigned_to_user_id: null,
-        assigned_to_user: null,
+        assigned_to: null,
         assigned_at: null,
         last_computed_at: new Date('2026-03-28'),
         student: { id: STUDENT_ID, first_name: 'John', last_name: 'Doe' },
@@ -359,7 +370,7 @@ describe('EarlyWarningService', () => {
 
     it('should assign a staff member to the risk profile', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'staff-uuid-1' });
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({ id: 'mem-staff' });
       mockRlsTx.studentRiskProfile.findFirst.mockResolvedValue({
         id: PROFILE_ID,
         student_id: STUDENT_ID,
@@ -382,9 +393,9 @@ describe('EarlyWarningService', () => {
       });
     });
 
-    it('should throw NotFoundException when target user does not exist', async () => {
+    it('should throw NotFoundException when target user has no active membership', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.user.findFirst.mockResolvedValue(null);
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue(null);
 
       await expect(
         service.assignStaff(TENANT_ID, USER_ID, STUDENT_ID, dto),
@@ -393,7 +404,7 @@ describe('EarlyWarningService', () => {
 
     it('should throw NotFoundException when profile does not exist', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.user.findFirst.mockResolvedValue({ id: 'staff-uuid-1' });
+      mockPrisma.tenantMembership.findFirst.mockResolvedValue({ id: 'mem-staff' });
       mockRlsTx.studentRiskProfile.findFirst.mockResolvedValue(null);
 
       await expect(

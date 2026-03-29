@@ -78,12 +78,13 @@ export class EarlyWarningController {
     @Query(new ZodValidationPipe(earlyWarningSummaryQuerySchema))
     query: EarlyWarningSummaryQuery,
   ) {
-    return this.earlyWarningService.getTierSummary(
+    const summary = await this.earlyWarningService.getTierSummary(
       tenantContext.tenant_id,
       user.sub,
       user.membership_id,
       query,
     );
+    return { data: summary };
   }
 
   // GET /v1/early-warnings/cohort
@@ -106,7 +107,8 @@ export class EarlyWarningController {
   @Get('config')
   @RequiresPermission('early_warning.manage')
   async getConfig(@CurrentTenant() tenantContext: TenantContext) {
-    return this.configService.getConfig(tenantContext.tenant_id);
+    const config = await this.configService.getConfig(tenantContext.tenant_id);
+    return { data: config };
   }
 
   // PUT /v1/early-warnings/config
@@ -117,7 +119,8 @@ export class EarlyWarningController {
     @Body(new ZodValidationPipe(updateEarlyWarningConfigSchema))
     dto: UpdateEarlyWarningConfigDto,
   ) {
-    return this.configService.updateConfig(tenantContext.tenant_id, dto);
+    const config = await this.configService.updateConfig(tenantContext.tenant_id, dto);
+    return { data: config };
   }
 
   // ─── Dynamic routes (:studentId) ─────────────────────────────────────────
@@ -130,12 +133,13 @@ export class EarlyWarningController {
     @CurrentUser() user: JwtPayload,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.earlyWarningService.getStudentDetail(
+    const detail = await this.earlyWarningService.getStudentDetail(
       tenantContext.tenant_id,
       user.sub,
       user.membership_id,
       studentId,
     );
+    return { data: detail };
   }
 
   // POST /v1/early-warnings/:studentId/acknowledge
@@ -164,11 +168,12 @@ export class EarlyWarningController {
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Body(new ZodValidationPipe(assignStudentSchema)) dto: AssignStudentDto,
   ) {
-    return this.earlyWarningService.assignStaff(
+    const result = await this.earlyWarningService.assignStaff(
       tenantContext.tenant_id,
       user.sub,
       studentId,
       dto,
     );
+    return { data: result };
   }
 }

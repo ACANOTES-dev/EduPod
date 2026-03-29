@@ -115,16 +115,33 @@ export class EarlyWarningRoutingService {
 
     if (!student?.year_group_id) return [];
 
-    const memberships = await this.prisma.membershipRole.findMany({
+    // Step 1: Get all year_head user IDs in this tenant
+    const allYearHeadUserIds = await this.resolveByRole(tenantId, 'year_head');
+    if (allYearHeadUserIds.length === 0) return [];
+
+    // Step 2: Find classes in the student's year group
+    const yearGroupClasses = await this.prisma.class.findMany({
+      where: { tenant_id: tenantId, year_group_id: student.year_group_id },
+      select: { id: true },
+    });
+    const classIds = yearGroupClasses.map((c) => c.id);
+
+    if (classIds.length === 0) return allYearHeadUserIds;
+
+    // Step 3: Find which year heads have staff assignments in those classes
+    const staffInYearGroup = await this.prisma.classStaff.findMany({
       where: {
         tenant_id: tenantId,
-        role: { role_key: 'year_head' },
-        membership: { membership_status: 'active' },
+        class_id: { in: classIds },
+        staff_profile: {
+          user_id: { in: allYearHeadUserIds },
+        },
       },
-      select: { membership: { select: { user_id: true } } },
+      include: { staff_profile: { select: { user_id: true } } },
     });
 
-    return memberships.map((mr) => mr.membership.user_id);
+    const scopedUserIds = [...new Set(staffInYearGroup.map((cs) => cs.staff_profile.user_id))];
+    return scopedUserIds.length > 0 ? scopedUserIds : allYearHeadUserIds;
   }
 
   private async resolveByRole(

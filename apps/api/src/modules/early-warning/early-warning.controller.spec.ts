@@ -101,10 +101,10 @@ describe('EarlyWarningController', () => {
   // ─── GET /v1/early-warnings/summary ─────────────────────────────────────
 
   describe('summary', () => {
-    it('should delegate to earlyWarningService.getTierSummary', async () => {
+    it('should delegate to earlyWarningService.getTierSummary and wrap in { data }', async () => {
       const query = {};
-      const expected = { green: 10, yellow: 5, amber: 3, red: 1, total: 19 };
-      mockEarlyWarningService.getTierSummary.mockResolvedValue(expected);
+      const summaryData = { green: 10, yellow: 5, amber: 3, red: 1, total: 19 };
+      mockEarlyWarningService.getTierSummary.mockResolvedValue(summaryData);
 
       const result = await controller.summary(TENANT, USER, query as never);
 
@@ -114,7 +114,7 @@ describe('EarlyWarningController', () => {
         USER.membership_id,
         query,
       );
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ data: summaryData });
     });
   });
 
@@ -141,24 +141,24 @@ describe('EarlyWarningController', () => {
   // ─── GET /v1/early-warnings/config ──────────────────────────────────────
 
   describe('getConfig', () => {
-    it('should delegate to configService.getConfig with tenant_id', async () => {
-      const expected = { id: 'cfg-1', is_enabled: true, weights_json: {} };
-      mockConfigService.getConfig.mockResolvedValue(expected);
+    it('should delegate to configService.getConfig with tenant_id and wrap in { data }', async () => {
+      const configData = { id: 'cfg-1', is_enabled: true, weights_json: {} };
+      mockConfigService.getConfig.mockResolvedValue(configData);
 
       const result = await controller.getConfig(TENANT);
 
       expect(mockConfigService.getConfig).toHaveBeenCalledWith(TENANT.tenant_id);
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ data: configData });
     });
   });
 
   // ─── PUT /v1/early-warnings/config ──────────────────────────────────────
 
   describe('updateConfig', () => {
-    it('should delegate to configService.updateConfig with tenant_id and dto', async () => {
+    it('should delegate to configService.updateConfig with tenant_id and dto, wrap in { data }', async () => {
       const dto = { is_enabled: true };
-      const expected = { id: 'cfg-1', is_enabled: true };
-      mockConfigService.updateConfig.mockResolvedValue(expected);
+      const configData = { id: 'cfg-1', is_enabled: true };
+      mockConfigService.updateConfig.mockResolvedValue(configData);
 
       const result = await controller.updateConfig(TENANT, dto as never);
 
@@ -166,16 +166,16 @@ describe('EarlyWarningController', () => {
         TENANT.tenant_id,
         dto,
       );
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ data: configData });
     });
   });
 
   // ─── GET /v1/early-warnings/:studentId ──────────────────────────────────
 
   describe('getStudentDetail', () => {
-    it('should delegate to earlyWarningService.getStudentDetail with all args', async () => {
-      const expected = { id: 'profile-1', student_id: STUDENT_ID, composite_score: 65 };
-      mockEarlyWarningService.getStudentDetail.mockResolvedValue(expected);
+    it('should delegate to earlyWarningService.getStudentDetail and wrap in { data }', async () => {
+      const detailData = { id: 'profile-1', student_id: STUDENT_ID, composite_score: 65 };
+      mockEarlyWarningService.getStudentDetail.mockResolvedValue(detailData);
 
       const result = await controller.getStudentDetail(TENANT, USER, STUDENT_ID);
 
@@ -185,7 +185,7 @@ describe('EarlyWarningController', () => {
         USER.membership_id,
         STUDENT_ID,
       );
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ data: detailData });
     });
   });
 
@@ -208,14 +208,14 @@ describe('EarlyWarningController', () => {
   // ─── POST /v1/early-warnings/:studentId/assign ─────────────────────────
 
   describe('assign', () => {
-    it('should delegate to earlyWarningService.assignStaff with tenant, user, studentId, dto', async () => {
+    it('should delegate to earlyWarningService.assignStaff and wrap in { data }', async () => {
       const dto = { assigned_to_user_id: 'staff-uuid-1' };
-      const expected = {
+      const assignData = {
         id: 'profile-1',
         assigned_to_user_id: 'staff-uuid-1',
         assigned_at: '2026-03-28T10:00:00.000Z',
       };
-      mockEarlyWarningService.assignStaff.mockResolvedValue(expected);
+      mockEarlyWarningService.assignStaff.mockResolvedValue(assignData);
 
       const result = await controller.assign(TENANT, USER, STUDENT_ID, dto as never);
 
@@ -225,7 +225,7 @@ describe('EarlyWarningController', () => {
         STUDENT_ID,
         dto,
       );
-      expect(result).toEqual(expected);
+      expect(result).toEqual({ data: assignData });
     });
   });
 });

@@ -7,13 +7,9 @@ import {
 import { Prisma } from '@prisma/client';
 import type {
   AssignStudentDto,
-  EarlyWarningListItem,
   EarlyWarningSummary,
   EarlyWarningSummaryQuery,
   ListEarlyWarningsQuery,
-  StudentRiskDetail,
-  StudentRiskSignalItem,
-  TierTransitionItem,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -153,10 +149,7 @@ export class EarlyWarningService {
     userId: string,
     membershipId: string | null,
     query: ListEarlyWarningsQuery,
-  ): Promise<{
-    data: EarlyWarningListItem[];
-    meta: { page: number; pageSize: number; total: number };
-  }> {
+  ) {
     const [scope, academicYearId] = await Promise.all([
       this.resolveRoleScope(tenantId, userId, membershipId),
       this.getActiveAcademicYearId(tenantId),
@@ -209,7 +202,17 @@ export class EarlyWarningService {
         take: query.pageSize,
         include: {
           student: {
-            select: { id: true, first_name: true, last_name: true },
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              year_group: { select: { name: true } },
+              class_enrolments: {
+                where: { status: 'active' },
+                take: 1,
+                select: { class_entity: { select: { name: true } } },
+              },
+            },
           },
           assigned_to: {
             select: { id: true, first_name: true, last_name: true },
@@ -218,32 +221,36 @@ export class EarlyWarningService {
       }),
     ]);
 
-    const data: EarlyWarningListItem[] = profiles.map((p) => {
-      const summaryJson = p.signal_summary_json as Record<
-        string,
-        unknown
-      > | null;
+    const data = profiles.map((p) => {
+      const summaryJson = p.signal_summary_json as {
+        summaryText?: string;
+        topSignals?: Array<{ summaryFragment?: string }>;
+      } | null;
       const topSignal =
-        (summaryJson?.topSignal as string | null) ?? null;
+        summaryJson?.topSignals?.[0]?.summaryFragment ?? null;
+
+      const trendJson = p.trend_json as { dailyScores?: number[] } | null;
+      const trendData = trendJson?.dailyScores ?? [];
+
+      const student = p.student as {
+        first_name: string;
+        last_name: string;
+        year_group?: { name: string } | null;
+        class_enrolments?: Array<{ class_entity: { name: string } }>;
+      } | null;
 
       return {
         id: p.id,
         student_id: p.student_id,
-        student_name: p.student
-          ? `${p.student.first_name} ${p.student.last_name}`
+        student_name: student
+          ? `${student.first_name} ${student.last_name}`
           : 'Unknown',
+        year_group_name: student?.year_group?.name ?? null,
+        class_name: student?.class_enrolments?.[0]?.class_entity?.name ?? null,
         composite_score: Number(p.composite_score),
         risk_tier: p.risk_tier,
-        tier_entered_at:
-          p.tier_entered_at?.toISOString() ?? new Date().toISOString(),
-        attendance_score: Number(p.attendance_score),
-        grades_score: Number(p.grades_score),
-        behaviour_score: Number(p.behaviour_score),
-        wellbeing_score: Number(p.wellbeing_score),
-        engagement_score: Number(p.engagement_score),
         top_signal: topSignal,
-        trend_json: (p.trend_json as number[]) ?? [],
-        assigned_to_user_id: p.assigned_to_user_id,
+        trend_data: trendData,
         assigned_to_name: p.assigned_to
           ? `${p.assigned_to.first_name} ${p.assigned_to.last_name}`
           : null,
@@ -318,7 +325,7 @@ export class EarlyWarningService {
     userId: string,
     membershipId: string | null,
     studentId: string,
-  ): Promise<StudentRiskDetail> {
+  ) {
     const [scope, academicYearId] = await Promise.all([
       this.resolveRoleScope(tenantId, userId, membershipId),
       this.getActiveAcademicYearId(tenantId),
@@ -378,25 +385,31 @@ export class EarlyWarningService {
       take: 20,
     });
 
-    const signalItems: StudentRiskSignalItem[] = signals.map((s) => ({
-      id: s.id,
-      domain: s.domain,
-      signal_type: s.signal_type,
-      severity: s.severity,
-      score_contribution: Number(s.score_contribution),
-      details_json: (s.details_json as Record<string, unknown>) ?? {},
-      detected_at: s.detected_at.toISOString(),
-    }));
+    const signalItems = signals.map((s) => {
+      const details = (s.details_json as { summaryFragment?: string } | null) ?? {};
+      return {
+        id: s.id,
+        domain: s.domain,
+        signal_type: s.signal_type,
+        severity: s.severity,
+        score_contribution: Number(s.score_contribution),
+        summary_fragment: details.summaryFragment ?? s.signal_type,
+        detected_at: s.detected_at.toISOString(),
+      };
+    });
 
-    const transitionItems: TierTransitionItem[] = transitions.map((t) => ({
+    const transitionItems = transitions.map((t) => ({
       id: t.id,
       from_tier: t.from_tier,
       to_tier: t.to_tier,
       composite_score: Number(t.composite_score),
-      trigger_signals_json:
-        (t.trigger_signals_json as Record<string, unknown>) ?? {},
       transitioned_at: t.transitioned_at.toISOString(),
     }));
+
+    const summaryJson = profile.signal_summary_json as {
+      summaryText?: string;
+    } | null;
+    const trendJson = profile.trend_json as { dailyScores?: number[] } | null;
 
     return {
       id: profile.id,
@@ -404,7 +417,6 @@ export class EarlyWarningService {
       student_name: profile.student
         ? `${profile.student.first_name} ${profile.student.last_name}`
         : 'Unknown',
-      academic_year_id: profile.academic_year_id,
       composite_score: Number(profile.composite_score),
       risk_tier: profile.risk_tier,
       tier_entered_at:
@@ -414,15 +426,12 @@ export class EarlyWarningService {
       behaviour_score: Number(profile.behaviour_score),
       wellbeing_score: Number(profile.wellbeing_score),
       engagement_score: Number(profile.engagement_score),
-      signal_summary_json:
-        (profile.signal_summary_json as Record<string, unknown>) ?? {},
-      trend_json: (profile.trend_json as number[]) ?? [],
+      summary_text: summaryJson?.summaryText ?? '',
+      trend_data: trendJson?.dailyScores ?? [],
       assigned_to_user_id: profile.assigned_to_user_id,
       assigned_to_name: profile.assigned_to
         ? `${profile.assigned_to.first_name} ${profile.assigned_to.last_name}`
         : null,
-      assigned_at: profile.assigned_at?.toISOString() ?? null,
-      last_computed_at: profile.last_computed_at.toISOString(),
       signals: signalItems,
       transitions: transitionItems,
     };
@@ -480,15 +489,19 @@ export class EarlyWarningService {
   }> {
     const academicYearId = await this.getActiveAcademicYearId(tenantId);
 
-    // Verify the target user exists
-    const targetUser = await this.prisma.user.findFirst({
-      where: { id: dto.assigned_to_user_id },
+    // Verify the target user has an active membership in this tenant
+    const targetMembership = await this.prisma.tenantMembership.findFirst({
+      where: {
+        user_id: dto.assigned_to_user_id,
+        tenant_id: tenantId,
+        membership_status: 'active',
+      },
       select: { id: true },
     });
-    if (!targetUser) {
+    if (!targetMembership) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
-        message: `User "${dto.assigned_to_user_id}" not found`,
+        message: `User "${dto.assigned_to_user_id}" not found in this tenant`,
       });
     }
 
