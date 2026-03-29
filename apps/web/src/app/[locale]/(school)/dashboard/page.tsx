@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-provider';
 
+import { EarlyWarningCard } from './_components/early-warning-card';
+
 interface HouseholdNeedingCompletion {
   id: string;
   household_name: string;
@@ -107,6 +109,9 @@ export default function DashboardPage() {
         <StatCard label={t('activeClasses')} value={stats.active_classes} />
         <StatCard label={t('pendingApprovals')} value={stats.pending_approvals} />
       </div>
+
+      {/* Early Warning */}
+      <EarlyWarningCard />
 
       {/* Households needing completion */}
       <section>

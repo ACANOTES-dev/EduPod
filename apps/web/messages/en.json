@@ -7481,5 +7481,113 @@
       "trendDirection": "Trend",
       "printFallback": "Use your browser's print function to save as PDF."
     }
+  },
+  "early_warning": {
+    "title": "Early Warning",
+    "subtitle": "Students at risk across all domains",
+    "summary": {
+      "green": "On Track",
+      "yellow": "Watch",
+      "amber": "Monitoring",
+      "red": "Intervention Needed"
+    },
+    "domains": {
+      "attendance": "Attendance",
+      "grades": "Grades",
+      "behaviour": "Behaviour",
+      "wellbeing": "Wellbeing",
+      "engagement": "Engagement"
+    },
+    "list": {
+      "student": "Student",
+      "score": "Risk Score",
+      "tier": "Status",
+      "top_signal": "Primary Concern",
+      "trend": "Trend",
+      "assigned_to": "Assigned To",
+      "no_data": "No students flagged",
+      "no_signals": "No active signals",
+      "loading": "Loading risk profiles...",
+      "unassigned": "Unassigned",
+      "filter_tier": "Filter by status",
+      "all_tiers": "All statuses",
+      "all_year_groups": "All year groups",
+      "all_classes": "All classes",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "detail": {
+      "title": "Risk Detail",
+      "domains": "Domain Breakdown",
+      "summary": "Summary",
+      "signals": "Signal Breakdown",
+      "trend": "30-Day Trend",
+      "transitions": "Tier History",
+      "acknowledge": "Mark Reviewed",
+      "acknowledged": "Marked as reviewed",
+      "assign": "Assign Staff",
+      "create_intervention": "Create Intervention",
+      "no_signals": "No signals detected",
+      "no_transitions": "No tier changes recorded",
+      "points": "pts",
+      "score_at_transition": "Score: {score}"
+    },
+    "cohort": {
+      "title": "Cohort Analysis",
+      "description": "Average risk scores across student groups",
+      "group_by": "Group By",
+      "year_group": "Year Group",
+      "class": "Class",
+      "subject": "Subject",
+      "avg_score": "Avg Score",
+      "students": "Students",
+      "back_to_list": "Back to list"
+    },
+    "settings": {
+      "title": "Early Warning Settings",
+      "weights": "Domain Weights",
+      "weights_description": "How much each domain contributes to the overall risk score. Must sum to 100.",
+      "total": "Total",
+      "weights_must_sum": "Weights must sum to 100%",
+      "thresholds": "Tier Thresholds",
+      "thresholds_description": "Minimum composite score to enter each tier.",
+      "threshold_minimum": "Minimum score: {score}",
+      "hysteresis": "Stability Buffer",
+      "hysteresis_description": "Points below tier threshold required to downgrade (prevents alert fatigue).",
+      "routing": "Alert Routing",
+      "routing_description": "Who receives alerts when a student enters each tier.",
+      "routing_yellow": "Watch tier alert",
+      "routing_amber": "Monitoring tier alert",
+      "routing_red": "Intervention tier alerts",
+      "routing_red_description": "Select all roles that should be notified for red tier.",
+      "digest": "Weekly Digest",
+      "digest_description": "Summary email sent weekly with top at-risk students.",
+      "digest_day": "Day of week",
+      "digest_recipients": "Recipients",
+      "digest_recipients_description": "Select roles that receive the weekly digest email.",
+      "save": "Save Changes",
+      "saved": "Settings saved",
+      "roles": {
+        "homeroom_teacher": "Homeroom Teacher",
+        "year_head": "Year Head",
+        "principal": "Principal",
+        "pastoral_lead": "Pastoral Lead",
+        "deputy_principal": "Deputy Principal"
+      },
+      "days": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday"
+      }
+    },
+    "errors": {
+      "load_failed": "Failed to load risk data",
+      "save_failed": "Failed to save settings",
+      "action_failed": "Action failed"
+    }
   }
 }

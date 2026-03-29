@@ -7480,5 +7480,113 @@
       "trendDirection": "الاتجاه",
       "printFallback": "استخدم وظيفة الطباعة في متصفحك للحفظ كـ PDF."
     }
+  },
+  "early_warning": {
+    "title": "الإنذار المبكر",
+    "subtitle": "الطلاب المعرضون للخطر عبر جميع المجالات",
+    "summary": {
+      "green": "على المسار الصحيح",
+      "yellow": "مراقبة",
+      "amber": "متابعة",
+      "red": "يحتاج تدخل"
+    },
+    "domains": {
+      "attendance": "الحضور",
+      "grades": "الدرجات",
+      "behaviour": "السلوك",
+      "wellbeing": "الرفاهية",
+      "engagement": "المشاركة"
+    },
+    "list": {
+      "student": "الطالب",
+      "score": "درجة الخطر",
+      "tier": "الحالة",
+      "top_signal": "المشكلة الرئيسية",
+      "trend": "الاتجاه",
+      "assigned_to": "مسؤول المتابعة",
+      "no_data": "لا يوجد طلاب مُبلَّغ عنهم",
+      "no_signals": "لا توجد إشارات نشطة",
+      "loading": "جاري تحميل ملفات المخاطر...",
+      "unassigned": "غير محدد",
+      "filter_tier": "تصفية حسب الحالة",
+      "all_tiers": "جميع الحالات",
+      "all_year_groups": "جميع المراحل الدراسية",
+      "all_classes": "جميع الفصول",
+      "previous": "السابق",
+      "next": "التالي"
+    },
+    "detail": {
+      "title": "تفاصيل المخاطر",
+      "domains": "تحليل المجالات",
+      "summary": "الملخص",
+      "signals": "تفصيل الإشارات",
+      "trend": "اتجاه ٣٠ يومًا",
+      "transitions": "سجل تغييرات المستوى",
+      "acknowledge": "تم المراجعة",
+      "acknowledged": "تم وضع علامة كمراجَع",
+      "assign": "تعيين موظف",
+      "create_intervention": "إنشاء تدخل",
+      "no_signals": "لم يتم اكتشاف إشارات",
+      "no_transitions": "لا توجد تغييرات مسجلة في المستوى",
+      "points": "نقاط",
+      "score_at_transition": "الدرجة: {score}"
+    },
+    "cohort": {
+      "title": "تحليل المجموعات",
+      "description": "متوسط درجات المخاطر عبر مجموعات الطلاب",
+      "group_by": "تجميع حسب",
+      "year_group": "المرحلة الدراسية",
+      "class": "الفصل",
+      "subject": "المادة",
+      "avg_score": "متوسط الدرجة",
+      "students": "الطلاب",
+      "back_to_list": "العودة إلى القائمة"
+    },
+    "settings": {
+      "title": "إعدادات الإنذار المبكر",
+      "weights": "أوزان المجالات",
+      "weights_description": "مدى مساهمة كل مجال في درجة المخاطر الإجمالية. يجب أن يكون المجموع ١٠٠.",
+      "total": "المجموع",
+      "weights_must_sum": "يجب أن يكون مجموع الأوزان ١٠٠٪",
+      "thresholds": "حدود المستويات",
+      "thresholds_description": "الحد الأدنى للدرجة المركبة للدخول في كل مستوى.",
+      "threshold_minimum": "الحد الأدنى للدرجة: {score}",
+      "hysteresis": "هامش الاستقرار",
+      "hysteresis_description": "النقاط المطلوبة تحت حد المستوى لخفض التصنيف (يمنع إرهاق التنبيهات).",
+      "routing": "توجيه التنبيهات",
+      "routing_description": "من يتلقى التنبيهات عند دخول طالب في كل مستوى.",
+      "routing_yellow": "تنبيه مستوى المراقبة",
+      "routing_amber": "تنبيه مستوى المتابعة",
+      "routing_red": "تنبيهات مستوى التدخل",
+      "routing_red_description": "حدد جميع الأدوار التي يجب إخطارها للمستوى الأحمر.",
+      "digest": "الملخص الأسبوعي",
+      "digest_description": "بريد إلكتروني ملخص يُرسل أسبوعيًا بأكثر الطلاب عرضة للخطر.",
+      "digest_day": "يوم الأسبوع",
+      "digest_recipients": "المستلمون",
+      "digest_recipients_description": "حدد الأدوار التي تتلقى البريد الإلكتروني الملخص الأسبوعي.",
+      "save": "حفظ التغييرات",
+      "saved": "تم حفظ الإعدادات",
+      "roles": {
+        "homeroom_teacher": "معلم الفصل",
+        "year_head": "رئيس المرحلة",
+        "principal": "المدير",
+        "pastoral_lead": "مسؤول الرعاية",
+        "deputy_principal": "نائب المدير"
+      },
+      "days": {
+        "monday": "الإثنين",
+        "tuesday": "الثلاثاء",
+        "wednesday": "الأربعاء",
+        "thursday": "الخميس",
+        "friday": "الجمعة",
+        "saturday": "السبت",
+        "sunday": "الأحد"
+      }
+    },
+    "errors": {
+      "load_failed": "فشل تحميل بيانات المخاطر",
+      "save_failed": "فشل حفظ الإعدادات",
+      "action_failed": "فشلت العملية"
+    }
   }
 }
