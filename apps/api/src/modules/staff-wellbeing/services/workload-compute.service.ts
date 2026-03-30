@@ -3,6 +3,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import type { ScheduleRow } from './workload-data.service';
+import { WorkloadDataService } from './workload-data.service';
+import { WorkloadMetricsService } from './workload-metrics.service';
+
 // ─── Return Types ────────────────────────────────────────────────────────────
 
 export interface PersonalWorkloadSummary {
@@ -132,46 +136,27 @@ export interface AllAggregateMetrics {
   correlation: CorrelationResult;
 }
 
-// ─── Internal types ──────────────────────────────────────────────────────────
-
-interface ScheduleRow {
-  id: string;
-  weekday: number;
-  period_order: number | null;
-  room_id: string | null;
-  schedule_period_template: {
-    schedule_period_type: string;
-    period_name: string;
-    period_order: number;
-  } | null;
-  class_entity: { name: string } | null;
-}
-
-interface AcademicPeriodRow {
-  id: string;
-  start_date: Date;
-  end_date: Date;
-}
-
-interface WellbeingSettings {
-  workload_high_threshold_periods: number;
-  workload_high_threshold_covers: number;
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DEFAULT_THRESHOLD_PERIODS = 22;
-const DEFAULT_THRESHOLD_COVERS = 8;
 const CORRELATION_DISCLAIMER =
   'This shows patterns that occurred together. It does not prove that one caused the other. Use this as a starting point for investigation, not a conclusion.';
 
-// ─── Service ─────────────────────────────────────────────────────────────────
+// ─── Facade Service ─────────────────────────────────────────────────────────
 
+/**
+ * Thin facade that delegates data access to WorkloadDataService and
+ * pure computation to WorkloadMetricsService. Keeps the public API identical
+ * for all callers (controllers, board-report service, tests).
+ */
 @Injectable()
 export class WorkloadComputeService {
   private readonly logger = new Logger(WorkloadComputeService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataService: WorkloadDataService,
+    private readonly metricsService: WorkloadMetricsService,
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Personal (D2)
@@ -186,18 +171,14 @@ export class WorkloadComputeService {
     return rlsClient.$transaction(async (tx): Promise<PersonalWorkloadSummary> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyPersonalSummary();
       }
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
       const previousPeriod = currentPeriod
-        ? await this.getPreviousPeriod(db, tenantId, academicYear.id, currentPeriod)
+        ? await this.dataService.getPreviousPeriod(db, tenantId, academicYear.id, currentPeriod)
         : null;
 
       // Teaching periods per week
@@ -216,7 +197,7 @@ export class WorkloadComputeService {
 
       // Cover duties this term
       const coverDutiesThisTerm = currentPeriod
-        ? await this.countCoversInRange(
+        ? await this.dataService.countCoversInRange(
             db,
             tenantId,
             staffProfileId,
@@ -227,7 +208,7 @@ export class WorkloadComputeService {
 
       // School average covers
       const schoolAverageCovers = currentPeriod
-        ? await this.computeSchoolAverageCovers(
+        ? await this.dataService.computeSchoolAverageCovers(
             db,
             tenantId,
             currentPeriod.start_date,
@@ -236,21 +217,19 @@ export class WorkloadComputeService {
         : 0;
 
       // Timetable quality
-      const allSchedules = await this.getTeacherSchedules(
+      const allSchedules = await this.dataService.getTeacherSchedules(
         db,
         tenantId,
         staffProfileId,
         academicYear.id,
       );
-      const compositeScore =
-        WorkloadComputeService.computeTimetableCompositeScore(allSchedules);
-      const compositeLabel =
-        WorkloadComputeService.qualityLabel(compositeScore);
+      const compositeScore = WorkloadMetricsService.computeTimetableCompositeScore(allSchedules);
+      const compositeLabel = WorkloadMetricsService.qualityLabel(compositeScore);
 
       // Trend (previous term)
       let trend: PersonalWorkloadSummary['trend'] = null;
       if (previousPeriod) {
-        const previousCovers = await this.countCoversInRange(
+        const previousCovers = await this.dataService.countCoversInRange(
           db,
           tenantId,
           staffProfileId,
@@ -264,8 +243,8 @@ export class WorkloadComputeService {
       }
 
       // Status from thresholds
-      const thresholds = await this.getWellbeingThresholds(db, tenantId);
-      const status = this.computeStatus(
+      const thresholds = await this.dataService.getWellbeingThresholds(db, tenantId);
+      const status = this.dataService.computeStatus(
         teachingPeriodsPerWeek,
         coverDutiesThisTerm,
         thresholds,
@@ -274,7 +253,7 @@ export class WorkloadComputeService {
       return {
         teaching_periods_per_week: teachingPeriodsPerWeek,
         cover_duties_this_term: coverDutiesThisTerm,
-        school_average_covers: WorkloadComputeService.round2(schoolAverageCovers),
+        school_average_covers: WorkloadMetricsService.round2(schoolAverageCovers),
         timetable_quality_score: compositeScore,
         timetable_quality_label: compositeLabel,
         trend,
@@ -294,58 +273,68 @@ export class WorkloadComputeService {
   }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return rlsClient.$transaction(async (tx): Promise<{ data: CoverHistoryItem[]; meta: { page: number; pageSize: number; total: number } }> => {
-      const db = tx as unknown as PrismaService;
+    return rlsClient.$transaction(
+      async (
+        tx,
+      ): Promise<{
+        data: CoverHistoryItem[];
+        meta: { page: number; pageSize: number; total: number };
+      }> => {
+        const db = tx as unknown as PrismaService;
 
-      const coverStatuses: ('assigned' | 'confirmed' | 'completed')[] = [
-        'assigned',
-        'confirmed',
-        'completed',
-      ];
+        const coverStatuses: ('assigned' | 'confirmed' | 'completed')[] = [
+          'assigned',
+          'confirmed',
+          'completed',
+        ];
 
-      const [records, total] = await Promise.all([
-        db.substitutionRecord.findMany({
-          where: {
-            tenant_id: tenantId,
-            substitute_staff_id: staffProfileId,
-            status: { in: coverStatuses },
-          },
-          orderBy: { created_at: 'desc' as const },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-          select: {
-            created_at: true,
-            schedule: {
-              select: {
-                period_order: true,
-                class_entity: { select: { name: true } },
-                schedule_period_template: {
-                  select: { period_name: true, period_order: true },
+        const [records, total] = await Promise.all([
+          db.substitutionRecord.findMany({
+            where: {
+              tenant_id: tenantId,
+              substitute_staff_id: staffProfileId,
+              status: { in: coverStatuses },
+            },
+            orderBy: { created_at: 'desc' as const },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            select: {
+              created_at: true,
+              schedule: {
+                select: {
+                  period_order: true,
+                  class_entity: { select: { name: true } },
+                  schedule_period_template: {
+                    select: { period_name: true, period_order: true },
+                  },
                 },
               },
             },
-          },
-        }),
-        db.substitutionRecord.count({
-          where: {
-            tenant_id: tenantId,
-            substitute_staff_id: staffProfileId,
-            status: { in: coverStatuses },
-          },
-        }),
-      ]);
+          }),
+          db.substitutionRecord.count({
+            where: {
+              tenant_id: tenantId,
+              substitute_staff_id: staffProfileId,
+              status: { in: coverStatuses },
+            },
+          }),
+        ]);
 
-      const data: CoverHistoryItem[] = records.map((r) => ({
-        date: r.created_at.toISOString().slice(0, 10),
-        period:
-          r.schedule.schedule_period_template?.period_name ??
-          `Period ${r.schedule.period_order ?? 0}`,
-        subject: r.schedule.class_entity?.name ?? null,
-        original_teacher: 'Colleague' as const,
-      }));
+        const data: CoverHistoryItem[] = records.map((r) => ({
+          date: r.created_at.toISOString().slice(0, 10),
+          period:
+            r.schedule.schedule_period_template?.period_name ??
+            `Period ${r.schedule.period_order ?? 0}`,
+          subject: r.schedule.class_entity?.name ?? null,
+          original_teacher: 'Colleague' as const,
+        }));
 
-      return { data, meta: { page, pageSize, total } };
-    }) as Promise<{ data: CoverHistoryItem[]; meta: { page: number; pageSize: number; total: number } }>;
+        return { data, meta: { page, pageSize, total } };
+      },
+    ) as Promise<{
+      data: CoverHistoryItem[];
+      meta: { page: number; pageSize: number; total: number };
+    }>;
   }
 
   async getPersonalTimetableQuality(
@@ -357,12 +346,12 @@ export class WorkloadComputeService {
     return rlsClient.$transaction(async (tx): Promise<PersonalTimetableQuality> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyTimetableQuality();
       }
 
-      const schedules = await this.getTeacherSchedules(
+      const schedules = await this.dataService.getTeacherSchedules(
         db,
         tenantId,
         staffProfileId,
@@ -379,20 +368,19 @@ export class WorkloadComputeService {
       });
 
       // Free period distribution per weekday
-      const freeDistribution =
-        WorkloadComputeService.computeFreeDistribution(schedules, allTemplates);
+      const freeDistribution = WorkloadMetricsService.computeFreeDistribution(
+        schedules,
+        allTemplates,
+      );
 
       // Consecutive periods
-      const consecutive =
-        WorkloadComputeService.computeConsecutivePeriods(schedules);
+      const consecutive = WorkloadMetricsService.computeConsecutivePeriods(schedules);
 
       // Split days
-      const splitDaysCount =
-        WorkloadComputeService.computeSplitDays(schedules, allTemplates);
+      const splitDaysCount = WorkloadMetricsService.computeSplitDays(schedules, allTemplates);
 
       // Room changes
-      const roomChanges =
-        WorkloadComputeService.computeRoomChanges(schedules);
+      const roomChanges = WorkloadMetricsService.computeRoomChanges(schedules);
 
       // School averages — compute for all teachers
       const allStaff = await db.staffProfile.findMany({
@@ -406,7 +394,7 @@ export class WorkloadComputeService {
       const schoolRoomAvgs: number[] = [];
 
       for (const staff of allStaff) {
-        const staffSchedules = await this.getTeacherSchedules(
+        const staffSchedules = await this.dataService.getTeacherSchedules(
           db,
           tenantId,
           staff.id,
@@ -414,27 +402,21 @@ export class WorkloadComputeService {
         );
         if (staffSchedules.length === 0) continue;
 
-        const sc = WorkloadComputeService.computeConsecutivePeriods(staffSchedules);
+        const sc = WorkloadMetricsService.computeConsecutivePeriods(staffSchedules);
         schoolConsecutiveMaxes.push(sc.max);
 
-        const sf = WorkloadComputeService.computeFreeDistribution(
-          staffSchedules,
-          allTemplates,
-        );
-        schoolFreeScores.push(
-          WorkloadComputeService.scoreFreeDistribution(sf),
-        );
+        const sf = WorkloadMetricsService.computeFreeDistribution(staffSchedules, allTemplates);
+        schoolFreeScores.push(WorkloadMetricsService.scoreFreeDistribution(sf));
 
         schoolSplitCounts.push(
-          WorkloadComputeService.computeSplitDays(staffSchedules, allTemplates),
+          WorkloadMetricsService.computeSplitDays(staffSchedules, allTemplates),
         );
 
-        const sr = WorkloadComputeService.computeRoomChanges(staffSchedules);
+        const sr = WorkloadMetricsService.computeRoomChanges(staffSchedules);
         schoolRoomAvgs.push(sr.average);
       }
 
-      const compositeScore =
-        WorkloadComputeService.computeTimetableCompositeScore(schedules);
+      const compositeScore = WorkloadMetricsService.computeTimetableCompositeScore(schedules);
 
       return {
         free_period_distribution: freeDistribution,
@@ -442,25 +424,23 @@ export class WorkloadComputeService {
         split_days_count: splitDaysCount,
         room_changes: roomChanges,
         school_averages: {
-          consecutive_max: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(schoolConsecutiveMaxes),
+          consecutive_max: WorkloadMetricsService.round2(
+            WorkloadMetricsService.mean(schoolConsecutiveMaxes),
           ),
-          free_distribution_score: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(schoolFreeScores),
+          free_distribution_score: WorkloadMetricsService.round2(
+            WorkloadMetricsService.mean(schoolFreeScores),
           ),
-          split_days_pct: WorkloadComputeService.round2(
+          split_days_pct: WorkloadMetricsService.round2(
             allStaff.length > 0
-              ? (schoolSplitCounts.filter((c) => c > 0).length /
-                  allStaff.length) *
-                  100
+              ? (schoolSplitCounts.filter((c) => c > 0).length / allStaff.length) * 100
               : 0,
           ),
-          room_changes_avg: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(schoolRoomAvgs),
+          room_changes_avg: WorkloadMetricsService.round2(
+            WorkloadMetricsService.mean(schoolRoomAvgs),
           ),
         },
         composite_score: compositeScore,
-        composite_label: WorkloadComputeService.qualityLabel(compositeScore),
+        composite_label: WorkloadMetricsService.qualityLabel(compositeScore),
       };
     }) as Promise<PersonalTimetableQuality>;
   }
@@ -469,26 +449,20 @@ export class WorkloadComputeService {
   // Aggregate (D3)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async getAggregateWorkloadSummary(
-    tenantId: string,
-  ): Promise<AggregateWorkloadSummary> {
+  async getAggregateWorkloadSummary(tenantId: string): Promise<AggregateWorkloadSummary> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx): Promise<AggregateWorkloadSummary> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyAggregateWorkload();
       }
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
       const previousPeriod = currentPeriod
-        ? await this.getPreviousPeriod(db, tenantId, academicYear.id, currentPeriod)
+        ? await this.dataService.getPreviousPeriod(db, tenantId, academicYear.id, currentPeriod)
         : null;
 
       const allStaff = await db.staffProfile.findMany({
@@ -496,7 +470,7 @@ export class WorkloadComputeService {
         select: { id: true },
       });
 
-      const thresholds = await this.getWellbeingThresholds(db, tenantId);
+      const thresholds = await this.dataService.getWellbeingThresholds(db, tenantId);
 
       const teachingCounts: number[] = [];
       const coverCounts: number[] = [];
@@ -521,7 +495,7 @@ export class WorkloadComputeService {
         }
 
         if (currentPeriod) {
-          const covers = await this.countCoversInRange(
+          const covers = await this.dataService.countCoversInRange(
             db,
             tenantId,
             staff.id,
@@ -544,7 +518,7 @@ export class WorkloadComputeService {
       if (previousPeriod && allStaff.length > 0) {
         let prevCoverTotal = 0;
         for (const staff of allStaff) {
-          prevCoverTotal += await this.countCoversInRange(
+          prevCoverTotal += await this.dataService.countCoversInRange(
             db,
             tenantId,
             staff.id,
@@ -553,23 +527,21 @@ export class WorkloadComputeService {
           );
         }
         trend = {
-          previous_average_periods: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(teachingCounts),
+          previous_average_periods: WorkloadMetricsService.round2(
+            WorkloadMetricsService.mean(teachingCounts),
           ),
-          previous_average_covers: WorkloadComputeService.round2(
-            prevCoverTotal / allStaff.length,
-          ),
+          previous_average_covers: WorkloadMetricsService.round2(prevCoverTotal / allStaff.length),
         };
       }
 
       return {
-        average_teaching_periods: WorkloadComputeService.round2(
-          WorkloadComputeService.mean(teachingCounts),
+        average_teaching_periods: WorkloadMetricsService.round2(
+          WorkloadMetricsService.mean(teachingCounts),
         ),
-        range: WorkloadComputeService.percentileRange(sorted),
+        range: WorkloadMetricsService.percentileRange(sorted),
         over_allocated_periods_count: overAllocatedPeriods,
-        average_cover_duties: WorkloadComputeService.round2(
-          WorkloadComputeService.mean(coverCounts),
+        average_cover_duties: WorkloadMetricsService.round2(
+          WorkloadMetricsService.mean(coverCounts),
         ),
         over_allocated_covers_count: overAllocatedCovers,
         trend,
@@ -583,16 +555,12 @@ export class WorkloadComputeService {
     return rlsClient.$transaction(async (tx): Promise<CoverFairnessResult> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyCoverFairness();
       }
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
       if (!currentPeriod) {
         return this.emptyCoverFairness();
       }
@@ -604,7 +572,7 @@ export class WorkloadComputeService {
 
       const coverCounts: number[] = [];
       for (const staff of allStaff) {
-        const count = await this.countCoversInRange(
+        const count = await this.dataService.countCoversInRange(
           db,
           tenantId,
           staff.id,
@@ -614,7 +582,7 @@ export class WorkloadComputeService {
         coverCounts.push(count);
       }
 
-      const gini = WorkloadComputeService.computeGiniCoefficient(coverCounts);
+      const gini = WorkloadMetricsService.computeGiniCoefficient(coverCounts);
       const sorted = [...coverCounts].sort((a, b) => a - b);
 
       // Distribution histogram
@@ -628,26 +596,24 @@ export class WorkloadComputeService {
 
       return {
         distribution,
-        gini_coefficient: WorkloadComputeService.round2(gini),
+        gini_coefficient: WorkloadMetricsService.round2(gini),
         range: {
           min: sorted[0] ?? 0,
           max: sorted[sorted.length - 1] ?? 0,
-          median: WorkloadComputeService.median(sorted),
+          median: WorkloadMetricsService.median(sorted),
         },
-        assessment: WorkloadComputeService.giniAssessment(gini),
+        assessment: WorkloadMetricsService.giniAssessment(gini),
       };
     }) as Promise<CoverFairnessResult>;
   }
 
-  async getAggregateTimetableQuality(
-    tenantId: string,
-  ): Promise<AggregateTimetableQuality> {
+  async getAggregateTimetableQuality(tenantId: string): Promise<AggregateTimetableQuality> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx): Promise<AggregateTimetableQuality> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyAggregateTimetableQuality();
       }
@@ -673,7 +639,7 @@ export class WorkloadComputeService {
       let staffWithSchedules = 0;
 
       for (const staff of allStaff) {
-        const schedules = await this.getTeacherSchedules(
+        const schedules = await this.dataService.getTeacherSchedules(
           db,
           tenantId,
           staff.id,
@@ -682,24 +648,16 @@ export class WorkloadComputeService {
         if (schedules.length === 0) continue;
         staffWithSchedules++;
 
-        const cons = WorkloadComputeService.computeConsecutivePeriods(schedules);
+        const cons = WorkloadMetricsService.computeConsecutivePeriods(schedules);
         consecutiveMaxes.push(cons.max);
 
-        const freeDist = WorkloadComputeService.computeFreeDistribution(
-          schedules,
-          allTemplates,
-        );
-        freeClumpingScores.push(
-          WorkloadComputeService.scoreFreeDistribution(freeDist),
-        );
+        const freeDist = WorkloadMetricsService.computeFreeDistribution(schedules, allTemplates);
+        freeClumpingScores.push(WorkloadMetricsService.scoreFreeDistribution(freeDist));
 
-        const splits = WorkloadComputeService.computeSplitDays(
-          schedules,
-          allTemplates,
-        );
+        const splits = WorkloadMetricsService.computeSplitDays(schedules, allTemplates);
         if (splits > 0) splitCount++;
 
-        const rc = WorkloadComputeService.computeRoomChanges(schedules);
+        const rc = WorkloadMetricsService.computeRoomChanges(schedules);
         roomAvgs.push(rc.average);
       }
 
@@ -709,35 +667,27 @@ export class WorkloadComputeService {
 
       return {
         consecutive_periods: {
-          mean: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(consecutiveMaxes),
-          ),
-          median: WorkloadComputeService.median(sortedConsec),
+          mean: WorkloadMetricsService.round2(WorkloadMetricsService.mean(consecutiveMaxes)),
+          median: WorkloadMetricsService.median(sortedConsec),
           range: {
             min: sortedConsec[0] ?? 0,
             max: sortedConsec[sortedConsec.length - 1] ?? 0,
           },
         },
         free_period_clumping: {
-          mean: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(freeClumpingScores),
-          ),
-          median: WorkloadComputeService.median(sortedFree),
+          mean: WorkloadMetricsService.round2(WorkloadMetricsService.mean(freeClumpingScores)),
+          median: WorkloadMetricsService.median(sortedFree),
           range: {
             min: sortedFree[0] ?? 0,
             max: sortedFree[sortedFree.length - 1] ?? 0,
           },
         },
-        split_timetable_pct: WorkloadComputeService.round2(
-          staffWithSchedules > 0
-            ? (splitCount / staffWithSchedules) * 100
-            : 0,
+        split_timetable_pct: WorkloadMetricsService.round2(
+          staffWithSchedules > 0 ? (splitCount / staffWithSchedules) * 100 : 0,
         ),
         room_changes: {
-          mean: WorkloadComputeService.round2(
-            WorkloadComputeService.mean(roomAvgs),
-          ),
-          median: WorkloadComputeService.median(sortedRoom),
+          mean: WorkloadMetricsService.round2(WorkloadMetricsService.mean(roomAvgs)),
+          median: WorkloadMetricsService.median(sortedRoom),
           range: {
             min: sortedRoom[0] ?? 0,
             max: sortedRoom[sortedRoom.length - 1] ?? 0,
@@ -754,16 +704,12 @@ export class WorkloadComputeService {
     return rlsClient.$transaction(async (tx): Promise<AbsenceTrends> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptyAbsenceTrends();
       }
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
 
       const staffCount = await db.staffProfile.count({
         where: { tenant_id: tenantId },
@@ -796,7 +742,7 @@ export class WorkloadComputeService {
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([month, count]) => ({
           month,
-          rate: WorkloadComputeService.round2(count / staffCount),
+          rate: WorkloadMetricsService.round2(count / staffCount),
         }));
 
       // Day-of-week pattern
@@ -809,7 +755,7 @@ export class WorkloadComputeService {
         .sort((a, b) => a[0] - b[0])
         .map(([weekday, count]) => ({
           weekday,
-          rate: WorkloadComputeService.round2(count / staffCount),
+          rate: WorkloadMetricsService.round2(count / staffCount),
         }));
 
       // Term comparison
@@ -824,11 +770,9 @@ export class WorkloadComputeService {
             },
           },
         });
-        const currentRate = WorkloadComputeService.round2(
-          currentAbsences / staffCount,
-        );
+        const currentRate = WorkloadMetricsService.round2(currentAbsences / staffCount);
 
-        const previousPeriod = await this.getPreviousPeriod(
+        const previousPeriod = await this.dataService.getPreviousPeriod(
           db,
           tenantId,
           academicYear.id,
@@ -845,9 +789,7 @@ export class WorkloadComputeService {
               },
             },
           });
-          previousRate = WorkloadComputeService.round2(
-            prevAbsences / staffCount,
-          );
+          previousRate = WorkloadMetricsService.round2(prevAbsences / staffCount);
         }
 
         termComparison = { current: currentRate, previous: previousRate };
@@ -855,9 +797,7 @@ export class WorkloadComputeService {
 
       // Seasonal pattern — only if >= 12 months of data
       const seasonalPattern: AbsenceTrends['seasonal_pattern'] =
-        monthlyRates.length >= 12
-          ? this.computeSeasonalPattern(absences, staffCount)
-          : null;
+        monthlyRates.length >= 12 ? this.computeSeasonalPattern(absences, staffCount) : null;
 
       return {
         monthly_rates: monthlyRates,
@@ -868,24 +808,18 @@ export class WorkloadComputeService {
     }) as Promise<AbsenceTrends>;
   }
 
-  async getSubstitutionPressure(
-    tenantId: string,
-  ): Promise<SubstitutionPressure> {
+  async getSubstitutionPressure(tenantId: string): Promise<SubstitutionPressure> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx): Promise<SubstitutionPressure> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) {
         return this.emptySubstitutionPressure();
       }
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
 
       const staffCount = await db.staffProfile.count({
         where: { tenant_id: tenantId },
@@ -896,7 +830,7 @@ export class WorkloadComputeService {
       }
 
       // Days in current period
-      const periodDays = WorkloadComputeService.schoolDaysBetween(
+      const periodDays = WorkloadMetricsService.schoolDaysBetween(
         currentPeriod.start_date,
         currentPeriod.end_date,
       );
@@ -925,20 +859,14 @@ export class WorkloadComputeService {
       });
 
       const absenceRate =
-        periodDays > 0 && staffCount > 0
-          ? totalAbsences / staffCount / periodDays
-          : 0;
+        periodDays > 0 && staffCount > 0 ? totalAbsences / staffCount / periodDays : 0;
 
-      const coverDifficulty =
-        totalAbsences > 0 ? totalSubs / totalAbsences : 0;
+      const coverDifficulty = totalAbsences > 0 ? totalSubs / totalAbsences : 0;
 
       const unfilled =
-        totalAbsences > 0
-          ? Math.max(0, totalAbsences - totalSubs) / totalAbsences
-          : 0;
+        totalAbsences > 0 ? Math.max(0, totalAbsences - totalSubs) / totalAbsences : 0;
 
-      const compositeScore =
-        absenceRate * 0.4 + (1 - coverDifficulty) * 0.3 + unfilled * 0.3;
+      const compositeScore = absenceRate * 0.4 + (1 - coverDifficulty) * 0.3 + unfilled * 0.3;
 
       // Monthly trend from academic year
       const allAbsences = await db.teacherAbsence.findMany({
@@ -964,19 +892,15 @@ export class WorkloadComputeService {
         select: { created_at: true },
       });
 
-      const trend = this.computeMonthlyPressureTrend(
-        allAbsences,
-        allSubs,
-        staffCount,
-      );
+      const trend = this.computeMonthlyPressureTrend(allAbsences, allSubs, staffCount);
 
       return {
-        absence_rate: WorkloadComputeService.round2(absenceRate),
-        cover_difficulty: WorkloadComputeService.round2(coverDifficulty),
-        unfilled_rate: WorkloadComputeService.round2(unfilled),
-        composite_score: WorkloadComputeService.round2(compositeScore),
+        absence_rate: WorkloadMetricsService.round2(absenceRate),
+        cover_difficulty: WorkloadMetricsService.round2(coverDifficulty),
+        unfilled_rate: WorkloadMetricsService.round2(unfilled),
+        composite_score: WorkloadMetricsService.round2(compositeScore),
         trend,
-        assessment: WorkloadComputeService.pressureAssessment(compositeScore),
+        assessment: WorkloadMetricsService.pressureAssessment(compositeScore),
       };
     }) as Promise<SubstitutionPressure>;
   }
@@ -999,12 +923,8 @@ export class WorkloadComputeService {
           status: 'accumulating' as const,
           dataPoints: 0,
           requiredDataPoints: 12 as const,
-          projectedAvailableDate: WorkloadComputeService.addMonths(
-            new Date(),
-            12,
-          ),
-          message:
-            'No absence data yet. Correlation analysis requires at least 12 months of data.',
+          projectedAvailableDate: WorkloadMetricsService.addMonths(new Date(), 12),
+          message: 'No absence data yet. Correlation analysis requires at least 12 months of data.',
         };
       }
 
@@ -1014,10 +934,7 @@ export class WorkloadComputeService {
 
       // Compute months of data
       const now = new Date();
-      const monthsDiff = WorkloadComputeService.monthsBetween(
-        earliest.absence_date,
-        now,
-      );
+      const monthsDiff = WorkloadMetricsService.monthsBetween(earliest.absence_date, now);
 
       if (monthsDiff < 12) {
         const remainingMonths = 12 - monthsDiff;
@@ -1025,10 +942,7 @@ export class WorkloadComputeService {
           status: 'accumulating' as const,
           dataPoints: monthsDiff,
           requiredDataPoints: 12 as const,
-          projectedAvailableDate: WorkloadComputeService.addMonths(
-            now,
-            remainingMonths,
-          ),
+          projectedAvailableDate: WorkloadMetricsService.addMonths(now, remainingMonths),
           message: `${monthsDiff} month(s) of data collected. ${remainingMonths} more month(s) needed for correlation analysis.`,
         };
       }
@@ -1061,18 +975,15 @@ export class WorkloadComputeService {
       }
 
       // Build series
-      const allMonths = new Set([
-        ...absenceByMonth.keys(),
-        ...subsByMonth.keys(),
-      ]);
+      const allMonths = new Set([...absenceByMonth.keys(), ...subsByMonth.keys()]);
       const sortedMonths = Array.from(allMonths).sort();
 
       const series = sortedMonths.map((month) => ({
         month,
-        coverPressure: WorkloadComputeService.round2(
+        coverPressure: WorkloadMetricsService.round2(
           (subsByMonth.get(month) ?? 0) / Math.max(staffCount, 1),
         ),
-        absenceRate: WorkloadComputeService.round2(
+        absenceRate: WorkloadMetricsService.round2(
           (absenceByMonth.get(month) ?? 0) / Math.max(staffCount, 1),
         ),
       }));
@@ -1094,12 +1005,8 @@ export class WorkloadComputeService {
   // Bulk (cron caching)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async computeAllAggregateMetrics(
-    tenantId: string,
-  ): Promise<AllAggregateMetrics> {
-    this.logger.log(
-      `Computing all aggregate metrics for tenant ${tenantId}`,
-    );
+  async computeAllAggregateMetrics(tenantId: string): Promise<AllAggregateMetrics> {
+    this.logger.log(`Computing all aggregate metrics for tenant ${tenantId}`);
 
     const [
       workloadSummary,
@@ -1137,17 +1044,13 @@ export class WorkloadComputeService {
     return rlsClient.$transaction(async (tx): Promise<number> => {
       const db = tx as unknown as PrismaService;
 
-      const academicYear = await this.getActiveAcademicYear(db, tenantId);
+      const academicYear = await this.dataService.getActiveAcademicYear(db, tenantId);
       if (!academicYear) return 0;
 
-      const currentPeriod = await this.getCurrentPeriod(
-        db,
-        tenantId,
-        academicYear.id,
-      );
+      const currentPeriod = await this.dataService.getCurrentPeriod(db, tenantId, academicYear.id);
       if (!currentPeriod) return 0;
 
-      return this.computeSchoolAverageCovers(
+      return this.dataService.computeSchoolAverageCovers(
         db,
         tenantId,
         currentPeriod.start_date,
@@ -1159,162 +1062,6 @@ export class WorkloadComputeService {
   // ═══════════════════════════════════════════════════════════════════════════
   // Private helpers
   // ═══════════════════════════════════════════════════════════════════════════
-
-  private async getActiveAcademicYear(
-    db: PrismaService,
-    tenantId: string,
-  ): Promise<{ id: string; start_date: Date; end_date: Date } | null> {
-    return db.academicYear.findFirst({
-      where: { tenant_id: tenantId, status: 'active' },
-      select: { id: true, start_date: true, end_date: true },
-    });
-  }
-
-  private async getCurrentPeriod(
-    db: PrismaService,
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<AcademicPeriodRow | null> {
-    const now = new Date();
-    return db.academicPeriod.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        start_date: { lte: now },
-        end_date: { gte: now },
-      },
-      select: { id: true, start_date: true, end_date: true },
-    });
-  }
-
-  private async getPreviousPeriod(
-    db: PrismaService,
-    tenantId: string,
-    academicYearId: string,
-    currentPeriod: AcademicPeriodRow,
-  ): Promise<AcademicPeriodRow | null> {
-    return db.academicPeriod.findFirst({
-      where: {
-        tenant_id: tenantId,
-        academic_year_id: academicYearId,
-        end_date: { lt: currentPeriod.start_date },
-      },
-      orderBy: { end_date: 'desc' },
-      select: { id: true, start_date: true, end_date: true },
-    });
-  }
-
-  private async countCoversInRange(
-    db: PrismaService,
-    tenantId: string,
-    staffProfileId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<number> {
-    return db.substitutionRecord.count({
-      where: {
-        tenant_id: tenantId,
-        substitute_staff_id: staffProfileId,
-        status: { in: ['assigned', 'confirmed', 'completed'] },
-        created_at: { gte: startDate, lte: endDate },
-      },
-    });
-  }
-
-  private async computeSchoolAverageCovers(
-    db: PrismaService,
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<number> {
-    const allStaff = await db.staffProfile.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true },
-    });
-
-    if (allStaff.length === 0) return 0;
-
-    let total = 0;
-    for (const staff of allStaff) {
-      total += await this.countCoversInRange(
-        db,
-        tenantId,
-        staff.id,
-        startDate,
-        endDate,
-      );
-    }
-
-    return WorkloadComputeService.round2(total / allStaff.length);
-  }
-
-  private async getTeacherSchedules(
-    db: PrismaService,
-    tenantId: string,
-    staffProfileId: string,
-    academicYearId: string,
-  ): Promise<ScheduleRow[]> {
-    return db.schedule.findMany({
-      where: {
-        tenant_id: tenantId,
-        teacher_staff_id: staffProfileId,
-        academic_year_id: academicYearId,
-      },
-      select: {
-        id: true,
-        weekday: true,
-        period_order: true,
-        room_id: true,
-        schedule_period_template: {
-          select: {
-            schedule_period_type: true,
-            period_name: true,
-            period_order: true,
-          },
-        },
-        class_entity: {
-          select: { name: true },
-        },
-      },
-    });
-  }
-
-  private async getWellbeingThresholds(
-    db: PrismaService,
-    tenantId: string,
-  ): Promise<WellbeingSettings> {
-    const setting = await db.tenantSetting.findFirst({
-      where: { tenant_id: tenantId },
-      select: { settings: true },
-    });
-
-    const raw = setting?.settings as Record<string, unknown> | null;
-    const wellbeing = raw?.staff_wellbeing as Record<string, unknown> | undefined;
-
-    return {
-      workload_high_threshold_periods:
-        (wellbeing?.workload_high_threshold_periods as number) ??
-        DEFAULT_THRESHOLD_PERIODS,
-      workload_high_threshold_covers:
-        (wellbeing?.workload_high_threshold_covers as number) ??
-        DEFAULT_THRESHOLD_COVERS,
-    };
-  }
-
-  private computeStatus(
-    teachingPeriods: number,
-    coverDuties: number,
-    thresholds: WellbeingSettings,
-  ): 'normal' | 'elevated' | 'high' {
-    const periodsHigh =
-      teachingPeriods > thresholds.workload_high_threshold_periods;
-    const coversHigh =
-      coverDuties > thresholds.workload_high_threshold_covers;
-
-    if (periodsHigh && coversHigh) return 'high';
-    if (periodsHigh || coversHigh) return 'elevated';
-    return 'normal';
-  }
 
   private computeSeasonalPattern(
     absences: { absence_date: Date }[],
@@ -1334,9 +1081,7 @@ export class WorkloadComputeService {
       .sort((a, b) => a[0] - b[0])
       .map(([month, counts]) => ({
         month,
-        average_rate: WorkloadComputeService.round2(
-          counts.length / staffCount,
-        ),
+        average_rate: WorkloadMetricsService.round2(counts.length / staffCount),
       }));
   }
 
@@ -1357,27 +1102,20 @@ export class WorkloadComputeService {
       subsByMonth.set(key, (subsByMonth.get(key) ?? 0) + 1);
     }
 
-    const allMonths = new Set([
-      ...absenceByMonth.keys(),
-      ...subsByMonth.keys(),
-    ]);
+    const allMonths = new Set([...absenceByMonth.keys(), ...subsByMonth.keys()]);
     const sortedMonths = Array.from(allMonths).sort();
 
     return sortedMonths.map((month) => {
       const absCount = absenceByMonth.get(month) ?? 0;
       const subsCount = subsByMonth.get(month) ?? 0;
       const daysInMonth = 20; // approximate school days per month
-      const absRate =
-        staffCount > 0 && daysInMonth > 0
-          ? absCount / staffCount / daysInMonth
-          : 0;
+      const absRate = staffCount > 0 && daysInMonth > 0 ? absCount / staffCount / daysInMonth : 0;
       const coverDiff = absCount > 0 ? subsCount / absCount : 0;
-      const unfilledRate =
-        absCount > 0 ? Math.max(0, absCount - subsCount) / absCount : 0;
+      const unfilledRate = absCount > 0 ? Math.max(0, absCount - subsCount) / absCount : 0;
       const score = absRate * 0.4 + (1 - coverDiff) * 0.3 + unfilledRate * 0.3;
       return {
         month,
-        score: WorkloadComputeService.round2(score),
+        score: WorkloadMetricsService.round2(score),
       };
     });
   }
@@ -1390,15 +1128,11 @@ export class WorkloadComputeService {
     const recentHalf = series.slice(Math.floor(series.length / 2));
     const earlyHalf = series.slice(0, Math.floor(series.length / 2));
 
-    const recentAvgAbsence =
-      WorkloadComputeService.mean(recentHalf.map((s) => s.absenceRate));
-    const earlyAvgAbsence =
-      WorkloadComputeService.mean(earlyHalf.map((s) => s.absenceRate));
+    const recentAvgAbsence = WorkloadMetricsService.mean(recentHalf.map((s) => s.absenceRate));
+    const earlyAvgAbsence = WorkloadMetricsService.mean(earlyHalf.map((s) => s.absenceRate));
 
-    const recentAvgCover =
-      WorkloadComputeService.mean(recentHalf.map((s) => s.coverPressure));
-    const earlyAvgCover =
-      WorkloadComputeService.mean(earlyHalf.map((s) => s.coverPressure));
+    const recentAvgCover = WorkloadMetricsService.mean(recentHalf.map((s) => s.coverPressure));
+    const earlyAvgCover = WorkloadMetricsService.mean(earlyHalf.map((s) => s.coverPressure));
 
     const absenceTrend =
       recentAvgAbsence > earlyAvgAbsence * 1.1
@@ -1511,347 +1245,69 @@ export class WorkloadComputeService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Static computation helpers (testable via public methods with known input)
+  // Static delegation — preserves backward compatibility for tests and callers
+  // that reference WorkloadComputeService.staticMethod(...)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** Compute Gini coefficient from an array of non-negative counts */
   static computeGiniCoefficient(values: number[]): number {
-    const n = values.length;
-    if (n === 0) return 0;
-
-    const total = values.reduce((a, b) => a + b, 0);
-    if (total === 0) return 0;
-
-    const sorted = [...values].sort((a, b) => a - b);
-    let sumOfProducts = 0;
-    for (let i = 0; i < n; i++) {
-      sumOfProducts += (i + 1) * (sorted[i] ?? 0);
-    }
-
-    return (2 * sumOfProducts) / (n * total) - (n + 1) / n;
+    return WorkloadMetricsService.computeGiniCoefficient(values);
   }
 
-  /** Gini assessment label */
   static giniAssessment(
     gini: number,
   ):
     | 'Well distributed'
     | 'Moderate concentration'
     | 'Significant concentration \u2014 review recommended' {
-    if (gini < 0.15) return 'Well distributed';
-    if (gini <= 0.3) return 'Moderate concentration';
-    return 'Significant concentration \u2014 review recommended';
+    return WorkloadMetricsService.giniAssessment(gini);
   }
 
-  /** Compute timetable quality composite score from schedule data */
   static computeTimetableCompositeScore(schedules: ScheduleRow[]): number {
-    if (schedules.length === 0) return 100;
-
-    // Free distribution score (30%)
-    // Simple proxy: compute stddev of teaching periods per weekday
-    const freeScore = WorkloadComputeService.computeFreeDistributionScore(schedules);
-
-    // Consecutive periods score (30%)
-    const consec = WorkloadComputeService.computeConsecutivePeriods(schedules);
-    const consecutiveScore =
-      consec.max <= 2
-        ? 100
-        : consec.max === 3
-          ? 80
-          : consec.max === 4
-            ? 50
-            : 0;
-
-    // Split timetable score (20%)
-    // Simplified: check if schedules have a wide period_order gap per day
-    const splitScore = WorkloadComputeService.computeSplitScore(schedules);
-
-    // Room changes score (20%)
-    const rc = WorkloadComputeService.computeRoomChanges(schedules);
-    const roomScore = Math.max(0, 100 - rc.average * 25);
-
-    const composite =
-      freeScore * 0.3 +
-      consecutiveScore * 0.3 +
-      splitScore * 0.2 +
-      roomScore * 0.2;
-
-    return WorkloadComputeService.round2(Math.max(0, Math.min(100, composite)));
+    return WorkloadMetricsService.computeTimetableCompositeScore(schedules);
   }
 
-  /** Quality label from composite score */
-  static qualityLabel(
-    score: number,
-  ): 'Good' | 'Moderate' | 'Needs attention' {
-    if (score >= 80) return 'Good';
-    if (score >= 60) return 'Moderate';
-    return 'Needs attention';
+  static qualityLabel(score: number): 'Good' | 'Moderate' | 'Needs attention' {
+    return WorkloadMetricsService.qualityLabel(score);
   }
 
-  /** Compute free period distribution per weekday */
   static computeFreeDistribution(
     schedules: ScheduleRow[],
     allTemplates: { weekday: number; period_order: number }[],
   ): { weekday: number; free_count: number }[] {
-    // Get teaching template slots per weekday
-    const templatesByDay = new Map<number, Set<number>>();
-    for (const t of allTemplates) {
-      if (!templatesByDay.has(t.weekday)) {
-        templatesByDay.set(t.weekday, new Set());
-      }
-      templatesByDay.get(t.weekday)?.add(t.period_order);
-    }
-
-    // Get assigned slots per weekday
-    const assignedByDay = new Map<number, Set<number>>();
-    for (const s of schedules) {
-      const order =
-        s.schedule_period_template?.period_order ?? s.period_order ?? 0;
-      if (!assignedByDay.has(s.weekday)) {
-        assignedByDay.set(s.weekday, new Set());
-      }
-      assignedByDay.get(s.weekday)?.add(order);
-    }
-
-    // For each active weekday, free = template slots - assigned slots
-    const result: { weekday: number; free_count: number }[] = [];
-    const weekdays = new Set([
-      ...templatesByDay.keys(),
-      ...assignedByDay.keys(),
-    ]);
-    for (const wd of Array.from(weekdays).sort((a, b) => a - b)) {
-      const templateSlots = templatesByDay.get(wd)?.size ?? 0;
-      const assignedSlots = assignedByDay.get(wd)?.size ?? 0;
-      result.push({
-        weekday: wd,
-        free_count: Math.max(0, templateSlots - assignedSlots),
-      });
-    }
-
-    return result;
+    return WorkloadMetricsService.computeFreeDistribution(schedules, allTemplates);
   }
 
-  /** Score free period distribution (0-100, higher = more even) */
-  static scoreFreeDistribution(
-    distribution: { weekday: number; free_count: number }[],
-  ): number {
-    if (distribution.length === 0) return 100;
-    const counts = distribution.map((d) => d.free_count);
-    const avg = WorkloadComputeService.mean(counts);
-    if (avg === 0) return 50; // no free periods = moderate
-
-    const stddev = Math.sqrt(
-      counts.reduce((sum, c) => sum + (c - avg) ** 2, 0) / counts.length,
-    );
-
-    // Normalise: stddev of 0 = perfect (100), stddev >= avg = bad (0)
-    const normalised = Math.max(0, 1 - stddev / Math.max(avg, 1));
-    return WorkloadComputeService.round2(normalised * 100);
+  static scoreFreeDistribution(distribution: { weekday: number; free_count: number }[]): number {
+    return WorkloadMetricsService.scoreFreeDistribution(distribution);
   }
 
-  /** Compute consecutive period metrics */
-  static computeConsecutivePeriods(
-    schedules: ScheduleRow[],
-  ): { max: number; average: number } {
-    // Group by weekday
-    const byDay = new Map<number, number[]>();
-    for (const s of schedules) {
-      const order =
-        s.schedule_period_template?.period_order ?? s.period_order ?? 0;
-      if (!byDay.has(s.weekday)) {
-        byDay.set(s.weekday, []);
-      }
-      byDay.get(s.weekday)?.push(order);
-    }
-
-    const dayMaxes: number[] = [];
-    for (const [, orders] of byDay) {
-      const sorted = [...orders].sort((a, b) => a - b);
-      let maxConsec = 1;
-      let current = 1;
-      for (let i = 1; i < sorted.length; i++) {
-        if ((sorted[i] ?? 0) === (sorted[i - 1] ?? 0) + 1) {
-          current++;
-          maxConsec = Math.max(maxConsec, current);
-        } else {
-          current = 1;
-        }
-      }
-      dayMaxes.push(maxConsec);
-    }
-
-    return {
-      max: dayMaxes.length > 0 ? Math.max(...dayMaxes) : 0,
-      average: WorkloadComputeService.round2(
-        WorkloadComputeService.mean(dayMaxes),
-      ),
-    };
+  static computeConsecutivePeriods(schedules: ScheduleRow[]): { max: number; average: number } {
+    return WorkloadMetricsService.computeConsecutivePeriods(schedules);
   }
 
-  /** Count split days: morning AND afternoon teaching with 2+ free gap */
   static computeSplitDays(
     schedules: ScheduleRow[],
     allTemplates: { weekday: number; period_order: number }[],
   ): number {
-    // Determine midpoint per weekday based on template count
-    const templateCountByDay = new Map<number, number>();
-    for (const t of allTemplates) {
-      templateCountByDay.set(
-        t.weekday,
-        (templateCountByDay.get(t.weekday) ?? 0) + 1,
-      );
-    }
-
-    // Group assigned period orders by weekday
-    const byDay = new Map<number, number[]>();
-    for (const s of schedules) {
-      const order =
-        s.schedule_period_template?.period_order ?? s.period_order ?? 0;
-      if (!byDay.has(s.weekday)) {
-        byDay.set(s.weekday, []);
-      }
-      byDay.get(s.weekday)?.push(order);
-    }
-
-    let splitCount = 0;
-    for (const [, orders] of byDay) {
-      if (orders.length < 2) continue;
-      const sorted = [...orders].sort((a, b) => a - b);
-
-      // Check for a gap of 2+ between any consecutive assigned periods
-      let hasSplit = false;
-      for (let i = 1; i < sorted.length; i++) {
-        if ((sorted[i] ?? 0) - (sorted[i - 1] ?? 0) >= 3) {
-          // Gap of 2+ free periods means the difference is >= 3
-          hasSplit = true;
-          break;
-        }
-      }
-      if (hasSplit) splitCount++;
-    }
-
-    return splitCount;
+    return WorkloadMetricsService.computeSplitDays(schedules, allTemplates);
   }
 
-  /** Room changes per day */
-  static computeRoomChanges(
-    schedules: ScheduleRow[],
-  ): { average: number; max: number } {
-    // Group by weekday, count distinct rooms per day
-    const byDay = new Map<number, Set<string>>();
-    for (const s of schedules) {
-      if (!s.room_id) continue;
-      if (!byDay.has(s.weekday)) {
-        byDay.set(s.weekday, new Set());
-      }
-      byDay.get(s.weekday)?.add(s.room_id);
-    }
-
-    const changes: number[] = [];
-    for (const [, rooms] of byDay) {
-      // Room changes = distinct rooms - 1
-      changes.push(Math.max(0, rooms.size - 1));
-    }
-
-    return {
-      average: WorkloadComputeService.round2(
-        WorkloadComputeService.mean(changes),
-      ),
-      max: changes.length > 0 ? Math.max(...changes) : 0,
-    };
+  static computeRoomChanges(schedules: ScheduleRow[]): { average: number; max: number } {
+    return WorkloadMetricsService.computeRoomChanges(schedules);
   }
 
-  /** Substitution pressure assessment from composite score */
-  static pressureAssessment(
-    score: number,
-  ): 'Low' | 'Moderate' | 'High' | 'Critical' {
-    if (score < 0.25) return 'Low';
-    if (score < 0.5) return 'Moderate';
-    if (score < 0.75) return 'High';
-    return 'Critical';
+  static pressureAssessment(score: number): 'Low' | 'Moderate' | 'High' | 'Critical' {
+    return WorkloadMetricsService.pressureAssessment(score);
   }
 
-  // ─── Private static utilities ──────────────────────────────────────────────
-
-  private static computeFreeDistributionScore(
-    schedules: ScheduleRow[],
-  ): number {
-    // Count teaching periods per weekday
-    const countsByDay = new Map<number, number>();
-    for (const s of schedules) {
-      if (
-        s.schedule_period_template?.schedule_period_type === 'teaching'
-      ) {
-        countsByDay.set(s.weekday, (countsByDay.get(s.weekday) ?? 0) + 1);
-      }
-    }
-
-    const counts = Array.from(countsByDay.values());
-    if (counts.length <= 1) return 100;
-
-    const avg = WorkloadComputeService.mean(counts);
-    const stddev = Math.sqrt(
-      counts.reduce((sum, c) => sum + (c - avg) ** 2, 0) / counts.length,
-    );
-
-    // Normalise: lower stddev = more even distribution = higher score
-    const maxExpectedStddev = avg; // worst case
-    const normalised =
-      maxExpectedStddev > 0
-        ? Math.max(0, 1 - stddev / maxExpectedStddev)
-        : 1;
-
-    return WorkloadComputeService.round2(normalised * 100);
-  }
-
-  private static computeSplitScore(schedules: ScheduleRow[]): number {
-    const byDay = new Map<number, number[]>();
-    for (const s of schedules) {
-      const order =
-        s.schedule_period_template?.period_order ?? s.period_order ?? 0;
-      if (!byDay.has(s.weekday)) {
-        byDay.set(s.weekday, []);
-      }
-      byDay.get(s.weekday)?.push(order);
-    }
-
-    let splitDays = 0;
-    let totalDays = 0;
-    for (const [, orders] of byDay) {
-      totalDays++;
-      if (orders.length < 2) continue;
-      const sorted = [...orders].sort((a, b) => a - b);
-      for (let i = 1; i < sorted.length; i++) {
-        if ((sorted[i] ?? 0) - (sorted[i - 1] ?? 0) >= 3) {
-          splitDays++;
-          break;
-        }
-      }
-    }
-
-    if (totalDays === 0) return 100;
-    return WorkloadComputeService.round2(
-      (1 - splitDays / totalDays) * 100,
-    );
-  }
-
-  /** Mean of an array, returns 0 for empty arrays */
   static mean(values: number[]): number {
-    if (values.length === 0) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
+    return WorkloadMetricsService.mean(values);
   }
 
-  /** Median of a sorted array */
   static median(sorted: number[]): number {
-    if (sorted.length === 0) return 0;
-    const mid = Math.floor(sorted.length / 2);
-    if (sorted.length % 2 === 0) {
-      return WorkloadComputeService.round2(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2);
-    }
-    return sorted[mid] ?? 0;
+    return WorkloadMetricsService.median(sorted);
   }
 
-  /** Percentile range from sorted array */
   static percentileRange(sorted: number[]): {
     min: number;
     max: number;
@@ -1859,58 +1315,22 @@ export class WorkloadComputeService {
     p50: number;
     p75: number;
   } {
-    if (sorted.length === 0) {
-      return { min: 0, max: 0, p25: 0, p50: 0, p75: 0 };
-    }
-    return {
-      min: sorted[0] ?? 0,
-      max: sorted[sorted.length - 1] ?? 0,
-      p25: WorkloadComputeService.percentile(sorted, 25),
-      p50: WorkloadComputeService.percentile(sorted, 50),
-      p75: WorkloadComputeService.percentile(sorted, 75),
-    };
+    return WorkloadMetricsService.percentileRange(sorted);
   }
 
-  private static percentile(sorted: number[], pct: number): number {
-    const idx = (pct / 100) * (sorted.length - 1);
-    const lower = Math.floor(idx);
-    const upper = Math.ceil(idx);
-    if (lower === upper) return sorted[lower] ?? 0;
-    const frac = idx - lower;
-    return WorkloadComputeService.round2(
-      (sorted[lower] ?? 0) * (1 - frac) + (sorted[upper] ?? 0) * frac,
-    );
-  }
-
-  /** Round to 2 decimal places */
   static round2(n: number): number {
-    return Math.round(n * 100) / 100;
+    return WorkloadMetricsService.round2(n);
   }
 
-  /** Count weekdays (Mon-Fri) between two dates */
   static schoolDaysBetween(start: Date, end: Date): number {
-    let count = 0;
-    const current = new Date(start);
-    while (current <= end) {
-      const day = current.getDay();
-      if (day >= 1 && day <= 5) count++;
-      current.setDate(current.getDate() + 1);
-    }
-    return count;
+    return WorkloadMetricsService.schoolDaysBetween(start, end);
   }
 
-  /** Calculate full months between two dates */
   static monthsBetween(start: Date, end: Date): number {
-    return (
-      (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth())
-    );
+    return WorkloadMetricsService.monthsBetween(start, end);
   }
 
-  /** Add months to a date and return ISO date string */
   static addMonths(date: Date, months: number): string {
-    const result = new Date(date);
-    result.setMonth(result.getMonth() + months);
-    return result.toISOString().slice(0, 10);
+    return WorkloadMetricsService.addMonths(date, months);
   }
 }

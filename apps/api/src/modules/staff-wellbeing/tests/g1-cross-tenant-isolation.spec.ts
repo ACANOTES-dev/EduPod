@@ -70,9 +70,7 @@ const mockRlsTx = {
 const mockCreateRlsClient = jest.fn().mockReturnValue({
   $transaction: jest
     .fn()
-    .mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
 });
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
@@ -85,6 +83,8 @@ import { SurveyResultsService } from '../services/survey-results.service';
 import { SurveyService } from '../services/survey.service';
 import { WorkloadCacheService } from '../services/workload-cache.service';
 import { WorkloadComputeService } from '../services/workload-compute.service';
+import { WorkloadDataService } from '../services/workload-data.service';
+import { WorkloadMetricsService } from '../services/workload-metrics.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -129,6 +129,8 @@ describe('G1 — Cross-Tenant Isolation', () => {
       providers: [
         SurveyService,
         SurveyResultsService,
+        WorkloadDataService,
+        WorkloadMetricsService,
         WorkloadComputeService,
         BoardReportService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -153,9 +155,9 @@ describe('G1 — Cross-Tenant Isolation', () => {
     // RLS-scoped findFirst returns null — Tenant A's survey is invisible to Tenant B
     mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-    await expect(
-      surveyResultsService.getResults(TENANT_B_ID, SURVEY_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(surveyResultsService.getResults(TENANT_B_ID, SURVEY_ID)).rejects.toThrow(
+      NotFoundException,
+    );
 
     expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, {
       tenant_id: TENANT_B_ID,
@@ -167,9 +169,7 @@ describe('G1 — Cross-Tenant Isolation', () => {
   it('should throw NotFoundException when Tenant B requests detail for Tenant A survey', async () => {
     mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-    await expect(
-      surveyService.findOne(TENANT_B_ID, SURVEY_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(surveyService.findOne(TENANT_B_ID, SURVEY_ID)).rejects.toThrow(NotFoundException);
 
     expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, {
       tenant_id: TENANT_B_ID,
@@ -181,9 +181,9 @@ describe('G1 — Cross-Tenant Isolation', () => {
   it('should throw NotFoundException when Tenant B requests moderation queue for Tenant A survey', async () => {
     mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-    await expect(
-      surveyResultsService.listModerationQueue(TENANT_B_ID, SURVEY_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(surveyResultsService.listModerationQueue(TENANT_B_ID, SURVEY_ID)).rejects.toThrow(
+      NotFoundException,
+    );
 
     expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, {
       tenant_id: TENANT_B_ID,
@@ -195,9 +195,9 @@ describe('G1 — Cross-Tenant Isolation', () => {
   it('should throw NotFoundException when Tenant B requests moderated comments for Tenant A survey', async () => {
     mockRlsTx.staffSurvey.findFirst.mockResolvedValue(null);
 
-    await expect(
-      surveyResultsService.getModeratedComments(TENANT_B_ID, SURVEY_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(surveyResultsService.getModeratedComments(TENANT_B_ID, SURVEY_ID)).rejects.toThrow(
+      NotFoundException,
+    );
 
     expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, {
       tenant_id: TENANT_B_ID,
@@ -274,8 +274,7 @@ describe('G1 — Cross-Tenant Isolation', () => {
     // No academic year found — returns empty/default summary
     mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
 
-    const result =
-      await workloadComputeService.getAggregateWorkloadSummary(TENANT_B_ID);
+    const result = await workloadComputeService.getAggregateWorkloadSummary(TENANT_B_ID);
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -297,9 +296,9 @@ describe('G1 — Cross-Tenant Isolation', () => {
     // createRlsClient was called with TENANT_B_ID.
     mockRlsTx.academicYear.findFirst.mockResolvedValue(null);
 
-    await expect(
-      boardReportService.generateTermlySummary(TENANT_B_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(boardReportService.generateTermlySummary(TENANT_B_ID)).rejects.toThrow(
+      NotFoundException,
+    );
 
     expect(mockCreateRlsClient).toHaveBeenCalledWith(mockPrisma, {
       tenant_id: TENANT_B_ID,
