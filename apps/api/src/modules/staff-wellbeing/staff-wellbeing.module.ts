@@ -18,13 +18,11 @@ import { SurveyResultsService } from './services/survey-results.service';
 import { SurveyService } from './services/survey.service';
 import { WorkloadCacheService } from './services/workload-cache.service';
 import { WorkloadComputeService } from './services/workload-compute.service';
+import { WorkloadDataService } from './services/workload-data.service';
+import { WorkloadMetricsService } from './services/workload-metrics.service';
 
 @Module({
-  imports: [
-    ConfigurationModule,
-    RedisModule,
-    BullModule.registerQueue({ name: 'wellbeing' }),
-  ],
+  imports: [ConfigurationModule, RedisModule, BullModule.registerQueue({ name: 'wellbeing' })],
   controllers: [
     SurveyController,
     SurveyResultsController,
@@ -39,6 +37,8 @@ import { WorkloadComputeService } from './services/workload-compute.service';
     SurveyService,
     SurveyResultsService,
     ResourceService,
+    WorkloadDataService,
+    WorkloadMetricsService,
     WorkloadComputeService,
     WorkloadCacheService,
     BoardReportService,

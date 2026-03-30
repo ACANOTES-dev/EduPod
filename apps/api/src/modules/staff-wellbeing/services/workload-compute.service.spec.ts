@@ -65,28 +65,32 @@ const mockTx: MockTxType = {
 
 jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
 import { WorkloadComputeService } from './workload-compute.service';
+import { WorkloadDataService } from './workload-data.service';
+import { WorkloadMetricsService } from './workload-metrics.service';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const makeSchedule = (overrides: Partial<{
-  id: string;
-  weekday: number;
-  period_order: number | null;
-  room_id: string | null;
-  schedule_period_template: {
-    schedule_period_type: string;
-    period_name: string;
-    period_order: number;
-  } | null;
-  class_entity: { name: string } | null;
-}> = {}) => ({
+const makeSchedule = (
+  overrides: Partial<{
+    id: string;
+    weekday: number;
+    period_order: number | null;
+    room_id: string | null;
+    schedule_period_template: {
+      schedule_period_type: string;
+      period_name: string;
+      period_order: number;
+    } | null;
+    class_entity: { name: string } | null;
+  }> = {},
+) => ({
   id: overrides.id ?? 'sched-1',
   weekday: overrides.weekday ?? 1,
   period_order: overrides.period_order ?? null,
@@ -150,6 +154,8 @@ describe('WorkloadComputeService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        WorkloadDataService,
+        WorkloadMetricsService,
         WorkloadComputeService,
         { provide: PrismaService, useValue: {} },
       ],
@@ -170,11 +176,51 @@ describe('WorkloadComputeService', () => {
 
       // 5 teaching schedules for this staff member
       const schedules = [
-        makeSchedule({ id: 's1', weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ id: 's2', weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ id: 's3', weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ id: 's4', weekday: 3, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ id: 's5', weekday: 4, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
+        makeSchedule({
+          id: 's1',
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          id: 's2',
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          id: 's3',
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          id: 's4',
+          weekday: 3,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          id: 's5',
+          weekday: 4,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
       ];
 
       // schedule.findMany (teaching period filter)
@@ -182,10 +228,7 @@ describe('WorkloadComputeService', () => {
       // substitutionRecord.count (covers this term)
       mockTx.substitutionRecord.count.mockResolvedValue(3);
       // school average covers: needs staffProfile.findMany + covers for each
-      mockTx.staffProfile.findMany.mockResolvedValue([
-        { id: STAFF_ID_1 },
-        { id: STAFF_ID_2 },
-      ]);
+      mockTx.staffProfile.findMany.mockResolvedValue([{ id: STAFF_ID_1 }, { id: STAFF_ID_2 }]);
 
       const result = await service.getPersonalWorkloadSummary(TENANT_ID, STAFF_ID_1);
 
@@ -218,9 +261,30 @@ describe('WorkloadComputeService', () => {
   describe('Consecutive period detection', () => {
     it('should correctly identify 3 consecutive periods', () => {
       const schedules = [
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeConsecutivePeriods(schedules);
@@ -229,10 +293,38 @@ describe('WorkloadComputeService', () => {
 
     it('should correctly identify 4 consecutive periods', () => {
       const schedules = [
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P4', period_order: 4 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P4',
+            period_order: 4,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeConsecutivePeriods(schedules);
@@ -241,12 +333,54 @@ describe('WorkloadComputeService', () => {
 
     it('should correctly identify 5+ consecutive periods', () => {
       const schedules = [
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P4', period_order: 4 } }),
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P5', period_order: 5 } }),
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P6', period_order: 6 } }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P4',
+            period_order: 4,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P5',
+            period_order: 5,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P6',
+            period_order: 6,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeConsecutivePeriods(schedules);
@@ -255,10 +389,38 @@ describe('WorkloadComputeService', () => {
 
     it('should detect non-consecutive periods as separate runs', () => {
       const schedules = [
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P5', period_order: 5 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P6', period_order: 6 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P5',
+            period_order: 5,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P6',
+            period_order: 6,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeConsecutivePeriods(schedules);
@@ -268,11 +430,39 @@ describe('WorkloadComputeService', () => {
     it('should compute average across days', () => {
       const schedules = [
         // Monday: 3 consecutive
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
         // Tuesday: 1 period (consecutive = 1)
-        makeSchedule({ weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
+        makeSchedule({
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeConsecutivePeriods(schedules);
@@ -314,8 +504,22 @@ describe('WorkloadComputeService', () => {
 
     it('should compute free counts per weekday', () => {
       const schedules = [
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
       ];
 
       const templates = [
@@ -346,10 +550,31 @@ describe('WorkloadComputeService', () => {
     it('should detect a morning/afternoon gap pattern', () => {
       const schedules = [
         // Morning periods
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
         // Afternoon period after gap of 2+ free
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P6', period_order: 6 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P6',
+            period_order: 6,
+          },
+        }),
       ];
 
       const templates = [
@@ -367,9 +592,30 @@ describe('WorkloadComputeService', () => {
 
     it('should not flag consecutive periods as split', () => {
       const schedules = [
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
       ];
 
       const templates = [
@@ -391,12 +637,52 @@ describe('WorkloadComputeService', () => {
     it('should count distinct rooms per day minus 1', () => {
       const schedules = [
         // Monday: 3 different rooms = 2 room changes
-        makeSchedule({ weekday: 1, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_B, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_C, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_B,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_C,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
         // Tuesday: 1 room = 0 room changes
-        makeSchedule({ weekday: 2, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 2, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
+        makeSchedule({
+          weekday: 2,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
       ];
 
       const result = WorkloadComputeService.computeRoomChanges(schedules);
@@ -470,12 +756,60 @@ describe('WorkloadComputeService', () => {
     it('should produce correct weighted score from known components', () => {
       // Good timetable: spread across days, no long consecutive runs, no splits, same room
       const schedules = [
-        makeSchedule({ weekday: 1, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 2, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 2, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 3, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 3, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 2,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 3,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 3,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
       ];
 
       const score = WorkloadComputeService.computeTimetableCompositeScore(schedules);
@@ -493,12 +827,60 @@ describe('WorkloadComputeService', () => {
     it('should produce a lower score for a bad timetable', () => {
       // Bad: 6 consecutive on one day, different rooms
       const schedules = [
-        makeSchedule({ weekday: 1, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_B, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P2', period_order: 2 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_C, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P3', period_order: 3 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_A, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P4', period_order: 4 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_B, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P5', period_order: 5 } }),
-        makeSchedule({ weekday: 1, room_id: ROOM_C, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P6', period_order: 6 } }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_B,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P2',
+            period_order: 2,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_C,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P3',
+            period_order: 3,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_A,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P4',
+            period_order: 4,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_B,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P5',
+            period_order: 5,
+          },
+        }),
+        makeSchedule({
+          weekday: 1,
+          room_id: ROOM_C,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P6',
+            period_order: 6,
+          },
+        }),
       ];
 
       const score = WorkloadComputeService.computeTimetableCompositeScore(schedules);
@@ -761,16 +1143,29 @@ describe('WorkloadComputeService', () => {
 
       // Staff 1's schedules specifically
       const staff1Schedules = [
-        makeSchedule({ id: 's1', weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
-        makeSchedule({ id: 's2', weekday: 2, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
+        makeSchedule({
+          id: 's1',
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
+        makeSchedule({
+          id: 's2',
+          weekday: 2,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
       ];
 
       mockTx.schedule.findMany.mockResolvedValue(staff1Schedules);
       mockTx.substitutionRecord.count.mockResolvedValue(3);
-      mockTx.staffProfile.findMany.mockResolvedValue([
-        { id: STAFF_ID_1 },
-        { id: STAFF_ID_2 },
-      ]);
+      mockTx.staffProfile.findMany.mockResolvedValue([{ id: STAFF_ID_1 }, { id: STAFF_ID_2 }]);
 
       const result = await service.getPersonalWorkloadSummary(TENANT_ID, STAFF_ID_1);
 
@@ -803,7 +1198,14 @@ describe('WorkloadComputeService', () => {
 
       // Schedules
       mockTx.schedule.findMany.mockResolvedValue([
-        makeSchedule({ weekday: 1, schedule_period_template: { schedule_period_type: 'teaching', period_name: 'P1', period_order: 1 } }),
+        makeSchedule({
+          weekday: 1,
+          schedule_period_template: {
+            schedule_period_type: 'teaching',
+            period_name: 'P1',
+            period_order: 1,
+          },
+        }),
       ]);
       mockTx.schedule.count.mockResolvedValue(5);
 
@@ -932,10 +1334,7 @@ describe('WorkloadComputeService', () => {
     describe('monthsBetween', () => {
       it('should compute correct months', () => {
         expect(
-          WorkloadComputeService.monthsBetween(
-            new Date('2025-01-01'),
-            new Date('2026-03-01'),
-          ),
+          WorkloadComputeService.monthsBetween(new Date('2025-01-01'), new Date('2026-03-01')),
         ).toBe(14);
       });
     });
@@ -1045,10 +1444,7 @@ describe('WorkloadComputeService', () => {
     it('should compute average covers across all staff', async () => {
       mockTx.academicYear.findFirst.mockResolvedValue(makeAcademicYear());
       mockTx.academicPeriod.findFirst.mockResolvedValue(makeCurrentPeriod());
-      mockTx.staffProfile.findMany.mockResolvedValue([
-        { id: STAFF_ID_1 },
-        { id: STAFF_ID_2 },
-      ]);
+      mockTx.staffProfile.findMany.mockResolvedValue([{ id: STAFF_ID_1 }, { id: STAFF_ID_2 }]);
 
       // Staff 1: 4 covers, Staff 2: 6 covers
       let coverCallIdx = 0;
