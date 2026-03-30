@@ -59,6 +59,10 @@ import { PolicyReplayService } from './policy/policy-replay.service';
 import { PolicyRulesService } from './policy/policy-rules.service';
 import { SafeguardingAttachmentService } from './safeguarding-attachment.service';
 import { SafeguardingBreakGlassService } from './safeguarding-break-glass.service';
+import { SafeguardingConcernsService } from './safeguarding-concerns.service';
+import { SafeguardingReferralsService } from './safeguarding-referrals.service';
+import { SafeguardingReportingService } from './safeguarding-reporting.service';
+import { SafeguardingSealService } from './safeguarding-seal.service';
 import { SafeguardingController } from './safeguarding.controller';
 import { SafeguardingService } from './safeguarding.service';
 
@@ -114,6 +118,10 @@ import { SafeguardingService } from './safeguarding.service';
     PolicyEvaluationEngine,
     PolicyReplayService,
     SafeguardingService,
+    SafeguardingConcernsService,
+    SafeguardingReferralsService,
+    SafeguardingReportingService,
+    SafeguardingSealService,
     SafeguardingAttachmentService,
     SafeguardingBreakGlassService,
     BehaviourSanctionsService,
@@ -150,6 +158,10 @@ import { SafeguardingService } from './safeguarding.service';
     PolicyEvaluationEngine,
     PolicyReplayService,
     SafeguardingService,
+    SafeguardingConcernsService,
+    SafeguardingReferralsService,
+    SafeguardingReportingService,
+    SafeguardingSealService,
     SafeguardingAttachmentService,
     SafeguardingBreakGlassService,
     BehaviourSanctionsService,

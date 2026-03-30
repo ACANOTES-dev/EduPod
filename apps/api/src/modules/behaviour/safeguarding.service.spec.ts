@@ -1,9 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 const mockTx: Record<string, Record<string, jest.Mock>> = {
@@ -51,9 +47,7 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
@@ -67,6 +61,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourTasksService } from './behaviour-tasks.service';
+import { SafeguardingConcernsService } from './safeguarding-concerns.service';
+import { SafeguardingReferralsService } from './safeguarding-referrals.service';
+import { SafeguardingReportingService } from './safeguarding-reporting.service';
+import { SafeguardingSealService } from './safeguarding-seal.service';
 import { SafeguardingService } from './safeguarding.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -267,6 +265,10 @@ describe('SafeguardingService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SafeguardingService,
+        SafeguardingConcernsService,
+        SafeguardingReferralsService,
+        SafeguardingReportingService,
+        SafeguardingSealService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: BehaviourHistoryService, useValue: mockHistoryService },
@@ -388,9 +390,7 @@ describe('SafeguardingService', () => {
 
     it('should NOT enqueue critical escalation for non-critical severity', async () => {
       const lowDto = { ...baseDto, severity: 'low' as const };
-      mockTx.safeguardingConcern!.create!.mockResolvedValue(
-        makeConcern({ severity: 'low_sev' }),
-      );
+      mockTx.safeguardingConcern!.create!.mockResolvedValue(makeConcern({ severity: 'low_sev' }));
 
       await service.reportConcern(TENANT_ID, USER_ID, lowDto);
 
@@ -420,9 +420,9 @@ describe('SafeguardingService', () => {
     it('should throw NotFoundException when student not found', async () => {
       mockTx.student!.findFirst!.mockResolvedValue(null);
 
-      await expect(
-        service.reportConcern(TENANT_ID, USER_ID, baseDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.reportConcern(TENANT_ID, USER_ID, baseDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should create initial safeguarding_actions entry', async () => {
@@ -493,7 +493,10 @@ describe('SafeguardingService', () => {
   // ─── transitionStatus ─────────────────────────────────────────────────
 
   describe('transitionStatus', () => {
-    const transitionDto = { status: 'acknowledged' as const, reason: 'Concern acknowledged by DLP' };
+    const transitionDto = {
+      status: 'acknowledged' as const,
+      reason: 'Concern acknowledged by DLP',
+    };
 
     beforeEach(() => {
       mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern());
@@ -504,9 +507,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should transition from reported to acknowledged', async () => {
-      const result = await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID, transitionDto,
-      );
+      const result = await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, transitionDto);
 
       expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
         where: { id: CONCERN_ID },
@@ -519,9 +520,7 @@ describe('SafeguardingService', () => {
 
     it('should set sla_first_response_met_at on acknowledge', async () => {
       const before = Date.now();
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID, transitionDto,
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, transitionDto);
 
       const updateCall = mockTx.safeguardingConcern!.update!.mock.calls[0]![0] as {
         data: { sla_first_response_met_at: Date };
@@ -532,9 +531,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should set reporter_acknowledgement_status to assigned_ack on acknowledge', async () => {
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID, transitionDto,
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, transitionDto);
 
       expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
         where: { id: CONCERN_ID },
@@ -553,9 +550,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should reject transition on sealed concern (403)', async () => {
-      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
-        makeConcern({ status: 'sealed' }),
-      );
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern({ status: 'sealed' }));
 
       await expect(
         service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, transitionDto),
@@ -567,9 +562,7 @@ describe('SafeguardingService', () => {
       // At the service level, the reason is passed through as dto.reason.
       // We test with a valid transition but verify the action records the reason.
       const validDto = { status: 'acknowledged' as const, reason: 'Valid reason' };
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID, validDto,
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, validDto);
 
       expect(mockTx.safeguardingAction!.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -591,9 +584,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should create safeguarding_actions entry for every transition', async () => {
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID, transitionDto,
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, transitionDto);
 
       expect(mockTx.safeguardingAction!.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -617,10 +608,9 @@ describe('SafeguardingService', () => {
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      const result = await service.updateConcern(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { description: 'Updated description text here' },
-      );
+      const result = await service.updateConcern(TENANT_ID, USER_ID, CONCERN_ID, {
+        description: 'Updated description text here',
+      });
 
       expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
         where: { id: CONCERN_ID },
@@ -630,9 +620,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should throw ForbiddenException on sealed concern', async () => {
-      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
-        makeConcern({ status: 'sealed' }),
-      );
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern({ status: 'sealed' }));
 
       await expect(
         service.updateConcern(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -652,10 +640,10 @@ describe('SafeguardingService', () => {
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      const result = await service.assignConcern(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { assigned_to_id: USER_ID_2, designated_liaison_id: USER_ID_2 },
-      );
+      const result = await service.assignConcern(TENANT_ID, USER_ID, CONCERN_ID, {
+        assigned_to_id: USER_ID_2,
+        designated_liaison_id: USER_ID_2,
+      });
 
       expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
         where: { id: CONCERN_ID },
@@ -675,13 +663,10 @@ describe('SafeguardingService', () => {
       mockPrisma.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern());
       mockPrisma.safeguardingAction!.create!.mockResolvedValue({ id: 'action-new' });
 
-      const result = await service.recordAction(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        {
-          action_type: 'note_added',
-          description: 'Parent contacted by phone',
-        },
-      );
+      const result = await service.recordAction(TENANT_ID, USER_ID, CONCERN_ID, {
+        action_type: 'note_added',
+        description: 'Parent contacted by phone',
+      });
 
       expect(mockPrisma.safeguardingAction!.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -722,9 +707,9 @@ describe('SafeguardingService', () => {
       mockTx.behaviourTask!.create!.mockResolvedValue({ id: 'task-1' });
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      const result = await service.initiateSeal(
-        TENANT_ID, USER_ID, CONCERN_ID, { reason: 'Case complete, ready to seal' },
-      );
+      const result = await service.initiateSeal(TENANT_ID, USER_ID, CONCERN_ID, {
+        reason: 'Case complete, ready to seal',
+      });
 
       expect(mockTx.safeguardingConcern!.update).toHaveBeenCalledWith({
         where: { id: CONCERN_ID },
@@ -748,9 +733,7 @@ describe('SafeguardingService', () => {
     });
 
     it('should require status = resolved', async () => {
-      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
-        makeConcern({ status: 'reported' }),
-      );
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern({ status: 'reported' }));
 
       await expect(
         service.initiateSeal(TENANT_ID, USER_ID, CONCERN_ID, {
@@ -808,9 +791,9 @@ describe('SafeguardingService', () => {
         }),
       );
 
-      await expect(
-        service.approveSeal(TENANT_ID, USER_ID, CONCERN_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approveSeal(TENANT_ID, USER_ID, CONCERN_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should reject when seal not initiated', async () => {
@@ -818,9 +801,9 @@ describe('SafeguardingService', () => {
         makeConcern({ status: 'sg_resolved', sealed_by_id: null }),
       );
 
-      await expect(
-        service.approveSeal(TENANT_ID, USER_ID_2, CONCERN_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approveSeal(TENANT_ID, USER_ID_2, CONCERN_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -835,17 +818,13 @@ describe('SafeguardingService', () => {
         membership_roles: [
           {
             role: {
-              role_permissions: [
-                { permission: { permission_key: 'safeguarding.view' } },
-              ],
+              role_permissions: [{ permission: { permission_key: 'safeguarding.view' } }],
             },
           },
         ],
       });
 
-      const result = await service.checkEffectivePermission(
-        USER_ID, TENANT_ID, MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({ allowed: true, context: 'normal' });
     });
@@ -858,9 +837,7 @@ describe('SafeguardingService', () => {
         membership_roles: [
           {
             role: {
-              role_permissions: [
-                { permission: { permission_key: 'behaviour.view' } },
-              ],
+              role_permissions: [{ permission: { permission_key: 'behaviour.view' } }],
             },
           },
         ],
@@ -876,9 +853,7 @@ describe('SafeguardingService', () => {
         scope: 'all_concerns',
       });
 
-      const result = await service.checkEffectivePermission(
-        USER_ID, TENANT_ID, MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({
         allowed: true,
@@ -895,9 +870,7 @@ describe('SafeguardingService', () => {
         membership_roles: [
           {
             role: {
-              role_permissions: [
-                { permission: { permission_key: 'behaviour.view' } },
-              ],
+              role_permissions: [{ permission: { permission_key: 'behaviour.view' } }],
             },
           },
         ],
@@ -906,9 +879,7 @@ describe('SafeguardingService', () => {
       // No active grant returned because findFirst returns null for expired
       mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mockResolvedValue(null);
 
-      const result = await service.checkEffectivePermission(
-        USER_ID, TENANT_ID, MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({ allowed: false, context: 'normal' });
     });
@@ -923,9 +894,7 @@ describe('SafeguardingService', () => {
 
       mockPrisma.safeguardingBreakGlassGrant!.findFirst!.mockResolvedValue(null);
 
-      const result = await service.checkEffectivePermission(
-        USER_ID, TENANT_ID, MEMBERSHIP_ID,
-      );
+      const result = await service.checkEffectivePermission(USER_ID, TENANT_ID, MEMBERSHIP_ID);
 
       expect(result).toEqual({ allowed: false, context: 'normal' });
     });
@@ -948,9 +917,9 @@ describe('SafeguardingService', () => {
       ]);
 
       // SLA counts: overdue=1, due_soon=1, on_track=3
-      mockPrisma.safeguardingConcern!.count!
-        .mockResolvedValueOnce(1)  // slaOverdue
-        .mockResolvedValueOnce(1)  // slaDueSoon
+      mockPrisma
+        .safeguardingConcern!.count!.mockResolvedValueOnce(1) // slaOverdue
+        .mockResolvedValueOnce(1) // slaDueSoon
         .mockResolvedValueOnce(3); // slaOnTrack
 
       mockPrisma.behaviourTask!.findMany!.mockResolvedValue([]);
@@ -986,29 +955,25 @@ describe('SafeguardingService', () => {
 
   describe('blocked transitions', () => {
     it('should reject sealed -> any (terminal status)', async () => {
-      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
-        makeConcern({ status: 'sealed' }),
-      );
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern({ status: 'sealed' }));
 
       // Sealed concerns throw ForbiddenException (immutable record)
       await expect(
-        service.transitionStatus(
-          TENANT_ID, USER_ID, CONCERN_ID,
-          { status: 'acknowledged' as const, reason: 'Attempt to reopen sealed' },
-        ),
+        service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, {
+          status: 'acknowledged' as const,
+          reason: 'Attempt to reopen sealed',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it('should reject reported -> under_investigation (must go through acknowledged)', async () => {
-      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(
-        makeConcern({ status: 'reported' }),
-      );
+      mockTx.safeguardingConcern!.findFirst!.mockResolvedValue(makeConcern({ status: 'reported' }));
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, USER_ID, CONCERN_ID,
-          { status: 'under_investigation' as const, reason: 'Skipping acknowledged' },
-        ),
+        service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, {
+          status: 'under_investigation' as const,
+          reason: 'Skipping acknowledged',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1018,10 +983,10 @@ describe('SafeguardingService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, USER_ID, CONCERN_ID,
-          { status: 'resolved' as const, reason: 'Skipping investigation' },
-        ),
+        service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, {
+          status: 'resolved' as const,
+          reason: 'Skipping investigation',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -1044,7 +1009,9 @@ describe('SafeguardingService', () => {
         date_of_birth: new Date('2015-06-15'),
       });
       mockTx.safeguardingConcern!.create!.mockResolvedValue(makeConcern());
-      mockTx.safeguardingConcern!.update!.mockResolvedValue(makeConcern({ pastoral_concern_id: PASTORAL_CONCERN_ID }));
+      mockTx.safeguardingConcern!.update!.mockResolvedValue(
+        makeConcern({ pastoral_concern_id: PASTORAL_CONCERN_ID }),
+      );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
     });
 
@@ -1052,7 +1019,8 @@ describe('SafeguardingService', () => {
       await service.reportConcern(TENANT_ID, USER_ID, baseDto);
 
       expect(mockConcernService.create).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID,
+        TENANT_ID,
+        USER_ID,
         expect.objectContaining({
           student_id: STUDENT_ID,
           category: 'child_protection',
@@ -1063,7 +1031,8 @@ describe('SafeguardingService', () => {
       );
 
       expect(mockCpRecordService.create).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID,
+        TENANT_ID,
+        USER_ID,
         expect.objectContaining({
           concern_id: PASTORAL_CONCERN_ID,
           student_id: STUDENT_ID,
@@ -1101,7 +1070,8 @@ describe('SafeguardingService', () => {
       await service.reportConcern(TENANT_ID, USER_ID, dtoWithIncident);
 
       expect(mockConcernService.create).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID,
+        TENANT_ID,
+        USER_ID,
         expect.objectContaining({
           behaviour_incident_id: INCIDENT_ID,
         }),
@@ -1114,20 +1084,29 @@ describe('SafeguardingService', () => {
       ['medium', 'elevated'],
       ['high', 'urgent'],
       ['critical', 'critical'],
-    ] as const)('should map behaviour severity "%s" to pastoral severity "%s"', async (behaviourSev, expectedPastoralSev) => {
-      const sevDto = { ...baseDto, severity: behaviourSev as 'low' | 'medium' | 'high' | 'critical' };
-      mockTx.safeguardingConcern!.create!.mockResolvedValue(makeConcern({ severity: `${behaviourSev}_sev` }));
+    ] as const)(
+      'should map behaviour severity "%s" to pastoral severity "%s"',
+      async (behaviourSev, expectedPastoralSev) => {
+        const sevDto = {
+          ...baseDto,
+          severity: behaviourSev as 'low' | 'medium' | 'high' | 'critical',
+        };
+        mockTx.safeguardingConcern!.create!.mockResolvedValue(
+          makeConcern({ severity: `${behaviourSev}_sev` }),
+        );
 
-      await service.reportConcern(TENANT_ID, USER_ID, sevDto);
+        await service.reportConcern(TENANT_ID, USER_ID, sevDto);
 
-      expect(mockConcernService.create).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID,
-        expect.objectContaining({
-          severity: expectedPastoralSev,
-        }),
-        null,
-      );
-    });
+        expect(mockConcernService.create).toHaveBeenCalledWith(
+          TENANT_ID,
+          USER_ID,
+          expect.objectContaining({
+            severity: expectedPastoralSev,
+          }),
+          null,
+        );
+      },
+    );
 
     it('should gracefully handle delegation failure (safeguarding record still created, retry job enqueued)', async () => {
       mockConcernService.create.mockRejectedValueOnce(new Error('Pastoral service unavailable'));
@@ -1169,18 +1148,25 @@ describe('SafeguardingService', () => {
         makeConcern({ pastoral_concern_id: PASTORAL_CONCERN_ID }),
       );
       mockTx.safeguardingConcern!.update!.mockResolvedValue(
-        makeConcern({ description: 'Updated description', pastoral_concern_id: PASTORAL_CONCERN_ID }),
+        makeConcern({
+          description: 'Updated description',
+          pastoral_concern_id: PASTORAL_CONCERN_ID,
+        }),
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      await service.updateConcern(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { description: 'Updated description' },
-      );
+      await service.updateConcern(TENANT_ID, USER_ID, CONCERN_ID, {
+        description: 'Updated description',
+      });
 
       expect(mockConcernVersionService.amendNarrative).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID, PASTORAL_CONCERN_ID,
-        { new_narrative: 'Updated description', amendment_reason: 'Updated via behaviour safeguarding' },
+        TENANT_ID,
+        USER_ID,
+        PASTORAL_CONCERN_ID,
+        {
+          new_narrative: 'Updated description',
+          amendment_reason: 'Updated via behaviour safeguarding',
+        },
         null,
       );
     });
@@ -1194,10 +1180,9 @@ describe('SafeguardingService', () => {
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      await service.updateConcern(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { description: 'Updated description' },
-      );
+      await service.updateConcern(TENANT_ID, USER_ID, CONCERN_ID, {
+        description: 'Updated description',
+      });
 
       expect(mockConcernVersionService.amendNarrative).not.toHaveBeenCalled();
     });
@@ -1218,10 +1203,10 @@ describe('SafeguardingService', () => {
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { status: 'referred' as const, reason: 'Referred to agency' },
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, {
+        status: 'referred' as const,
+        reason: 'Referred to agency',
+      });
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1248,10 +1233,10 @@ describe('SafeguardingService', () => {
       );
       mockTx.safeguardingAction!.create!.mockResolvedValue({ id: 'action-1' });
 
-      await service.transitionStatus(
-        TENANT_ID, USER_ID, CONCERN_ID,
-        { status: 'acknowledged' as const, reason: 'Acknowledged by DLP' },
-      );
+      await service.transitionStatus(TENANT_ID, USER_ID, CONCERN_ID, {
+        status: 'acknowledged' as const,
+        reason: 'Acknowledged by DLP',
+      });
 
       expect(mockPastoralEventService.write).not.toHaveBeenCalled();
     });
