@@ -27,6 +27,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { GdprModule } from './modules/gdpr/gdpr.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
 import { HealthModule } from './modules/health/health.module';
+import { HomeworkModule } from './modules/homework/homework.module';
 import { HouseholdsModule } from './modules/households/households.module';
 import { ImportsModule } from './modules/imports/imports.module';
 import { ParentInquiriesModule } from './modules/parent-inquiries/parent-inquiries.module';
@@ -108,6 +109,7 @@ import { WebsiteModule } from './modules/website/website.module';
     AttendanceModule,
     BehaviourModule,
     CriticalIncidentsModule,
+    HomeworkModule,
     HouseholdsModule,
     ParentsModule,
     PastoralModule,
