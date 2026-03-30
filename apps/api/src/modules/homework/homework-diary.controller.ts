@@ -46,7 +46,7 @@ export class HomeworkDiaryController {
 
   // PATCH /v1/diary/parent-notes/:id/acknowledge
   @Patch('parent-notes/:id/acknowledge')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_diary')
   async acknowledgeNote(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
@@ -59,7 +59,7 @@ export class HomeworkDiaryController {
 
   // GET /v1/diary/:studentId
   @Get(':studentId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_diary')
   async listNotes(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -72,7 +72,7 @@ export class HomeworkDiaryController {
   // POST /v1/diary/:studentId
   @Post(':studentId')
   @HttpCode(HttpStatus.CREATED)
-  @RequiresPermission('homework.manage')
+  @RequiresPermission('homework.write_diary')
   async createNote(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -83,7 +83,7 @@ export class HomeworkDiaryController {
 
   // PATCH /v1/diary/:studentId/:noteDate
   @Patch(':studentId/:noteDate')
-  @RequiresPermission('homework.manage')
+  @RequiresPermission('homework.write_diary')
   async updateNote(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -101,7 +101,7 @@ export class HomeworkDiaryController {
 
   // GET /v1/diary/:studentId/parent-notes
   @Get(':studentId/parent-notes')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_diary')
   async listParentNotes(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -114,7 +114,7 @@ export class HomeworkDiaryController {
   // POST /v1/diary/:studentId/parent-notes
   @Post(':studentId/parent-notes')
   @HttpCode(HttpStatus.CREATED)
-  @RequiresPermission('homework.manage', 'parent.view_homework')
+  @RequiresPermission('homework.write_diary', 'parent.homework')
   async createParentNote(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @CurrentUser() user: JwtPayload,

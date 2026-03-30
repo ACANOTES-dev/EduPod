@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-import { paginationQuerySchema } from './pagination.schema';
-
 import { consentCaptureSchema } from '../gdpr/consent.schema';
+
+import { paginationQuerySchema } from './pagination.schema';
 
 // Public application creation (from public admissions page)
 export const createPublicApplicationSchema = z.object({

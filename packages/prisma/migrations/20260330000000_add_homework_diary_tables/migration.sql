@@ -66,6 +66,7 @@ CREATE TABLE "homework_completions" (
     "points_awarded" SMALLINT,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "version" INTEGER NOT NULL DEFAULT 1,
 
     CONSTRAINT "homework_completions_pkey" PRIMARY KEY ("id")
 );

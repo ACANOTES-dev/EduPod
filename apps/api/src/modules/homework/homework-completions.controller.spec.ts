@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
 
+import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
@@ -184,6 +185,59 @@ describe('HomeworkCompletionsController', () => {
         HOMEWORK_ID,
       );
       expect(result).toEqual(expected);
+    });
+  });
+
+  // ─── Permission guard metadata ──────────────────────────────────────────────
+
+  describe('Permission guards', () => {
+    it('should have AuthGuard and PermissionGuard applied at class level', () => {
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        HomeworkCompletionsController,
+      );
+      expect(guards).toBeDefined();
+      expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should require homework.view on listCompletions', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkCompletionsController.prototype.listCompletions,
+      );
+      expect(permission).toBe('homework.view');
+    });
+
+    it('should require homework.manage on studentSelfReport', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkCompletionsController.prototype.studentSelfReport,
+      );
+      expect(permission).toBe('homework.manage');
+    });
+
+    it('should require homework.manage on bulkMark', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkCompletionsController.prototype.bulkMark,
+      );
+      expect(permission).toBe('homework.manage');
+    });
+
+    it('should require homework.manage on teacherUpdate', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkCompletionsController.prototype.teacherUpdate,
+      );
+      expect(permission).toBe('homework.manage');
+    });
+
+    it('should require homework.view on getCompletionRate', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkCompletionsController.prototype.getCompletionRate,
+      );
+      expect(permission).toBe('homework.view');
     });
   });
 });

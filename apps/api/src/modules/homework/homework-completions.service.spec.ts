@@ -19,6 +19,9 @@ const mockRlsTx = {
   homeworkCompletion: {
     upsert: jest.fn(),
   },
+  classEnrolment: {
+    findMany: jest.fn().mockResolvedValue([]),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -39,6 +42,15 @@ function buildMockPrisma() {
     homeworkCompletion: { findMany: jest.fn(), count: jest.fn() },
     classEnrolment: { count: jest.fn() },
     parent: { findFirst: jest.fn() },
+    tenant: {
+      findUnique: jest.fn().mockResolvedValue({
+        settings: {
+          homework: {
+            allow_student_self_report: true,
+          },
+        },
+      }),
+    },
   };
 }
 
@@ -366,6 +378,10 @@ describe('HomeworkCompletionsService — bulkMark', () => {
   it('should upsert multiple completions in a single RLS transaction', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
     const student2Id = '22222222-2222-2222-2222-222222222222';
+    mockRlsTx.classEnrolment.findMany.mockResolvedValue([
+      { student_id: STUDENT_ID },
+      { student_id: student2Id },
+    ]);
     mockRlsTx.homeworkCompletion.upsert
       .mockResolvedValueOnce({ id: 'c1', student_id: STUDENT_ID, status: 'completed' })
       .mockResolvedValueOnce({ id: 'c2', student_id: student2Id, status: 'in_progress' });

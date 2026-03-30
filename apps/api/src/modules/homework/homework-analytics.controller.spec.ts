@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
@@ -319,6 +320,67 @@ describe('HomeworkAnalyticsController', () => {
         YEAR_GROUP_ID,
         baseQuery,
       );
+    });
+  });
+
+  // ─── Permission guard metadata ──────────────────────────────────────────────
+
+  describe('Permission guards', () => {
+    it('should have AuthGuard and PermissionGuard applied at class level', () => {
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        HomeworkAnalyticsController,
+      );
+      expect(guards).toBeDefined();
+      expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should require homework.view_analytics on getCompletionRates', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getCompletionRates,
+      );
+      expect(permission).toBe('homework.view_analytics');
+    });
+
+    it('should require homework.view_analytics on getLoadAnalysis', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getLoadAnalysis,
+      );
+      expect(permission).toBe('homework.view_analytics');
+    });
+
+    it('should require homework.view_analytics on getStudentTrends', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getStudentTrends,
+      );
+      expect(permission).toBe('homework.view_analytics');
+    });
+
+    it('should require homework.view_analytics on getClassPatterns', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getClassPatterns,
+      );
+      expect(permission).toBe('homework.view_analytics');
+    });
+
+    it('should require homework.view_analytics on getTeacherPatterns', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getTeacherPatterns,
+      );
+      expect(permission).toBe('homework.view_analytics');
+    });
+
+    it('should require homework.view_analytics on getYearGroupOverview', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkAnalyticsController.prototype.getYearGroupOverview,
+      );
+      expect(permission).toBe('homework.view_analytics');
     });
   });
 });

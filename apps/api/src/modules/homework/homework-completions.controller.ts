@@ -44,7 +44,7 @@ export class HomeworkCompletionsController {
 
   // POST /v1/homework/:id/completions
   @Post(':id/completions')
-  @RequiresPermission('homework.submit')
+  @RequiresPermission('homework.manage')
   @HttpCode(HttpStatus.OK)
   async studentSelfReport(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -62,7 +62,7 @@ export class HomeworkCompletionsController {
 
   // POST /v1/homework/:id/completions/bulk — STATIC route before :studentId
   @Post(':id/completions/bulk')
-  @RequiresPermission('homework.mark')
+  @RequiresPermission('homework.manage')
   @HttpCode(HttpStatus.OK)
   async bulkMark(
     @CurrentTenant() tenant: { tenant_id: string },
@@ -81,7 +81,7 @@ export class HomeworkCompletionsController {
 
   // PATCH /v1/homework/:id/completions/:studentId
   @Patch(':id/completions/:studentId')
-  @RequiresPermission('homework.mark')
+  @RequiresPermission('homework.manage')
   async teacherUpdate(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,

@@ -48,7 +48,8 @@ function getMonday(): string {
 
 export default function ClassHomeworkPage() {
   const t = useTranslations('homework');
-  const { classId } = useParams<{ classId: string }>();
+  const params = useParams<{ classId: string }>();
+  const classId = params?.classId ?? '';
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -106,7 +107,7 @@ export default function ClassHomeworkPage() {
     { key: 'title', header: t('title'), render: (row: HomeworkItem) => <span className="font-medium text-text-primary">{row.title}</span> },
     { key: 'type', header: t('type'), render: (row: HomeworkItem) => <HomeworkTypeBadge type={row.homework_type} />, className: 'hidden sm:table-cell' },
     { key: 'due_date', header: t('dueDate'), render: (row: HomeworkItem) => <span className="text-xs font-mono text-text-secondary">{formatDate(row.due_date)}</span> },
-    { key: 'status', header: t('status'), render: (row: HomeworkItem) => <StatusBadge status={row.status === 'published' ? 'success' : row.status === 'draft' ? 'warning' : 'default'}>{row.status}</StatusBadge> },
+    { key: 'status', header: t('status'), render: (row: HomeworkItem) => <StatusBadge status={row.status === 'published' ? 'success' : row.status === 'draft' ? 'warning' : 'neutral'}>{row.status}</StatusBadge> },
     {
       key: 'actions', header: '', render: (row: HomeworkItem) => (
         <div className="flex items-center gap-1">

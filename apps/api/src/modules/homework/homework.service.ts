@@ -28,7 +28,6 @@ const ALLOWED_MIME_TYPES = [
   'application/zip',
 ];
 
-const DEFAULT_MAX_ATTACHMENT_SIZE_MB = 10;
 const BYTES_PER_MB = 1024 * 1024;
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -461,6 +460,24 @@ export class HomeworkService {
     });
   }
 
+  // ─── Tenant homework settings ──────────────────────────────────────────────
+
+  private async getHomeworkSettings(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { settings: true },
+    });
+    const settings = tenant?.settings as Record<string, unknown> | null;
+    const hw = settings?.homework as Record<string, unknown> | undefined;
+    return {
+      max_attachment_size_mb: (hw?.max_attachment_size_mb as number) ?? 10,
+      max_attachments_per_assignment: (hw?.max_attachments_per_assignment as number) ?? 5,
+      allow_student_self_report: (hw?.allow_student_self_report as boolean) ?? true,
+      require_teacher_verification: (hw?.require_teacher_verification as boolean) ?? false,
+      default_due_time: (hw?.default_due_time as string) ?? '09:00',
+    };
+  }
+
   // ─── Add Attachment ───────────────────────────────────────────────────────────
 
   async addAttachment(tenantId: string, homeworkId: string, dto: AddAttachmentDto) {
@@ -476,6 +493,17 @@ export class HomeworkService {
       });
     }
 
+    const settings = await this.getHomeworkSettings(tenantId);
+    const currentCount = await this.prisma.homeworkAttachment.count({
+      where: { tenant_id: tenantId, homework_assignment_id: homeworkId },
+    });
+    if (currentCount >= settings.max_attachments_per_assignment) {
+      throw new BadRequestException({
+        code: 'MAX_ATTACHMENTS_REACHED',
+        message: `Maximum ${settings.max_attachments_per_assignment} attachments per assignment`,
+      });
+    }
+
     if (dto.attachment_type === 'file') {
       if (!dto.mime_type || !ALLOWED_MIME_TYPES.includes(dto.mime_type)) {
         throw new BadRequestException({
@@ -484,11 +512,11 @@ export class HomeworkService {
         });
       }
 
-      const maxSizeBytes = DEFAULT_MAX_ATTACHMENT_SIZE_MB * BYTES_PER_MB;
+      const maxSizeBytes = settings.max_attachment_size_mb * BYTES_PER_MB;
       if (dto.file_size_bytes && dto.file_size_bytes > maxSizeBytes) {
         throw new BadRequestException({
           code: 'FILE_TOO_LARGE',
-          message: `File size ${dto.file_size_bytes} bytes exceeds maximum ${DEFAULT_MAX_ATTACHMENT_SIZE_MB}MB`,
+          message: `File size ${dto.file_size_bytes} bytes exceeds maximum ${settings.max_attachment_size_mb}MB`,
         });
       }
     }

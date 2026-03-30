@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload } from '@school/shared';
 
+import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
@@ -204,6 +205,67 @@ describe('HomeworkDiaryController', () => {
         USER_ID,
       );
       expect(result).toEqual(expected);
+    });
+  });
+
+  // ─── Permission guard metadata ──────────────────────────────────────────────
+
+  describe('Permission guards', () => {
+    it('should have AuthGuard and PermissionGuard applied at class level', () => {
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        HomeworkDiaryController,
+      );
+      expect(guards).toBeDefined();
+      expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should require homework.view_diary on listNotes', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.listNotes,
+      );
+      expect(permission).toBe('homework.view_diary');
+    });
+
+    it('should require homework.write_diary on createNote', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.createNote,
+      );
+      expect(permission).toBe('homework.write_diary');
+    });
+
+    it('should require homework.write_diary on updateNote', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.updateNote,
+      );
+      expect(permission).toBe('homework.write_diary');
+    });
+
+    it('should require homework.view_diary on listParentNotes', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.listParentNotes,
+      );
+      expect(permission).toBe('homework.view_diary');
+    });
+
+    it('should require homework.view_diary on acknowledgeNote', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.acknowledgeNote,
+      );
+      expect(permission).toBe('homework.view_diary');
+    });
+
+    it('should allow homework.write_diary or parent.homework on createParentNote', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkDiaryController.prototype.createParentNote,
+      );
+      expect(permission).toEqual(['homework.write_diary', 'parent.homework']);
     });
   });
 });

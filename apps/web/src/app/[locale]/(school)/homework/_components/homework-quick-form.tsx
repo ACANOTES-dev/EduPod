@@ -1,6 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { createHomeworkSchema, HOMEWORK_TYPE_VALUES } from '@school/shared';
+import type { CreateHomeworkDto } from '@school/shared';
 import {
   Button,
   Input,
@@ -15,14 +17,6 @@ import {
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
-
-import { createHomeworkSchema, HOMEWORK_TYPE_VALUES } from '@school/shared';
-
-import type { z } from 'zod';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type CreateHomeworkDto = z.infer<typeof createHomeworkSchema>;
 
 interface ClassOption {
   id: string;

@@ -69,6 +69,8 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/gradebook',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
+  // Homework — parent portal (must precede /homework so it matches first)
+  { prefix: '/homework/parent', roles: ['parent'] },
   {
     prefix: '/homework',
     roles: [...ADMIN_ROLES, 'teacher'],

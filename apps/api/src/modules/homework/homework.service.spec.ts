@@ -56,9 +56,20 @@ function buildMockPrisma() {
     homeworkAttachment: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     homeworkRecurrenceRule: {
       findFirst: jest.fn(),
+    },
+    tenant: {
+      findUnique: jest.fn().mockResolvedValue({
+        settings: {
+          homework: {
+            max_attachment_size_mb: 10,
+            max_attachments_per_assignment: 5,
+          },
+        },
+      }),
     },
   };
 }

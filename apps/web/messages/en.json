@@ -112,7 +112,8 @@
     "regulatorySubmissions": "Submissions",
     "regulatoryTransfers": "Transfers",
     "regulatoryTusla": "Tusla",
-    "diary": "Diary"
+    "diary": "Diary",
+    "homework": "Homework"
   },
   "auth": {
     "login": "Log in",
@@ -7690,7 +7691,18 @@
       "averageLoad": "Average Load",
       "overloadedDays": "Overloaded Days",
       "insights": "Insights",
-      "wednesdayOverload": "Wednesday appears overloaded"
+      "wednesdayOverload": "Wednesday appears overloaded",
+      "totalAssignments": "Total Assignments",
+      "dailyLoadByYearGroup": "Daily Load by Year Group",
+      "weeklyLoadOverview": "Weekly Load Overview",
+      "yearGroup": "Year Group",
+      "noDataAvailable": "No data available",
+      "loadDistributionByDay": "Load Distribution by Day",
+      "load": "Load",
+      "severityCritical": "Critical",
+      "severityHigh": "High",
+      "severityMedium": "Medium",
+      "insightText": "{yearGroup} has {load} assignments on {day}"
     },
     "status": {
       "draft": "Draft",
@@ -7705,10 +7717,66 @@
       "project_work": "Project Work",
       "online_activity": "Online Activity"
     },
+    "filterNotStarted": "Not Started",
+    "filterInProgress": "In Progress",
+    "filterCompleted": "Completed",
+    "studentName": "Student Name",
+    "markAllCompleted": "Mark All Completed",
+    "homeworkType": "Homework Type",
+    "academicYear": "Academic Year",
+    "academicPeriod": "Academic Period",
     "dashboardCard": {
       "title": "Homework Today",
       "viewAll": "View All",
       "unverified": "Unverified Completions"
+    },
+    "parent": {
+      "title": "Homework",
+      "description": "View and track your children's homework assignments",
+      "today": "Today's Homework",
+      "overdue": "Overdue",
+      "thisWeek": "This Week",
+      "noHomework": "No homework to show",
+      "noOverdue": "No overdue homework — great job!",
+      "markAsDone": "Mark as done",
+      "markAsDoneConfirm": "Are you sure you want to mark this as done?",
+      "markAsDoneSuccess": "Marked as complete",
+      "dueDate": "Due",
+      "daysOverdue": "days overdue",
+      "dayOverdue": "day overdue",
+      "completed": "Completed",
+      "inProgress": "In Progress",
+      "notStarted": "Not Started",
+      "detail": {
+        "title": "Homework History",
+        "totalAssigned": "Total Assigned",
+        "completed": "Completed",
+        "inProgress": "In Progress",
+        "overdue": "Overdue",
+        "completionRate": "Completion Rate",
+        "filterBySubject": "Filter by subject",
+        "filterByType": "Filter by type",
+        "filterByStatus": "Filter by status",
+        "calendarView": "Calendar",
+        "listView": "List",
+        "allSubjects": "All Subjects",
+        "allTypes": "All Types",
+        "allStatuses": "All Statuses"
+      },
+      "notes": {
+        "title": "Parent-Teacher Notes",
+        "description": "Communication notes between you and your child's teachers",
+        "newNote": "New Note",
+        "send": "Send",
+        "placeholder": "Write a note to the teacher...",
+        "acknowledge": "Acknowledge",
+        "acknowledging": "Acknowledging...",
+        "acknowledged": "Acknowledged",
+        "from": "From",
+        "noNotes": "No notes yet",
+        "noteSent": "Note sent successfully",
+        "acknowledgeSuccess": "Note acknowledged"
+      }
     }
   }
 }

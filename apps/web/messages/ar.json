@@ -112,7 +112,8 @@
     "regulatorySubmissions": "التقديمات",
     "regulatoryTransfers": "التحويلات",
     "regulatoryTusla": "Tusla",
-    "diary": "المفكرة"
+    "diary": "المفكرة",
+    "homework": "الواجبات المنزلية"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -7621,8 +7622,6 @@
       "save_failed": "فشل حفظ الإعدادات",
       "action_failed": "فشلت العملية"
     }
-      "action_failed": "فشلت العملية"
-    }
   },
   "homework": {
     "title": "الواجبات المنزلية",
@@ -7691,7 +7690,18 @@
       "averageLoad": "متوسط الحمل",
       "overloadedDays": "الأيام المثقلة",
       "insights": "الرؤى",
-      "wednesdayOverload": "يبدو أن الأربعاء مثقل"
+      "wednesdayOverload": "يبدو أن الأربعاء مثقل",
+      "totalAssignments": "إجمالي الواجبات",
+      "dailyLoadByYearGroup": "الحمل اليومي حسب المرحلة",
+      "weeklyLoadOverview": "نظرة عامة على الحمل الأسبوعي",
+      "yearGroup": "المرحلة",
+      "noDataAvailable": "لا توجد بيانات متاحة",
+      "loadDistributionByDay": "توزيع الحمل حسب اليوم",
+      "load": "الحمل",
+      "severityCritical": "حرج",
+      "severityHigh": "عالي",
+      "severityMedium": "متوسط",
+      "insightText": "{yearGroup} لديها {load} واجبات في {day}"
     },
     "status": {
       "draft": "مسودة",
@@ -7706,10 +7716,66 @@
       "project_work": "عمل مشروع",
       "online_activity": "نشاط عبر الإنترنت"
     },
+    "filterNotStarted": "لم يبدأ",
+    "filterInProgress": "قيد التنفيذ",
+    "filterCompleted": "مكتمل",
+    "studentName": "اسم الطالب",
+    "markAllCompleted": "تحديد الكل كمنجز",
+    "homeworkType": "نوع الواجب",
+    "academicYear": "السنة الدراسية",
+    "academicPeriod": "الفترة الأكاديمية",
     "dashboardCard": {
       "title": "واجبات اليوم",
       "viewAll": "عرض الكل",
       "unverified": "إنجازات بانتظار التحقق"
+    },
+    "parent": {
+      "title": "الواجبات المنزلية",
+      "description": "عرض ومتابعة واجبات أطفالك المنزلية",
+      "today": "واجبات اليوم",
+      "overdue": "متأخرة",
+      "thisWeek": "هذا الأسبوع",
+      "noHomework": "لا توجد واجبات للعرض",
+      "noOverdue": "لا توجد واجبات متأخرة — عمل رائع!",
+      "markAsDone": "تحديد كمنجز",
+      "markAsDoneConfirm": "هل أنت متأكد أنك تريد تحديد هذا كمنجز؟",
+      "markAsDoneSuccess": "تم تحديده كمنجز",
+      "dueDate": "الاستحقاق",
+      "daysOverdue": "أيام تأخير",
+      "dayOverdue": "يوم تأخير",
+      "completed": "مكتمل",
+      "inProgress": "قيد التنفيذ",
+      "notStarted": "لم يبدأ",
+      "detail": {
+        "title": "سجل الواجبات",
+        "totalAssigned": "إجمالي المعين",
+        "completed": "مكتمل",
+        "inProgress": "قيد التنفيذ",
+        "overdue": "متأخر",
+        "completionRate": "معدل الإنجاز",
+        "filterBySubject": "تصفية حسب المادة",
+        "filterByType": "تصفية حسب النوع",
+        "filterByStatus": "تصفية حسب الحالة",
+        "calendarView": "تقويم",
+        "listView": "قائمة",
+        "allSubjects": "جميع المواد",
+        "allTypes": "جميع الأنواع",
+        "allStatuses": "جميع الحالات"
+      },
+      "notes": {
+        "title": "ملاحظات ولي الأمر والمعلم",
+        "description": "ملاحظات التواصل بينك وبين معلمي طفلك",
+        "newNote": "ملاحظة جديدة",
+        "send": "إرسال",
+        "placeholder": "اكتب ملاحظة للمعلم...",
+        "acknowledge": "تأكيد",
+        "acknowledging": "جاري التأكيد...",
+        "acknowledged": "تم التأكيد",
+        "from": "من",
+        "noNotes": "لا توجد ملاحظات بعد",
+        "noteSent": "تم إرسال الملاحظة بنجاح",
+        "acknowledgeSuccess": "تم تأكيد الملاحظة"
+      }
     }
   }
 }

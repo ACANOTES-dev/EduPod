@@ -304,20 +304,26 @@ Known Prisma-direct consumers:
 
 ---
 
-## HomeworkModule (Phase A — Foundation Only)
+### HomeworkModule
+**Location**: `apps/api/src/modules/homework/homework.module.ts`
+**Registered in**: `apps/api/src/app.module.ts`
 
-**Location**: Not yet created (Phase B will create `apps/api/src/modules/homework/homework.module.ts`)
+**Exports**: HomeworkService, HomeworkCompletionsService, HomeworkDiaryService, HomeworkAnalyticsService, HomeworkParentService
 
-- **Tables**: `homework_assignments`, `homework_attachments`, `homework_completions`, `homework_recurrence_rules`, `diary_notes`, `diary_parent_notes`
-- **Shared types**: `packages/shared/src/schemas/homework.schema.ts`, `types/homework.ts`, `constants/homework-status.ts`, `constants/homework-type.ts`, `constants/completion-status.ts`
-- **Queue**: `HOMEWORK` in `apps/worker/src/base/queue.constants.ts`
-- **Permissions**: `homework.view`, `homework.manage`, `homework.mark_own`, `homework.view_diary`, `homework.write_diary`, `homework.view_analytics`, `parent.homework`
-- **Tenant module key**: `homework` in `MODULE_KEYS`
-- **Tenant settings section**: `homework` in `tenantSettingsSchema`
-- **Reverse blast radius** (changes to these modules will affect homework):
-  - `classes` / `class_enrolments`: homework is scoped to classes
-  - `students`: homework completions reference students
-  - `subjects`: homework can be assigned to a subject
-  - `academic_years` / `academic_periods`: homework is scoped to academic year/period
-  - `users`: homework assigned_by and completion verified_by reference users
-  - `parents`: diary parent notes reference parents
+**Controllers** (5): HomeworkController (17 endpoints), HomeworkCompletionsController (5), HomeworkDiaryController (6), HomeworkParentController (6), HomeworkAnalyticsController (10) — 44 total
+
+**Tables**: homework_assignments, homework_attachments, homework_completions, homework_recurrence_rules, diary_notes, diary_parent_notes
+
+**Queue**: `homework` (4 jobs: overdue-detection, generate-recurring, digest-homework, completion-reminder)
+
+**Permissions**: homework.view, homework.manage, homework.mark_own, homework.view_diary, homework.write_diary, homework.view_analytics, parent.homework
+
+**Tenant Module Key**: `homework` in tenant_settings
+
+**Imports**: AuthModule, S3Module, BullModule
+
+**Reverse Blast Radius**:
+- Changes to `classes`, `students`, `subjects`, `academic_years`, `academic_periods` schema affect homework queries
+- Changes to `student_parents` affect parent portal visibility
+- Changes to `tenant_settings` schema affect homework settings
+- Communications queue changes affect digest/reminder notifications

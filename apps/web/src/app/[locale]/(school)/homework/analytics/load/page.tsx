@@ -1,20 +1,18 @@
 'use client';
 
+import { EmptyState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatCard } from '@school/ui';
+import { AlertTriangle, Calendar, Filter } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-
-import { EmptyState, Select, StatCard } from '@school/ui';
-import { AlertTriangle, Calendar, Filter } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -36,23 +34,6 @@ interface LoadInsight {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const ARABIC_DAYS = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
-
-const HEAT_COLORS = {
-  low: '#dcfce7', // green-100
-  medium: '#fef3c7', // yellow-100
-  high: '#fee2e2', // red-100
-  critical: '#fecaca', // red-200
-};
-
-const HEAT_TEXT_COLORS = {
-  low: '#166534', // green-800
-  medium: '#92400e', // yellow-800
-  high: '#991b1b', // red-800
-  critical: '#7f1d1d', // red-900
-};
-
 export default function HomeworkLoadHeatmapPage() {
   const t = useTranslations('homework');
   const [loading, setLoading] = React.useState(true);
@@ -67,14 +48,15 @@ export default function HomeworkLoadHeatmapPage() {
         silent: true,
       });
 
-      if (res.data) {
-        setHeatmapData(res.data);
+      const heatmap = res.data;
+      if (heatmap) {
+        setHeatmapData(heatmap);
 
         // Generate insights from data
         const newInsights: LoadInsight[] = [];
-        res.data.year_groups.forEach((yg, ygIndex) => {
-          res.data.days.forEach((day, dayIndex) => {
-            const load = res.data.data[ygIndex][dayIndex];
+        heatmap.year_groups.forEach((yg, ygIndex) => {
+          heatmap.days.forEach((day, dayIndex) => {
+            const load = heatmap.data[ygIndex]?.[dayIndex] ?? 0;
             if (load > 3) {
               newInsights.push({
                 day,
@@ -89,27 +71,8 @@ export default function HomeworkLoadHeatmapPage() {
       }
     } catch {
       console.error('[LoadHeatmap] Failed to fetch data');
-      // Generate mock data for demonstration
-      const mockData: HeatmapData = {
-        days: DAYS,
-        year_groups: ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6'],
-        data: [
-          [2, 3, 5, 2, 1], // Year 1
-          [3, 4, 6, 3, 2], // Year 2
-          [2, 3, 4, 3, 2], // Year 3
-          [4, 3, 5, 4, 3], // Year 4
-          [3, 4, 7, 3, 2], // Year 5 - Wednesday overloaded
-          [2, 3, 4, 2, 1], // Year 6
-        ],
-      };
-      setHeatmapData(mockData);
-      setInsights([
-        { day: 'Wed', year_group: 'Year 5', load: 7, severity: 'critical' },
-        { day: 'Wed', year_group: 'Year 2', load: 6, severity: 'high' },
-        { day: 'Wed', year_group: 'Year 4', load: 5, severity: 'high' },
-        { day: 'Wed', year_group: 'Year 1', load: 5, severity: 'medium' },
-        { day: 'Thu', year_group: 'Year 4', load: 4, severity: 'medium' },
-      ]);
+      setHeatmapData(null);
+      setInsights([]);
     } finally {
       setLoading(false);
     }
@@ -125,7 +88,7 @@ export default function HomeworkLoadHeatmapPage() {
     return heatmapData.days.map((day, dayIndex) => {
       const entry: Record<string, number | string> = { day };
       heatmapData.year_groups.forEach((yg, ygIndex) => {
-        entry[yg] = heatmapData.data[ygIndex][dayIndex];
+        entry[yg] = heatmapData.data[ygIndex]?.[dayIndex] ?? 0;
       });
       return entry;
     });
@@ -157,20 +120,6 @@ export default function HomeworkLoadHeatmapPage() {
     return count;
   }, [heatmapData]);
 
-  const getSeverityColor = (load: number) => {
-    if (load > 5) return 'bg-red-500';
-    if (load > 4) return 'bg-orange-500';
-    if (load > 3) return 'bg-yellow-500';
-    return 'bg-green-500';
-  };
-
-  const getSeverityText = (load: number) => {
-    if (load > 5) return 'text-red-600';
-    if (load > 4) return 'text-orange-600';
-    if (load > 3) return 'text-yellow-600';
-    return 'text-green-600';
-  };
-
   return (
     <div className="space-y-6">
       <PageHeader title={t('analytics.loadHeatmap')} />
@@ -179,13 +128,12 @@ export default function HomeworkLoadHeatmapPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Filter className="h-4 w-4 text-text-tertiary" />
-          <Select
-            value={viewMode}
-            onChange={(e) => setViewMode(e.target.value as 'daily' | 'weekly')}
-            className="w-32"
-          >
-            <option value="daily">{t('analytics.daily')}</option>
-            <option value="weekly">{t('analytics.weekly')}</option>
+          <Select value={viewMode} onValueChange={(v) => setViewMode(v as 'daily' | 'weekly')}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">{t('analytics.daily')}</SelectItem>
+              <SelectItem value="weekly">{t('analytics.weekly')}</SelectItem>
+            </SelectContent>
           </Select>
         </div>
       </div>
@@ -195,16 +143,14 @@ export default function HomeworkLoadHeatmapPage() {
         <StatCard
           label={t('analytics.averageLoad')}
           value={averageLoad.toString()}
-          icon={<Calendar className="h-4 w-4" />}
         />
         <StatCard
           label={t('analytics.overloadedDays')}
           value={overloadedDays.toString()}
-          trend={overloadedDays > 3 ? 'down' : undefined}
-          icon={<AlertTriangle className="h-4 w-4 text-yellow-500" />}
+          trend={overloadedDays > 3 ? { direction: 'down', label: `${overloadedDays} overloaded` } : undefined}
         />
         <StatCard
-          label="Total Assignments"
+          label={t('analytics.totalAssignments')}
           value={
             heatmapData
               ? heatmapData.data
@@ -219,7 +165,7 @@ export default function HomeworkLoadHeatmapPage() {
       {/* Heatmap Grid */}
       <div className="rounded-2xl bg-surface p-6">
         <h3 className="mb-4 text-base font-semibold text-text-primary">
-          {viewMode === 'daily' ? 'Daily Load by Year Group' : 'Weekly Load Overview'}
+          {viewMode === 'daily' ? t('analytics.dailyLoadByYearGroup') : t('analytics.weeklyLoadOverview')}
         </h3>
 
         {loading ? (
@@ -232,7 +178,7 @@ export default function HomeworkLoadHeatmapPage() {
                 <thead>
                   <tr>
                     <th className="py-2 pe-4 text-start text-sm font-medium text-text-tertiary">
-                      Year Group
+                      {t('analytics.yearGroup')}
                     </th>
                     {heatmapData.days.map((day) => (
                       <th
@@ -249,7 +195,7 @@ export default function HomeworkLoadHeatmapPage() {
                     <tr key={yg} className="border-b border-border/50">
                       <td className="py-3 pe-4 text-sm font-medium text-text-primary">{yg}</td>
                       {heatmapData.days.map((day, dayIndex) => {
-                        const load = heatmapData.data[ygIndex][dayIndex];
+                        const load = heatmapData.data[ygIndex]?.[dayIndex] ?? 0;
                         return (
                           <td key={`${yg}-${day}`} className="py-2 px-2">
                             <div
@@ -278,7 +224,7 @@ export default function HomeworkLoadHeatmapPage() {
 
             {/* Legend */}
             <div className="flex flex-wrap items-center gap-4 text-xs text-text-secondary">
-              <span>Load:</span>
+              <span>{t('analytics.load')}:</span>
               <div className="flex items-center gap-1">
                 <div className="h-4 w-4 rounded bg-surface-secondary" />
                 <span>0-1</span>
@@ -302,7 +248,7 @@ export default function HomeworkLoadHeatmapPage() {
             </div>
           </div>
         ) : (
-          <EmptyState icon={Calendar} title="No data available" description="" />
+          <EmptyState icon={Calendar} title={t('analytics.noDataAvailable')} description="" />
         )}
       </div>
 
@@ -336,8 +282,11 @@ export default function HomeworkLoadHeatmapPage() {
                     }`}
                   />
                   <span className="text-sm text-text-primary">
-                    <strong>{insight.year_group}</strong> has {insight.load} assignments on{' '}
-                    <strong>{insight.day}</strong>
+                    {t('analytics.insightText', {
+                      yearGroup: insight.year_group,
+                      load: insight.load,
+                      day: insight.day,
+                    })}
                   </span>
                 </div>
                 <span
@@ -350,10 +299,10 @@ export default function HomeworkLoadHeatmapPage() {
                   }`}
                 >
                   {insight.severity === 'critical'
-                    ? 'Critical'
+                    ? t('analytics.severityCritical')
                     : insight.severity === 'high'
-                      ? 'High'
-                      : 'Medium'}
+                      ? t('analytics.severityHigh')
+                      : t('analytics.severityMedium')}
                 </span>
               </div>
             ))}
@@ -370,7 +319,7 @@ export default function HomeworkLoadHeatmapPage() {
       {heatmapData && (
         <div className="rounded-2xl bg-surface p-6">
           <h3 className="mb-4 text-base font-semibold text-text-primary">
-            Load Distribution by Day
+            {t('analytics.loadDistributionByDay')}
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

@@ -1,5 +1,6 @@
 'use client';
 
+import type { CreateHomeworkDto } from '@school/shared';
 import { toast } from '@school/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -9,13 +10,6 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { HomeworkQuickForm } from '../_components/homework-quick-form';
-
-import type { z } from 'zod';
-import type { createHomeworkSchema } from '@school/shared';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type CreateHomeworkDto = z.infer<typeof createHomeworkSchema>;
 
 interface SelectOption {
   id: string;

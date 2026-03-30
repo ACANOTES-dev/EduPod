@@ -21,6 +21,8 @@ import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.proc
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
+import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../processors/homework/completion-reminder.processor';
+import { HOMEWORK_DIGEST_JOB } from '../processors/homework/digest-homework.processor';
 import { HOMEWORK_GENERATE_RECURRING_JOB } from '../processors/homework/generate-recurring.processor';
 import { HOMEWORK_OVERDUE_DETECTION_JOB } from '../processors/homework/overdue-detection.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
@@ -473,5 +475,35 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${HOMEWORK_OVERDUE_DETECTION_JOB} (daily 06:00 UTC)`);
+
+    // ── homework:digest-homework ────────────────────────────────────────
+    // Runs daily at 07:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Sends daily homework digest notifications to parents.
+    await this.homeworkQueue.add(
+      HOMEWORK_DIGEST_JOB,
+      {},
+      {
+        repeat: { pattern: '0 7 * * *' },
+        jobId: `cron:${HOMEWORK_DIGEST_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${HOMEWORK_DIGEST_JOB} (daily 07:00 UTC)`);
+
+    // ── homework:completion-reminder ────────────────────────────────────
+    // Runs daily at 15:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Reminds students of upcoming homework deadlines.
+    await this.homeworkQueue.add(
+      HOMEWORK_COMPLETION_REMINDER_JOB,
+      {},
+      {
+        repeat: { pattern: '0 15 * * *' },
+        jobId: `cron:${HOMEWORK_COMPLETION_REMINDER_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${HOMEWORK_COMPLETION_REMINDER_JOB} (daily 15:00 UTC)`);
   }
 }

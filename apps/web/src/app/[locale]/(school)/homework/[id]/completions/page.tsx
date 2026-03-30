@@ -10,7 +10,6 @@ import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 import { CompletionGrid } from '../../_components/completion-grid';
-
 import type { StudentCompletion } from '../../_components/completion-grid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,13 +26,15 @@ interface CompletionRecord {
   status: 'not_started' | 'in_progress' | 'completed';
   notes?: string;
   points_awarded?: number;
+  verified?: boolean;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CompletionsPage() {
   const t = useTranslations('homework');
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
 
   const [hw, setHw] = React.useState<HomeworkBrief | null>(null);
   const [records, setRecords] = React.useState<CompletionRecord[]>([]);
@@ -72,13 +73,14 @@ export default function CompletionsPage() {
           status: (local?.status as StudentCompletion['status']) ?? r.status,
           notes: local?.notes ?? r.notes ?? '',
           points_awarded: local?.points_awarded !== undefined ? local.points_awarded : (r.points_awarded ?? null),
+          verified: local?.verified !== undefined ? (local.verified as boolean) : (r.verified ?? false),
         };
       }),
     [records, changes],
   );
 
   const handleUpdate = React.useCallback(
-    (studentId: string, field: 'status' | 'notes' | 'points_awarded', value: string | number | null) => {
+    (studentId: string, field: 'status' | 'notes' | 'points_awarded' | 'verified', value: string | number | boolean | null) => {
       setChanges((prev) => {
         const next = new Map(prev);
         const existing = next.get(studentId) ?? {};
@@ -111,6 +113,7 @@ export default function CompletionsPage() {
           status: (c.status as string) ?? original?.status ?? 'not_started',
           notes: c.notes ?? original?.notes,
           points_awarded: c.points_awarded !== undefined ? c.points_awarded : original?.points_awarded,
+          verified: c.verified !== undefined ? c.verified : original?.verified,
         };
       });
       await apiClient(`/api/v1/homework/${id}/completions/bulk`, {

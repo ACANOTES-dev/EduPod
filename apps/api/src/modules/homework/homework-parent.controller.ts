@@ -36,7 +36,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework
   @Get()
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async listAll(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -48,7 +48,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework/today
   @Get('today')
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async listToday(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -58,7 +58,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework/overdue
   @Get('overdue')
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async listOverdue(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -68,7 +68,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework/week
   @Get('week')
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async listWeek(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -78,7 +78,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework/:studentId/summary
   @Get(':studentId/summary')
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async studentSummary(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
@@ -89,7 +89,7 @@ export class HomeworkParentController {
 
   // GET /v1/parent/homework/:studentId/diary
   @Get(':studentId/diary')
-  @RequiresPermission('parent.view_homework')
+  @RequiresPermission('parent.homework')
   async studentDiary(
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,

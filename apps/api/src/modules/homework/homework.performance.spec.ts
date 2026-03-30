@@ -47,10 +47,11 @@ describe('Homework Performance Load Tests', () => {
       const student = await prisma.student.create({
         data: {
           tenant_id: TENANT_ID,
+          household_id: TENANT_ID,
           first_name: `Student${i}`,
           last_name: `Test${i}`,
           student_number: `STU${i.toString().padStart(6, '0')}`,
-          status: 'active',
+          status: 'active' as const,
           date_of_birth: new Date('2010-01-01'),
         },
       });
@@ -62,8 +63,8 @@ describe('Homework Performance Load Tests', () => {
           tenant_id: TENANT_ID,
           student_id: student.id,
           class_id: CLASS_ID,
-          academic_year_id: ACADEMIC_YEAR_ID,
-          status: 'active',
+          status: 'active' as const,
+          start_date: new Date('2026-01-01'),
         },
       });
     }
@@ -90,7 +91,7 @@ describe('Homework Performance Load Tests', () => {
         tenant_id: TENANT_ID,
         homework_assignment_id: assignment.id,
         student_id: studentId,
-        status: idx < NUM_STUDENTS * 0.7 ? 'completed' : 'not_started',
+        status: idx < NUM_STUDENTS * 0.7 ? 'completed' as const : 'not_started' as const,
         completed_at: idx < NUM_STUDENTS * 0.7 ? new Date() : null,
       }));
 
@@ -112,9 +113,7 @@ describe('Homework Performance Load Tests', () => {
     it('should return completion rates within acceptable time', async () => {
       const startTime = Date.now();
 
-      const result = await analyticsService.getCompletionRatesByClass(TENANT_ID, {
-        class_id: CLASS_ID,
-      });
+      const result = await analyticsService.completionRates(TENANT_ID, {});
 
       const duration = Date.now() - startTime;
 
@@ -126,17 +125,16 @@ describe('Homework Performance Load Tests', () => {
     it('should handle analytics for large date ranges', async () => {
       const startTime = Date.now();
 
-      const result = await analyticsService.getCompletionTrends(TENANT_ID, {
-        class_id: CLASS_ID,
-        start_date: '2026-04-01',
-        end_date: '2026-04-30',
+      const result = await analyticsService.classPatterns(TENANT_ID, CLASS_ID, {
+        date_from: '2026-04-01',
+        date_to: '2026-04-30',
       });
 
       const duration = Date.now() - startTime;
 
       expect(result).toBeDefined();
       expect(duration).toBeLessThan(MAX_RESPONSE_TIME_MS * 2);
-      console.log(`Trends query took ${duration}ms`);
+      console.log(`Class patterns query took ${duration}ms`);
     });
   });
 
@@ -144,7 +142,7 @@ describe('Homework Performance Load Tests', () => {
     it('should calculate load distribution efficiently', async () => {
       const startTime = Date.now();
 
-      const result = await analyticsService.getLoadAnalysis(TENANT_ID, {
+      const result = await analyticsService.loadAnalysis(TENANT_ID, {
         academic_year_id: ACADEMIC_YEAR_ID,
       });
 
@@ -160,10 +158,7 @@ describe('Homework Performance Load Tests', () => {
     it('should identify non-completers quickly', async () => {
       const startTime = Date.now();
 
-      const result = await analyticsService.getNonCompleters(TENANT_ID, {
-        class_id: CLASS_ID,
-        threshold_percentage: 50,
-      });
+      const result = await analyticsService.nonCompleters(TENANT_ID, {});
 
       const duration = Date.now() - startTime;
 

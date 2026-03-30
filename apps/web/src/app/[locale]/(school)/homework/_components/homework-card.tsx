@@ -24,10 +24,10 @@ interface HomeworkCardProps {
 
 // ─── Status mapping ───────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<string, 'warning' | 'success' | 'default'> = {
+const STATUS_MAP: Record<string, 'warning' | 'success' | 'neutral'> = {
   draft: 'warning',
   published: 'success',
-  archived: 'default',
+  archived: 'neutral',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ export function HomeworkCard({
             {subject_name ? ` · ${subject_name}` : ''}
           </p>
         </div>
-        <StatusBadge status={STATUS_MAP[status] ?? 'default'}>{status}</StatusBadge>
+        <StatusBadge status={STATUS_MAP[status] ?? 'neutral'}>{status}</StatusBadge>
       </div>
       <div className="mt-3 flex items-center gap-3">
         <HomeworkTypeBadge type={homework_type} />

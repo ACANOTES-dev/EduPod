@@ -43,7 +43,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/completion-rates
   @Get('completion-rates')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getCompletionRates(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
@@ -56,7 +56,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/load
   @Get('load')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getLoadAnalysis(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(loadQuerySchema)) query: LoadQuery,
@@ -66,7 +66,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/load/daily
   @Get('load/daily')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getDailyLoadHeatmap(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
@@ -79,7 +79,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/non-completers
   @Get('non-completers')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getNonCompleters(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
@@ -92,7 +92,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/correlation
   @Get('correlation')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getCorrelation(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Query(new ZodValidationPipe(analyticsQuerySchema)) query: AnalyticsQuery,
@@ -105,7 +105,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/student/:studentId
   @Get('student/:studentId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getStudentTrends(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('studentId', ParseUUIDPipe) studentId: string,
@@ -120,7 +120,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/class/:classId
   @Get('class/:classId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getClassPatterns(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('classId', ParseUUIDPipe) classId: string,
@@ -135,7 +135,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/subject/:subjectId
   @Get('subject/:subjectId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getSubjectTrends(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('subjectId', ParseUUIDPipe) subjectId: string,
@@ -150,7 +150,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/teacher/:staffId
   @Get('teacher/:staffId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getTeacherPatterns(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('staffId', ParseUUIDPipe) staffId: string,
@@ -165,7 +165,7 @@ export class HomeworkAnalyticsController {
 
   // GET /v1/homework/analytics/year-group/:ygId
   @Get('year-group/:ygId')
-  @RequiresPermission('homework.view')
+  @RequiresPermission('homework.view_analytics')
   async getYearGroupOverview(
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('ygId', ParseUUIDPipe) ygId: string,

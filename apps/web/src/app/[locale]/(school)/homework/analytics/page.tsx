@@ -1,5 +1,9 @@
 'use client';
 
+import { EmptyState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatCard } from '@school/ui';
+import { BookOpen, Filter, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
 import {
   Bar,
   BarChart,
@@ -12,11 +16,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-
-import { EmptyState, Select, StatCard } from '@school/ui';
-import { BookOpen, Filter, Users } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -150,17 +149,16 @@ export default function HomeworkAnalyticsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3">
         <Filter className="h-4 w-4 text-text-tertiary" />
-        <Select
-          value={selectedClass}
-          onChange={(e) => setSelectedClass(e.target.value)}
-          className="w-48"
-        >
-          <option value="">{t('filterAll')}</option>
-          {classes.map((cls) => (
-            <option key={cls.id} value={cls.id}>
-              {cls.name}
-            </option>
-          ))}
+        <Select value={selectedClass || 'all'} onValueChange={(v) => setSelectedClass(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-48"><SelectValue placeholder={t('filterAll')} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('filterAll')}</SelectItem>
+            {classes.map((cls) => (
+              <SelectItem key={cls.id} value={cls.id}>
+                {cls.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 
@@ -169,7 +167,7 @@ export default function HomeworkAnalyticsPage() {
         <StatCard
           label={t('analytics.completionRate')}
           value={`${overallRate}%`}
-          trend={overallRate > 80 ? 'up' : overallRate < 60 ? 'down' : undefined}
+          trend={overallRate > 80 ? { direction: 'up', label: `${overallRate}%` } : overallRate < 60 ? { direction: 'down', label: `${overallRate}%` } : undefined}
         />
         <StatCard label={t('analytics.nonCompleters')} value={nonCompleters.length.toString()} />
         <StatCard label={t('thisWeek')} value={completionData.length.toString()} />
@@ -192,7 +190,7 @@ export default function HomeworkAnalyticsPage() {
                   <XAxis type="number" domain={[0, 100]} unit="%" />
                   <YAxis type="category" dataKey="name" width={100} />
                   <Tooltip
-                    formatter={(value: number) => [`${value}%`, t('analytics.completionRate')]}
+                    formatter={(value: unknown) => [`${value}%`, t('completionRate')]}
                   />
                   <Bar dataKey="rate" fill="#22c55e" radius={[0, 4, 4, 0]}>
                     {byClass.map((_, index) => (
@@ -226,14 +224,14 @@ export default function HomeworkAnalyticsPage() {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={80}
-                    label={({ name, rate }) => `${name}: ${Math.round(rate)}%`}
+                    label={false}
                   >
                     {bySubject.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [`${value}%`, t('analytics.completionRate')]}
+                    formatter={(value: unknown) => [`${value}%`, t('completionRate')]}
                   />
                 </PieChart>
               </ResponsiveContainer>

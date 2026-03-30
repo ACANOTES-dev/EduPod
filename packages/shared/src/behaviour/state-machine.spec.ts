@@ -1,5 +1,4 @@
 import type { IncidentStatus } from './enums';
-
 import {
   getValidTransitions,
   isTerminalStatus,

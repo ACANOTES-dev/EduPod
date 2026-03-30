@@ -1,5 +1,4 @@
 import type { BehaviourTaskStatus } from './enums';
-
 import {
   getValidTaskTransitions,
   isTerminalTaskStatus,

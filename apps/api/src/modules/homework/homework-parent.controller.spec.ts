@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 
+import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
@@ -180,6 +181,67 @@ describe('HomeworkParentController', () => {
         STUDENT_ID,
         query,
       );
+    });
+  });
+
+  // ─── Permission guard metadata ──────────────────────────────────────────────
+
+  describe('Permission guards', () => {
+    it('should have AuthGuard and PermissionGuard applied at class level', () => {
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        HomeworkParentController,
+      );
+      expect(guards).toBeDefined();
+      expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should require parent.homework on listAll', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.listAll,
+      );
+      expect(permission).toBe('parent.homework');
+    });
+
+    it('should require parent.homework on listToday', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.listToday,
+      );
+      expect(permission).toBe('parent.homework');
+    });
+
+    it('should require parent.homework on listOverdue', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.listOverdue,
+      );
+      expect(permission).toBe('parent.homework');
+    });
+
+    it('should require parent.homework on listWeek', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.listWeek,
+      );
+      expect(permission).toBe('parent.homework');
+    });
+
+    it('should require parent.homework on studentSummary', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.studentSummary,
+      );
+      expect(permission).toBe('parent.homework');
+    });
+
+    it('should require parent.homework on studentDiary', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkParentController.prototype.studentDiary,
+      );
+      expect(permission).toBe('parent.homework');
     });
   });
 });

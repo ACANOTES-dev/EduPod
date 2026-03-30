@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -65,6 +66,19 @@ export class HomeworkCompletionsService {
     userId: string,
     dto: MarkCompletionDto,
   ) {
+    // Check if self-reporting is enabled for this tenant
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { settings: true },
+    });
+    const hwSettings = (tenant?.settings as Record<string, unknown>)?.homework as Record<string, unknown> | undefined;
+    if (hwSettings?.allow_student_self_report === false) {
+      throw new ForbiddenException({
+        code: 'SELF_REPORT_DISABLED',
+        message: 'Student self-reporting is disabled for this school',
+      });
+    }
+
     const assignment = await this.findPublishedAssignment(tenantId, homeworkId);
 
     // Resolve student from user via parent → student_parents → student → class_enrolments
@@ -219,6 +233,27 @@ export class HomeworkCompletionsService {
 
     const results = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
+
+      // Validate all students belong to the assignment's class
+      const enrolledStudents = await db.classEnrolment.findMany({
+        where: {
+          tenant_id: tenantId,
+          class_id: assignment.class_id,
+          student_id: { in: dto.completions.map((c) => c.student_id) },
+          status: 'active',
+        },
+        select: { student_id: true },
+      });
+      const enrolledIds = new Set(enrolledStudents.map((e) => e.student_id));
+      const invalidIds = dto.completions
+        .filter((c) => !enrolledIds.has(c.student_id))
+        .map((c) => c.student_id);
+      if (invalidIds.length > 0) {
+        throw new BadRequestException({
+          code: 'STUDENTS_NOT_IN_CLASS',
+          message: `Students not enrolled in this class: ${invalidIds.join(', ')}`,
+        });
+      }
 
       const upserted = await Promise.all(
         dto.completions.map((entry) =>

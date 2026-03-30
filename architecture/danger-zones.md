@@ -522,3 +522,25 @@ The compute-student processor validates `early_warning_configs.is_enabled` and `
 - The daily cron at 01:00 UTC provides a backstop — even if intraday triggers fail, profiles are refreshed nightly
 - BullMQ deduplication via `jobId` is NOT used for compute-student (each trigger is independently valuable), so the same student may be recomputed multiple times in a day — this is safe but wasteful
 - If queue backlog becomes an issue, consider adding a dedup window (e.g., skip if student was recomputed within the last 5 minutes)
+
+---
+
+## DZ-33: Homework — Cross-Module Cron Dispatch
+
+**Risk**: Silent job cessation if cron scheduler configuration changes or homework queue name is modified
+**Location**: `apps/worker/src/cron/cron-scheduler.service.ts`, `apps/worker/src/base/queue.constants.ts`
+
+The `homework:digest-homework` and `homework:completion-reminder` jobs are per-tenant jobs dispatched from the cross-tenant cron scheduler. If the cron scheduler configuration changes or the homework queue name is modified, these jobs will silently stop running. There is no health check to detect missing cron registrations.
+
+**Mitigation**: Verify all 4 homework cron jobs appear in the BullMQ dashboard after each deploy. The `registerHomeworkCronJobs()` method in `CronSchedulerService` is the single source of truth for cron registration.
+
+---
+
+## DZ-34: Homework — Performance Test Method Drift
+
+**Risk**: Test silently breaks if analytics service method names change
+**Location**: `apps/api/src/modules/homework/homework.performance.spec.ts`
+
+`homework.performance.spec.ts` calls analytics service methods by name. If method names change, the test silently breaks (it won't compile). This test requires a real database and is not part of the CI unit test suite.
+
+**Mitigation**: Run `tsc --noEmit` on test files as part of CI to catch method name drift.

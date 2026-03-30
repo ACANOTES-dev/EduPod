@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
+
 import { HomeworkController } from './homework.controller';
 import { HomeworkService } from './homework.service';
 
@@ -296,5 +298,55 @@ describe('HomeworkController', () => {
 
     expect(service.bulkCreate).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
     expect(result).toBe(expected);
+  });
+
+  // ─── Permission guard metadata ──────────────────────────────────────────────
+
+  describe('Permission guards', () => {
+    it('should have AuthGuard and PermissionGuard applied at class level', () => {
+      const guards = Reflect.getMetadata('__guards__', HomeworkController);
+      expect(guards).toBeDefined();
+      expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should require homework.manage on create', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkController.prototype.create,
+      );
+      expect(permission).toBe('homework.manage');
+    });
+
+    it('should require homework.view on findAll', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkController.prototype.findAll,
+      );
+      expect(permission).toBe('homework.view');
+    });
+
+    it('should require homework.view on findOne', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkController.prototype.findOne,
+      );
+      expect(permission).toBe('homework.view');
+    });
+
+    it('should require homework.manage on update', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkController.prototype.update,
+      );
+      expect(permission).toBe('homework.manage');
+    });
+
+    it('should require homework.manage on remove', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRES_PERMISSION_KEY,
+        HomeworkController.prototype.remove,
+      );
+      expect(permission).toBe('homework.manage');
+    });
   });
 });

@@ -36,7 +36,6 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
@@ -240,7 +239,7 @@ function NotifyControllersDialog({
         setIsSubmitting(false);
       }
     },
-    [incidentId, message, onNotified],
+    [affectedTenants, incidentId, message, onNotified],
   );
 
   return (

@@ -146,7 +146,6 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         roles: ADMIN_ROLES,
       },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
-      { icon: BookOpen, labelKey: 'nav.homework', href: '/homework' },
       { icon: CalendarDays, labelKey: 'nav.diary', href: '/diary' },
     ],
   },
@@ -156,6 +155,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: ClipboardCheck, labelKey: 'nav.attendance', href: '/attendance' },
       { icon: ClipboardList, labelKey: 'nav.gradebook', href: '/gradebook' },
+      { icon: BookOpen, labelKey: 'nav.homework', href: '/homework' },
       { icon: FileText, labelKey: 'nav.reportCards', href: '/report-cards', roles: ADMIN_ROLES },
     ],
   },

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, cn, Input } from '@school/ui';
-import { Check, Circle, X } from 'lucide-react';
+import { Check, Circle, ShieldCheck, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
@@ -13,12 +13,13 @@ export interface StudentCompletion {
   status: 'not_started' | 'in_progress' | 'completed';
   notes: string;
   points_awarded: number | null;
+  verified: boolean;
 }
 
 interface CompletionGridProps {
   students: StudentCompletion[];
   maxPoints: number | null;
-  onUpdate: (studentId: string, field: 'status' | 'notes' | 'points_awarded', value: string | number | null) => void;
+  onUpdate: (studentId: string, field: 'status' | 'notes' | 'points_awarded' | 'verified', value: string | number | boolean | null) => void;
   onBulkComplete: () => void;
   disabled?: boolean;
 }
@@ -70,6 +71,7 @@ export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, 
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('status')}</th>
               <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('notes')}</th>
               {maxPoints != null && <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('points')}</th>}
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Verified</th>
             </tr>
           </thead>
           <tbody>
@@ -124,6 +126,21 @@ export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, 
                     />
                   </td>
                 )}
+                <td className="px-4 py-2.5">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onUpdate(s.student_id, 'verified', !s.verified)}
+                    className={cn(
+                      'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+                      s.verified
+                        ? 'bg-primary-200 text-primary-800 dark:bg-primary-800 dark:text-primary-200'
+                        : 'bg-surface-secondary text-text-tertiary hover:bg-surface',
+                    )}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

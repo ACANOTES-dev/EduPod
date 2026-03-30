@@ -56,10 +56,10 @@ interface CompletionPreview {
   points_awarded?: number;
 }
 
-const STATUS_MAP: Record<string, 'warning' | 'success' | 'default'> = {
+const STATUS_MAP: Record<string, 'warning' | 'success' | 'neutral'> = {
   draft: 'warning',
   published: 'success',
-  archived: 'default',
+  archived: 'neutral',
 };
 
 const ATTACH_ICON: Record<string, React.ReactNode> = {
@@ -72,7 +72,8 @@ const ATTACH_ICON: Record<string, React.ReactNode> = {
 
 export default function HomeworkDetailPage() {
   const t = useTranslations('homework');
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? '';
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -162,6 +163,11 @@ export default function HomeworkDetailPage() {
         title={hw.title}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Link href={`/${locale}/homework/${id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Edit className="me-1 h-4 w-4" />{t('edit')}
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={handleCopy}>
               <Copy className="me-1 h-4 w-4" />{t('copy')}
             </Button>
@@ -189,7 +195,7 @@ export default function HomeworkDetailPage() {
             <div><p className="text-xs text-text-tertiary">{t('subject')}</p><p className="text-sm font-medium text-text-primary">{hw.subject?.name ?? '—'}</p></div>
             <div><p className="text-xs text-text-tertiary">{t('type')}</p><HomeworkTypeBadge type={hw.homework_type} /></div>
             <div><p className="text-xs text-text-tertiary">{t('dueDate')}</p><p className="text-sm font-medium text-text-primary">{formatDate(hw.due_date)}{hw.due_time ? ` at ${hw.due_time}` : ''}</p></div>
-            <div><p className="text-xs text-text-tertiary">{t('status')}</p><StatusBadge status={STATUS_MAP[hw.status] ?? 'default'}>{hw.status}</StatusBadge></div>
+            <div><p className="text-xs text-text-tertiary">{t('status')}</p><StatusBadge status={STATUS_MAP[hw.status] ?? 'neutral'}>{hw.status}</StatusBadge></div>
             {hw.max_points != null && <div><p className="text-xs text-text-tertiary">{t('maxPoints')}</p><p className="text-sm font-medium text-text-primary">{hw.max_points}</p></div>}
             <div><p className="text-xs text-text-tertiary">{t('assignedBy')}</p><p className="text-sm font-medium text-text-primary">{hw.assigned_by_user ? `${hw.assigned_by_user.first_name} ${hw.assigned_by_user.last_name}` : '—'}</p></div>
             <div><p className="text-xs text-text-tertiary">{t('created')}</p><p className="text-sm font-medium text-text-primary">{formatDate(hw.created_at)}</p></div>
@@ -238,7 +244,7 @@ export default function HomeworkDetailPage() {
                 {completions.map((c) => (
                   <div key={c.student_id} className="flex items-center justify-between text-sm">
                     <span className="text-text-primary">{c.student ? `${c.student.first_name} ${c.student.last_name}` : c.student_id}</span>
-                    <StatusBadge status={c.status === 'completed' ? 'success' : c.status === 'in_progress' ? 'warning' : 'default'}>{c.status}</StatusBadge>
+                    <StatusBadge status={c.status === 'completed' ? 'success' : c.status === 'in_progress' ? 'warning' : 'neutral'}>{c.status}</StatusBadge>
                   </div>
                 ))}
               </div>

@@ -1,14 +1,14 @@
 'use client';
 
-import { Button, EmptyState, Select } from '@school/ui';
-import { Copy, FileText, Filter, Search } from 'lucide-react';
+import { Button, EmptyState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+import { Copy, FileText, Filter } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { HomeworkCard } from './_components/homework-card';
+import { HomeworkCard } from '../_components/homework-card';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ export default function HomeworkTemplatesPage() {
     // Default due date to next week
     const nextWeek = new Date();
     nextWeek.setDate(nextWeek.getDate() + 7);
-    setNewDueDate(nextWeek.toISOString().split('T')[0]);
+    setNewDueDate(nextWeek.toISOString().split('T')[0] ?? '');
     setShowCopyDialog(true);
   };
 
@@ -107,7 +107,7 @@ export default function HomeworkTemplatesPage() {
     try {
       await apiClient('/api/v1/homework', {
         method: 'POST',
-        body: {
+        body: JSON.stringify({
           title: selectedTemplate.title,
           description: selectedTemplate.description,
           homework_type: selectedTemplate.homework_type,
@@ -116,7 +116,7 @@ export default function HomeworkTemplatesPage() {
           max_points: selectedTemplate.max_points,
           due_date: newDueDate,
           status: 'draft',
-        },
+        }),
       });
       setShowCopyDialog(false);
       setSelectedTemplate(null);
@@ -148,30 +148,28 @@ export default function HomeworkTemplatesPage() {
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-text-tertiary" />
-          <Select
-            value={selectedClass}
-            onChange={(e) => setSelectedClass(e.target.value)}
-            className="w-40"
-          >
-            <option value="">{t('filterAll')}</option>
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name}
-              </option>
-            ))}
+          <Select value={selectedClass || 'all'} onValueChange={(v) => setSelectedClass(v === 'all' ? '' : v)}>
+            <SelectTrigger className="w-40"><SelectValue placeholder={t('filterAll')} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('filterAll')}</SelectItem>
+              {classes.map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>
+                  {cls.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
-        <Select
-          value={selectedSubject}
-          onChange={(e) => setSelectedSubject(e.target.value)}
-          className="w-40"
-        >
-          <option value="">{t('templates.filterBySubject')}</option>
-          {subjects.map((subj) => (
-            <option key={subj.id} value={subj.id}>
-              {subj.name}
-            </option>
-          ))}
+        <Select value={selectedSubject || 'all'} onValueChange={(v) => setSelectedSubject(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-40"><SelectValue placeholder={t('templates.filterBySubject')} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('templates.filterBySubject')}</SelectItem>
+            {subjects.map((subj) => (
+              <SelectItem key={subj.id} value={subj.id}>
+                {subj.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 

@@ -13,7 +13,7 @@ const TENANT_B_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const CLASS_A_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const CLASS_B_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 const STUDENT_A_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
-const STUDENT_B_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const _STUDENT_B_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 const USER_A_ID = '11111111-1111-1111-1111-111111111111';
 const USER_B_ID = '22222222-2222-2222-2222-222222222222';
 const ACADEMIC_YEAR_ID = '33333333-3333-3333-3333-333333333333';
@@ -55,7 +55,7 @@ describe('Homework RLS Integration Tests', () => {
   }
 
   describe('homework_assignments RLS', () => {
-    let assignmentAId: string;
+    let _assignmentAId: string;
     let assignmentBId: string;
 
     beforeAll(async () => {
@@ -73,7 +73,7 @@ describe('Homework RLS Integration Tests', () => {
             published_at: new Date(),
           },
         });
-        assignmentAId = result.id;
+        _assignmentAId =result.id;
       });
 
       await withTenantContext(TENANT_B_ID, async () => {
@@ -100,7 +100,7 @@ describe('Homework RLS Integration Tests', () => {
           where: { tenant_id: TENANT_A_ID },
         });
         expect(assignments).toHaveLength(1);
-        expect(assignments[0].title).toBe('Tenant A Assignment');
+        expect(assignments[0]!.title).toBe('Tenant A Assignment');
       });
     });
 
@@ -116,7 +116,7 @@ describe('Homework RLS Integration Tests', () => {
 
   describe('homework_completions RLS', () => {
     let completionAId: string;
-    let assignmentAId: string;
+    let _assignmentAId: string;
 
     beforeAll(async () => {
       await withTenantContext(TENANT_A_ID, async () => {
@@ -132,7 +132,7 @@ describe('Homework RLS Integration Tests', () => {
             due_date: new Date('2026-04-01'),
           },
         });
-        assignmentAId = assignment.id;
+        _assignmentAId =assignment.id;
 
         const completion = await prisma.homeworkCompletion.create({
           data: {
@@ -152,7 +152,7 @@ describe('Homework RLS Integration Tests', () => {
           where: { tenant_id: TENANT_A_ID },
         });
         expect(completions).toHaveLength(1);
-        expect(completions[0].student_id).toBe(STUDENT_A_ID);
+        expect(completions[0]!.student_id).toBe(STUDENT_A_ID);
       });
     });
 
