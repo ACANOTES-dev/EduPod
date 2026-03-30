@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
+import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { SYSTEM_USER_SENTINEL } from '../../base/tenant-aware-job';
 
@@ -41,18 +42,15 @@ const ESCALATION_12H = 12;
 const ESCALATION_48H = 48;
 const ESCALATION_72H = 72;
 
-// ─── Processor ────────────────────────────────────────────────────────────────
+// ─── Job ─────────────────────────────────────────────────────────────────────
 //
 // Runs hourly. Checks all open high/critical security incidents and adds
 // escalation events at 12h, 48h, and 72h marks per GDPR Article 33 timelines.
-// This is a platform-level job — no TenantAwareJob or RLS context needed.
+// Platform-level job — extends CrossTenantSystemJob (intentionally no RLS context).
 
-@Processor(QUEUE_NAMES.SECURITY)
-export class BreachDeadlineProcessor extends WorkerHost {
-  private readonly logger = new Logger(BreachDeadlineProcessor.name);
-
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
+class BreachDeadlineJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, BreachDeadlineJob.name);
   }
 
   // ─── Typed accessors for pending Prisma models ─────────────────────────
@@ -65,11 +63,9 @@ export class BreachDeadlineProcessor extends WorkerHost {
     return this.prisma.securityIncidentEvent as unknown as SecurityIncidentEventDelegate;
   }
 
-  // ─── Main process ──────────────────────────────────────────────────────
+  // ─── Main run ──────────────────────────────────────────────────────────
 
-  async process(job: Job): Promise<void> {
-    if (job.name !== BREACH_DEADLINE_JOB) return;
-
+  protected async runSystemJob(): Promise<void> {
     const incidents = await this.incidents.findMany({
       where: {
         status: { notIn: ['resolved', 'closed'] },
@@ -151,5 +147,20 @@ export class BreachDeadlineProcessor extends WorkerHost {
         created_by_user_id: SYSTEM_USER_SENTINEL,
       },
     });
+  }
+}
+
+// ─── Processor ────────────────────────────────────────────────────────────────
+
+@Processor(QUEUE_NAMES.SECURITY)
+export class BreachDeadlineProcessor extends WorkerHost {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+    super();
+  }
+
+  async process(job: Job): Promise<void> {
+    if (job.name !== BREACH_DEADLINE_JOB) return;
+
+    await new BreachDeadlineJob(this.prisma).execute();
   }
 }

@@ -23,6 +23,8 @@ export interface ApprovalWorkflow {
   updated_at: string;
 }
 
+export type ApprovalCallbackStatus = 'pending' | 'executed' | 'failed';
+
 export interface ApprovalRequest {
   id: string;
   tenant_id: string;
@@ -37,6 +39,9 @@ export interface ApprovalRequest {
   submitted_at: string;
   decided_at: string | null;
   executed_at: string | null;
+  callback_status: ApprovalCallbackStatus | null;
+  callback_error: string | null;
+  callback_attempts: number;
   created_at: string;
   updated_at: string;
 }

@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **18 queues**, **79 job types**, **26 cron jobs**
+- **19 queues**, **80 job types**, **27 cron jobs**
 
 ---
 
@@ -22,12 +22,17 @@ The `ApprovalRequestsService` is a central dispatch hub. When an approval reques
 ```
 User approves request
   -> ApprovalRequestsService.approve()
+    -> Sets callback_status = 'pending' on approval_request
     -> Checks MODE_A_CALLBACKS mapping
     -> Enqueues job to appropriate queue:
 
   announcement_publish  -> notifications queue -> communications:on-approval
   invoice_issue         -> finance queue      -> finance:on-approval
   payroll_finalise      -> payroll queue       -> payroll:on-approval
+
+  -> Each callback processor sets callback_status = 'executed' on success
+  -> If enqueue fails: callback_status = 'failed', callback_error logged
+  -> Reconciliation cron (daily 04:30 UTC) retries stuck callbacks
 ```
 
 ### Side effects per approval type:
@@ -216,6 +221,7 @@ ComplianceService.approve()
 | Queue | Max Retries | Backoff | Notes |
 |-------|------------|---------|-------|
 | admissions | default | default | |
+| approvals | 2 | 10s exponential | 1 job type: callback-reconciliation (cron 04:30 UTC). Reconciles stuck approval callbacks. |
 | attendance | 3 | 5s exponential | |
 | notifications | 5 | 3s exponential | Higher retries for delivery |
 | search-sync | 3 | 2s exponential | |
@@ -353,7 +359,7 @@ Cron fires daily at 08:00 tenant TZ
 
 1. **Compliance shares the imports queue** — `compliance:execute` jobs go through the `imports` queue. If the imports queue is backed up, compliance actions (GDPR erasure) are delayed.
 
-2. **Approval callbacks are fire-and-forget** — If the worker processor fails after approval, the approval is marked `executed` but the domain action didn't complete. Manual intervention required.
+2. **Approval callbacks are now tracked (MITIGATED)** — `callback_status` (`pending`/`executed`/`failed`) and `callback_attempts` fields track callback lifecycle. Daily reconciliation cron (`approvals:callback-reconciliation`, 04:30 UTC) retries stuck callbacks up to 5 attempts. After 5 attempts, manual intervention required.
 
 3. **Cron jobs iterate ALL tenants** — Risk detection and report card auto-generation loop through every active tenant. Adding a tenant increases job duration linearly.
 
@@ -373,7 +379,7 @@ Cron fires daily at 08:00 tenant TZ
 
 11. **Behaviour AI service depends on external API** — `BehaviourAIService` calls the Anthropic Claude API via `@anthropic-ai/sdk`. External API downtime, rate limits, or missing API key configuration will cause AI query endpoints to fail. These are non-critical — all other analytics endpoints work without AI.
 
-12. **Break-glass expiry cron is UNREGISTERED** — The `BreakGlassExpiryProcessor` exists and is registered as a provider in `WorkerModule`, but no cron schedule is configured in `CronSchedulerService` or dispatched by `cron-dispatch.processor.ts`. Break-glass grants will not auto-expire until this is resolved. Flagged in SP7 remediation.
+12. **Break-glass expiry cron — RESOLVED (Batch 3 #3.3)** — `BreakGlassExpiryProcessor` is now dispatched daily at 00:00 UTC via `BehaviourCronDispatchProcessor.dispatchDaily()`. The job uses `jobId: daily:behaviour:break-glass-expiry:{tenant_id}` for dedup.
 
 13. **Critical escalation re-enqueue is outside transaction** — `CriticalEscalationProcessor` re-enqueues the next escalation step AFTER the Prisma transaction commits (SP3 fix). If the worker crashes between commit and re-enqueue, the escalation chain silently stops. The concern remains in `reported` status with no further notifications.
 
@@ -533,18 +539,19 @@ Attachment uploaded
 
 ---
 
-### `behaviour:break-glass-expiry` (behaviour queue — CRON, registration pending)
+### `behaviour:break-glass-expiry` (behaviour queue — CRON)
 
-**Trigger**: Designed as a cron job (spec: every 5 min per tenant). Processor exists but cron registration is NOT present in `CronSchedulerService`. Not dispatched by `cron-dispatch.processor.ts` either. Currently a dead processor awaiting cron registration.
+**Trigger**: Daily cron at 00:00 UTC per active behaviour tenant, dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()`.
 **Payload**: `{ tenant_id }`
 **Processor**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`
 **Retries**: 3 with exponential backoff
-**Added in**: Phase D
+**Added in**: Phase D — **activated in Batch 3 (issue #3.3)**
 
 **Side effects chain**:
 ```
-Cron would fire per tenant (REGISTRATION PENDING)
+Daily at 00:00 UTC (via behaviour:cron-dispatch-daily hourly runner)
   -> behaviour:break-glass-expiry enqueued per tenant
+     jobId: daily:behaviour:break-glass-expiry:{tenant_id} (dedup per tenant per day)
   -> Worker queries safeguarding_break_glass_grants WHERE:
      revoked_at IS NULL AND expires_at < NOW()
   -> For each expired grant:
@@ -555,10 +562,8 @@ Cron would fire per tenant (REGISTRATION PENDING)
        - assigned_to_id = granted_by_id
        - priority = 'high', due_date = 7 days from now
     -> Create notifications for granted_by_id (in_app: delivered immediately, email: queued)
-       - template_key = 'safeguarding.break_glass_expired'
+       - template_key = 'safeguarding_break_glass_review'
 ```
-
-**Danger**: This processor is UNREGISTERED as a cron job. Break-glass grants will NOT auto-expire until the cron is registered in `CronSchedulerService` or added to `cron-dispatch.processor.ts` as a daily dispatch. This is a known remediation gap (flagged in SP7).
 
 ---
 
@@ -1132,3 +1137,19 @@ Daily cron fires
 | **jobId** | `daily:homework:completion-reminder:{tenant_id}` |
 | **Logic** | Parses `homeworkSettingsSchema`, skips if `completion_reminder_enabled` is false. Finds published assignments due tomorrow, identifies incomplete students (no completion record or status `not_started`/`in_progress`), creates in-app notifications for active parents. Idempotency: 24h window check. |
 | **Side effects** | Creates `notification` rows (in-app, template_key `homework_completion_reminder`) |
+
+---
+
+## Queue: `approvals`
+
+> **Status**: Implemented in Batch 3 (Issue #3.2). 1 job, 1 cron schedule.
+> **Retry**: 2 attempts, exponential backoff 10s, removeOnComplete 10, removeOnFail 50.
+
+### Job: `approvals:callback-reconciliation`
+
+- **Trigger**: Cron -- daily at 04:30 UTC
+- **Payload**: `{}` (cross-tenant)
+- **Processor**: `ApprovalCallbackReconciliationProcessor` (`apps/worker/src/processors/approvals/callback-reconciliation.processor.ts`)
+- **Side effects**: Scans `approval_requests` where `status = 'approved'` AND `callback_status IN ('pending', 'failed')` AND `callback_attempts < 5` AND `decided_at` older than 30 minutes. For each stuck request, re-enqueues the original callback job to the appropriate domain queue (finance, notifications, payroll) based on `action_type`. Increments `callback_attempts`. After 5 failed attempts, marks as permanently failed (`callback_status = 'failed'`, `callback_error` records exhaustion).
+- **Downstream**: Re-enqueues `finance:on-approval`, `communications:on-approval`, or `payroll:on-approval` to their respective domain queues.
+- **Danger**: Processes at most 100 stuck requests per run to avoid queue overload. The 30-minute stale threshold prevents racing with normal callback processing. Callback processors are idempotent (they check target entity status before acting), so duplicate re-enqueues are safe.

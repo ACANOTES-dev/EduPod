@@ -92,12 +92,14 @@ class InvoiceApprovalCallbackJob extends TenantAwareJob<InvoiceApprovalCallbackP
       },
     });
 
-    // 3. Update the approval request to executed
+    // 3. Update the approval request to executed with callback tracking
     await tx.approvalRequest.update({
       where: { id: approval_request_id },
       data: {
         status: 'executed',
         executed_at: new Date(),
+        callback_status: 'executed',
+        callback_error: null,
       },
     });
 

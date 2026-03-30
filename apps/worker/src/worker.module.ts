@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { WorkerHealthController } from './health/worker-health.controller';
+import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
@@ -104,6 +105,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     // Register all queues with retry/backoff configuration
     BullModule.registerQueue(
       {
+        name: QUEUE_NAMES.APPROVALS,
+        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+      },
+      {
         name: QUEUE_NAMES.PAYROLL,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
       },
@@ -188,6 +193,8 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
         return client;
       },
     },
+    // Approvals queue processors
+    ApprovalCallbackReconciliationProcessor,
     // Admissions queue processors
     AdmissionsAutoExpiryProcessor,
     // Behaviour queue processors

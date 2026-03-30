@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateInvoiceDto, UpdateInvoiceDto, WriteOffDto } from '@school/shared';
+import type { CreateInvoiceDto, InvoiceStatus, UpdateInvoiceDto, WriteOffDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -12,7 +12,7 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
-import { deriveInvoiceStatus, roundMoney } from './helpers/invoice-status.helper';
+import { deriveInvoiceStatus, roundMoney, validateInvoiceTransition } from './helpers/invoice-status.helper';
 
 interface InvoiceFilters {
   page: number;
@@ -242,7 +242,7 @@ export class InvoicesService {
 
     if (existing.status !== 'draft') {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
+        code: 'INVALID_STATUS_TRANSITION',
         message: 'Only draft invoices can be updated',
       });
     }
@@ -318,10 +318,12 @@ export class InvoicesService {
       });
     }
 
+    // User-initiated issue can only happen from draft.
+    // pending_approval -> issued is handled exclusively by the approval callback worker.
     if (invoice.status !== 'draft') {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot issue an invoice with status "${invoice.status}"`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot issue an invoice with status "${invoice.status}". Only draft invoices can be issued directly.`,
       });
     }
 
@@ -385,12 +387,7 @@ export class InvoicesService {
       });
     }
 
-    if (!['issued', 'overdue'].includes(invoice.status)) {
-      throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot void an invoice with status "${invoice.status}"`,
-      });
-    }
+    validateInvoiceTransition(invoice.status as InvoiceStatus, 'void');
 
     const updated = await this.prisma.invoice.update({
       where: { id },
@@ -411,12 +408,7 @@ export class InvoicesService {
       });
     }
 
-    if (!['draft', 'pending_approval'].includes(invoice.status)) {
-      throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot cancel an invoice with status "${invoice.status}"`,
-      });
-    }
+    validateInvoiceTransition(invoice.status as InvoiceStatus, 'cancelled');
 
     // If pending_approval, cancel linked approval request
     if (invoice.status === 'pending_approval' && invoice.approval_request_id) {
@@ -446,12 +438,7 @@ export class InvoicesService {
       });
     }
 
-    if (!['issued', 'partially_paid', 'overdue'].includes(invoice.status)) {
-      throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot write off an invoice with status "${invoice.status}"`,
-      });
-    }
+    validateInvoiceTransition(invoice.status as InvoiceStatus, 'written_off');
 
     const balance = Number(invoice.balance_amount);
     const updated = await this.prisma.invoice.update({

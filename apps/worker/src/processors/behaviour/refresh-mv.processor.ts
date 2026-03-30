@@ -1,10 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
 import { QUEUE_NAMES } from '../../base/queue.constants';
-import type { TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Job constants ──────────────────────────────────────────────────────────
 
@@ -12,33 +12,17 @@ export const REFRESH_MV_STUDENT_SUMMARY_JOB = 'behaviour:refresh-mv-student-summ
 export const REFRESH_MV_BENCHMARKS_JOB = 'behaviour:refresh-mv-benchmarks';
 export const REFRESH_MV_EXPOSURE_RATES_JOB = 'behaviour:refresh-mv-exposure-rates';
 
-export type RefreshMVPayload = TenantJobPayload;
+// ─── Jobs ───────────────────────────────────────────────────────────────────
+//
+// Materialised view refresh is a cross-tenant DB-level operation.
+// Extends CrossTenantSystemJob: intentionally no RLS context.
 
-// ─── Processor ──────────────────────────────────────────────────────────────
-
-@Processor(QUEUE_NAMES.BEHAVIOUR)
-export class RefreshMVProcessor extends WorkerHost {
-  private readonly logger = new Logger(RefreshMVProcessor.name);
-
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
+class RefreshStudentSummaryJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, RefreshStudentSummaryJob.name);
   }
 
-  async process(job: Job<RefreshMVPayload>): Promise<void> {
-    switch (job.name) {
-      case REFRESH_MV_STUDENT_SUMMARY_JOB:
-        return this.refreshStudentSummary();
-      case REFRESH_MV_BENCHMARKS_JOB:
-        return this.refreshBenchmarks();
-      case REFRESH_MV_EXPOSURE_RATES_JOB:
-        return this.refreshExposureRates();
-      default:
-        // Not our job — ignore
-        return;
-    }
-  }
-
-  private async refreshStudentSummary(): Promise<void> {
+  protected async runSystemJob(): Promise<void> {
     this.logger.log('Refreshing mv_student_behaviour_summary...');
     const start = Date.now();
 
@@ -56,8 +40,14 @@ export class RefreshMVProcessor extends WorkerHost {
       throw error;
     }
   }
+}
 
-  private async refreshBenchmarks(): Promise<void> {
+class RefreshBenchmarksJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, RefreshBenchmarksJob.name);
+  }
+
+  protected async runSystemJob(): Promise<void> {
     this.logger.log('Refreshing mv_behaviour_benchmarks...');
     const start = Date.now();
 
@@ -75,8 +65,14 @@ export class RefreshMVProcessor extends WorkerHost {
       throw error;
     }
   }
+}
 
-  private async refreshExposureRates(): Promise<void> {
+class RefreshExposureRatesJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, RefreshExposureRatesJob.name);
+  }
+
+  protected async runSystemJob(): Promise<void> {
     this.logger.log('Refreshing mv_behaviour_exposure_rates...');
     const start = Date.now();
 
@@ -92,6 +88,29 @@ export class RefreshMVProcessor extends WorkerHost {
         `Failed to refresh mv_behaviour_exposure_rates: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
+    }
+  }
+}
+
+// ─── Processor ──────────────────────────────────────────────────────────────
+
+@Processor(QUEUE_NAMES.BEHAVIOUR)
+export class RefreshMVProcessor extends WorkerHost {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+    super();
+  }
+
+  async process(job: Job): Promise<void> {
+    switch (job.name) {
+      case REFRESH_MV_STUDENT_SUMMARY_JOB:
+        return new RefreshStudentSummaryJob(this.prisma).execute();
+      case REFRESH_MV_BENCHMARKS_JOB:
+        return new RefreshBenchmarksJob(this.prisma).execute();
+      case REFRESH_MV_EXPOSURE_RATES_JOB:
+        return new RefreshExposureRatesJob(this.prisma).execute();
+      default:
+        // Not our job — ignore
+        return;
     }
   }
 }

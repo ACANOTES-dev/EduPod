@@ -2,24 +2,24 @@
 
 > **Purpose**: Non-obvious coupling and risks. Before modifying anything listed here, read the full entry.
 > **Maintenance**: Add entries when you discover a non-obvious consequence. Remove when the risk is mitigated.
-> **Last verified**: 2026-03-29
+> **Last verified**: 2026-03-30
 
 ---
 
-## DZ-01: Invoice Status Machine Has No Single Transition Map
+## DZ-01: Invoice Status Machine — MITIGATED
 
-**Risk**: Bugs from invalid transitions, inconsistent validation
-**Location**: `apps/api/src/modules/finance/invoices.service.ts`
+**Risk**: ~~Bugs from invalid transitions, inconsistent validation~~
+**Location**: `packages/shared/src/constants/invoice-status.ts`, `apps/api/src/modules/finance/helpers/invoice-status.helper.ts`
+**Status**: MITIGATED (2026-03-30)
 
-The invoice lifecycle is the most complex state machine in the codebase (9 states, multiple paths) but unlike StudentStatus or AssessmentStatus, it has NO single `VALID_TRANSITIONS` map. Transition validation is scattered across individual methods:
-- `issue()` checks `draft` or `pending_approval`
-- `void()` checks `issued` or `overdue`
-- Payment posting implicitly transitions `issued -> partially_paid -> paid`
-- Overdue detection cron transitions `issued -> overdue`
+The invoice state machine now has a single `VALID_INVOICE_TRANSITIONS` map in `packages/shared/src/constants/invoice-status.ts`, matching the pattern used by StudentStatus, ClassEnrolmentStatus, and the behaviour module state machines.
 
-Three of the transitions happen OUTSIDE the invoice service (in the worker or payment service). Any refactor that moves invoice status logic must account for all entry points.
+- `validateInvoiceTransition()` in the helper file enforces all user-initiated transitions (void, cancel, write-off)
+- `deriveInvoiceStatus()` handles system-driven transitions (payment -> partially_paid/paid, overdue cron)
+- `isPayableStatus()` consolidates the "can this invoice accept payments/credits/late-fees" check (used by credit-notes, late-fees, stripe, payments services)
+- 90 transition tests cover all valid transitions, all invalid transitions from terminal states, and all invalid transitions between non-terminal states
 
-**Mitigation**: Consider extracting a `VALID_TRANSITIONS` map like students/enrolments have.
+**Remaining note**: Three transitions still happen outside the invoice service: `overdue` (cron worker), `issued` via approval (approval callback worker), `partially_paid/paid` (payment service via `deriveInvoiceStatus`). These are documented in the transition metadata and covered by the transition map.
 
 ---
 
@@ -46,22 +46,22 @@ Do NOT rely solely on the module import graph.
 
 ---
 
-## DZ-03: Approval Callback Chain is Fire-and-Forget
+## DZ-03: Approval Callback Chain — MITIGATED
 
 **Risk**: Approved items that never execute their domain action
 **Location**: `apps/api/src/modules/approvals/approval-requests.service.ts` -> worker processors
+**Status**: MITIGATED (Batch 3 -- Issue #3.2)
 
-When a user approves a request, the approval is immediately marked `approved` and a BullMQ job is enqueued. If the worker processor fails:
-- The approval shows as `approved` in the UI
-- But the domain action (publish announcement / issue invoice / finalise payroll) never happened
-- There is no automatic reconciliation
+When a user approves a request, the approval is marked `approved` and a BullMQ job is enqueued. Previously fire-and-forget -- now tracked with `callback_status`, `callback_error`, and `callback_attempts` fields on `approval_requests`.
 
-**Impact scenarios**:
-- Announcement approved but never published — users wonder why it's not visible
-- Invoice approved but never issued — finance reports show wrong totals
-- Payroll approved but payslips never generated — staff not paid
+**Tracking mechanism**:
+- `callback_status = 'pending'` set when approval creates a callback-eligible action type
+- `callback_status = 'executed'` set by each callback processor on success (alongside `status = 'executed'` and `executed_at`)
+- `callback_status = 'failed'` set when enqueue fails or reconciliation exhausts retries
 
-**Mitigation**: Consider adding a reconciliation check that detects `approved` requests without corresponding `executed` status after a timeout.
+**Reconciliation cron**: `approvals:callback-reconciliation` runs daily at 04:30 UTC. Scans for approved requests where `callback_status` is `pending` or `failed` and `decided_at` is older than 30 minutes. Re-enqueues the callback job up to 5 attempts. After 5 attempts, marks as permanently failed (manual intervention required).
+
+**Remaining edge case**: If a callback processor throws after executing the domain action but before setting `callback_status = 'executed'`, the reconciliation cron will retry. The callback processors are designed to be idempotent (they check the target entity's status before acting), so a duplicate re-enqueue is safe.
 
 ---
 
@@ -323,23 +323,12 @@ Table and partition names are derived from constants (not user input), so SQL in
 
 ---
 
-## DZ-23: Break-Glass Expiry Has No Dispatch Mechanism
+## DZ-23: Break-Glass Expiry Has No Dispatch Mechanism — RESOLVED
 
 **Risk**: Expired break-glass grants remain active indefinitely because nothing enqueues the expiry job
-**Location**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`, `apps/api/src/modules/behaviour/safeguarding.constants.ts`
+**Location**: `apps/worker/src/processors/behaviour/break-glass-expiry.processor.ts`
 
-The `BreakGlassExpiryProcessor` exists and is registered in the worker module. The job constant `BEHAVIOUR_BREAK_GLASS_EXPIRY_JOB` is defined in `safeguarding.constants.ts`. However:
-
-1. The cron-dispatch processor does NOT include break-glass expiry in its daily dispatch
-2. The `SafeguardingBreakGlassService.grantAccess()` does NOT enqueue a delayed expiry job when a grant is created
-3. The cron scheduler does NOT register a repeatable job for break-glass expiry
-4. No code anywhere in the API or worker actually enqueues this job
-
-Result: the processor is dead code. Expired grants are never revoked, review tasks are never created, and expiry notifications are never sent. The only way a grant gets revoked is manual revocation via the API.
-
-**Status**: ACTIVE — requires a fix. Either:
-- (a) Add `break-glass-expiry` to the daily cron-dispatch (preferred — consistent with other per-tenant jobs), or
-- (b) Enqueue a delayed job with `delay: duration_hours * 3600000` in `grantAccess()` (more responsive but orphaned if worker restarts)
+**Status**: RESOLVED in Batch 3 (issue #3.3). `behaviour:break-glass-expiry` is now dispatched daily at 00:00 UTC via `BehaviourCronDispatchProcessor.dispatchDaily()`. Uses `jobId: daily:behaviour:break-glass-expiry:{tenant_id}` for per-tenant dedup. Processor was previously also dispatched from `dispatchSla()` (every 5 min) without dedup — that unnecessary dispatch has been removed.
 
 ---
 

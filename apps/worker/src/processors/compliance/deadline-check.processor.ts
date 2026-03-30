@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { ComplianceRequestStatus, PrismaClient } from '@prisma/client';
 import { Job } from 'bullmq';
 
+import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { getRedisClient } from '../../base/redis.helpers';
 
@@ -14,39 +15,25 @@ export const DEADLINE_CHECK_JOB = 'compliance:deadline-check';
 const TERMINAL_STATUSES: ComplianceRequestStatus[] = [ComplianceRequestStatus.completed, ComplianceRequestStatus.rejected];
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-// ─── Processor ──────────────────────────────────────────────────────────────
+// ─── Job ────────────────────────────────────────────────────────────────────
+//
+// Iterates all active tenants and checks compliance request deadlines.
+// Extends CrossTenantSystemJob: intentionally no RLS context — the job
+// iterates all tenants and sets tenant_id in each Prisma where clause directly.
 
-@Processor(QUEUE_NAMES.COMPLIANCE)
-export class DeadlineCheckProcessor extends WorkerHost {
-  private readonly logger = new Logger(DeadlineCheckProcessor.name);
-
-  constructor(
-    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
-  ) {
-    super();
+class DeadlineCheckJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, DeadlineCheckJob.name);
   }
 
-  async process(job: Job): Promise<void> {
-    if (job.name !== DEADLINE_CHECK_JOB) return;
-
+  protected async runSystemJob(): Promise<void> {
     this.logger.log('Starting compliance deadline check');
 
-    const tenants = await this.prisma.tenant.findMany({
-      where: { status: 'active' },
-      select: { id: true },
+    const { processed } = await this.forEachTenant(async (tenantId) => {
+      await this.checkTenantDeadlines(tenantId);
     });
 
-    for (const tenant of tenants) {
-      try {
-        await this.checkTenantDeadlines(tenant.id);
-      } catch (error) {
-        this.logger.error(
-          `Deadline check failed for tenant ${tenant.id}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-
-    this.logger.log(`Compliance deadline check complete — processed ${tenants.length} tenants`);
+    this.logger.log(`Compliance deadline check complete — processed ${processed} tenants`);
   }
 
   // ─── Per-tenant deadline check ──────────────────────────────────────────
@@ -191,5 +178,22 @@ export class DeadlineCheckProcessor extends WorkerHost {
         delivered_at: new Date(),
       },
     });
+  }
+}
+
+// ─── Processor ──────────────────────────────────────────────────────────────
+
+@Processor(QUEUE_NAMES.COMPLIANCE)
+export class DeadlineCheckProcessor extends WorkerHost {
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+  ) {
+    super();
+  }
+
+  async process(job: Job): Promise<void> {
+    if (job.name !== DEADLINE_CHECK_JOB) return;
+
+    await new DeadlineCheckJob(this.prisma).execute();
   }
 }

@@ -159,6 +159,16 @@ export class ApprovalRequestsService {
       });
     }
 
+    // Mode A: Auto-execute on approval
+    const MODE_A_CALLBACKS: Record<string, { queue: Queue; jobName: string }> = {
+      announcement_publish: { queue: this.notificationsQueue, jobName: 'communications:on-approval' },
+      invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
+      payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
+    };
+
+    const callback = MODE_A_CALLBACKS[request.action_type];
+    const hasCallback = !!callback;
+
     const updated = await this.prisma.approvalRequest.update({
       where: { id: requestId },
       data: {
@@ -166,6 +176,8 @@ export class ApprovalRequestsService {
         approver_user_id: approverUserId,
         decided_at: new Date(),
         decision_comment: comment ?? null,
+        // Track callback dispatch status for reconciliation
+        ...(hasCallback ? { callback_status: 'pending', callback_attempts: 0 } : {}),
       },
       include: {
         requester: {
@@ -187,21 +199,28 @@ export class ApprovalRequestsService {
       },
     });
 
-    // Mode A: Auto-execute on approval
-    const MODE_A_CALLBACKS: Record<string, { queue: Queue; jobName: string }> = {
-      announcement_publish: { queue: this.notificationsQueue, jobName: 'communications:on-approval' },
-      invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
-      payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
-    };
-
-    const callback = MODE_A_CALLBACKS[request.action_type];
     if (callback) {
-      await callback.queue.add(callback.jobName, {
-        tenant_id: tenantId,
-        approval_request_id: requestId,
-        target_entity_id: request.target_entity_id,
-        approver_user_id: approverUserId,
-      });
+      try {
+        await callback.queue.add(callback.jobName, {
+          tenant_id: tenantId,
+          approval_request_id: requestId,
+          target_entity_id: request.target_entity_id,
+          approver_user_id: approverUserId,
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        this.logger.error(
+          `Failed to enqueue callback for approval ${requestId}: ${errorMessage}`,
+        );
+        // Mark callback as failed so reconciliation can retry
+        await this.prisma.approvalRequest.update({
+          where: { id: requestId },
+          data: {
+            callback_status: 'failed',
+            callback_error: `Enqueue failed: ${errorMessage}`,
+          },
+        });
+      }
     }
 
     return updated;

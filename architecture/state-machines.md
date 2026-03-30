@@ -2,7 +2,7 @@
 
 > **Purpose**: Before changing a status field or adding a transition, check here for the full contract.
 > **Maintenance**: Update when adding new statuses or changing transition rules.
-> **Last verified**: 2026-03-27
+> **Last verified**: 2026-03-30
 
 ---
 
@@ -126,28 +126,33 @@ stale_on_new_notice_version  -> [acknowledged_current]
 
 ## Finance
 
-### InvoiceStatus (MOST COMPLEX STATE MACHINE)
+### InvoiceStatus (CONSOLIDATED)
 ```
 draft              -> [pending_approval, issued, cancelled]
 pending_approval   -> [issued (via approval callback), cancelled]
-issued             -> [void, written_off]
-partially_paid     -> [paid (via payment), written_off]
+issued             -> [partially_paid, paid, overdue, void, written_off]
+partially_paid     -> [paid, written_off]
+overdue            -> [partially_paid, paid, void, written_off]
 paid*
-overdue            -> [void, written_off]
 void*
 cancelled*
 written_off*
 ```
-- **Guarded by**: `invoices.service.ts` (implicit per-method validation, no single transition map)
+- **Guarded by**: `packages/shared/src/constants/invoice-status.ts` -> `VALID_INVOICE_TRANSITIONS` map (single source of truth) + `helpers/invoice-status.helper.ts` -> `validateInvoiceTransition()` which enforces it in the API
 - **Side effects**:
-  - `issued`: sets `issued_at`, starts overdue clock
-  - `partially_paid`: automatic when payment < total (via payment posting)
-  - `paid`: automatic when cumulative payments >= total
-  - `overdue`: set by `finance:overdue-detection` cron job, not by user action
-  - `void`: reverses all posted payments
-  - `written_off`: records loss, closes invoice
-- **Danger**: `partially_paid` and `overdue` are system-driven transitions, not user-initiated. The `paid` transition is triggered by the payment posting flow, not by changing invoice status directly. Three transitions happen outside the invoice service: `overdue` (cron worker), `issued` (approval callback worker), `partially_paid/paid` (payment service).
-- **NO SINGLE TRANSITION MAP** — validation is spread across methods. This is the highest-risk state machine for bugs.
+  - `draft -> issued`: sets `issue_date`, starts overdue clock. May route through `pending_approval` if approval is required.
+  - `draft -> pending_approval`: links to approval request; approval callback worker handles `pending_approval -> issued`
+  - `issued/overdue -> partially_paid`: automatic when payment < total (via `deriveInvoiceStatus` in payment allocation)
+  - `issued/overdue/partially_paid -> paid`: automatic when cumulative payments >= total (via `deriveInvoiceStatus`)
+  - `issued -> overdue`: set by `finance:overdue-detection` cron job, not by user action
+  - `issued/overdue -> void`: requires no payments allocated (balance must equal total)
+  - `issued/partially_paid/overdue -> written_off`: records `write_off_amount`, zeros balance
+  - `draft/pending_approval -> cancelled`: cancels any linked approval request
+- **Transition initiators**:
+  - User-initiated: `draft->issued`, `draft->pending_approval`, `draft/pending_approval->cancelled`, `issued/overdue->void`, `issued/partially_paid/overdue->written_off`
+  - System-driven: `pending_approval->issued` (approval callback worker), `issued->overdue` (overdue cron), `issued/overdue->partially_paid/paid` (payment service via `deriveInvoiceStatus`)
+- **Payable statuses**: `issued`, `partially_paid`, `overdue` -- these are the only statuses that accept payment allocations, credit note applications, late fees, and Stripe checkout
+- **Note**: The user-initiated `issue()` method only accepts `draft` status. The `pending_approval -> issued` path is handled exclusively by the `InvoiceApprovalCallbackProcessor` worker.
 
 ### PaymentStatus
 ```

@@ -9,6 +9,12 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
+import { validateEnv } from './modules/config/env.validation';
+
+// ─── Pre-bootstrap env validation ─────────────────────────────────────────────
+// Runs before NestFactory.create() — exits immediately if any required var is
+// missing or invalid so the app never starts in a misconfigured state.
+validateEnv();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });

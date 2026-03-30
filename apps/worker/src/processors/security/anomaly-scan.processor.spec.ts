@@ -203,21 +203,23 @@ describe('AnomalyScanProcessor', () => {
     });
   });
 
-  // ─── Logging ──────────────────────────────────────────────────────────
+  // ─── Rule failure isolation ───────────────────────────────────────────
 
-  it('should log summary after scan', async () => {
-    const logSpy = jest.spyOn(processor['logger'], 'log');
+  it('should continue scanning after a rule throws', async () => {
+    // First rule throws; remaining rules return empty violations
+    (UnusualAccessRule as jest.Mock).mockImplementation(() => ({
+      name: 'unusual_access',
+      evaluate: jest.fn().mockRejectedValue(new Error('rule error')),
+    }));
 
-    await processor.process(buildJob() as never);
+    processor = new AnomalyScanProcessor(
+      mockPrisma as unknown as PrismaClient,
+    );
 
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Anomaly scan complete'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('rules checked'),
-    );
-    expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining('violations found'),
-    );
+    // Should not throw — other rules continue
+    await expect(processor.process(buildJob() as never)).resolves.toBeUndefined();
+
+    // No incidents created since the only violation came from the failing rule
+    expect(mockPrisma.securityIncident.create).not.toHaveBeenCalled();
   });
 });

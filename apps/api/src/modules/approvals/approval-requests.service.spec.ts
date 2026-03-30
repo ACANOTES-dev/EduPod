@@ -24,6 +24,9 @@ function buildMockRequest(overrides: Partial<Record<string, unknown>> = {}) {
     status: 'pending_approval',
     decision_comment: null,
     decided_at: null,
+    callback_status: null,
+    callback_error: null,
+    callback_attempts: 0,
     created_at: new Date(),
     updated_at: new Date(),
     ...overrides,
@@ -44,6 +47,9 @@ describe('ApprovalRequestsService', () => {
       findFirst: jest.Mock;
     };
   };
+  let mockNotificationsQueue: { add: jest.Mock };
+  let mockFinanceQueue: { add: jest.Mock };
+  let mockPayrollQueue: { add: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -59,6 +65,10 @@ describe('ApprovalRequestsService', () => {
       },
     };
 
+    mockNotificationsQueue = { add: jest.fn().mockResolvedValue({}) };
+    mockFinanceQueue = { add: jest.fn().mockResolvedValue({}) };
+    mockPayrollQueue = { add: jest.fn().mockResolvedValue({}) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ApprovalRequestsService,
@@ -66,9 +76,9 @@ describe('ApprovalRequestsService', () => {
           provide: PrismaService,
           useValue: mockPrisma,
         },
-        { provide: getQueueToken('notifications'), useValue: { add: jest.fn() } },
-        { provide: getQueueToken('finance'), useValue: { add: jest.fn() } },
-        { provide: getQueueToken('payroll'), useValue: { add: jest.fn() } },
+        { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
+        { provide: getQueueToken('finance'), useValue: mockFinanceQueue },
+        { provide: getQueueToken('payroll'), useValue: mockPayrollQueue },
       ],
     }).compile();
 
@@ -155,6 +165,98 @@ describe('ApprovalRequestsService', () => {
       await expect(
         service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should set callback_status to pending for action types with callbacks', async () => {
+      const pendingRequest = buildMockRequest({
+        status: 'pending_approval',
+        action_type: 'payroll_finalise',
+      });
+      const approvedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        callback_status: 'pending',
+        callback_attempts: 0,
+        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
+        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+
+      await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            callback_status: 'pending',
+            callback_attempts: 0,
+          }),
+        }),
+      );
+      expect(mockPayrollQueue.add).toHaveBeenCalledWith(
+        'payroll:on-approval',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          approval_request_id: REQUEST_ID,
+        }),
+      );
+    });
+
+    it('should not set callback_status for action types without callbacks', async () => {
+      const pendingRequest = buildMockRequest({
+        status: 'pending_approval',
+        action_type: 'application_accept', // No callback mapping for this type
+      });
+      const approvedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
+        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+
+      await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      // Should not include callback_status in the update data
+      const updateCall = mockPrisma.approvalRequest.update.mock.calls[0][0];
+      expect(updateCall.data.callback_status).toBeUndefined();
+      expect(mockPayrollQueue.add).not.toHaveBeenCalled();
+      expect(mockFinanceQueue.add).not.toHaveBeenCalled();
+      expect(mockNotificationsQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('should mark callback_status as failed when queue enqueue fails', async () => {
+      const pendingRequest = buildMockRequest({
+        status: 'pending_approval',
+        action_type: 'invoice_issue',
+      });
+      const approvedRequest = {
+        ...pendingRequest,
+        status: 'approved',
+        callback_status: 'pending',
+        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
+        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+      };
+
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
+      mockPrisma.approvalRequest.update.mockResolvedValue(approvedRequest);
+      mockFinanceQueue.add.mockRejectedValue(new Error('Redis connection refused'));
+
+      await service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID);
+
+      // First call: the initial update to 'approved' with callback_status: 'pending'
+      // Second call: the error handler update to callback_status: 'failed'
+      expect(mockPrisma.approvalRequest.update).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.approvalRequest.update).toHaveBeenLastCalledWith({
+        where: { id: REQUEST_ID },
+        data: {
+          callback_status: 'failed',
+          callback_error: expect.stringContaining('Redis connection refused'),
+        },
+      });
     });
   });
 

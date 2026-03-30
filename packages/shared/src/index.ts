@@ -8,6 +8,7 @@ export * from './constants/notification-types';
 export * from './constants/sequence-types';
 export * from './constants/student-status';
 export * from './constants/class-enrolment-status';
+export * from './constants/invoice-status';
 export * from './constants/system';
 
 // Types

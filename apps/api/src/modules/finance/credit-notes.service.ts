@@ -13,7 +13,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
-import { roundMoney } from './helpers/invoice-status.helper';
+import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
 
 @Injectable()
@@ -156,7 +156,7 @@ export class CreditNotesService {
         });
       }
 
-      if (!['issued', 'partially_paid', 'overdue'].includes(invoice.status)) {
+      if (!isPayableStatus(invoice.status)) {
         throw new BadRequestException({
           code: 'INVALID_INVOICE_STATUS',
           message: `Cannot apply credit to invoice with status "${invoice.status}"`,
