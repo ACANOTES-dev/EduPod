@@ -1,9 +1,5 @@
 /* eslint-disable import/order -- jest.mock must precede mocked imports */
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CONSENT_TYPES } from '@school/shared';
 
@@ -47,22 +43,26 @@ describe('ConsentService', () => {
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
     mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
-    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, first_name: 'Amina', last_name: 'Rahman', status: 'active' });
+    mockPrisma.parent.findFirst.mockResolvedValue({
+      id: PARENT_ID,
+      first_name: 'Amina',
+      last_name: 'Rahman',
+      status: 'active',
+    });
     mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
     mockPrisma.application.findFirst.mockResolvedValue(null);
 
     mockCreateRlsClient.mockReturnValue({
-      $transaction: jest.fn().mockImplementation(
-        async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
-          fn(mockPrisma),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (fn: (tx: ReturnType<typeof buildMockPrisma>) => Promise<unknown>) =>
+            fn(mockPrisma),
+        ),
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ConsentService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ConsentService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ConsentService>(ConsentService);
@@ -233,18 +233,22 @@ describe('ConsentService', () => {
 
     const result = await service.getParentPortalConsents(TENANT_ID, USER_ID);
 
-    expect(result.data.some(
-      (item) =>
-        item.subject_id === STUDENT_ID &&
-        item.consent_type === CONSENT_TYPES.HEALTH_DATA &&
-        item.status === 'granted',
-    )).toBe(true);
-    expect(result.data.some(
-      (item) =>
-        item.subject_id === PARENT_ID &&
-        item.consent_type === CONSENT_TYPES.WHATSAPP_CHANNEL &&
-        item.status === 'granted',
-    )).toBe(true);
+    expect(
+      result.data.some(
+        (item) =>
+          item.subject_id === STUDENT_ID &&
+          item.consent_type === CONSENT_TYPES.HEALTH_DATA &&
+          item.status === 'granted',
+      ),
+    ).toBe(true);
+    expect(
+      result.data.some(
+        (item) =>
+          item.subject_id === PARENT_ID &&
+          item.consent_type === CONSENT_TYPES.WHATSAPP_CHANNEL &&
+          item.status === 'granted',
+      ),
+    ).toBe(true);
   });
 
   it('should scope getConsentsByType queries to the tenant', async () => {
@@ -295,5 +299,338 @@ describe('ConsentService', () => {
         'registration_form',
       ),
     ).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── withdrawConsent — expanded ────────────────────────────────────────────
+
+  it('should withdraw an active consent record and set withdrawn_at', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({
+      id: CONSENT_ID,
+      tenant_id: TENANT_ID,
+      status: 'granted',
+    });
+    mockPrisma.consentRecord.update.mockResolvedValue({
+      id: CONSENT_ID,
+      status: 'withdrawn',
+      withdrawn_at: new Date(),
+    });
+
+    const result = await service.withdrawConsent(TENANT_ID, CONSENT_ID, USER_ID);
+
+    expect(result).toEqual(expect.objectContaining({ id: CONSENT_ID, status: 'withdrawn' }));
+    expect(mockPrisma.consentRecord.update).toHaveBeenCalledWith({
+      where: { id: CONSENT_ID },
+      data: {
+        status: 'withdrawn',
+        withdrawn_at: expect.any(Date),
+      },
+    });
+  });
+
+  it('should throw NotFoundException when withdrawing a consent that does not exist', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+
+    await expect(service.withdrawConsent(TENANT_ID, CONSENT_ID, USER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('edge: should throw BadRequestException when withdrawing an already-withdrawn consent', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({
+      id: CONSENT_ID,
+      tenant_id: TENANT_ID,
+      status: 'withdrawn',
+    });
+
+    await expect(service.withdrawConsent(TENANT_ID, CONSENT_ID, USER_ID)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  // ─── grantConsent — optional fields ────────────────────────────────────────
+
+  it('should store notes and privacy_notice_version_id when provided', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+    mockPrisma.consentRecord.create.mockResolvedValue({ id: CONSENT_ID });
+
+    await service.grantConsent(
+      TENANT_ID,
+      'student',
+      STUDENT_ID,
+      CONSENT_TYPES.AI_GRADING,
+      USER_ID,
+      'registration_form',
+      'Parent signed paper form',
+      'privacy-version-1',
+    );
+
+    expect(mockPrisma.consentRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        notes: 'Parent signed paper form',
+        privacy_notice_version_id: 'privacy-version-1',
+      }),
+    });
+  });
+
+  it('should set notes and privacy_notice_version_id to null when not provided', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+    mockPrisma.consentRecord.create.mockResolvedValue({ id: CONSENT_ID });
+
+    await service.grantConsent(
+      TENANT_ID,
+      'student',
+      STUDENT_ID,
+      CONSENT_TYPES.AI_GRADING,
+      USER_ID,
+      'registration_form',
+    );
+
+    expect(mockPrisma.consentRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        notes: null,
+        privacy_notice_version_id: null,
+      }),
+    });
+  });
+
+  // ─── hasConsent — query verification ───────────────────────────────────────
+
+  it('should query hasConsent with status=granted filter', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+
+    await service.hasConsent(TENANT_ID, 'student', STUDENT_ID, CONSENT_TYPES.AI_GRADING);
+
+    expect(mockPrisma.consentRecord.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+        consent_type: CONSENT_TYPES.AI_GRADING,
+        status: 'granted',
+      },
+      select: { id: true },
+    });
+  });
+
+  // ─── getConsentsForSubject — expanded ──────────────────────────────────────
+
+  it('should return all consent records for a subject ordered by granted_at desc', async () => {
+    const records = [
+      { id: CONSENT_ID, consent_type: CONSENT_TYPES.HEALTH_DATA, status: 'granted' },
+      { id: 'old-consent', consent_type: CONSENT_TYPES.AI_GRADING, status: 'withdrawn' },
+    ];
+    mockPrisma.consentRecord.findMany.mockResolvedValue(records);
+
+    const result = await service.getConsentsForSubject(TENANT_ID, 'student', STUDENT_ID);
+
+    expect(result).toEqual(records);
+    expect(mockPrisma.consentRecord.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        subject_type: 'student',
+        subject_id: STUDENT_ID,
+      },
+      orderBy: [{ granted_at: 'desc' }, { created_at: 'desc' }],
+    });
+  });
+
+  it('should throw NotFoundException on getConsentsForSubject when subject does not exist', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue(null);
+
+    await expect(service.getConsentsForSubject(TENANT_ID, 'student', STUDENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  // ─── getConsentsByType — pagination ────────────────────────────────────────
+
+  it('should paginate getConsentsByType correctly for page 2', async () => {
+    mockPrisma.consentRecord.findMany.mockResolvedValue([]);
+    mockPrisma.consentRecord.count.mockResolvedValue(30);
+
+    const result = await service.getConsentsByType(TENANT_ID, CONSENT_TYPES.AI_GRADING, {
+      page: 2,
+      pageSize: 10,
+    });
+
+    expect(mockPrisma.consentRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 }),
+    );
+    expect(result.meta).toEqual({ page: 2, pageSize: 10, total: 30 });
+  });
+
+  // ─── bulkGrantConsents — already active ────────────────────────────────────
+
+  it('should throw BadRequestException in bulkGrant if any consent is already active', async () => {
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({ id: CONSENT_ID, status: 'granted' });
+
+    await expect(
+      service.bulkGrantConsents(
+        TENANT_ID,
+        'student',
+        STUDENT_ID,
+        [{ type: CONSENT_TYPES.HEALTH_DATA, evidence_type: 'registration_form' }],
+        USER_ID,
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  // ─── getParentPortalConsents — expanded ────────────────────────────────────
+
+  it('should throw NotFoundException on getParentPortalConsents when parent not found', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue(null);
+
+    await expect(service.getParentPortalConsents(TENANT_ID, USER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should return items with status=withdrawn and consent_id=null when no records exist', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({
+      id: PARENT_ID,
+      first_name: 'Amina',
+      last_name: 'Rahman',
+      status: 'active',
+    });
+    mockPrisma.studentParent.findMany.mockResolvedValue([
+      { student: { id: STUDENT_ID, first_name: 'Layla', last_name: 'Rahman' } },
+    ]);
+    mockPrisma.consentRecord.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+    const result = await service.getParentPortalConsents(TENANT_ID, USER_ID);
+
+    for (const item of result.data) {
+      expect(item.status).toBe('withdrawn');
+      expect(item.consent_id).toBeNull();
+    }
+  });
+
+  it('should handle parent with no linked students', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({
+      id: PARENT_ID,
+      first_name: 'Amina',
+      last_name: 'Rahman',
+      status: 'active',
+    });
+    mockPrisma.studentParent.findMany.mockResolvedValue([]);
+    mockPrisma.consentRecord.findMany.mockResolvedValue([]);
+
+    const result = await service.getParentPortalConsents(TENANT_ID, USER_ID);
+
+    expect(result.data.length).toBeGreaterThan(0);
+    for (const item of result.data) {
+      expect(item.subject_type).toBe('parent');
+    }
+  });
+
+  // ─── withdrawParentPortalConsent — expanded ────────────────────────────────
+
+  it('should allow parent to withdraw their own consent', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, status: 'active' });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({
+      id: CONSENT_ID,
+      tenant_id: TENANT_ID,
+      subject_type: 'parent',
+      subject_id: PARENT_ID,
+      status: 'granted',
+    });
+    mockPrisma.consentRecord.update.mockResolvedValue({ id: CONSENT_ID, status: 'withdrawn' });
+
+    const result = await service.withdrawParentPortalConsent(TENANT_ID, USER_ID, CONSENT_ID);
+
+    expect(result).toEqual(expect.objectContaining({ id: CONSENT_ID, status: 'withdrawn' }));
+  });
+
+  it('should allow parent to withdraw consent for their linked child', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, status: 'active' });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({
+      id: CONSENT_ID,
+      tenant_id: TENANT_ID,
+      subject_type: 'student',
+      subject_id: STUDENT_ID,
+      status: 'granted',
+    });
+    mockPrisma.studentParent.findFirst.mockResolvedValue({ student_id: STUDENT_ID });
+    mockPrisma.consentRecord.update.mockResolvedValue({ id: CONSENT_ID, status: 'withdrawn' });
+
+    const result = await service.withdrawParentPortalConsent(TENANT_ID, USER_ID, CONSENT_ID);
+
+    expect(result).toEqual(expect.objectContaining({ id: CONSENT_ID, status: 'withdrawn' }));
+  });
+
+  it('should throw NotFoundException on withdrawParentPortalConsent when parent not found', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.withdrawParentPortalConsent(TENANT_ID, USER_ID, CONSENT_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw NotFoundException on withdrawParentPortalConsent when consent not found', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, status: 'active' });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.withdrawParentPortalConsent(TENANT_ID, USER_ID, CONSENT_ID),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ForbiddenException for non-student, non-parent subject types', async () => {
+    mockPrisma.parent.findFirst.mockResolvedValue({ id: PARENT_ID, status: 'active' });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue({
+      id: CONSENT_ID,
+      tenant_id: TENANT_ID,
+      subject_type: 'staff',
+      subject_id: 'staff-id',
+      status: 'granted',
+    });
+
+    await expect(
+      service.withdrawParentPortalConsent(TENANT_ID, USER_ID, CONSENT_ID),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  // ─── Subject type validation ───────────────────────────────────────────────
+
+  it('should validate staff subjects exist via staffProfile lookup', async () => {
+    const STAFF_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+    mockPrisma.staffProfile.findFirst.mockResolvedValue({ id: STAFF_ID });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+    mockPrisma.consentRecord.create.mockResolvedValue({ id: CONSENT_ID });
+
+    await service.grantConsent(
+      TENANT_ID,
+      'staff',
+      STAFF_ID,
+      CONSENT_TYPES.AI_GRADING,
+      USER_ID,
+      'registration_form',
+    );
+
+    expect(mockPrisma.staffProfile.findFirst).toHaveBeenCalledWith({
+      where: { id: STAFF_ID, tenant_id: TENANT_ID },
+      select: { id: true },
+    });
+  });
+
+  it('should validate applicant subjects exist via application lookup', async () => {
+    const APPLICANT_ID = '11111111-1111-1111-1111-111111111111';
+    mockPrisma.application.findFirst.mockResolvedValue({ id: APPLICANT_ID });
+    mockPrisma.consentRecord.findFirst.mockResolvedValue(null);
+    mockPrisma.consentRecord.create.mockResolvedValue({ id: CONSENT_ID });
+
+    await service.grantConsent(
+      TENANT_ID,
+      'applicant',
+      APPLICANT_ID,
+      CONSENT_TYPES.HEALTH_DATA,
+      USER_ID,
+      'registration_form',
+    );
+
+    expect(mockPrisma.application.findFirst).toHaveBeenCalledWith({
+      where: { id: APPLICANT_ID, tenant_id: TENANT_ID },
+      select: { id: true },
+    });
   });
 });

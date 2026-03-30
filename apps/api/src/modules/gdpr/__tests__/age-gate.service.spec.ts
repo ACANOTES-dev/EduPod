@@ -20,10 +20,7 @@ describe('AgeGateService', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AgeGateService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AgeGateService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AgeGateService>(AgeGateService);
@@ -84,6 +81,49 @@ describe('AgeGateService', () => {
       const result = await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
 
       expect(result).toBe(false);
+    });
+
+    it('should return false for a 5-year-old student', async () => {
+      const now = new Date();
+      const dob = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+      mockPrisma.student.findFirst.mockResolvedValue({ date_of_birth: dob });
+
+      const result = await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
+
+      expect(result).toBe(false);
+    });
+
+    it('should scope the student lookup to the tenant', async () => {
+      mockPrisma.student.findFirst.mockResolvedValue(null);
+
+      await service.checkStudentAgeGated(TENANT_ID, STUDENT_ID);
+
+      expect(mockPrisma.student.findFirst).toHaveBeenCalledWith({
+        where: { id: STUDENT_ID, tenant_id: TENANT_ID },
+        select: { date_of_birth: true },
+      });
+    });
+  });
+
+  // ─── isStudentAgeGated — boundary cases ──────────────────────────────────
+
+  describe('isStudentAgeGated — boundary cases', () => {
+    it('edge: should return false for student born 16 years and 364 days ago', () => {
+      const now = new Date();
+      const dob = new Date(now.getFullYear() - 17, now.getMonth(), now.getDate() + 1);
+      expect(service.isStudentAgeGated({ date_of_birth: dob })).toBe(false);
+    });
+
+    it('edge: should return true for student born 17 years and 1 day ago', () => {
+      const now = new Date();
+      const dob = new Date(now.getFullYear() - 17, now.getMonth(), now.getDate() - 1);
+      expect(service.isStudentAgeGated({ date_of_birth: dob })).toBe(true);
+    });
+
+    it('should return false for student born 10 years ago', () => {
+      const now = new Date();
+      const dob = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
+      expect(service.isStudentAgeGated({ date_of_birth: dob })).toBe(false);
     });
   });
 });

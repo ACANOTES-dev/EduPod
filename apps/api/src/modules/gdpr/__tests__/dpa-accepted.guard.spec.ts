@@ -101,4 +101,104 @@ describe('DpaAcceptedGuard', () => {
     expect(allowed).toBe(true);
     expect(mockDpaService.hasAccepted).toHaveBeenCalledWith(TENANT_ID, '2026.03');
   });
+
+  it('should allow OPTIONS requests without checking acceptance', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'OPTIONS',
+        originalUrl: '/api/v1/students',
+        tenantContext: { tenant_id: TENANT_ID },
+        currentUser: ACCESS_USER,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should allow access when no tenant context is present (platform-level)', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'GET',
+        originalUrl: '/api/v1/platform/users',
+        tenantContext: null,
+        currentUser: ACCESS_USER,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should allow access when no currentUser is present (unauthenticated)', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'GET',
+        originalUrl: '/api/v1/students',
+        tenantContext: { tenant_id: TENANT_ID },
+        headers: {},
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should allow access for non-access token types (e.g., refresh tokens)', async () => {
+    const refreshUser = { ...ACCESS_USER, type: 'refresh' as const };
+
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'GET',
+        originalUrl: '/api/v1/students',
+        tenantContext: { tenant_id: TENANT_ID },
+        currentUser: refreshUser,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should exempt auth routes', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'POST',
+        originalUrl: '/api/v1/auth/login',
+        tenantContext: { tenant_id: TENANT_ID },
+        currentUser: ACCESS_USER,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should exempt public routes', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'GET',
+        originalUrl: '/api/v1/public/sub-processors',
+        tenantContext: { tenant_id: TENANT_ID },
+        currentUser: ACCESS_USER,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
+
+  it('should exempt invitation acceptance routes', async () => {
+    const allowed = await guard.canActivate(
+      buildHttpContext({
+        method: 'POST',
+        originalUrl: '/api/v1/invitations/accept/some-token',
+        tenantContext: { tenant_id: TENANT_ID },
+        currentUser: ACCESS_USER,
+      }) as never,
+    );
+
+    expect(allowed).toBe(true);
+    expect(mockDpaService.getCurrentVersion).not.toHaveBeenCalled();
+  });
 });
