@@ -85,12 +85,19 @@ export class SettingsService {
 
     const raw = (record.settings ?? {}) as Record<string, unknown>;
 
-    // Validate each module section individually, logging any per-module errors
-    // but still returning a safe result via the full schema parse (which fills defaults)
-    this.validateAllModuleSections(raw, tenantId);
+    // Validate each module section individually, logging any per-module errors.
+    // Replace invalid sections with defaults so the full parse always succeeds.
+    const validation = this.validateAllModuleSections(raw, tenantId);
+    const sanitised = { ...raw };
+    if (!validation.valid) {
+      const invalidModules = new Set(validation.errors.map((e) => e.module));
+      for (const mod of invalidModules) {
+        delete sanitised[mod];
+      }
+    }
 
     // Parse through Zod to fill any missing defaults
-    const parsed = tenantSettingsSchema.parse(raw);
+    const parsed = tenantSettingsSchema.parse(sanitised);
     return parsed;
   }
 
