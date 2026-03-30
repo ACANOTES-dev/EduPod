@@ -7621,5 +7621,95 @@
       "save_failed": "فشل حفظ الإعدادات",
       "action_failed": "فشلت العملية"
     }
+      "action_failed": "فشلت العملية"
+    }
+  },
+  "homework": {
+    "title": "الواجبات المنزلية",
+    "setHomework": "إعطاء واجب",
+    "newHomework": "واجب جديد",
+    "todaysAssignments": "واجبات اليوم",
+    "pendingReview": "بانتظار المراجعة",
+    "thisWeek": "هذا الأسبوع",
+    "recentlyPublished": "تم نشره مؤخرًا",
+    "noHomeworkToday": "لا توجد واجبات اليوم",
+    "noHomeworkTodayDesc": "أنت على أتم الاستعداد!",
+    "noRecentHomework": "لا توجد واجبات حديثة",
+    "class": "الفصل",
+    "subject": "المادة",
+    "type": "النوع",
+    "dueDate": "تاريخ التسليم",
+    "status": "الحالة",
+    "maxPoints": "الدرجة القصوى",
+    "assignedBy": "أعطاه",
+    "created": "تم الإنشاء",
+    "description": "الوصف",
+    "attachments": "المرفقات",
+    "viewAllCompletions": "عرض جميع الإنجازات",
+    "completions": "الإنجازات",
+    "copy": "نسخ",
+    "publish": "نشر",
+    "archive": "أرشفة",
+    "delete": "حذف",
+    "confirmDelete": "حذف الواجب؟",
+    "confirmDeleteDesc": "لا يمكن التراجع عن هذا الإجراء.",
+    "homeworkCreated": "تم إنشاء الواجب بنجاح",
+    "homeworkCopied": "تم نسخ الواجب بنجاح",
+    "homeworkDeleted": "تم حذف الواجب",
+    "statusUpdated": "تم تحديث الحالة",
+    "loading": "جارٍ التحميل...",
+    "saveChanges": "حفظ التغييرات",
+    "classHomework": "واجبات الفصل",
+    "filterAll": "الكل",
+    "listView": "عرض القائمة",
+    "weekView": "عرض الأسبوع",
+    "noHomeworkForClass": "لا توجد واجبات لهذا الفصل",
+    "noHomeworkForClassDesc": "ستظهر الواجبات هنا عند إنشائها.",
+    "moreOptions": "المزيد من الخيارات",
+    "publishImmediately": "النشر فورًا",
+    "notFound": "الواجب غير موجود",
+    "templates": {
+      "title": "قوالب الواجبات",
+      "copyFrom": "نسخ من",
+      "preview": "معاينة",
+      "adjustDate": "تعديل التاريخ",
+      "filterByClass": "تصفية حسب الفصل",
+      "filterBySubject": "تصفية حسب المادة",
+      "noTemplates": "لم يتم العثور على قوالب",
+      "noTemplatesDesc": "أنشئ واجبات لاستخدامها كقوالب"
+    },
+    "analytics": {
+      "title": "تحليلات الواجبات",
+      "completionRate": "معدل الإنجاز",
+      "nonCompleters": "غير المنجزين",
+      "bySubject": "حسب المادة",
+      "byClass": "حسب الفصل",
+      "teacherComparison": "مقارنة المعلمين",
+      "loadHeatmap": "خريطة الحمل",
+      "daily": "يومي",
+      "weekly": "أسبوعي",
+      "averageLoad": "متوسط الحمل",
+      "overloadedDays": "الأيام المثقلة",
+      "insights": "الرؤى",
+      "wednesdayOverload": "يبدو أن الأربعاء مثقل"
+    },
+    "status": {
+      "draft": "مسودة",
+      "published": "منشور",
+      "archived": "مؤرشف"
+    },
+    "types": {
+      "written": "خطي",
+      "reading": "قراءة",
+      "research": "بحث",
+      "revision": "مراجعة",
+      "project_work": "عمل مشروع",
+      "online_activity": "نشاط عبر الإنترنت"
+    },
+    "dashboardCard": {
+      "title": "واجبات اليوم",
+      "viewAll": "عرض الكل",
+      "unverified": "إنجازات بانتظار التحقق"
+    }
   }
 }

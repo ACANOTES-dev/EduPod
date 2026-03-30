@@ -69,6 +69,10 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/gradebook',
     roles: [...ADMIN_ROLES, 'teacher'],
   },
+  {
+    prefix: '/homework',
+    roles: [...ADMIN_ROLES, 'teacher'],
+  },
   { prefix: '/report-cards', roles: ADMIN_ROLES },
   { prefix: '/rooms', roles: ADMIN_ROLES },
   { prefix: '/schedules', roles: ADMIN_ROLES },

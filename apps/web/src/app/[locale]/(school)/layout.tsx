@@ -76,14 +76,14 @@ type RoleKey =
   | 'student';
 
 /** Roles with full admin access */
-const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_principal', 'admin', 'school_vice_principal'];
-/** Roles that are school staff (not parents) */
-const STAFF_ROLES: RoleKey[] = [
-  ...ADMIN_ROLES,
-  'teacher',
-  'accounting',
-  'front_office',
+const ADMIN_ROLES: RoleKey[] = [
+  'school_owner',
+  'school_principal',
+  'admin',
+  'school_vice_principal',
 ];
+/** Roles that are school staff (not parents) */
+const STAFF_ROLES: RoleKey[] = [...ADMIN_ROLES, 'teacher', 'accounting', 'front_office'];
 
 interface NavItem {
   icon: LucideIcon;
@@ -104,7 +104,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
     items: [
       { icon: Megaphone, labelKey: 'nav.announcements', href: '/announcements', roles: ['parent'] },
       { icon: MessageCircle, labelKey: 'nav.inquiries', href: '/inquiries', roles: ['parent'] },
-      { icon: ShieldCheck, labelKey: 'nav.privacyConsent', href: '/privacy-consent', roles: ['parent'] },
+      {
+        icon: ShieldCheck,
+        labelKey: 'nav.privacyConsent',
+        href: '/privacy-consent',
+        roles: ['parent'],
+      },
       {
         icon: ClipboardList,
         labelKey: 'nav.applications',
@@ -141,6 +146,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         roles: ADMIN_ROLES,
       },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
+      { icon: BookOpen, labelKey: 'nav.homework', href: '/homework' },
       { icon: CalendarDays, labelKey: 'nav.diary', href: '/diary' },
     ],
   },
@@ -231,7 +237,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         href: '/finance',
         roles: [...ADMIN_ROLES, 'accounting'],
       },
-      { icon: DollarSign, labelKey: 'nav.payroll', href: '/payroll', roles: ['school_owner', 'school_principal'] },
+      {
+        icon: DollarSign,
+        labelKey: 'nav.payroll',
+        href: '/payroll',
+        roles: ['school_owner', 'school_principal'],
+      },
     ],
   },
   {
@@ -247,13 +258,21 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
       { icon: CalendarDays, labelKey: 'nav.regulatoryCalendar', href: '/regulatory/calendar' },
       { icon: FileCheck, labelKey: 'nav.regulatoryTusla', href: '/regulatory/tusla' },
       { icon: FileText, labelKey: 'nav.regulatoryDesReturns', href: '/regulatory/des-returns' },
-      { icon: ClipboardList, labelKey: 'nav.regulatoryOctoberReturns', href: '/regulatory/october-returns' },
+      {
+        icon: ClipboardList,
+        labelKey: 'nav.regulatoryOctoberReturns',
+        href: '/regulatory/october-returns',
+      },
       { icon: ShieldCheck, labelKey: 'nav.regulatoryPpod', href: '/regulatory/ppod' },
       { icon: ClipboardCheck, labelKey: 'nav.regulatoryCba', href: '/regulatory/ppod/cba' },
       { icon: Users, labelKey: 'nav.regulatoryTransfers', href: '/regulatory/ppod/transfers' },
       { icon: Shield, labelKey: 'nav.regulatoryAntiBullying', href: '/regulatory/anti-bullying' },
       { icon: FileText, labelKey: 'nav.regulatorySubmissions', href: '/regulatory/submissions' },
-      { icon: ShieldCheck, labelKey: 'nav.regulatorySafeguarding', href: '/regulatory/safeguarding' },
+      {
+        icon: ShieldCheck,
+        labelKey: 'nav.regulatorySafeguarding',
+        href: '/regulatory/safeguarding',
+      },
     ],
   },
   {
@@ -360,6 +379,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
       }
     }
     // Fallback for sub-routes not in nav
+    if (path.startsWith('/homework')) return t('nav.homework');
     if (path.startsWith('/scheduling')) return t('nav.autoScheduling');
     if (path.startsWith('/profile')) return t('userMenu.profile');
     if (path.startsWith('/inquiries')) return t('nav.communications');

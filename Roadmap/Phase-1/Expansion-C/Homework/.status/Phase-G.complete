@@ -1,0 +1,7 @@
+Built: 2026-03-30T19:17:12Z
+
+Phase G (Hardening) completed:
+- Architecture docs: feature-map, module-blast-radius, danger-zones updated
+- Edge cases: academic year validation, class enrolment check
+- Schema: unique constraint for recurring homework
+- 3 commits ready for deployment

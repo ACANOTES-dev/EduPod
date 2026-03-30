@@ -1,12 +1,19 @@
 'use client';
 
 import { EmptyState, StatCard, StatusBadge } from '@school/ui';
-import { CalendarDays, ClipboardCheck } from 'lucide-react';
+import { BookOpen, CalendarDays, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
+
+interface HomeworkItem {
+  id: string;
+  title: string;
+  homework_type: string;
+  class_name: string;
+}
 
 interface TimetableEntry {
   schedule_id: string;
@@ -38,13 +45,20 @@ interface TeacherDashboardData {
 }
 
 export default function TeacherDashboardPage() {
-  const t = useTranslations('dashboard');
+  const t = useTranslations();
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [homeworkData, setHomeworkData] = useState<{ today: HomeworkItem[]; unverified: number }>({
+    today: [],
+    unverified: 0,
+  });
+  const [homeworkLoading, setHomeworkLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const result = await apiClient<{ data: TeacherDashboardData }>('/api/v1/dashboard/teacher', { silent: true });
+      const result = await apiClient<{ data: TeacherDashboardData }>('/api/v1/dashboard/teacher', {
+        silent: true,
+      });
       setData(result.data);
     } catch {
       // Fall back to empty state
@@ -53,30 +67,45 @@ export default function TeacherDashboardPage() {
     }
   }, []);
 
+  const fetchHomework = useCallback(async () => {
+    try {
+      const [todayRes, unverifiedRes] = await Promise.all([
+        apiClient<{ data: HomeworkItem[] }>('/api/v1/homework/today', { silent: true }),
+        apiClient<{ count: number }>('/api/v1/homework/completions/unverified', { silent: true }),
+      ]);
+      setHomeworkData({
+        today: todayRes.data ?? [],
+        unverified: unverifiedRes.count ?? 0,
+      });
+    } catch {
+      console.error('[Dashboard] Failed to fetch homework');
+    } finally {
+      setHomeworkLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchDashboard();
-  }, [fetchDashboard]);
+    void fetchHomework();
+  }, [fetchDashboard, fetchHomework]);
 
   return (
     <div className="space-y-8">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-          {loading ? t('welcome') : data?.greeting ?? t('welcome')}
+          {loading ? t('dashboard.welcome') : (data?.greeting ?? t('dashboard.welcome'))}
         </h1>
-        <p className="mt-1 text-sm text-text-secondary">{t('teacherSummary')}</p>
+        <p className="mt-1 text-sm text-text-secondary">{t('dashboard.teacherSummary')}</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label={t('todaysLessons')} value={data?.todays_schedule?.length ?? 0} />
-        <StatCard label={t('attendanceSessions')} value={data?.todays_sessions?.length ?? 0} />
-        <StatCard label={t('pendingSubmissions')} value={data?.pending_submissions ?? 0} />
+        <StatCard label={t('dashboard.todaysLessons')} value={data?.todays_schedule?.length ?? 0} />
+        <StatCard label={t('dashboard.attendanceSessions')} value={data?.todays_sessions?.length ?? 0} />
+        <StatCard label={t('dashboard.pendingSubmissions')} value={data?.pending_submissions ?? 0} />
       </div>
 
-      {/* Today's Schedule */}
       <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">{t('todaysSchedule')}</h2>
+        <h2 className="mb-3 text-base font-semibold text-text-primary">{t('dashboard.todaysSchedule')}</h2>
         {loading ? (
           <div className="rounded-2xl bg-surface-secondary p-4 space-y-2">
             {[1, 2, 3].map((i) => (
@@ -105,15 +134,16 @@ export default function TeacherDashboardPage() {
         ) : (
           <EmptyState
             icon={CalendarDays}
-            title={t('noLessonsToday')}
-            description={t('noLessonsTodayDesc')}
+            title={t('dashboard.noLessonsToday')}
+            description={t('dashboard.noLessonsTodayDesc')}
           />
         )}
       </section>
 
-      {/* Attendance Sessions */}
       <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">{t('attendanceSessions')}</h2>
+        <h2 className="mb-3 text-base font-semibold text-text-primary">
+          {t('dashboard.attendanceSessions')}
+        </h2>
         {loading ? (
           <div className="rounded-2xl bg-surface-secondary p-4 space-y-2">
             {[1, 2].map((i) => (
@@ -132,9 +162,7 @@ export default function TeacherDashboardPage() {
                   <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
                     {entry.class_name}
                   </span>
-                  <StatusBadge
-                    status={entry.session.status === 'open' ? 'warning' : 'success'}
-                  >
+                  <StatusBadge status={entry.session.status === 'open' ? 'warning' : 'success'}>
                     {entry.session.status === 'open' ? 'Pending' : 'Submitted'}
                   </StatusBadge>
                 </div>
@@ -147,8 +175,60 @@ export default function TeacherDashboardPage() {
         ) : (
           <EmptyState
             icon={ClipboardCheck}
-            title={t('noSessionsToday')}
-            description={t('noSessionsTodayDesc')}
+            title={t('dashboard.noSessionsToday')}
+            description={t('dashboard.noSessionsTodayDesc')}
+          />
+        )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-text-primary">{t('homework.dashboardCard.title')}</h2>
+          {homeworkData.unverified > 0 && (
+            <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+              {homeworkData.unverified} {t('homework.dashboardCard.unverified')}
+            </span>
+          )}
+        </div>
+        {homeworkLoading ? (
+          <div className="rounded-2xl bg-surface-secondary p-4 space-y-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-12 rounded-lg bg-surface animate-pulse" />
+            ))}
+          </div>
+        ) : homeworkData.today.length > 0 ? (
+          <div className="rounded-2xl bg-surface-secondary p-4 space-y-1">
+            {homeworkData.today.slice(0, 5).map((item) => (
+              <Link
+                key={item.id}
+                href={`/homework/${item.id}`}
+                className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-surface transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-text-primary group-hover:text-primary-600 transition-colors">
+                    {item.title}
+                  </span>
+                  <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                    {item.homework_type}
+                  </span>
+                </div>
+                <span className="text-xs text-text-tertiary">{item.class_name}</span>
+              </Link>
+            ))}
+            <div className="mt-2 flex justify-end">
+              <Link
+                href="/homework"
+                className="text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                {t('homework.dashboardCard.viewAll')} →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            icon={BookOpen}
+            title={t('homework.noHomeworkToday')}
+            description={t('homework.noHomeworkTodayDesc')}
           />
         )}
       </section>
