@@ -38,7 +38,10 @@
     "deleted": "تم الحذف بنجاح",
     "refresh": "تحديث",
     "selectAll": "تحديد الكل",
-    "deselectAll": "إلغاء تحديد الكل"
+    "deselectAll": "إلغاء تحديد الكل",
+    "errorBoundaryTitle": "حدث خطأ ما",
+    "errorBoundaryDescription": "حدث خطأ غير متوقع. يمكنك المحاولة مرة أخرى أو العودة إلى لوحة التحكم.",
+    "errorBoundaryRetry": "حاول مرة أخرى"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
