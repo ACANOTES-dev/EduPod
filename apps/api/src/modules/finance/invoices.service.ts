@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { CreateInvoiceDto, InvoiceStatus, UpdateInvoiceDto, WriteOffDto } from '@school/shared';
+import type {
+  CreateInvoiceDto,
+  InvoiceStatus,
+  UpdateInvoiceDto,
+  WriteOffDto,
+} from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -12,7 +17,11 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
-import { deriveInvoiceStatus, roundMoney, validateInvoiceTransition } from './helpers/invoice-status.helper';
+import {
+  deriveInvoiceStatus,
+  roundMoney,
+  validateInvoiceTransition,
+} from './helpers/invoice-status.helper';
 
 interface InvoiceFilters {
   page: number;
@@ -36,7 +45,8 @@ export class InvoicesService {
   ) {}
 
   async findAll(tenantId: string, filters: InvoiceFilters, parentHouseholdIds?: string[]) {
-    const { page, pageSize, status, household_id, date_from, date_to, search, sort, order } = filters;
+    const { page, pageSize, status, household_id, date_from, date_to, search, sort, order } =
+      filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -412,11 +422,7 @@ export class InvoicesService {
 
     // If pending_approval, cancel linked approval request
     if (invoice.status === 'pending_approval' && invoice.approval_request_id) {
-      await this.approvalRequestsService.cancel(
-        tenantId,
-        invoice.approval_request_id,
-        userId,
-      );
+      await this.approvalRequestsService.cancel(tenantId, invoice.approval_request_id, userId);
     }
 
     const updated = await this.prisma.invoice.update({
@@ -561,9 +567,7 @@ export class InvoicesService {
     }
 
     // Validate installment amounts sum to invoice total
-    const totalInstallments = roundMoney(
-      installments.reduce((sum, i) => sum + i.amount, 0),
-    );
+    const totalInstallments = roundMoney(installments.reduce((sum, i) => sum + i.amount, 0));
     const invoiceTotal = Number(invoice.total_amount);
     if (Math.abs(totalInstallments - invoiceTotal) > 0.01) {
       throw new BadRequestException({
@@ -623,15 +627,29 @@ export class InvoicesService {
 
   // ─── Serializers ────────────────────────────────────────────────
 
-  /* eslint-disable @typescript-eslint/no-explicit-any -- Prisma models use Decimal; we convert to number for the API */
-
-  private serializeInvoice(invoice: { subtotal_amount?: unknown; discount_amount?: unknown; total_amount?: unknown; balance_amount?: unknown; write_off_amount?: unknown; lines?: Array<{ quantity: unknown; unit_amount: unknown; line_total: unknown; [key: string]: unknown }>; [key: string]: unknown }) {
+  private serializeInvoice(invoice: {
+    subtotal_amount?: unknown;
+    discount_amount?: unknown;
+    total_amount?: unknown;
+    balance_amount?: unknown;
+    write_off_amount?: unknown;
+    lines?: Array<{
+      quantity: unknown;
+      unit_amount: unknown;
+      line_total: unknown;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  }) {
     return {
       ...invoice,
-      subtotal_amount: invoice.subtotal_amount !== undefined ? Number(invoice.subtotal_amount) : undefined,
-      discount_amount: invoice.discount_amount !== undefined ? Number(invoice.discount_amount) : undefined,
+      subtotal_amount:
+        invoice.subtotal_amount !== undefined ? Number(invoice.subtotal_amount) : undefined,
+      discount_amount:
+        invoice.discount_amount !== undefined ? Number(invoice.discount_amount) : undefined,
       total_amount: invoice.total_amount !== undefined ? Number(invoice.total_amount) : undefined,
-      balance_amount: invoice.balance_amount !== undefined ? Number(invoice.balance_amount) : undefined,
+      balance_amount:
+        invoice.balance_amount !== undefined ? Number(invoice.balance_amount) : undefined,
       write_off_amount: invoice.write_off_amount != null ? Number(invoice.write_off_amount) : null,
       lines: Array.isArray(invoice.lines)
         ? invoice.lines.map((l) => ({
@@ -644,7 +662,11 @@ export class InvoicesService {
     };
   }
 
-  private serializeInvoiceFull(invoice: { installments?: Array<{ amount: unknown; [key: string]: unknown }>; payment_allocations?: Array<{ allocated_amount: unknown; [key: string]: unknown }>; [key: string]: unknown }) {
+  private serializeInvoiceFull(invoice: {
+    installments?: Array<{ amount: unknown; [key: string]: unknown }>;
+    payment_allocations?: Array<{ allocated_amount: unknown; [key: string]: unknown }>;
+    [key: string]: unknown;
+  }) {
     const base = this.serializeInvoice(invoice);
     return {
       ...base,
@@ -662,6 +684,4 @@ export class InvoicesService {
         : undefined,
     };
   }
-
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 }

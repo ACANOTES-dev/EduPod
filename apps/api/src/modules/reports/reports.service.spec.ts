@@ -1,8 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
+import { ReportsDataAccessService } from './reports-data-access.service';
 import { ReportsService } from './reports.service';
 
 const TENANT_ID = 'tenant-uuid-1';
@@ -16,98 +15,45 @@ function uuid(n: number): string {
 
 describe('ReportsService', () => {
   let service: ReportsService;
-  let mockPrisma: {
-    auditLog: {
-      findFirst: jest.Mock;
-      findMany: jest.Mock;
-      count: jest.Mock;
-    };
-    yearGroup: {
-      findMany: jest.Mock;
-    };
-    student: {
-      findFirst: jest.Mock;
-      findMany: jest.Mock;
-    };
-    academicYear: {
-      findFirst: jest.Mock;
-    };
-    invoice: {
-      findMany: jest.Mock;
-      count: jest.Mock;
-    };
-    notification: {
-      findMany: jest.Mock;
-    };
-    attendanceRecord: {
-      findMany: jest.Mock;
-    };
-    grade: {
-      findMany: jest.Mock;
-    };
-    reportCard: {
-      findMany: jest.Mock;
-    };
-    classEnrolment: {
-      findMany: jest.Mock;
-    };
-    household: {
-      findFirst: jest.Mock;
-    };
-    payment: {
-      findMany: jest.Mock;
-    };
+  let mockDataAccess: {
+    findFirstAuditLog: jest.Mock;
+    findAuditLogs: jest.Mock;
+    countAuditLogs: jest.Mock;
+    findYearGroups: jest.Mock;
+    findStudentById: jest.Mock;
+    findStudents: jest.Mock;
+    findInvoices: jest.Mock;
+    countInvoices: jest.Mock;
+    findNotifications: jest.Mock;
+    findAttendanceRecords: jest.Mock;
+    findGrades: jest.Mock;
+    findReportCards: jest.Mock;
+    findClassEnrolments: jest.Mock;
+    findHouseholdById: jest.Mock;
+    findPayments: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      auditLog: {
-        findFirst: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
-      yearGroup: {
-        findMany: jest.fn(),
-      },
-      student: {
-        findFirst: jest.fn(),
-        findMany: jest.fn(),
-      },
-      academicYear: {
-        findFirst: jest.fn(),
-      },
-      invoice: {
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
-      notification: {
-        findMany: jest.fn(),
-      },
-      attendanceRecord: {
-        findMany: jest.fn(),
-      },
-      grade: {
-        findMany: jest.fn(),
-      },
-      reportCard: {
-        findMany: jest.fn(),
-      },
-      classEnrolment: {
-        findMany: jest.fn(),
-      },
-      household: {
-        findFirst: jest.fn(),
-      },
-      payment: {
-        findMany: jest.fn(),
-      },
+    mockDataAccess = {
+      findFirstAuditLog: jest.fn(),
+      findAuditLogs: jest.fn(),
+      countAuditLogs: jest.fn(),
+      findYearGroups: jest.fn(),
+      findStudentById: jest.fn(),
+      findStudents: jest.fn(),
+      findInvoices: jest.fn(),
+      countInvoices: jest.fn(),
+      findNotifications: jest.fn(),
+      findAttendanceRecords: jest.fn(),
+      findGrades: jest.fn(),
+      findReportCards: jest.fn(),
+      findClassEnrolments: jest.fn(),
+      findHouseholdById: jest.fn(),
+      findPayments: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ReportsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ReportsService, { provide: ReportsDataAccessService, useValue: mockDataAccess }],
     }).compile();
 
     service = module.get<ReportsService>(ReportsService);
@@ -117,7 +63,7 @@ describe('ReportsService', () => {
 
   describe('promotionRollover()', () => {
     it('should return promotion data from audit log when available', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue({
+      mockDataAccess.findFirstAuditLog.mockResolvedValue({
         id: uuid(1),
         metadata_json: {
           promoted: 50,
@@ -126,7 +72,7 @@ describe('ReportsService', () => {
           withdrawn: 2,
         },
       });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1' },
         { id: uuid(11), name: 'Year 2' },
       ]);
@@ -141,14 +87,14 @@ describe('ReportsService', () => {
     });
 
     it('should compute promotion data from student records as fallback', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1', display_order: 1, next_year_group: { id: uuid(11) } },
         { id: uuid(11), name: 'Year 2', display_order: 2, next_year_group: null },
       ]);
       // One student promoted (year_group changed), one held back (same)
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'active',
@@ -170,28 +116,27 @@ describe('ReportsService', () => {
     });
 
     it('should throw ACADEMIC_YEAR_NOT_FOUND for invalid academic year', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue(null);
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findYearGroups.mockResolvedValue([]);
+      mockDataAccess.findStudents.mockResolvedValue([]);
 
-      await expect(
-        service.promotionRollover(TENANT_ID, 'non-existent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.promotionRollover(TENANT_ID, 'non-existent-id')).rejects.toThrow(
+        NotFoundException,
+      );
 
-      await expect(
-        service.promotionRollover(TENANT_ID, 'non-existent-id'),
-      ).rejects.toMatchObject({
+      await expect(service.promotionRollover(TENANT_ID, 'non-existent-id')).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'ACADEMIC_YEAR_NOT_FOUND' }),
       });
     });
 
     it('should count student as promoted when year_group changed', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1', display_order: 1, next_year_group: { id: uuid(11) } },
         { id: uuid(11), name: 'Year 2', display_order: 2, next_year_group: null },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'active',
@@ -207,12 +152,12 @@ describe('ReportsService', () => {
     });
 
     it('should count student as held_back when year_group unchanged', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1', display_order: 1, next_year_group: { id: uuid(11) } },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'active',
@@ -228,12 +173,12 @@ describe('ReportsService', () => {
     });
 
     it('should count graduated students', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 6', display_order: 1, next_year_group: null },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'graduated',
@@ -250,12 +195,12 @@ describe('ReportsService', () => {
     });
 
     it('should count withdrawn students', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1', display_order: 1, next_year_group: null },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'withdrawn',
@@ -272,13 +217,13 @@ describe('ReportsService', () => {
     });
 
     it('should build per-year-group detail breakdown', async () => {
-      mockPrisma.auditLog.findFirst.mockResolvedValue(null);
-      mockPrisma.academicYear.findFirst.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
+      mockDataAccess.findFirstAuditLog.mockResolvedValue(null);
+      mockDataAccess.findStudents.mockResolvedValue({ id: ACADEMIC_YEAR_ID });
+      mockDataAccess.findYearGroups.mockResolvedValue([
         { id: uuid(10), name: 'Year 1', display_order: 1, next_year_group: { id: uuid(11) } },
         { id: uuid(11), name: 'Year 2', display_order: 2, next_year_group: null },
       ]);
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: uuid(1),
           status: 'active',
@@ -319,7 +264,7 @@ describe('ReportsService', () => {
   describe('feeGenerationRuns()', () => {
     it('should return paginated fee generation run summaries from audit logs', async () => {
       const now = new Date();
-      mockPrisma.auditLog.findMany.mockResolvedValue([
+      mockDataAccess.findAuditLogs.mockResolvedValue([
         {
           id: uuid(1),
           created_at: now,
@@ -331,7 +276,7 @@ describe('ReportsService', () => {
           metadata_json: { invoices_created: 20, total_amount: 10000, households_affected: 15 },
         },
       ]);
-      mockPrisma.auditLog.count.mockResolvedValue(2);
+      mockDataAccess.countAuditLogs.mockResolvedValue(2);
 
       const result = await service.feeGenerationRuns(TENANT_ID, { page: 1, pageSize: 20 });
 
@@ -341,12 +286,13 @@ describe('ReportsService', () => {
     });
 
     it('should filter by academic_year_id via metadata_json path', async () => {
-      mockPrisma.auditLog.findMany.mockResolvedValue([]);
-      mockPrisma.auditLog.count.mockResolvedValue(0);
+      mockDataAccess.findAuditLogs.mockResolvedValue([]);
+      mockDataAccess.countAuditLogs.mockResolvedValue(0);
 
       await service.feeGenerationRuns(TENANT_ID, { academic_year_id: ACADEMIC_YEAR_ID });
 
-      expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findAuditLogs).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
           where: expect.objectContaining({
             metadata_json: {
@@ -360,14 +306,14 @@ describe('ReportsService', () => {
 
     it('should extract invoices_created, total_amount, households_affected from metadata', async () => {
       const now = new Date();
-      mockPrisma.auditLog.findMany.mockResolvedValue([
+      mockDataAccess.findAuditLogs.mockResolvedValue([
         {
           id: uuid(1),
           created_at: now,
           metadata_json: { invoices_created: 100, total_amount: 50000, households_affected: 60 },
         },
       ]);
-      mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockDataAccess.countAuditLogs.mockResolvedValue(1);
 
       const result = await service.feeGenerationRuns(TENANT_ID, {});
       const entry = result.data[0]!;
@@ -379,14 +325,14 @@ describe('ReportsService', () => {
 
     it('should default numeric fields to 0 when missing from metadata', async () => {
       const now = new Date();
-      mockPrisma.auditLog.findMany.mockResolvedValue([
+      mockDataAccess.findAuditLogs.mockResolvedValue([
         {
           id: uuid(1),
           created_at: now,
           metadata_json: {},
         },
       ]);
-      mockPrisma.auditLog.count.mockResolvedValue(1);
+      mockDataAccess.countAuditLogs.mockResolvedValue(1);
 
       const result = await service.feeGenerationRuns(TENANT_ID, {});
       const entry = result.data[0]!;
@@ -401,7 +347,7 @@ describe('ReportsService', () => {
 
   describe('writeOffs()', () => {
     it('should return write-off entries from invoices with status written_off', async () => {
-      mockPrisma.invoice.findMany
+      mockDataAccess.findInvoices
         .mockResolvedValueOnce([
           {
             id: uuid(1),
@@ -413,7 +359,7 @@ describe('ReportsService', () => {
           },
         ])
         .mockResolvedValueOnce([]); // discount query
-      mockPrisma.invoice.count.mockResolvedValue(1);
+      mockDataAccess.countInvoices.mockResolvedValue(1);
 
       const result = await service.writeOffs(TENANT_ID, {});
 
@@ -422,7 +368,8 @@ describe('ReportsService', () => {
       expect(result.data.entries[0]!.household_name).toBe('Smith Family');
 
       // Verify the where clause targets written_off status
-      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findInvoices).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
           where: expect.objectContaining({ status: 'written_off' }),
         }),
@@ -430,17 +377,16 @@ describe('ReportsService', () => {
     });
 
     it('should apply date range filter on updated_at', async () => {
-      mockPrisma.invoice.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      mockPrisma.invoice.count.mockResolvedValue(0);
+      mockDataAccess.findInvoices.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
 
       await service.writeOffs(TENANT_ID, {
         start_date: '2025-01-01',
         end_date: '2025-12-31',
       });
 
-      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findInvoices).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
           where: expect.objectContaining({
             updated_at: {
@@ -453,7 +399,7 @@ describe('ReportsService', () => {
     });
 
     it('should compute total_written_off from all entries (100+200+300 = 600)', async () => {
-      mockPrisma.invoice.findMany
+      mockDataAccess.findInvoices
         .mockResolvedValueOnce([
           {
             id: uuid(1),
@@ -481,7 +427,7 @@ describe('ReportsService', () => {
           },
         ])
         .mockResolvedValueOnce([]);
-      mockPrisma.invoice.count.mockResolvedValue(3);
+      mockDataAccess.countInvoices.mockResolvedValue(3);
 
       const result = await service.writeOffs(TENANT_ID, {});
 
@@ -489,13 +435,10 @@ describe('ReportsService', () => {
     });
 
     it('should compute total_discounts from discount invoices', async () => {
-      mockPrisma.invoice.findMany
+      mockDataAccess.findInvoices
         .mockResolvedValueOnce([]) // write-off query
-        .mockResolvedValueOnce([
-          { discount_amount: 150 },
-          { discount_amount: 250 },
-        ]); // discount query
-      mockPrisma.invoice.count.mockResolvedValue(0);
+        .mockResolvedValueOnce([{ discount_amount: 150 }, { discount_amount: 250 }]); // discount query
+      mockDataAccess.countInvoices.mockResolvedValue(0);
 
       const result = await service.writeOffs(TENANT_ID, {});
 
@@ -503,10 +446,8 @@ describe('ReportsService', () => {
     });
 
     it('should handle empty results with entries=[] and totals both 0', async () => {
-      mockPrisma.invoice.findMany
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
-      mockPrisma.invoice.count.mockResolvedValue(0);
+      mockDataAccess.findInvoices.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      mockDataAccess.countInvoices.mockResolvedValue(0);
 
       const result = await service.writeOffs(TENANT_ID, {});
 
@@ -520,10 +461,28 @@ describe('ReportsService', () => {
 
   describe('notificationDelivery()', () => {
     it('should aggregate notification stats by channel', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'delivered', template_key: 't1', failure_reason: null },
-        { id: uuid(2), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'bounce' },
-        { id: uuid(3), channel: 'whatsapp', status: 'delivered', template_key: 't1', failure_reason: null },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 't1',
+          failure_reason: null,
+        },
+        {
+          id: uuid(2),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'bounce',
+        },
+        {
+          id: uuid(3),
+          channel: 'whatsapp',
+          status: 'delivered',
+          template_key: 't1',
+          failure_reason: null,
+        },
       ]);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
@@ -541,10 +500,28 @@ describe('ReportsService', () => {
     });
 
     it('should aggregate by template', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'delivered', template_key: 'welcome', failure_reason: null },
-        { id: uuid(2), channel: 'email', status: 'delivered', template_key: 'welcome', failure_reason: null },
-        { id: uuid(3), channel: 'email', status: 'delivered', template_key: 'invoice', failure_reason: null },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 'welcome',
+          failure_reason: null,
+        },
+        {
+          id: uuid(2),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 'welcome',
+          failure_reason: null,
+        },
+        {
+          id: uuid(3),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 'invoice',
+          failure_reason: null,
+        },
       ]);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
@@ -563,23 +540,41 @@ describe('ReportsService', () => {
       // Create 100 notifications: 80 delivered, 20 failed
       const notifications = [];
       for (let i = 0; i < 80; i++) {
-        notifications.push({ id: uuid(i), channel: 'email', status: 'delivered', template_key: 't1', failure_reason: null });
+        notifications.push({
+          id: uuid(i),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 't1',
+          failure_reason: null,
+        });
       }
       for (let i = 80; i < 100; i++) {
-        notifications.push({ id: uuid(i), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'bounce' });
+        notifications.push({
+          id: uuid(i),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'bounce',
+        });
       }
-      mockPrisma.notification.findMany.mockResolvedValue(notifications);
+      mockDataAccess.findNotifications.mockResolvedValue(notifications);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
 
       const emailChannel = result.by_channel.find((c) => c.channel === 'email');
-      expect(emailChannel!.delivery_rate).toBe(80.00);
+      expect(emailChannel!.delivery_rate).toBe(80.0);
     });
 
     it('should handle delivery_rate of 0 when nothing sent', async () => {
       // All queued — none sent
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'queued', template_key: 't1', failure_reason: null },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'queued',
+          template_key: 't1',
+          failure_reason: null,
+        },
       ]);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
@@ -591,53 +586,65 @@ describe('ReportsService', () => {
     });
 
     it('should filter by channel', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockDataAccess.findNotifications.mockResolvedValue([]);
 
       await service.notificationDelivery(TENANT_ID, { channel: 'email' });
 
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ channel: 'email' }),
-        }),
+      expect(mockDataAccess.findNotifications).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ channel: 'email' }),
+        expect.any(Object),
       );
     });
 
     it('should filter by template_key', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockDataAccess.findNotifications.mockResolvedValue([]);
 
       await service.notificationDelivery(TENANT_ID, { template_key: 'welcome' });
 
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ template_key: 'welcome' }),
-        }),
+      expect(mockDataAccess.findNotifications).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.objectContaining({ template_key: 'welcome' }),
+        expect.any(Object),
       );
     });
 
     it('should apply date range filter', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([]);
+      mockDataAccess.findNotifications.mockResolvedValue([]);
 
       await service.notificationDelivery(TENANT_ID, {
         start_date: '2025-01-01',
         end_date: '2025-06-30',
       });
 
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findNotifications).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({
-          where: expect.objectContaining({
-            created_at: {
-              gte: new Date('2025-01-01'),
-              lte: new Date('2025-06-30'),
-            },
-          }),
+          created_at: {
+            gte: new Date('2025-01-01'),
+            lte: new Date('2025-06-30'),
+          },
         }),
+        expect.any(Object),
       );
     });
 
     it('should count queued notifications as not-sent', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'queued', template_key: 't1', failure_reason: null },
-        { id: uuid(2), channel: 'email', status: 'delivered', template_key: 't1', failure_reason: null },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'queued',
+          template_key: 't1',
+          failure_reason: null,
+        },
+        {
+          id: uuid(2),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 't1',
+          failure_reason: null,
+        },
       ]);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
@@ -646,8 +653,14 @@ describe('ReportsService', () => {
     });
 
     it('should count delivered and read as delivered', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'delivered', template_key: 't1', failure_reason: null },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'delivered',
+          template_key: 't1',
+          failure_reason: null,
+        },
         { id: uuid(2), channel: 'email', status: 'read', template_key: 't1', failure_reason: null },
       ]);
 
@@ -657,13 +670,49 @@ describe('ReportsService', () => {
     });
 
     it('should aggregate failure_reasons sorted by count descending', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([
-        { id: uuid(1), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'bounce' },
-        { id: uuid(2), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'bounce' },
-        { id: uuid(3), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'bounce' },
-        { id: uuid(4), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'timeout' },
-        { id: uuid(5), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'invalid_address' },
-        { id: uuid(6), channel: 'email', status: 'failed', template_key: 't1', failure_reason: 'invalid_address' },
+      mockDataAccess.findNotifications.mockResolvedValue([
+        {
+          id: uuid(1),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'bounce',
+        },
+        {
+          id: uuid(2),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'bounce',
+        },
+        {
+          id: uuid(3),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'bounce',
+        },
+        {
+          id: uuid(4),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'timeout',
+        },
+        {
+          id: uuid(5),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'invalid_address',
+        },
+        {
+          id: uuid(6),
+          channel: 'email',
+          status: 'failed',
+          template_key: 't1',
+          failure_reason: 'invalid_address',
+        },
       ]);
 
       const result = await service.notificationDelivery(TENANT_ID, {});
@@ -698,11 +747,11 @@ describe('ReportsService', () => {
     };
 
     it('should return complete student export pack', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(mockStudent);
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
-      mockPrisma.grade.findMany.mockResolvedValue([]);
-      mockPrisma.reportCard.findMany.mockResolvedValue([]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudent);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
 
       const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
 
@@ -713,11 +762,11 @@ describe('ReportsService', () => {
     });
 
     it('should include profile, attendance, grades, report_cards, class_enrolments sections', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(mockStudent);
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
-      mockPrisma.grade.findMany.mockResolvedValue([]);
-      mockPrisma.reportCard.findMany.mockResolvedValue([]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudent);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
 
       const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
       const sectionNames = result.sections.map((s) => s.section);
@@ -732,48 +781,52 @@ describe('ReportsService', () => {
     });
 
     it('should throw STUDENT_NOT_FOUND for invalid student', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(null);
+      mockDataAccess.findStudentById.mockResolvedValue(null);
 
-      await expect(
-        service.studentExportPack(TENANT_ID, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.studentExportPack(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
 
-      await expect(
-        service.studentExportPack(TENANT_ID, 'non-existent'),
-      ).rejects.toMatchObject({
+      await expect(service.studentExportPack(TENANT_ID, 'non-existent')).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'STUDENT_NOT_FOUND' }),
       });
     });
 
     it('should limit attendance records to 200', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(mockStudent);
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
-      mockPrisma.grade.findMany.mockResolvedValue([]);
-      mockPrisma.reportCard.findMany.mockResolvedValue([]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudent);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
 
       await service.studentExportPack(TENANT_ID, STUDENT_ID);
 
-      expect(mockPrisma.attendanceRecord.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findAttendanceRecords).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({ take: 200 }),
       );
     });
 
     it('should format numeric grade scores as numbers', async () => {
-      mockPrisma.student.findFirst.mockResolvedValue(mockStudent);
-      mockPrisma.attendanceRecord.findMany.mockResolvedValue([]);
-      mockPrisma.grade.findMany.mockResolvedValue([
+      mockDataAccess.findStudentById.mockResolvedValue(mockStudent);
+      mockDataAccess.findAttendanceRecords.mockResolvedValue([]);
+      mockDataAccess.findGrades.mockResolvedValue([
         {
           id: uuid(1),
           raw_score: { toNumber: () => 95, toString: () => '95' } as unknown, // Prisma Decimal mock
           is_missing: false,
           comment: null,
           entered_at: new Date('2025-05-10'),
-          assessment: { id: uuid(2), title: 'Math Final', status: 'published', max_score: { toNumber: () => 100 } },
+          assessment: {
+            id: uuid(2),
+            title: 'Math Final',
+            status: 'published',
+            max_score: { toNumber: () => 100 },
+          },
         },
       ]);
-      mockPrisma.reportCard.findMany.mockResolvedValue([]);
-      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+      mockDataAccess.findReportCards.mockResolvedValue([]);
+      mockDataAccess.findClassEnrolments.mockResolvedValue([]);
 
       const result = await service.studentExportPack(TENANT_ID, STUDENT_ID);
       const gradesSection = result.sections.find((s) => s.section === 'grades')!;
@@ -819,9 +872,9 @@ describe('ReportsService', () => {
     };
 
     it('should return complete household export pack', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(mockHousehold);
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
 
       const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
 
@@ -832,9 +885,9 @@ describe('ReportsService', () => {
     });
 
     it('should include profile, invoices, payments sections', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(mockHousehold);
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
 
       const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
       const sectionNames = result.sections.map((s) => s.section);
@@ -843,47 +896,47 @@ describe('ReportsService', () => {
     });
 
     it('should throw HOUSEHOLD_NOT_FOUND for invalid household', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(null);
+      mockDataAccess.findHouseholdById.mockResolvedValue(null);
 
-      await expect(
-        service.householdExportPack(TENANT_ID, 'non-existent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.householdExportPack(TENANT_ID, 'non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
 
-      await expect(
-        service.householdExportPack(TENANT_ID, 'non-existent'),
-      ).rejects.toMatchObject({
+      await expect(service.householdExportPack(TENANT_ID, 'non-existent')).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'HOUSEHOLD_NOT_FOUND' }),
       });
     });
 
     it('should limit invoices to 100', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(mockHousehold);
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
 
       await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
 
-      expect(mockPrisma.invoice.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findInvoices).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({ take: 100 }),
       );
     });
 
     it('should limit payments to 100', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(mockHousehold);
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
 
       await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
 
-      expect(mockPrisma.payment.findMany).toHaveBeenCalledWith(
+      expect(mockDataAccess.findPayments).toHaveBeenCalledWith(
+        TENANT_ID,
         expect.objectContaining({ take: 100 }),
       );
     });
 
     it('should include parents and students in profile section', async () => {
-      mockPrisma.household.findFirst.mockResolvedValue(mockHousehold);
-      mockPrisma.invoice.findMany.mockResolvedValue([]);
-      mockPrisma.payment.findMany.mockResolvedValue([]);
+      mockDataAccess.findHouseholdById.mockResolvedValue(mockHousehold);
+      mockDataAccess.findInvoices.mockResolvedValue([]);
+      mockDataAccess.findPayments.mockResolvedValue([]);
 
       const result = await service.householdExportPack(TENANT_ID, HOUSEHOLD_ID);
       const profileSection = result.sections.find((s) => s.section === 'profile')!;

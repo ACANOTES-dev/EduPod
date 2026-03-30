@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import type {
   ApprovePaymentPlanDto,
   CounterOfferPaymentPlanDto,
@@ -14,6 +15,8 @@ import type {
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { serializeDecimal } from './helpers/serialize-decimal.helper';
 
 interface ProposedInstallment {
   due_date: string;
@@ -230,7 +233,12 @@ export class PaymentPlansService {
     return this.serialize(updated);
   }
 
-  async counterOffer(tenantId: string, adminUserId: string, id: string, dto: CounterOfferPaymentPlanDto) {
+  async counterOffer(
+    tenantId: string,
+    adminUserId: string,
+    id: string,
+    dto: CounterOfferPaymentPlanDto,
+  ) {
     const request = await this.prisma.paymentPlanRequest.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -266,11 +274,7 @@ export class PaymentPlansService {
   /**
    * Parent accepts a counter-offer from admin.
    */
-  async acceptCounterOffer(
-    tenantId: string,
-    parentUserId: string,
-    id: string,
-  ) {
+  async acceptCounterOffer(tenantId: string, parentUserId: string, id: string) {
     const request = await this.prisma.paymentPlanRequest.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -326,12 +330,17 @@ export class PaymentPlansService {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma type
-  private serialize(r: any) {
+  private serialize<T>(
+    r: T & { invoice?: { total_amount: Decimal; [k: string]: unknown } | null },
+  ): T & {
+    invoice?: Omit<{ total_amount: Decimal; [k: string]: unknown }, 'total_amount'> & {
+      total_amount: number;
+    };
+  } {
     return {
       ...r,
       invoice: r.invoice
-        ? { ...r.invoice, total_amount: Number(r.invoice.total_amount) }
+        ? { ...r.invoice, total_amount: serializeDecimal(r.invoice.total_amount) }
         : undefined,
     };
   }

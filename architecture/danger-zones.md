@@ -23,22 +23,26 @@ The invoice state machine now has a single `VALID_INVOICE_TRANSITIONS` map in `p
 
 ---
 
-## DZ-02: Prisma-Direct Cross-Module Queries
+## DZ-02: Prisma-Direct Cross-Module Queries — PARTIALLY MITIGATED
 
 **Risk**: Schema changes breaking modules that aren't visible in the NestJS dependency graph
 **Location**: Throughout `apps/api/src/modules/`
+**Status**: PARTIALLY MITIGATED (2026-03-30)
 
-The ReportsModule, DashboardModule, and several other modules query tables they don't "own" directly via PrismaService. NestJS module imports won't show these dependencies. Example: ReportsModule has 15 services that query attendance, grades, admissions, demographics, staff data — but imports ZERO other modules.
+**Mitigation applied**: ReportsModule and its 10 analytics services now route ALL cross-module reads through `ReportsDataAccessService` (`reports-data-access.service.ts`). This service centralises reads to 25+ foreign tables in one file with explicit documentation of which tables it touches. DashboardModule imports ReportsModule for this service.
 
-**Rule**: When changing any table schema, always run:
+**What remains direct Prisma**: DashboardService (uses RLS transactions for security — intentionally kept), other modules outside reports/dashboard (behaviour, regulatory, etc.) still have direct Prisma reads to foreign tables.
+
+**Rule**: When changing schema for any table listed in `ReportsDataAccessService`, update THAT file. For other modules, still run:
+
 ```bash
 grep -r "tableName" apps/api/src/ --include="*.ts" -l
 ```
-Do NOT rely solely on the module import graph.
 
 **Tables with highest cross-module read exposure**:
-1. `staff_profiles` — 6+ modules read directly
-2. `students` — 6+ modules read directly
+
+1. `staff_profiles` — 6+ modules read directly (reports module now via data access facade)
+2. `students` — 6+ modules read directly (reports module now via data access facade)
 3. `classes` / `class_enrolments` — 5+ modules
 4. `academic_periods` / `academic_years` — 5+ modules
 5. `invoices` / `payments` — 3+ modules

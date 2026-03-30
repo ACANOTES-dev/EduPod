@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { CustomReportBuilderService } from './custom-report-builder.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -37,16 +38,21 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
 describe('CustomReportBuilderService', () => {
   let service: CustomReportBuilderService;
-  let mockPrisma: {
-    student: { findMany: jest.Mock; count: jest.Mock };
-    staffProfile: { findMany: jest.Mock; count: jest.Mock };
-    application: { findMany: jest.Mock; count: jest.Mock };
+  let mockDataAccess: {
+    findStudents: jest.Mock;
+    countStudents: jest.Mock;
+    findStaffProfiles: jest.Mock;
+    countStaff: jest.Mock;
+    findApplications: jest.Mock;
+    countApplications: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -58,16 +64,20 @@ describe('CustomReportBuilderService', () => {
     mockTx.savedReport.update.mockResolvedValue({ ...MOCK_REPORT_DB, name: 'Updated Report' });
     mockTx.savedReport.delete.mockResolvedValue(MOCK_REPORT_DB);
 
-    mockPrisma = {
-      student: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-      staffProfile: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
-      application: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    mockDataAccess = {
+      findStudents: jest.fn().mockResolvedValue([]),
+      countStudents: jest.fn().mockResolvedValue(0),
+      findStaffProfiles: jest.fn().mockResolvedValue([]),
+      countStaff: jest.fn().mockResolvedValue(0),
+      findApplications: jest.fn().mockResolvedValue([]),
+      countApplications: jest.fn().mockResolvedValue(0),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CustomReportBuilderService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PrismaService, useValue: {} },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -156,14 +166,23 @@ describe('CustomReportBuilderService', () => {
   it('should throw NotFoundException when deleting a non-existent report', async () => {
     mockTx.savedReport.findFirst.mockResolvedValue(null);
 
-    await expect(service.deleteSavedReport(TENANT_ID, REPORT_ID)).rejects.toThrow(NotFoundException);
+    await expect(service.deleteSavedReport(TENANT_ID, REPORT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should execute students data source report and return paginated data', async () => {
-    mockPrisma.student.findMany.mockResolvedValue([
-      { id: 'stu-1', first_name: 'Alice', last_name: 'Smith', status: 'active', gender: 'female', nationality: 'IE' },
+    mockDataAccess.findStudents.mockResolvedValue([
+      {
+        id: 'stu-1',
+        first_name: 'Alice',
+        last_name: 'Smith',
+        status: 'active',
+        gender: 'female',
+        nationality: 'IE',
+      },
     ]);
-    mockPrisma.student.count.mockResolvedValue(1);
+    mockDataAccess.countStudents.mockResolvedValue(1);
 
     const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
 
@@ -173,10 +192,16 @@ describe('CustomReportBuilderService', () => {
 
   it('should execute staff data source report and return paginated data', async () => {
     mockTx.savedReport.findFirst.mockResolvedValue({ ...MOCK_REPORT_DB, data_source: 'staff' });
-    mockPrisma.staffProfile.findMany.mockResolvedValue([
-      { id: 'staff-1', job_title: 'Teacher', department: 'Science', employment_status: 'active', employment_type: 'full_time' },
+    mockDataAccess.findStaffProfiles.mockResolvedValue([
+      {
+        id: 'staff-1',
+        job_title: 'Teacher',
+        department: 'Science',
+        employment_status: 'active',
+        employment_type: 'full_time',
+      },
     ]);
-    mockPrisma.staffProfile.count.mockResolvedValue(1);
+    mockDataAccess.countStaff.mockResolvedValue(1);
 
     const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
 
@@ -185,7 +210,10 @@ describe('CustomReportBuilderService', () => {
   });
 
   it('should return empty data for unknown data source', async () => {
-    mockTx.savedReport.findFirst.mockResolvedValue({ ...MOCK_REPORT_DB, data_source: 'unknown_source' });
+    mockTx.savedReport.findFirst.mockResolvedValue({
+      ...MOCK_REPORT_DB,
+      data_source: 'unknown_source',
+    });
 
     const result = await service.executeReport(TENANT_ID, REPORT_ID, 1, 20);
 

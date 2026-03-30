@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { tenantSettingsSchema } from '@school/shared';
 import type { TenantSettingsDto } from '@school/shared';
@@ -85,6 +85,66 @@ describe('SettingsService', () => {
       mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
 
       await expect(service.getSettings(TENANT_ID)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should still return valid settings when a module section has malformed data', async () => {
+      // Simulate a module section with an invalid value stored in the JSONB
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {
+          attendance: { pendingAlertTimeHour: 99 }, // invalid: max is 23
+        },
+      });
+
+      // Should NOT throw — the full parse fills defaults for the invalid section
+      const result = await service.getSettings(TENANT_ID);
+
+      // The other modules still get their defaults
+      expect(result.payroll.autoPopulateClassCounts).toBe(true);
+      expect(result.gradebook.defaultMissingGradePolicy).toBe('exclude');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // getModuleSettings
+  // -------------------------------------------------------------------------
+
+  describe('getModuleSettings', () => {
+    it('should return a single module section with defaults filled', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {
+          attendance: { allowTeacherAmendment: true },
+        },
+      });
+
+      const result = await service.getModuleSettings(TENANT_ID, 'attendance');
+
+      expect(result.allowTeacherAmendment).toBe(true);
+      // Defaults filled for omitted fields
+      expect(result.pendingAlertTimeHour).toBe(14);
+      expect(result.autoLockAfterDays).toBeNull();
+    });
+
+    it('should fill defaults when the module section is missing entirely', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {},
+      });
+
+      const result = await service.getModuleSettings(TENANT_ID, 'finance');
+
+      expect(result.defaultPaymentTermDays).toBe(30);
+      expect(result.allowPartialPayment).toBe(true);
+      expect(result.reminderChannel).toBe('email');
+    });
+
+    it('should throw NotFoundException when no settings record exists', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+
+      await expect(service.getModuleSettings(TENANT_ID, 'attendance')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -173,7 +233,11 @@ describe('SettingsService', () => {
       mockPrisma.tenantModule.findMany.mockResolvedValue([]);
 
       await service.updateSettings(TENANT_ID, {
-        gradebook: { defaultMissingGradePolicy: 'zero', requireGradeComment: true, riskDetection: { enabled: false } },
+        gradebook: {
+          defaultMissingGradePolicy: 'zero',
+          requireGradeComment: true,
+          riskDetection: { enabled: false },
+        },
       });
 
       expect(mockPrisma.tenantSetting.update).toHaveBeenCalledWith(
@@ -188,7 +252,9 @@ describe('SettingsService', () => {
       mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.updateSettings(TENANT_ID, { general: { parentPortalEnabled: false } as TenantSettingsDto['general'] }),
+        service.updateSettings(TENANT_ID, {
+          general: { parentPortalEnabled: false } as TenantSettingsDto['general'],
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -204,6 +270,147 @@ describe('SettingsService', () => {
           attendance: { pendingAlertTimeHour: 99 } as unknown as TenantSettingsDto['attendance'],
         }),
       ).rejects.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateModuleSettings — per-module validation
+  // -------------------------------------------------------------------------
+
+  describe('updateModuleSettings', () => {
+    it('should validate and save only the target module section', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: DEFAULT_SETTINGS,
+      });
+      mockPrisma.tenantSetting.update.mockResolvedValue({});
+      mockPrisma.tenantModule.findMany.mockResolvedValue([]);
+
+      const result = await service.updateModuleSettings(TENANT_ID, 'attendance', {
+        allowTeacherAmendment: true,
+      });
+
+      expect(result.settings.allowTeacherAmendment).toBe(true);
+      // Defaults filled for omitted fields
+      expect(result.settings.pendingAlertTimeHour).toBe(14);
+    });
+
+    it('should deep merge partial module data with existing module data', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {
+          ...DEFAULT_SETTINGS,
+          finance: {
+            ...DEFAULT_SETTINGS.finance,
+            defaultPaymentTermDays: 60,
+            allowPartialPayment: false,
+          },
+        },
+      });
+      mockPrisma.tenantSetting.update.mockResolvedValue({});
+      mockPrisma.tenantModule.findMany.mockResolvedValue([]);
+
+      const result = await service.updateModuleSettings(TENANT_ID, 'finance', {
+        allowPartialPayment: true,
+      });
+
+      // Updated field
+      expect(result.settings.allowPartialPayment).toBe(true);
+      // Preserved from existing (not overwritten by defaults)
+      expect(result.settings.defaultPaymentTermDays).toBe(60);
+    });
+
+    it('should not touch other module sections when updating one module', async () => {
+      const existingPayroll = {
+        requireApprovalForNonPrincipal: false,
+        defaultBonusMultiplier: 2.5,
+        autoPopulateClassCounts: false,
+      };
+
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: {
+          ...DEFAULT_SETTINGS,
+          payroll: existingPayroll,
+        },
+      });
+      mockPrisma.tenantSetting.update.mockResolvedValue({});
+      mockPrisma.tenantModule.findMany.mockResolvedValue([]);
+
+      await service.updateModuleSettings(TENANT_ID, 'attendance', {
+        allowTeacherAmendment: true,
+      });
+
+      // Verify the saved data preserves the payroll section unchanged
+      const savedData = mockPrisma.tenantSetting.update.mock.calls[0][0].data.settings as Record<
+        string,
+        unknown
+      >;
+      expect(savedData['payroll']).toEqual(existingPayroll);
+    });
+
+    it('should throw BadRequestException for invalid module data', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: DEFAULT_SETTINGS,
+      });
+
+      // pendingAlertTimeHour must be 0-23
+      await expect(
+        service.updateModuleSettings(TENANT_ID, 'attendance', {
+          pendingAlertTimeHour: 99,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should include structured error details on validation failure', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: DEFAULT_SETTINGS,
+      });
+
+      try {
+        await service.updateModuleSettings(TENANT_ID, 'attendance', {
+          pendingAlertTimeHour: 99,
+        });
+        // Should not reach here
+        expect(true).toBe(false);
+      } catch (err) {
+        expect(err).toBeInstanceOf(BadRequestException);
+        const response = (err as BadRequestException).getResponse() as Record<string, unknown>;
+        expect(response['code']).toBe('SETTINGS_VALIDATION_FAILED');
+        expect(response['message']).toContain('attendance');
+        expect(response['details']).toBeDefined();
+        expect(Array.isArray(response['details'])).toBe(true);
+      }
+    });
+
+    it('should throw NotFoundException when no settings record exists', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateModuleSettings(TENANT_ID, 'attendance', {
+          allowTeacherAmendment: true,
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should return cross-module warnings after per-module update', async () => {
+      mockPrisma.tenantSetting.findUnique.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        settings: DEFAULT_SETTINGS,
+      });
+      mockPrisma.tenantSetting.update.mockResolvedValue({});
+      mockPrisma.tenantModule.findMany.mockResolvedValue([
+        { module_key: 'attendance', is_enabled: false },
+      ]);
+
+      const result = await service.updateModuleSettings(TENANT_ID, 'payroll', {
+        autoPopulateClassCounts: true,
+      });
+
+      const warning = result.warnings.find((w) => w.field === 'payroll.autoPopulateClassCounts');
+      expect(warning).toBeDefined();
     });
   });
 

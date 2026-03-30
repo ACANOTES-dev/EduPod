@@ -17,6 +17,9 @@ describe('NotificationDispatchService', () => {
     parent: {
       findFirst: jest.Mock;
     };
+    user: {
+      findUnique: jest.Mock;
+    };
     notification: {
       findUnique: jest.Mock;
       update: jest.Mock;
@@ -31,7 +34,16 @@ describe('NotificationDispatchService', () => {
 
     prisma = {
       parent: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'parent-1' }),
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({
+            id: 'parent-1',
+            phone: '+353851234567',
+            whatsapp_phone: '+353851234567',
+          }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'user-1', email: 'test@example.com' }),
       },
       notification: {
         findUnique: jest.fn(),
@@ -53,17 +65,37 @@ describe('NotificationDispatchService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: ConsentService, useValue: consentService },
         { provide: NotificationTemplatesService, useValue: templateService },
-        { provide: TemplateRendererService, useValue: { render: jest.fn().mockReturnValue('rendered'), renderSubject: jest.fn().mockReturnValue('subject'), stripHtml: jest.fn().mockReturnValue('stripped') } },
-        { provide: ResendEmailProvider, useValue: { send: jest.fn().mockResolvedValue({ messageId: 'msg-1' }) } },
-        { provide: TwilioWhatsAppProvider, useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-1' }) } },
-        { provide: TwilioSmsProvider, useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) } },
-        { provide: NotificationRateLimitService, useValue: { checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }), recordSent: jest.fn().mockResolvedValue(undefined) } },
+        {
+          provide: TemplateRendererService,
+          useValue: {
+            render: jest.fn().mockReturnValue('rendered'),
+            renderSubject: jest.fn().mockReturnValue('subject'),
+            stripHtml: jest.fn().mockReturnValue('stripped'),
+          },
+        },
+        {
+          provide: ResendEmailProvider,
+          useValue: { send: jest.fn().mockResolvedValue({ messageId: 'msg-1' }) },
+        },
+        {
+          provide: TwilioWhatsAppProvider,
+          useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-1' }) },
+        },
+        {
+          provide: TwilioSmsProvider,
+          useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) },
+        },
+        {
+          provide: NotificationRateLimitService,
+          useValue: {
+            checkAndIncrement: jest.fn().mockResolvedValue({ allowed: true }),
+            recordSent: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
-    service = module.get<NotificationDispatchService>(
-      NotificationDispatchService,
-    );
+    service = module.get<NotificationDispatchService>(NotificationDispatchService);
   });
 
   const makeNotification = (overrides: Record<string, unknown> = {}) => ({
@@ -121,9 +153,7 @@ describe('NotificationDispatchService', () => {
         max_attempts: 3,
       });
       prisma.notification.findUnique.mockResolvedValue(notification);
-      templateService.resolveTemplate.mockRejectedValue(
-        new Error('SMTP connection failed'),
-      );
+      templateService.resolveTemplate.mockRejectedValue(new Error('SMTP connection failed'));
       prisma.notification.update.mockResolvedValue({});
 
       const before = Date.now();
@@ -140,8 +170,7 @@ describe('NotificationDispatchService', () => {
       });
 
       // Backoff for attempt 1: 60000 * 2^1 = 120000ms
-      const retryAt =
-        prisma.notification.update.mock.calls[0][0].data.next_retry_at;
+      const retryAt = prisma.notification.update.mock.calls[0][0].data.next_retry_at;
       const diffMs = retryAt.getTime() - before;
       expect(diffMs).toBeGreaterThanOrEqual(110_000);
       expect(diffMs).toBeLessThan(130_000);
@@ -154,9 +183,7 @@ describe('NotificationDispatchService', () => {
         max_attempts: 3,
       });
       prisma.notification.findUnique.mockResolvedValue(notification);
-      templateService.resolveTemplate.mockRejectedValue(
-        new Error('SMTP timeout'),
-      );
+      templateService.resolveTemplate.mockRejectedValue(new Error('SMTP timeout'));
       prisma.notification.update.mockResolvedValue({});
       prisma.notification.create.mockResolvedValue({});
 
@@ -192,9 +219,7 @@ describe('NotificationDispatchService', () => {
         max_attempts: 3,
       });
       prisma.notification.findUnique.mockResolvedValue(notification);
-      templateService.resolveTemplate.mockRejectedValue(
-        new Error('Send failed'),
-      );
+      templateService.resolveTemplate.mockRejectedValue(new Error('Send failed'));
       prisma.notification.update.mockResolvedValue({});
       prisma.notification.create.mockResolvedValue({});
 
@@ -324,9 +349,7 @@ describe('NotificationDispatchService', () => {
         max_attempts: 3,
       });
       prisma.notification.findUnique.mockResolvedValue(notification);
-      templateService.resolveTemplate.mockRejectedValue(
-        new Error('Twilio API error'),
-      );
+      templateService.resolveTemplate.mockRejectedValue(new Error('Twilio API error'));
       prisma.notification.update.mockResolvedValue({});
       prisma.notification.create.mockResolvedValue({});
 
@@ -368,6 +391,211 @@ describe('NotificationDispatchService', () => {
     });
   });
 
+  describe('dispatchWithFallback() — sms channel', () => {
+    it('should attempt SMS dispatch via Twilio and mark as sent', async () => {
+      const notification = makeNotification({ channel: 'sms' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      // Parent with a phone number for SMS resolution
+      prisma.parent.findFirst.mockResolvedValue({
+        id: 'parent-1',
+        phone: '+353851234567',
+        whatsapp_phone: null,
+      });
+      templateService.resolveTemplate.mockResolvedValue({
+        id: 'tpl-sms-1',
+        body_template: 'Hello {{name}}',
+      });
+      prisma.notification.update.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      expect(templateService.resolveTemplate).toHaveBeenCalledWith(
+        'tenant-1',
+        'welcome',
+        'sms',
+        'en',
+      );
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'sent',
+          attempt_count: 1,
+        }),
+      });
+    });
+
+    it('should create email fallback when no SMS template found', async () => {
+      const notification = makeNotification({ channel: 'sms' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      templateService.resolveTemplate.mockResolvedValue(null);
+      prisma.notification.update.mockResolvedValue({});
+      prisma.notification.create.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      // Creates email fallback (sms -> email in the fallback chain)
+      expect(prisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'email',
+          status: 'queued',
+        }),
+      });
+
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'failed',
+          failure_reason: 'No SMS template for locale',
+        }),
+      });
+    });
+
+    it('should create email fallback when no phone number found', async () => {
+      const notification = makeNotification({ channel: 'sms' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      templateService.resolveTemplate.mockResolvedValue({
+        id: 'tpl-sms-1',
+        body_template: 'Hello {{name}}',
+      });
+      // Mock parent without phone — resolveRecipientContact will return null
+      prisma.parent.findFirst.mockResolvedValue({ phone: null, whatsapp_phone: null });
+      prisma.notification.update.mockResolvedValue({});
+      prisma.notification.create.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'failed',
+          failure_reason: 'No phone number found',
+        }),
+      });
+
+      expect(prisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'email',
+          status: 'queued',
+        }),
+      });
+    });
+
+    it('should create email fallback after max SMS retries exhausted', async () => {
+      const notification = makeNotification({
+        channel: 'sms',
+        attempt_count: 2,
+        max_attempts: 3,
+      });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      templateService.resolveTemplate.mockRejectedValue(new Error('Twilio SMS API error'));
+      prisma.notification.update.mockResolvedValue({});
+      prisma.notification.create.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      // Dead-lettered: creates email fallback (sms -> email)
+      expect(prisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'email',
+          tenant_id: 'tenant-1',
+          status: 'queued',
+        }),
+      });
+    });
+  });
+
+  describe('dispatchWithFallback() — rate limiting', () => {
+    it('should fail notification when rate limited on email channel', async () => {
+      const notification = makeNotification({ channel: 'email' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      templateService.resolveTemplate.mockResolvedValue({
+        id: 'tpl-1',
+        body_template: 'Hello',
+      });
+
+      // Get the module to override the rate limit mock
+      const rateLimitService = {
+        checkAndIncrement: jest.fn().mockResolvedValue({
+          allowed: false,
+          reason: 'Hourly email notification limit (10) exceeded',
+        }),
+      };
+
+      // Rebuild module with rate-limited service
+      const { Test: NestTest } = await import('@nestjs/testing');
+      const module = await NestTest.createTestingModule({
+        providers: [
+          NotificationDispatchService,
+          { provide: PrismaService, useValue: prisma },
+          { provide: ConsentService, useValue: consentService },
+          { provide: NotificationTemplatesService, useValue: templateService },
+          {
+            provide: TemplateRendererService,
+            useValue: {
+              render: jest.fn().mockReturnValue('rendered'),
+              renderSubject: jest.fn().mockReturnValue('subject'),
+              stripHtml: jest.fn().mockReturnValue('stripped'),
+            },
+          },
+          {
+            provide: ResendEmailProvider,
+            useValue: { send: jest.fn().mockResolvedValue({ messageId: 'msg-1' }) },
+          },
+          {
+            provide: TwilioWhatsAppProvider,
+            useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-1' }) },
+          },
+          {
+            provide: TwilioSmsProvider,
+            useValue: { send: jest.fn().mockResolvedValue({ messageSid: 'sid-2' }) },
+          },
+          { provide: NotificationRateLimitService, useValue: rateLimitService },
+        ],
+      }).compile();
+
+      const rateLimitedService = module.get<NotificationDispatchService>(
+        NotificationDispatchService,
+      );
+      await rateLimitedService.dispatchWithFallback('notif-1');
+
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'failed',
+          failure_reason: 'Hourly email notification limit (10) exceeded',
+        }),
+      });
+    });
+  });
+
+  describe('dispatchWithFallback() — email contact resolution', () => {
+    it('should create in_app fallback when email template not found', async () => {
+      const notification = makeNotification({ channel: 'email' });
+      prisma.notification.findUnique.mockResolvedValue(notification);
+      templateService.resolveTemplate.mockResolvedValue(null);
+      prisma.notification.update.mockResolvedValue({});
+      prisma.notification.create.mockResolvedValue({});
+
+      await service.dispatchWithFallback('notif-1');
+
+      expect(prisma.notification.update).toHaveBeenCalledWith({
+        where: { id: 'notif-1' },
+        data: expect.objectContaining({
+          status: 'failed',
+          failure_reason: 'No email template for locale',
+        }),
+      });
+
+      // Fallback to in_app
+      expect(prisma.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          channel: 'in_app',
+          status: 'delivered',
+        }),
+      });
+    });
+  });
+
   describe('dispatchWithFallback() — in_app channel', () => {
     it('should mark in_app notification as delivered immediately', async () => {
       const notification = makeNotification({ channel: 'in_app' });
@@ -398,9 +626,7 @@ describe('NotificationDispatchService', () => {
     });
 
     it('should return early when status is already sent', async () => {
-      prisma.notification.findUnique.mockResolvedValue(
-        makeNotification({ status: 'sent' }),
-      );
+      prisma.notification.findUnique.mockResolvedValue(makeNotification({ status: 'sent' }));
 
       await service.dispatchWithFallback('notif-1');
 
@@ -408,9 +634,7 @@ describe('NotificationDispatchService', () => {
     });
 
     it('should return early when status is already delivered', async () => {
-      prisma.notification.findUnique.mockResolvedValue(
-        makeNotification({ status: 'delivered' }),
-      );
+      prisma.notification.findUnique.mockResolvedValue(makeNotification({ status: 'delivered' }));
 
       await service.dispatchWithFallback('notif-1');
 
@@ -418,9 +642,7 @@ describe('NotificationDispatchService', () => {
     });
 
     it('should return early when status is already read', async () => {
-      prisma.notification.findUnique.mockResolvedValue(
-        makeNotification({ status: 'read' }),
-      );
+      prisma.notification.findUnique.mockResolvedValue(makeNotification({ status: 'read' }));
 
       await service.dispatchWithFallback('notif-1');
 

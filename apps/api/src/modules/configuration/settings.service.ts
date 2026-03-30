@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { tenantSettingsSchema } from '@school/shared';
-import type { TenantSettingsDto } from '@school/shared';
+import { TENANT_SETTINGS_MODULE_SCHEMAS, tenantSettingsSchema } from '@school/shared';
+import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared';
+import { ZodError } from 'zod';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -45,12 +46,30 @@ export interface SettingsWarning {
   message: string;
 }
 
+// ─── Validation result types ──────────────────────────────────────────────────
+
+export interface SettingsValidationError {
+  module: string;
+  path: string;
+  message: string;
+}
+
+export interface SettingsValidationResult {
+  valid: boolean;
+  errors: SettingsValidationError[];
+}
+
 @Injectable()
 export class SettingsService {
+  private readonly logger = new Logger(SettingsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Read: full settings ────────────────────────────────────────────────────
 
   /**
    * Get tenant settings, parsed through Zod to fill defaults.
+   * Each module section is individually validated to surface per-module errors.
    */
   async getSettings(tenantId: string): Promise<TenantSettingsDto> {
     const record = await this.prisma.tenantSetting.findUnique({
@@ -64,10 +83,45 @@ export class SettingsService {
       });
     }
 
+    const raw = (record.settings ?? {}) as Record<string, unknown>;
+
+    // Validate each module section individually, logging any per-module errors
+    // but still returning a safe result via the full schema parse (which fills defaults)
+    this.validateAllModuleSections(raw, tenantId);
+
     // Parse through Zod to fill any missing defaults
-    const parsed = tenantSettingsSchema.parse(record.settings);
+    const parsed = tenantSettingsSchema.parse(raw);
     return parsed;
   }
+
+  // ─── Read: single module section ────────────────────────────────────────────
+
+  /**
+   * Get a single module's settings, validated through its per-module Zod schema.
+   */
+  async getModuleSettings<K extends TenantSettingsModuleKey>(
+    tenantId: string,
+    moduleKey: K,
+  ): Promise<TenantSettingsDto[K]> {
+    const record = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+    });
+
+    if (!record) {
+      throw new NotFoundException({
+        code: 'SETTINGS_NOT_FOUND',
+        message: 'Settings not found for this tenant',
+      });
+    }
+
+    const raw = (record.settings ?? {}) as Record<string, unknown>;
+    const moduleData = raw[moduleKey] ?? {};
+    const schema = TENANT_SETTINGS_MODULE_SCHEMAS[moduleKey];
+
+    return schema.parse(moduleData) as TenantSettingsDto[K];
+  }
+
+  // ─── Write: full settings (existing behaviour) ─────────────────────────────
 
   /**
    * Update tenant settings via deep merge, validate, and save.
@@ -109,13 +163,122 @@ export class SettingsService {
     };
   }
 
+  // ─── Write: single module section ──────────────────────────────────────────
+
+  /**
+   * Update a single module's settings. Validates ONLY the target module section
+   * against its per-module Zod schema before merging, so a malformed write to
+   * one module cannot corrupt other modules' settings (DZ-05 mitigation).
+   */
+  async updateModuleSettings<K extends TenantSettingsModuleKey>(
+    tenantId: string,
+    moduleKey: K,
+    data: Record<string, unknown>,
+  ) {
+    const existing = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'SETTINGS_NOT_FOUND',
+        message: 'Settings not found for this tenant',
+      });
+    }
+
+    const existingSettings = (existing.settings ?? {}) as Record<string, unknown>;
+    const existingModuleData = (existingSettings[moduleKey] ?? {}) as Record<string, unknown>;
+
+    // Deep merge the incoming partial data with the existing module section
+    const mergedModuleData = deepMerge(existingModuleData, data);
+
+    // Validate ONLY the target module section through its per-module schema
+    const schema = TENANT_SETTINGS_MODULE_SCHEMAS[moduleKey];
+    let validatedModule: TenantSettingsDto[K];
+    try {
+      validatedModule = schema.parse(mergedModuleData) as TenantSettingsDto[K];
+    } catch (err) {
+      if (err instanceof ZodError) {
+        const details = err.errors.map((e) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        }));
+        throw new BadRequestException({
+          code: 'SETTINGS_VALIDATION_FAILED',
+          message: `Validation failed for module "${moduleKey}"`,
+          details,
+        });
+      }
+      throw err;
+    }
+
+    // Replace only the target module section, leaving all other sections untouched
+    const updatedSettings = {
+      ...existingSettings,
+      [moduleKey]: validatedModule,
+    };
+
+    // Save
+    await this.prisma.tenantSetting.update({
+      where: { tenant_id: tenantId },
+      data: { settings: updatedSettings as unknown as Prisma.InputJsonValue },
+    });
+
+    // Re-parse the full blob to get a typed result for warnings check
+    const fullSettings = tenantSettingsSchema.parse(updatedSettings);
+    const warnings = await this.getWarnings(tenantId, fullSettings);
+
+    return {
+      settings: validatedModule,
+      warnings,
+    };
+  }
+
+  // ─── Validation helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Validate all module sections individually. Logs warnings for any malformed
+   * sections but does not throw — the full schema parse handles defaults.
+   */
+  private validateAllModuleSections(
+    raw: Record<string, unknown>,
+    tenantId: string,
+  ): SettingsValidationResult {
+    const errors: SettingsValidationError[] = [];
+
+    for (const [key, schema] of Object.entries(TENANT_SETTINGS_MODULE_SCHEMAS)) {
+      const moduleData = raw[key] ?? {};
+      try {
+        schema.parse(moduleData);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          for (const issue of err.errors) {
+            const error: SettingsValidationError = {
+              module: key,
+              path: issue.path.join('.'),
+              message: issue.message,
+            };
+            errors.push(error);
+            this.logger.warn(
+              `[validateAllModuleSections] Tenant ${tenantId} — ${key}.${error.path}: ${error.message}`,
+            );
+          }
+        } else {
+          this.logger.error(
+            `[validateAllModuleSections] Unexpected error validating module "${key}" for tenant ${tenantId}`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
   /**
    * Check cross-module dependency warnings.
    */
-  async getWarnings(
-    tenantId: string,
-    settings: TenantSettingsDto,
-  ): Promise<SettingsWarning[]> {
+  async getWarnings(tenantId: string, settings: TenantSettingsDto): Promise<SettingsWarning[]> {
     const warnings: SettingsWarning[] = [];
 
     // Load tenant modules to check enabled status

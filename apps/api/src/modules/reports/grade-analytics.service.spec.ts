@@ -1,41 +1,39 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
 import { GradeAnalyticsService } from './grade-analytics.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('GradeAnalyticsService', () => {
   let service: GradeAnalyticsService;
-  let mockPrisma: {
-    assessment: { findMany: jest.Mock };
-    grade: { findMany: jest.Mock; groupBy: jest.Mock };
-    student: { findMany: jest.Mock };
-    class: { findMany: jest.Mock };
-    gpaSnapshot: { findMany: jest.Mock };
-    periodGradeSnapshot: { findMany: jest.Mock };
-    academicPeriod: { findMany: jest.Mock };
+  let mockDataAccess: {
+    findAssessments: jest.Mock;
+    findGrades: jest.Mock;
+    groupGradesBy: jest.Mock;
+    findStudents: jest.Mock;
+    findClasses: jest.Mock;
+    findGpaSnapshots: jest.Mock;
+    findPeriodGradeSnapshots: jest.Mock;
+    findAcademicPeriods: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      assessment: { findMany: jest.fn().mockResolvedValue([]) },
-      grade: {
-        findMany: jest.fn().mockResolvedValue([]),
-        groupBy: jest.fn().mockResolvedValue([]),
-      },
-      student: { findMany: jest.fn().mockResolvedValue([]) },
-      class: { findMany: jest.fn().mockResolvedValue([]) },
-      gpaSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
-      periodGradeSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
-      academicPeriod: { findMany: jest.fn().mockResolvedValue([]) },
+    mockDataAccess = {
+      findAssessments: jest.fn().mockResolvedValue([]),
+      findGrades: jest.fn().mockResolvedValue([]),
+      groupGradesBy: jest.fn().mockResolvedValue([]),
+      findStudents: jest.fn().mockResolvedValue([]),
+      findClasses: jest.fn().mockResolvedValue([]),
+      findGpaSnapshots: jest.fn().mockResolvedValue([]),
+      findPeriodGradeSnapshots: jest.fn().mockResolvedValue([]),
+      findAcademicPeriods: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GradeAnalyticsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -52,7 +50,7 @@ describe('GradeAnalyticsService', () => {
     });
 
     it('should compute pass and fail counts per subject', async () => {
-      mockPrisma.assessment.findMany.mockResolvedValue([
+      mockDataAccess.findAssessments.mockResolvedValue([
         {
           id: 'assessment-1',
           max_score: '100',
@@ -60,7 +58,7 @@ describe('GradeAnalyticsService', () => {
           class_entity: { name: 'Class A', year_group: { name: 'Grade 5' } },
         },
       ]);
-      mockPrisma.grade.findMany.mockResolvedValue([
+      mockDataAccess.findGrades.mockResolvedValue([
         { raw_score: '80' }, // pass (80%)
         { raw_score: '40' }, // fail (40%)
         { raw_score: '60' }, // pass (60%)
@@ -86,7 +84,7 @@ describe('GradeAnalyticsService', () => {
     });
 
     it('should place grades into correct buckets', async () => {
-      mockPrisma.grade.findMany.mockResolvedValue([
+      mockDataAccess.findGrades.mockResolvedValue([
         { raw_score: '75', assessment: { max_score: '100' } }, // 75% → bucket 7
         { raw_score: '95', assessment: { max_score: '100' } }, // 95% → bucket 9
       ]);
@@ -115,12 +113,12 @@ describe('GradeAnalyticsService', () => {
     });
 
     it('should group snapshots by academic period name', async () => {
-      mockPrisma.periodGradeSnapshot.findMany.mockResolvedValue([
+      mockDataAccess.findPeriodGradeSnapshots.mockResolvedValue([
         { computed_value: '80', student_id: 'student-1', academic_period_id: 'period-1' },
         { computed_value: '90', student_id: 'student-2', academic_period_id: 'period-1' },
         { computed_value: '70', student_id: 'student-3', academic_period_id: 'period-2' },
       ]);
-      mockPrisma.academicPeriod.findMany.mockResolvedValue([
+      mockDataAccess.findAcademicPeriods.mockResolvedValue([
         { id: 'period-1', name: 'Term 1' },
         { id: 'period-2', name: 'Term 2' },
       ]);
@@ -144,7 +142,7 @@ describe('GradeAnalyticsService', () => {
     });
 
     it('should place snapshots into correct GPA buckets', async () => {
-      mockPrisma.gpaSnapshot.findMany.mockResolvedValue([
+      mockDataAccess.findGpaSnapshots.mockResolvedValue([
         { gpa_value: '3.5' }, // 3.0-4.0 bucket
         { gpa_value: '2.1' }, // 2.0-3.0 bucket
         { gpa_value: '3.9' }, // 3.0-4.0 bucket
@@ -160,14 +158,10 @@ describe('GradeAnalyticsService', () => {
   });
 
   describe('RLS isolation', () => {
-    it('should scope pass-fail query to tenantId', async () => {
+    it('should pass tenantId to findAssessments', async () => {
       await service.passFailRates(TENANT_ID);
 
-      expect(mockPrisma.assessment.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_ID }),
-        }),
-      );
+      expect(mockDataAccess.findAssessments).toHaveBeenCalledWith(TENANT_ID, expect.any(Object));
     });
   });
 });

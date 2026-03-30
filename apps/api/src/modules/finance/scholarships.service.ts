@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import type {
   CreateScholarshipDto,
   RevokeScholarshipDto,
@@ -12,6 +9,7 @@ import type {
 import { PrismaService } from '../prisma/prisma.service';
 
 import { roundMoney } from './helpers/invoice-status.helper';
+import { serializeDecimal } from './helpers/serialize-decimal.helper';
 
 @Injectable()
 export class ScholarshipsService {
@@ -154,19 +152,17 @@ export class ScholarshipsService {
         tenant_id: tenantId,
         student_id: studentId,
         status: 'active',
-        OR: [
-          { fee_structure_id: feeStructureId },
-          { fee_structure_id: null },
-        ],
+        OR: [{ fee_structure_id: feeStructureId }, { fee_structure_id: null }],
       },
     });
 
     let totalDiscount = 0;
 
     for (const scholarship of scholarships) {
-      const discount = scholarship.discount_type === 'percent'
-        ? roundMoney(feeAmount * (Number(scholarship.value) / 100))
-        : roundMoney(Number(scholarship.value));
+      const discount =
+        scholarship.discount_type === 'percent'
+          ? roundMoney(feeAmount * (Number(scholarship.value) / 100))
+          : roundMoney(Number(scholarship.value));
       totalDiscount += discount;
     }
 
@@ -193,11 +189,7 @@ export class ScholarshipsService {
     return result.count;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma Decimal conversion
-  private serialize(s: any) {
-    return {
-      ...s,
-      value: Number(s.value),
-    };
+  private serialize<T extends { value: Decimal }>(s: T): Omit<T, 'value'> & { value: number } {
+    return { ...s, value: serializeDecimal(s.value) };
   }
 }

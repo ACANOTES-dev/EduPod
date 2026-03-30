@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface HeadcountByDepartmentEntry {
   department: string;
@@ -47,20 +47,17 @@ export interface CompensationDistributionBucket {
 
 @Injectable()
 export class StaffAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async headcountByDepartment(tenantId: string): Promise<HeadcountByDepartmentEntry[]> {
-    const groups = await this.prisma.staffProfile.groupBy({
-      by: ['department'],
-      where: { tenant_id: tenantId },
-      _count: true,
-    });
+    const groups = (await this.dataAccess.groupStaffBy(tenantId, ['department'])) as Array<{
+      department: string | null;
+      _count: number;
+    }>;
 
-    const activeGroups = await this.prisma.staffProfile.groupBy({
-      by: ['department'],
-      where: { tenant_id: tenantId, employment_status: 'active' },
-      _count: true,
-    });
+    const activeGroups = (await this.dataAccess.groupStaffBy(tenantId, ['department'], {
+      employment_status: 'active',
+    })) as Array<{ department: string | null; _count: number }>;
 
     const activeMap = new Map(activeGroups.map((g) => [g.department, g._count]));
 
@@ -76,17 +73,12 @@ export class StaffAnalyticsService {
 
   async staffStudentRatio(tenantId: string): Promise<StaffStudentRatioResult> {
     const [activeStaff, activeStudents] = await Promise.all([
-      this.prisma.staffProfile.count({
-        where: { tenant_id: tenantId, employment_status: 'active' },
-      }),
-      this.prisma.student.count({
-        where: { tenant_id: tenantId, status: 'active' },
-      }),
+      this.dataAccess.countStaff(tenantId, { employment_status: 'active' }),
+      this.dataAccess.countStudents(tenantId, { status: 'active' }),
     ]);
 
-    const studentsPerTeacher = activeStaff > 0
-      ? Number((activeStudents / activeStaff).toFixed(1))
-      : 0;
+    const studentsPerTeacher =
+      activeStaff > 0 ? Number((activeStudents / activeStaff).toFixed(1)) : 0;
 
     return {
       active_staff: activeStaff,
@@ -97,11 +89,9 @@ export class StaffAnalyticsService {
   }
 
   async tenureDistribution(tenantId: string): Promise<TenureDistributionBucket[]> {
-    // Use created_at as a proxy for join date (start of employment record)
-    const staff = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId },
+    const staff = (await this.dataAccess.findStaffProfiles(tenantId, {
       select: { created_at: true },
-    });
+    })) as Array<{ created_at: Date }>;
 
     const now = new Date();
     const buckets: TenureDistributionBucket[] = [
@@ -113,8 +103,11 @@ export class StaffAnalyticsService {
     ];
 
     for (const s of staff) {
-      const yearsOfService = (now.getTime() - new Date(s.created_at).getTime()) / (1000 * 60 * 60 * 24 * 365);
-      const bucket = buckets.find((b) => yearsOfService >= b.min_years && yearsOfService < b.max_years);
+      const yearsOfService =
+        (now.getTime() - new Date(s.created_at).getTime()) / (1000 * 60 * 60 * 24 * 365);
+      const bucket = buckets.find(
+        (b) => yearsOfService >= b.min_years && yearsOfService < b.max_years,
+      );
       if (bucket) bucket.count++;
     }
 
@@ -126,15 +119,15 @@ export class StaffAnalyticsService {
   }
 
   async staffAttendanceRate(tenantId: string): Promise<StaffAttendanceRateResult> {
-    const groups = await this.prisma.staffAttendanceRecord.groupBy({
-      by: ['status'],
-      where: { tenant_id: tenantId },
-      _count: true,
-    });
+    const groups = (await this.dataAccess.groupStaffAttendanceBy(tenantId, ['status'])) as Array<{
+      status: string;
+      _count: number;
+    }>;
 
     const statusMap = new Map(groups.map((g) => [g.status, g._count]));
 
-    const presentCount = (statusMap.get('present') ?? 0) +
+    const presentCount =
+      (statusMap.get('present') ?? 0) +
       (statusMap.get('half_day') ?? 0) +
       (statusMap.get('paid_leave') ?? 0) +
       (statusMap.get('sick_leave') ?? 0);
@@ -147,38 +140,35 @@ export class StaffAnalyticsService {
       total_records: totalRecords,
       present_count: presentCount,
       absent_count: absentCount,
-      attendance_rate: totalRecords > 0
-        ? Number(((presentCount / totalRecords) * 100).toFixed(2))
-        : 0,
+      attendance_rate:
+        totalRecords > 0 ? Number(((presentCount / totalRecords) * 100).toFixed(2)) : 0,
     };
   }
 
   async qualificationCoverage(tenantId: string): Promise<QualificationCoverageEntry[]> {
-    const subjects = await this.prisma.subject.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-    });
+    const subjects = (await this.dataAccess.findSubjects(tenantId, {
+      id: true,
+      name: true,
+    })) as Array<{ id: string; name: string }>;
 
     const results: QualificationCoverageEntry[] = [];
 
     for (const subject of subjects) {
-      // Find active classes for this subject
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, subject_id: subject.id, status: 'active' },
-        select: { id: true },
-      });
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { subject_id: subject.id, status: 'active' },
+        { id: true },
+      )) as Array<{ id: string }>;
 
       const classIds = classes.map((c) => c.id);
 
-      const teacherCount = classIds.length > 0
-        ? await this.prisma.classStaff.count({
-            where: {
-              tenant_id: tenantId,
+      const teacherCount =
+        classIds.length > 0
+          ? await this.dataAccess.countClassStaff(tenantId, {
               class_id: { in: classIds },
               assignment_role: 'teacher',
-            },
-          })
-        : 0;
+            })
+          : 0;
 
       results.push({
         subject_id: subject.id,
@@ -188,18 +178,17 @@ export class StaffAnalyticsService {
       });
     }
 
-    return results.sort((a, b) => (a.has_qualified_teacher ? 0 : 1) - (b.has_qualified_teacher ? 0 : 1));
+    return results.sort(
+      (a, b) => (a.has_qualified_teacher ? 0 : 1) - (b.has_qualified_teacher ? 0 : 1),
+    );
   }
 
   async compensationDistribution(tenantId: string): Promise<CompensationDistributionBucket[]> {
-    const compensations = await this.prisma.staffCompensation.findMany({
-      where: {
-        tenant_id: tenantId,
-        effective_to: null,
-        compensation_type: 'salaried',
-      },
-      select: { base_salary: true },
-    });
+    const compensations = (await this.dataAccess.findStaffCompensations(
+      tenantId,
+      { effective_to: null, compensation_type: 'salaried' },
+      { base_salary: true },
+    )) as Array<{ base_salary: unknown }>;
 
     if (compensations.length === 0) {
       return [];
@@ -222,10 +211,7 @@ export class StaffAnalyticsService {
     }));
 
     for (const salary of salaries) {
-      const bucketIdx = Math.min(
-        buckets.length - 1,
-        Math.floor((salary - minSalary) / bucketSize),
-      );
+      const bucketIdx = Math.min(buckets.length - 1, Math.floor((salary - minSalary) / bucketSize));
       const bucket = buckets[bucketIdx];
       if (bucket) bucket.count++;
     }

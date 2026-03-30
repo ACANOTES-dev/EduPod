@@ -1,16 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type {
-  CreateSavedReportDto,
-  UpdateSavedReportDto,
-} from '@school/shared';
+import type { CreateSavedReportDto, UpdateSavedReportDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface SavedReportRow {
   id: string;
@@ -28,7 +23,10 @@ export interface SavedReportRow {
 
 @Injectable()
 export class CustomReportBuilderService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataAccess: ReportsDataAccessService,
+  ) {}
 
   async listSavedReports(
     tenantId: string,
@@ -78,7 +76,10 @@ export class CustomReportBuilderService {
         })),
         meta: { page, pageSize, total },
       };
-    }) as unknown as { data: SavedReportRow[]; meta: { page: number; pageSize: number; total: number } };
+    }) as unknown as {
+      data: SavedReportRow[];
+      meta: { page: number; pageSize: number; total: number };
+    };
   }
 
   async getSavedReport(tenantId: string, reportId: string): Promise<SavedReportRow> {
@@ -205,9 +206,15 @@ export class CustomReportBuilderService {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.data_source !== undefined && { data_source: dto.data_source }),
-          ...(dto.dimensions_json !== undefined && { dimensions_json: dto.dimensions_json as Prisma.InputJsonValue }),
-          ...(dto.measures_json !== undefined && { measures_json: dto.measures_json as Prisma.InputJsonValue }),
-          ...(dto.filters_json !== undefined && { filters_json: dto.filters_json as Prisma.InputJsonValue }),
+          ...(dto.dimensions_json !== undefined && {
+            dimensions_json: dto.dimensions_json as Prisma.InputJsonValue,
+          }),
+          ...(dto.measures_json !== undefined && {
+            measures_json: dto.measures_json as Prisma.InputJsonValue,
+          }),
+          ...(dto.filters_json !== undefined && {
+            filters_json: dto.filters_json as Prisma.InputJsonValue,
+          }),
           ...(dto.chart_type !== undefined && { chart_type: dto.chart_type }),
           ...(dto.is_shared !== undefined && { is_shared: dto.is_shared }),
         },
@@ -268,13 +275,19 @@ export class CustomReportBuilderService {
     switch (report.data_source) {
       case 'students': {
         const [students, count] = await Promise.all([
-          this.prisma.student.findMany({
-            where: { tenant_id: tenantId },
+          this.dataAccess.findStudents(tenantId, {
             skip,
             take: pageSize,
-            select: { id: true, first_name: true, last_name: true, status: true, gender: true, nationality: true },
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              status: true,
+              gender: true,
+              nationality: true,
+            },
           }),
-          this.prisma.student.count({ where: { tenant_id: tenantId } }),
+          this.dataAccess.countStudents(tenantId),
         ]);
         data = students;
         total = count;
@@ -282,13 +295,18 @@ export class CustomReportBuilderService {
       }
       case 'staff': {
         const [staff, count] = await Promise.all([
-          this.prisma.staffProfile.findMany({
-            where: { tenant_id: tenantId },
+          this.dataAccess.findStaffProfiles(tenantId, {
             skip,
             take: pageSize,
-            select: { id: true, job_title: true, department: true, employment_status: true, employment_type: true },
+            select: {
+              id: true,
+              job_title: true,
+              department: true,
+              employment_status: true,
+              employment_type: true,
+            },
           }),
-          this.prisma.staffProfile.count({ where: { tenant_id: tenantId } }),
+          this.dataAccess.countStaff(tenantId),
         ]);
         data = staff;
         total = count;
@@ -296,13 +314,18 @@ export class CustomReportBuilderService {
       }
       case 'admissions': {
         const [apps, count] = await Promise.all([
-          this.prisma.application.findMany({
-            where: { tenant_id: tenantId },
+          this.dataAccess.findApplications(tenantId, {
             skip,
             take: pageSize,
-            select: { id: true, student_first_name: true, student_last_name: true, status: true, submitted_at: true },
+            select: {
+              id: true,
+              student_first_name: true,
+              student_last_name: true,
+              status: true,
+              submitted_at: true,
+            },
           }),
-          this.prisma.application.count({ where: { tenant_id: tenantId } }),
+          this.dataAccess.countApplications(tenantId),
         ]);
         data = apps;
         total = count;

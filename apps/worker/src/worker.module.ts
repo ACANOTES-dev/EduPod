@@ -6,8 +6,8 @@ import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { WorkerHealthController } from './health/worker-health.controller';
-import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
+import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
 import { AttendancePatternDetectionProcessor } from './processors/attendance-pattern-detection.processor';
 import { AttendancePendingDetectionProcessor } from './processors/attendance-pending-detection.processor';
@@ -28,9 +28,6 @@ import { RetentionCheckProcessor } from './processors/behaviour/retention-check.
 import { SlaCheckProcessor } from './processors/behaviour/sla-check.processor';
 import { BehaviourSuspensionReturnProcessor } from './processors/behaviour/suspension-return.processor';
 import { BehaviourTaskRemindersProcessor } from './processors/behaviour/task-reminders.processor';
-import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
-import { ComputeStudentProcessor } from './processors/early-warning/compute-student.processor';
-import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
 import { AnnouncementApprovalCallbackProcessor } from './processors/communications/announcement-approval-callback.processor';
 import { DispatchNotificationsProcessor } from './processors/communications/dispatch-notifications.processor';
 import { InquiryNotificationProcessor } from './processors/communications/inquiry-notification.processor';
@@ -41,6 +38,9 @@ import { StaleInquiryDetectionProcessor } from './processors/communications/stal
 import { ComplianceExecutionProcessor } from './processors/compliance/compliance-execution.processor';
 import { DeadlineCheckProcessor } from './processors/compliance/deadline-check.processor';
 import { RetentionEnforcementProcessor } from './processors/compliance/retention-enforcement.processor';
+import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
+import { ComputeStudentProcessor } from './processors/early-warning/compute-student.processor';
+import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
@@ -66,10 +66,13 @@ import { WellbeingFlagExpiryProcessor } from './processors/pastoral/wellbeing-fl
 import { PayrollApprovalCallbackProcessor } from './processors/payroll/approval-callback.processor';
 import { PayrollMassExportProcessor } from './processors/payroll/mass-export.processor';
 import { PayrollSessionGenerationProcessor } from './processors/payroll/session-generation.processor';
-import { SchedulingSolverProcessor } from './processors/scheduling-solver.processor';
-import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
+import { RegulatoryDeadlineCheckProcessor } from './processors/regulatory/deadline-check.processor';
+import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-returns-generate.processor';
+import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
+import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
+import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
-import { SearchIndexProcessor } from './processors/search-index.processor';
+import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 import { AnomalyScanProcessor } from './processors/security/anomaly-scan.processor';
 import { BreachDeadlineProcessor } from './processors/security/breach-deadline.processor';
@@ -79,11 +82,7 @@ import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-che
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
-import { RegulatoryDeadlineCheckProcessor } from './processors/regulatory/deadline-check.processor';
-import { RegulatoryDesGenerateProcessor } from './processors/regulatory/des-returns-generate.processor';
-import { RegulatoryPpodImportProcessor } from './processors/regulatory/ppod-import.processor';
-import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.processor';
-import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
+import { SearchIndexProcessor } from './processors/search-index.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 
 @Module({
@@ -106,79 +105,174 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     BullModule.registerQueue(
       {
         name: QUEUE_NAMES.APPROVALS,
-        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 10000 },
+          removeOnComplete: 10,
+          removeOnFail: 50,
+        },
       },
       {
         name: QUEUE_NAMES.PAYROLL,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.NOTIFICATIONS,
-        defaultJobOptions: { attempts: 5, backoff: { type: 'exponential', delay: 3000 }, removeOnComplete: 200, removeOnFail: 1000 },
+        defaultJobOptions: {
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 3000 },
+          removeOnComplete: 200,
+          removeOnFail: 1000,
+        },
       },
       {
         name: QUEUE_NAMES.SEARCH_SYNC,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 2000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.REPORTS,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
       },
       {
         name: QUEUE_NAMES.ATTENDANCE,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.SCHEDULING,
-        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 50, removeOnFail: 200 },
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 10000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
       },
       {
         name: QUEUE_NAMES.GRADEBOOK,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.HOMEWORK,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.FINANCE,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.IMPORTS,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
       },
       {
         name: QUEUE_NAMES.ADMISSIONS,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
       },
       {
         name: QUEUE_NAMES.BEHAVIOUR,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.PASTORAL,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.SECURITY,
-        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 10000 },
+          removeOnComplete: 10,
+          removeOnFail: 50,
+        },
       },
       {
         name: QUEUE_NAMES.WELLBEING,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
       {
         name: QUEUE_NAMES.COMPLIANCE,
-        defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 }, removeOnComplete: 10, removeOnFail: 50 },
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 10000 },
+          removeOnComplete: 10,
+          removeOnFail: 50,
+        },
       },
       {
         name: QUEUE_NAMES.REGULATORY,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 50, removeOnFail: 200 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 200,
+        },
       },
       {
         name: QUEUE_NAMES.EARLY_WARNING,
-        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 100,
+          removeOnFail: 500,
+        },
       },
     ),
   ],
@@ -226,7 +320,6 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     AttendanceAutoLockProcessor,
     AttendancePatternDetectionProcessor,
     // Scheduling queue processors
-    SchedulingSolverProcessor,
     SchedulingSolverV2Processor,
     SchedulingStaleReaperProcessor,
     // Gradebook queue processors

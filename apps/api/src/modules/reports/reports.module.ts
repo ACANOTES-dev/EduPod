@@ -15,6 +15,7 @@ import { DemographicsService } from './demographics.service';
 import { GradeAnalyticsService } from './grade-analytics.service';
 import { ReportAlertsService } from './report-alerts.service';
 import { ReportExportService } from './report-export.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 import { ReportsEnhancedController } from './reports-enhanced.controller';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
@@ -27,6 +28,7 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
   imports: [ConfigurationModule, GdprModule],
   controllers: [ReportsController, ReportsEnhancedController],
   providers: [
+    ReportsDataAccessService,
     ReportsService,
     UnifiedDashboardService,
     CrossModuleInsightsService,
@@ -46,6 +48,7 @@ import { UnifiedDashboardService } from './unified-dashboard.service';
     ReportExportService,
   ],
   exports: [
+    ReportsDataAccessService,
     ReportsService,
     UnifiedDashboardService,
     ScheduledReportsService,

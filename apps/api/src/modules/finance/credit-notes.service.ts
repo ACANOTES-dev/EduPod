@@ -1,19 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  ApplyCreditNoteDto,
-  CreateCreditNoteDto,
-  CreditNoteQueryDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
+import type { ApplyCreditNoteDto, CreateCreditNoteDto, CreditNoteQueryDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
+import { serializeDecimal } from './helpers/serialize-decimal.helper';
 import { InvoicesService } from './invoices.service';
 
 @Injectable()
@@ -163,7 +157,9 @@ export class CreditNotesService {
         });
       }
 
-      const appliedAmount = roundMoney(Math.min(dto.applied_amount, Number(invoice.balance_amount)));
+      const appliedAmount = roundMoney(
+        Math.min(dto.applied_amount, Number(invoice.balance_amount)),
+      );
       if (appliedAmount <= 0) {
         throw new BadRequestException({
           code: 'INVOICE_ALREADY_PAID',
@@ -201,21 +197,30 @@ export class CreditNotesService {
         },
       });
 
-      return { applied_amount: appliedAmount, invoice_id: dto.invoice_id, credit_note_id: dto.credit_note_id };
+      return {
+        applied_amount: appliedAmount,
+        invoice_id: dto.invoice_id,
+        credit_note_id: dto.credit_note_id,
+      };
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma Decimal conversion
-  private serialize(cn: any) {
+  private serialize<
+    A extends { applied_amount: Decimal },
+    T extends { amount: Decimal; remaining_balance: Decimal; applications?: A[] },
+  >(
+    cn: T,
+  ): Omit<T, 'amount' | 'remaining_balance' | 'applications'> & {
+    amount: number;
+    remaining_balance: number;
+    applications: (Omit<A, 'applied_amount'> & { applied_amount: number })[] | undefined;
+  } {
     return {
       ...cn,
-      amount: Number(cn.amount),
-      remaining_balance: Number(cn.remaining_balance),
+      amount: serializeDecimal(cn.amount),
+      remaining_balance: serializeDecimal(cn.remaining_balance),
       applications: Array.isArray(cn.applications)
-        ? cn.applications.map((a: Record<string, unknown>) => ({
-            ...a,
-            applied_amount: Number(a.applied_amount),
-          }))
+        ? cn.applications.map((a) => ({ ...a, applied_amount: serializeDecimal(a.applied_amount) }))
         : undefined,
     };
   }

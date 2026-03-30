@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface ChronicAbsenteeismEntry {
   student_id: string;
@@ -54,9 +54,17 @@ export interface ClassComparisonEntry {
 
 @Injectable()
 export class AttendanceAnalyticsService {
-  private readonly WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  private readonly WEEKDAY_LABELS = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async chronicAbsenteeism(
     tenantId: string,
@@ -71,24 +79,20 @@ export class AttendanceAnalyticsService {
 
     const sessionWhere = hasDates ? { session_date: dateFilter } : {};
 
-    const totalGroups = await this.prisma.attendanceRecord.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
-        ...(hasDates && { session: sessionWhere }),
-      },
-      _count: true,
-    });
+    const totalGroups = (await this.dataAccess.groupAttendanceRecordsBy(
+      tenantId,
+      ['student_id'],
+      hasDates ? { session: sessionWhere } : undefined,
+    )) as Array<{ student_id: string; _count: number }>;
 
-    const presentGroups = await this.prisma.attendanceRecord.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
+    const presentGroups = (await this.dataAccess.groupAttendanceRecordsBy(
+      tenantId,
+      ['student_id'],
+      {
         status: { in: ['present', 'late'] },
         ...(hasDates && { session: sessionWhere }),
       },
-      _count: true,
-    });
+    )) as Array<{ student_id: string; _count: number }>;
 
     const presentMap = new Map(presentGroups.map((g) => [g.student_id, g._count]));
 
@@ -102,8 +106,8 @@ export class AttendanceAnalyticsService {
 
     if (chronicStudentIds.length === 0) return [];
 
-    const students = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, id: { in: chronicStudentIds } },
+    const students = (await this.dataAccess.findStudents(tenantId, {
+      where: { id: { in: chronicStudentIds } },
       select: {
         id: true,
         first_name: true,
@@ -111,7 +115,13 @@ export class AttendanceAnalyticsService {
         year_group: { select: { name: true } },
         homeroom_class: { select: { name: true } },
       },
-    });
+    })) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      year_group: { name: string } | null;
+      homeroom_class: { name: string } | null;
+    }>;
 
     const studentMap = new Map(students.map((s) => [s.id, s]));
     const totalMap = new Map(totalGroups.map((g) => [g.student_id, g._count]));
@@ -140,27 +150,24 @@ export class AttendanceAnalyticsService {
     startDate?: string,
     endDate?: string,
   ): Promise<DayOfWeekHeatmapEntry[]> {
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-      orderBy: { display_order: 'asc' },
-    });
+    const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+      id: true,
+      name: true,
+    })) as Array<{ id: string; name: string }>;
 
     const results: DayOfWeekHeatmapEntry[] = [];
 
     for (const yg of yearGroups) {
-      // Get classes in this year group
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, year_group_id: yg.id, status: 'active' },
-        select: { id: true },
-      });
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { year_group_id: yg.id, status: 'active' },
+        { id: true },
+      )) as Array<{ id: string }>;
 
       const classIds = classes.map((c) => c.id);
       if (classIds.length === 0) continue;
 
-      // Get sessions with dates
       const sessionFilter: Record<string, unknown> = {
-        tenant_id: tenantId,
         class_id: { in: classIds },
       };
 
@@ -171,26 +178,24 @@ export class AttendanceAnalyticsService {
         sessionFilter.session_date = dateFilter;
       }
 
-      const sessions = await this.prisma.attendanceSession.findMany({
+      const sessions = (await this.dataAccess.findAttendanceSessions(tenantId, {
         where: sessionFilter,
         select: {
           session_date: true,
           _count: { select: { records: true } },
         },
-      });
+      })) as Array<{ session_date: Date; _count: { records: number } }>;
 
-      // Group by weekday
       const weekdayMap = new Map<number, { total: number; present: number }>();
 
       for (const session of sessions) {
         const jsDay = new Date(session.session_date).getDay();
-        const weekday = jsDay === 0 ? 6 : jsDay - 1; // Convert to Mon=0
+        const weekday = jsDay === 0 ? 6 : jsDay - 1;
         const entry = weekdayMap.get(weekday) ?? { total: 0, present: 0 };
         entry.total += session._count.records;
         weekdayMap.set(weekday, entry);
       }
 
-      // We'd need to count present records specifically — simplified version
       for (const [weekday, stats] of weekdayMap.entries()) {
         results.push({
           year_group_id: yg.id,
@@ -199,9 +204,8 @@ export class AttendanceAnalyticsService {
           weekday_label: this.WEEKDAY_LABELS[weekday] ?? `Day ${weekday}`,
           total_sessions: stats.total,
           present_sessions: stats.present,
-          attendance_rate: stats.total > 0
-            ? Number(((stats.present / stats.total) * 100).toFixed(2))
-            : 0,
+          attendance_rate:
+            stats.total > 0 ? Number(((stats.present / stats.total) * 100).toFixed(2)) : 0,
         });
       }
     }
@@ -210,35 +214,33 @@ export class AttendanceAnalyticsService {
   }
 
   async teacherMarkingCompliance(tenantId: string): Promise<TeacherMarkingComplianceEntry[]> {
-    const staffProfiles = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId, employment_status: 'active' },
+    const staffProfiles = (await this.dataAccess.findStaffProfiles(tenantId, {
+      where: { employment_status: 'active' },
       select: {
         id: true,
         user: { select: { first_name: true, last_name: true } },
       },
-    });
+    })) as Array<{ id: string; user: { first_name: string; last_name: string } }>;
 
     const results: TeacherMarkingComplianceEntry[] = [];
 
     for (const staff of staffProfiles) {
-      const classAssignments = await this.prisma.classStaff.findMany({
-        where: { tenant_id: tenantId, staff_profile_id: staff.id },
-        select: { class_id: true },
-      });
+      const classAssignments = (await this.dataAccess.findClassStaff(
+        tenantId,
+        { staff_profile_id: staff.id },
+        { class_id: true },
+      )) as Array<{ class_id: string }>;
 
       const classIds = classAssignments.map((ca) => ca.class_id);
       if (classIds.length === 0) continue;
 
       const [totalSessions, submittedSessions] = await Promise.all([
-        this.prisma.attendanceSession.count({
-          where: { tenant_id: tenantId, class_id: { in: classIds } },
+        this.dataAccess.countAttendanceSessions(tenantId, {
+          class_id: { in: classIds },
         }),
-        this.prisma.attendanceSession.count({
-          where: {
-            tenant_id: tenantId,
-            class_id: { in: classIds },
-            status: { in: ['submitted', 'locked'] },
-          },
+        this.dataAccess.countAttendanceSessions(tenantId, {
+          class_id: { in: classIds },
+          status: { in: ['submitted', 'locked'] },
         }),
       ]);
 
@@ -261,15 +263,13 @@ export class AttendanceAnalyticsService {
     startDate?: string,
     endDate?: string,
   ): Promise<AttendanceTrendDataPoint[]> {
-    // Group sessions by month
     const dateFilter: Record<string, unknown> = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate);
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    const sessions = await this.prisma.attendanceSession.findMany({
+    const sessions = (await this.dataAccess.findAttendanceSessions(tenantId, {
       where: {
-        tenant_id: tenantId,
         ...(hasDates && { session_date: dateFilter }),
         status: { in: ['submitted', 'locked'] },
       },
@@ -278,13 +278,12 @@ export class AttendanceAnalyticsService {
         records: { select: { status: true } },
       },
       orderBy: { session_date: 'asc' },
-    });
+    })) as Array<{ session_date: Date; records: Array<{ status: string }> }>;
 
-    // Group by year-month
     const monthMap = new Map<string, { total: number; present: number }>();
 
     for (const session of sessions) {
-      const month = session.session_date.toISOString().slice(0, 7); // YYYY-MM
+      const month = session.session_date.toISOString().slice(0, 7);
       const entry = monthMap.get(month) ?? { total: 0, present: 0 };
       for (const record of session.records) {
         entry.total++;
@@ -295,17 +294,14 @@ export class AttendanceAnalyticsService {
       monthMap.set(month, entry);
     }
 
-    const studentCount = await this.prisma.student.count({
-      where: { tenant_id: tenantId, status: 'active' },
-    });
+    const studentCount = await this.dataAccess.countStudents(tenantId, { status: 'active' });
 
     return Array.from(monthMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, stats]) => ({
         period_label: month,
-        attendance_rate: stats.total > 0
-          ? Number(((stats.present / stats.total) * 100).toFixed(2))
-          : 0,
+        attendance_rate:
+          stats.total > 0 ? Number(((stats.present / stats.total) * 100).toFixed(2)) : 0,
         total_students: studentCount,
       }));
   }
@@ -323,23 +319,18 @@ export class AttendanceAnalyticsService {
 
     let studentIdFilter: { in: string[] } | undefined;
     if (yearGroupId) {
-      const students = await this.prisma.student.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
+      const students = (await this.dataAccess.findStudents(tenantId, {
+        where: { year_group_id: yearGroupId },
         select: { id: true },
-      });
+      })) as Array<{ id: string }>;
       studentIdFilter = { in: students.map((s) => s.id) };
     }
 
-    const groups = await this.prisma.attendanceRecord.groupBy({
-      by: ['status'],
-      where: {
-        tenant_id: tenantId,
-        ...(studentIdFilter && { student_id: studentIdFilter }),
-        ...(hasDates && { session: { session_date: dateFilter } }),
-        status: { in: ['absent_excused', 'absent_unexcused', 'late', 'left_early'] },
-      },
-      _count: true,
-    });
+    const groups = (await this.dataAccess.groupAttendanceRecordsBy(tenantId, ['status'], {
+      ...(studentIdFilter && { student_id: studentIdFilter }),
+      ...(hasDates && { session: { session_date: dateFilter } }),
+      status: { in: ['absent_excused', 'absent_unexcused', 'late', 'left_early'] },
+    })) as Array<{ status: string; _count: number }>;
 
     const countMap = new Map(groups.map((g) => [g.status, g._count]));
 
@@ -355,9 +346,8 @@ export class AttendanceAnalyticsService {
       late_count: lateCount,
       left_early_count: leftEarlyCount,
       total_absences: totalAbsences,
-      excused_rate: totalAbsences > 0
-        ? Number(((excusedCount / totalAbsences) * 100).toFixed(2))
-        : 0,
+      excused_rate:
+        totalAbsences > 0 ? Number(((excusedCount / totalAbsences) * 100).toFixed(2)) : 0,
     };
   }
 
@@ -367,10 +357,11 @@ export class AttendanceAnalyticsService {
     startDate?: string,
     endDate?: string,
   ): Promise<ClassComparisonEntry[]> {
-    const classes = await this.prisma.class.findMany({
-      where: { tenant_id: tenantId, year_group_id: yearGroupId, status: 'active' },
-      select: { id: true, name: true },
-    });
+    const classes = (await this.dataAccess.findClasses(
+      tenantId,
+      { year_group_id: yearGroupId, status: 'active' },
+      { id: true, name: true },
+    )) as Array<{ id: string; name: string }>;
 
     const dateFilter: Record<string, unknown> = {};
     if (startDate) dateFilter.gte = new Date(startDate);
@@ -380,9 +371,8 @@ export class AttendanceAnalyticsService {
     const results: ClassComparisonEntry[] = [];
 
     for (const cls of classes) {
-      const sessions = await this.prisma.attendanceSession.findMany({
+      const sessions = (await this.dataAccess.findAttendanceSessions(tenantId, {
         where: {
-          tenant_id: tenantId,
           class_id: cls.id,
           status: { in: ['submitted', 'locked'] },
           ...(hasDates && { session_date: dateFilter }),
@@ -390,7 +380,7 @@ export class AttendanceAnalyticsService {
         select: {
           records: { select: { status: true } },
         },
-      });
+      })) as Array<{ records: Array<{ status: string }> }>;
 
       let total = 0;
       let present = 0;

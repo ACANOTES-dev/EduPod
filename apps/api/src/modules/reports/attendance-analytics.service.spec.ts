@@ -1,48 +1,41 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
 import { AttendanceAnalyticsService } from './attendance-analytics.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('AttendanceAnalyticsService', () => {
   let service: AttendanceAnalyticsService;
-  let mockPrisma: {
-    attendanceRecord: { groupBy: jest.Mock; findMany: jest.Mock };
-    student: { findMany: jest.Mock; count: jest.Mock };
-    attendanceSession: { groupBy: jest.Mock; count: jest.Mock; findMany: jest.Mock };
-    staffProfile: { findMany: jest.Mock };
-    class: { findMany: jest.Mock };
-    classStaff: { findMany: jest.Mock };
-    yearGroup: { findMany: jest.Mock };
+  let mockDataAccess: {
+    groupAttendanceRecordsBy: jest.Mock;
+    findStudents: jest.Mock;
+    countStudents: jest.Mock;
+    findAttendanceSessions: jest.Mock;
+    countAttendanceSessions: jest.Mock;
+    findStaffProfiles: jest.Mock;
+    findClasses: jest.Mock;
+    findClassStaff: jest.Mock;
+    findYearGroups: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      attendanceRecord: {
-        groupBy: jest.fn().mockResolvedValue([]),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      student: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      attendanceSession: {
-        groupBy: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      staffProfile: { findMany: jest.fn().mockResolvedValue([]) },
-      class: { findMany: jest.fn().mockResolvedValue([]) },
-      classStaff: { findMany: jest.fn().mockResolvedValue([]) },
-      yearGroup: { findMany: jest.fn().mockResolvedValue([]) },
+    mockDataAccess = {
+      groupAttendanceRecordsBy: jest.fn().mockResolvedValue([]),
+      findStudents: jest.fn().mockResolvedValue([]),
+      countStudents: jest.fn().mockResolvedValue(0),
+      findAttendanceSessions: jest.fn().mockResolvedValue([]),
+      countAttendanceSessions: jest.fn().mockResolvedValue(0),
+      findStaffProfiles: jest.fn().mockResolvedValue([]),
+      findClasses: jest.fn().mockResolvedValue([]),
+      findClassStaff: jest.fn().mockResolvedValue([]),
+      findYearGroups: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceAnalyticsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -59,11 +52,10 @@ describe('AttendanceAnalyticsService', () => {
     });
 
     it('should flag students whose attendance rate falls below the threshold', async () => {
-      // Student with 20 total sessions, 3 present (15% rate) — below default 85% threshold
-      mockPrisma.attendanceRecord.groupBy
-        .mockResolvedValueOnce([{ student_id: 'student-1', _count: 20 }]) // total
-        .mockResolvedValueOnce([{ student_id: 'student-1', _count: 3 }]); // present
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.groupAttendanceRecordsBy
+        .mockResolvedValueOnce([{ student_id: 'student-1', _count: 20 }])
+        .mockResolvedValueOnce([{ student_id: 'student-1', _count: 3 }]);
+      mockDataAccess.findStudents.mockResolvedValue([
         {
           id: 'student-1',
           first_name: 'Alice',
@@ -82,8 +74,7 @@ describe('AttendanceAnalyticsService', () => {
     });
 
     it('should not flag students who meet the attendance threshold', async () => {
-      // Student with 20 total, 18 present (90%) — above default 85% threshold
-      mockPrisma.attendanceRecord.groupBy
+      mockDataAccess.groupAttendanceRecordsBy
         .mockResolvedValueOnce([{ student_id: 'student-1', _count: 20 }])
         .mockResolvedValueOnce([{ student_id: 'student-1', _count: 18 }]);
 
@@ -95,18 +86,14 @@ describe('AttendanceAnalyticsService', () => {
 
   describe('dayOfWeekHeatmap', () => {
     it('should return empty array when no year groups exist', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([]);
-
       const result = await service.dayOfWeekHeatmap(TENANT_ID);
 
       expect(result).toEqual([]);
     });
 
     it('should skip year groups with no active classes', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Grade 1' },
-      ]);
-      mockPrisma.class.findMany.mockResolvedValue([]); // no classes
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
+      mockDataAccess.findClasses.mockResolvedValue([]);
 
       const result = await service.dayOfWeekHeatmap(TENANT_ID);
 
@@ -122,15 +109,11 @@ describe('AttendanceAnalyticsService', () => {
     });
 
     it('should compute compliance_rate as submitted_sessions / total_sessions', async () => {
-      mockPrisma.staffProfile.findMany.mockResolvedValue([
+      mockDataAccess.findStaffProfiles.mockResolvedValue([
         { id: 'staff-1', user: { first_name: 'Bob', last_name: 'Jones' } },
       ]);
-      mockPrisma.classStaff.findMany.mockResolvedValue([
-        { class_id: 'class-1' },
-      ]);
-      mockPrisma.attendanceSession.count
-        .mockResolvedValueOnce(10) // total
-        .mockResolvedValueOnce(8); // submitted
+      mockDataAccess.findClassStaff.mockResolvedValue([{ class_id: 'class-1' }]);
+      mockDataAccess.countAttendanceSessions.mockResolvedValueOnce(10).mockResolvedValueOnce(8);
 
       const result = await service.teacherMarkingCompliance(TENANT_ID);
 
@@ -149,7 +132,7 @@ describe('AttendanceAnalyticsService', () => {
     });
 
     it('should count absent_excused and absent_unexcused separately', async () => {
-      mockPrisma.attendanceRecord.groupBy.mockResolvedValue([
+      mockDataAccess.groupAttendanceRecordsBy.mockResolvedValue([
         { status: 'absent_excused', _count: 10 },
         { status: 'absent_unexcused', _count: 5 },
         { status: 'late', _count: 3 },

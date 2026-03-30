@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface PipelineFunnelResult {
   applied_count: number;
@@ -42,7 +42,7 @@ export interface YearGroupDemandEntry {
 
 @Injectable()
 export class AdmissionsAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async pipelineFunnel(
     tenantId: string,
@@ -55,33 +55,26 @@ export class AdmissionsAnalyticsService {
     const hasDates = Object.keys(dateFilter).length > 0;
 
     const baseWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       ...(hasDates && { submitted_at: dateFilter }),
     };
 
     const [appliedCount, underReviewCount, acceptedCount, enrolledCount] = await Promise.all([
-      this.prisma.application.count({
-        where: {
-          ...baseWhere,
-          status: { notIn: ['draft', 'withdrawn'] },
-        },
+      this.dataAccess.countApplications(tenantId, {
+        ...baseWhere,
+        status: { notIn: ['draft', 'withdrawn'] },
       }),
-      this.prisma.application.count({
-        where: {
-          ...baseWhere,
-          status: { in: ['under_review', 'pending_acceptance_approval'] },
-        },
+      this.dataAccess.countApplications(tenantId, {
+        ...baseWhere,
+        status: { in: ['under_review', 'pending_acceptance_approval'] },
       }),
-      this.prisma.application.count({
-        where: { ...baseWhere, status: 'accepted' },
+      this.dataAccess.countApplications(tenantId, {
+        ...baseWhere,
+        status: 'accepted',
       }),
-      this.prisma.student.count({
-        where: { tenant_id: tenantId, status: 'active' },
-      }),
+      this.dataAccess.countStudents(tenantId, { status: 'active' }),
     ]);
 
-    const safe = (n: number, d: number): number =>
-      d > 0 ? Number(((n / d) * 100).toFixed(2)) : 0;
+    const safe = (n: number, d: number): number => (d > 0 ? Number(((n / d) * 100).toFixed(2)) : 0);
 
     return {
       applied_count: appliedCount,
@@ -105,16 +98,15 @@ export class AdmissionsAnalyticsService {
     if (endDate) dateFilter.lte = new Date(endDate);
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    const decidedApplications = await this.prisma.application.findMany({
+    const decidedApplications = (await this.dataAccess.findApplications(tenantId, {
       where: {
-        tenant_id: tenantId,
         status: { in: ['accepted', 'rejected'] },
         submitted_at: { not: null },
         reviewed_at: { not: null },
         ...(hasDates && { submitted_at: dateFilter }),
       },
       select: { submitted_at: true, reviewed_at: true },
-    });
+    })) as Array<{ submitted_at: Date | null; reviewed_at: Date | null }>;
 
     if (decidedApplications.length === 0) {
       return { average_days_to_decision: null, min_days: null, max_days: null, sample_size: 0 };
@@ -151,14 +143,13 @@ export class AdmissionsAnalyticsService {
     if (endDate) dateFilter.lte = new Date(endDate);
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    const rejectedApplications = await this.prisma.application.findMany({
+    const rejectedApplications = (await this.dataAccess.findApplications(tenantId, {
       where: {
-        tenant_id: tenantId,
         status: 'rejected',
         ...(hasDates && { decided_at: dateFilter }),
       },
       select: { rejection_reason: true },
-    });
+    })) as Array<{ rejection_reason: string | null }>;
 
     const reasonMap = new Map<string, number>();
     for (const app of rejectedApplications) {
@@ -187,18 +178,14 @@ export class AdmissionsAnalyticsService {
     if (endDate) dateFilter.lte = new Date(endDate);
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    const applications = await this.prisma.application.findMany({
+    const applications = (await this.dataAccess.findApplications(tenantId, {
       where: {
-        tenant_id: tenantId,
         submitted_at: { not: null },
         ...(hasDates && { submitted_at: dateFilter }),
       },
-      select: {
-        submitted_at: true,
-        status: true,
-      },
+      select: { submitted_at: true, status: true },
       orderBy: { submitted_at: 'asc' },
-    });
+    })) as Array<{ submitted_at: Date | null; status: string }>;
 
     const monthMap = new Map<string, { count: number; accepted: number; rejected: number }>();
 
@@ -232,20 +219,14 @@ export class AdmissionsAnalyticsService {
     if (endDate) dateFilter.lte = new Date(endDate);
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    // Year group demand is derived from the application payload_json
-    // which stores form answers including desired year group
-    const applications = await this.prisma.application.findMany({
+    const applications = (await this.dataAccess.findApplications(tenantId, {
       where: {
-        tenant_id: tenantId,
         submitted_at: { not: null },
         ...(hasDates && { submitted_at: dateFilter }),
         status: { notIn: ['draft', 'withdrawn'] },
       },
-      select: {
-        payload_json: true,
-        status: true,
-      },
-    });
+      select: { payload_json: true, status: true },
+    })) as Array<{ payload_json: unknown; status: string }>;
 
     const demandMap = new Map<string, { count: number; accepted: number }>();
 
@@ -263,9 +244,8 @@ export class AdmissionsAnalyticsService {
         year_group_name: name,
         application_count: stats.count,
         accepted_count: stats.accepted,
-        conversion_rate: stats.count > 0
-          ? Number(((stats.accepted / stats.count) * 100).toFixed(2))
-          : 0,
+        conversion_rate:
+          stats.count > 0 ? Number(((stats.accepted / stats.count) * 100).toFixed(2)) : 0,
       }))
       .sort((a, b) => b.application_count - a.application_count);
   }

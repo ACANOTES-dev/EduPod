@@ -1,8 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
+import { ReportsDataAccessService } from './reports-data-access.service';
 import { StudentProgressService } from './student-progress.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -36,18 +35,9 @@ const MOCK_GRADES = [
 ];
 
 const MOCK_ATTENDANCE_RECORDS = [
-  {
-    status: 'present',
-    session: { session_date: new Date('2026-01-15') },
-  },
-  {
-    status: 'absent',
-    session: { session_date: new Date('2026-01-20') },
-  },
-  {
-    status: 'late',
-    session: { session_date: new Date('2026-02-10') },
-  },
+  { status: 'present', session: { session_date: new Date('2026-01-15') } },
+  { status: 'absent', session: { session_date: new Date('2026-01-20') } },
+  { status: 'late', session: { session_date: new Date('2026-02-10') } },
 ];
 
 const MOCK_RISK_ALERTS = [
@@ -62,25 +52,25 @@ const MOCK_RISK_ALERTS = [
 
 describe('StudentProgressService', () => {
   let service: StudentProgressService;
-  let mockPrisma: {
-    student: { findFirst: jest.Mock };
-    grade: { findMany: jest.Mock };
-    attendanceRecord: { findMany: jest.Mock };
-    studentAcademicRiskAlert: { findMany: jest.Mock };
+  let mockDataAccess: {
+    findStudentById: jest.Mock;
+    findGrades: jest.Mock;
+    findAttendanceRecords: jest.Mock;
+    findStudentAcademicRiskAlerts: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      student: { findFirst: jest.fn().mockResolvedValue(MOCK_STUDENT) },
-      grade: { findMany: jest.fn().mockResolvedValue(MOCK_GRADES) },
-      attendanceRecord: { findMany: jest.fn().mockResolvedValue(MOCK_ATTENDANCE_RECORDS) },
-      studentAcademicRiskAlert: { findMany: jest.fn().mockResolvedValue(MOCK_RISK_ALERTS) },
+    mockDataAccess = {
+      findStudentById: jest.fn().mockResolvedValue(MOCK_STUDENT),
+      findGrades: jest.fn().mockResolvedValue(MOCK_GRADES),
+      findAttendanceRecords: jest.fn().mockResolvedValue(MOCK_ATTENDANCE_RECORDS),
+      findStudentAcademicRiskAlerts: jest.fn().mockResolvedValue(MOCK_RISK_ALERTS),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StudentProgressService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -114,12 +104,10 @@ describe('StudentProgressService', () => {
   it('should build attendance trend grouped by month', async () => {
     const result = await service.getStudentProgress(TENANT_ID, STUDENT_ID);
 
-    // Jan has 2 records (1 present, 1 absent), Feb has 1 record (1 late)
     expect(result.attendance_trend.length).toBeGreaterThanOrEqual(1);
     const jan = result.attendance_trend.find((e) => e.period_label === '2026-01');
     expect(jan).toBeDefined();
     expect(jan?.total_sessions).toBe(2);
-    // present=1 out of 2 → 50%
     expect(jan?.attendance_rate).toBe(50);
   });
 
@@ -133,7 +121,7 @@ describe('StudentProgressService', () => {
     expect(result.risk_alerts[0]!.acknowledged_at).toBeNull();
   });
 
-  it('should compute overall_progress_score within 0–100 range', async () => {
+  it('should compute overall_progress_score within 0-100 range', async () => {
     const result = await service.getStudentProgress(TENANT_ID, STUDENT_ID);
 
     expect(result.overall_progress_score).toBeGreaterThanOrEqual(0);
@@ -141,7 +129,7 @@ describe('StudentProgressService', () => {
   });
 
   it('should set null for year_group_name when student has no year group', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue({
+    mockDataAccess.findStudentById.mockResolvedValue({
       ...MOCK_STUDENT,
       year_group: null,
       homeroom_class: null,
@@ -154,13 +142,15 @@ describe('StudentProgressService', () => {
   });
 
   it('should throw NotFoundException when student does not exist', async () => {
-    mockPrisma.student.findFirst.mockResolvedValue(null);
+    mockDataAccess.findStudentById.mockResolvedValue(null);
 
-    await expect(service.getStudentProgress(TENANT_ID, STUDENT_ID)).rejects.toThrow(NotFoundException);
+    await expect(service.getStudentProgress(TENANT_ID, STUDENT_ID)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should handle empty grades and use attendance-only progress score', async () => {
-    mockPrisma.grade.findMany.mockResolvedValue([]);
+    mockDataAccess.findGrades.mockResolvedValue([]);
 
     const result = await service.getStudentProgress(TENANT_ID, STUDENT_ID);
 
@@ -169,14 +159,10 @@ describe('StudentProgressService', () => {
   });
 
   it('should skip grade entries where subject or period is missing', async () => {
-    mockPrisma.grade.findMany.mockResolvedValue([
+    mockDataAccess.findGrades.mockResolvedValue([
       {
         raw_score: '90',
-        assessment: {
-          max_score: '100',
-          subject: null,
-          academic_period: null,
-        },
+        assessment: { max_score: '100', subject: null, academic_period: null },
       },
     ]);
 

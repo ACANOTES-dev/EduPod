@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface AttendanceVsGradePoint {
   student_id: string;
@@ -44,7 +44,7 @@ export interface TeacherEffectivenessIndex {
 
 @Injectable()
 export class CrossModuleInsightsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async attendanceVsGrades(
     tenantId: string,
@@ -57,47 +57,33 @@ export class CrossModuleInsightsService {
 
     const hasDates = Object.keys(dateFilter).length > 0;
 
-    // Get attendance records grouped by student
-    const attendanceGroups = await this.prisma.attendanceRecord.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
-        ...(hasDates && {
-          session: { session_date: dateFilter },
-        }),
-      },
-      _count: true,
-    });
+    const attendanceGroups = (await this.dataAccess.groupAttendanceRecordsBy(
+      tenantId,
+      ['student_id'],
+      hasDates ? { session: { session_date: dateFilter } } : undefined,
+    )) as Array<{ student_id: string; _count: number }>;
 
-    const presentGroups = await this.prisma.attendanceRecord.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
+    const presentGroups = (await this.dataAccess.groupAttendanceRecordsBy(
+      tenantId,
+      ['student_id'],
+      {
         status: { in: ['present', 'late'] },
-        ...(hasDates && {
-          session: { session_date: dateFilter },
-        }),
+        ...(hasDates && { session: { session_date: dateFilter } }),
       },
-      _count: true,
-    });
+    )) as Array<{ student_id: string; _count: number }>;
 
     const presentMap = new Map(presentGroups.map((g) => [g.student_id, g._count]));
     const totalMap = new Map(attendanceGroups.map((g) => [g.student_id, g._count]));
 
-    // Get grade averages by student
-    const gradeGroups = await this.prisma.grade.groupBy({
-      by: ['student_id'],
-      where: {
-        tenant_id: tenantId,
-        is_missing: false,
-        raw_score: { not: null },
-      },
-      _avg: { raw_score: true },
-    });
+    const gradeGroups = (await this.dataAccess.groupGradesBy(
+      tenantId,
+      ['student_id'],
+      { is_missing: false, raw_score: { not: null } },
+      { _avg: { raw_score: true } },
+    )) as Array<{ student_id: string; _avg: { raw_score: number | null } }>;
 
     const gradeMap = new Map(gradeGroups.map((g) => [g.student_id, Number(g._avg.raw_score ?? 0)]));
 
-    // Get students with both data points
     const studentIds = [...new Set([...totalMap.keys(), ...gradeMap.keys()])].filter(
       (id) => totalMap.has(id) && gradeMap.has(id),
     );
@@ -106,14 +92,12 @@ export class CrossModuleInsightsService {
       return { data_points: [], correlation_coefficient: null, insight: null };
     }
 
-    const students = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, id: { in: studentIds } },
+    const students = (await this.dataAccess.findStudents(tenantId, {
+      where: { id: { in: studentIds } },
       select: { id: true, first_name: true, last_name: true },
-    });
+    })) as Array<{ id: string; first_name: string; last_name: string }>;
 
-    const studentNameMap = new Map(
-      students.map((s) => [s.id, `${s.first_name} ${s.last_name}`]),
-    );
+    const studentNameMap = new Map(students.map((s) => [s.id, `${s.first_name} ${s.last_name}`]));
 
     const dataPoints: AttendanceVsGradePoint[] = studentIds.map((id) => {
       const total = totalMap.get(id) ?? 0;
@@ -127,17 +111,17 @@ export class CrossModuleInsightsService {
       };
     });
 
-    // Compute Pearson correlation coefficient
     const correlationCoefficient = this.pearsonCorrelation(
       dataPoints.map((d) => d.attendance_rate),
       dataPoints.map((d) => d.average_grade),
     );
 
-    // Generate insight
     let insight: string | null = null;
     const lowAttendanceStudents = dataPoints.filter((d) => d.attendance_rate < 85);
     if (lowAttendanceStudents.length > 0) {
-      const avgGradeLow = lowAttendanceStudents.reduce((s, d) => s + d.average_grade, 0) / lowAttendanceStudents.length;
+      const avgGradeLow =
+        lowAttendanceStudents.reduce((s, d) => s + d.average_grade, 0) /
+        lowAttendanceStudents.length;
       const avgGradeAll = dataPoints.reduce((s, d) => s + d.average_grade, 0) / dataPoints.length;
       const diff = Math.abs(avgGradeLow - avgGradeAll).toFixed(1);
       insight = `Students below 85% attendance average ${diff}% ${avgGradeLow < avgGradeAll ? 'lower' : 'higher'} grades.`;
@@ -147,92 +131,69 @@ export class CrossModuleInsightsService {
   }
 
   async costPerStudent(tenantId: string): Promise<CostPerStudentDataPoint[]> {
-    // Get payroll runs by month, sum entry totals
-    const payrollRuns = await this.prisma.payrollRun.findMany({
-      where: { tenant_id: tenantId, status: 'finalised' },
-      select: {
-        period_label: true,
-        total_pay: true,
-      },
-      orderBy: { period_label: 'asc' },
-    });
+    const payrollRuns = (await this.dataAccess.findPayrollRuns(
+      tenantId,
+      { status: 'finalised' },
+      { period_label: true, total_pay: true },
+      { period_label: 'asc' },
+    )) as Array<{ period_label: string; total_pay: unknown }>;
 
-    const studentCount = await this.prisma.student.count({
-      where: { tenant_id: tenantId, status: 'active' },
-    });
+    const studentCount = await this.dataAccess.countStudents(tenantId, { status: 'active' });
 
     return payrollRuns.map((run) => ({
       month: run.period_label,
       total_payroll: Number(run.total_pay),
       student_count: studentCount,
-      cost_per_student: studentCount > 0
-        ? Number((Number(run.total_pay) / studentCount).toFixed(2))
-        : 0,
+      cost_per_student:
+        studentCount > 0 ? Number((Number(run.total_pay) / studentCount).toFixed(2)) : 0,
     }));
   }
 
   async yearGroupHealthScores(tenantId: string): Promise<YearGroupHealthScore[]> {
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-      orderBy: { display_order: 'asc' },
-    });
+    const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+      id: true,
+      name: true,
+    })) as Array<{ id: string; name: string }>;
 
     const scores: YearGroupHealthScore[] = [];
 
     for (const yg of yearGroups) {
-      // Students in this year group
-      const students = await this.prisma.student.findMany({
-        where: { tenant_id: tenantId, year_group_id: yg.id, status: 'active' },
+      const students = (await this.dataAccess.findStudents(tenantId, {
+        where: { year_group_id: yg.id, status: 'active' },
         select: { id: true, household_id: true },
-      });
+      })) as Array<{ id: string; household_id: string | null }>;
 
       if (students.length === 0) continue;
 
       const studentIds = students.map((s) => s.id);
-      const householdIds = [...new Set(students.map((s) => s.household_id).filter(Boolean))] as string[];
+      const householdIds = [
+        ...new Set(students.map((s) => s.household_id).filter(Boolean)),
+      ] as string[];
 
-      // Attendance score
       const [totalRecords, presentRecords] = await Promise.all([
-        this.prisma.attendanceRecord.count({
-          where: { tenant_id: tenantId, student_id: { in: studentIds } },
-        }),
-        this.prisma.attendanceRecord.count({
-          where: {
-            tenant_id: tenantId,
-            student_id: { in: studentIds },
-            status: { in: ['present', 'late'] },
-          },
+        this.dataAccess.countAttendanceRecords(tenantId, { student_id: { in: studentIds } }),
+        this.dataAccess.countAttendanceRecords(tenantId, {
+          student_id: { in: studentIds },
+          status: { in: ['present', 'late'] },
         }),
       ]);
 
       const attendanceRate = totalRecords > 0 ? (presentRecords / totalRecords) * 100 : 0;
       const attendanceScore = Math.min(100, attendanceRate);
 
-      // Grade score
-      const gradeAvg = await this.prisma.grade.aggregate({
-        where: {
-          tenant_id: tenantId,
-          student_id: { in: studentIds },
-          is_missing: false,
-          raw_score: { not: null },
-        },
-        _avg: { raw_score: true },
+      const gradeAvg = await this.dataAccess.aggregateGrades(tenantId, {
+        student_id: { in: studentIds },
+        is_missing: false,
+        raw_score: { not: null },
       });
-      const gradeScore = gradeAvg._avg.raw_score !== null
-        ? Math.min(100, Number(gradeAvg._avg.raw_score))
-        : 50;
+      const gradeScore =
+        gradeAvg._avg.raw_score !== null ? Math.min(100, Number(gradeAvg._avg.raw_score)) : 50;
 
-      // Fee collection score
       let feeScore = 100;
       if (householdIds.length > 0) {
-        const invoiceStats = await this.prisma.invoice.aggregate({
-          where: {
-            tenant_id: tenantId,
-            household_id: { in: householdIds },
-            status: { notIn: ['void', 'written_off'] },
-          },
-          _sum: { total_amount: true, balance_amount: true },
+        const invoiceStats = await this.dataAccess.aggregateInvoices(tenantId, {
+          household_id: { in: householdIds },
+          status: { notIn: ['void', 'written_off'] },
         });
 
         const totalAmount = Number(invoiceStats._sum.total_amount ?? 0);
@@ -243,25 +204,17 @@ export class CrossModuleInsightsService {
         }
       }
 
-      // Risk score (inverted — more at-risk = lower score)
-      const atRiskCount = await this.prisma.studentAcademicRiskAlert.count({
-        where: {
-          tenant_id: tenantId,
-          student_id: { in: studentIds },
-          status: 'active',
-        },
+      const atRiskCount = await this.dataAccess.countStudentAcademicRiskAlerts(tenantId, {
+        student_id: { in: studentIds },
+        status: 'active',
       });
 
       const riskScore = Math.max(0, 100 - (atRiskCount / Math.max(1, students.length)) * 100);
 
-      // Weighted overall
       const overallScore = Number(
-        (
-          attendanceScore * 0.25 +
-          gradeScore * 0.25 +
-          feeScore * 0.25 +
-          riskScore * 0.25
-        ).toFixed(1),
+        (attendanceScore * 0.25 + gradeScore * 0.25 + feeScore * 0.25 + riskScore * 0.25).toFixed(
+          1,
+        ),
       );
 
       scores.push({
@@ -279,109 +232,92 @@ export class CrossModuleInsightsService {
   }
 
   async teacherEffectivenessIndex(tenantId: string): Promise<TeacherEffectivenessIndex[]> {
-    const staffProfiles = await this.prisma.staffProfile.findMany({
-      where: { tenant_id: tenantId, employment_status: 'active' },
+    const staffProfiles = (await this.dataAccess.findStaffProfiles(tenantId, {
+      where: { employment_status: 'active' },
       select: {
         id: true,
         user: { select: { first_name: true, last_name: true } },
       },
-    });
+    })) as Array<{ id: string; user: { first_name: string; last_name: string } }>;
 
     const results: TeacherEffectivenessIndex[] = [];
 
     for (const staff of staffProfiles) {
-      // Get class IDs this teacher is assigned to
-      const classAssignments = await this.prisma.classStaff.findMany({
-        where: { tenant_id: tenantId, staff_profile_id: staff.id },
-        select: { class_id: true },
-      });
+      const classAssignments = (await this.dataAccess.findClassStaff(
+        tenantId,
+        { staff_profile_id: staff.id },
+        { class_id: true },
+      )) as Array<{ class_id: string }>;
 
       const classIds = classAssignments.map((ca) => ca.class_id);
-
       if (classIds.length === 0) continue;
 
-      // Attendance marking compliance — sessions submitted vs total sessions
       const [totalSessions, submittedSessions] = await Promise.all([
-        this.prisma.attendanceSession.count({
-          where: { tenant_id: tenantId, class_id: { in: classIds } },
-        }),
-        this.prisma.attendanceSession.count({
-          where: {
-            tenant_id: tenantId,
-            class_id: { in: classIds },
-            status: { in: ['submitted', 'locked'] },
-          },
+        this.dataAccess.countAttendanceSessions(tenantId, { class_id: { in: classIds } }),
+        this.dataAccess.countAttendanceSessions(tenantId, {
+          class_id: { in: classIds },
+          status: { in: ['submitted', 'locked'] },
         }),
       ]);
 
-      const markingComplianceRate = totalSessions > 0
-        ? Number(((submittedSessions / totalSessions) * 100).toFixed(2))
-        : 100;
+      const markingComplianceRate =
+        totalSessions > 0 ? Number(((submittedSessions / totalSessions) * 100).toFixed(2)) : 100;
 
-      // Grade entry completion — assessments vs graded assessments
-      const assessments = await this.prisma.assessment.findMany({
+      const assessments = (await this.dataAccess.findAssessments(tenantId, {
         where: {
-          tenant_id: tenantId,
           class_id: { in: classIds },
           status: { in: ['closed', 'locked'] },
         },
         select: { id: true },
-      });
+      })) as Array<{ id: string }>;
 
       const assessmentIds = assessments.map((a) => a.id);
-      const gradedAssessments = assessmentIds.length > 0
-        ? await this.prisma.assessment.count({
-            where: {
+      const gradedAssessments =
+        assessmentIds.length > 0
+          ? await this.dataAccess.countAssessments(tenantId, {
               id: { in: assessmentIds },
               grades: {
                 some: { tenant_id: tenantId, is_missing: false, raw_score: { not: null } },
               },
-            },
-          })
-        : 0;
+            })
+          : 0;
 
-      const gradeEntryCompletionRate = assessmentIds.length > 0
-        ? Number(((gradedAssessments / assessmentIds.length) * 100).toFixed(2))
-        : 100;
+      const gradeEntryCompletionRate =
+        assessmentIds.length > 0
+          ? Number(((gradedAssessments / assessmentIds.length) * 100).toFixed(2))
+          : 100;
 
-      // Student average grades
-      const enrolments = await this.prisma.classEnrolment.findMany({
-        where: { tenant_id: tenantId, class_id: { in: classIds }, status: 'active' },
-        select: { student_id: true },
-      });
+      const enrolments = (await this.dataAccess.findClassEnrolments(
+        tenantId,
+        { class_id: { in: classIds }, status: 'active' },
+        { student_id: true },
+      )) as Array<{ student_id: string }>;
 
       const studentIds = [...new Set(enrolments.map((e) => e.student_id))];
 
-      const gradeAvg = studentIds.length > 0
-        ? await this.prisma.grade.aggregate({
-            where: {
-              tenant_id: tenantId,
+      const gradeAvg =
+        studentIds.length > 0
+          ? await this.dataAccess.aggregateGrades(tenantId, {
               student_id: { in: studentIds },
               assessment: { class_id: { in: classIds } },
               is_missing: false,
               raw_score: { not: null },
-            },
-            _avg: { raw_score: true },
-          })
-        : null;
+            })
+          : null;
 
       const gradeAvgValue = gradeAvg?._avg?.raw_score;
-      const studentAvgGrade = gradeAvgValue !== null && gradeAvgValue !== undefined
-        ? Number(Number(gradeAvgValue).toFixed(2))
-        : null;
+      const studentAvgGrade =
+        gradeAvgValue !== null && gradeAvgValue !== undefined
+          ? Number(Number(gradeAvgValue).toFixed(2))
+          : null;
 
-      // Student attendance in teacher's classes
-      const attendanceInClasses = studentIds.length > 0
-        ? await this.prisma.attendanceRecord.groupBy({
-            by: ['status'],
-            where: {
-              tenant_id: tenantId,
+      const attendanceInClasses =
+        studentIds.length > 0
+          ? ((await this.dataAccess.groupAttendanceRecordsBy(tenantId, ['status'], {
               student_id: { in: studentIds },
               session: { class_id: { in: classIds } },
-            },
-            _count: true,
-          })
-        : [];
+            })) as Array<{ status: string; _count: number }>)
+          : [];
 
       let studentAvgAttendance: number | null = null;
       const totalAtt = attendanceInClasses.reduce((s, g) => s + g._count, 0);
@@ -392,7 +328,6 @@ export class CrossModuleInsightsService {
         studentAvgAttendance = Number(((presentAtt / totalAtt) * 100).toFixed(2));
       }
 
-      // Composite effectiveness index (0-100)
       const effectivenessIndex = Number(
         (
           markingComplianceRate * 0.3 +

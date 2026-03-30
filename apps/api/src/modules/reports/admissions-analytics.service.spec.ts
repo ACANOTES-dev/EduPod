@@ -1,32 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
 import { AdmissionsAnalyticsService } from './admissions-analytics.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('AdmissionsAnalyticsService', () => {
   let service: AdmissionsAnalyticsService;
-  let mockPrisma: {
-    application: { count: jest.Mock; findMany: jest.Mock; groupBy: jest.Mock };
-    student: { count: jest.Mock };
+  let mockDataAccess: {
+    countApplications: jest.Mock;
+    findApplications: jest.Mock;
+    countStudents: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      application: {
-        count: jest.fn().mockResolvedValue(0),
-        findMany: jest.fn().mockResolvedValue([]),
-        groupBy: jest.fn().mockResolvedValue([]),
-      },
-      student: { count: jest.fn().mockResolvedValue(0) },
+    mockDataAccess = {
+      countApplications: jest.fn().mockResolvedValue(0),
+      findApplications: jest.fn().mockResolvedValue([]),
+      countStudents: jest.fn().mockResolvedValue(0),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdmissionsAnalyticsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -47,18 +44,17 @@ describe('AdmissionsAnalyticsService', () => {
     });
 
     it('should compute conversion rates correctly', async () => {
-      mockPrisma.application.count
+      mockDataAccess.countApplications
         .mockResolvedValueOnce(100) // applied
         .mockResolvedValueOnce(60) // under review
         .mockResolvedValueOnce(40); // accepted
-      mockPrisma.student.count.mockResolvedValue(35); // enrolled
+      mockDataAccess.countStudents.mockResolvedValue(35); // enrolled
 
       const result = await service.pipelineFunnel(TENANT_ID);
 
       expect(result.applied_count).toBe(100);
       expect(result.accepted_count).toBe(40);
       expect(result.enrolled_count).toBe(35);
-      // overall: enrolled / applied * 100 = 35%
       expect(result.overall_conversion_rate).toBe(35);
     });
   });
@@ -73,9 +69,9 @@ describe('AdmissionsAnalyticsService', () => {
 
     it('should compute average days from submitted_at to reviewed_at', async () => {
       const submittedAt = new Date('2026-01-01');
-      const reviewedAt = new Date('2026-01-11'); // 10 days later
+      const reviewedAt = new Date('2026-01-11');
 
-      mockPrisma.application.findMany.mockResolvedValue([
+      mockDataAccess.findApplications.mockResolvedValue([
         { submitted_at: submittedAt, reviewed_at: reviewedAt },
       ]);
 
@@ -96,7 +92,7 @@ describe('AdmissionsAnalyticsService', () => {
     });
 
     it('should group applications by month', async () => {
-      mockPrisma.application.findMany.mockResolvedValue([
+      mockDataAccess.findApplications.mockResolvedValue([
         { submitted_at: new Date('2026-01-15'), status: 'accepted' },
         { submitted_at: new Date('2026-01-20'), status: 'rejected' },
         { submitted_at: new Date('2026-02-05'), status: 'under_review' },
@@ -121,14 +117,10 @@ describe('AdmissionsAnalyticsService', () => {
   });
 
   describe('RLS isolation', () => {
-    it('should scope pipeline funnel queries to tenantId', async () => {
+    it('should pass tenantId to countApplications', async () => {
       await service.pipelineFunnel(TENANT_ID);
 
-      expect(mockPrisma.application.count).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_ID }),
-        }),
-      );
+      expect(mockDataAccess.countApplications).toHaveBeenCalledWith(TENANT_ID, expect.any(Object));
     });
   });
 });
