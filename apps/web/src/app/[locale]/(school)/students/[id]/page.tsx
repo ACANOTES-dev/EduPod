@@ -90,6 +90,13 @@ export default function StudentHubPage() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isChangingStatus, setIsChangingStatus] = React.useState(false);
 
+  // Homework analytics for this student
+  const [hwData, setHwData] = React.useState<{
+    overall: { total_assigned: number; total_completed: number; completion_rate: number };
+    by_subject: Array<{ subject_id: string | null; subject_name: string | null; total_assigned: number; total_completed: number; completion_rate: number }>;
+  } | null>(null);
+  const [hwLoading, setHwLoading] = React.useState(true);
+
   const fetchStudent = React.useCallback(async () => {
     setIsLoading(true);
     try {
@@ -105,6 +112,15 @@ export default function StudentHubPage() {
   React.useEffect(() => {
     void fetchStudent();
   }, [fetchStudent]);
+
+  React.useEffect(() => {
+    if (!id) return;
+    setHwLoading(true);
+    apiClient<{ overall: { total_assigned: number; total_completed: number; completion_rate: number }; by_subject: Array<{ subject_id: string | null; subject_name: string | null; total_assigned: number; total_completed: number; completion_rate: number }> }>(`/api/v1/homework/analytics/student/${id}`)
+      .then((res) => setHwData(res))
+      .catch(() => console.error('[StudentHub] Failed to load homework data'))
+      .finally(() => setHwLoading(false));
+  }, [id]);
 
   const handleStatusChange = async (newStatus: string) => {
     if (!student) return;
@@ -325,6 +341,54 @@ export default function StudentHubPage() {
     </div>
   );
 
+  const homeworkTab = (
+    <div className="space-y-4">
+      {hwLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : !hwData ? (
+        <p className="text-sm text-text-tertiary">No homework data available.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <p className="text-2xl font-bold text-text-primary">{hwData.overall.total_assigned}</p>
+              <p className="text-xs text-text-tertiary">Total Assigned</p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <p className="text-2xl font-bold text-green-600">{hwData.overall.total_completed}</p>
+              <p className="text-xs text-text-tertiary">Completed</p>
+            </div>
+            <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <p className="text-2xl font-bold text-primary-600">{hwData.overall.completion_rate}%</p>
+              <p className="text-xs text-text-tertiary">Completion Rate</p>
+            </div>
+          </div>
+
+          {hwData.by_subject.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">By Subject</h3>
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {hwData.by_subject.map((subj) => (
+                  <li key={subj.subject_id ?? 'none'} className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm text-text-primary">{subj.subject_name ?? 'No Subject'}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-text-secondary">{subj.total_completed}/{subj.total_assigned}</span>
+                      <span className="text-xs font-medium text-primary-600">{subj.completion_rate}%</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <RecordHub
       title={student.full_name}
@@ -336,6 +400,7 @@ export default function StudentHubPage() {
       tabs={[
         { key: 'overview', label: 'Overview', content: overviewTab },
         { key: 'classes', label: 'Classes & Enrolments', content: classesTab },
+        { key: 'homework', label: 'Homework', content: homeworkTab },
         { key: 'medical', label: 'Medical', content: medicalTab },
       ]}
     />

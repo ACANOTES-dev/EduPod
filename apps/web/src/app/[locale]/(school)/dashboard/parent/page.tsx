@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, EmptyState, StatusBadge } from '@school/ui';
-import { Bell, Calendar, CreditCard, FileText, GraduationCap } from 'lucide-react';
+import { Bell, BookOpen, Calendar, CreditCard, FileText, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
@@ -57,6 +57,9 @@ export default function ParentDashboardPage() {
   const [data, setData] = useState<ParentDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ParentTab>('overview');
+  const [hwToday, setHwToday] = useState<Array<{ student: { id: string; first_name: string; last_name: string }; assignments: Array<{ id: string }> }>>([]);
+  const [hwOverdue, setHwOverdue] = useState<Array<{ student: { id: string; first_name: string; last_name: string }; assignments: Array<{ id: string }> }>>([]);
+  const [unacknowledgedNotes, setUnacknowledgedNotes] = useState(0);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -72,6 +75,35 @@ export default function ParentDashboardPage() {
   useEffect(() => {
     void fetchDashboard();
   }, [fetchDashboard]);
+
+  // Fetch homework summary for dashboard card
+  useEffect(() => {
+    Promise.all([
+      apiClient<{ data: typeof hwToday }>('/api/v1/parent/homework/today').catch(() => ({ data: [] as typeof hwToday })),
+      apiClient<{ data: typeof hwOverdue }>('/api/v1/parent/homework/overdue').catch(() => ({ data: [] as typeof hwOverdue })),
+    ]).then(([todayRes, overdueRes]) => {
+      setHwToday(todayRes.data ?? []);
+      setHwOverdue(overdueRes.data ?? []);
+    }).catch(() => console.error('[ParentDashboard] Failed to load homework summary'));
+  }, []);
+
+  // Fetch unacknowledged notes count across all children
+  useEffect(() => {
+    if (!data?.students.length) return;
+    Promise.all(
+      data.students.map((s) =>
+        apiClient<{ data: Array<{ acknowledged: boolean }>; meta: { total: number } }>(
+          `/api/v1/diary/${s.student_id}/parent-notes?page=1&pageSize=50`,
+        ).catch(() => ({ data: [] as Array<{ acknowledged: boolean }>, meta: { total: 0 } })),
+      ),
+    ).then((results) => {
+      let count = 0;
+      for (const res of results) {
+        count += (res.data ?? []).filter((n) => !n.acknowledged).length;
+      }
+      setUnacknowledgedNotes(count);
+    }).catch(() => console.error('[ParentDashboard] Failed to load notes count'));
+  }, [data]);
 
   const children =
     data?.students.map((s) => ({
@@ -125,6 +157,67 @@ export default function ParentDashboardPage() {
           {/* AI Insight Card */}
           {!loading && hasChildren && (
             <AiInsightCard students={data?.students ?? []} />
+          )}
+
+          {/* Homework Today card */}
+          {!loading && hasChildren && (hwToday.length > 0 || hwOverdue.length > 0) && (
+            <section className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary-600" />
+                  <h2 className="text-base font-semibold text-text-primary">
+                    {t('parentDashboard.homeworkToday')}
+                  </h2>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={`/${locale}/homework/parent`}>
+                    {tCommon('view')}
+                  </Link>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {data?.students.map((student) => {
+                  const todayCount = hwToday.find((s) => s.student.id === student.student_id)?.assignments.length ?? 0;
+                  const overdueCount = hwOverdue.find((s) => s.student.id === student.student_id)?.assignments.length ?? 0;
+                  if (todayCount === 0 && overdueCount === 0) return null;
+                  return (
+                    <div key={student.student_id} className="flex items-center justify-between rounded-xl bg-surface-secondary px-4 py-2.5">
+                      <span className="text-sm font-medium text-text-primary">
+                        {student.first_name} {student.last_name}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        {todayCount > 0 && (
+                          <span className="text-xs text-text-secondary">
+                            {todayCount} {t('parentDashboard.dueToday')}
+                          </span>
+                        )}
+                        {overdueCount > 0 && (
+                          <span className="text-xs font-medium text-destructive">
+                            {overdueCount} {t('parentDashboard.overdueLabel')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Unacknowledged notes badge */}
+          {!loading && hasChildren && unacknowledgedNotes > 0 && (
+            <Link
+              href={`/${locale}/homework/parent`}
+              className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 transition-colors hover:bg-amber-100 dark:border-amber-800/40 dark:bg-amber-900/10 dark:hover:bg-amber-900/20"
+            >
+              <Bell className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-text-primary">
+                  {unacknowledgedNotes} {t('parentDashboard.unacknowledgedNotes')}
+                </p>
+                <p className="text-xs text-text-secondary">{t('parentDashboard.tapToViewNotes')}</p>
+              </div>
+            </Link>
           )}
 
           {!loading && (
