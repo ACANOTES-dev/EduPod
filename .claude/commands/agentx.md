@@ -64,6 +64,10 @@ Execute the full `/agents` workflow:
 
 At the end, all changes are in the working tree, unstaged.
 
+### Build-phase migration rule
+
+If the spec includes Prisma schema changes, you MUST produce a `migration.sql` file during this stage — do NOT defer it. If `prisma migrate dev` cannot run (no DATABASE_URL), write the DDL manually. The DDL is deterministic from the schema: CREATE TYPE for enums, CREATE TABLE for models, CREATE INDEX / CREATE UNIQUE INDEX for indexes, ALTER TABLE ADD CONSTRAINT for foreign keys. A missing `migration.sql` will always fail CI on deploy — this is a foreseeable blocker, not a surprise.
+
 ## Stage 3 — Check (`/check`)
 
 Execute the full `/check` workflow against the same spec:
@@ -73,7 +77,14 @@ Execute the full `/check` workflow against the same spec:
 - Cross-check quality
 - Produce the gap report
 
-If the gap report shows **0 gaps** → skip Stage 4, go straight to Stage 5.
+### Stage 3 → Stage 4 transition (AUTONOMOUS — DO NOT PAUSE)
+
+After producing the gap report, evaluate the gap count and proceed **immediately**:
+
+- **0 gaps** → skip Stage 4, go straight to Stage 5.
+- **Any gaps > 0** → proceed directly to Stage 4. Do NOT present the gap report and wait for user input. The gap report is an intermediate artifact for your own use, not a deliverable. Fix the gaps, then move on.
+
+**Red flag — if you are about to say "Ready for /check then /agents2" or present the gap report as a final output, STOP. You are inside /agentx, not running /check standalone. Continue to Stage 4.**
 
 ## Stage 4 — Remediate (`/agents2`)
 
@@ -137,6 +148,14 @@ Same rules as `/go`:
 - 3+ failed attempts at the same fix
 
 Do NOT stop for routine fixes, test failures you can diagnose, or lint/type errors.
+
+## Known failure modes — DO NOT repeat these
+
+| Failure | What happened | Rule |
+|---------|---------------|------|
+| Pausing after `/check` | Gap report was presented to the user instead of being fed into Stage 4 | Stage 3→4 is internal. Never present gap report as output and wait. |
+| Missing `migration.sql` | Deferred to "deploy time" because no DATABASE_URL locally | Write DDL manually during Stage 2. It's deterministic. CI will always fail without it. |
+| Treating sub-skill output as final | `/agents` Stage 6 says "Ready for /check" — but inside /agentx, that's an intermediate step | Inside /agentx, sub-skill reports are intermediate. Keep going. |
 
 ---
 
