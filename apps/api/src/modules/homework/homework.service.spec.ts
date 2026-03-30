@@ -123,6 +123,7 @@ const baseAssignment = {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkService — create', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -134,7 +135,7 @@ describe('HomeworkService — create', () => {
 
     mockRlsTx.homeworkAssignment.create.mockResolvedValue(baseAssignment);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -145,7 +146,10 @@ describe('HomeworkService — create', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create a homework assignment via RLS transaction', async () => {
     const result = await service.create(TENANT_ID, USER_ID, baseCreateDto);
@@ -191,6 +195,7 @@ describe('HomeworkService — create', () => {
 });
 
 describe('HomeworkService — list', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -203,7 +208,7 @@ describe('HomeworkService — list', () => {
     mockPrisma.homeworkAssignment.findMany.mockResolvedValue([baseAssignment]);
     mockPrisma.homeworkAssignment.count.mockResolvedValue(1);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -214,7 +219,10 @@ describe('HomeworkService — list', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return paginated homework list with correct meta', async () => {
     const result = await service.list(TENANT_ID, {
@@ -297,6 +305,7 @@ describe('HomeworkService — list', () => {
 });
 
 describe('HomeworkService — findOne', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -306,7 +315,7 @@ describe('HomeworkService — findOne', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -317,7 +326,10 @@ describe('HomeworkService — findOne', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return assignment with all includes when found', async () => {
     const fullAssignment = {
@@ -351,6 +363,7 @@ describe('HomeworkService — findOne', () => {
 });
 
 describe('HomeworkService — update', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -365,7 +378,7 @@ describe('HomeworkService — update', () => {
       title: 'Updated Title',
     });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -376,7 +389,10 @@ describe('HomeworkService — update', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should update a draft assignment', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
@@ -434,6 +450,7 @@ describe('HomeworkService — update', () => {
 });
 
 describe('HomeworkService — updateStatus (state machine)', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -449,7 +466,7 @@ describe('HomeworkService — updateStatus (state machine)', () => {
       published_at: new Date(),
     });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -460,7 +477,10 @@ describe('HomeworkService — updateStatus (state machine)', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should allow draft -> published transition and set published_at', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
@@ -566,6 +586,7 @@ describe('HomeworkService — updateStatus (state machine)', () => {
 });
 
 describe('HomeworkService — copy', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -575,7 +596,7 @@ describe('HomeworkService — copy', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -586,7 +607,10 @@ describe('HomeworkService — copy', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create a copy with new due_date and copied_from_id', async () => {
     const source = {
@@ -674,6 +698,7 @@ describe('HomeworkService — copy', () => {
 });
 
 describe('HomeworkService — remove', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -683,7 +708,7 @@ describe('HomeworkService — remove', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -694,7 +719,10 @@ describe('HomeworkService — remove', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should delete a draft assignment and clean up S3 files', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({
@@ -767,6 +795,7 @@ describe('HomeworkService — remove', () => {
 });
 
 describe('HomeworkService — addAttachment', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -778,7 +807,7 @@ describe('HomeworkService — addAttachment', () => {
 
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue({ id: HOMEWORK_ID });
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -789,7 +818,10 @@ describe('HomeworkService — addAttachment', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create a file attachment with valid mime type', async () => {
     const attachment = {
@@ -904,6 +936,7 @@ describe('HomeworkService — addAttachment', () => {
 });
 
 describe('HomeworkService — removeAttachment', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -913,7 +946,7 @@ describe('HomeworkService — removeAttachment', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -924,7 +957,10 @@ describe('HomeworkService — removeAttachment', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should delete file attachment and call S3 delete', async () => {
     mockPrisma.homeworkAttachment.findFirst.mockResolvedValue({
@@ -982,6 +1018,7 @@ describe('HomeworkService — removeAttachment', () => {
 });
 
 describe('HomeworkService — findByClass', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -994,7 +1031,7 @@ describe('HomeworkService — findByClass', () => {
     mockPrisma.homeworkAssignment.findMany.mockResolvedValue([baseAssignment]);
     mockPrisma.homeworkAssignment.count.mockResolvedValue(1);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1005,7 +1042,10 @@ describe('HomeworkService — findByClass', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return assignments for a specific class', async () => {
     const result = await service.findByClass(TENANT_ID, CLASS_ID, {
@@ -1029,6 +1069,7 @@ describe('HomeworkService — findByClass', () => {
 });
 
 describe('HomeworkService — findToday', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1040,7 +1081,7 @@ describe('HomeworkService — findToday', () => {
 
     mockPrisma.homeworkAssignment.findMany.mockResolvedValue([baseAssignment]);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1051,7 +1092,10 @@ describe('HomeworkService — findToday', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return today\'s assignments for the teacher', async () => {
     const result = await service.findToday(TENANT_ID, USER_ID);
@@ -1073,6 +1117,7 @@ describe('HomeworkService — findToday', () => {
 });
 
 describe('HomeworkService — findTemplates', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1085,7 +1130,7 @@ describe('HomeworkService — findTemplates', () => {
     mockPrisma.homeworkAssignment.findMany.mockResolvedValue([baseAssignment]);
     mockPrisma.homeworkAssignment.count.mockResolvedValue(1);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1096,7 +1141,10 @@ describe('HomeworkService — findTemplates', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return paginated templates with published/archived status filter', async () => {
     const result = await service.findTemplates(TENANT_ID, {
@@ -1134,6 +1182,7 @@ describe('HomeworkService — findTemplates', () => {
 });
 
 describe('HomeworkService — createRecurrenceRule', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1143,7 +1192,7 @@ describe('HomeworkService — createRecurrenceRule', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1154,7 +1203,10 @@ describe('HomeworkService — createRecurrenceRule', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create a recurrence rule via RLS transaction', async () => {
     const rule = {
@@ -1192,6 +1244,7 @@ describe('HomeworkService — createRecurrenceRule', () => {
 });
 
 describe('HomeworkService — updateRecurrenceRule', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1201,7 +1254,7 @@ describe('HomeworkService — updateRecurrenceRule', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1212,7 +1265,10 @@ describe('HomeworkService — updateRecurrenceRule', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should update a recurrence rule', async () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue({
@@ -1249,6 +1305,7 @@ describe('HomeworkService — updateRecurrenceRule', () => {
 });
 
 describe('HomeworkService — deleteRecurrenceRule', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1258,7 +1315,7 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1269,7 +1326,10 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should delete a recurrence rule', async () => {
     mockPrisma.homeworkRecurrenceRule.findFirst.mockResolvedValue({
@@ -1293,6 +1353,7 @@ describe('HomeworkService — deleteRecurrenceRule', () => {
 });
 
 describe('HomeworkService — bulkCreate', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1302,7 +1363,7 @@ describe('HomeworkService — bulkCreate', () => {
     mockS3 = buildMockS3();
     resetRlsMocks();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1313,7 +1374,10 @@ describe('HomeworkService — bulkCreate', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should generate assignments from a daily recurrence rule', async () => {
     const rule = {
@@ -1473,6 +1537,7 @@ describe('HomeworkService — bulkCreate', () => {
 });
 
 describe('HomeworkService — findByClassWeek', () => {
+  let module: TestingModule;
   let service: HomeworkService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
   let mockS3: ReturnType<typeof buildMockS3>;
@@ -1484,7 +1549,7 @@ describe('HomeworkService — findByClassWeek', () => {
 
     mockPrisma.homeworkAssignment.findMany.mockResolvedValue([baseAssignment]);
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -1495,7 +1560,10 @@ describe('HomeworkService — findByClassWeek', () => {
     service = module.get<HomeworkService>(HomeworkService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return assignments with week_start and week_end', async () => {
     const result = await service.findByClassWeek(TENANT_ID, CLASS_ID, '2026-04-06');

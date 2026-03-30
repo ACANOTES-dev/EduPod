@@ -1,4 +1,4 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -19,6 +19,7 @@ const userPayload = { sub: USER_ID };
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkParentController', () => {
+  let module: TestingModule;
   let controller: HomeworkParentController;
   let mockService: {
     listAll: jest.Mock;
@@ -39,7 +40,7 @@ describe('HomeworkParentController', () => {
       studentDiary: jest.fn(),
     };
 
-    const module = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [HomeworkParentController],
       providers: [{ provide: HomeworkParentService, useValue: mockService }],
     })
@@ -52,7 +53,10 @@ describe('HomeworkParentController', () => {
     controller = module.get(HomeworkParentController);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── listAll ──────────────────────────────────────────────────────────────
 

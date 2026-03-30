@@ -1,4 +1,4 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -41,13 +41,14 @@ const emptyFilters = {};
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkAnalyticsService', () => {
+  let module: TestingModule;
   let service: HomeworkAnalyticsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
-    const module = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -57,7 +58,10 @@ describe('HomeworkAnalyticsService', () => {
     service = module.get(HomeworkAnalyticsService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── completionRates ──────────────────────────────────────────────────────
 

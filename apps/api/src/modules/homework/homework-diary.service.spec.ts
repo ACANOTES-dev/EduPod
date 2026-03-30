@@ -59,6 +59,7 @@ function buildMockPrisma() {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkDiaryService — listNotes', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -68,7 +69,7 @@ describe('HomeworkDiaryService — listNotes', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -78,7 +79,10 @@ describe('HomeworkDiaryService — listNotes', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return paginated diary notes for a student', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
@@ -128,6 +132,7 @@ describe('HomeworkDiaryService — listNotes', () => {
 });
 
 describe('HomeworkDiaryService — createNote', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -137,7 +142,7 @@ describe('HomeworkDiaryService — createNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -147,7 +152,10 @@ describe('HomeworkDiaryService — createNote', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create a diary note via RLS transaction', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
@@ -218,6 +226,7 @@ describe('HomeworkDiaryService — createNote', () => {
 });
 
 describe('HomeworkDiaryService — updateNote', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -227,7 +236,7 @@ describe('HomeworkDiaryService — updateNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -237,7 +246,10 @@ describe('HomeworkDiaryService — updateNote', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should update existing note content via RLS transaction', async () => {
     mockPrisma.diaryNote.findFirst.mockResolvedValue({ id: NOTE_ID });
@@ -292,6 +304,7 @@ describe('HomeworkDiaryService — updateNote', () => {
 });
 
 describe('HomeworkDiaryService — listParentNotes', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -301,7 +314,7 @@ describe('HomeworkDiaryService — listParentNotes', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -311,7 +324,10 @@ describe('HomeworkDiaryService — listParentNotes', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return paginated parent notes with includes', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
@@ -356,6 +372,7 @@ describe('HomeworkDiaryService — listParentNotes', () => {
 });
 
 describe('HomeworkDiaryService — createParentNote', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -365,7 +382,7 @@ describe('HomeworkDiaryService — createParentNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -375,7 +392,10 @@ describe('HomeworkDiaryService — createParentNote', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should create parent note with resolved parent_id', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({ id: STUDENT_ID });
@@ -449,6 +469,7 @@ describe('HomeworkDiaryService — createParentNote', () => {
 });
 
 describe('HomeworkDiaryService — acknowledgeNote', () => {
+  let module: TestingModule;
   let service: HomeworkDiaryService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -458,7 +479,7 @@ describe('HomeworkDiaryService — acknowledgeNote', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkDiaryService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -468,7 +489,10 @@ describe('HomeworkDiaryService — acknowledgeNote', () => {
     service = module.get<HomeworkDiaryService>(HomeworkDiaryService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should set acknowledged to true and record timestamp', async () => {
     mockPrisma.diaryParentNote.findFirst.mockResolvedValue({

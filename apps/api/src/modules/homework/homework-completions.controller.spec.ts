@@ -29,6 +29,7 @@ const userCtx: JwtPayload = {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkCompletionsController', () => {
+  let module: TestingModule;
   let controller: HomeworkCompletionsController;
   let mockService: {
     listCompletions: jest.Mock;
@@ -47,7 +48,7 @@ describe('HomeworkCompletionsController', () => {
       getCompletionRate: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [HomeworkCompletionsController],
       providers: [
         { provide: HomeworkCompletionsService, useValue: mockService },
@@ -64,7 +65,10 @@ describe('HomeworkCompletionsController', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── listCompletions ─────────────────────────────────────────────────────
 

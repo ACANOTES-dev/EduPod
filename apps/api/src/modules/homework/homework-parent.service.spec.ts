@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -63,13 +63,14 @@ function buildAssignment(overrides: Record<string, unknown> = {}) {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkParentService', () => {
+  let module: TestingModule;
   let service: HomeworkParentService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
 
-    const module = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkParentService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -79,7 +80,10 @@ describe('HomeworkParentService', () => {
     service = module.get(HomeworkParentService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── resolveParent ──────────────────────────────────────────────────────
 

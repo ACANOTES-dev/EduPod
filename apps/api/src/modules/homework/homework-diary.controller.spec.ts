@@ -29,6 +29,7 @@ const userCtx: JwtPayload = {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkDiaryController', () => {
+  let module: TestingModule;
   let controller: HomeworkDiaryController;
   let mockService: {
     listNotes: jest.Mock;
@@ -49,7 +50,7 @@ describe('HomeworkDiaryController', () => {
       acknowledgeNote: jest.fn(),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [HomeworkDiaryController],
       providers: [
         { provide: HomeworkDiaryService, useValue: mockService },
@@ -64,7 +65,10 @@ describe('HomeworkDiaryController', () => {
     controller = module.get<HomeworkDiaryController>(HomeworkDiaryController);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── listNotes ───────────────────────────────────────────────────────────
 

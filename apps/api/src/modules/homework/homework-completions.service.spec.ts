@@ -71,6 +71,7 @@ const draftAssignment = {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkCompletionsService — listCompletions', () => {
+  let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -80,7 +81,7 @@ describe('HomeworkCompletionsService — listCompletions', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -92,7 +93,10 @@ describe('HomeworkCompletionsService — listCompletions', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should return completions for a published assignment', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
@@ -142,6 +146,7 @@ describe('HomeworkCompletionsService — listCompletions', () => {
 });
 
 describe('HomeworkCompletionsService — studentSelfReport', () => {
+  let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -151,7 +156,7 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -163,7 +168,10 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should upsert completion via RLS transaction', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
@@ -269,6 +277,7 @@ describe('HomeworkCompletionsService — studentSelfReport', () => {
 });
 
 describe('HomeworkCompletionsService — teacherUpdate', () => {
+  let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -278,7 +287,7 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -290,7 +299,10 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should upsert completion with verified_by and verified_at', async () => {
     // teacherUpdate uses findAssignment (no published check)
@@ -352,6 +364,7 @@ describe('HomeworkCompletionsService — teacherUpdate', () => {
 });
 
 describe('HomeworkCompletionsService — bulkMark', () => {
+  let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -361,7 +374,7 @@ describe('HomeworkCompletionsService — bulkMark', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -373,7 +386,10 @@ describe('HomeworkCompletionsService — bulkMark', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should upsert multiple completions in a single RLS transaction', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);
@@ -422,6 +438,7 @@ describe('HomeworkCompletionsService — bulkMark', () => {
 });
 
 describe('HomeworkCompletionsService — getCompletionRate', () => {
+  let module: TestingModule;
   let service: HomeworkCompletionsService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -431,7 +448,7 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
       Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
     );
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         HomeworkCompletionsService,
         { provide: PrismaService, useValue: mockPrisma },
@@ -443,7 +460,10 @@ describe('HomeworkCompletionsService — getCompletionRate', () => {
     );
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   it('should calculate correct completion rate', async () => {
     mockPrisma.homeworkAssignment.findFirst.mockResolvedValue(publishedAssignment);

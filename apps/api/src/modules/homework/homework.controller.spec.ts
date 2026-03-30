@@ -45,13 +45,14 @@ function buildMockHomeworkService() {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkController', () => {
+  let module: TestingModule;
   let controller: HomeworkController;
   let service: ReturnType<typeof buildMockHomeworkService>;
 
   beforeEach(async () => {
     service = buildMockHomeworkService();
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [HomeworkController],
       providers: [{ provide: HomeworkService, useValue: service }],
     })
@@ -64,7 +65,10 @@ describe('HomeworkController', () => {
     controller = module.get<HomeworkController>(HomeworkController);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── POST /v1/homework ───────────────────────────────────────────────────────
 

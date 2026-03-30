@@ -1,4 +1,4 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -22,6 +22,7 @@ const baseQuery = {};
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('HomeworkAnalyticsController', () => {
+  let module: TestingModule;
   let controller: HomeworkAnalyticsController;
   let mockService: {
     completionRates: jest.Mock;
@@ -50,7 +51,7 @@ describe('HomeworkAnalyticsController', () => {
       correlationAnalysis: jest.fn(),
     };
 
-    const module = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       controllers: [HomeworkAnalyticsController],
       providers: [
         { provide: HomeworkAnalyticsService, useValue: mockService },
@@ -65,7 +66,10 @@ describe('HomeworkAnalyticsController', () => {
     controller = module.get(HomeworkAnalyticsController);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(async () => {
+    jest.clearAllMocks();
+    await module.close();
+  });
 
   // ─── getCompletionRates ───────────────────────────────────────────────────
 
