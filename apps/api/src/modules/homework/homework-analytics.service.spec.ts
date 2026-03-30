@@ -81,12 +81,12 @@ describe('HomeworkAnalyticsService', () => {
       const result = await service.completionRates(TENANT_ID, emptyFilters);
 
       expect(result).toHaveLength(1);
-      expect(result[0].class_id).toBe(CLASS_ID);
-      expect(result[0].class_name).toBe('Class 5A');
-      expect(result[0].subject_id).toBe(SUBJECT_ID);
-      expect(result[0].total_assignments).toBe(1);
+      expect(result[0]!.class_id).toBe(CLASS_ID);
+      expect(result[0]!.class_name).toBe('Class 5A');
+      expect(result[0]!.subject_id).toBe(SUBJECT_ID);
+      expect(result[0]!.total_assignments).toBe(1);
       // 2 completed out of 3 possible = 66.67%
-      expect(result[0].avg_completion_rate).toBeCloseTo(66.67, 1);
+      expect(result[0]!.avg_completion_rate).toBeCloseTo(66.67, 1);
     });
 
     it('should return empty array when no assignments exist', async () => {
@@ -112,8 +112,8 @@ describe('HomeworkAnalyticsService', () => {
       const result = await service.completionRates(TENANT_ID, emptyFilters);
 
       expect(result).toHaveLength(1);
-      expect(result[0].avg_completion_rate).toBe(0);
-      expect(result[0].subject_id).toBeNull();
+      expect(result[0]!.avg_completion_rate).toBe(0);
+      expect(result[0]!.subject_id).toBeNull();
     });
 
     it('should apply date filters to the where clause', async () => {
@@ -176,7 +176,7 @@ describe('HomeworkAnalyticsService', () => {
       expect(result.overall.completion_rate).toBe(50);
       expect(result.overall.avg_points_awarded).toBe(85);
       expect(result.by_subject).toHaveLength(1);
-      expect(result.by_subject[0].subject_name).toBe('Mathematics');
+      expect(result.by_subject[0]!.subject_name).toBe('Mathematics');
     });
 
     it('should return empty result when student has no enrolments', async () => {
@@ -272,7 +272,7 @@ describe('HomeworkAnalyticsService', () => {
       expect(result.struggling_students).toBeDefined();
 
       // Student A completed 2/2 = 100%, Student B completed 1/2 = 50%
-      const topStudent = result.top_students[0];
+      const topStudent = result.top_students[0]!;
       expect(topStudent.student_id).toBe(studentA);
       expect(topStudent.completion_rate).toBe(100);
     });
@@ -325,11 +325,11 @@ describe('HomeworkAnalyticsService', () => {
       const result = await service.loadAnalysis(TENANT_ID, emptyFilters);
 
       expect(result.by_class).toHaveLength(1);
-      expect(result.by_class[0].class_id).toBe(CLASS_ID);
-      expect(result.by_class[0].total_assignments).toBe(3);
+      expect(result.by_class[0]!.class_id).toBe(CLASS_ID);
+      expect(result.by_class[0]!.total_assignments).toBe(3);
       // 3 assignments across 2 weeks = 1.5 avg
-      expect(result.by_class[0].weekly_avg).toBe(1.5);
-      expect(result.by_class[0].subject_breakdown).toHaveLength(1);
+      expect(result.by_class[0]!.weekly_avg).toBe(1.5);
+      expect(result.by_class[0]!.subject_breakdown).toHaveLength(1);
     });
 
     it('should return empty result when no assignments', async () => {
@@ -433,11 +433,11 @@ describe('HomeworkAnalyticsService', () => {
       const result = await service.nonCompleters(TENANT_ID, emptyFilters);
 
       expect(result.students).toHaveLength(1);
-      expect(result.students[0].student_id).toBe(struggleStudentId);
-      expect(result.students[0].first_name).toBe('Ali');
-      expect(result.students[0].total_assigned).toBe(3);
-      expect(result.students[0].total_completed).toBe(1);
-      expect(result.students[0].rate).toBeCloseTo(33.33, 1);
+      expect(result.students[0]!.student_id).toBe(struggleStudentId);
+      expect(result.students[0]!.first_name).toBe('Ali');
+      expect(result.students[0]!.total_assigned).toBe(3);
+      expect(result.students[0]!.total_completed).toBe(1);
+      expect(result.students[0]!.rate).toBeCloseTo(33.33, 1);
     });
 
     it('should not include students with fewer than 3 assignments', async () => {
@@ -591,13 +591,13 @@ describe('HomeworkAnalyticsService', () => {
       expect(result.staff_id).toBe(STAFF_ID);
       expect(result.total_set).toBe(2);
       expect(result.by_type).toHaveLength(1);
-      expect(result.by_type[0].type).toBe('assignment');
-      expect(result.by_type[0].count).toBe(2);
+      expect(result.by_type[0]!.type).toBe('assignment');
+      expect(result.by_type[0]!.count).toBe(2);
       // 2 completed out of 3 possible = 66.67%
       expect(result.avg_completion_rate).toBeCloseTo(66.67, 1);
       expect(result.trend).toHaveLength(1);
-      expect(result.trend[0].month).toBe('2026-03');
-      expect(result.trend[0].assignments_set).toBe(2);
+      expect(result.trend[0]!.month).toBe('2026-03');
+      expect(result.trend[0]!.assignments_set).toBe(2);
     });
 
     it('should handle empty assignments for teacher', async () => {
@@ -650,9 +650,9 @@ describe('HomeworkAnalyticsService', () => {
       expect(result.year_group_id).toBe(YEAR_GROUP_ID);
       expect(result.total_assignments).toBe(2);
       expect(result.classes).toHaveLength(1);
-      expect(result.classes[0].class_id).toBe(CLASS_ID);
-      expect(result.classes[0].class_name).toBe('Class 5A');
-      expect(result.classes[0].assignments_count).toBe(2);
+      expect(result.classes[0]!.class_id).toBe(CLASS_ID);
+      expect(result.classes[0]!.class_name).toBe('Class 5A');
+      expect(result.classes[0]!.assignments_count).toBe(2);
       // 3 completed out of 4 possible = 75%
       expect(result.avg_completion_rate).toBe(75);
     });

@@ -383,7 +383,7 @@ describe('HomeworkService — update', () => {
         data: expect.objectContaining({ title: 'Updated Title' }),
       }),
     );
-    expect(result.title).toBe('Updated Title');
+    expect((result as { title: string }).title).toBe('Updated Title');
   });
 
   it('should throw NotFoundException when assignment not found', async () => {
@@ -607,7 +607,7 @@ describe('HomeworkService — copy', () => {
         }),
       }),
     );
-    expect(result.copied_from_id).toBe(HOMEWORK_ID);
+    expect((result as { copied_from_id: string }).copied_from_id).toBe(HOMEWORK_ID);
   });
 
   it('should copy attachments from the source', async () => {
@@ -825,7 +825,7 @@ describe('HomeworkService — addAttachment', () => {
       display_order: 0,
     });
 
-    expect(result.attachment_type).toBe('link');
+    expect((result as { attachment_type: string }).attachment_type).toBe('link');
   });
 
   it('should throw BadRequestException for invalid mime type on file attachments', async () => {
@@ -1225,7 +1225,7 @@ describe('HomeworkService — updateRecurrenceRule', () => {
         data: expect.objectContaining({ frequency: 'daily', interval: 2 }),
       }),
     );
-    expect(result.frequency).toBe('daily');
+    expect((result as { frequency: string }).frequency).toBe('daily');
   });
 
   it('should throw NotFoundException when rule not found', async () => {
@@ -1328,8 +1328,9 @@ describe('HomeworkService — bulkCreate', () => {
     });
 
     // 3 days: Apr 1, 2, 3
-    expect(result.count).toBe(3);
-    expect(result.data).toHaveLength(3);
+    const bulkResult = result as { count: number; data: unknown[] };
+    expect(bulkResult.count).toBe(3);
+    expect(bulkResult.data).toHaveLength(3);
     expect(mockRlsTx.homeworkAssignment.create).toHaveBeenCalledTimes(3);
   });
 
@@ -1358,7 +1359,7 @@ describe('HomeworkService — bulkCreate', () => {
     });
 
     // Mon Apr 6 (day 1) and Wed Apr 8 (day 3)
-    expect(result.count).toBe(2);
+    expect((result as { count: number }).count).toBe(2);
     expect(mockRlsTx.homeworkAssignment.create).toHaveBeenCalledTimes(2);
   });
 
@@ -1456,7 +1457,7 @@ describe('HomeworkService — bulkCreate', () => {
     });
 
     // Only Apr 1 and Apr 2 (rule end_date caps)
-    expect(result.count).toBe(2);
+    expect((result as { count: number }).count).toBe(2);
   });
 });
 

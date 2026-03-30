@@ -124,9 +124,9 @@ describe('HomeworkParentService', () => {
 
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].student.id).toBe(STUDENT_ID);
-      expect(result.data[0].assignments).toHaveLength(1);
-      expect(result.data[0].assignments[0].completion).toEqual(
+      expect(result.data[0]!.student.id).toBe(STUDENT_ID);
+      expect(result.data[0]!.assignments).toHaveLength(1);
+      expect(result.data[0]!.assignments[0]!.completion).toEqual(
         expect.objectContaining({ status: 'completed' }),
       );
     });
@@ -173,7 +173,7 @@ describe('HomeworkParentService', () => {
       const result = await service.listToday(TENANT_ID, USER_ID);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].student.id).toBe(STUDENT_ID);
+      expect(result.data[0]!.student.id).toBe(STUDENT_ID);
       expect(mockPrisma.homeworkAssignment.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -220,8 +220,8 @@ describe('HomeworkParentService', () => {
       const result = await service.listOverdue(TENANT_ID, USER_ID);
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].student.id).toBe(STUDENT_ID);
-      expect(result.data[0].assignments).toHaveLength(1);
+      expect(result.data[0]!.student.id).toBe(STUDENT_ID);
+      expect(result.data[0]!.assignments).toHaveLength(1);
     });
 
     it('should exclude assignments where student has completed', async () => {
@@ -410,7 +410,7 @@ describe('HomeworkParentService', () => {
       });
 
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].content).toBe('Great day');
+      expect(result.data[0]!.content).toBe('Great day');
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
     });
 

@@ -19,7 +19,14 @@ const userPayload = { sub: USER_ID };
 
 describe('HomeworkParentController', () => {
   let controller: HomeworkParentController;
-  let mockService: Record<string, jest.Mock>;
+  let mockService: {
+    listAll: jest.Mock;
+    listToday: jest.Mock;
+    listOverdue: jest.Mock;
+    listWeek: jest.Mock;
+    studentSummary: jest.Mock;
+    studentDiary: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockService = {

@@ -22,7 +22,18 @@ const baseQuery = {};
 
 describe('HomeworkAnalyticsController', () => {
   let controller: HomeworkAnalyticsController;
-  let mockService: Record<string, jest.Mock>;
+  let mockService: {
+    completionRates: jest.Mock;
+    studentTrends: jest.Mock;
+    classPatterns: jest.Mock;
+    loadAnalysis: jest.Mock;
+    dailyLoadHeatmap: jest.Mock;
+    nonCompleters: jest.Mock;
+    subjectTrends: jest.Mock;
+    teacherPatterns: jest.Mock;
+    yearGroupOverview: jest.Mock;
+    correlationAnalysis: jest.Mock;
+  };
 
   beforeEach(async () => {
     mockService = {
