@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Inject, Logger } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
 import type { Job } from 'bullmq';
 
+import { CrossTenantSystemJob } from '../../base/cross-tenant-system-job';
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { SYSTEM_USER_SENTINEL } from '../../base/tenant-aware-job';
 
@@ -38,18 +39,15 @@ interface SecurityIncidentEventDelegate {
   create: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
-// ─── Processor ────────────────────────────────────────────────────────────────
+// ─── Job ─────────────────────────────────────────────────────────────────────
 //
 // Runs all breach detection rules and creates or updates SecurityIncident records.
-// This is a platform-level job — it does NOT use TenantAwareJob or RLS context,
+// Platform-level job — extends CrossTenantSystemJob (intentionally no RLS context),
 // because it scans across all tenants in one pass.
 
-@Processor(QUEUE_NAMES.SECURITY)
-export class AnomalyScanProcessor extends WorkerHost {
-  private readonly logger = new Logger(AnomalyScanProcessor.name);
-
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
-    super();
+class AnomalyScanJob extends CrossTenantSystemJob {
+  constructor(prisma: PrismaClient) {
+    super(prisma, AnomalyScanJob.name);
   }
 
   // ─── Typed accessors for pending Prisma models ─────────────────────────
@@ -62,11 +60,9 @@ export class AnomalyScanProcessor extends WorkerHost {
     return this.prisma.securityIncidentEvent as unknown as SecurityIncidentEventDelegate;
   }
 
-  // ─── Main process ──────────────────────────────────────────────────────
+  // ─── Main run ──────────────────────────────────────────────────────────
 
-  async process(job: Job): Promise<void> {
-    if (job.name !== ANOMALY_SCAN_JOB) return;
-
+  protected async runSystemJob(): Promise<void> {
     const rules: DetectionRule[] = [
       new UnusualAccessRule(),
       new AuthSpikeRule(),
@@ -149,5 +145,20 @@ export class AnomalyScanProcessor extends WorkerHost {
     });
 
     return 'created';
+  }
+}
+
+// ─── Processor ────────────────────────────────────────────────────────────────
+
+@Processor(QUEUE_NAMES.SECURITY)
+export class AnomalyScanProcessor extends WorkerHost {
+  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
+    super();
+  }
+
+  async process(job: Job): Promise<void> {
+    if (job.name !== ANOMALY_SCAN_JOB) return;
+
+    await new AnomalyScanJob(this.prisma).execute();
   }
 }

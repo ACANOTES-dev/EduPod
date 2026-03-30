@@ -79,10 +79,11 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
 
   /**
    * Runs hourly. For each active tenant with behaviour enabled:
-   * - At 07:00 TZ -> suspension-return
-   * - At 08:00 TZ -> task-reminders
+   * - At 00:00 UTC -> break-glass-expiry (revoke expired safeguarding access grants)
    * - At 05:00 UTC -> detect-patterns (UTC-based)
    * - At 06:00 UTC -> guardian-restriction-check (UTC-based)
+   * - At 07:00 TZ -> suspension-return
+   * - At 08:00 TZ -> task-reminders
    * - At digest_time TZ -> digest-notifications (to notifications queue)
    */
   private async dispatchDaily(): Promise<void> {
@@ -132,6 +133,16 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
             BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB,
             { tenant_id: tenant.id },
             { jobId: `daily:${BEHAVIOUR_GUARDIAN_RESTRICTION_CHECK_JOB}:${tenant.id}` },
+          );
+          enqueued++;
+        }
+
+        // Break-glass expiry — daily at 00:00 UTC to revoke expired grants
+        if (currentUtcHour === 0) {
+          await this.behaviourQueue.add(
+            BREAK_GLASS_EXPIRY_JOB,
+            { tenant_id: tenant.id },
+            { jobId: `daily:${BREAK_GLASS_EXPIRY_JOB}:${tenant.id}` },
           );
           enqueued++;
         }
@@ -200,11 +211,7 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
           SLA_CHECK_JOB,
           { tenant_id: tenant.id },
         );
-        await this.behaviourQueue.add(
-          BREAK_GLASS_EXPIRY_JOB,
-          { tenant_id: tenant.id },
-        );
-        enqueued += 2;
+        enqueued++;
       } catch (err: unknown) {
         this.logger.error(
           `SLA dispatch failed for tenant ${tenant.id}: ${String(err)}`,

@@ -13,7 +13,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { roundMoney } from './helpers/invoice-status.helper';
+import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
 import { InvoicesService } from './invoices.service';
 import { ReceiptsService } from './receipts.service';
 
@@ -78,7 +78,7 @@ export class StripeService {
       });
     }
 
-    if (!['issued', 'partially_paid', 'overdue'].includes(invoice.status)) {
+    if (!isPayableStatus(invoice.status)) {
       throw new BadRequestException({
         code: 'INVALID_STATUS',
         message: `Cannot create checkout for invoice with status "${invoice.status}"`,

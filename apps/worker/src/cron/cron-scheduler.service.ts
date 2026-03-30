@@ -5,6 +5,7 @@ import { Queue } from 'bullmq';
 import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
+import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
 import {
   BEHAVIOUR_CRON_DISPATCH_DAILY_JOB,
   BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB,
@@ -56,6 +57,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
     @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.APPROVALS) private readonly approvalsQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -69,6 +71,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerComplianceCronJobs();
     await this.registerRegulatoryCronJobs();
     await this.registerHomeworkCronJobs();
+    await this.registerApprovalsCronJobs();
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {
@@ -505,5 +508,22 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${HOMEWORK_COMPLETION_REMINDER_JOB} (daily 15:00 UTC)`);
+  }
+
+  private async registerApprovalsCronJobs(): Promise<void> {
+    // ── approvals:callback-reconciliation ────────────────────────────────
+    // Runs daily at 04:30 UTC. Cross-tenant — no tenant_id in payload.
+    // Scans for approved requests where callback hasn't executed and retries them.
+    await this.approvalsQueue.add(
+      APPROVAL_CALLBACK_RECONCILIATION_JOB,
+      {},
+      {
+        repeat: { pattern: '30 4 * * *' },
+        jobId: `cron:${APPROVAL_CALLBACK_RECONCILIATION_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${APPROVAL_CALLBACK_RECONCILIATION_JOB} (daily 04:30 UTC)`);
   }
 }

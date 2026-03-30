@@ -47,6 +47,10 @@ const envSchema = z.object({
 
 export type EnvConfig = z.infer<typeof envSchema>;
 
+/**
+ * Called by NestJS ConfigModule.forRoot({ validate }) during bootstrap.
+ * Throws a descriptive Error on failure so NestJS surfaces it clearly.
+ */
 export function envValidation(config: Record<string, unknown>): EnvConfig {
   const result = envSchema.safeParse(config);
   if (!result.success) {
@@ -54,4 +58,30 @@ export function envValidation(config: Record<string, unknown>): EnvConfig {
     throw new Error(`Environment validation failed:\n${errors.join('\n')}`);
   }
   return result.data;
+}
+
+// ─── Pre-bootstrap validation ─────────────────────────────────────────────────
+
+/**
+ * Validates process.env BEFORE NestJS bootstraps.
+ * Logs every failing variable and calls process.exit(1) so the app never
+ * starts in a misconfigured state.
+ */
+export function validateEnv(): void {
+  const result = envSchema.safeParse(process.env);
+  if (!result.success) {
+    const errors = result.error.errors.map(
+      (e) => `  • ${e.path.join('.')}: ${e.message}`,
+    );
+    console.error('');
+    console.error('✗ Environment validation failed — the following variables are missing or invalid:');
+    console.error('');
+    for (const line of errors) {
+      console.error(line);
+    }
+    console.error('');
+    console.error('Fix the issues above in your .env file, then restart the server.');
+    console.error('');
+    process.exit(1);
+  }
 }

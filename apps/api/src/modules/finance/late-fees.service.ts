@@ -12,7 +12,7 @@ import type {
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { roundMoney } from './helpers/invoice-status.helper';
+import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
 
 @Injectable()
 export class LateFeesService {
@@ -117,7 +117,7 @@ export class LateFeesService {
       });
     }
 
-    if (!['issued', 'overdue', 'partially_paid'].includes(invoice.status)) {
+    if (!isPayableStatus(invoice.status)) {
       throw new BadRequestException({
         code: 'INVALID_INVOICE_STATUS',
         message: `Cannot apply late fee to invoice with status "${invoice.status}"`,

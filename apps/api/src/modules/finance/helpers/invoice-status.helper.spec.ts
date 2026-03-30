@@ -1,4 +1,107 @@
-import { deriveInvoiceStatus, roundMoney } from './invoice-status.helper';
+import { BadRequestException } from '@nestjs/common';
+
+import {
+  deriveInvoiceStatus,
+  isPayableStatus,
+  roundMoney,
+  validateInvoiceTransition,
+} from './invoice-status.helper';
+
+// ─── validateInvoiceTransition ──────────────────────────────────────────────
+
+describe('validateInvoiceTransition', () => {
+  describe('valid user-initiated transitions', () => {
+    it.each([
+      ['draft', 'pending_approval'],
+      ['draft', 'issued'],
+      ['draft', 'cancelled'],
+      ['pending_approval', 'issued'],
+      ['pending_approval', 'cancelled'],
+      ['issued', 'void'],
+      ['issued', 'written_off'],
+      ['overdue', 'void'],
+      ['overdue', 'written_off'],
+    ] as const)('should allow %s -> %s', (from, to) => {
+      expect(() => validateInvoiceTransition(from, to)).not.toThrow();
+    });
+  });
+
+  describe('valid system-driven transitions', () => {
+    it.each([
+      ['issued', 'partially_paid'],
+      ['issued', 'paid'],
+      ['issued', 'overdue'],
+      ['partially_paid', 'paid'],
+      ['partially_paid', 'written_off'],
+      ['overdue', 'partially_paid'],
+      ['overdue', 'paid'],
+    ] as const)('should allow %s -> %s', (from, to) => {
+      expect(() => validateInvoiceTransition(from, to)).not.toThrow();
+    });
+  });
+
+  describe('invalid transitions from terminal states', () => {
+    const terminalStatuses = ['paid', 'void', 'cancelled', 'written_off'] as const;
+    const allStatuses = [
+      'draft', 'pending_approval', 'issued', 'partially_paid',
+      'paid', 'overdue', 'void', 'cancelled', 'written_off',
+    ] as const;
+
+    for (const terminal of terminalStatuses) {
+      for (const target of allStatuses) {
+        it(`should block ${terminal} -> ${target}`, () => {
+          expect(() => validateInvoiceTransition(terminal, target)).toThrow(
+            BadRequestException,
+          );
+        });
+      }
+    }
+  });
+
+  describe('invalid transitions between non-terminal states', () => {
+    it.each([
+      ['draft', 'partially_paid'],
+      ['draft', 'paid'],
+      ['draft', 'overdue'],
+      ['draft', 'void'],
+      ['draft', 'written_off'],
+      ['pending_approval', 'partially_paid'],
+      ['pending_approval', 'paid'],
+      ['pending_approval', 'overdue'],
+      ['pending_approval', 'void'],
+      ['pending_approval', 'written_off'],
+      ['issued', 'draft'],
+      ['issued', 'pending_approval'],
+      ['issued', 'cancelled'],
+      ['partially_paid', 'draft'],
+      ['partially_paid', 'issued'],
+      ['partially_paid', 'overdue'],
+      ['partially_paid', 'void'],
+      ['partially_paid', 'cancelled'],
+      ['partially_paid', 'pending_approval'],
+      ['overdue', 'draft'],
+      ['overdue', 'issued'],
+      ['overdue', 'pending_approval'],
+      ['overdue', 'cancelled'],
+    ] as const)('should block %s -> %s', (from, to) => {
+      expect(() => validateInvoiceTransition(from, to)).toThrow(BadRequestException);
+    });
+  });
+
+  it('should include from and to statuses in error message', () => {
+    try {
+      validateInvoiceTransition('paid', 'draft');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      const response = (error as BadRequestException).getResponse() as Record<string, string>;
+      expect(response.code).toBe('INVALID_STATUS_TRANSITION');
+      expect(response.message).toContain('paid');
+      expect(response.message).toContain('draft');
+    }
+  });
+});
+
+// ─── deriveInvoiceStatus ────────────────────────────────────────────────────
 
 describe('deriveInvoiceStatus', () => {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -42,6 +145,27 @@ describe('deriveInvoiceStatus', () => {
     expect(deriveInvoiceStatus('issued', 0, 500, tomorrow, 0)).toBe('paid');
   });
 });
+
+// ─── isPayableStatus ────────────────────────────────────────────────────────
+
+describe('isPayableStatus', () => {
+  it('should return true for payable statuses', () => {
+    expect(isPayableStatus('issued')).toBe(true);
+    expect(isPayableStatus('partially_paid')).toBe(true);
+    expect(isPayableStatus('overdue')).toBe(true);
+  });
+
+  it('should return false for non-payable statuses', () => {
+    expect(isPayableStatus('draft')).toBe(false);
+    expect(isPayableStatus('pending_approval')).toBe(false);
+    expect(isPayableStatus('paid')).toBe(false);
+    expect(isPayableStatus('void')).toBe(false);
+    expect(isPayableStatus('cancelled')).toBe(false);
+    expect(isPayableStatus('written_off')).toBe(false);
+  });
+});
+
+// ─── roundMoney ─────────────────────────────────────────────────────────────
 
 describe('roundMoney', () => {
   it('should round to 2 decimal places', () => {
