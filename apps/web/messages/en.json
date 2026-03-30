@@ -111,7 +111,8 @@
     "regulatorySafeguarding": "Safeguarding",
     "regulatorySubmissions": "Submissions",
     "regulatoryTransfers": "Transfers",
-    "regulatoryTusla": "Tusla"
+    "regulatoryTusla": "Tusla",
+    "diary": "Diary"
   },
   "auth": {
     "login": "Log in",
@@ -204,6 +205,38 @@
       "whatsAppPhoneRequired": "WhatsApp phone number is required.",
       "registrationFailed": "Registration failed. Please try again."
     }
+  },
+  "diary": {
+    "title": "School Diary",
+    "selectStudent": "Select a student",
+    "searchStudents": "Search students...",
+    "noStudentSelected": "Select a student to view their diary",
+    "today": "Today",
+    "personalNotes": "Personal Notes",
+    "homework": "Today's Homework",
+    "events": "School Events",
+    "noHomework": "No homework due on this date",
+    "noEvents": "No school events on this date",
+    "noClass": "Student is not enrolled in a class",
+    "addNote": "Write a personal note...",
+    "saved": "Saved",
+    "saving": "Saving...",
+    "noteUpdated": "Note saved successfully",
+    "closureScope": {
+      "all": "Entire School",
+      "year_group": "Year Group",
+      "class": "Class"
+    },
+    "homeworkType": {
+      "written": "Written",
+      "reading": "Reading",
+      "research": "Research",
+      "revision": "Revision",
+      "project_work": "Project",
+      "online_activity": "Online"
+    },
+    "dueAt": "Due at {time}",
+    "points": "{count} pts"
   },
   "dashboard": {
     "title": "Dashboard",

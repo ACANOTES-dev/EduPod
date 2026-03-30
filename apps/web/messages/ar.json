@@ -111,7 +111,8 @@
     "regulatorySafeguarding": "الحماية",
     "regulatorySubmissions": "التقديمات",
     "regulatoryTransfers": "التحويلات",
-    "regulatoryTusla": "Tusla"
+    "regulatoryTusla": "Tusla",
+    "diary": "المفكرة"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -204,6 +205,38 @@
       "whatsAppPhoneRequired": "رقم الواتساب مطلوب.",
       "registrationFailed": "فشل التسجيل. يرجى المحاولة مرة أخرى."
     }
+  },
+  "diary": {
+    "title": "مفكرة المدرسة",
+    "selectStudent": "اختر طالباً",
+    "searchStudents": "البحث عن الطلاب...",
+    "noStudentSelected": "اختر طالباً لعرض مفكرته",
+    "today": "اليوم",
+    "personalNotes": "ملاحظات شخصية",
+    "homework": "واجبات اليوم",
+    "events": "أحداث المدرسة",
+    "noHomework": "لا توجد واجبات مستحقة في هذا التاريخ",
+    "noEvents": "لا توجد أحداث مدرسية في هذا التاريخ",
+    "noClass": "الطالب غير مسجل في أي فصل",
+    "addNote": "اكتب ملاحظة شخصية...",
+    "saved": "تم الحفظ",
+    "saving": "جاري الحفظ...",
+    "noteUpdated": "تم حفظ الملاحظة بنجاح",
+    "closureScope": {
+      "all": "المدرسة بأكملها",
+      "year_group": "المرحلة الدراسية",
+      "class": "الفصل"
+    },
+    "homeworkType": {
+      "written": "كتابي",
+      "reading": "قراءة",
+      "research": "بحث",
+      "revision": "مراجعة",
+      "project_work": "مشروع",
+      "online_activity": "نشاط إلكتروني"
+    },
+    "dueAt": "مستحق في {time}",
+    "points": "{count} نقطة"
   },
   "dashboard": {
     "title": "لوحة التحكم",

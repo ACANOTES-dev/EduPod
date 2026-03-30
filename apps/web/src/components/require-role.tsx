@@ -89,6 +89,7 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/reports',
     roles: STAFF_ROLES,
   },
+  { prefix: '/diary', roles: [...ADMIN_ROLES, 'teacher'] },
   { prefix: '/website', roles: ADMIN_ROLES },
   { prefix: '/settings/legal/privacy-notices', roles: ADMIN_ROLES },
   { prefix: '/settings/legal', roles: LEGAL_ROLES },

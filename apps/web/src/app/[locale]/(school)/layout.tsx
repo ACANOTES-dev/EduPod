@@ -141,6 +141,7 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         roles: ADMIN_ROLES,
       },
       { icon: TrendingUp, labelKey: 'nav.promotion', href: '/promotion', roles: ADMIN_ROLES },
+      { icon: CalendarDays, labelKey: 'nav.diary', href: '/diary' },
     ],
   },
   {
