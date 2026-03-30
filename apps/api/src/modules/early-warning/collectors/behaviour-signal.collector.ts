@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import type { SignalResult } from '@school/shared';
 
-import type { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 import { buildSignal } from './collector-utils';
 

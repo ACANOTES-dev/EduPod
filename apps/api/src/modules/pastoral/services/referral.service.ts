@@ -525,7 +525,7 @@ export class ReferralService {
     const data: WaitlistItem[] = rawData.map((item) => {
       const submittedAt = item.submitted_at ? new Date(item.submitted_at) : now;
       const diffMs = now.getTime() - submittedAt.getTime();
-      const waitDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const waitDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
       return {
         ...item,
