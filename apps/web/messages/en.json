@@ -38,7 +38,10 @@
     "deleted": "Deleted successfully",
     "refresh": "Refresh",
     "selectAll": "Select All",
-    "deselectAll": "Deselect All"
+    "deselectAll": "Deselect All",
+    "errorBoundaryTitle": "Something went wrong",
+    "errorBoundaryDescription": "An unexpected error occurred. You can try again or return to the dashboard.",
+    "errorBoundaryRetry": "Try again"
   },
   "nav": {
     "dashboard": "Dashboard",

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 5551",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "jest --passWithNoTests"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -32,6 +33,7 @@
     "@school/eslint-config": "workspace:*",
     "@school/tsconfig": "workspace:*",
     "@types/file-saver": "^2.0.7",
+    "@types/jest": "^29.5.14",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
@@ -39,8 +41,10 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.21",
     "eslint-plugin-school": "workspace:*",
+    "jest": "^29.7.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
   }
 }

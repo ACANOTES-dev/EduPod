@@ -16,7 +16,16 @@
     "db:migrate": "pnpm --filter @school/prisma migrate:dev",
     "db:seed": "pnpm --filter @school/prisma seed",
     "db:post-migrate": "tsx scripts/post-migrate.ts",
-    "seed:demo": "bash scripts/seed-demo.sh"
+    "seed:demo": "bash scripts/seed-demo.sh",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "*.{ts,tsx,js,jsx,json,md,css}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
@@ -24,6 +33,8 @@
     "prettier": "^3.4.2",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "turbo": "^2.3.3"
   },
   "pnpm": {
