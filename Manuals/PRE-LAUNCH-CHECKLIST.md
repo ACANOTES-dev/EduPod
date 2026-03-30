@@ -122,28 +122,28 @@ These modules had logic changes during code review. Test each operation listed.
 
 ### LAUNCH BLOCKERS
 
-| # | Gap | Location (verify current) | What's Missing | Impact if Not Fixed |
-|---|-----|---------------------------|----------------|---------------------|
-| 1 | **Password reset does not send email** | `auth.service.ts` | Token generated but no email sent | Users cannot reset passwords |
-| 2 | **Invitation does not send email** | `invitations.service.ts` | Record created but no email dispatched | Staff/parents can't receive invitation links |
-| 3 | **Email notifications not dispatched** | `notification-dispatch.service.ts` | Resend API integration placeholder | No emails actually delivered |
-| 4 | **WhatsApp notifications not dispatched** | `notification-dispatch.service.ts` | Twilio API integration placeholder | WhatsApp channel non-functional |
+| #   | Gap                                       | Location (verify current)          | What's Missing                         | Impact if Not Fixed                          |
+| --- | ----------------------------------------- | ---------------------------------- | -------------------------------------- | -------------------------------------------- |
+| 1   | **Password reset does not send email**    | `auth.service.ts`                  | Token generated but no email sent      | Users cannot reset passwords                 |
+| 2   | **Invitation does not send email**        | `invitations.service.ts`           | Record created but no email dispatched | Staff/parents can't receive invitation links |
+| 3   | **Email notifications not dispatched**    | `notification-dispatch.service.ts` | Resend API integration placeholder     | No emails actually delivered                 |
+| 4   | **WhatsApp notifications not dispatched** | `notification-dispatch.service.ts` | Twilio API integration placeholder     | WhatsApp channel non-functional              |
 
 ### POST-LAUNCH
 
-| # | Gap | Location (verify current) | What's Missing | Impact |
-|---|-----|---------------------------|----------------|--------|
-| 5 | **Meilisearch indexing not wired** | `search-index.processor.ts` | TODO: Push documents to Meilisearch | Global search returns no results |
-| 6 | **Scheduling solver not enqueued from API** | `scheduling-runs.service.ts` | TODO: Enqueue solver job | Auto-scheduling can't be triggered from UI |
-| 7 | **Student export pack placeholders** | `students.service.ts` | attendance/grades/report_cards arrays empty | Export shows empty sections |
-| 8 | **Import processing limited to students** | `import-processing.processor.ts` | Other types throw "not yet implemented" | Only student CSV imports work |
-| 9 | **Fee generation TOCTOU** | `fee-generation.service.ts` | Duplicate detection outside transaction | Concurrent confirms can duplicate invoices |
-| 10 | **16 cascade delete schema issues** | `schema.prisma` | Dangerous `onDelete: Cascade` on financial/attendance models | Deleting user could cascade-delete records |
-| 11 | **i18n incomplete on 22+ pages** | Various frontend | Hardcoded English strings | Arabic users see English on many pages |
-| 12 | **MFA token design flaw** | `auth.service.ts` | mfa_pending token not consumed in step 2 | MFA weaker than intended (still functional) |
-| 13 | **Recovery code disables MFA** | `auth.service.ts` | Recovery code permanently disables MFA | Leaked code removes MFA protection |
-| 14 | **Impersonation has no audit trail** | `tenants.service.ts` | No `impersonator_id` field | Actions attributed to target user, not admin |
-| 15 | **Duplicate approval requests possible** | `approval-requests.service.ts` | No uniqueness constraint | Action can get stuck on duplicate approvals |
+| #   | Gap                                         | Location (verify current)        | What's Missing                                               | Impact                                       |
+| --- | ------------------------------------------- | -------------------------------- | ------------------------------------------------------------ | -------------------------------------------- |
+| 5   | **Meilisearch indexing not wired**          | `search-index.processor.ts`      | TODO: Push documents to Meilisearch                          | Global search returns no results             |
+| 6   | **Scheduling solver not enqueued from API** | `scheduling-runs.service.ts`     | TODO: Enqueue solver job                                     | Auto-scheduling can't be triggered from UI   |
+| 7   | **Student export pack placeholders**        | `students.service.ts`            | attendance/grades/report_cards arrays empty                  | Export shows empty sections                  |
+| 8   | **Import processing limited to students**   | `import-processing.processor.ts` | Other types throw "not yet implemented"                      | Only student CSV imports work                |
+| 9   | **Fee generation TOCTOU**                   | `fee-generation.service.ts`      | Duplicate detection outside transaction                      | Concurrent confirms can duplicate invoices   |
+| 10  | **16 cascade delete schema issues**         | `schema.prisma`                  | Dangerous `onDelete: Cascade` on financial/attendance models | Deleting user could cascade-delete records   |
+| 11  | **i18n incomplete on 22+ pages**            | Various frontend                 | Hardcoded English strings                                    | Arabic users see English on many pages       |
+| 12  | **MFA token design flaw**                   | `auth.service.ts`                | mfa_pending token not consumed in step 2                     | MFA weaker than intended (still functional)  |
+| 13  | **Recovery code disables MFA**              | `auth.service.ts`                | Recovery code permanently disables MFA                       | Leaked code removes MFA protection           |
+| 14  | **Impersonation has no audit trail**        | `tenants.service.ts`             | No `impersonator_id` field                                   | Actions attributed to target user, not admin |
+| 15  | **Duplicate approval requests possible**    | `approval-requests.service.ts`   | No uniqueness constraint                                     | Action can get stuck on duplicate approvals  |
 
 ---
 
@@ -241,26 +241,32 @@ Items from production-readiness checklist, adapted for Hetzner deployment.
 
 Items flagged during ongoing development work that are deferred to the pre-launch window. This section is a living document — new items are added as they're identified.
 
-| # | Item | Source | Date Added | Notes |
-|---|------|--------|------------|-------|
-| 1 | Backup SSH key before going live | Memory: project_pre_launch_actions.md | 2026-03-25 | Ensure SSH key is backed up securely |
-| 2 | Verify system role permissions and tiers | Roles refactor session (2026-03-25) | 2026-03-25 | Review all 9 system roles: (1) confirm each role's `role_tier` is correct (some permissions were seeded at mismatched tiers, e.g. Teacher has admin-tier permissions like `students.view`); (2) verify default permission sets are appropriate for each role; (3) confirm School Vice-Principal and Student have the right initial permissions configured; (4) verify the School Owner (platform) role has correct immutable permissions excluding privacy-sensitive access to individual accounts |
-| 3 | Verify per-tenant HMAC secret for staff wellbeing surveys | Staff Wellbeing spec (2026-03-27) | 2026-03-27 | Verify HMAC secret auto-generation works on first survey creation, encrypted storage is correct (AES-256), and secrets are independent across both confirmed tenants. Test participation token flow end-to-end on both tenants. |
-| 4 | Rotate SSH key passphrase | Conversation (2026-03-27) | 2026-03-27 | Passphrase for `~/.ssh/id_ed25519` was exposed in a chat session. Walk user through: (1) `ssh-keygen -p -f ~/.ssh/id_ed25519` to change passphrase, (2) verify SSH to production still works, (3) update any keychain entries if macOS Keychain was storing the old passphrase. |
-| 5 | Implement DES File B or formally remove it from supported regulatory scope | Regulatory portal review | 2026-03-28 | The Phase G wizard now explicitly excludes File B, but the backend still rejects it with `DES_FILE_B_NOT_IMPLEMENTED`. Resolve before launch by either implementing the pipeline or narrowing the supported surface area. |
-| 6 | Apply `reason_pattern` matching during Tusla SAR categorisation | Regulatory portal review | 2026-03-28 | Coarse `attendance_status` mapping works today, but tenant-specific reason-text rules are still ignored during SAR generation. Implement keyword/pattern matching before live tenant onboarding if schools rely on custom categorisation. |
-| | | | | |
+| #   | Item                                                                       | Source                                | Date Added | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | -------------------------------------------------------------------------- | ------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Backup SSH key before going live                                           | Memory: project_pre_launch_actions.md | 2026-03-25 | Ensure SSH key is backed up securely                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 2   | Verify system role permissions and tiers                                   | Roles refactor session (2026-03-25)   | 2026-03-25 | Review all 9 system roles: (1) confirm each role's `role_tier` is correct (some permissions were seeded at mismatched tiers, e.g. Teacher has admin-tier permissions like `students.view`); (2) verify default permission sets are appropriate for each role; (3) confirm School Vice-Principal and Student have the right initial permissions configured; (4) verify the School Owner (platform) role has correct immutable permissions excluding privacy-sensitive access to individual accounts |
+| 3   | Verify per-tenant HMAC secret for staff wellbeing surveys                  | Staff Wellbeing spec (2026-03-27)     | 2026-03-27 | Verify HMAC secret auto-generation works on first survey creation, encrypted storage is correct (AES-256), and secrets are independent across both confirmed tenants. Test participation token flow end-to-end on both tenants.                                                                                                                                                                                                                                                                    |
+| 4   | Rotate SSH key passphrase                                                  | Conversation (2026-03-27)             | 2026-03-27 | Passphrase for `~/.ssh/id_ed25519` was exposed in a chat session. Walk user through: (1) `ssh-keygen -p -f ~/.ssh/id_ed25519` to change passphrase, (2) verify SSH to production still works, (3) update any keychain entries if macOS Keychain was storing the old passphrase.                                                                                                                                                                                                                    |
+| 5   | Implement DES File B or formally remove it from supported regulatory scope | Regulatory portal review              | 2026-03-28 | The Phase G wizard now explicitly excludes File B, but the backend still rejects it with `DES_FILE_B_NOT_IMPLEMENTED`. Resolve before launch by either implementing the pipeline or narrowing the supported surface area.                                                                                                                                                                                                                                                                          |
+| 6   | Apply `reason_pattern` matching during Tusla SAR categorisation            | Regulatory portal review              | 2026-03-28 | Coarse `attendance_status` mapping works today, but tenant-specific reason-text rules are still ignored during SAR generation. Implement keyword/pattern matching before live tenant onboarding if schools rely on custom categorisation.                                                                                                                                                                                                                                                          |
+| 7   | Run Homework module RLS integration tests                                  | Phase G Hardening                     | 2026-03-30 | Verify tenant isolation for all 6 homework tables. Test cross-tenant query returns empty results.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 8   | Performance test homework analytics queries                                | Phase G Hardening                     | 2026-03-30 | Simulate 200 students × 50 homework assignments. Verify completion rate aggregation response times under 500ms.                                                                                                                                                                                                                                                                                                                                                                                    |
+| 9   | Verify homework worker job performance                                     | Phase G Hardening                     | 2026-03-30 | Test digest job with large tenant (500+ students, 20+ daily homework). Verify no timeouts.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 10  | Dark mode audit for homework pages                                         | Phase G Hardening                     | 2026-03-30 | Verify all homework/diary pages render correctly in dark mode. Check charts, tables, forms.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 11  | RTL layout audit for homework pages                                        | Phase G Hardening                     | 2026-03-30 | Verify all homework pages support Arabic RTL layout. Check alignment, text direction, icon positioning.                                                                                                                                                                                                                                                                                                                                                                                            |
+| 12  | Mobile responsiveness check for homework                                   | Phase G Hardening                     | 2026-03-30 | Test homework dashboard and forms on tablet view. Ensure touch targets are adequate.                                                                                                                                                                                                                                                                                                                                                                                                               |
+|     |                                                                            |                                       |            |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ---
 
 ## Sign-Off
 
-| Check | Verified By | Date | Notes |
-|-------|------------|------|-------|
-| Part 1 — Module QA complete | | | |
-| Part 2 — Known gaps verified (fixed or accepted) | | | |
-| Part 3 — Secrets rotated and infra verified | | | |
-| Part 4 — Infrastructure & operations ready | | | |
-| Part 5 — All deferred items resolved | | | |
+| Check                                            | Verified By | Date | Notes |
+| ------------------------------------------------ | ----------- | ---- | ----- |
+| Part 1 — Module QA complete                      |             |      |       |
+| Part 2 — Known gaps verified (fixed or accepted) |             |      |       |
+| Part 3 — Secrets rotated and infra verified      |             |      |       |
+| Part 4 — Infrastructure & operations ready       |             |      |       |
+| Part 5 — All deferred items resolved             |             |      |       |
 
 **This document must be fully signed off before going live with tenant data.**
