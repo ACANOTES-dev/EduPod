@@ -21,6 +21,8 @@ import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.proc
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
+import { HOMEWORK_GENERATE_RECURRING_JOB } from '../processors/homework/generate-recurring.processor';
+import { HOMEWORK_OVERDUE_DETECTION_JOB } from '../processors/homework/overdue-detection.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
@@ -50,6 +52,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.SECURITY) private readonly securityQueue: Queue,
     @InjectQueue(QUEUE_NAMES.COMPLIANCE) private readonly complianceQueue: Queue,
     @InjectQueue(QUEUE_NAMES.EARLY_WARNING) private readonly earlyWarningQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
   ) {}
 
@@ -63,6 +66,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerSecurityCronJobs();
     await this.registerComplianceCronJobs();
     await this.registerRegulatoryCronJobs();
+    await this.registerHomeworkCronJobs();
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {
@@ -437,5 +441,37 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${REGULATORY_DEADLINE_CHECK_JOB} (daily 07:00 UTC)`);
+  }
+
+  private async registerHomeworkCronJobs(): Promise<void> {
+    // ── homework:generate-recurring ──────────────────────────────────────
+    // Runs daily at 05:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Generates draft homework from active recurrence rules.
+    await this.homeworkQueue.add(
+      HOMEWORK_GENERATE_RECURRING_JOB,
+      {},
+      {
+        repeat: { pattern: '0 5 * * *' },
+        jobId: `cron:${HOMEWORK_GENERATE_RECURRING_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${HOMEWORK_GENERATE_RECURRING_JOB} (daily 05:00 UTC)`);
+
+    // ── homework:overdue-detection ───────────────────────────────────────
+    // Runs daily at 06:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Notifies parents of overdue homework.
+    await this.homeworkQueue.add(
+      HOMEWORK_OVERDUE_DETECTION_JOB,
+      {},
+      {
+        repeat: { pattern: '0 6 * * *' },
+        jobId: `cron:${HOMEWORK_OVERDUE_DETECTION_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${HOMEWORK_OVERDUE_DETECTION_JOB} (daily 06:00 UTC)`);
   }
 }

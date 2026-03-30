@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying any queue, job, or approval flow, check here for the full chain of consequences.
 > **Maintenance**: Update when adding new jobs, changing job payloads, or modifying approval callbacks.
-> **Last verified**: 2026-03-29
+> **Last verified**: 2026-03-30
 
 ---
 
@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **18 queues**, **75 job types**, **24 cron jobs**
+- **18 queues**, **79 job types**, **26 cron jobs**
 
 ---
 
@@ -1085,9 +1085,50 @@ Daily cron fires
 
 **Queue registered**: `QUEUE_NAMES.HOMEWORK` in `apps/worker/src/base/queue.constants.ts`
 **Queue value**: `'homework'`
-**Status**: Queue constant registered. Job processors will be implemented in Phase C.
-**Planned jobs** (Phase C):
-- `homework:overdue-detection` — Cron daily 06:00 UTC, finds published assignments past due_date
-- `homework:generate-recurring` — Cron daily 05:00 UTC, processes active recurrence rules
-- `homework:digest-homework` — Cron at tenant digest time, includes homework in parent daily digest
-- `homework:completion-reminder` — Cron daily 15:00 TZ, reminds students about homework due tomorrow
+**Default job options**: `attempts: 3, backoff: exponential 5s, removeOnComplete: 100, removeOnFail: 500`
+
+### `homework:overdue-detection`
+
+| Field | Value |
+|-------|-------|
+| **Processor** | `HomeworkOverdueDetectionProcessor` (`processors/homework/overdue-detection.processor.ts`) |
+| **Pattern** | Cross-tenant cron |
+| **Cron** | Daily 06:00 UTC (`0 6 * * *`) |
+| **Payload** | `{}` (iterates all active tenants with homework enabled) |
+| **jobId** | `cron:homework:overdue-detection` |
+| **Logic** | Per tenant: parses `homeworkSettingsSchema`, skips if `overdue_notification_enabled` is false. Finds published assignments where `due_date < today`, finds students with `not_started`/`in_progress` completion status, creates in-app notifications for active parents. Idempotency: skips if notification exists for same assignment+parent in last 24h. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_overdue`) |
+
+### `homework:generate-recurring`
+
+| Field | Value |
+|-------|-------|
+| **Processor** | `HomeworkGenerateRecurringProcessor` (`processors/homework/generate-recurring.processor.ts`) |
+| **Pattern** | Cross-tenant cron |
+| **Cron** | Daily 05:00 UTC (`0 5 * * *`) |
+| **Payload** | `{}` (iterates all active tenants with homework enabled) |
+| **jobId** | `cron:homework:generate-recurring` |
+| **Logic** | Per tenant: checks `enabled` setting, skips school closure days, finds active `HomeworkRecurrenceRule` records matching today's weekday, creates `draft` assignments from template. Idempotency: skips if assignment already exists for today with same recurrence_rule_id. |
+| **Side effects** | Creates `homework_assignment` rows (status `draft`, `copied_from_id` → template) |
+
+### `homework:digest-homework`
+
+| Field | Value |
+|-------|-------|
+| **Processor** | `HomeworkDigestProcessor` (`processors/homework/digest-homework.processor.ts`) |
+| **Pattern** | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at tenant digest hour) |
+| **Payload** | `{ tenant_id }` |
+| **jobId** | `daily:homework:digest-homework:{tenant_id}` |
+| **Logic** | Parses `homeworkSettingsSchema`, skips if `parent_digest_include_homework` is false. Finds published assignments with `due_date >= today`, maps students to assignments via class enrolments, builds per-parent digests with assignment deduplication, creates in-app notifications. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_digest`) |
+
+### `homework:completion-reminder`
+
+| Field | Value |
+|-------|-------|
+| **Processor** | `HomeworkCompletionReminderProcessor` (`processors/homework/completion-reminder.processor.ts`) |
+| **Pattern** | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at 15:00 tenant timezone) |
+| **Payload** | `{ tenant_id }` |
+| **jobId** | `daily:homework:completion-reminder:{tenant_id}` |
+| **Logic** | Parses `homeworkSettingsSchema`, skips if `completion_reminder_enabled` is false. Finds published assignments due tomorrow, identifies incomplete students (no completion record or status `not_started`/`in_progress`), creates in-app notifications for active parents. Idempotency: 24h window check. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_completion_reminder`) |

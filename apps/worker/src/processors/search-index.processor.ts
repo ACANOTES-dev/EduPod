@@ -9,7 +9,7 @@ import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
 export interface SearchIndexEntityPayload extends TenantJobPayload {
-  entity_type: 'student' | 'parent' | 'staff' | 'household';
+  entity_type: 'student' | 'parent' | 'staff' | 'household' | 'homework_assignment';
   entity_id: string;
   action: 'upsert' | 'delete';
 }
@@ -205,6 +205,39 @@ class SearchIndexEntityJob extends TenantAwareJob<SearchIndexEntityPayload> {
           primary_label: household.household_name,
           city: household.city,
           status: household.status,
+        };
+      }
+
+      case 'homework_assignment': {
+        const assignment = await tx.homeworkAssignment.findFirst({
+          where: { id: entityId, tenant_id: tenantId },
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            homework_type: true,
+            status: true,
+            class_entity: { select: { name: true } },
+            subject: { select: { name: true } },
+            assigned_by: { select: { first_name: true, last_name: true } },
+          },
+        });
+
+        if (!assignment) return null;
+
+        // Only index published assignments
+        if (assignment.status !== 'published') return null;
+
+        return {
+          id: assignment.id,
+          entity_type: 'homework_assignment',
+          primary_label: assignment.title,
+          description: assignment.description,
+          homework_type: assignment.homework_type,
+          class_name: assignment.class_entity?.name ?? null,
+          subject_name: assignment.subject?.name ?? null,
+          teacher_name: `${assignment.assigned_by.first_name} ${assignment.assigned_by.last_name}`.trim(),
+          status: assignment.status,
         };
       }
 

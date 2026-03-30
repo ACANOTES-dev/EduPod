@@ -5,6 +5,8 @@ import { behaviourSettingsSchema } from '@school/shared';
 import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
+import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../homework/completion-reminder.processor';
+import { HOMEWORK_DIGEST_JOB } from '../homework/digest-homework.processor';
 
 import { BREAK_GLASS_EXPIRY_JOB } from './break-glass-expiry.processor';
 import { BEHAVIOUR_DETECT_PATTERNS_JOB } from './detect-patterns.processor';
@@ -50,6 +52,7 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
   constructor(
     @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
     @InjectQueue(QUEUE_NAMES.BEHAVIOUR) private readonly behaviourQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.NOTIFICATIONS) private readonly notificationsQueue: Queue,
   ) {
     super();
@@ -142,6 +145,29 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
             { jobId: `daily:${BEHAVIOUR_DIGEST_NOTIFICATIONS_JOB}:${tenant.id}` },
           );
           enqueued++;
+        }
+
+        // Homework digest — at tenant digest time (same time as behaviour digest)
+        const hwEnabled = await this.isHomeworkEnabled(tenant.id);
+        if (hwEnabled) {
+          if (tenantHour === digestHour) {
+            await this.homeworkQueue.add(
+              HOMEWORK_DIGEST_JOB,
+              { tenant_id: tenant.id },
+              { jobId: `daily:${HOMEWORK_DIGEST_JOB}:${tenant.id}` },
+            );
+            enqueued++;
+          }
+
+          // Homework completion reminder — at 15:00 tenant timezone
+          if (tenantHour === 15) {
+            await this.homeworkQueue.add(
+              HOMEWORK_COMPLETION_REMINDER_JOB,
+              { tenant_id: tenant.id },
+              { jobId: `daily:${HOMEWORK_COMPLETION_REMINDER_JOB}:${tenant.id}` },
+            );
+            enqueued++;
+          }
         }
       } catch (err: unknown) {
         this.logger.error(
@@ -299,5 +325,17 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
     } catch {
       return DEFAULT_DIGEST_HOUR;
     }
+  }
+
+  /**
+   * Check if the tenant has the homework module enabled.
+   * Cross-tenant read — no RLS context.
+   */
+  private async isHomeworkEnabled(tenantId: string): Promise<boolean> {
+    const mod = await this.prisma.tenantModule.findFirst({
+      where: { tenant_id: tenantId, module_key: 'homework', is_enabled: true },
+      select: { id: true },
+    });
+    return !!mod;
   }
 }

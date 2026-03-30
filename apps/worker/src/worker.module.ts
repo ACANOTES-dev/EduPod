@@ -46,6 +46,10 @@ import { BulkImportProcessor } from './processors/gradebook/bulk-import.processo
 import { GradebookRiskDetectionProcessor } from './processors/gradebook/gradebook-risk-detection.processor';
 import { MassReportCardPdfProcessor } from './processors/gradebook/mass-report-card-pdf.processor';
 import { ReportCardAutoGenerateProcessor } from './processors/gradebook/report-card-auto-generate.processor';
+import { HomeworkCompletionReminderProcessor } from './processors/homework/completion-reminder.processor';
+import { HomeworkDigestProcessor } from './processors/homework/digest-homework.processor';
+import { HomeworkGenerateRecurringProcessor } from './processors/homework/generate-recurring.processor';
+import { HomeworkOverdueDetectionProcessor } from './processors/homework/overdue-detection.processor';
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
@@ -125,6 +129,10 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
       },
       {
         name: QUEUE_NAMES.GRADEBOOK,
+        defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
+      },
+      {
+        name: QUEUE_NAMES.HOMEWORK,
         defaultJobOptions: { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: 100, removeOnFail: 500 },
       },
       {
@@ -264,6 +272,11 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     RegulatoryPpodImportProcessor,
     RegulatoryPpodSyncProcessor,
     RegulatoryTuslaThresholdScanProcessor,
+    // Homework queue processors
+    HomeworkOverdueDetectionProcessor,
+    HomeworkGenerateRecurringProcessor,
+    HomeworkDigestProcessor,
+    HomeworkCompletionReminderProcessor,
     // Early Warning queue processors
     ComputeDailyProcessor,
     ComputeStudentProcessor,
