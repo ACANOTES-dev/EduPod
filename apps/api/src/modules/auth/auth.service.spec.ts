@@ -480,7 +480,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refresh_token');
       expect(result).toHaveProperty('user');
 
-      const loginResult = result as { access_token: string; refresh_token: string; user: Record<string, unknown> };
+      const loginResult = result as unknown as { access_token: string; refresh_token: string; user: Record<string, unknown> };
       expect(loginResult.user).toEqual(
         expect.objectContaining({
           id: USER_ID,

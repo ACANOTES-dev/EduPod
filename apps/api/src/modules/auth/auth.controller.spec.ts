@@ -341,7 +341,7 @@ describe('AuthController', () => {
     it('should throw UnauthorizedException when cookies object is undefined', async () => {
       const req = buildMockRequest();
       // Remove cookies entirely
-      delete (req as Record<string, unknown>).cookies;
+      delete (req as unknown as Record<string, unknown>).cookies;
 
       await expect(controller.refresh(req)).rejects.toThrow(UnauthorizedException);
     });
