@@ -1,46 +1,41 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
+import { ReportsDataAccessService } from './reports-data-access.service';
 import { StaffAnalyticsService } from './staff-analytics.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('StaffAnalyticsService', () => {
   let service: StaffAnalyticsService;
-  let mockPrisma: {
-    staffProfile: {
-      groupBy: jest.Mock;
-      count: jest.Mock;
-      findMany: jest.Mock;
-    };
-    student: { count: jest.Mock };
-    staffAttendanceRecord: { groupBy: jest.Mock };
-    subject: { findMany: jest.Mock };
-    class: { findMany: jest.Mock };
-    classStaff: { count: jest.Mock };
-    staffCompensation: { findMany: jest.Mock };
+  let mockDataAccess: {
+    groupStaffBy: jest.Mock;
+    countStaff: jest.Mock;
+    findStaffProfiles: jest.Mock;
+    countStudents: jest.Mock;
+    groupStaffAttendanceBy: jest.Mock;
+    findSubjects: jest.Mock;
+    findClasses: jest.Mock;
+    countClassStaff: jest.Mock;
+    findStaffCompensations: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      staffProfile: {
-        groupBy: jest.fn(),
-        count: jest.fn(),
-        findMany: jest.fn(),
-      },
-      student: { count: jest.fn() },
-      staffAttendanceRecord: { groupBy: jest.fn() },
-      subject: { findMany: jest.fn() },
-      class: { findMany: jest.fn() },
-      classStaff: { count: jest.fn() },
-      staffCompensation: { findMany: jest.fn() },
+    mockDataAccess = {
+      groupStaffBy: jest.fn(),
+      countStaff: jest.fn(),
+      findStaffProfiles: jest.fn(),
+      countStudents: jest.fn(),
+      groupStaffAttendanceBy: jest.fn(),
+      findSubjects: jest.fn(),
+      findClasses: jest.fn(),
+      countClassStaff: jest.fn(),
+      findStaffCompensations: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StaffAnalyticsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -52,7 +47,7 @@ describe('StaffAnalyticsService', () => {
   // ─── headcountByDepartment ────────────────────────────────────────────────
 
   it('should return headcount grouped by department sorted descending', async () => {
-    mockPrisma.staffProfile.groupBy
+    mockDataAccess.groupStaffBy
       .mockResolvedValueOnce([
         { department: 'Science', _count: 5 },
         { department: 'Maths', _count: 3 },
@@ -71,7 +66,7 @@ describe('StaffAnalyticsService', () => {
   });
 
   it('should exclude null department entries from headcountByDepartment', async () => {
-    mockPrisma.staffProfile.groupBy
+    mockDataAccess.groupStaffBy
       .mockResolvedValueOnce([
         { department: null, _count: 2 },
         { department: 'Arts', _count: 1 },
@@ -87,8 +82,8 @@ describe('StaffAnalyticsService', () => {
   // ─── staffStudentRatio ────────────────────────────────────────────────────
 
   it('should return correct staff student ratio', async () => {
-    mockPrisma.staffProfile.count.mockResolvedValue(10);
-    mockPrisma.student.count.mockResolvedValue(200);
+    mockDataAccess.countStaff.mockResolvedValue(10);
+    mockDataAccess.countStudents.mockResolvedValue(200);
 
     const result = await service.staffStudentRatio(TENANT_ID);
 
@@ -99,8 +94,8 @@ describe('StaffAnalyticsService', () => {
   });
 
   it('should return 0 students_per_teacher when no active staff', async () => {
-    mockPrisma.staffProfile.count.mockResolvedValue(0);
-    mockPrisma.student.count.mockResolvedValue(50);
+    mockDataAccess.countStaff.mockResolvedValue(0);
+    mockDataAccess.countStudents.mockResolvedValue(50);
 
     const result = await service.staffStudentRatio(TENANT_ID);
 
@@ -112,19 +107,18 @@ describe('StaffAnalyticsService', () => {
 
   it('should return 5 tenure buckets with percentage summing to 100', async () => {
     const now = new Date();
-    // Create staff at different tenure levels
     const makeDate = (yearsAgo: number) => {
       const d = new Date(now);
       d.setFullYear(d.getFullYear() - yearsAgo);
       return d;
     };
 
-    mockPrisma.staffProfile.findMany.mockResolvedValue([
-      { created_at: makeDate(0) },  // < 1 year
-      { created_at: makeDate(2) },  // 1-3 years
-      { created_at: makeDate(4) },  // 3-5 years
-      { created_at: makeDate(7) },  // 5-10 years
-      { created_at: makeDate(12) }, // 10+ years
+    mockDataAccess.findStaffProfiles.mockResolvedValue([
+      { created_at: makeDate(0) },
+      { created_at: makeDate(2) },
+      { created_at: makeDate(4) },
+      { created_at: makeDate(7) },
+      { created_at: makeDate(12) },
     ]);
 
     const result = await service.tenureDistribution(TENANT_ID);
@@ -139,7 +133,7 @@ describe('StaffAnalyticsService', () => {
   // ─── staffAttendanceRate ──────────────────────────────────────────────────
 
   it('should compute attendance rate from groupBy status results', async () => {
-    mockPrisma.staffAttendanceRecord.groupBy.mockResolvedValue([
+    mockDataAccess.groupStaffAttendanceBy.mockResolvedValue([
       { status: 'present', _count: 80 },
       { status: 'absent', _count: 20 },
     ]);
@@ -153,7 +147,7 @@ describe('StaffAnalyticsService', () => {
   });
 
   it('should return 0 attendance_rate when there are no records', async () => {
-    mockPrisma.staffAttendanceRecord.groupBy.mockResolvedValue([]);
+    mockDataAccess.groupStaffAttendanceBy.mockResolvedValue([]);
 
     const result = await service.staffAttendanceRate(TENANT_ID);
 
@@ -164,13 +158,9 @@ describe('StaffAnalyticsService', () => {
   // ─── qualificationCoverage ────────────────────────────────────────────────
 
   it('should return has_qualified_teacher true when teachers exist for a subject', async () => {
-    mockPrisma.subject.findMany.mockResolvedValue([
-      { id: 'sub-1', name: 'Physics' },
-    ]);
-    mockPrisma.class.findMany.mockResolvedValue([
-      { id: 'class-1' },
-    ]);
-    mockPrisma.classStaff.count.mockResolvedValue(2);
+    mockDataAccess.findSubjects.mockResolvedValue([{ id: 'sub-1', name: 'Physics' }]);
+    mockDataAccess.findClasses.mockResolvedValue([{ id: 'class-1' }]);
+    mockDataAccess.countClassStaff.mockResolvedValue(2);
 
     const result = await service.qualificationCoverage(TENANT_ID);
 
@@ -180,10 +170,8 @@ describe('StaffAnalyticsService', () => {
   });
 
   it('should return has_qualified_teacher false when no classes exist for a subject', async () => {
-    mockPrisma.subject.findMany.mockResolvedValue([
-      { id: 'sub-2', name: 'Chemistry' },
-    ]);
-    mockPrisma.class.findMany.mockResolvedValue([]);
+    mockDataAccess.findSubjects.mockResolvedValue([{ id: 'sub-2', name: 'Chemistry' }]);
+    mockDataAccess.findClasses.mockResolvedValue([]);
 
     const result = await service.qualificationCoverage(TENANT_ID);
 
@@ -195,7 +183,7 @@ describe('StaffAnalyticsService', () => {
   // ─── compensationDistribution ─────────────────────────────────────────────
 
   it('should return empty array when no salaried compensations exist', async () => {
-    mockPrisma.staffCompensation.findMany.mockResolvedValue([]);
+    mockDataAccess.findStaffCompensations.mockResolvedValue([]);
 
     const result = await service.compensationDistribution(TENANT_ID);
 
@@ -203,7 +191,7 @@ describe('StaffAnalyticsService', () => {
   });
 
   it('should return 5 salary buckets with correct percentage totals', async () => {
-    mockPrisma.staffCompensation.findMany.mockResolvedValue([
+    mockDataAccess.findStaffCompensations.mockResolvedValue([
       { base_salary: '30000' },
       { base_salary: '40000' },
       { base_salary: '50000' },

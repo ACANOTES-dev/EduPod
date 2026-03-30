@@ -1,15 +1,11 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type {
-  CreateComplianceTemplateDto,
-  UpdateComplianceTemplateDto,
-} from '@school/shared';
+import type { CreateComplianceTemplateDto, UpdateComplianceTemplateDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface ComplianceTemplateRow {
   id: string;
@@ -28,11 +24,12 @@ export interface PopulatedComplianceReport {
 
 @Injectable()
 export class ComplianceReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dataAccess: ReportsDataAccessService,
+  ) {}
 
-  async listTemplates(
-    tenantId: string,
-  ): Promise<ComplianceTemplateRow[]> {
+  async listTemplates(tenantId: string): Promise<ComplianceTemplateRow[]> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -116,7 +113,9 @@ export class ComplianceReportService {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.country_code !== undefined && { country_code: dto.country_code }),
-          ...(dto.fields_json !== undefined && { fields_json: dto.fields_json as Prisma.InputJsonValue }),
+          ...(dto.fields_json !== undefined && {
+            fields_json: dto.fields_json as Prisma.InputJsonValue,
+          }),
         },
       });
 
@@ -152,19 +151,16 @@ export class ComplianceReportService {
     const data: Record<string, unknown> = {};
     const gaps: string[] = [];
 
-    // Auto-populate known field keys
+    // Auto-populate known field keys via data access facade (cross-module reads)
     const [activeStudents, activeStaff, attendanceStats] = await Promise.all([
-      this.prisma.student.count({ where: { tenant_id: tenantId, status: 'active' } }),
-      this.prisma.staffProfile.count({ where: { tenant_id: tenantId, employment_status: 'active' } }),
-      this.prisma.attendanceRecord.groupBy({
-        by: ['status'],
-        where: { tenant_id: tenantId },
-        _count: true,
-      }),
+      this.dataAccess.countStudents(tenantId, { status: 'active' }),
+      this.dataAccess.countStaff(tenantId, { employment_status: 'active' }),
+      this.dataAccess.groupAttendanceRecordsBy(tenantId, ['status']),
     ]);
 
-    const totalAtt = attendanceStats.reduce((s, g) => s + g._count, 0);
-    const presentAtt = attendanceStats
+    const typedAttStats = attendanceStats as Array<{ status: string; _count: number }>;
+    const totalAtt = typedAttStats.reduce((s, g) => s + g._count, 0);
+    const presentAtt = typedAttStats
       .filter((g) => g.status === 'present' || g.status === 'late')
       .reduce((s, g) => s + g._count, 0);
     const attendanceRate = totalAtt > 0 ? (presentAtt / totalAtt) * 100 : 0;

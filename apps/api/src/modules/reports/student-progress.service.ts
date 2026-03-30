@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface SubjectGradeTrend {
   subject_id: string;
@@ -35,19 +35,22 @@ export interface StudentProgressReport {
 
 @Injectable()
 export class StudentProgressService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async getStudentProgress(tenantId: string, studentId: string): Promise<StudentProgressReport> {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        year_group: { select: { name: true } },
-        homeroom_class: { select: { name: true } },
-      },
-    });
+    const student = (await this.dataAccess.findStudentById(tenantId, studentId, {
+      id: true,
+      first_name: true,
+      last_name: true,
+      year_group: { select: { name: true } },
+      homeroom_class: { select: { name: true } },
+    })) as {
+      id: string;
+      first_name: string;
+      last_name: string;
+      year_group: { name: string } | null;
+      homeroom_class: { name: string } | null;
+    } | null;
 
     if (!student) {
       throw new NotFoundException({
@@ -62,16 +65,14 @@ export class StudentProgressService {
       this.buildRiskAlerts(tenantId, studentId),
     ]);
 
-    // Overall progress score: composite of latest attendance rate + average grade percentage
     const latestAttendance = attendanceTrend.at(-1)?.attendance_rate ?? 50;
     const allScores = gradeTrends.flatMap((gt) =>
-      gt.grades.map((g) => g.max_score > 0 ? (g.score / g.max_score) * 100 : 0),
+      gt.grades.map((g) => (g.max_score > 0 ? (g.score / g.max_score) * 100 : 0)),
     );
-    const avgGrade = allScores.length > 0
-      ? allScores.reduce((s, x) => s + x, 0) / allScores.length
-      : 50;
+    const avgGrade =
+      allScores.length > 0 ? allScores.reduce((s, x) => s + x, 0) / allScores.length : 50;
 
-    const overallProgressScore = Number(((latestAttendance * 0.4 + avgGrade * 0.6)).toFixed(1));
+    const overallProgressScore = Number((latestAttendance * 0.4 + avgGrade * 0.6).toFixed(1));
 
     return {
       student_id: student.id,
@@ -85,10 +86,12 @@ export class StudentProgressService {
     };
   }
 
-  private async buildGradeTrends(tenantId: string, studentId: string): Promise<SubjectGradeTrend[]> {
-    const grades = await this.prisma.grade.findMany({
+  private async buildGradeTrends(
+    tenantId: string,
+    studentId: string,
+  ): Promise<SubjectGradeTrend[]> {
+    const grades = (await this.dataAccess.findGrades(tenantId, {
       where: {
-        tenant_id: tenantId,
         student_id: studentId,
         is_missing: false,
         raw_score: { not: null },
@@ -104,7 +107,14 @@ export class StudentProgressService {
         },
       },
       orderBy: { entered_at: 'asc' },
-    });
+    })) as Array<{
+      raw_score: unknown;
+      assessment: {
+        max_score: unknown;
+        subject: { id: string; name: string } | null;
+        academic_period: { name: string } | null;
+      };
+    }>;
 
     const subjectMap = new Map<string, SubjectGradeTrend>();
 
@@ -131,15 +141,18 @@ export class StudentProgressService {
     return Array.from(subjectMap.values());
   }
 
-  private async buildAttendanceTrend(tenantId: string, studentId: string): Promise<AttendanceTrendEntry[]> {
-    const records = await this.prisma.attendanceRecord.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
+  private async buildAttendanceTrend(
+    tenantId: string,
+    studentId: string,
+  ): Promise<AttendanceTrendEntry[]> {
+    const records = (await this.dataAccess.findAttendanceRecords(tenantId, {
+      where: { student_id: studentId },
       select: {
         status: true,
         session: { select: { session_date: true } },
       },
       orderBy: { created_at: 'asc' },
-    });
+    })) as Array<{ status: string; session: { session_date: Date } }>;
 
     const monthMap = new Map<string, { total: number; present: number }>();
 
@@ -157,16 +170,15 @@ export class StudentProgressService {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, stats]) => ({
         period_label: month,
-        attendance_rate: stats.total > 0
-          ? Number(((stats.present / stats.total) * 100).toFixed(2))
-          : 0,
+        attendance_rate:
+          stats.total > 0 ? Number(((stats.present / stats.total) * 100).toFixed(2)) : 0,
         total_sessions: stats.total,
       }));
   }
 
   private async buildRiskAlerts(tenantId: string, studentId: string): Promise<RiskAlertEntry[]> {
-    const alerts = await this.prisma.studentAcademicRiskAlert.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
+    const alerts = (await this.dataAccess.findStudentAcademicRiskAlerts(tenantId, {
+      where: { student_id: studentId },
       select: {
         id: true,
         alert_type: true,
@@ -176,7 +188,13 @@ export class StudentProgressService {
       },
       orderBy: { created_at: 'desc' },
       take: 20,
-    });
+    })) as Array<{
+      id: string;
+      alert_type: string;
+      risk_level: string;
+      created_at: Date;
+      resolved_at: Date | null;
+    }>;
 
     return alerts.map((a) => ({
       alert_id: a.id,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface PassFailEntry {
   subject_id: string;
@@ -53,7 +53,7 @@ export interface GpaDistributionBucket {
 
 @Injectable()
 export class GradeAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async passFailRates(
     tenantId: string,
@@ -61,11 +61,9 @@ export class GradeAnalyticsService {
     subjectId?: string,
     academicPeriodId?: string,
   ): Promise<PassFailEntry[]> {
-    // Determine pass threshold from grading scales or use 50% as default
     const PASS_THRESHOLD = 50;
 
     const assessmentWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       status: { in: ['closed', 'locked'] },
     };
 
@@ -73,14 +71,15 @@ export class GradeAnalyticsService {
     if (subjectId) assessmentWhere.subject_id = subjectId;
 
     if (yearGroupId) {
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
-        select: { id: true },
-      });
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { year_group_id: yearGroupId },
+        { id: true },
+      )) as Array<{ id: string }>;
       assessmentWhere.class_id = { in: classes.map((c) => c.id) };
     }
 
-    const assessments = await this.prisma.assessment.findMany({
+    const assessments = (await this.dataAccess.findAssessments(tenantId, {
       where: assessmentWhere,
       select: {
         id: true,
@@ -93,7 +92,12 @@ export class GradeAnalyticsService {
           },
         },
       },
-    });
+    })) as Array<{
+      id: string;
+      max_score: unknown;
+      subject: { id: string; name: string } | null;
+      class_entity: { name: string; year_group: { name: string } | null } | null;
+    }>;
 
     const results: PassFailEntry[] = [];
     const subjectMap = new Map<string, PassFailEntry>();
@@ -101,15 +105,14 @@ export class GradeAnalyticsService {
     for (const assessment of assessments) {
       if (!assessment.subject) continue;
 
-      const grades = await this.prisma.grade.findMany({
+      const grades = (await this.dataAccess.findGrades(tenantId, {
         where: {
-          tenant_id: tenantId,
           assessment_id: assessment.id,
           is_missing: false,
           raw_score: { not: null },
         },
         select: { raw_score: true },
-      });
+      })) as Array<{ raw_score: unknown }>;
 
       const maxScore = Number(assessment.max_score);
       const subjectKey = assessment.subject.id;
@@ -142,9 +145,10 @@ export class GradeAnalyticsService {
     }
 
     for (const entry of subjectMap.values()) {
-      entry.pass_rate = entry.total_count > 0
-        ? Number(((entry.pass_count / entry.total_count) * 100).toFixed(2))
-        : 0;
+      entry.pass_rate =
+        entry.total_count > 0
+          ? Number(((entry.pass_count / entry.total_count) * 100).toFixed(2))
+          : 0;
       results.push(entry);
     }
 
@@ -158,7 +162,6 @@ export class GradeAnalyticsService {
     academicPeriodId?: string,
   ): Promise<GradeDistributionBucket[]> {
     const gradeWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       is_missing: false,
       raw_score: { not: null },
     };
@@ -175,25 +178,25 @@ export class GradeAnalyticsService {
     }
 
     if (yearGroupId) {
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
-        select: { id: true },
-      });
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { year_group_id: yearGroupId },
+        { id: true },
+      )) as Array<{ id: string }>;
       gradeWhere.assessment = {
         ...(gradeWhere.assessment as Record<string, unknown> | undefined),
         class_id: { in: classes.map((c) => c.id) },
       };
     }
 
-    const grades = await this.prisma.grade.findMany({
+    const grades = (await this.dataAccess.findGrades(tenantId, {
       where: gradeWhere,
       select: {
         raw_score: true,
         assessment: { select: { max_score: true } },
       },
-    });
+    })) as Array<{ raw_score: unknown; assessment: { max_score: unknown } }>;
 
-    // Build percentage buckets: 0-10, 10-20, ..., 90-100
     const buckets: number[] = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
     const counts = new Array<number>(buckets.length - 1).fill(0);
 
@@ -224,7 +227,6 @@ export class GradeAnalyticsService {
     subjectId?: string,
   ): Promise<{ top: StudentPerformanceEntry[]; bottom: StudentPerformanceEntry[] }> {
     const gradeWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       is_missing: false,
       raw_score: { not: null },
     };
@@ -233,38 +235,41 @@ export class GradeAnalyticsService {
       gradeWhere.assessment = { subject_id: subjectId };
     }
 
-    let studentIdFilter: { in: string[] } | undefined;
     if (yearGroupId) {
-      const students = await this.prisma.student.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
+      const students = (await this.dataAccess.findStudents(tenantId, {
+        where: { year_group_id: yearGroupId },
         select: { id: true },
-      });
-      studentIdFilter = { in: students.map((s) => s.id) };
-      gradeWhere.student_id = studentIdFilter;
+      })) as Array<{ id: string }>;
+      gradeWhere.student_id = { in: students.map((s) => s.id) };
     }
 
-    const gradeGroups = await this.prisma.grade.groupBy({
-      by: ['student_id'],
-      where: gradeWhere,
+    const gradeGroups = (await this.dataAccess.groupGradesBy(tenantId, ['student_id'], gradeWhere, {
       _avg: { raw_score: true },
-      _count: true,
-    });
+    })) as Array<{ student_id: string; _avg: { raw_score: number | null }; _count: number }>;
 
     const studentIds = gradeGroups.map((g) => g.student_id);
     if (studentIds.length === 0) return { top: [], bottom: [] };
 
-    const students = await this.prisma.student.findMany({
-      where: { tenant_id: tenantId, id: { in: studentIds } },
+    const students = (await this.dataAccess.findStudents(tenantId, {
+      where: { id: { in: studentIds } },
       select: {
         id: true,
         first_name: true,
         last_name: true,
         year_group: { select: { name: true } },
       },
-    });
+    })) as Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      year_group: { name: string } | null;
+    }>;
 
     const studentNameMap = new Map(
-      students.map((s) => [s.id, { name: `${s.first_name} ${s.last_name}`, yearGroup: s.year_group?.name ?? null }]),
+      students.map((s) => [
+        s.id,
+        { name: `${s.first_name} ${s.last_name}`, yearGroup: s.year_group?.name ?? null },
+      ]),
     );
 
     const sorted = gradeGroups
@@ -288,16 +293,13 @@ export class GradeAnalyticsService {
     yearGroupId?: string,
     subjectId?: string,
   ): Promise<GradeTrendDataPoint[]> {
-    // Group period grade snapshots by period
-    const snapshotWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
-    };
+    const snapshotWhere: Record<string, unknown> = {};
 
     if (yearGroupId) {
-      const students = await this.prisma.student.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
+      const students = (await this.dataAccess.findStudents(tenantId, {
+        where: { year_group_id: yearGroupId },
         select: { id: true },
-      });
+      })) as Array<{ id: string }>;
       snapshotWhere.student_id = { in: students.map((s) => s.id) };
     }
 
@@ -305,7 +307,7 @@ export class GradeAnalyticsService {
       snapshotWhere.subject_id = subjectId;
     }
 
-    const snapshots = await this.prisma.periodGradeSnapshot.findMany({
+    const snapshots = (await this.dataAccess.findPeriodGradeSnapshots(tenantId, {
       where: snapshotWhere,
       select: {
         computed_value: true,
@@ -313,17 +315,16 @@ export class GradeAnalyticsService {
         academic_period_id: true,
       },
       orderBy: { created_at: 'asc' },
-    });
+    })) as Array<{ computed_value: unknown; student_id: string; academic_period_id: string }>;
 
-    // Collect all unique academic_period_ids and fetch period names
     const periodIds = [...new Set(snapshots.map((s) => s.academic_period_id))];
-    const periods = await this.prisma.academicPeriod.findMany({
-      where: { id: { in: periodIds } },
-      select: { id: true, name: true },
-    });
+    const periods = (await this.dataAccess.findAcademicPeriods(
+      tenantId,
+      { id: { in: periodIds } },
+      { id: true, name: true },
+    )) as Array<{ id: string; name: string }>;
     const periodNameMap = new Map(periods.map((p) => [p.id, p.name]));
 
-    // Group by period
     const periodMap = new Map<string, { total: number; sum: number; students: Set<string> }>();
 
     for (const snap of snapshots) {
@@ -347,22 +348,23 @@ export class GradeAnalyticsService {
     yearGroupId?: string,
   ): Promise<SubjectDifficultyEntry[]> {
     const gradeWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       is_missing: false,
       raw_score: { not: null },
       assessment: { status: { in: ['closed', 'locked'] } },
     };
 
     if (yearGroupId) {
-      const classes = await this.prisma.class.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
-        select: { id: true },
-      });
-      (gradeWhere.assessment as Record<string, unknown>).class_id = { in: classes.map((c) => c.id) };
+      const classes = (await this.dataAccess.findClasses(
+        tenantId,
+        { year_group_id: yearGroupId },
+        { id: true },
+      )) as Array<{ id: string }>;
+      (gradeWhere.assessment as Record<string, unknown>).class_id = {
+        in: classes.map((c) => c.id),
+      };
     }
 
-    // Group by subject via assessment
-    const grades = await this.prisma.grade.findMany({
+    const grades = (await this.dataAccess.findGrades(tenantId, {
       where: gradeWhere,
       select: {
         raw_score: true,
@@ -374,7 +376,11 @@ export class GradeAnalyticsService {
           },
         },
       },
-    });
+    })) as Array<{
+      raw_score: unknown;
+      student_id: string;
+      assessment: { max_score: unknown; subject: { id: string; name: string } | null };
+    }>;
 
     const subjectMap = new Map<string, { name: string; scores: number[]; students: Set<string> }>();
 
@@ -386,7 +392,11 @@ export class GradeAnalyticsService {
       if (maxScore <= 0) continue;
 
       const pct = (Number(grade.raw_score) / maxScore) * 100;
-      const entry = subjectMap.get(subject.id) ?? { name: subject.name, scores: [], students: new Set() };
+      const entry = subjectMap.get(subject.id) ?? {
+        name: subject.name,
+        scores: [],
+        students: new Set(),
+      };
       entry.scores.push(pct);
       entry.students.add(grade.student_id);
       subjectMap.set(subject.id, entry);
@@ -396,9 +406,10 @@ export class GradeAnalyticsService {
       .map(([id, data]) => ({
         subject_id: id,
         subject_name: data.name,
-        average_score: data.scores.length > 0
-          ? Number((data.scores.reduce((s, x) => s + x, 0) / data.scores.length).toFixed(2))
-          : 0,
+        average_score:
+          data.scores.length > 0
+            ? Number((data.scores.reduce((s, x) => s + x, 0) / data.scores.length).toFixed(2))
+            : 0,
         student_count: data.students.size,
         difficulty_rank: 0,
       }))
@@ -408,24 +419,20 @@ export class GradeAnalyticsService {
   }
 
   async gpaDistribution(tenantId: string, yearGroupId?: string): Promise<GpaDistributionBucket[]> {
-    const snapshotWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
-    };
+    let studentFilter: Record<string, unknown> | undefined;
 
     if (yearGroupId) {
-      const students = await this.prisma.student.findMany({
-        where: { tenant_id: tenantId, year_group_id: yearGroupId },
+      const students = (await this.dataAccess.findStudents(tenantId, {
+        where: { year_group_id: yearGroupId },
         select: { id: true },
-      });
-      snapshotWhere.student_id = { in: students.map((s) => s.id) };
+      })) as Array<{ id: string }>;
+      studentFilter = { student_id: { in: students.map((s) => s.id) } };
     }
 
-    const snapshots = await this.prisma.gpaSnapshot.findMany({
-      where: snapshotWhere,
-      select: { gpa_value: true },
-    });
+    const snapshots = (await this.dataAccess.findGpaSnapshots(tenantId, studentFilter, {
+      gpa_value: true,
+    })) as Array<{ gpa_value: unknown }>;
 
-    // GPA buckets: 0-1, 1-2, 2-3, 3-4 (standard 4.0 scale)
     const buckets: GpaDistributionBucket[] = [
       { bucket_label: '0.0-1.0', min_gpa: 0, max_gpa: 1, count: 0, percentage: 0 },
       { bucket_label: '1.0-2.0', min_gpa: 1, max_gpa: 2, count: 0, percentage: 0 },
@@ -435,7 +442,8 @@ export class GradeAnalyticsService {
 
     for (const snap of snapshots) {
       const gpa = Number(snap.gpa_value ?? 0);
-      const bucket = buckets.find((b) => gpa >= b.min_gpa && gpa < b.max_gpa) ?? buckets[buckets.length - 1];
+      const bucket =
+        buckets.find((b) => gpa >= b.min_gpa && gpa < b.max_gpa) ?? buckets[buckets.length - 1];
       if (bucket) bucket.count++;
     }
 

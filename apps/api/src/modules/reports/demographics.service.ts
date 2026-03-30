@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 export interface NationalityBreakdownEntry {
   nationality: string;
@@ -47,23 +47,22 @@ export interface StatusDistributionEntry {
 
 @Injectable()
 export class DemographicsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async nationalityBreakdown(
     tenantId: string,
     yearGroupId?: string,
   ): Promise<NationalityBreakdownEntry[]> {
     const where: Record<string, unknown> = {
-      tenant_id: tenantId,
       status: 'active',
     };
     if (yearGroupId) where.year_group_id = yearGroupId;
 
-    const groups = await this.prisma.student.groupBy({
-      by: ['nationality'],
+    const groups = (await this.dataAccess.groupStudentsBy(
+      tenantId,
+      ['nationality'],
       where,
-      _count: true,
-    });
+    )) as Array<{ nationality: string | null; _count: number }>;
 
     const total = groups.reduce((s, g) => s + g._count, 0);
 
@@ -78,20 +77,18 @@ export class DemographicsService {
   }
 
   async genderBalance(tenantId: string): Promise<GenderBalanceEntry[]> {
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-      orderBy: { display_order: 'asc' },
-    });
+    const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+      id: true,
+      name: true,
+    })) as Array<{ id: string; name: string }>;
 
     const results: GenderBalanceEntry[] = [];
 
     for (const yg of yearGroups) {
-      const genderGroups = await this.prisma.student.groupBy({
-        by: ['gender'],
-        where: { tenant_id: tenantId, year_group_id: yg.id, status: 'active' },
-        _count: true,
-      });
+      const genderGroups = (await this.dataAccess.groupStudentsBy(tenantId, ['gender'], {
+        year_group_id: yg.id,
+        status: 'active',
+      })) as Array<{ gender: string; _count: number }>;
 
       const genderMap = new Map(genderGroups.map((g) => [g.gender, g._count]));
       const maleCount = genderMap.get('male') ?? 0;
@@ -116,16 +113,15 @@ export class DemographicsService {
 
   async ageDistribution(tenantId: string, yearGroupId?: string): Promise<AgeDistributionBucket[]> {
     const where: Record<string, unknown> = {
-      tenant_id: tenantId,
       status: 'active',
       date_of_birth: { not: null },
     };
     if (yearGroupId) where.year_group_id = yearGroupId;
 
-    const students = await this.prisma.student.findMany({
+    const students = (await this.dataAccess.findStudents(tenantId, {
       where,
       select: { date_of_birth: true },
-    });
+    })) as Array<{ date_of_birth: Date | null }>;
 
     const now = new Date();
     const ageMap = new Map<number, number>();
@@ -153,22 +149,17 @@ export class DemographicsService {
   }
 
   async yearGroupSizes(tenantId: string): Promise<YearGroupSizeEntry[]> {
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      select: { id: true, name: true },
-      orderBy: { display_order: 'asc' },
-    });
+    const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+      id: true,
+      name: true,
+    })) as Array<{ id: string; name: string }>;
 
     const results: YearGroupSizeEntry[] = [];
 
     for (const yg of yearGroups) {
       const [totalCount, activeCount] = await Promise.all([
-        this.prisma.student.count({
-          where: { tenant_id: tenantId, year_group_id: yg.id },
-        }),
-        this.prisma.student.count({
-          where: { tenant_id: tenantId, year_group_id: yg.id, status: 'active' },
-        }),
+        this.dataAccess.countStudents(tenantId, { year_group_id: yg.id }),
+        this.dataAccess.countStudents(tenantId, { year_group_id: yg.id, status: 'active' }),
       ]);
 
       results.push({
@@ -176,7 +167,7 @@ export class DemographicsService {
         year_group_name: yg.name,
         student_count: totalCount,
         active_count: activeCount,
-        capacity: null, // No capacity field on year groups in current schema
+        capacity: null,
         capacity_utilisation: null,
       });
     }
@@ -185,14 +176,10 @@ export class DemographicsService {
   }
 
   async enrolmentTrends(tenantId: string): Promise<EnrolmentTrendDataPoint[]> {
-    // New enrolments: students whose entry_date falls in month
-    const students = await this.prisma.student.findMany({
-      where: {
-        tenant_id: tenantId,
-        entry_date: { not: null },
-      },
+    const students = (await this.dataAccess.findStudents(tenantId, {
+      where: { entry_date: { not: null } },
       select: { entry_date: true, status: true, exit_date: true },
-    });
+    })) as Array<{ entry_date: Date | null; status: string; exit_date: Date | null }>;
 
     const monthMap = new Map<string, { new_enrolments: number; withdrawals: number }>();
 
@@ -222,11 +209,10 @@ export class DemographicsService {
   }
 
   async statusDistribution(tenantId: string): Promise<StatusDistributionEntry[]> {
-    const groups = await this.prisma.student.groupBy({
-      by: ['status'],
-      where: { tenant_id: tenantId },
-      _count: true,
-    });
+    const groups = (await this.dataAccess.groupStudentsBy(tenantId, ['status'])) as Array<{
+      status: string;
+      _count: number;
+    }>;
 
     const total = groups.reduce((s, g) => s + g._count, 0);
 

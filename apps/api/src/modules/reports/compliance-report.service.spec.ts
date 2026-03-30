@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { ComplianceReportService } from './compliance-report.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const TEMPLATE_ID = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
@@ -35,40 +36,44 @@ const mockTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   }),
 }));
 
 describe('ComplianceReportService', () => {
   let service: ComplianceReportService;
-  let mockPrisma: {
-    student: { count: jest.Mock };
-    staffProfile: { count: jest.Mock };
-    attendanceRecord: { groupBy: jest.Mock };
+  let mockDataAccess: {
+    countStudents: jest.Mock;
+    countStaff: jest.Mock;
+    groupAttendanceRecordsBy: jest.Mock;
   };
 
   beforeEach(async () => {
     mockTx.complianceReportTemplate.findMany.mockResolvedValue([MOCK_TEMPLATE_DB]);
     mockTx.complianceReportTemplate.findFirst.mockResolvedValue(MOCK_TEMPLATE_DB);
     mockTx.complianceReportTemplate.create.mockResolvedValue(MOCK_TEMPLATE_DB);
-    mockTx.complianceReportTemplate.update.mockResolvedValue({ ...MOCK_TEMPLATE_DB, name: 'Updated Template' });
+    mockTx.complianceReportTemplate.update.mockResolvedValue({
+      ...MOCK_TEMPLATE_DB,
+      name: 'Updated Template',
+    });
     mockTx.complianceReportTemplate.delete.mockResolvedValue(MOCK_TEMPLATE_DB);
 
-    mockPrisma = {
-      student: { count: jest.fn().mockResolvedValue(120) },
-      staffProfile: { count: jest.fn().mockResolvedValue(15) },
-      attendanceRecord: {
-        groupBy: jest.fn().mockResolvedValue([
-          { status: 'present', _count: 900 },
-          { status: 'absent', _count: 100 },
-        ]),
-      },
+    mockDataAccess = {
+      countStudents: jest.fn().mockResolvedValue(120),
+      countStaff: jest.fn().mockResolvedValue(15),
+      groupAttendanceRecordsBy: jest.fn().mockResolvedValue([
+        { status: 'present', _count: 900 },
+        { status: 'absent', _count: 100 },
+      ]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ComplianceReportService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: PrismaService, useValue: {} },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -145,12 +150,11 @@ describe('ComplianceReportService', () => {
   it('should list unknown fields as gaps in autoPopulate result', async () => {
     const result = await service.autoPopulate(TENANT_ID, TEMPLATE_ID);
 
-    // special_needs_count is not auto-populatable → should appear in gaps
     expect(result.gaps).toContain('special_needs_count');
   });
 
   it('should report 0% attendance rate when there are no attendance records', async () => {
-    mockPrisma.attendanceRecord.groupBy.mockResolvedValue([]);
+    mockDataAccess.groupAttendanceRecordsBy.mockResolvedValue([]);
 
     const result = await service.autoPopulate(TENANT_ID, TEMPLATE_ID);
 

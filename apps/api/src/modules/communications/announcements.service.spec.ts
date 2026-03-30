@@ -315,9 +315,9 @@ describe('AnnouncementsService', () => {
         buildMockAnnouncement({ status: 'published' }),
       );
 
-      await expect(
-        service.update(TENANT_ID, ANNOUNCEMENT_ID, { title: 'Nope' }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.update(TENANT_ID, ANNOUNCEMENT_ID, { title: 'Nope' })).rejects.toThrow(
+        BadRequestException,
+      );
 
       await expect(
         service.update(TENANT_ID, ANNOUNCEMENT_ID, { title: 'Nope' }),
@@ -329,14 +329,17 @@ describe('AnnouncementsService', () => {
     it('should throw ANNOUNCEMENT_NOT_FOUND when ID missing', async () => {
       mockPrisma.announcement.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.update(TENANT_ID, 'nonexistent-id', { title: 'Nope' }),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, 'nonexistent-id', { title: 'Nope' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('edge: should allow updating target_payload when scope unchanged', async () => {
       mockPrisma.announcement.findFirst.mockResolvedValue(
-        buildMockAnnouncement({ scope: 'year_group', target_payload: { year_group_ids: ['yg-1'] } }),
+        buildMockAnnouncement({
+          scope: 'year_group',
+          target_payload: { year_group_ids: ['yg-1'] },
+        }),
       );
       mockPrisma.announcement.update.mockResolvedValue(
         buildMockAnnouncement({ target_payload: { year_group_ids: ['yg-1', 'yg-2'] } }),
@@ -411,13 +414,11 @@ describe('AnnouncementsService', () => {
         buildMockAnnouncement({ status: 'published' }),
       );
 
-      await expect(
-        service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {})).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {}),
-      ).rejects.toMatchObject({
+      await expect(service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {})).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'ANNOUNCEMENT_NOT_DRAFT' }),
       });
     });
@@ -439,7 +440,10 @@ describe('AnnouncementsService', () => {
         request_id: 'approval-req-1',
       });
       mockPrisma.announcement.update.mockResolvedValue(
-        buildMockAnnouncement({ status: 'pending_approval', approval_request_id: 'approval-req-1' }),
+        buildMockAnnouncement({
+          status: 'pending_approval',
+          approval_request_id: 'approval-req-1',
+        }),
       );
 
       const result = await service.publish(TENANT_ID, USER_ID, ANNOUNCEMENT_ID, {});
@@ -548,9 +552,7 @@ describe('AnnouncementsService', () => {
         buildMockAnnouncement({ status: 'published' }),
       );
 
-      const targets = [
-        { user_id: 'user-1', locale: 'en', channels: ['in_app'] },
-      ];
+      const targets = [{ user_id: 'user-1', locale: 'en', channels: ['in_app'] }];
       mockAudienceService.resolve.mockResolvedValue(targets);
       mockNotificationsService.createBatch.mockResolvedValue(undefined);
       mockQueue.add.mockResolvedValue(undefined);
@@ -611,15 +613,310 @@ describe('AnnouncementsService', () => {
         buildMockAnnouncement({ status: 'pending_approval' }),
       );
 
-      await expect(
-        service.archive(TENANT_ID, ANNOUNCEMENT_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.archive(TENANT_ID, ANNOUNCEMENT_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
-      await expect(
-        service.archive(TENANT_ID, ANNOUNCEMENT_ID),
-      ).rejects.toMatchObject({
+      await expect(service.archive(TENANT_ID, ANNOUNCEMENT_ID)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'INVALID_STATUS' }),
       });
+    });
+  });
+
+  // ─── list() ────────────────────────────────────────────────────────────────
+
+  describe('list()', () => {
+    it('should return paginated announcements for a tenant', async () => {
+      const announcements = [
+        buildMockAnnouncement({ id: 'ann-1' }),
+        buildMockAnnouncement({ id: 'ann-2' }),
+      ];
+      mockPrisma.announcement.findMany.mockResolvedValue(announcements);
+      mockPrisma.announcement.count.mockResolvedValue(2);
+
+      const result = await service.list(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(result.data).toHaveLength(2);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 2 });
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: TENANT_ID }),
+          skip: 0,
+          take: 20,
+        }),
+      );
+    });
+
+    it('should filter by status when provided', async () => {
+      mockPrisma.announcement.findMany.mockResolvedValue([]);
+      mockPrisma.announcement.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, status: 'published' });
+
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenant_id: TENANT_ID,
+            status: 'published',
+          }),
+        }),
+      );
+    });
+
+    it('should calculate correct skip for page 2', async () => {
+      mockPrisma.announcement.findMany.mockResolvedValue([]);
+      mockPrisma.announcement.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 2, pageSize: 10 });
+
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 10,
+        }),
+      );
+    });
+
+    it('should apply custom sort order', async () => {
+      mockPrisma.announcement.findMany.mockResolvedValue([]);
+      mockPrisma.announcement.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20, sort: 'title', order: 'asc' });
+
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { title: 'asc' },
+        }),
+      );
+    });
+
+    it('should use default sort created_at desc', async () => {
+      mockPrisma.announcement.findMany.mockResolvedValue([]);
+      mockPrisma.announcement.count.mockResolvedValue(0);
+
+      await service.list(TENANT_ID, { page: 1, pageSize: 20 });
+
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { created_at: 'desc' },
+        }),
+      );
+    });
+
+    it('edge: should not return announcements from other tenants', async () => {
+      mockPrisma.announcement.findMany.mockResolvedValue([]);
+      mockPrisma.announcement.count.mockResolvedValue(0);
+
+      await service.list('other-tenant-id', { page: 1, pageSize: 20 });
+
+      expect(mockPrisma.announcement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: 'other-tenant-id' }),
+        }),
+      );
+    });
+  });
+
+  // ─── getById() ────────────────────────────────────────────────────────────
+
+  describe('getById()', () => {
+    it('should return announcement by id with author included', async () => {
+      const announcement = buildMockAnnouncement();
+      mockPrisma.announcement.findFirst.mockResolvedValue(announcement);
+
+      const result = await service.getById(TENANT_ID, ANNOUNCEMENT_ID);
+
+      expect(result).toEqual(announcement);
+      expect(mockPrisma.announcement.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: ANNOUNCEMENT_ID, tenant_id: TENANT_ID },
+          include: expect.objectContaining({
+            author: expect.objectContaining({
+              select: expect.objectContaining({ id: true, first_name: true }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('should throw ANNOUNCEMENT_NOT_FOUND when id does not exist', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(null);
+
+      await expect(service.getById(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+
+      await expect(service.getById(TENANT_ID, 'nonexistent')).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ANNOUNCEMENT_NOT_FOUND' }),
+      });
+    });
+
+    it('edge: should not return announcement from another tenant (RLS)', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(null);
+
+      await expect(service.getById('other-tenant', ANNOUNCEMENT_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(mockPrisma.announcement.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: ANNOUNCEMENT_ID, tenant_id: 'other-tenant' },
+        }),
+      );
+    });
+  });
+
+  // ─── executePublish() — delivery channels ────────────────────────────────
+
+  describe('executePublish() — delivery channels', () => {
+    it('should create notifications per delivery channel for each target', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(
+        buildMockAnnouncement({
+          scope: 'school',
+          target_payload: {},
+          delivery_channels: ['in_app', 'email'],
+        }),
+      );
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ status: 'published' }),
+      );
+
+      const targets = [{ user_id: 'user-1', locale: 'en', channels: ['in_app', 'email'] }];
+      mockAudienceService.resolve.mockResolvedValue(targets);
+      mockNotificationsService.createBatch.mockResolvedValue(undefined);
+      mockQueue.add.mockResolvedValue(undefined);
+
+      await service.executePublish(TENANT_ID, ANNOUNCEMENT_ID);
+
+      // 1 target * 2 channels = 2 notification records
+      const batchArg = mockNotificationsService.createBatch.mock.calls[0][1];
+      expect(batchArg).toHaveLength(2);
+      expect(batchArg[0].channel).toBe('in_app');
+      expect(batchArg[1].channel).toBe('email');
+    });
+
+    it('should enqueue dispatch job only when non-in_app notifications exist', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(
+        buildMockAnnouncement({
+          scope: 'school',
+          target_payload: {},
+          delivery_channels: ['in_app', 'email'],
+        }),
+      );
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ status: 'published' }),
+      );
+
+      const targets = [{ user_id: 'user-1', locale: 'en', channels: ['in_app', 'email'] }];
+      mockAudienceService.resolve.mockResolvedValue(targets);
+      mockNotificationsService.createBatch.mockResolvedValue(undefined);
+      mockQueue.add.mockResolvedValue(undefined);
+
+      await service.executePublish(TENANT_ID, ANNOUNCEMENT_ID);
+
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        'communications:dispatch-notifications',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          announcement_id: ANNOUNCEMENT_ID,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should not enqueue dispatch job when only in_app notifications', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(
+        buildMockAnnouncement({
+          scope: 'school',
+          target_payload: {},
+          delivery_channels: ['in_app'],
+        }),
+      );
+      mockPrisma.announcement.update.mockResolvedValue(
+        buildMockAnnouncement({ status: 'published' }),
+      );
+
+      const targets = [{ user_id: 'user-1', locale: 'en', channels: ['in_app'] }];
+      mockAudienceService.resolve.mockResolvedValue(targets);
+      mockNotificationsService.createBatch.mockResolvedValue(undefined);
+
+      await service.executePublish(TENANT_ID, ANNOUNCEMENT_ID);
+
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('should return early without creating notifications when announcement not found', async () => {
+      mockPrisma.announcement.findFirst.mockResolvedValue(null);
+
+      await service.executePublish(TENANT_ID, 'nonexistent-id');
+
+      expect(mockPrisma.announcement.update).not.toHaveBeenCalled();
+      expect(mockAudienceService.resolve).not.toHaveBeenCalled();
+      expect(mockNotificationsService.createBatch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── create() — delivery_channels ─────────────────────────────────────────
+
+  describe('create() — delivery_channels', () => {
+    it('should default to in_app when no delivery_channels provided', async () => {
+      const dto = {
+        title: 'Test',
+        body_html: '<p>Hello</p>',
+        scope: 'school',
+        target_payload: {},
+      };
+      mockPrisma.announcement.create.mockResolvedValue(buildMockAnnouncement());
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockPrisma.announcement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            delivery_channels: ['in_app'],
+          }),
+        }),
+      );
+    });
+
+    it('should prepend in_app if not in delivery_channels', async () => {
+      const dto = {
+        title: 'Test',
+        body_html: '<p>Hello</p>',
+        scope: 'school',
+        target_payload: {},
+        delivery_channels: ['email'],
+      };
+      mockPrisma.announcement.create.mockResolvedValue(buildMockAnnouncement());
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockPrisma.announcement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            delivery_channels: ['in_app', 'email'],
+          }),
+        }),
+      );
+    });
+
+    it('should not duplicate in_app if already in delivery_channels', async () => {
+      const dto = {
+        title: 'Test',
+        body_html: '<p>Hello</p>',
+        scope: 'school',
+        target_payload: {},
+        delivery_channels: ['in_app', 'email'],
+      };
+      mockPrisma.announcement.create.mockResolvedValue(buildMockAnnouncement());
+
+      await service.create(TENANT_ID, USER_ID, dto);
+
+      expect(mockPrisma.announcement.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            delivery_channels: ['in_app', 'email'],
+          }),
+        }),
+      );
     });
   });
 
@@ -675,12 +972,27 @@ describe('AnnouncementsService', () => {
         { source_entity_id: 'ann-2' },
       ]);
       mockPrisma.announcement.findMany.mockResolvedValue([
-        { id: 'ann-1', title: 'Announcement 1', body_html: '<p>1</p>', published_at: new Date(), scope: 'school' },
-        { id: 'ann-2', title: 'Announcement 2', body_html: '<p>2</p>', published_at: new Date(), scope: 'school' },
+        {
+          id: 'ann-1',
+          title: 'Announcement 1',
+          body_html: '<p>1</p>',
+          published_at: new Date(),
+          scope: 'school',
+        },
+        {
+          id: 'ann-2',
+          title: 'Announcement 2',
+          body_html: '<p>2</p>',
+          published_at: new Date(),
+          scope: 'school',
+        },
       ]);
       mockPrisma.announcement.count.mockResolvedValue(2);
 
-      const result = await service.listForParent(TENANT_ID, parentUserId, { page: 1, pageSize: 20 });
+      const result = await service.listForParent(TENANT_ID, parentUserId, {
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(result.data).toHaveLength(2);
       expect(result.meta.total).toBe(2);
@@ -699,7 +1011,10 @@ describe('AnnouncementsService', () => {
       // This parent has no notifications
       mockPrisma.notification.findMany.mockResolvedValue([]);
 
-      const result = await service.listForParent(TENANT_ID, parentUserId, { page: 1, pageSize: 20 });
+      const result = await service.listForParent(TENANT_ID, parentUserId, {
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(result.data).toEqual([]);
       expect(result.meta.total).toBe(0);

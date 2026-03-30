@@ -167,11 +167,11 @@ These modules have NO downstream dependents. Changes are contained:
 - RoomsModule (only consumed by SchedulesModule)
 - PeriodGridModule (only consumed by SchedulingRunsModule)
 - PreferencesModule
-- DashboardModule
+- DashboardModule (imports ReportsModule for `ReportsDataAccessService`)
 - HealthModule
 - WebsiteModule
 - ComplianceModule
-- ReportsModule (queries everything via Prisma, but nothing depends on it)
+- ReportsModule (exports `ReportsDataAccessService` — centralised cross-module read facade. All analytics queries to foreign tables are routed through this service instead of direct Prisma access. DashboardModule imports ReportsModule for this.)
 - ParentInquiriesModule
 - SecurityIncidentsModule (platform-level, no tenant scope — reads `audit_logs` for anomaly detection, writes `security_incidents` and `security_incident_events`. No downstream dependents.)
 

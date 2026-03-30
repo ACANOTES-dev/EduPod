@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import type {
   CreateLateFeeConfigDto,
   LateFeeConfigQueryDto,
@@ -13,6 +10,7 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { isPayableStatus, roundMoney } from './helpers/invoice-status.helper';
+import { serializeDecimal } from './helpers/serialize-decimal.helper';
 
 @Injectable()
 export class LateFeesService {
@@ -186,9 +184,10 @@ export class LateFeesService {
 
     // Calculate late fee amount
     const invoiceTotal = Number(invoice.total_amount);
-    const lateFeeAmount = config.fee_type === 'percent'
-      ? roundMoney(invoiceTotal * (Number(config.value) / 100))
-      : roundMoney(Number(config.value));
+    const lateFeeAmount =
+      config.fee_type === 'percent'
+        ? roundMoney(invoiceTotal * (Number(config.value) / 100))
+        : roundMoney(Number(config.value));
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -238,11 +237,9 @@ export class LateFeesService {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma Decimal conversion
-  private serializeConfig(config: any) {
-    return {
-      ...config,
-      value: Number(config.value),
-    };
+  private serializeConfig<T extends { value: Decimal }>(
+    config: T,
+  ): Omit<T, 'value'> & { value: number } {
+    return { ...config, value: serializeDecimal(config.value) };
   }
 }

@@ -1,19 +1,16 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
-  PromotionRolloverReport,
-  PromotionDetail,
-  FeeGenerationRunSummary,
-  WriteOffReport,
-  WriteOffEntry,
-  NotificationDeliverySummary,
   ExportPack,
   ExportPackItem,
+  FeeGenerationRunSummary,
+  NotificationDeliverySummary,
+  PromotionDetail,
+  PromotionRolloverReport,
+  WriteOffEntry,
+  WriteOffReport,
 } from '@school/shared';
 
-import { PrismaService } from '../prisma/prisma.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 interface DateRangeFilters {
   start_date?: string;
@@ -38,22 +35,23 @@ interface FeeGenerationFilters {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly dataAccess: ReportsDataAccessService) {}
 
   async promotionRollover(
     tenantId: string,
     academicYearId: string,
   ): Promise<PromotionRolloverReport> {
-    // First, try to get counts from audit_logs where the promotion was committed
-    const auditLog = await this.prisma.auditLog.findFirst({
-      where: {
-        tenant_id: tenantId,
+    const auditLog = (await this.dataAccess.findFirstAuditLog(
+      tenantId,
+      {
         action: 'promotion_commit',
         entity_type: 'academic_year',
         entity_id: academicYearId,
       },
-      orderBy: { created_at: 'desc' },
-    });
+      { created_at: 'desc' },
+    )) as {
+      metadata_json: unknown;
+    } | null;
 
     if (auditLog) {
       const metadata = auditLog.metadata_json as Record<string, unknown>;
@@ -64,12 +62,10 @@ export class ReportsService {
         withdrawn?: number;
       };
 
-      // Build details from year groups
-      const yearGroups = await this.prisma.yearGroup.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: { display_order: 'asc' },
-        select: { id: true, name: true },
-      });
+      const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+        id: true,
+        name: true,
+      })) as Array<{ id: string; name: string }>;
 
       const details: PromotionDetail[] = yearGroups.map((yg) => ({
         year_group_id: yg.id,
@@ -88,32 +84,20 @@ export class ReportsService {
       };
     }
 
-    // Fallback: compute from student data directly
-    const academicYear = await this.prisma.academicYear.findFirst({
-      where: { id: academicYearId, tenant_id: tenantId },
-      select: { id: true },
-    });
+    // Validate academic year exists
+    const yearGroups = (await this.dataAccess.findYearGroups(tenantId, {
+      id: true,
+      name: true,
+      next_year_group: { select: { id: true } },
+    })) as Array<{
+      id: string;
+      name: string;
+      next_year_group: { id: string } | null;
+    }>;
 
-    if (!academicYear) {
-      throw new NotFoundException({
-        code: 'ACADEMIC_YEAR_NOT_FOUND',
-        message: `Academic year with id "${academicYearId}" not found`,
-      });
-    }
-
-    // Load year groups
-    const yearGroups = await this.prisma.yearGroup.findMany({
-      where: { tenant_id: tenantId },
-      orderBy: { display_order: 'asc' },
-      include: { next_year_group: { select: { id: true } } },
-    });
-
-    const yearGroupMap = new Map(yearGroups.map((yg) => [yg.id, yg]));
-
-    // Load students with enrolments in this academic year
-    const students = await this.prisma.student.findMany({
+    // Check academic year exists via a student query scoped to that year
+    const studentsInYear = (await this.dataAccess.findStudents(tenantId, {
       where: {
-        tenant_id: tenantId,
         class_enrolments: {
           some: {
             class_entity: { academic_year_id: academicYearId },
@@ -135,14 +119,29 @@ export class ReportsService {
           },
         },
       },
-    });
+    })) as Array<{
+      id: string;
+      status: string;
+      year_group_id: string | null;
+      class_enrolments: Array<{
+        class_entity: { year_group_id: string | null };
+      }>;
+    }>;
+
+    if (studentsInYear.length === 0 && yearGroups.length === 0) {
+      throw new NotFoundException({
+        code: 'ACADEMIC_YEAR_NOT_FOUND',
+        message: `Academic year with id "${academicYearId}" not found`,
+      });
+    }
+
+    const yearGroupMap = new Map(yearGroups.map((yg) => [yg.id, yg]));
 
     let promoted = 0;
     let heldBack = 0;
     let graduated = 0;
     let withdrawn = 0;
 
-    // Build per-year-group detail map
     const detailMap = new Map<string, PromotionDetail>();
     for (const yg of yearGroups) {
       detailMap.set(yg.id, {
@@ -154,8 +153,7 @@ export class ReportsService {
       });
     }
 
-    for (const student of students) {
-      // Determine original year group from class enrolment
+    for (const student of studentsInYear) {
       const enrolmentYearGroupId = student.class_enrolments[0]?.class_entity?.year_group_id ?? null;
       const currentYearGroupId = student.year_group_id;
       const originalYg = enrolmentYearGroupId ? yearGroupMap.get(enrolmentYearGroupId) : null;
@@ -167,11 +165,9 @@ export class ReportsService {
       } else if (student.status === 'withdrawn') {
         withdrawn++;
       } else if (originalYg && currentYearGroupId !== enrolmentYearGroupId) {
-        // Student moved to a different year group — promoted
         promoted++;
         if (detailEntry) detailEntry.promoted++;
       } else {
-        // Still in same year group — held back
         heldBack++;
         if (detailEntry) detailEntry.held_back++;
       }
@@ -181,31 +177,26 @@ export class ReportsService {
       (d) => d.promoted > 0 || d.held_back > 0 || d.graduated > 0,
     );
 
-    return {
-      promoted,
-      held_back: heldBack,
-      graduated,
-      withdrawn,
-      details,
-    };
+    return { promoted, held_back: heldBack, graduated, withdrawn, details };
   }
 
   async feeGenerationRuns(
     tenantId: string,
     filters: FeeGenerationFilters,
-  ): Promise<{ data: FeeGenerationRunSummary[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: FeeGenerationRunSummary[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = {
-      tenant_id: tenantId,
       action: 'fee_generation_confirm',
       entity_type: 'fee_generation',
     };
 
     if (filters.academic_year_id) {
-      // Filter by metadata containing the academic_year_id
       where.metadata_json = {
         path: ['academic_year_id'],
         equals: filters.academic_year_id,
@@ -213,13 +204,13 @@ export class ReportsService {
     }
 
     const [auditLogs, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
+      this.dataAccess.findAuditLogs(tenantId, {
         where,
         orderBy: { created_at: 'desc' },
         skip,
         take: pageSize,
-      }),
-      this.prisma.auditLog.count({ where }),
+      }) as Promise<Array<{ id: string; created_at: Date; metadata_json: unknown }>>,
+      this.dataAccess.countAuditLogs(tenantId, where),
     ]);
 
     const data: FeeGenerationRunSummary[] = auditLogs.map((log) => {
@@ -245,13 +236,11 @@ export class ReportsService {
     const pageSize = filters.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
 
-    // Build date filter
     const dateFilter: Record<string, unknown> = {};
     if (filters.start_date) dateFilter.gte = new Date(filters.start_date);
     if (filters.end_date) dateFilter.lte = new Date(filters.end_date);
 
     const invoiceWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       status: 'written_off',
     };
 
@@ -260,7 +249,7 @@ export class ReportsService {
     }
 
     const [invoices, total] = await Promise.all([
-      this.prisma.invoice.findMany({
+      this.dataAccess.findInvoices(tenantId, {
         where: invoiceWhere,
         orderBy: { updated_at: 'desc' },
         skip,
@@ -271,12 +260,19 @@ export class ReportsService {
           write_off_amount: true,
           write_off_reason: true,
           updated_at: true,
-          household: {
-            select: { household_name: true },
-          },
+          household: { select: { household_name: true } },
         },
-      }),
-      this.prisma.invoice.count({ where: invoiceWhere }),
+      }) as Promise<
+        Array<{
+          id: string;
+          invoice_number: string;
+          write_off_amount: unknown;
+          write_off_reason: string | null;
+          updated_at: Date;
+          household: { household_name: string };
+        }>
+      >,
+      this.dataAccess.countInvoices(tenantId, invoiceWhere),
     ]);
 
     const entries: WriteOffEntry[] = invoices.map((inv) => ({
@@ -290,9 +286,7 @@ export class ReportsService {
 
     const totalWrittenOff = entries.reduce((sum, e) => sum + e.amount, 0);
 
-    // Query discount totals in the date range for scholarship impact
     const discountWhere: Record<string, unknown> = {
-      tenant_id: tenantId,
       status: { notIn: ['void', 'cancelled'] },
       discount_amount: { gt: 0 },
     };
@@ -301,10 +295,10 @@ export class ReportsService {
       discountWhere.updated_at = dateFilter;
     }
 
-    const discountInvoices = await this.prisma.invoice.findMany({
+    const discountInvoices = (await this.dataAccess.findInvoices(tenantId, {
       where: discountWhere,
       select: { discount_amount: true },
-    });
+    })) as Array<{ discount_amount: unknown }>;
 
     const totalDiscounts = discountInvoices.reduce(
       (sum, inv) => sum + Number(inv.discount_amount),
@@ -326,20 +320,11 @@ export class ReportsService {
     tenantId: string,
     filters: NotificationFilters,
   ): Promise<NotificationDeliverySummary> {
-    // Build where clause
-    const where: Record<string, unknown> = {
-      tenant_id: tenantId,
-    };
+    const where: Record<string, unknown> = {};
 
-    if (filters.channel) {
-      where.channel = filters.channel;
-    }
+    if (filters.channel) where.channel = filters.channel;
+    if (filters.template_key) where.template_key = filters.template_key;
 
-    if (filters.template_key) {
-      where.template_key = filters.template_key;
-    }
-
-    // Date range filter on created_at
     const dateFilter: Record<string, unknown> = {};
     if (filters.start_date) dateFilter.gte = new Date(filters.start_date);
     if (filters.end_date) dateFilter.lte = new Date(filters.end_date);
@@ -348,19 +333,20 @@ export class ReportsService {
       where.created_at = dateFilter;
     }
 
-    // Fetch all notifications in the range (exclude queued for accurate counts)
-    const notifications = await this.prisma.notification.findMany({
-      where,
-      select: {
-        id: true,
-        channel: true,
-        status: true,
-        template_key: true,
-        failure_reason: true,
-      },
-    });
+    const notifications = (await this.dataAccess.findNotifications(tenantId, where, {
+      id: true,
+      channel: true,
+      status: true,
+      template_key: true,
+      failure_reason: true,
+    })) as Array<{
+      id: string;
+      channel: string;
+      status: string;
+      template_key: string | null;
+      failure_reason: string | null;
+    }>;
 
-    // Aggregate by channel
     const channelMap = new Map<string, { sent: number; delivered: number; failed: number }>();
     const templateMap = new Map<string, { sent: number; delivered: number; failed: number }>();
     const failureMap = new Map<string, number>();
@@ -378,7 +364,6 @@ export class ReportsService {
       if (isDelivered) totalDelivered++;
       if (isFailed) totalFailed++;
 
-      // By channel
       const channelKey = n.channel;
       const channelEntry = channelMap.get(channelKey) ?? { sent: 0, delivered: 0, failed: 0 };
       if (isSent) channelEntry.sent++;
@@ -386,7 +371,6 @@ export class ReportsService {
       if (isFailed) channelEntry.failed++;
       channelMap.set(channelKey, channelEntry);
 
-      // By template
       const templateKey = n.template_key ?? 'unknown';
       const templateEntry = templateMap.get(templateKey) ?? { sent: 0, delivered: 0, failed: 0 };
       if (isSent) templateEntry.sent++;
@@ -394,7 +378,6 @@ export class ReportsService {
       if (isFailed) templateEntry.failed++;
       templateMap.set(templateKey, templateEntry);
 
-      // Failure reasons
       if (isFailed && n.failure_reason) {
         const current = failureMap.get(n.failure_reason) ?? 0;
         failureMap.set(n.failure_reason, current + 1);
@@ -406,9 +389,7 @@ export class ReportsService {
       sent: stats.sent,
       delivered: stats.delivered,
       failed: stats.failed,
-      delivery_rate: stats.sent > 0
-        ? Number(((stats.delivered / stats.sent) * 100).toFixed(2))
-        : 0,
+      delivery_rate: stats.sent > 0 ? Number(((stats.delivered / stats.sent) * 100).toFixed(2)) : 0,
     }));
 
     const byTemplate = Array.from(templateMap.entries()).map(([template_key, stats]) => ({
@@ -432,36 +413,25 @@ export class ReportsService {
     };
   }
 
-  async studentExportPack(
-    tenantId: string,
-    studentId: string,
-  ): Promise<ExportPack> {
-    // Validate student exists
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: {
-        id: true,
-        student_number: true,
-        first_name: true,
-        last_name: true,
-        first_name_ar: true,
-        last_name_ar: true,
-        date_of_birth: true,
-        gender: true,
-        status: true,
-        entry_date: true,
-        exit_date: true,
-        year_group_id: true,
-        medical_notes: true,
-        has_allergy: true,
-        allergy_details: true,
-        year_group: {
-          select: { id: true, name: true },
-        },
-        household: {
-          select: { id: true, household_name: true },
-        },
-      },
+  async studentExportPack(tenantId: string, studentId: string): Promise<ExportPack> {
+    const student = await this.dataAccess.findStudentById(tenantId, studentId, {
+      id: true,
+      student_number: true,
+      first_name: true,
+      last_name: true,
+      first_name_ar: true,
+      last_name_ar: true,
+      date_of_birth: true,
+      gender: true,
+      status: true,
+      entry_date: true,
+      exit_date: true,
+      year_group_id: true,
+      medical_notes: true,
+      has_allergy: true,
+      allergy_details: true,
+      year_group: { select: { id: true, name: true } },
+      household: { select: { id: true, household_name: true } },
     });
 
     if (!student) {
@@ -471,9 +441,8 @@ export class ReportsService {
       });
     }
 
-    // Fetch attendance records (last 200)
-    const attendanceRecords = await this.prisma.attendanceRecord.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
+    const attendanceRecords = (await this.dataAccess.findAttendanceRecords(tenantId, {
+      where: { student_id: studentId },
       orderBy: { created_at: 'desc' },
       take: 200,
       select: {
@@ -481,55 +450,63 @@ export class ReportsService {
         status: true,
         reason: true,
         marked_at: true,
-        session: {
-          select: { id: true, session_date: true, status: true },
-        },
+        session: { select: { id: true, session_date: true, status: true } },
       },
-    });
+    })) as Array<{
+      id: string;
+      status: string;
+      reason: string | null;
+      marked_at: Date;
+      session: { id: string; session_date: Date; status: string };
+    }>;
 
-    // Fetch grades
-    const grades = await this.prisma.grade.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
-      orderBy: { created_at: 'desc' },
+    const grades = (await this.dataAccess.findGrades(tenantId, {
+      where: { student_id: studentId },
       select: {
         id: true,
         raw_score: true,
         is_missing: true,
         comment: true,
         entered_at: true,
-        assessment: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            max_score: true,
-          },
-        },
+        assessment: { select: { id: true, title: true, status: true, max_score: true } },
       },
-    });
-
-    // Fetch report cards
-    const reportCards = await this.prisma.reportCard.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
       orderBy: { created_at: 'desc' },
-      select: {
+    })) as Array<{
+      id: string;
+      raw_score: unknown;
+      is_missing: boolean;
+      comment: string | null;
+      entered_at: Date | null;
+      assessment: { id: string; title: string; status: string; max_score: unknown };
+    }>;
+
+    const reportCards = (await this.dataAccess.findReportCards(
+      tenantId,
+      { student_id: studentId },
+      {
         id: true,
         status: true,
         template_locale: true,
         teacher_comment: true,
         principal_comment: true,
         published_at: true,
-        academic_period: {
-          select: { id: true, name: true },
-        },
+        academic_period: { select: { id: true, name: true } },
       },
-    });
+      { created_at: 'desc' },
+    )) as Array<{
+      id: string;
+      status: string;
+      template_locale: string;
+      teacher_comment: string | null;
+      principal_comment: string | null;
+      published_at: Date | null;
+      academic_period: { id: string; name: string };
+    }>;
 
-    // Fetch class enrolments
-    const classEnrolments = await this.prisma.classEnrolment.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
-      orderBy: { start_date: 'desc' },
-      select: {
+    const classEnrolments = (await this.dataAccess.findClassEnrolments(
+      tenantId,
+      { student_id: studentId },
+      {
         id: true,
         status: true,
         start_date: true,
@@ -538,13 +515,22 @@ export class ReportsService {
           select: {
             id: true,
             name: true,
-            academic_year: {
-              select: { id: true, name: true },
-            },
+            academic_year: { select: { id: true, name: true } },
           },
         },
       },
-    });
+      { start_date: 'desc' },
+    )) as Array<{
+      id: string;
+      status: string;
+      start_date: Date;
+      end_date: Date | null;
+      class_entity: {
+        id: string;
+        name: string;
+        academic_year: { id: string; name: string } | null;
+      };
+    }>;
 
     const sections: ExportPackItem[] = [
       { section: 'profile', data: [student] },
@@ -605,50 +591,54 @@ export class ReportsService {
     };
   }
 
-  async householdExportPack(
-    tenantId: string,
-    householdId: string,
-  ): Promise<ExportPack> {
-    // Validate household exists
-    const household = await this.prisma.household.findFirst({
-      where: { id: householdId, tenant_id: tenantId },
-      select: {
-        id: true,
-        household_name: true,
-        address_line_1: true,
-        address_line_2: true,
-        city: true,
-        country: true,
-        postal_code: true,
-        status: true,
-        billing_parent: {
-          select: { id: true, first_name: true, last_name: true },
-        },
-        students: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            status: true,
-            year_group: {
-              select: { name: true },
-            },
-          },
-        },
-        household_parents: {
-          select: {
-            role_label: true,
-            parent: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-              },
-            },
-          },
+  async householdExportPack(tenantId: string, householdId: string): Promise<ExportPack> {
+    const household = (await this.dataAccess.findHouseholdById(tenantId, householdId, {
+      id: true,
+      household_name: true,
+      address_line_1: true,
+      address_line_2: true,
+      city: true,
+      country: true,
+      postal_code: true,
+      status: true,
+      billing_parent: { select: { id: true, first_name: true, last_name: true } },
+      students: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          status: true,
+          year_group: { select: { name: true } },
         },
       },
-    });
+      household_parents: {
+        select: {
+          role_label: true,
+          parent: { select: { id: true, first_name: true, last_name: true } },
+        },
+      },
+    })) as {
+      id: string;
+      household_name: string;
+      address_line_1: string | null;
+      address_line_2: string | null;
+      city: string | null;
+      country: string | null;
+      postal_code: string | null;
+      status: string;
+      billing_parent: { id: string; first_name: string; last_name: string } | null;
+      students: Array<{
+        id: string;
+        first_name: string;
+        last_name: string;
+        status: string;
+        year_group: { name: string } | null;
+      }>;
+      household_parents: Array<{
+        role_label: string;
+        parent: { id: string; first_name: string; last_name: string };
+      }>;
+    } | null;
 
     if (!household) {
       throw new NotFoundException({
@@ -657,9 +647,8 @@ export class ReportsService {
       });
     }
 
-    // Fetch invoices (last 100)
-    const invoices = await this.prisma.invoice.findMany({
-      where: { tenant_id: tenantId, household_id: householdId },
+    const invoices = (await this.dataAccess.findInvoices(tenantId, {
+      where: { household_id: householdId },
       orderBy: { created_at: 'desc' },
       take: 100,
       select: {
@@ -675,11 +664,22 @@ export class ReportsService {
         write_off_reason: true,
         currency_code: true,
       },
-    });
+    })) as Array<{
+      id: string;
+      invoice_number: string;
+      status: string;
+      issue_date: Date | null;
+      due_date: Date;
+      total_amount: unknown;
+      balance_amount: unknown;
+      discount_amount: unknown;
+      write_off_amount: unknown;
+      write_off_reason: string | null;
+      currency_code: string;
+    }>;
 
-    // Fetch payments (last 100)
-    const payments = await this.prisma.payment.findMany({
-      where: { tenant_id: tenantId, household_id: householdId },
+    const payments = (await this.dataAccess.findPayments(tenantId, {
+      where: { household_id: householdId },
       orderBy: { received_at: 'desc' },
       take: 100,
       select: {
@@ -691,35 +691,45 @@ export class ReportsService {
         status: true,
         received_at: true,
       },
-    });
+    })) as Array<{
+      id: string;
+      payment_reference: string | null;
+      payment_method: string;
+      amount: unknown;
+      currency_code: string;
+      status: string;
+      received_at: Date;
+    }>;
 
     const sections: ExportPackItem[] = [
       {
         section: 'profile',
-        data: [{
-          id: household.id,
-          household_name: household.household_name,
-          address_line_1: household.address_line_1,
-          address_line_2: household.address_line_2,
-          city: household.city,
-          country: household.country,
-          postal_code: household.postal_code,
-          status: household.status,
-          billing_parent: household.billing_parent
-            ? `${household.billing_parent.first_name} ${household.billing_parent.last_name}`
-            : null,
-          parents: household.household_parents.map((hp) => ({
-            id: hp.parent.id,
-            name: `${hp.parent.first_name} ${hp.parent.last_name}`,
-            role_label: hp.role_label,
-          })),
-          students: household.students.map((s) => ({
-            id: s.id,
-            name: `${s.first_name} ${s.last_name}`,
-            status: s.status,
-            year_group: s.year_group?.name ?? null,
-          })),
-        }],
+        data: [
+          {
+            id: household.id,
+            household_name: household.household_name,
+            address_line_1: household.address_line_1,
+            address_line_2: household.address_line_2,
+            city: household.city,
+            country: household.country,
+            postal_code: household.postal_code,
+            status: household.status,
+            billing_parent: household.billing_parent
+              ? `${household.billing_parent.first_name} ${household.billing_parent.last_name}`
+              : null,
+            parents: household.household_parents.map((hp) => ({
+              id: hp.parent.id,
+              name: `${hp.parent.first_name} ${hp.parent.last_name}`,
+              role_label: hp.role_label,
+            })),
+            students: household.students.map((s) => ({
+              id: s.id,
+              name: `${s.first_name} ${s.last_name}`,
+              status: s.status,
+              year_group: s.year_group?.name ?? null,
+            })),
+          },
+        ],
       },
       {
         section: 'invoices',

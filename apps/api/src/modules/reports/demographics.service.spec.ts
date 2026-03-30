@@ -1,32 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-
 import { DemographicsService } from './demographics.service';
+import { ReportsDataAccessService } from './reports-data-access.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('DemographicsService', () => {
   let service: DemographicsService;
-  let mockPrisma: {
-    student: { groupBy: jest.Mock; findMany: jest.Mock; count: jest.Mock };
-    yearGroup: { findMany: jest.Mock };
+  let mockDataAccess: {
+    groupStudentsBy: jest.Mock;
+    findStudents: jest.Mock;
+    countStudents: jest.Mock;
+    findYearGroups: jest.Mock;
   };
 
   beforeEach(async () => {
-    mockPrisma = {
-      student: {
-        groupBy: jest.fn().mockResolvedValue([]),
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      yearGroup: { findMany: jest.fn().mockResolvedValue([]) },
+    mockDataAccess = {
+      groupStudentsBy: jest.fn().mockResolvedValue([]),
+      findStudents: jest.fn().mockResolvedValue([]),
+      countStudents: jest.fn().mockResolvedValue(0),
+      findYearGroups: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DemographicsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
       ],
     }).compile();
 
@@ -43,7 +42,7 @@ describe('DemographicsService', () => {
     });
 
     it('should group students by nationality with count and percentage', async () => {
-      mockPrisma.student.groupBy.mockResolvedValue([
+      mockDataAccess.groupStudentsBy.mockResolvedValue([
         { nationality: 'Saudi', _count: 60 },
         { nationality: 'Egyptian', _count: 40 },
       ]);
@@ -65,10 +64,8 @@ describe('DemographicsService', () => {
     });
 
     it('should return per-year-group gender breakdown', async () => {
-      mockPrisma.yearGroup.findMany.mockResolvedValue([
-        { id: 'yg-1', name: 'Grade 1' },
-      ]);
-      mockPrisma.student.groupBy.mockResolvedValue([
+      mockDataAccess.findYearGroups.mockResolvedValue([{ id: 'yg-1', name: 'Grade 1' }]);
+      mockDataAccess.groupStudentsBy.mockResolvedValue([
         { gender: 'male', _count: 15 },
         { gender: 'female', _count: 10 },
       ]);
@@ -93,7 +90,7 @@ describe('DemographicsService', () => {
       const tenYearsAgo = new Date();
       tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
 
-      mockPrisma.student.findMany.mockResolvedValue([
+      mockDataAccess.findStudents.mockResolvedValue([
         { date_of_birth: tenYearsAgo },
         { date_of_birth: tenYearsAgo },
       ]);
@@ -115,7 +112,7 @@ describe('DemographicsService', () => {
 
   describe('statusDistribution', () => {
     it('should group students by status', async () => {
-      mockPrisma.student.groupBy.mockResolvedValue([
+      mockDataAccess.groupStudentsBy.mockResolvedValue([
         { status: 'active', _count: 80 },
         { status: 'inactive', _count: 20 },
       ]);
@@ -129,13 +126,13 @@ describe('DemographicsService', () => {
   });
 
   describe('RLS isolation', () => {
-    it('should scope nationality breakdown to tenantId', async () => {
+    it('should pass tenantId to groupStudentsBy', async () => {
       await service.nationalityBreakdown(TENANT_ID);
 
-      expect(mockPrisma.student.groupBy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ tenant_id: TENANT_ID }),
-        }),
+      expect(mockDataAccess.groupStudentsBy).toHaveBeenCalledWith(
+        TENANT_ID,
+        expect.any(Array),
+        expect.any(Object),
       );
     });
   });

@@ -68,10 +68,7 @@ describe('AudienceResolutionService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AudienceResolutionService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AudienceResolutionService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AudienceResolutionService>(AudienceResolutionService);
@@ -140,10 +137,7 @@ describe('AudienceResolutionService', () => {
 
   describe('resolve() — year_group scope', () => {
     it('should resolve year_group scope via students in that year group', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        { id: 'student-1' },
-        { id: 'student-2' },
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([{ id: 'student-1' }, { id: 'student-2' }]);
       mockPrisma.studentParent.findMany.mockResolvedValue([
         { parent_id: 'parent-1' },
         { parent_id: 'parent-2' },
@@ -175,9 +169,7 @@ describe('AudienceResolutionService', () => {
         { student_id: 'student-1' },
         { student_id: 'student-2' },
       ]);
-      mockPrisma.studentParent.findMany.mockResolvedValue([
-        { parent_id: 'parent-1' },
-      ]);
+      mockPrisma.studentParent.findMany.mockResolvedValue([{ parent_id: 'parent-1' }]);
       mockPrisma.parent.findMany.mockResolvedValue([
         buildMockParent({ id: 'parent-1', user_id: 'user-1' }),
       ]);
@@ -256,6 +248,138 @@ describe('AudienceResolutionService', () => {
     });
   });
 
+  // ─── resolve() — unknown scope ─────────────────────────────────────────────
+
+  describe('resolve() — unknown scope', () => {
+    it('should return empty array for unrecognized scope', async () => {
+      const result = await service.resolve(TENANT_ID, 'unknown_scope', {});
+
+      expect(result).toEqual([]);
+      // Should not hit any DB calls
+      expect(mockPrisma.parent.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.student.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.classEnrolment.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.householdParent.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── resolve() — empty target payloads ────────────────────────────────────
+
+  describe('resolve() — empty target payloads', () => {
+    it('should return empty list when year_group scope has no matching students', async () => {
+      mockPrisma.student.findMany.mockResolvedValue([]);
+
+      const result = await service.resolve(TENANT_ID, 'year_group', {
+        year_group_ids: ['nonexistent-yg'],
+      });
+
+      // No students -> no studentParent query -> empty parent list
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty list when class scope has no active enrolments', async () => {
+      mockPrisma.classEnrolment.findMany.mockResolvedValue([]);
+
+      const result = await service.resolve(TENANT_ID, 'class', {
+        class_ids: ['nonexistent-class'],
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty list when household scope has no parents', async () => {
+      mockPrisma.householdParent.findMany.mockResolvedValue([]);
+      // resolveParentsToTargets gets empty parentIds
+      // mockPrisma.parent.findMany is not called because parentIds is empty
+
+      const result = await service.resolve(TENANT_ID, 'household', {
+        household_ids: ['nonexistent-hh'],
+      });
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty list when custom scope has no matching users', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([]);
+
+      const result = await service.resolve(TENANT_ID, 'custom', {
+        user_ids: ['nonexistent-user'],
+      });
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ─── resolve() — notification settings disabled ────────────────────────────
+
+  describe('resolve() — notification settings disabled', () => {
+    it('should return only in_app channel when notification setting is disabled', async () => {
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['email', 'sms'],
+        }),
+      ]);
+      mockPrisma.tenantNotificationSetting.findFirst.mockResolvedValue({
+        tenant_id: TENANT_ID,
+        notification_type: 'announcement.published',
+        is_enabled: false,
+        channels: ['email'],
+      });
+
+      const result = await service.resolve(TENANT_ID, 'school', {});
+
+      expect(result).toHaveLength(1);
+      // When disabled, enabledChannels is empty, so no channel intersections.
+      // Only in_app is added as default.
+      expect(result[0]!.channels).toEqual(['in_app']);
+    });
+
+    it('should return only in_app when no notification setting exists', async () => {
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['email'],
+        }),
+      ]);
+      // No notification setting found at all
+      mockPrisma.tenantNotificationSetting.findFirst.mockResolvedValue(null);
+
+      const result = await service.resolve(TENANT_ID, 'school', {});
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.channels).toEqual(['in_app']);
+    });
+  });
+
+  // ─── resolve() — custom scope locale handling ────────────────────────────
+
+  describe('resolve() — custom scope locale handling', () => {
+    it('should default locale to en when user preferred_locale is null', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([{ id: 'user-1', preferred_locale: null }]);
+
+      const result = await service.resolve(TENANT_ID, 'custom', {
+        user_ids: ['user-1'],
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.locale).toBe('en');
+    });
+
+    it('should use user preferred_locale for custom scope', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([{ id: 'user-1', preferred_locale: 'ar' }]);
+
+      const result = await service.resolve(TENANT_ID, 'custom', {
+        user_ids: ['user-1'],
+      });
+
+      expect(result[0]!.locale).toBe('ar');
+    });
+  });
+
   // ─── Edge cases: de-duplication ────────────────────────────────────────────
 
   describe('edge cases — de-duplication', () => {
@@ -285,10 +409,7 @@ describe('AudienceResolutionService', () => {
     });
 
     it('edge: parent linked across multiple year groups returns 1 target', async () => {
-      mockPrisma.student.findMany.mockResolvedValue([
-        { id: 'student-1' },
-        { id: 'student-2' },
-      ]);
+      mockPrisma.student.findMany.mockResolvedValue([{ id: 'student-1' }, { id: 'student-2' }]);
       // Both students map to the same parent
       mockPrisma.studentParent.findMany.mockResolvedValue([
         { parent_id: 'parent-1' },
@@ -326,7 +447,11 @@ describe('AudienceResolutionService', () => {
       mockPrisma.parent.findMany
         .mockResolvedValueOnce([{ id: 'parent-1' }])
         .mockResolvedValueOnce([
-          buildMockParent({ id: 'parent-1', user_id: 'user-1', preferred_contact_channels: ['email'] }),
+          buildMockParent({
+            id: 'parent-1',
+            user_id: 'user-1',
+            preferred_contact_channels: ['email'],
+          }),
         ]);
       mockNotificationSettings(['email']);
 
@@ -337,15 +462,13 @@ describe('AudienceResolutionService', () => {
     });
 
     it('should intersect parent preferences with tenant notification settings', async () => {
-      mockPrisma.parent.findMany
-        .mockResolvedValueOnce([{ id: 'parent-1' }])
-        .mockResolvedValueOnce([
-          buildMockParent({
-            id: 'parent-1',
-            user_id: 'user-1',
-            preferred_contact_channels: ['email', 'sms', 'whatsapp'],
-          }),
-        ]);
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['email', 'sms', 'whatsapp'],
+        }),
+      ]);
       // Tenant only enables email and whatsapp
       mockNotificationSettings(['email', 'whatsapp']);
 
@@ -358,15 +481,13 @@ describe('AudienceResolutionService', () => {
     });
 
     it('should exclude channel if disabled at tenant level', async () => {
-      mockPrisma.parent.findMany
-        .mockResolvedValueOnce([{ id: 'parent-1' }])
-        .mockResolvedValueOnce([
-          buildMockParent({
-            id: 'parent-1',
-            user_id: 'user-1',
-            preferred_contact_channels: ['sms'],
-          }),
-        ]);
+      mockPrisma.parent.findMany.mockResolvedValueOnce([{ id: 'parent-1' }]).mockResolvedValueOnce([
+        buildMockParent({
+          id: 'parent-1',
+          user_id: 'user-1',
+          preferred_contact_channels: ['sms'],
+        }),
+      ]);
       // Tenant only enables email — sms not enabled
       mockNotificationSettings(['email']);
 

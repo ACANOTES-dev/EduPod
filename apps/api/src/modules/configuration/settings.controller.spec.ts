@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
 
@@ -22,19 +23,21 @@ describe('SettingsController', () => {
   let mockService: {
     getSettings: jest.Mock;
     updateSettings: jest.Mock;
+    getModuleSettings: jest.Mock;
+    updateModuleSettings: jest.Mock;
   };
 
   beforeEach(async () => {
     mockService = {
       getSettings: jest.fn(),
       updateSettings: jest.fn(),
+      getModuleSettings: jest.fn(),
+      updateModuleSettings: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SettingsController],
-      providers: [
-        { provide: SettingsService, useValue: mockService },
-      ],
+      providers: [{ provide: SettingsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -47,6 +50,8 @@ describe('SettingsController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
+  // ─── GET /v1/settings ───────────────────────────────────────────────────────
+
   it('should call settingsService.getSettings with tenant_id', async () => {
     const expected = { academic_year_start: 9, grading_scale: 'percentage' };
     mockService.getSettings.mockResolvedValue(expected);
@@ -56,6 +61,8 @@ describe('SettingsController', () => {
     expect(mockService.getSettings).toHaveBeenCalledWith(TENANT_ID);
     expect(result).toEqual(expected);
   });
+
+  // ─── PATCH /v1/settings ─────────────────────────────────────────────────────
 
   it('should call settingsService.updateSettings with tenant_id and dto', async () => {
     const dto = { academic_year_start: 1 };
@@ -72,5 +79,50 @@ describe('SettingsController', () => {
     mockService.getSettings.mockRejectedValue(new Error('DB failure'));
 
     await expect(controller.getSettings(tenantCtx)).rejects.toThrow('DB failure');
+  });
+
+  // ─── GET /v1/settings/:moduleKey ────────────────────────────────────────────
+
+  describe('getModuleSettings', () => {
+    it('should call settingsService.getModuleSettings with valid module key', async () => {
+      const expected = { allowTeacherAmendment: true };
+      mockService.getModuleSettings.mockResolvedValue(expected);
+
+      const result = await controller.getModuleSettings(tenantCtx, 'attendance');
+
+      expect(mockService.getModuleSettings).toHaveBeenCalledWith(TENANT_ID, 'attendance');
+      expect(result).toEqual(expected);
+    });
+
+    it('should throw BadRequestException for invalid module key', async () => {
+      await expect(controller.getModuleSettings(tenantCtx, 'nonexistent')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockService.getModuleSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── PATCH /v1/settings/:moduleKey ──────────────────────────────────────────
+
+  describe('updateModuleSettings', () => {
+    it('should call settingsService.updateModuleSettings with valid module key', async () => {
+      const dto = { allowTeacherAmendment: true };
+      const expected = { settings: { allowTeacherAmendment: true }, warnings: [] };
+      mockService.updateModuleSettings.mockResolvedValue(expected);
+
+      const result = await controller.updateModuleSettings(tenantCtx, 'attendance', dto);
+
+      expect(mockService.updateModuleSettings).toHaveBeenCalledWith(TENANT_ID, 'attendance', dto);
+      expect(result).toEqual(expected);
+    });
+
+    it('should throw BadRequestException for invalid module key', async () => {
+      await expect(controller.updateModuleSettings(tenantCtx, 'nonexistent', {})).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(mockService.updateModuleSettings).not.toHaveBeenCalled();
+    });
   });
 });

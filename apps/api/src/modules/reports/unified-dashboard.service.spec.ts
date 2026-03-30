@@ -1,23 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
+import { ReportsDataAccessService } from './reports-data-access.service';
 import { UnifiedDashboardService } from './unified-dashboard.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 describe('UnifiedDashboardService', () => {
   let service: UnifiedDashboardService;
-  let mockPrisma: {
-    student: { count: jest.Mock };
-    staffProfile: { count: jest.Mock };
-    attendanceRecord: { groupBy: jest.Mock };
-    invoice: { count: jest.Mock; aggregate: jest.Mock };
-    grade: { aggregate: jest.Mock };
-    studentAcademicRiskAlert: { count: jest.Mock };
-    application: { count: jest.Mock };
-    schedule: { count: jest.Mock };
+  let mockDataAccess: {
+    countStudents: jest.Mock;
+    countStaff: jest.Mock;
+    groupAttendanceRecordsBy: jest.Mock;
+    countInvoices: jest.Mock;
+    aggregateInvoices: jest.Mock;
+    aggregateGrades: jest.Mock;
+    countStudentAcademicRiskAlerts: jest.Mock;
+    countApplications: jest.Mock;
+    countSchedules: jest.Mock;
   };
   let mockRedisClient: { get: jest.Mock; setex: jest.Mock; del: jest.Mock };
 
@@ -28,33 +29,28 @@ describe('UnifiedDashboardService', () => {
       del: jest.fn().mockResolvedValue(1),
     };
 
-    mockPrisma = {
-      student: { count: jest.fn().mockResolvedValue(100) },
-      staffProfile: { count: jest.fn().mockResolvedValue(20) },
-      attendanceRecord: {
-        groupBy: jest.fn().mockResolvedValue([
-          { status: 'present', _count: 80 },
-          { status: 'absent', _count: 20 },
-        ]),
-      },
-      invoice: {
-        count: jest.fn().mockResolvedValue(5),
-        aggregate: jest.fn()
-          .mockResolvedValueOnce({ _sum: { balance_amount: 2000 } }) // outstanding balance
-          .mockResolvedValueOnce({ _sum: { total_amount: 10000, balance_amount: 2000 } }), // collection rate
-      },
-      grade: {
-        aggregate: jest.fn().mockResolvedValue({ _avg: { raw_score: 75.5 } }),
-      },
-      studentAcademicRiskAlert: { count: jest.fn().mockResolvedValue(3) },
-      application: { count: jest.fn().mockResolvedValue(12) },
-      schedule: { count: jest.fn().mockResolvedValue(10) },
+    mockDataAccess = {
+      countStudents: jest.fn().mockResolvedValue(100),
+      countStaff: jest.fn().mockResolvedValue(20),
+      groupAttendanceRecordsBy: jest.fn().mockResolvedValue([
+        { status: 'present', _count: 80 },
+        { status: 'absent', _count: 20 },
+      ]),
+      countInvoices: jest.fn().mockResolvedValue(5),
+      aggregateInvoices: jest
+        .fn()
+        .mockResolvedValueOnce({ _sum: { balance_amount: 2000 } }) // outstanding balance
+        .mockResolvedValueOnce({ _sum: { total_amount: 10000, balance_amount: 2000 } }), // collection rate
+      aggregateGrades: jest.fn().mockResolvedValue({ _avg: { raw_score: 75.5 } }),
+      countStudentAcademicRiskAlerts: jest.fn().mockResolvedValue(3),
+      countApplications: jest.fn().mockResolvedValue(12),
+      countSchedules: jest.fn().mockResolvedValue(10),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UnifiedDashboardService,
-        { provide: PrismaService, useValue: mockPrisma },
+        { provide: ReportsDataAccessService, useValue: mockDataAccess },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
       ],
     }).compile();
@@ -104,7 +100,7 @@ describe('UnifiedDashboardService', () => {
   });
 
   it('should return null attendance_rate when no attendance records', async () => {
-    mockPrisma.attendanceRecord.groupBy.mockResolvedValue([]);
+    mockDataAccess.groupAttendanceRecordsBy.mockResolvedValue([]);
 
     const result = await service.getKpiDashboard(TENANT_ID);
 
@@ -112,9 +108,10 @@ describe('UnifiedDashboardService', () => {
   });
 
   it('should return null fee_collection_rate when total_amount is zero', async () => {
-    // Reset the mock fully to override the Once queue from beforeEach
-    mockPrisma.invoice.aggregate.mockReset();
-    mockPrisma.invoice.aggregate.mockResolvedValue({ _sum: { balance_amount: null, total_amount: null } });
+    mockDataAccess.aggregateInvoices.mockReset();
+    mockDataAccess.aggregateInvoices.mockResolvedValue({
+      _sum: { balance_amount: null, total_amount: null },
+    });
 
     const result = await service.getKpiDashboard(TENANT_ID);
 
@@ -127,9 +124,8 @@ describe('UnifiedDashboardService', () => {
 
     const result = await service.getKpiDashboard(TENANT_ID);
 
-    // Should return cached value without hitting DB
     expect(result.total_students).toBe(999);
-    expect(mockPrisma.student.count).not.toHaveBeenCalled();
+    expect(mockDataAccess.countStudents).not.toHaveBeenCalled();
   });
 
   it('should invalidate cache on invalidateCache call', async () => {

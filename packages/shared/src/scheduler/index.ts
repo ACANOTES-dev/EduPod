@@ -1,9 +1,4 @@
-export { solve } from './solver';
-export type { SolverOptions } from './solver';
-export * from './types';
 export * from './types-v2';
-export { checkHardConstraints } from './constraints';
-export { scorePreferences } from './preferences';
 export { solveV2 } from './solver-v2';
 export type { SolverOptionsV2 } from './solver-v2';
 export { checkHardConstraintsV2 } from './constraints-v2';
