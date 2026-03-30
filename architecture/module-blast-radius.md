@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-29
+> **Last verified**: 2026-03-30
 
 ---
 
@@ -177,7 +177,7 @@ These modules have NO downstream dependents. Changes are contained:
 
 ### RegulatoryModule
 
-- **Last verified**: 2026-03-29
+- **Last verified**: 2026-03-30
 - **Exports**: `RegulatoryCalendarService`, `RegulatorySubmissionService`, `RegulatoryDashboardService`, `RegulatoryTuslaService`, `RegulatoryDesService`, `RegulatoryOctoberReturnsService`, `RegulatoryPpodService`, `RegulatoryCbaService`, `RegulatoryDesMappingsService`, `RegulatoryTuslaMappingsService`, `RegulatoryReducedDaysService`, `RegulatoryTransfersService`
 - **Controllers**: 1 controller (RegulatoryController) — Phases A–E: calendar CRUD, submission CRUD, Tusla compliance, DES returns, October returns, PPOD/POD sync, CBA sync, transfers, dashboard
 - **Imports**: `AuthModule`, `S3Module`
@@ -195,7 +195,7 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 
 ### BehaviourModule
 
-- **Last verified**: 2026-03-27
+- **Last verified**: 2026-03-30
 - **Exports** (28 services): `BehaviourService`, `BehaviourConfigService`, `BehaviourStudentsService`, `BehaviourTasksService`, `BehaviourHistoryService`, `BehaviourScopeService`, `BehaviourQuickLogService`, `BehaviourPointsService`, `BehaviourAwardService`, `BehaviourRecognitionService`, `BehaviourHouseService`, `BehaviourInterventionsService`, `BehaviourGuardianRestrictionsService`, `PolicyRulesService`, `PolicyEvaluationEngine`, `PolicyReplayService`, `SafeguardingService`, `SafeguardingAttachmentService`, `SafeguardingBreakGlassService`, `BehaviourSanctionsService`, `BehaviourAppealsService`, `BehaviourExclusionCasesService`, `BehaviourExportService`, `BehaviourAmendmentsService`, `BehaviourPulseService`, `BehaviourAnalyticsService`, `BehaviourAlertsService`, `BehaviourAIService`, `BehaviourDocumentService`, `BehaviourDocumentTemplateService`, `BehaviourParentService`, `BehaviourLegalHoldService`, `BehaviourAdminService`
 - **Controllers**: 17 controllers, 214 endpoints total:
   - `BehaviourController` (21) — core incident CRUD, quick-log
@@ -286,10 +286,10 @@ Known Prisma-direct consumers:
 
 **Location**: `apps/api/src/modules/early-warning/early-warning.module.ts`
 
-- **Exports**: `EarlyWarningTriggerService`, `EarlyWarningRoutingService`, 5× signal collectors
+- **Exports**: `EarlyWarningService`, `EarlyWarningConfigService`, `EarlyWarningCohortService`, `EarlyWarningTriggerService`, `EarlyWarningRoutingService`, 5× signal collectors (`AttendanceSignalCollector`, `BehaviourSignalCollector`, `EngagementSignalCollector`, `GradesSignalCollector`, `WellbeingSignalCollector`)
 - **Consumed by**:
   - Worker: `evaluate-policy.processor.ts` (behaviour module), `notify-concern.processor.ts` (pastoral module), `attendance-pattern-detection.processor.ts` (attendance module) — all enqueue `early-warning:compute-student` jobs directly onto the EARLY_WARNING queue
-  - API: Phase E (upcoming) — `EarlyWarningController`, `EarlyWarningService` will consume routing and trigger services
+  - API: `EarlyWarningController` and `EarlyWarningService` are IMPLEMENTED (not upcoming) — the controller and service are registered in the module
 - **Consumes**:
   - `PrismaModule` → `PrismaService` (DB access for signal collectors, routing resolution, trigger config checks)
   - `BullModule` → `early-warning` queue (for `EarlyWarningTriggerService` to enqueue compute-student jobs)
@@ -305,6 +305,7 @@ Known Prisma-direct consumers:
 ---
 
 ### HomeworkModule
+
 **Location**: `apps/api/src/modules/homework/homework.module.ts`
 **Registered in**: `apps/api/src/app.module.ts`
 
@@ -323,7 +324,40 @@ Known Prisma-direct consumers:
 **Imports**: AuthModule, S3Module, BullModule
 
 **Reverse Blast Radius**:
+
 - Changes to `classes`, `students`, `subjects`, `academic_years`, `academic_periods` schema affect homework queries
 - Changes to `student_parents` affect parent portal visibility
 - Changes to `tenant_settings` schema affect homework settings
 - Communications queue changes affect digest/reminder notifications
+
+---
+
+## PastoralModule
+
+**Location**: `apps/api/src/modules/pastoral/pastoral.module.ts`
+
+- **Exports** (17 services): `AffectedTrackingService`, `CaseService`, `CheckinService`, `ConcernService`, `ConcernVersionService`, `CriticalIncidentService`, `InterventionService`, `NepsVisitService`, `ParentContactService`, `PastoralDsarService`, `PastoralEventService`, `PastoralNotificationService`, `PastoralReportService`, `ReferralService`, `SstService`, `StudentChronologyService`
+- **Controllers** (14): `CasesController`, `CheckinAdminController`, `CheckinConfigController`, `CheckinsController`, `ConcernsController`, `CriticalIncidentsController`, `InterventionsController`, `ParentContactsController`, `ParentPastoralController`, `PastoralAdminController`, `PastoralDsarController`, `PastoralImportController`, `PastoralReportsController`, `ReferralsController`, `SstController`
+- **Imports**: `AuthModule`, `forwardRef(() => ChildProtectionModule)` (circular — CP module imports Pastoral), `CommunicationsModule`, `PdfRenderingModule`, `TenantsModule`, `BullModule.registerQueue('pastoral')`, `BullModule.registerQueue('notifications')`
+- **Consumed by**:
+  - `EarlyWarningModule` worker processors read `pastoral_cases` and `pastoral_interventions` via Prisma direct
+  - `ChildProtectionModule` uses `forwardRef(PastoralModule)` for CP record linking to pastoral concerns
+- **Blast radius**: HIGH. PastoralModule contains the full pastoral care system — concerns, cases, SST meetings, referrals, child protection liaison, check-ins, critical incidents, and DSAR traversal. Changes to exported services affect CP records, early-warning signal collection, and Pastoral DSAR export.
+- **Cross-module Prisma-direct reads**: `students`, `student_parents`, `parents`, `class_enrolments`, `class_staff`, `staff_profiles`, `academic_years`, `academic_periods`, `school_closures`, `tenant_settings`, `memberships`, `behaviour_incidents`, `behaviour_sanctions`, `safeguarding_concerns`
+- **Queues**: `pastoral` queue (8 job processors): `pastoral:notify-concern`, `pastoral:escalation-timeout`, `pastoral:checkin-alert`, `pastoral:intervention-review-reminder`, `pastoral:overdue-actions`, `pastoral:precompute-agenda`, `pastoral:sync-behaviour-safeguarding`, `pastoral:wellbeing-flag-expiry`
+- **Circular dependency**: `PastoralModule` ↔ `ChildProtectionModule` via `forwardRef()`. This is intentional — CP records link to pastoral concerns, and pastoral concerns can escalate to CP. If either module removes `forwardRef`, NestJS will throw a circular dependency error at startup.
+- **State machines**: CaseStatus (`open → active → monitoring → resolved → closed`), ReferralStatus (8 states), SstMeetingStatus, CriticalIncidentStatus, PastoralInterventionStatus, ReferralRecommendationStatus — all guarded within respective service files.
+
+---
+
+## ChildProtectionModule
+
+**Location**: `apps/api/src/modules/child-protection/child-protection.module.ts`
+
+- **Exports**: `CpAccessService`, `CpExportService`, `CpRecordService`
+- **Controllers** (3): `CpAccessController`, `CpExportController`, `CpRecordsController`
+- **Imports**: `AuthModule`, `forwardRef(() => PastoralModule)`, `PdfRenderingModule`, `TenantsModule`
+- **Consumed by**: None externally — self-contained child protection record system
+- **Blast radius**: MEDIUM. Changes to `CpRecordService` affect CP record creation/linking from pastoral concerns. Changes to `CpAccessService` affect the break-glass style CP access guard (`CpAccessGuard`).
+- **Cross-module Prisma-direct reads**: `pastoral_concerns` (via PastoralModule forwardRef), `staff_profiles`, `students`, `memberships`
+- **Circular dependency**: See PastoralModule entry above — `ChildProtectionModule` ↔ `PastoralModule` via `forwardRef()`.

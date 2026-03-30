@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **80 job types**, **27 cron jobs**
+- **19 queues**, **~53 documented job types**, **29 cron registrations** (28 by pattern + 1 by interval)
 
 ---
 
@@ -38,22 +38,26 @@ User approves request
 ### Side effects per approval type:
 
 **announcement_publish**:
+
 1. Worker processor marks announcement as `published`
 2. Enqueues `communications:dispatch-notifications` for all audience members
 3. Notifications sent via configured channels (email/whatsapp/in_app)
 
 **invoice_issue**:
+
 1. Worker processor marks invoice as `issued`
 2. Sets `issued_at` timestamp
 3. (Overdue detection cron will later flag if unpaid)
 
 **payroll_finalise**:
+
 1. Worker processor marks payroll run as `finalised`
 2. Generates payslip numbers via SequenceService for each entry
 3. Creates individual payslip records
 4. (Mass export can then be triggered separately)
 
 ### Danger: Adding a new approval type requires:
+
 1. Add to `ApprovalActionType` enum in Prisma schema
 2. Add to `MODE_A_CALLBACKS` in approval-requests.service.ts
 3. Create worker processor for the callback job
@@ -65,6 +69,7 @@ User approves request
 ## Job Flow Diagrams
 
 ### Announcement Publishing Flow
+
 ```
 AnnouncementsService.publish()
   |-- if requires_approval:
@@ -81,6 +86,7 @@ AnnouncementsService.publish()
 ```
 
 ### Attendance Session Flow
+
 ```
 Cron / manual trigger
   -> attendance queue: attendance:generate-sessions
@@ -103,6 +109,7 @@ Cron trigger
 ```
 
 ### Finance Flow
+
 ```
 InvoicesService.issue()
   |-- if requires_approval:
@@ -120,6 +127,7 @@ Cron trigger
 ```
 
 ### Payroll Flow
+
 ```
 PayrollRunsService.finalise()
   |-- if requires_approval:
@@ -144,6 +152,7 @@ PayslipsService.massExport()
 ```
 
 ### Scheduling Flow
+
 ```
 SchedulerOrchestrationService.solve()
   -> scheduling queue: scheduling:solve-v2
@@ -158,6 +167,7 @@ Cron trigger
 ```
 
 ### Import Flow
+
 ```
 ImportService.upload()
   -> imports queue: imports:validate
@@ -177,6 +187,7 @@ Cron trigger
 ```
 
 ### Gradebook Cron Flows
+
 ```
 Daily 02:00 UTC
   -> gradebook queue: gradebook:detect-risks
@@ -194,6 +205,7 @@ Daily 03:00 UTC
 ```
 
 ### Search Sync Flow
+
 ```
 Any entity mutation (create/update/delete)
   -> search-sync queue: search:index-entity
@@ -207,6 +219,7 @@ Admin-triggered
 ```
 
 ### Compliance Flow
+
 ```
 ComplianceService.approve()
   -> imports queue: compliance:execute  (NOTE: shares imports queue)
@@ -218,21 +231,27 @@ ComplianceService.approve()
 
 ## Queue Configuration Reference
 
-| Queue | Max Retries | Backoff | Notes |
-|-------|------------|---------|-------|
-| admissions | default | default | |
-| approvals | 2 | 10s exponential | 1 job type: callback-reconciliation (cron 04:30 UTC). Reconciles stuck approval callbacks. |
-| attendance | 3 | 5s exponential | |
-| notifications | 5 | 3s exponential | Higher retries for delivery |
-| search-sync | 3 | 2s exponential | |
-| scheduling | 2 | 10s exponential | Solver is expensive, fewer retries |
-| gradebook | 3 | 5s exponential | |
-| finance | 3 | 5s exponential | |
-| payroll | 3 | 5s exponential | |
-| imports | 3 | 5s exponential | Also handles compliance jobs |
-| reports | 3 | 5s exponential | No processors yet (future use) |
-| wellbeing | 3 | 5s exponential | 5 job types: moderation-scan (on submit), survey-open-notify (on activate), survey-closing-reminder (cron 08:00), cleanup-participation-tokens (cron 05:00), eap-refresh-check (cron 06:00) |
-| behaviour | 3 | 5s exponential | 23 job types: cron dispatch (daily/SLA/monthly), policy evaluation, pattern detection, MV refreshes (3), parent notification, digest notifications, task reminders, suspension return, check awards, attachment scan, break-glass expiry, SLA check, critical escalation, guardian restriction check, retention check, partition maintenance |
+| Queue         | Max Retries | Backoff         | Notes                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------- | ----------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| admissions    | default     | default         |                                                                                                                                                                                                                                                                                                                                                                                          |
+| approvals     | 2           | 10s exponential | 1 job type: callback-reconciliation (cron 04:30 UTC). Reconciles stuck approval callbacks.                                                                                                                                                                                                                                                                                               |
+| attendance    | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
+| behaviour     | 3           | 5s exponential  | 23+ job types: cron dispatch (daily/SLA/monthly), policy evaluation, pattern detection, MV refreshes (3), parent notification, digest notifications, task reminders, suspension return, check awards, attachment scan, break-glass expiry, SLA check, critical escalation, guardian restriction check, retention check, partition maintenance                                            |
+| compliance    | 2           | 10s exponential | 2 job types: compliance:execute (on-demand erasure/anonymisation), data-retention:enforce (cron weekly Sunday 03:00), compliance:deadline-check (cron daily 06:00). NOTE: compliance:execute still routes through imports queue (legacy).                                                                                                                                                |
+| early-warning | 3           | 5s exponential  | 3 job types: early-warning:compute-daily (cron daily 01:00 UTC), early-warning:compute-student (on-demand, triggered by evaluate-policy/notify-concern/attendance-pattern-detection), early-warning:weekly-digest (cron daily 07:00 UTC)                                                                                                                                                 |
+| finance       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
+| gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
+| homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |
+| imports       | 3           | 5s exponential  | Also handles compliance:execute jobs (legacy routing)                                                                                                                                                                                                                                                                                                                                    |
+| notifications | 5           | 3s exponential  | Higher retries for delivery                                                                                                                                                                                                                                                                                                                                                              |
+| pastoral      | 3           | 5s exponential  | 8 job types: pastoral:notify-concern (on concern creation), pastoral:escalation-timeout (on concern escalation), pastoral:checkin-alert (on check-in flag), pastoral:intervention-review-reminder (cron), pastoral:overdue-actions (cron), pastoral:precompute-agenda (on SST scheduling), pastoral:sync-behaviour-safeguarding (on sync trigger), pastoral:wellbeing-flag-expiry (cron) |
+| payroll       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
+| regulatory    | 3           | 5s exponential  | 5 job types: 2 cron (deadline-check 07:00, tusla-threshold-scan 06:00), 3 on-demand (generate-des-files, ppod-sync, ppod-import)                                                                                                                                                                                                                                                         |
+| reports       | 3           | 5s exponential  | No processors yet (future use)                                                                                                                                                                                                                                                                                                                                                           |
+| scheduling    | 2           | 10s exponential | Solver is expensive, fewer retries                                                                                                                                                                                                                                                                                                                                                       |
+| search-sync   | 3           | 2s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
+| security      | 2           | 10s exponential | 3 job types: security:anomaly-scan (cron every 15 min), security:breach-deadline (cron hourly), security:key-rotation (on-demand)                                                                                                                                                                                                                                                        |
+| wellbeing     | 3           | 5s exponential  | 6 job types: moderation-scan (on submit), survey-open-notify (on activate), survey-closing-reminder (cron 08:00), cleanup-participation-tokens (cron 05:00), eap-refresh-check (cron 06:00), compute-workload-metrics (cron daily 04:00 UTC)                                                                                                                                             |
 
 ---
 
@@ -245,6 +264,7 @@ ComplianceService.approve()
 **Processor**: `apps/worker/src/processors/behaviour/parent-notification.processor.ts`
 
 **Side effects chain**:
+
 ```
 Incident created with parent notification required
   -> behaviour:parent-notification enqueued to notifications queue
@@ -270,6 +290,7 @@ Incident created with parent notification required
 **Processor**: `apps/worker/src/processors/behaviour/task-reminders.processor.ts`
 
 **Side effects chain**:
+
 ```
 Cron fires daily at 08:00 tenant TZ
   -> For each pending task with due_date <= today && reminder_sent_at IS NULL:
@@ -400,6 +421,7 @@ Cron fires daily at 08:00 tenant TZ
 **Timeout**: 30s
 
 **Side effects chain**:
+
 ```
 Incident created / participant added
   -> behaviour:evaluate-policy enqueued to behaviour queue
@@ -439,6 +461,7 @@ Incident created / participant added
 **Added in**: Phase C
 
 **Side effects chain**:
+
 ```
 Daily cron fires at 07:00
   -> behaviour:suspension-return enqueued per tenant
@@ -467,6 +490,7 @@ Daily cron fires at 07:00
 **Added in**: Phase F
 
 **Side effects chain**:
+
 ```
 Daily cron fires at 05:00 UTC
   -> behaviour:detect-patterns enqueued per tenant
@@ -492,6 +516,7 @@ Daily cron fires at 05:00 UTC
 **Added in**: Phase G
 
 **Side effects chain**:
+
 ```
 Cron fires at tenant digest time
   -> behaviour:digest-notifications enqueued per tenant
@@ -520,6 +545,7 @@ Cron fires at tenant digest time
 **Added in**: Phase D
 
 **Side effects chain**:
+
 ```
 Attachment uploaded
   -> behaviour:attachment-scan enqueued to behaviour queue
@@ -548,6 +574,7 @@ Attachment uploaded
 **Added in**: Phase D — **activated in Batch 3 (issue #3.3)**
 
 **Side effects chain**:
+
 ```
 Daily at 00:00 UTC (via behaviour:cron-dispatch-daily hourly runner)
   -> behaviour:break-glass-expiry enqueued per tenant
@@ -576,6 +603,7 @@ Daily at 00:00 UTC (via behaviour:cron-dispatch-daily hourly runner)
 **Added in**: Phase E
 
 **Side effects chain**:
+
 ```
 Positive incident created with status = active
   -> behaviour:check-awards enqueued to behaviour queue
@@ -611,6 +639,7 @@ Positive incident created with status = active
 **Added in**: Phase D, fixed in SP3
 
 **Side effects chain**:
+
 ```
 Critical concern reported OR previous escalation step completed
   -> safeguarding:critical-escalation enqueued to behaviour queue
@@ -643,6 +672,7 @@ Critical concern reported OR previous escalation step completed
 **Added in**: Phase G
 
 **Side effects chain**:
+
 ```
 Daily cron dispatch at 06:00 UTC
   -> behaviour:guardian-restriction-check enqueued per tenant
@@ -675,6 +705,7 @@ Daily cron dispatch at 06:00 UTC
 **Added in**: Phase D
 
 **Side effects chain**:
+
 ```
 SLA cron dispatch every 5 minutes
   -> safeguarding:sla-check enqueued per tenant
@@ -707,6 +738,7 @@ SLA cron dispatch every 5 minutes
 **Added in**: SP1
 
 **Side effects chain**:
+
 ```
 Hourly cron fires
   -> Query all active tenants with behaviour module enabled
@@ -733,6 +765,7 @@ Hourly cron fires
 **Added in**: SP1
 
 **Side effects chain**:
+
 ```
 Every 5 minutes cron fires
   -> Query all active tenants with behaviour module enabled
@@ -753,6 +786,7 @@ Every 5 minutes cron fires
 **Added in**: SP1
 
 **Side effects chain**:
+
 ```
 Monthly cron fires on 1st at 01:00 UTC
   -> Query all active tenants with behaviour module enabled
@@ -773,6 +807,7 @@ Monthly cron fires on 1st at 01:00 UTC
 **Added in**: SP2
 
 **Side effects chain**:
+
 ```
 Every 30 seconds cron fires
   -> Cross-tenant query (no RLS): find notifications WHERE
@@ -799,6 +834,7 @@ Every 30 seconds cron fires
 **Added in**: Phase F
 
 **Side effects chain**:
+
 ```
 Cron fires every 15 minutes
   -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary
@@ -818,6 +854,7 @@ Cron fires every 15 minutes
 **Added in**: Phase F
 
 **Side effects chain**:
+
 ```
 Daily cron fires at 03:00 UTC
   -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks
@@ -837,6 +874,7 @@ Daily cron fires at 03:00 UTC
 **Added in**: Phase F
 
 **Side effects chain**:
+
 ```
 Daily cron fires at 02:00 UTC
   -> REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates
@@ -856,6 +894,7 @@ Daily cron fires at 02:00 UTC
 **Added in**: Phase H
 
 **Side effects chain**:
+
 ```
 Monthly cron or admin trigger
   -> Pass 1: Archival — marks records for left students as 'archived' (retention_status)
@@ -879,6 +918,7 @@ Monthly cron or admin trigger
 **Added in**: Phase H
 
 **Side effects chain**:
+
 ```
 Monthly cron fires at 00:00 UTC
   -> Creates next 3 months of partitions for monthly-partitioned tables
@@ -903,6 +943,7 @@ Monthly cron fires at 00:00 UTC
 **Added in**: Phase J
 
 **Side effects chain**:
+
 ```
 Cron fires every 15 minutes
   -> Runs 7 detection rules against audit_logs table:
@@ -934,6 +975,7 @@ Cron fires every 15 minutes
 **Added in**: Phase J
 
 **Side effects chain**:
+
 ```
 Hourly cron fires
   -> Finds all open high/critical incidents (status not in [resolved, closed])
@@ -959,6 +1001,7 @@ Hourly cron fires
 **Added in**: Phase I
 
 **Side effects chain**:
+
 ```
 Weekly cron fires
   -> Iterates all active tenants
@@ -989,6 +1032,7 @@ Weekly cron fires
 **Added in**: Phase F
 
 **Side effects chain**:
+
 ```
 Daily cron fires
   -> Iterates all active tenants
@@ -1094,49 +1138,49 @@ Daily cron fires
 
 ### `homework:overdue-detection`
 
-| Field | Value |
-|-------|-------|
-| **Processor** | `HomeworkOverdueDetectionProcessor` (`processors/homework/overdue-detection.processor.ts`) |
-| **Pattern** | Cross-tenant cron |
-| **Cron** | Daily 06:00 UTC (`0 6 * * *`) |
-| **Payload** | `{}` (iterates all active tenants with homework enabled) |
-| **jobId** | `cron:homework:overdue-detection` |
-| **Logic** | Per tenant: parses `homeworkSettingsSchema`, skips if `overdue_notification_enabled` is false. Finds published assignments where `due_date < today`, finds students with `not_started`/`in_progress` completion status, creates in-app notifications for active parents. Idempotency: skips if notification exists for same assignment+parent in last 24h. |
-| **Side effects** | Creates `notification` rows (in-app, template_key `homework_overdue`) |
+| Field            | Value                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Processor**    | `HomeworkOverdueDetectionProcessor` (`processors/homework/overdue-detection.processor.ts`)                                                                                                                                                                                                                                                                 |
+| **Pattern**      | Cross-tenant cron                                                                                                                                                                                                                                                                                                                                          |
+| **Cron**         | Daily 06:00 UTC (`0 6 * * *`)                                                                                                                                                                                                                                                                                                                              |
+| **Payload**      | `{}` (iterates all active tenants with homework enabled)                                                                                                                                                                                                                                                                                                   |
+| **jobId**        | `cron:homework:overdue-detection`                                                                                                                                                                                                                                                                                                                          |
+| **Logic**        | Per tenant: parses `homeworkSettingsSchema`, skips if `overdue_notification_enabled` is false. Finds published assignments where `due_date < today`, finds students with `not_started`/`in_progress` completion status, creates in-app notifications for active parents. Idempotency: skips if notification exists for same assignment+parent in last 24h. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_overdue`)                                                                                                                                                                                                                                                                                      |
 
 ### `homework:generate-recurring`
 
-| Field | Value |
-|-------|-------|
-| **Processor** | `HomeworkGenerateRecurringProcessor` (`processors/homework/generate-recurring.processor.ts`) |
-| **Pattern** | Cross-tenant cron |
-| **Cron** | Daily 05:00 UTC (`0 5 * * *`) |
-| **Payload** | `{}` (iterates all active tenants with homework enabled) |
-| **jobId** | `cron:homework:generate-recurring` |
-| **Logic** | Per tenant: checks `enabled` setting, skips school closure days, finds active `HomeworkRecurrenceRule` records matching today's weekday, creates `draft` assignments from template. Idempotency: skips if assignment already exists for today with same recurrence_rule_id. |
-| **Side effects** | Creates `homework_assignment` rows (status `draft`, `copied_from_id` → template) |
+| Field            | Value                                                                                                                                                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Processor**    | `HomeworkGenerateRecurringProcessor` (`processors/homework/generate-recurring.processor.ts`)                                                                                                                                                                                |
+| **Pattern**      | Cross-tenant cron                                                                                                                                                                                                                                                           |
+| **Cron**         | Daily 05:00 UTC (`0 5 * * *`)                                                                                                                                                                                                                                               |
+| **Payload**      | `{}` (iterates all active tenants with homework enabled)                                                                                                                                                                                                                    |
+| **jobId**        | `cron:homework:generate-recurring`                                                                                                                                                                                                                                          |
+| **Logic**        | Per tenant: checks `enabled` setting, skips school closure days, finds active `HomeworkRecurrenceRule` records matching today's weekday, creates `draft` assignments from template. Idempotency: skips if assignment already exists for today with same recurrence_rule_id. |
+| **Side effects** | Creates `homework_assignment` rows (status `draft`, `copied_from_id` → template)                                                                                                                                                                                            |
 
 ### `homework:digest-homework`
 
-| Field | Value |
-|-------|-------|
-| **Processor** | `HomeworkDigestProcessor` (`processors/homework/digest-homework.processor.ts`) |
-| **Pattern** | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at tenant digest hour) |
-| **Payload** | `{ tenant_id }` |
-| **jobId** | `daily:homework:digest-homework:{tenant_id}` |
-| **Logic** | Parses `homeworkSettingsSchema`, skips if `parent_digest_include_homework` is false. Finds published assignments with `due_date >= today`, maps students to assignments via class enrolments, builds per-parent digests with assignment deduplication, creates in-app notifications. |
-| **Side effects** | Creates `notification` rows (in-app, template_key `homework_digest`) |
+| Field            | Value                                                                                                                                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Processor**    | `HomeworkDigestProcessor` (`processors/homework/digest-homework.processor.ts`)                                                                                                                                                                                                       |
+| **Pattern**      | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at tenant digest hour)                                                                                                                                                                                    |
+| **Payload**      | `{ tenant_id }`                                                                                                                                                                                                                                                                      |
+| **jobId**        | `daily:homework:digest-homework:{tenant_id}`                                                                                                                                                                                                                                         |
+| **Logic**        | Parses `homeworkSettingsSchema`, skips if `parent_digest_include_homework` is false. Finds published assignments with `due_date >= today`, maps students to assignments via class enrolments, builds per-parent digests with assignment deduplication, creates in-app notifications. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_digest`)                                                                                                                                                                                                                 |
 
 ### `homework:completion-reminder`
 
-| Field | Value |
-|-------|-------|
-| **Processor** | `HomeworkCompletionReminderProcessor` (`processors/homework/completion-reminder.processor.ts`) |
-| **Pattern** | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at 15:00 tenant timezone) |
-| **Payload** | `{ tenant_id }` |
-| **jobId** | `daily:homework:completion-reminder:{tenant_id}` |
-| **Logic** | Parses `homeworkSettingsSchema`, skips if `completion_reminder_enabled` is false. Finds published assignments due tomorrow, identifies incomplete students (no completion record or status `not_started`/`in_progress`), creates in-app notifications for active parents. Idempotency: 24h window check. |
-| **Side effects** | Creates `notification` rows (in-app, template_key `homework_completion_reminder`) |
+| Field            | Value                                                                                                                                                                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Processor**    | `HomeworkCompletionReminderProcessor` (`processors/homework/completion-reminder.processor.ts`)                                                                                                                                                                                                           |
+| **Pattern**      | Per-tenant (dispatched by `BehaviourCronDispatchProcessor.dispatchDaily()` at 15:00 tenant timezone)                                                                                                                                                                                                     |
+| **Payload**      | `{ tenant_id }`                                                                                                                                                                                                                                                                                          |
+| **jobId**        | `daily:homework:completion-reminder:{tenant_id}`                                                                                                                                                                                                                                                         |
+| **Logic**        | Parses `homeworkSettingsSchema`, skips if `completion_reminder_enabled` is false. Finds published assignments due tomorrow, identifies incomplete students (no completion record or status `not_started`/`in_progress`), creates in-app notifications for active parents. Idempotency: 24h window check. |
+| **Side effects** | Creates `notification` rows (in-app, template_key `homework_completion_reminder`)                                                                                                                                                                                                                        |
 
 ---
 
@@ -1153,3 +1197,68 @@ Daily cron fires
 - **Side effects**: Scans `approval_requests` where `status = 'approved'` AND `callback_status IN ('pending', 'failed')` AND `callback_attempts < 5` AND `decided_at` older than 30 minutes. For each stuck request, re-enqueues the original callback job to the appropriate domain queue (finance, notifications, payroll) based on `action_type`. Increments `callback_attempts`. After 5 failed attempts, marks as permanently failed (`callback_status = 'failed'`, `callback_error` records exhaustion).
 - **Downstream**: Re-enqueues `finance:on-approval`, `communications:on-approval`, or `payroll:on-approval` to their respective domain queues.
 - **Danger**: Processes at most 100 stuck requests per run to avoid queue overload. The 30-minute stale threshold prevents racing with normal callback processing. Callback processors are idempotent (they check target entity status before acting), so duplicate re-enqueues are safe.
+
+---
+
+## Queue: `pastoral`
+
+> **Status**: Implemented. 8 job types.
+> **Retry**: 3 attempts, exponential backoff 5s, removeOnComplete 100, removeOnFail 500.
+> **Queue constant**: `QUEUE_NAMES.PASTORAL` in `apps/worker/src/base/queue.constants.ts`
+
+### Job: `pastoral:notify-concern`
+
+- **Trigger**: Enqueued by `ConcernService.createConcern()` on concern creation.
+- **Payload**: `{ tenant_id, concern_id, severity, student_id, student_name, category, logged_by_user_id }`
+- **Processor**: `NotifyConcernProcessor` (`apps/worker/src/processors/pastoral/notify-concern.processor.ts`)
+- **Side effects**: Dispatches notifications to relevant staff based on severity channel map (`routine → in_app`, `elevated/urgent → in_app + email`, `critical → in_app + email + whatsapp`). For `critical` severity: also enqueues `pastoral:escalation-timeout` with configurable delay. Also enqueues `early-warning:compute-student` for the student involved.
+
+### Job: `pastoral:escalation-timeout`
+
+- **Trigger**: Enqueued by `NotifyConcernProcessor` for critical concerns. May also be re-enqueued by itself on timeout.
+- **Payload**: `{ tenant_id, concern_id, escalation_step }`
+- **Processor**: `EscalationTimeoutProcessor` (`apps/worker/src/processors/pastoral/escalation-timeout.processor.ts`)
+- **Side effects**: Checks if concern is still unacknowledged. If so, notifies next escalation recipient. Self-re-enqueues with delay if chain not exhausted.
+- **Danger**: Similar self-re-enqueue pattern to `safeguarding:critical-escalation`. Re-enqueue happens OUTSIDE the Prisma transaction. If worker crashes between commit and re-enqueue, the chain silently stops.
+
+### Job: `pastoral:checkin-alert`
+
+- **Trigger**: Enqueued by `CheckinService` when a check-in is flagged.
+- **Payload**: `{ tenant_id, checkin_id, student_id, flag_type }`
+- **Processor**: `CheckinAlertProcessor` (`apps/worker/src/processors/pastoral/checkin-alert.processor.ts`)
+- **Side effects**: Creates in-app notifications for assigned pastoral staff and form tutor. May create a pastoral concern stub if flag_type indicates escalation.
+
+### Job: `pastoral:intervention-review-reminder`
+
+- **Trigger**: Cron — daily per tenant.
+- **Payload**: `{ tenant_id }`
+- **Processor**: `InterventionReviewReminderProcessor` (`apps/worker/src/processors/pastoral/intervention-review-reminder.processor.ts`)
+- **Side effects**: Finds active pastoral interventions past their review date. Creates in-app notifications for assigned staff.
+
+### Job: `pastoral:overdue-actions`
+
+- **Trigger**: Cron — daily per tenant.
+- **Payload**: `{ tenant_id }`
+- **Processor**: `OverdueActionsProcessor` (`apps/worker/src/processors/pastoral/overdue-actions.processor.ts`)
+- **Side effects**: Finds open pastoral actions past their due date. Transitions them to `overdue` status. Creates notifications for the assigned user.
+
+### Job: `pastoral:precompute-agenda`
+
+- **Trigger**: Enqueued when an SST meeting is scheduled.
+- **Payload**: `{ tenant_id, meeting_id }`
+- **Processor**: `PrecomputeAgendaProcessor` (`apps/worker/src/processors/pastoral/precompute-agenda.processor.ts`)
+- **Side effects**: Pre-computes the meeting agenda including linked concerns, interventions, and student chronology data for display at the meeting.
+
+### Job: `pastoral:sync-behaviour-safeguarding`
+
+- **Trigger**: Enqueued when a pastoral concern is linked to a safeguarding concern, or vice versa.
+- **Payload**: `{ tenant_id, concern_id, safeguarding_concern_id }`
+- **Processor**: `SyncBehaviourSafeguardingProcessor` (`apps/worker/src/processors/pastoral/sync-behaviour-safeguarding.processor.ts`)
+- **Side effects**: Synchronises status and resolution fields between linked pastoral and safeguarding records.
+
+### Job: `pastoral:wellbeing-flag-expiry`
+
+- **Trigger**: Cron — daily per tenant.
+- **Payload**: `{ tenant_id }`
+- **Processor**: `WellbeingFlagExpiryProcessor` (`apps/worker/src/processors/pastoral/wellbeing-flag-expiry.processor.ts`)
+- **Side effects**: Clears expired wellbeing flags on student check-ins after the configured retention window.
