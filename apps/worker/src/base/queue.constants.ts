@@ -6,6 +6,7 @@ export const QUEUE_NAMES = {
   EARLY_WARNING: 'early-warning',
   FINANCE: 'finance',
   GRADEBOOK: 'gradebook',
+  HOMEWORK: 'homework',
   IMPORTS: 'imports',
   NOTIFICATIONS: 'notifications',
   PASTORAL: 'pastoral',

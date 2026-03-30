@@ -154,6 +154,13 @@ export * from './regulatory';
 // Early Warning System
 export * from './early-warning';
 
+// Homework & Diary
+export * from './schemas/homework.schema';
+export * from './constants/homework-status';
+export * from './constants/homework-type';
+export * from './constants/completion-status';
+export * from './types/homework';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

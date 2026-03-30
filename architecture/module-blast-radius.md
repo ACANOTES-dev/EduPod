@@ -301,3 +301,23 @@ Known Prisma-direct consumers:
   - `behaviour` module: incident data read by the behaviour signal collector
   - `pastoral` module: concern/case data read by the wellbeing signal collector; `pastoral_interventions` table written to on red-tier entries
   - Schema changes to `class_staff`, `staff_profiles`, `membership_roles` affect recipient routing resolution
+
+---
+
+## HomeworkModule (Phase A — Foundation Only)
+
+**Location**: Not yet created (Phase B will create `apps/api/src/modules/homework/homework.module.ts`)
+
+- **Tables**: `homework_assignments`, `homework_attachments`, `homework_completions`, `homework_recurrence_rules`, `diary_notes`, `diary_parent_notes`
+- **Shared types**: `packages/shared/src/schemas/homework.schema.ts`, `types/homework.ts`, `constants/homework-status.ts`, `constants/homework-type.ts`, `constants/completion-status.ts`
+- **Queue**: `HOMEWORK` in `apps/worker/src/base/queue.constants.ts`
+- **Permissions**: `homework.view`, `homework.manage`, `homework.mark_own`, `homework.view_diary`, `homework.write_diary`, `homework.view_analytics`, `parent.homework`
+- **Tenant module key**: `homework` in `MODULE_KEYS`
+- **Tenant settings section**: `homework` in `tenantSettingsSchema`
+- **Reverse blast radius** (changes to these modules will affect homework):
+  - `classes` / `class_enrolments`: homework is scoped to classes
+  - `students`: homework completions reference students
+  - `subjects`: homework can be assigned to a subject
+  - `academic_years` / `academic_periods`: homework is scoped to academic year/period
+  - `users`: homework assigned_by and completion verified_by reference users
+  - `parents`: diary parent notes reference parents

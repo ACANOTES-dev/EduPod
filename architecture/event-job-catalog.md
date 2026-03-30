@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **17 queues**, **75 job types**, **24 cron jobs**
+- **18 queues**, **75 job types**, **24 cron jobs**
 
 ---
 
@@ -1078,3 +1078,16 @@ Daily cron fires
 - **Processor**: `WeeklyDigestProcessor` (`apps/worker/src/processors/early-warning/weekly-digest.processor.ts`)
 - **Side effects**: Builds tier distribution summary, identifies top at-risk students, counts week-over-week transitions. Creates `notifications` with `template_key: 'early_warning_weekly_digest'` and `channel: 'email'` for each recipient in `early_warning_configs.digest_recipients_json`.
 - **Downstream**: Reads from `student_risk_profiles`, `early_warning_tier_transitions`, `students`. Creates `notifications`.
+
+---
+
+## Homework Queue (`homework`)
+
+**Queue registered**: `QUEUE_NAMES.HOMEWORK` in `apps/worker/src/base/queue.constants.ts`
+**Queue value**: `'homework'`
+**Status**: Queue constant registered. Job processors will be implemented in Phase C.
+**Planned jobs** (Phase C):
+- `homework:overdue-detection` — Cron daily 06:00 UTC, finds published assignments past due_date
+- `homework:generate-recurring` — Cron daily 05:00 UTC, processes active recurrence rules
+- `homework:digest-homework` — Cron at tenant digest time, includes homework in parent daily digest
+- `homework:completion-reminder` — Cron daily 15:00 TZ, reminds students about homework due tomorrow

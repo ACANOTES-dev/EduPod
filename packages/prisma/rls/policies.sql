@@ -135,3 +135,56 @@ DROP POLICY IF EXISTS early_warning_configs_tenant_isolation ON early_warning_co
 CREATE POLICY early_warning_configs_tenant_isolation ON early_warning_configs
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
+-- Homework & Diary RLS Policies
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260330000000_add_homework_diary_tables/post_migrate.sql
+
+-- homework_assignments (standard)
+ALTER TABLE homework_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_assignments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_assignments_tenant_isolation ON homework_assignments;
+CREATE POLICY homework_assignments_tenant_isolation ON homework_assignments
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- homework_attachments (standard)
+ALTER TABLE homework_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_attachments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_attachments_tenant_isolation ON homework_attachments;
+CREATE POLICY homework_attachments_tenant_isolation ON homework_attachments
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- homework_completions (standard)
+ALTER TABLE homework_completions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_completions FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_completions_tenant_isolation ON homework_completions;
+CREATE POLICY homework_completions_tenant_isolation ON homework_completions
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- homework_recurrence_rules (standard)
+ALTER TABLE homework_recurrence_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE homework_recurrence_rules FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS homework_recurrence_rules_tenant_isolation ON homework_recurrence_rules;
+CREATE POLICY homework_recurrence_rules_tenant_isolation ON homework_recurrence_rules
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- diary_notes (standard)
+ALTER TABLE diary_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE diary_notes FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS diary_notes_tenant_isolation ON diary_notes;
+CREATE POLICY diary_notes_tenant_isolation ON diary_notes
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- diary_parent_notes (standard)
+ALTER TABLE diary_parent_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE diary_parent_notes FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS diary_parent_notes_tenant_isolation ON diary_parent_notes;
+CREATE POLICY diary_parent_notes_tenant_isolation ON diary_parent_notes
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);

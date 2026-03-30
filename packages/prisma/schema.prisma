@@ -714,6 +714,14 @@ model Tenant {
   early_warning_tier_transitions EarlyWarningTierTransition[]
   early_warning_configs          EarlyWarningConfig?
 
+  // Homework Relations
+  homework_assignments      HomeworkAssignment[]
+  homework_attachments      HomeworkAttachment[]
+  homework_completions      HomeworkCompletion[]
+  homework_recurrence_rules HomeworkRecurrenceRule[]
+  diary_notes               DiaryNote[]
+  diary_parent_notes        DiaryParentNote[]
+
   @@map("tenants")
 }
 
@@ -1055,9 +1063,14 @@ model User {
   reg_transfers_initiated  InterSchoolTransfer[]     @relation("reg_transfer_initiated_by")
 
   // Early Warning Relations
-  ew_risk_profiles_assigned      StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
-  ew_risk_profiles_acknowledged  StudentRiskProfile[]         @relation("ew_risk_profile_acknowledged_by")
-  ew_tier_transitions_routed_to  EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
+  ew_risk_profiles_assigned     StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
+  ew_risk_profiles_acknowledged StudentRiskProfile[]         @relation("ew_risk_profile_acknowledged_by")
+  ew_tier_transitions_routed_to EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
+
+  // Homework Relations
+  hw_assignments          HomeworkAssignment[] @relation("hw_assigned_by")
+  hw_verified_completions HomeworkCompletion[] @relation("hw_verified_by")
+  hw_diary_parent_notes   DiaryParentNote[]    @relation("hw_diary_note_author")
 
   @@map("users")
 }
@@ -1376,6 +1389,9 @@ model Parent {
   // Pastoral Care Relations
   pc_parent_contacts PastoralParentContact[] @relation("pc_parent_contact_parent")
 
+  // Homework Relations
+  hw_diary_parent_notes DiaryParentNote[]
+
   @@index([tenant_id], name: "idx_parents_tenant")
   @@index([tenant_id, email], name: "idx_parents_tenant_email")
   @@index([user_id], name: "idx_parents_user")
@@ -1498,6 +1514,11 @@ model Student {
   ew_risk_profiles    StudentRiskProfile[]         @relation("ew_risk_profile_student")
   ew_risk_signals     StudentRiskSignal[]          @relation("ew_risk_signal_student")
   ew_tier_transitions EarlyWarningTierTransition[] @relation("ew_tier_transition_student")
+
+  // Homework Relations
+  hw_completions        HomeworkCompletion[]
+  hw_diary_notes        DiaryNote[]
+  hw_diary_parent_notes DiaryParentNote[]
 
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
@@ -1630,6 +1651,9 @@ model AcademicYear {
   ew_risk_profiles StudentRiskProfile[] @relation("ew_risk_profile_academic_year")
   ew_risk_signals  StudentRiskSignal[]  @relation("ew_risk_signal_academic_year")
 
+  // Homework Relations
+  homework_assignments HomeworkAssignment[]
+
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
   @@map("academic_years")
@@ -1675,6 +1699,9 @@ model AcademicPeriod {
 
   // Behaviour Management Relations
   bh_incidents BehaviourIncident[] @relation("bh_incident_academic_period")
+
+  // Homework Relations
+  homework_assignments HomeworkAssignment[]
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
@@ -1762,6 +1789,9 @@ model Subject {
   // Regulatory Portal Relations
   reg_des_code_mappings DesSubjectCodeMapping[] @relation("reg_des_subject_mapping")
 
+  // Homework Relations
+  homework_assignments HomeworkAssignment[]
+
   @@unique([tenant_id, name], name: "idx_subjects_tenant_name")
   @@index([tenant_id], name: "idx_subjects_tenant")
   @@map("subjects")
@@ -1810,6 +1840,9 @@ model Class {
 
   // Report Cards Enhancement Relations
   report_card_batch_jobs ReportCardBatchJob[]
+
+  // Homework Relations
+  homework_assignments HomeworkAssignment[]
 
   @@unique([tenant_id, name, academic_year_id], name: "idx_classes_tenant_name_year")
   @@index([tenant_id, academic_year_id], name: "idx_classes_tenant_year")
@@ -5582,6 +5615,35 @@ enum CbaSyncStatus {
   cba_error   @map("error")
 }
 
+// ─── Homework & Diary Enums ────────────────────────────────────────────────
+
+enum HomeworkType {
+  written
+  reading
+  research
+  revision
+  project_work
+  online_activity
+}
+
+enum HomeworkStatus {
+  draft
+  published
+  archived
+}
+
+enum CompletionStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum RecurrenceFrequency {
+  daily
+  weekly
+  custom
+}
+
 // ─── Behaviour Management Models ────────────────────────────────────────────
 
 model BehaviourCategory {
@@ -7914,32 +7976,32 @@ model InterSchoolTransfer {
 // ─── Early Warning System ───────────────────────────────────────────────────
 
 model StudentRiskProfile {
-  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id           String               @db.Uuid
-  student_id          String               @db.Uuid
-  academic_year_id    String               @db.Uuid
-  composite_score     Decimal              @default(0) @db.Decimal(5, 2)
-  risk_tier           EarlyWarningRiskTier @default(green)
-  tier_entered_at     DateTime?            @db.Timestamptz(6)
-  attendance_score    Decimal              @default(0) @db.Decimal(5, 2)
-  grades_score        Decimal              @default(0) @db.Decimal(5, 2)
-  behaviour_score     Decimal              @default(0) @db.Decimal(5, 2)
-  wellbeing_score     Decimal              @default(0) @db.Decimal(5, 2)
-  engagement_score    Decimal              @default(0) @db.Decimal(5, 2)
-  signal_summary_json Json?
-  trend_json          Json?
-  assigned_to_user_id String?              @db.Uuid
-  assigned_at         DateTime?            @db.Timestamptz(6)
-  acknowledged_by_user_id String?          @db.Uuid
-  acknowledged_at     DateTime?            @db.Timestamptz(6)
-  last_computed_at    DateTime             @default(now()) @db.Timestamptz(6)
-  created_at          DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
+  id                      String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String               @db.Uuid
+  student_id              String               @db.Uuid
+  academic_year_id        String               @db.Uuid
+  composite_score         Decimal              @default(0) @db.Decimal(5, 2)
+  risk_tier               EarlyWarningRiskTier @default(green)
+  tier_entered_at         DateTime?            @db.Timestamptz(6)
+  attendance_score        Decimal              @default(0) @db.Decimal(5, 2)
+  grades_score            Decimal              @default(0) @db.Decimal(5, 2)
+  behaviour_score         Decimal              @default(0) @db.Decimal(5, 2)
+  wellbeing_score         Decimal              @default(0) @db.Decimal(5, 2)
+  engagement_score        Decimal              @default(0) @db.Decimal(5, 2)
+  signal_summary_json     Json?
+  trend_json              Json?
+  assigned_to_user_id     String?              @db.Uuid
+  assigned_at             DateTime?            @db.Timestamptz(6)
+  acknowledged_by_user_id String?              @db.Uuid
+  acknowledged_at         DateTime?            @db.Timestamptz(6)
+  last_computed_at        DateTime             @default(now()) @db.Timestamptz(6)
+  created_at              DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime             @default(now()) @updatedAt @db.Timestamptz(6)
 
   // Relations
-  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  student       Student      @relation("ew_risk_profile_student", fields: [student_id], references: [id], onDelete: Restrict)
-  academic_year AcademicYear @relation("ew_risk_profile_academic_year", fields: [academic_year_id], references: [id], onDelete: Restrict)
+  tenant          Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student      @relation("ew_risk_profile_student", fields: [student_id], references: [id], onDelete: Restrict)
+  academic_year   AcademicYear @relation("ew_risk_profile_academic_year", fields: [academic_year_id], references: [id], onDelete: Restrict)
   assigned_to     User?        @relation("ew_risk_profile_assigned_to", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
   acknowledged_by User?        @relation("ew_risk_profile_acknowledged_by", fields: [acknowledged_by_user_id], references: [id], onDelete: SetNull)
 
@@ -8022,4 +8084,154 @@ model EarlyWarningConfig {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@map("early_warning_configs")
+}
+
+// ─── Homework & Diary ──────────────────────────────────────────────────────
+
+model HomeworkAssignment {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String         @db.Uuid
+  class_id            String         @db.Uuid
+  subject_id          String?        @db.Uuid
+  academic_year_id    String         @db.Uuid
+  academic_period_id  String?        @db.Uuid
+  assigned_by_user_id String         @db.Uuid
+  title               String         @db.VarChar(255)
+  description         String?        @db.Text
+  homework_type       HomeworkType
+  status              HomeworkStatus @default(draft)
+  due_date            DateTime       @db.Date
+  due_time            DateTime?      @db.Time
+  published_at        DateTime?      @db.Timestamptz()
+  copied_from_id      String?        @db.Uuid
+  recurrence_rule_id  String?        @db.Uuid
+  max_points          Int?           @db.SmallInt
+  created_at          DateTime       @default(now()) @db.Timestamptz()
+  updated_at          DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  class_entity    Class                   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+  subject         Subject?                @relation(fields: [subject_id], references: [id], onDelete: SetNull)
+  academic_year   AcademicYear            @relation(fields: [academic_year_id], references: [id], onDelete: Cascade)
+  academic_period AcademicPeriod?         @relation(fields: [academic_period_id], references: [id], onDelete: SetNull)
+  assigned_by     User                    @relation("hw_assigned_by", fields: [assigned_by_user_id], references: [id], onDelete: Cascade)
+  copied_from     HomeworkAssignment?     @relation("hw_copy_chain", fields: [copied_from_id], references: [id], onDelete: SetNull)
+  copies          HomeworkAssignment[]    @relation("hw_copy_chain")
+  recurrence_rule HomeworkRecurrenceRule? @relation(fields: [recurrence_rule_id], references: [id], onDelete: SetNull)
+  attachments     HomeworkAttachment[]
+  completions     HomeworkCompletion[]
+
+  @@index([tenant_id, class_id, status], name: "idx_hw_assignments_class_status")
+  @@index([tenant_id, due_date], name: "idx_hw_assignments_due_date")
+  @@index([tenant_id, assigned_by_user_id], name: "idx_hw_assignments_assigned_by")
+  @@index([tenant_id, academic_year_id], name: "idx_hw_assignments_year")
+  @@map("homework_assignments")
+}
+
+model HomeworkAttachment {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  homework_assignment_id String   @db.Uuid
+  attachment_type        String   @db.VarChar(20)
+  file_name              String?  @db.VarChar(255)
+  file_key               String?  @db.VarChar(500)
+  file_size_bytes        Int?
+  mime_type              String?  @db.VarChar(100)
+  url                    String?  @db.Text
+  display_order          Int      @default(0) @db.SmallInt
+  created_at             DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant     Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignment HomeworkAssignment @relation(fields: [homework_assignment_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, homework_assignment_id], name: "idx_hw_attachments_assignment")
+  @@map("homework_attachments")
+}
+
+model HomeworkCompletion {
+  id                     String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String           @db.Uuid
+  homework_assignment_id String           @db.Uuid
+  student_id             String           @db.Uuid
+  status                 CompletionStatus @default(not_started)
+  completed_at           DateTime?        @db.Timestamptz()
+  verified_by_user_id    String?          @db.Uuid
+  verified_at            DateTime?        @db.Timestamptz()
+  notes                  String?          @db.Text
+  points_awarded         Int?             @db.SmallInt
+  created_at             DateTime         @default(now()) @db.Timestamptz()
+  updated_at             DateTime         @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignment  HomeworkAssignment @relation(fields: [homework_assignment_id], references: [id], onDelete: Cascade)
+  student     Student            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  verified_by User?              @relation("hw_verified_by", fields: [verified_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, homework_assignment_id, student_id], name: "idx_hw_completion_unique")
+  @@index([tenant_id, student_id, status], name: "idx_hw_completions_student")
+  @@map("homework_completions")
+}
+
+model HomeworkRecurrenceRule {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String              @db.Uuid
+  frequency    RecurrenceFrequency
+  interval     Int                 @default(1) @db.SmallInt
+  days_of_week Int[]               @db.SmallInt
+  start_date   DateTime            @db.Date
+  end_date     DateTime?           @db.Date
+  active       Boolean             @default(true)
+  created_at   DateTime            @default(now()) @db.Timestamptz()
+  updated_at   DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  assignments HomeworkAssignment[]
+
+  @@index([tenant_id], name: "idx_hw_recurrence_tenant")
+  @@map("homework_recurrence_rules")
+}
+
+model DiaryNote {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  student_id String   @db.Uuid
+  note_date  DateTime @db.Date
+  content    String   @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz()
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, student_id, note_date], name: "idx_diary_note_unique")
+  @@index([tenant_id, student_id], name: "idx_diary_notes_student")
+  @@map("diary_notes")
+}
+
+model DiaryParentNote {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String    @db.Uuid
+  student_id      String    @db.Uuid
+  parent_id       String?   @db.Uuid
+  author_user_id  String    @db.Uuid
+  note_date       DateTime  @db.Date
+  content         String    @db.Text
+  acknowledged    Boolean   @default(false)
+  acknowledged_at DateTime? @db.Timestamptz()
+  created_at      DateTime  @default(now()) @db.Timestamptz()
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  parent  Parent? @relation(fields: [parent_id], references: [id], onDelete: SetNull)
+  author  User    @relation("hw_diary_note_author", fields: [author_user_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id, student_id, note_date], name: "idx_diary_parent_notes_student_date")
+  @@map("diary_parent_notes")
 }

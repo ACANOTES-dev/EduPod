@@ -219,4 +219,13 @@ export const PERMISSION_SEEDS: PermissionSeed[] = [
   { permission_key: 'early_warning.manage', description: 'Manage early warning configuration', permission_tier: 'admin' },
   { permission_key: 'early_warning.acknowledge', description: 'Acknowledge reviewed risk profiles', permission_tier: 'staff' },
   { permission_key: 'early_warning.assign', description: 'Assign staff to risk profiles', permission_tier: 'admin' },
+
+  // ─── Homework & Diary ─────────────────────────────────────────────────────
+  { permission_key: 'homework.view', description: 'View homework assignments and completions', permission_tier: 'staff' },
+  { permission_key: 'homework.manage', description: 'Create, edit, delete assignments; manage completions', permission_tier: 'staff' },
+  { permission_key: 'homework.mark_own', description: 'Mark own class completions (teacher marking)', permission_tier: 'staff' },
+  { permission_key: 'homework.view_diary', description: 'View diary notes for assigned students', permission_tier: 'staff' },
+  { permission_key: 'homework.write_diary', description: 'Write diary notes (proxy for student, or student in future)', permission_tier: 'staff' },
+  { permission_key: 'homework.view_analytics', description: 'View homework analytics and load reports', permission_tier: 'admin' },
+  { permission_key: 'parent.homework', description: 'View homework, mark self-reported completion, diary notes', permission_tier: 'parent' },
 ];

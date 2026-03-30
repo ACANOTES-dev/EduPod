@@ -666,3 +666,22 @@ withdrawn_appeal*
 - **Guarded by**: `INCIDENT_STATUS_TRANSITIONS` map in `@school/shared` + validated in `SecurityIncidentsService.update()`
 - **Platform-level**: No tenant_id. Incidents may span multiple tenants.
 - **72-hour clock**: Starts at `detected_at`. Breach deadline cron fires escalation events at 12h, 48h, and 72h for high/critical severity incidents.
+
+---
+
+### HomeworkStatus
+
+- **Field**: `status` on `homework_assignments`
+- **Values**: `draft`, `published`, `archived`
+- **Initial state**: `draft`
+- **Transitions**:
+  ```
+  draft      -> [published, archived]
+  published  -> [archived]
+  archived*
+  ```
+- **Side effects**:
+  - `draft -> published`: sets `published_at` timestamp, makes assignment visible to students/parents
+  - `published -> archived`: hides from default views but retains for analytics
+- **Guarded by**: `VALID_HOMEWORK_TRANSITIONS` in `packages/shared/src/constants/homework-status.ts` + will be enforced in `homework.service.ts` (Phase B)
+- **Simplicity**: 3 states, 2 transitions — follows the `FormDefinitionStatus` pattern rather than complex invoice/behaviour machines

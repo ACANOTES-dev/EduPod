@@ -155,6 +155,19 @@ export const tenantSettingsSchema = z.object({
       attendanceScanEnabled: z.boolean().default(false),
     })
     .default({}),
+  homework: z
+    .object({
+      enabled: z.boolean().default(false),
+      allow_student_self_report: z.boolean().default(true),
+      require_teacher_verification: z.boolean().default(false),
+      default_due_time: z.string().default('09:00'),
+      overdue_notification_enabled: z.boolean().default(true),
+      parent_digest_include_homework: z.boolean().default(true),
+      max_attachment_size_mb: z.number().default(10),
+      max_attachments_per_assignment: z.number().default(5),
+      completion_reminder_enabled: z.boolean().default(true),
+    })
+    .default({}),
 });
 
 export type TenantSettingsDto = z.infer<typeof tenantSettingsSchema>;
