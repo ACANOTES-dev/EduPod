@@ -8161,6 +8161,7 @@ model HomeworkCompletion {
   verified_at            DateTime?        @db.Timestamptz()
   notes                  String?          @db.Text
   points_awarded         Int?             @db.SmallInt
+  version                Int              @default(1) // Optimistic locking for concurrent updates
   created_at             DateTime         @default(now()) @db.Timestamptz()
   updated_at             DateTime         @default(now()) @updatedAt @db.Timestamptz()
 
