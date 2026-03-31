@@ -43,11 +43,11 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { RegistrationModule } from './modules/registration/registration.module';
+import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
-import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SchedulingRunsModule } from './modules/scheduling-runs/scheduling-runs.module';
 import { SchoolClosuresModule } from './modules/school-closures/school-closures.module';
@@ -147,6 +147,7 @@ export class AppModule implements NestModule {
       .apply(TenantResolutionMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.ALL },
+        { path: 'health/(.*)', method: RequestMethod.ALL },
         { path: 'docs(.*)', method: RequestMethod.ALL },
         { path: 'v1/stripe/webhook', method: RequestMethod.POST },
         { path: 'v1/webhooks/(.*)', method: RequestMethod.POST },
