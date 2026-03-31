@@ -338,6 +338,7 @@ describe('SenReportsService', () => {
 
       const result = await service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
         academic_year_id: YEAR_ID,
+        overdue: true,
         due_within_days: 14,
         stale_goal_weeks: 4,
       });
@@ -351,6 +352,21 @@ describe('SenReportsService', () => {
           expect.objectContaining({ goal_id: 'goal-2', last_progress_at: oldProgress }),
         ]),
       );
+    });
+
+    it('returns empty overdue_plans and skips overdue query when overdue is false', async () => {
+      senSupportPlanMock.findMany.mockResolvedValueOnce([]);
+      senGoalMock.findMany.mockResolvedValue([]);
+
+      const result = await service.getPlanCompliance(TENANT_ID, USER_ID, ['sen.view'], {
+        overdue: false,
+        due_within_days: 14,
+        stale_goal_weeks: 4,
+      });
+
+      expect(result.overdue_plans).toEqual([]);
+      // Only one senSupportPlan.findMany call (due plans), not two
+      expect(senSupportPlanMock.findMany).toHaveBeenCalledTimes(1);
     });
   });
 

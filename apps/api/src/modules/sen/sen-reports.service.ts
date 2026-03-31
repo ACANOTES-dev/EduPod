@@ -364,17 +364,19 @@ export class SenReportsService {
         orderBy: [{ next_review_date: 'asc' }, { plan_number: 'asc' }],
         include: planComplianceInclude,
       }),
-      this.prisma.senSupportPlan.findMany({
-        where: {
-          ...planWhere,
-          status: 'active',
-          next_review_date: {
-            lt: startOfToday,
-          },
-        },
-        orderBy: [{ next_review_date: 'asc' }, { plan_number: 'asc' }],
-        include: planComplianceInclude,
-      }),
+      query.overdue !== false
+        ? this.prisma.senSupportPlan.findMany({
+            where: {
+              ...planWhere,
+              status: 'active',
+              next_review_date: {
+                lt: startOfToday,
+              },
+            },
+            orderBy: [{ next_review_date: 'asc' }, { plan_number: 'asc' }],
+            include: planComplianceInclude,
+          })
+        : ([] as PlanComplianceRecord[]),
       this.prisma.senGoal.findMany({
         where: goalWhere,
         orderBy: [{ updated_at: 'desc' }, { created_at: 'desc' }],

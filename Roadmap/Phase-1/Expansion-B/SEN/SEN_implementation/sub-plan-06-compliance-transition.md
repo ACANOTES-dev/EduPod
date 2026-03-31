@@ -17,6 +17,7 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 ```
 ├── dto/
 │   ├── create-transition-note.dto.ts
+│   ├── list-transition-notes.dto.ts
 │   └── sen-report-query.dto.ts
 ├── sen-reports.controller.ts
 ├── sen-reports.controller.spec.ts
@@ -34,15 +35,16 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 
 #### [NEW] `sen-reports.service.ts`
 
-| Method | Description |
-|--------|-------------|
-| `getNcseReturn(tenantId, query)` | NCSE return data — aggregated statistics by category, support level, year group, gender. Intended for the annual NCSE return submission. |
-| `getOverviewReport(tenantId, query)` | SEN overview — breakdown by primary category, support level, year group. Filterable by academic year. |
-| `getResourceUtilisation(tenantId, query)` | Resource allocation vs. utilisation report — hours allocated (SENO + school) vs. assigned vs. used, by year group and student. |
-| `getPlanCompliance(tenantId, query)` | Plans due for review (`next_review_date` approaching), overdue plans (past `next_review_date`), goals with no progress in X weeks. |
-| `getProfessionalInvolvementReport(tenantId)` | Pending referrals, completed assessments, reports received — aggregated by professional type and status. |
+| Method                                                    | Description                                                                                                                                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getNcseReturn(tenantId, query)`                          | NCSE return data — aggregated statistics by category, support level, year group, gender. Intended for the annual NCSE return submission.                                         |
+| `getOverviewReport(tenantId, userId, permissions, query)` | SEN overview — breakdown by primary category, support level, year group. Filterable by academic year. Results are scope-filtered (class-level teachers see only their students). |
+| `getResourceUtilisation(tenantId, query)`                 | Resource allocation vs. utilisation report — hours allocated (SENO + school) vs. assigned vs. used, by year group and student.                                                   |
+| `getPlanCompliance(tenantId, userId, permissions, query)` | Plans due for review (`next_review_date` approaching), overdue plans (past `next_review_date`), goals with no progress in X weeks. Results are scope-filtered.                   |
+| `getProfessionalInvolvementReport(tenantId)`              | Pending referrals, completed assessments, reports received — aggregated by professional type and status.                                                                         |
 
 **NCSE return data shape**:
+
 ```typescript
 {
   academic_year: string;
@@ -56,13 +58,14 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
     school_allocated: number;
     total_assigned: number;
     total_used: number;
-  };
+  }
   sna_count: number;
   accommodation_count: number;
 }
 ```
 
 **Plan compliance query**:
+
 - `due_within_days` — plans with `next_review_date` within N days (default: 14)
 - `overdue` — plans where `next_review_date < today` and `status = 'active'`
 - `stale_goals` — goals with `status = 'in_progress'` and no `SenGoalProgress` entry in the last N weeks (configurable, default: 4)
@@ -73,13 +76,13 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 
 #### [NEW] `sen-reports.controller.ts`
 
-| Method | Route | Description | Permission |
-|--------|-------|-------------|------------|
-| GET | `v1/sen/reports/ncse-return` | NCSE return data | `sen.admin` |
-| GET | `v1/sen/reports/overview` | SEN overview by category/level/year group | `sen.view` |
-| GET | `v1/sen/reports/resource-utilisation` | Resource allocation vs. utilisation | `sen.admin` |
-| GET | `v1/sen/reports/plan-compliance` | Plans due for review, overdue goals | `sen.view` |
-| GET | `v1/sen/reports/professional-involvement` | Pending referrals, completed assessments | `sen.admin` |
+| Method | Route                                     | Description                               | Permission  |
+| ------ | ----------------------------------------- | ----------------------------------------- | ----------- |
+| GET    | `v1/sen/reports/ncse-return`              | NCSE return data                          | `sen.admin` |
+| GET    | `v1/sen/reports/overview`                 | SEN overview by category/level/year group | `sen.view`  |
+| GET    | `v1/sen/reports/resource-utilisation`     | Resource allocation vs. utilisation       | `sen.admin` |
+| GET    | `v1/sen/reports/plan-compliance`          | Plans due for review, overdue goals       | `sen.view`  |
+| GET    | `v1/sen/reports/professional-involvement` | Pending referrals, completed assessments  | `sen.admin` |
 
 ---
 
@@ -87,13 +90,14 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 
 #### [NEW] `sen-transition.service.ts`
 
-| Method | Description |
-|--------|-------------|
-| `createNote(tenantId, profileId, dto, userId)` | Add a transition note (class-to-class, year-to-year, school-to-school). |
-| `findNotes(tenantId, profileId)` | List transition notes for a student, ordered by `created_at` descending. |
-| `generateHandoverPack(tenantId, studentId)` | Generate a comprehensive transition handover pack combining: SEN profile summary, active support plan with goals + progress, current accommodations, professional involvement history, transition notes. Returns structured JSON (not PDF — PDF generation deferred). |
+| Method                                                           | Description                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createNote(tenantId, profileId, dto, userId)`                   | Add a transition note (class-to-class, year-to-year, school-to-school).                                                                                                                                                                                                                                                                       |
+| `findNotes(tenantId, userId, permissions, profileId, query)`     | List transition notes for a student, ordered by `created_at` descending. Access is scope-filtered. Supports optional `note_type` query filter.                                                                                                                                                                                                |
+| `generateHandoverPack(tenantId, userId, permissions, studentId)` | Generate a comprehensive transition handover pack combining: SEN profile summary, active support plan with goals + progress, current accommodations, professional involvement history, transition notes. Student access is validated against the user's scope before generating. Returns structured JSON (not PDF — PDF generation deferred). |
 
 **Handover pack structure**:
+
 ```typescript
 {
   student: { name, date_of_birth, year_group };
@@ -116,6 +120,7 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 > Professional data in the handover pack is included since it's intended for the receiving school/class teacher (who has been granted access by the sending school). This is a deliberate information-sharing mechanism.
 
 **Note types** (validated by Zod enum):
+
 - `class_to_class` — within-school class transitions
 - `year_to_year` — end-of-year transitions
 - `school_to_school` — school transfer documentation
@@ -127,11 +132,11 @@ NCSE compliance reporting (aggregated SEN statistics), operational reports (over
 
 #### [NEW] `sen-transition.controller.ts`
 
-| Method | Route | Description | Permission |
-|--------|-------|-------------|------------|
-| POST | `v1/sen/profiles/:profileId/transition-notes` | Add transition note | `sen.manage` |
-| GET | `v1/sen/profiles/:profileId/transition-notes` | List transition notes | `sen.view` |
-| GET | `v1/sen/transition/handover-pack/:studentId` | Generate transition handover pack | `sen.manage` |
+| Method | Route                                         | Description                       | Permission   |
+| ------ | --------------------------------------------- | --------------------------------- | ------------ |
+| POST   | `v1/sen/profiles/:profileId/transition-notes` | Add transition note               | `sen.manage` |
+| GET    | `v1/sen/profiles/:profileId/transition-notes` | List transition notes             | `sen.view`   |
+| GET    | `v1/sen/transition/handover-pack/:studentId`  | Generate transition handover pack | `sen.manage` |
 
 Note: `handover-pack` is a static route segment under `v1/sen/transition/` and must be declared before any dynamic routes in the same controller.
 

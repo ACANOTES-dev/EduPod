@@ -102,6 +102,7 @@ describe('SenReportsController', () => {
 
     await controller.getOverviewReport(TENANT, USER, {});
     await controller.getPlanCompliance(TENANT, USER, {
+      overdue: true,
       due_within_days: 14,
       stale_goal_weeks: 4,
     });
@@ -117,7 +118,7 @@ describe('SenReportsController', () => {
       TENANT_ID,
       USER_ID,
       ['sen.view', 'sen.manage'],
-      { due_within_days: 14, stale_goal_weeks: 4 },
+      { overdue: true, due_within_days: 14, stale_goal_weeks: 4 },
     );
   });
 
