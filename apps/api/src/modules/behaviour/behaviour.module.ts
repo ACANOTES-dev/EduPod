@@ -23,6 +23,7 @@ import { BehaviourAppealsController } from './behaviour-appeals.controller';
 import { BehaviourAppealsService } from './behaviour-appeals.service';
 import { BehaviourAttachmentService } from './behaviour-attachment.service';
 import { BehaviourAwardService } from './behaviour-award.service';
+import { BehaviourComparisonAnalyticsService } from './behaviour-comparison-analytics.service';
 import { BehaviourConfigController } from './behaviour-config.controller';
 import { BehaviourConfigService } from './behaviour-config.service';
 import { BehaviourDocumentTemplateService } from './behaviour-document-template.service';
@@ -30,11 +31,13 @@ import { BehaviourDocumentService } from './behaviour-document.service';
 import { BehaviourDocumentsController } from './behaviour-documents.controller';
 import { BehaviourExclusionCasesService } from './behaviour-exclusion-cases.service';
 import { BehaviourExclusionsController } from './behaviour-exclusions.controller';
+import { BehaviourExportAnalyticsService } from './behaviour-export-analytics.service';
 import { BehaviourExportService } from './behaviour-export.service';
 import { BehaviourGuardianRestrictionsController } from './behaviour-guardian-restrictions.controller';
 import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restrictions.service';
 import { BehaviourHistoryService } from './behaviour-history.service';
 import { BehaviourHouseService } from './behaviour-house.service';
+import { BehaviourIncidentAnalyticsService } from './behaviour-incident-analytics.service';
 import { BehaviourInterventionsController } from './behaviour-interventions.controller';
 import { BehaviourInterventionsService } from './behaviour-interventions.service';
 import { BehaviourLegalHoldService } from './behaviour-legal-hold.service';
@@ -45,9 +48,11 @@ import { BehaviourPulseService } from './behaviour-pulse.service';
 import { BehaviourQuickLogService } from './behaviour-quick-log.service';
 import { BehaviourRecognitionController } from './behaviour-recognition.controller';
 import { BehaviourRecognitionService } from './behaviour-recognition.service';
+import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytics.service';
 import { BehaviourSanctionsController } from './behaviour-sanctions.controller';
 import { BehaviourSanctionsService } from './behaviour-sanctions.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
 import { BehaviourStudentsController } from './behaviour-students.controller';
 import { BehaviourStudentsService } from './behaviour-students.service';
 import { BehaviourTasksController } from './behaviour-tasks.controller';
@@ -131,6 +136,11 @@ import { SafeguardingService } from './safeguarding.service';
     BehaviourAmendmentsService,
     BehaviourPulseService,
     BehaviourAnalyticsService,
+    BehaviourIncidentAnalyticsService,
+    BehaviourComparisonAnalyticsService,
+    BehaviourStaffAnalyticsService,
+    BehaviourSanctionAnalyticsService,
+    BehaviourExportAnalyticsService,
     BehaviourAlertsService,
     BehaviourAIService,
     BehaviourDocumentService,

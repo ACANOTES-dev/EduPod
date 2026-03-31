@@ -55,6 +55,7 @@ import { ImportFileCleanupProcessor } from './processors/imports/import-file-cle
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
+import { ParentDailyDigestProcessor } from './processors/notifications/parent-daily-digest.processor';
 import { CheckinAlertProcessor } from './processors/pastoral/checkin-alert.processor';
 import { EscalationTimeoutProcessor } from './processors/pastoral/escalation-timeout.processor';
 import { InterventionReviewReminderProcessor } from './processors/pastoral/intervention-review-reminder.processor';
@@ -73,6 +74,7 @@ import { RegulatoryPpodSyncProcessor } from './processors/regulatory/ppod-sync.p
 import { RegulatoryTuslaThresholdScanProcessor } from './processors/regulatory/tusla-threshold-scan.processor';
 import { SchedulingSolverV2Processor } from './processors/scheduling/solver-v2.processor';
 import { SchedulingStaleReaperProcessor } from './processors/scheduling-stale-reaper.processor';
+import { SearchIndexProcessor } from './processors/search-index.processor';
 import { SearchReindexProcessor } from './processors/search-reindex.processor';
 import { AnomalyScanProcessor } from './processors/security/anomaly-scan.processor';
 import { BreachDeadlineProcessor } from './processors/security/breach-deadline.processor';
@@ -82,7 +84,6 @@ import { EapRefreshCheckProcessor } from './processors/wellbeing/eap-refresh-che
 import { ModerationScanProcessor } from './processors/wellbeing/moderation-scan.processor';
 import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-closing-reminder.processor';
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
-import { SearchIndexProcessor } from './processors/search-index.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 
 @Module({
@@ -348,6 +349,7 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     PublishAnnouncementProcessor,
     DispatchNotificationsProcessor,
     DispatchQueuedProcessor,
+    ParentDailyDigestProcessor,
     RetryFailedNotificationsProcessor,
     InquiryNotificationProcessor,
     StaleInquiryDetectionProcessor,

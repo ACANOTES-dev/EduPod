@@ -1,8 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
 
-import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
@@ -28,6 +28,7 @@ import { HOMEWORK_GENERATE_RECURRING_JOB } from '../processors/homework/generate
 import { HOMEWORK_OVERDUE_DETECTION_JOB } from '../processors/homework/overdue-detection.processor';
 import { IMPORT_FILE_CLEANUP_JOB } from '../processors/imports/import-file-cleanup.processor';
 import { DISPATCH_QUEUED_JOB } from '../processors/notifications/dispatch-queued.processor';
+import { PARENT_DAILY_DIGEST_JOB } from '../processors/notifications/parent-daily-digest.processor';
 import { REGULATORY_DEADLINE_CHECK_JOB } from '../processors/regulatory/deadline-check.processor';
 import { REGULATORY_TUSLA_THRESHOLD_SCAN_JOB } from '../processors/regulatory/tusla-threshold-scan.processor';
 import { ANOMALY_SCAN_JOB } from '../processors/security/anomaly-scan.processor';
@@ -71,6 +72,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerComplianceCronJobs();
     await this.registerRegulatoryCronJobs();
     await this.registerHomeworkCronJobs();
+    await this.registerParentDigestCronJobs();
     await this.registerApprovalsCronJobs();
   }
 
@@ -88,7 +90,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${EARLY_WARNING_COMPUTE_DAILY_JOB} (daily 01:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${EARLY_WARNING_COMPUTE_DAILY_JOB} (daily 01:00 UTC)`,
+    );
 
     // ── early-warning:weekly-digest ───────────────────────────────────────────
     // Runs daily at 07:00 UTC. Cross-tenant — processor filters by digest_day.
@@ -102,7 +106,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${EARLY_WARNING_WEEKLY_DIGEST_JOB} (daily 07:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${EARLY_WARNING_WEEKLY_DIGEST_JOB} (daily 07:00 UTC)`,
+    );
   }
 
   private async registerGradebookCronJobs(): Promise<void> {
@@ -135,7 +141,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${REPORT_CARD_AUTO_GENERATE_JOB} (daily 03:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${REPORT_CARD_AUTO_GENERATE_JOB} (daily 03:00 UTC)`,
+    );
   }
 
   private async registerBehaviourCronJobs(): Promise<void> {
@@ -166,7 +174,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${REFRESH_MV_EXPOSURE_RATES_JOB} (daily 02:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${REFRESH_MV_EXPOSURE_RATES_JOB} (daily 02:00 UTC)`,
+    );
 
     // Refresh benchmarks daily at 03:00 UTC
     await this.behaviourQueue.add(
@@ -194,7 +204,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 20,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_PARTITION_MAINTENANCE_JOB} (monthly 1st 00:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${BEHAVIOUR_PARTITION_MAINTENANCE_JOB} (monthly 1st 00:00 UTC)`,
+    );
 
     // ── Per-tenant dispatchers ────────────────────────────────────────────────
     // These dispatch tenant-specific jobs based on each tenant's configuration.
@@ -236,7 +248,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 20,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB} (monthly 1st 01:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${BEHAVIOUR_CRON_DISPATCH_MONTHLY_JOB} (monthly 1st 01:00 UTC)`,
+    );
   }
 
   private async registerNotificationsCronJobs(): Promise<void> {
@@ -270,7 +284,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${CLEANUP_PARTICIPATION_TOKENS_JOB} (daily 05:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${CLEANUP_PARTICIPATION_TOKENS_JOB} (daily 05:00 UTC)`,
+    );
 
     // ── wellbeing:eap-refresh-check ─────────────────────────────────────────
     // Runs daily at 06:00 UTC. Notifies managers if EAP details are >90 days stale.
@@ -395,7 +411,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${RETENTION_ENFORCEMENT_JOB} (weekly Sunday 03:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${RETENTION_ENFORCEMENT_JOB} (weekly Sunday 03:00 UTC)`,
+    );
 
     // ── compliance:deadline-check ─────────────────────────────────────────
     // Runs daily at 06:00 UTC. Cross-tenant — no tenant_id in payload.
@@ -429,7 +447,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${REGULATORY_TUSLA_THRESHOLD_SCAN_JOB} (daily 06:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${REGULATORY_TUSLA_THRESHOLD_SCAN_JOB} (daily 06:00 UTC)`,
+    );
 
     // ── regulatory:check-deadlines ───────────────────────────────────────────
     // Runs daily at 07:00 UTC. Cross-tenant — no tenant_id in payload.
@@ -445,7 +465,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${REGULATORY_DEADLINE_CHECK_JOB} (daily 07:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${REGULATORY_DEADLINE_CHECK_JOB} (daily 07:00 UTC)`,
+    );
   }
 
   private async registerHomeworkCronJobs(): Promise<void> {
@@ -462,7 +484,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${HOMEWORK_GENERATE_RECURRING_JOB} (daily 05:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${HOMEWORK_GENERATE_RECURRING_JOB} (daily 05:00 UTC)`,
+    );
 
     // ── homework:overdue-detection ───────────────────────────────────────
     // Runs daily at 06:00 UTC. Cross-tenant — no tenant_id in payload.
@@ -477,7 +501,9 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${HOMEWORK_OVERDUE_DETECTION_JOB} (daily 06:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${HOMEWORK_OVERDUE_DETECTION_JOB} (daily 06:00 UTC)`,
+    );
 
     // ── homework:digest-homework ────────────────────────────────────────
     // Runs daily at 07:00 UTC. Cross-tenant — no tenant_id in payload.
@@ -507,7 +533,27 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${HOMEWORK_COMPLETION_REMINDER_JOB} (daily 15:00 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${HOMEWORK_COMPLETION_REMINDER_JOB} (daily 15:00 UTC)`,
+    );
+  }
+
+  private async registerParentDigestCronJobs(): Promise<void> {
+    // ── notifications:parent-daily-digest ───────────────────────────────
+    // Runs hourly. Cross-tenant — no tenant_id in payload.
+    // Iterates all active tenants; each tenant's send_hour_utc setting
+    // determines whether the digest is generated in this run.
+    await this.notificationsQueue.add(
+      PARENT_DAILY_DIGEST_JOB,
+      {},
+      {
+        repeat: { pattern: '0 * * * *' },
+        jobId: `cron:${PARENT_DAILY_DIGEST_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${PARENT_DAILY_DIGEST_JOB} (hourly)`);
   }
 
   private async registerApprovalsCronJobs(): Promise<void> {
@@ -524,6 +570,8 @@ export class CronSchedulerService implements OnModuleInit {
         removeOnFail: 50,
       },
     );
-    this.logger.log(`Registered repeatable cron: ${APPROVAL_CALLBACK_RECONCILIATION_JOB} (daily 04:30 UTC)`);
+    this.logger.log(
+      `Registered repeatable cron: ${APPROVAL_CALLBACK_RECONCILIATION_JOB} (daily 04:30 UTC)`,
+    );
   }
 }

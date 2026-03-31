@@ -15,6 +15,7 @@ export const NOTIFICATION_TYPES = [
   'inquiry.new_message',
   'payroll.finalised',
   'payslip.generated',
+  'parent.daily_digest',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

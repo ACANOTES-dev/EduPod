@@ -155,6 +155,9 @@ export * from './regulatory';
 // Early Warning System
 export * from './early-warning';
 
+// Parent Daily Digest
+export * from './schemas/parent-digest.schema';
+
 // Homework & Diary
 export * from './schemas/homework.schema';
 export * from './constants/homework-status';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { homeworkSettingsSchema } from './homework.schema';
+import { parentDigestSettingsSchema } from './parent-digest.schema';
 
 export const createTenantSchema = z.object({
   name: z.string().min(1).max(255),
@@ -191,6 +192,7 @@ export const tenantSettingsSchema = z.object({
   compliance: complianceSettingsSchema.default({}),
   ai: aiSettingsSchema.default({}),
   homework: homeworkSettingsSchema.default({}),
+  parent_digest: parentDigestSettingsSchema.default({}),
 });
 
 export type TenantSettingsDto = z.infer<typeof tenantSettingsSchema>;
@@ -211,6 +213,7 @@ export const TENANT_SETTINGS_MODULE_SCHEMAS = {
   compliance: complianceSettingsSchema,
   ai: aiSettingsSchema,
   homework: homeworkSettingsSchema,
+  parent_digest: parentDigestSettingsSchema,
 } as const;
 
 /** Valid module keys for per-module settings validation */

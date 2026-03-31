@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **~53 documented job types**, **29 cron registrations** (28 by pattern + 1 by interval)
+- **19 queues**, **~54 documented job types**, **30 cron registrations** (29 by pattern + 1 by interval)
 
 ---
 
@@ -243,7 +243,7 @@ ComplianceService.approve()
 | gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |
 | imports       | 3           | 5s exponential  | Also handles compliance:execute jobs (legacy routing)                                                                                                                                                                                                                                                                                                                                    |
-| notifications | 5           | 3s exponential  | Higher retries for delivery                                                                                                                                                                                                                                                                                                                                                              |
+| notifications | 5           | 3s exponential  | Higher retries for delivery. Includes notifications:parent-daily-digest (hourly cron), notifications:dispatch-queued (every 30s), plus behaviour/communications jobs routed here                                                                                                                                                                                                         |
 | pastoral      | 3           | 5s exponential  | 8 job types: pastoral:notify-concern (on concern creation), pastoral:escalation-timeout (on concern escalation), pastoral:checkin-alert (on check-in flag), pastoral:intervention-review-reminder (cron), pastoral:overdue-actions (cron), pastoral:precompute-agenda (on SST scheduling), pastoral:sync-behaviour-safeguarding (on sync trigger), pastoral:wellbeing-flag-expiry (cron) |
 | payroll       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | regulatory    | 3           | 5s exponential  | 5 job types: 2 cron (deadline-check 07:00, tusla-threshold-scan 06:00), 3 on-demand (generate-des-files, ppod-sync, ppod-import)                                                                                                                                                                                                                                                         |
@@ -822,6 +822,62 @@ Every 30 seconds cron fires
 ```
 
 **Danger**: The 50-per-batch limit means at most 50 notifications are dispatched per 30-second tick. If a tenant generates a burst of queued notifications (e.g., mass digest), it may take multiple ticks to drain the queue. The cross-tenant query runs without RLS — it reads notification IDs across all tenants, then sets RLS per tenant for the update. This is intentional for the dispatch pattern.
+
+---
+
+### `notifications:parent-daily-digest` (notifications queue — CRON)
+
+**Trigger**: Hourly cron via `CronSchedulerService` (`0 * * * *`). Cross-tenant — no `tenant_id` in cron payload.
+**Payload**: None (cross-tenant dispatcher iterates all active tenants internally).
+**Constant**: `PARENT_DAILY_DIGEST_JOB`
+**Processor**: `apps/worker/src/processors/notifications/parent-daily-digest.processor.ts`
+**Retries**: 5 with exponential backoff (notifications queue defaults)
+
+**Side effects chain**:
+
+```
+Hourly cron fires
+  -> Iterates all active tenants
+  -> For each tenant:
+    -> Read TenantSetting.settings.parent_digest
+    -> Skip if not enabled or send_hour_utc !== current UTC hour
+    -> For each parent in tenant (via student_parents -> parents -> users):
+      -> Resolve locale from user.preferred_locale (for i18n)
+      -> For each child of that parent:
+        -> Aggregate data based on tenant digest config:
+           - include_attendance: DailyAttendanceSummary (today's record)
+           - include_grades: Grade + Assessment (recent grades/assessments)
+           - include_behaviour: BehaviourIncident + BehaviourRecognitionAward (recent)
+           - include_homework: HomeworkAssignment via ClassEnrolment (upcoming/overdue)
+           - include_fees: Invoice (outstanding balances)
+        -> Build per-child digest section
+      -> Compose unified parent digest across all children
+      -> Create Notification rows per channel:
+         - in_app: delivered immediately
+         - email / whatsapp / sms: queued for dispatch by notifications:dispatch-queued processor
+```
+
+**Configuration**: `TenantSetting.settings.parent_digest` object controls:
+
+- `enabled`: boolean — master switch for the feature
+- `send_hour_utc`: number (0-23) — which UTC hour to send; processor skips tenant if current hour doesn't match
+- `include_attendance`: boolean — include today's attendance summary
+- `include_grades`: boolean — include recent grade/assessment updates
+- `include_behaviour`: boolean — include recent behaviour incidents and awards
+- `include_homework`: boolean — include upcoming/overdue homework
+- `include_fees`: boolean — include outstanding invoice balances
+
+**Cross-module data reads** (all read-only, via Prisma direct):
+
+- `daily_attendance_summaries` (AttendanceModule)
+- `grades`, `assessments` (GradebookModule)
+- `behaviour_incidents`, `behaviour_recognition_awards` (BehaviourModule)
+- `homework_assignments`, `class_enrolments` (HomeworkModule, ClassesModule)
+- `invoices` (FinanceModule)
+- `students`, `student_parents` (StudentsModule)
+- `users` — `preferred_locale` field (platform-level, no RLS)
+
+**Danger**: This job aggregates data from 6+ modules per parent per child. For tenants with many parents and children, the per-tenant processing time can be significant. Individual parent failures should not abort the entire tenant batch. The `send_hour_utc` check means the hourly cron is cheap for non-matching hours (immediate skip). Email/WhatsApp/SMS notifications are queued, not sent inline — delivery depends on `notifications:dispatch-queued` running on its 30-second interval.
 
 ---
 

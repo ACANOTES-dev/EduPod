@@ -1,34 +1,20 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type {
   AdmissionsAnalyticsQuery,
-  ConsentCaptureDto,
   ConvertApplicationDto,
   CreatePublicApplicationDto,
   ListApplicationsQuery,
   ReviewApplicationDto,
 } from '@school/shared';
-import {
-  CONSENT_TYPES,
-  consentCaptureSchema,
-  mapConsentCaptureToTypes,
-} from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
-
-const CONSENT_CAPTURE_PAYLOAD_KEY = '__consents';
+import { ApplicationConversionService } from './application-conversion.service';
+import { ApplicationStateMachineService } from './application-state-machine.service';
 
 // ─── Prisma result shapes ─────────────────────────────────────────────────────
 
@@ -105,23 +91,41 @@ export interface ApplicationDetail {
 
 @Injectable()
 export class ApplicationsService {
-  private readonly logger = new Logger(ApplicationsService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly rateLimitService: AdmissionsRateLimitService,
-    private readonly approvalRequestsService: ApprovalRequestsService,
-    private readonly searchIndexService: SearchIndexService,
+    private readonly stateMachineService: ApplicationStateMachineService,
+    private readonly conversionService: ApplicationConversionService,
   ) {}
+
+  // ─── Delegated: State Machine ─────────────────────────────────────────────
+
+  async submit(tenantId: string, applicationId: string, userId: string) {
+    return this.stateMachineService.submit(tenantId, applicationId, userId);
+  }
+
+  async review(tenantId: string, id: string, dto: ReviewApplicationDto, userId: string) {
+    return this.stateMachineService.review(tenantId, id, dto, userId);
+  }
+
+  async withdraw(tenantId: string, id: string, userId: string, isParent: boolean) {
+    return this.stateMachineService.withdraw(tenantId, id, userId, isParent);
+  }
+
+  // ─── Delegated: Conversion ────────────────────────────────────────────────
+
+  async getConversionPreview(tenantId: string, id: string) {
+    return this.conversionService.getConversionPreview(tenantId, id);
+  }
+
+  async convert(tenantId: string, id: string, dto: ConvertApplicationDto, userId: string) {
+    return this.conversionService.convert(tenantId, id, dto, userId);
+  }
 
   // ─── Create Public ────────────────────────────────────────────────────────
 
-  async createPublic(
-    tenantId: string,
-    dto: CreatePublicApplicationDto,
-    ip: string,
-  ) {
+  async createPublic(tenantId: string, dto: CreatePublicApplicationDto, ip: string) {
     // Honeypot check — if website_url is filled, it's a bot
     if (dto.website_url) {
       // Silently accept but don't create — prevents bots from knowing they were caught
@@ -133,16 +137,12 @@ export class ApplicationsService {
     }
 
     // Rate limit check
-    const rateLimit = await this.rateLimitService.checkAndIncrement(
-      tenantId,
-      ip,
-    );
+    const rateLimit = await this.rateLimitService.checkAndIncrement(tenantId, ip);
     if (!rateLimit.allowed) {
       throw new BadRequestException({
         error: {
           code: 'RATE_LIMIT_EXCEEDED',
-          message:
-            'Too many submissions. Please try again later.',
+          message: 'Too many submissions. Please try again later.',
         },
       });
     }
@@ -174,17 +174,10 @@ export class ApplicationsService {
       }
 
       // Validate payload against form fields
-      this.validatePayloadAgainstFields(
-        dto.payload_json as Record<string, unknown>,
-        form.fields,
-      );
+      this.validatePayloadAgainstFields(dto.payload_json as Record<string, unknown>, form.fields);
 
       // Generate application number
-      const applicationNumber = await this.sequenceService.nextNumber(
-        tenantId,
-        'application',
-        tx,
-      );
+      const applicationNumber = await this.sequenceService.nextNumber(tenantId, 'application', tx);
 
       const application = await db.application.create({
         data: {
@@ -197,7 +190,7 @@ export class ApplicationsService {
           status: 'draft',
           payload_json: {
             ...(dto.payload_json as Record<string, unknown>),
-            [CONSENT_CAPTURE_PAYLOAD_KEY]: dto.consents,
+            __consents: dto.consents,
           } as Prisma.InputJsonValue,
         },
       });
@@ -208,177 +201,6 @@ export class ApplicationsService {
         status: application.status,
       };
     });
-  }
-
-  // ─── Submit ───────────────────────────────────────────────────────────────
-
-  async submit(tenantId: string, applicationId: string, userId: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const result = (await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id: applicationId, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${applicationId}" not found`,
-          },
-        });
-      }
-
-      if (application.status !== 'draft') {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot submit an application with status "${application.status}". Only draft applications can be submitted.`,
-          },
-        });
-      }
-
-      // Ownership guard: verify the calling user owns this application
-      // (either they created it or they are a parent linked to it)
-      const parent = await db.parent.findFirst({
-        where: {
-          tenant_id: tenantId,
-          user_id: userId,
-        },
-      });
-
-      const parentId = parent?.id ?? null;
-
-      if (application.submitted_by_parent_id && application.submitted_by_parent_id !== parentId) {
-        throw new ForbiddenException({
-          error: {
-            code: 'NOT_APPLICATION_OWNER',
-            message: 'You do not have permission to submit this application',
-          },
-        });
-      }
-
-      // Check for potential duplicates (same name + DOB within this tenant)
-      if (application.date_of_birth) {
-        const duplicates = await db.application.findMany({
-          where: {
-            tenant_id: tenantId,
-            id: { not: applicationId },
-            student_first_name: {
-              equals: application.student_first_name,
-              mode: 'insensitive',
-            },
-            student_last_name: {
-              equals: application.student_last_name,
-              mode: 'insensitive',
-            },
-            date_of_birth: application.date_of_birth,
-            status: {
-              notIn: ['withdrawn', 'rejected'],
-            },
-          },
-        });
-
-        if (duplicates.length > 0) {
-          // Flag as potential duplicate but still allow submission
-          await db.applicationNote.create({
-            data: {
-              tenant_id: tenantId,
-              application_id: applicationId,
-              author_user_id: userId,
-              note: `Potential duplicate detected: ${duplicates.length} existing application(s) with same name and date of birth (${duplicates.map((d) => d.application_number).join(', ')}).`,
-              is_internal: true,
-            },
-          });
-        }
-      }
-
-      const updated = await db.application.update({
-        where: { id: applicationId },
-        data: {
-          status: 'submitted',
-          submitted_at: new Date(),
-          submitted_by_parent_id: parentId,
-        },
-      });
-
-      const payload = application.payload_json as Record<string, unknown>;
-      const parsedConsents = consentCaptureSchema.safeParse(
-        payload[CONSENT_CAPTURE_PAYLOAD_KEY],
-      );
-
-      if (parsedConsents.success) {
-        const capture = parsedConsents.data as ConsentCaptureDto;
-        const applicantConsentTypes = mapConsentCaptureToTypes(capture).filter(
-          (consentType) => consentType !== CONSENT_TYPES.WHATSAPP_CHANNEL,
-        );
-
-        if (applicantConsentTypes.length > 0) {
-          await db.consentRecord.createMany({
-            data: applicantConsentTypes.map((consentType) => ({
-              tenant_id: tenantId,
-              subject_type: 'applicant',
-              subject_id: application.id,
-              consent_type: consentType,
-              status: 'granted',
-              granted_by_user_id: userId,
-              evidence_type: 'registration_form',
-              privacy_notice_version_id: null,
-              notes: null,
-            })),
-          });
-        }
-
-        if (capture.whatsapp_channel && parentId) {
-          const existingWhatsAppConsent = await db.consentRecord.findFirst({
-            where: {
-              tenant_id: tenantId,
-              subject_type: 'parent',
-              subject_id: parentId,
-              consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
-              status: 'granted',
-            },
-            select: { id: true },
-          });
-
-          if (!existingWhatsAppConsent) {
-            await db.consentRecord.create({
-              data: {
-                tenant_id: tenantId,
-                subject_type: 'parent',
-                subject_id: parentId,
-                consent_type: CONSENT_TYPES.WHATSAPP_CHANNEL,
-                status: 'granted',
-                granted_by_user_id: userId,
-                evidence_type: 'registration_form',
-                privacy_notice_version_id: null,
-                notes: null,
-              },
-            });
-          }
-        }
-      }
-
-      return updated;
-    })) as { id: string; application_number: string; student_first_name: string; student_last_name: string; status: string };
-
-    // Enqueue search index after transaction
-    try {
-      await this.searchIndexService.indexEntity('applications', {
-        id: result.id,
-        tenant_id: tenantId,
-        application_number: result.application_number,
-        student_first_name: result.student_first_name,
-        student_last_name: result.student_last_name,
-        status: result.status,
-      });
-    } catch (indexError) {
-      this.logger.warn(`Search indexing failed for application: ${indexError instanceof Error ? indexError.message : String(indexError)}`);
-    }
-
-    return result;
   }
 
   // ─── Find All ─────────────────────────────────────────────────────────────
@@ -557,9 +379,7 @@ export class ApplicationsService {
         { label: 'Form', value: application.form_definition.name },
         {
           label: 'Submitted',
-          value: application.submitted_at
-            ? application.submitted_at.toISOString()
-            : 'Not yet',
+          value: application.submitted_at ? application.submitted_at.toISOString() : 'Not yet',
         },
         {
           label: 'Created',
@@ -567,611 +387,6 @@ export class ApplicationsService {
         },
       ],
     };
-  }
-
-  // ─── Review ───────────────────────────────────────────────────────────────
-
-  async review(
-    tenantId: string,
-    id: string,
-    dto: ReviewApplicationDto,
-    userId: string,
-  ) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      // Optimistic concurrency check
-      if (application.updated_at.toISOString() !== dto.expected_updated_at) {
-        throw new BadRequestException({
-          error: {
-            code: 'CONCURRENT_MODIFICATION',
-            message:
-              'The application has been modified by another user. Please reload and try again.',
-          },
-        });
-      }
-
-      // Validate status transitions
-      const validTransitions: Record<string, string[]> = {
-        submitted: ['under_review', 'rejected'],
-        under_review: [
-          'pending_acceptance_approval',
-          'rejected',
-        ],
-        pending_acceptance_approval: ['rejected'],
-      };
-
-      const allowedTargets = validTransitions[application.status];
-      if (!allowedTargets || !allowedTargets.includes(dto.status)) {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot transition from "${application.status}" to "${dto.status}"`,
-          },
-        });
-      }
-
-      // Rejection requires a mandatory note
-      if (dto.status === 'rejected') {
-        if (!dto.rejection_reason?.trim()) {
-          throw new BadRequestException({
-            error: {
-              code: 'REJECTION_REASON_REQUIRED',
-              message: 'A rejection reason is required when rejecting an application',
-            },
-          });
-        }
-
-        // Store rejection reason on the application and as an internal note
-        await db.application.update({
-          where: { id },
-          data: {
-            rejection_reason: dto.rejection_reason,
-            status: 'rejected',
-            reviewed_at: new Date(),
-            reviewed_by_user_id: userId,
-          },
-        });
-
-        await db.applicationNote.create({
-          data: {
-            tenant_id: tenantId,
-            application_id: id,
-            author_user_id: userId,
-            note: `Application rejected. Reason: ${dto.rejection_reason}`,
-            is_internal: true,
-          },
-        });
-
-        return db.application.findFirst({
-          where: { id, tenant_id: tenantId },
-        });
-      }
-
-      // For acceptance flow, check if approval is required
-      if (dto.status === 'pending_acceptance_approval') {
-        // Read tenant settings to check approval requirement
-        const tenantSettings = await db.tenantSetting.findFirst({
-          where: { tenant_id: tenantId },
-        });
-
-        const settings = (tenantSettings?.settings ?? {}) as Record<
-          string,
-          Record<string, unknown>
-        >;
-        const requireApproval =
-          settings.admissions?.requireApprovalForAcceptance !== false;
-
-        if (requireApproval) {
-          // Check with the approval system
-          // We pass hasDirectAuthority = false; school_owner bypasses are handled
-          // by the approval workflow check itself
-          const approvalResult =
-            await this.approvalRequestsService.checkAndCreateIfNeeded(
-              tenantId,
-              'application_accept',
-              'application',
-              id,
-              userId,
-              false, // hasDirectAuthority
-            );
-
-          if (!approvalResult.approved) {
-            // Update status to pending_acceptance_approval
-            const updated = await db.application.update({
-              where: { id },
-              data: {
-                status: 'pending_acceptance_approval',
-                reviewed_at: new Date(),
-                reviewed_by_user_id: userId,
-              },
-            });
-
-            return {
-              ...updated,
-              approval_request_id: approvalResult.request_id,
-              approval_required: true,
-            };
-          }
-        }
-
-        // If no approval needed or auto-approved, accept directly
-        const updated = await db.application.update({
-          where: { id },
-          data: {
-            status: 'accepted',
-            reviewed_at: new Date(),
-            reviewed_by_user_id: userId,
-          },
-        });
-
-        return updated;
-      }
-
-      // Standard status update (under_review, rejected)
-      const updated = await db.application.update({
-        where: { id },
-        data: {
-          status: dto.status,
-          reviewed_at: new Date(),
-          reviewed_by_user_id: userId,
-        },
-      });
-
-      return updated;
-    });
-  }
-
-  // ─── Withdraw ─────────────────────────────────────────────────────────────
-
-  async withdraw(
-    tenantId: string,
-    id: string,
-    userId: string,
-    isParent: boolean,
-  ) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      // Parents can only withdraw their own applications
-      if (isParent) {
-        const parent = await db.parent.findFirst({
-          where: { tenant_id: tenantId, user_id: userId },
-        });
-
-        if (
-          !parent ||
-          application.submitted_by_parent_id !== parent.id
-        ) {
-          throw new BadRequestException({
-            error: {
-              code: 'NOT_OWNER',
-              message: 'You can only withdraw your own applications',
-            },
-          });
-        }
-      }
-
-      // Can only withdraw from certain statuses
-      const withdrawableStatuses = [
-        'draft',
-        'submitted',
-        'under_review',
-        'pending_acceptance_approval',
-      ];
-
-      if (!withdrawableStatuses.includes(application.status)) {
-        throw new BadRequestException({
-          error: {
-            code: 'INVALID_STATUS_TRANSITION',
-            message: `Cannot withdraw an application with status "${application.status}"`,
-          },
-        });
-      }
-
-      return db.application.update({
-        where: { id },
-        data: {
-          status: 'withdrawn',
-          reviewed_at: new Date(),
-          reviewed_by_user_id: userId,
-        },
-      });
-    });
-  }
-
-  // ─── Conversion Preview ───────────────────────────────────────────────────
-
-  async getConversionPreview(tenantId: string, id: string) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-        include: {
-          submitted_by: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              email: true,
-              phone: true,
-            },
-          },
-        },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      if (application.status !== 'accepted') {
-        throw new BadRequestException({
-          error: {
-            code: 'NOT_ACCEPTED',
-            message:
-              'Only accepted applications can be converted to students',
-          },
-        });
-      }
-
-      // Extract parent email from payload for matching
-      const payload = application.payload_json as Record<string, unknown>;
-      const parentEmail =
-        (payload.parent_email as string) ??
-        application.submitted_by?.email ??
-        null;
-
-      // Try to match existing parents by email
-      let matchingParents: Array<{
-        id: string;
-        first_name: string;
-        last_name: string;
-        email: string | null;
-        phone: string | null;
-        user_id: string | null;
-      }> = [];
-
-      if (parentEmail) {
-        matchingParents = await db.parent.findMany({
-          where: {
-            tenant_id: tenantId,
-            email: parentEmail,
-          },
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-            phone: true,
-            user_id: true,
-          },
-        });
-      }
-
-      // Get year groups for the conversion form
-      const yearGroups = await db.yearGroup.findMany({
-        where: { tenant_id: tenantId },
-        orderBy: { display_order: 'asc' },
-        select: {
-          id: true,
-          name: true,
-          display_order: true,
-        },
-      });
-
-      return {
-        application: {
-          id: application.id,
-          application_number: application.application_number,
-          student_first_name: application.student_first_name,
-          student_last_name: application.student_last_name,
-          date_of_birth: application.date_of_birth,
-          payload_json: application.payload_json,
-          updated_at: application.updated_at,
-        },
-        submitted_by_parent: application.submitted_by,
-        matching_parents: matchingParents,
-        year_groups: yearGroups,
-      };
-    });
-  }
-
-  // ─── Convert ──────────────────────────────────────────────────────────────
-
-  async convert(
-    tenantId: string,
-    id: string,
-    dto: ConvertApplicationDto,
-    userId: string,
-  ) {
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    const result = await prismaWithRls.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const application = await db.application.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
-
-      if (!application) {
-        throw new NotFoundException({
-          error: {
-            code: 'APPLICATION_NOT_FOUND',
-            message: `Application with id "${id}" not found`,
-          },
-        });
-      }
-
-      if (application.status !== 'accepted') {
-        throw new BadRequestException({
-          error: {
-            code: 'NOT_ACCEPTED',
-            message:
-              'Only accepted applications can be converted to students',
-          },
-        });
-      }
-
-      // Atomic double-conversion guard: atomically set status to 'converting' only if still 'accepted'
-      // This prevents two concurrent conversions from both passing the status check
-      const lockResult = await db.application.updateMany({
-        where: { id, tenant_id: tenantId, status: 'accepted' },
-        data: { status: 'converting' as never },
-      });
-      if (lockResult.count === 0) {
-        throw new BadRequestException({
-          error: {
-            code: 'ALREADY_CONVERTED',
-            message: 'This application is already being converted or has been converted',
-          },
-        });
-      }
-
-      // Optimistic concurrency check
-      if (application.updated_at.toISOString() !== dto.expected_updated_at) {
-        throw new BadRequestException({
-          error: {
-            code: 'CONCURRENT_MODIFICATION',
-            message:
-              'The application has been modified. Please reload and try again.',
-          },
-        });
-      }
-
-      // Verify year group exists
-      const yearGroup = await db.yearGroup.findFirst({
-        where: { id: dto.year_group_id, tenant_id: tenantId },
-      });
-
-      if (!yearGroup) {
-        throw new NotFoundException({
-          error: {
-            code: 'YEAR_GROUP_NOT_FOUND',
-            message: `Year group with id "${dto.year_group_id}" not found`,
-          },
-        });
-      }
-
-      // 1. Create or link parent 1
-      let parent1Id: string;
-
-      if (dto.parent1_link_existing_id) {
-        // Verify existing parent belongs to this tenant
-        const existingParent = await db.parent.findFirst({
-          where: { id: dto.parent1_link_existing_id, tenant_id: tenantId },
-        });
-
-        if (!existingParent) {
-          throw new NotFoundException({
-            error: {
-              code: 'PARENT_NOT_FOUND',
-              message: `Parent with id "${dto.parent1_link_existing_id}" not found`,
-            },
-          });
-        }
-
-        parent1Id = existingParent.id;
-      } else {
-        const newParent = await db.parent.create({
-          data: {
-            tenant_id: tenantId,
-            first_name: dto.parent1_first_name,
-            last_name: dto.parent1_last_name,
-            email: dto.parent1_email ?? null,
-            phone: dto.parent1_phone ?? null,
-            preferred_contact_channels: ['email'],
-            is_primary_contact: true,
-            is_billing_contact: true,
-            status: 'active',
-          },
-        });
-        parent1Id = newParent.id;
-      }
-
-      // 2. Create or link parent 2 (optional)
-      let parent2Id: string | null = null;
-
-      if (dto.parent2_link_existing_id) {
-        const existingParent2 = await db.parent.findFirst({
-          where: { id: dto.parent2_link_existing_id, tenant_id: tenantId },
-        });
-
-        if (!existingParent2) {
-          throw new NotFoundException({
-            error: {
-              code: 'PARENT_NOT_FOUND',
-              message: `Parent with id "${dto.parent2_link_existing_id}" not found`,
-            },
-          });
-        }
-
-        parent2Id = existingParent2.id;
-      } else if (dto.parent2_first_name && dto.parent2_last_name) {
-        const newParent2 = await db.parent.create({
-          data: {
-            tenant_id: tenantId,
-            first_name: dto.parent2_first_name,
-            last_name: dto.parent2_last_name,
-            email: dto.parent2_email ?? null,
-            preferred_contact_channels: ['email'],
-            is_primary_contact: false,
-            is_billing_contact: false,
-            status: 'active',
-          },
-        });
-        parent2Id = newParent2.id;
-      }
-
-      // 3. Create household
-      const householdName =
-        dto.household_name ??
-        `${dto.student_last_name} Family`;
-
-      const householdNumber = await this.sequenceService.generateHouseholdReference(tenantId, db);
-
-      const household = await db.household.create({
-        data: {
-          tenant_id: tenantId,
-          household_name: householdName,
-          household_number: householdNumber,
-          primary_billing_parent_id: parent1Id,
-          status: 'active',
-          needs_completion: true,
-        },
-      });
-
-      // Link parents to household
-      await db.householdParent.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          parent_id: parent1Id,
-        },
-      });
-
-      if (parent2Id) {
-        await db.householdParent.create({
-          data: {
-            tenant_id: tenantId,
-            household_id: household.id,
-            parent_id: parent2Id,
-          },
-        });
-      }
-
-      // 4. Create student (full_name is a generated column — do not set it)
-      const student = await db.student.create({
-        data: {
-          tenant_id: tenantId,
-          household_id: household.id,
-          first_name: dto.student_first_name,
-          last_name: dto.student_last_name,
-          date_of_birth: new Date(dto.date_of_birth),
-          status: 'active',
-          year_group_id: dto.year_group_id,
-          entry_date: new Date(),
-        },
-      });
-
-      // 5. Create student-parent junctions
-      await db.studentParent.create({
-        data: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          parent_id: parent1Id,
-        },
-      });
-
-      if (parent2Id) {
-        await db.studentParent.create({
-          data: {
-            tenant_id: tenantId,
-            student_id: student.id,
-            parent_id: parent2Id,
-          },
-        });
-      }
-
-      // 6. Record conversion via internal note (idempotency guard checks for this)
-      await db.applicationNote.create({
-        data: {
-          tenant_id: tenantId,
-          application_id: id,
-          author_user_id: userId,
-          note: `Converted to student: ${student.first_name} ${student.last_name} (ID: ${student.id}). Household: ${household.household_name} (ID: ${household.id}).`,
-          is_internal: true,
-        },
-      });
-
-      return {
-        application_id: id,
-        student,
-        household,
-        parent1_id: parent1Id,
-        parent2_id: parent2Id,
-      };
-    }) as {
-      application_id: string;
-      student: { id: string; first_name: string; last_name: string; full_name: string | null; student_number: string | null; status: string };
-      household: { id: string; household_name: string };
-      parent1_id: string;
-      parent2_id: string | null;
-    };
-
-    // Enqueue search indexing after transaction
-    try {
-      await this.searchIndexService.indexEntity('students', {
-        id: result.student.id,
-        tenant_id: tenantId,
-        first_name: result.student.first_name,
-        last_name: result.student.last_name,
-        full_name: result.student.full_name,
-        student_number: result.student.student_number,
-        status: result.student.status,
-      });
-    } catch (indexError) {
-      this.logger.warn(`Search indexing failed for student: ${indexError instanceof Error ? indexError.message : String(indexError)}`);
-    }
-
-    return result;
   }
 
   // ─── Analytics ────────────────────────────────────────────────────────────
@@ -1191,14 +406,10 @@ export class ApplicationsService {
       if (query.date_from || query.date_to) {
         where.created_at = {};
         if (query.date_from) {
-          (where.created_at as Prisma.DateTimeFilter).gte = new Date(
-            query.date_from,
-          );
+          (where.created_at as Prisma.DateTimeFilter).gte = new Date(query.date_from);
         }
         if (query.date_to) {
-          (where.created_at as Prisma.DateTimeFilter).lte = new Date(
-            query.date_to,
-          );
+          (where.created_at as Prisma.DateTimeFilter).lte = new Date(query.date_to);
         }
       }
 
@@ -1217,8 +428,7 @@ export class ApplicationsService {
 
       const total = statusCounts.reduce((sum, c) => sum + c, 0);
       const accepted = statusCounts[4];
-      const conversionRate =
-        total > 0 ? Number(((accepted / total) * 100).toFixed(1)) : 0;
+      const conversionRate = total > 0 ? Number(((accepted / total) * 100).toFixed(1)) : 0;
 
       // Average days to decision (from submitted_at to reviewed_at)
       const rawTx = tx as unknown as {

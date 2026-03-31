@@ -9,7 +9,9 @@ import { AdmissionFormsController } from './admission-forms.controller';
 import { AdmissionFormsService } from './admission-forms.service';
 import { AdmissionsPaymentService } from './admissions-payment.service';
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
+import { ApplicationConversionService } from './application-conversion.service';
 import { ApplicationNotesService } from './application-notes.service';
+import { ApplicationStateMachineService } from './application-state-machine.service';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
 import { ParentApplicationsController } from './parent-applications.controller';
@@ -26,6 +28,8 @@ import { PublicAdmissionsController } from './public-admissions.controller';
   providers: [
     AdmissionFormsService,
     ApplicationsService,
+    ApplicationStateMachineService,
+    ApplicationConversionService,
     ApplicationNotesService,
     AdmissionsRateLimitService,
     AdmissionsPaymentService,

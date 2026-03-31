@@ -132,8 +132,9 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 ### NotificationsService + NotificationDispatchService (CommunicationsModule)
 
 - **Consumed by**: AttendanceModule (parent notifications)
-- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts plus GDPR legal/privacy fan-out notifications.
+- **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts, GDPR legal/privacy fan-out notifications, and the parent daily digest.
 - **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. GDPR Phase E also introduces a `forwardRef()` cycle between `CommunicationsModule` and `GdprModule` because privacy notice publishes and sub-processor register updates notify tenant users/admins in-app.
+- **Parent daily digest cross-module reads**: The `notifications:parent-daily-digest` worker processor reads data from 6+ modules via Prisma direct: `daily_attendance_summaries` (Attendance), `grades` + `assessments` (Gradebook), `behaviour_incidents` + `behaviour_recognition_awards` (Behaviour), `homework_assignments` + `class_enrolments` (Homework/Classes), `invoices` (Finance), `students` + `student_parents` (Students), and `users.preferred_locale` (platform-level). Schema changes to any of these tables affect digest content generation.
 
 ### SchoolClosuresService (SchoolClosuresModule)
 
@@ -252,12 +253,14 @@ Known Prisma-direct consumers:
 | Table | Queried directly by |
 |-------|-------------------|
 | `staff_profiles` | Payroll, scheduling, attendance, classes, reports, dashboard |
-| `students` | Attendance, gradebook, report cards, finance, admissions, reports |
-| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards |
+| `students` + `student_parents` | Attendance, gradebook, report cards, finance, admissions, reports, parent-daily-digest (worker) |
+| `classes` + `class_enrolments` | Gradebook, attendance, scheduling, report cards, parent-daily-digest (worker) |
 | `academic_periods` + `academic_years` | Gradebook, report cards, scheduling, promotion, attendance |
-| `invoices` + `payments` | Finance reports, dashboard, parent portal |
-| `attendance_records` + `attendance_sessions` | Reports, dashboard, gradebook risk detection |
-| `behaviour_incidents` + `behaviour_incident_participants` | Behaviour module reads these via Prisma (owned), future: reports, dashboard, scheduling analytics |
+| `invoices` + `payments` | Finance reports, dashboard, parent portal, parent-daily-digest (worker) |
+| `attendance_records` + `attendance_sessions` + `daily_attendance_summaries` | Reports, dashboard, gradebook risk detection, parent-daily-digest (worker) |
+| `behaviour_incidents` + `behaviour_recognition_awards` | Behaviour module reads these via Prisma (owned), reports, dashboard, parent-daily-digest (worker) |
+| `grades` + `assessments` | Gradebook (owned), parent-daily-digest (worker) |
+| `homework_assignments` | Homework (owned), parent-daily-digest (worker) |
 
 **Rule**: When changing schema for any table in the left column, grep for that table name across ALL modules, not just the owning module.
 
