@@ -103,6 +103,19 @@ discontinued*
   - `* -> achieved`: optional append-only achievement note plus optional `current_level` update
   - `* -> discontinued`: optional append-only discontinuation note plus optional `current_level` update
 
+### SenReferralStatus (Professional Involvement)
+
+```
+pending         -> [scheduled, completed, report_received]
+scheduled       -> [completed, report_received]
+completed       -> [report_received]
+report_received*
+```
+
+- **Guarded by**: No shared state machine — status is set directly via API update. All four values are valid enum values, transitions are not strictly enforced at service level.
+- **Location**: `apps/api/src/modules/sen/sen-professional.service.ts`
+- **Side effects**: None. Status is informational tracking for the referral lifecycle.
+
 ---
 
 ## Admissions & Registration

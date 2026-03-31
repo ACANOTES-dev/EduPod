@@ -4,8 +4,12 @@ import { AuthModule } from '../auth/auth.module';
 import { ConfigurationModule } from '../configuration/configuration.module';
 import { TenantsModule } from '../tenants/tenants.module';
 
+import { SenAccommodationController } from './sen-accommodation.controller';
+import { SenAccommodationService } from './sen-accommodation.service';
 import { SenGoalController } from './sen-goal.controller';
 import { SenGoalService } from './sen-goal.service';
+import { SenProfessionalController } from './sen-professional.controller';
+import { SenProfessionalService } from './sen-professional.service';
 import { SenProfileController } from './sen-profile.controller';
 import { SenProfileService } from './sen-profile.service';
 import { SenResourceController } from './sen-resource.controller';
@@ -24,6 +28,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenGoalController,
     SenResourceController,
     SenSnaController,
+    SenProfessionalController,
+    SenAccommodationController,
   ],
   providers: [
     SenProfileService,
@@ -32,6 +38,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenGoalService,
     SenResourceService,
     SenSnaService,
+    SenProfessionalService,
+    SenAccommodationService,
   ],
   exports: [
     SenProfileService,
@@ -40,6 +48,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenGoalService,
     SenResourceService,
     SenSnaService,
+    SenProfessionalService,
+    SenAccommodationService,
   ],
 })
 export class SenModule {}

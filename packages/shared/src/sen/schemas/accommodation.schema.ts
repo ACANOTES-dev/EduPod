@@ -38,3 +38,9 @@ export const listAccommodationsQuerySchema = z.object({
 });
 
 export type ListAccommodationsQuery = z.infer<typeof listAccommodationsQuerySchema>;
+
+export const examReportQuerySchema = z.object({
+  year_group_id: z.string().uuid().optional(),
+});
+
+export type ExamReportQuery = z.infer<typeof examReportQuerySchema>;
