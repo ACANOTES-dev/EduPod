@@ -723,6 +723,17 @@ model Tenant {
   diary_notes               DiaryNote[]
   diary_parent_notes        DiaryParentNote[]
 
+  // Engagement Relations
+  eng_form_templates      EngagementFormTemplate[]
+  eng_form_submissions    EngagementFormSubmission[]
+  eng_consent_records     EngagementConsentRecord[]
+  eng_events              EngagementEvent[]
+  eng_event_staff         EngagementEventStaff[]
+  eng_event_participants  EngagementEventParticipant[]
+  conf_time_slots         ConferenceTimeSlot[]
+  conf_bookings           ConferenceBooking[]
+  eng_incident_reports    EngagementIncidentReport[]
+
   @@map("tenants")
 }
 
@@ -1106,6 +1117,15 @@ model User {
   hw_assignments          HomeworkAssignment[] @relation("hw_assigned_by")
   hw_verified_completions HomeworkCompletion[] @relation("hw_verified_by")
   hw_diary_parent_notes   DiaryParentNote[]    @relation("hw_diary_note_author")
+
+  // Engagement Relations
+  eng_form_templates_created EngagementFormTemplate[]  @relation("eng_form_template_creator")
+  eng_form_submitted         EngagementFormSubmission[] @relation("eng_form_submitter")
+  eng_form_acknowledged      EngagementFormSubmission[] @relation("eng_form_acknowledger")
+  eng_events_created         EngagementEvent[]          @relation("eng_event_creator")
+  eng_risk_approvals         EngagementEvent[]          @relation("eng_risk_approver")
+  eng_incidents_reported     EngagementIncidentReport[] @relation("eng_incident_reporter")
+  eng_conf_bookings_made     ConferenceBooking[]        @relation("eng_conf_booker")
 
   @@map("users")
 }
@@ -1559,6 +1579,12 @@ model Student {
   hw_diary_notes        DiaryNote[]
   hw_diary_parent_notes DiaryParentNote[]
 
+  // Engagement Relations
+  eng_form_submissions    EngagementFormSubmission[]
+  eng_consent_records     EngagementConsentRecord[]
+  eng_event_participants  EngagementEventParticipant[]
+  eng_conf_bookings       ConferenceBooking[]
+
   @@index([tenant_id], name: "idx_students_tenant")
   @@index([tenant_id, status], name: "idx_students_tenant_status")
   @@index([tenant_id, household_id], name: "idx_students_tenant_household")
@@ -1640,6 +1666,10 @@ model StaffProfile {
   // Pastoral Care Relations
   pc_critical_affected CriticalIncidentAffected[] @relation("pc_critical_affected_staff")
 
+  // Engagement Relations
+  eng_event_staff     EngagementEventStaff[]
+  eng_conf_time_slots ConferenceTimeSlot[]
+
   @@unique([tenant_id, user_id], name: "idx_staff_profiles_tenant_user")
   @@index([tenant_id], name: "idx_staff_profiles_tenant")
   @@index([user_id], name: "idx_staff_profiles_user")
@@ -1692,6 +1722,12 @@ model AcademicYear {
 
   // Homework Relations
   homework_assignments HomeworkAssignment[]
+
+  // Engagement Relations
+  eng_form_templates   EngagementFormTemplate[]
+  eng_form_submissions EngagementFormSubmission[]
+  eng_consent_records  EngagementConsentRecord[]
+  eng_events           EngagementEvent[]
 
   @@unique([tenant_id, name], name: "idx_academic_years_tenant_name")
   @@index([tenant_id], name: "idx_academic_years_tenant")
@@ -3733,6 +3769,9 @@ model Invoice {
   late_fee_applications    LateFeeApplication[]
   payment_plan_requests    PaymentPlanRequest[]
 
+  // Engagement Relations
+  eng_event_participants EngagementEventParticipant[]
+
   @@unique([tenant_id, invoice_number], name: "idx_invoices_number")
   @@index([tenant_id, household_id], name: "idx_invoices_tenant_household")
   @@index([tenant_id, status], name: "idx_invoices_tenant_status")
@@ -5681,6 +5720,124 @@ enum RecurrenceFrequency {
   daily
   weekly
   custom
+}
+
+// ─── Engagement Enums ────────────────────────────────────────────────────────
+
+enum EngagementFormType {
+  consent_form
+  risk_assessment
+  survey
+  policy_signoff
+}
+
+enum ConsentType {
+  one_time
+  annual
+  standing
+}
+
+enum EngagementFormStatus {
+  draft
+  published
+  archived
+}
+
+enum FormSubmissionStatus {
+  pending
+  submitted
+  acknowledged
+  expired
+  revoked
+}
+
+enum EngagementEventType {
+  school_trip
+  overnight_trip
+  sports_event
+  cultural_event
+  in_school_event
+  after_school_activity
+  parent_conference
+  policy_signoff
+}
+
+enum EngagementEventStatus {
+  draft
+  published
+  open
+  closed
+  in_progress
+  completed
+  cancelled
+  archived
+}
+
+enum EventTargetType {
+  whole_school
+  year_group
+  class_group
+  custom
+}
+
+enum EventStaffRole {
+  organiser
+  supervisor
+  trip_leader
+}
+
+enum ParticipantStatus {
+  invited
+  registered
+  consent_pending
+  consent_granted
+  consent_declined
+  payment_pending
+  confirmed
+  attended
+  absent
+  withdrawn
+}
+
+enum ParticipantConsentStatus {
+  pending
+  granted
+  declined
+}
+
+enum ParticipantPaymentStatus {
+  not_required
+  pending
+  paid
+  waived
+  refunded
+}
+
+enum ConsentRecordStatus {
+  active
+  expired
+  revoked
+}
+
+enum TimeSlotStatus {
+  available
+  booked
+  blocked
+  completed
+  cancelled
+}
+
+enum ConferenceBookingStatus {
+  confirmed
+  cancelled
+  completed
+  no_show
+}
+
+enum BookingType {
+  parent_booked
+  admin_booked
+  walk_in
 }
 
 // ─── Behaviour Management Models ────────────────────────────────────────────
@@ -8274,4 +8431,285 @@ model DiaryParentNote {
 
   @@index([tenant_id, student_id, note_date], name: "idx_diary_parent_notes_student_date")
   @@map("diary_parent_notes")
+}
+
+// ─── Engagement Module ───────────────────────────────────────────────────────
+
+model EngagementFormTemplate {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String               @db.Uuid
+  name               String               @db.VarChar(255)
+  description        String?              @db.Text
+  form_type          EngagementFormType
+  consent_type       ConsentType?
+  fields_json        Json
+  requires_signature Boolean              @default(false)
+  status             EngagementFormStatus @default(draft)
+  academic_year_id   String?              @db.Uuid
+  created_by_user_id String               @db.Uuid
+  created_at         DateTime             @default(now()) @db.Timestamptz()
+  updated_at         DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear?             @relation(fields: [academic_year_id], references: [id], onDelete: SetNull)
+  created_by      User                      @relation("eng_form_template_creator", fields: [created_by_user_id], references: [id])
+  submissions     EngagementFormSubmission[]
+  consent_records EngagementConsentRecord[]
+  events_consent  EngagementEvent[]         @relation("event_consent_form")
+  events_risk     EngagementEvent[]         @relation("event_risk_assessment")
+
+  @@index([tenant_id, status], name: "idx_eng_form_templates_tenant_status")
+  @@index([tenant_id, form_type], name: "idx_eng_form_templates_tenant_type")
+  @@map("engagement_form_templates")
+}
+
+model EngagementFormSubmission {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String               @db.Uuid
+  form_template_id     String               @db.Uuid
+  event_id             String?              @db.Uuid
+  student_id           String               @db.Uuid
+  submitted_by_user_id String?              @db.Uuid
+  responses_json       Json
+  signature_json       Json?
+  status               FormSubmissionStatus @default(pending)
+  submitted_at         DateTime?            @db.Timestamptz()
+  acknowledged_at      DateTime?            @db.Timestamptz()
+  acknowledged_by_id   String?              @db.Uuid
+  expired_at           DateTime?            @db.Timestamptz()
+  revoked_at           DateTime?            @db.Timestamptz()
+  revocation_reason    String?              @db.Text
+  academic_year_id     String               @db.Uuid
+  created_at           DateTime             @default(now()) @db.Timestamptz()
+  updated_at           DateTime             @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  form_template   EngagementFormTemplate   @relation(fields: [form_template_id], references: [id], onDelete: Cascade)
+  event           EngagementEvent?         @relation(fields: [event_id], references: [id], onDelete: SetNull)
+  student         Student                  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  submitted_by    User?                    @relation("eng_form_submitter", fields: [submitted_by_user_id], references: [id], onDelete: SetNull)
+  acknowledged_by User?                    @relation("eng_form_acknowledger", fields: [acknowledged_by_id], references: [id], onDelete: SetNull)
+  academic_year   AcademicYear             @relation(fields: [academic_year_id], references: [id])
+  consent_record  EngagementConsentRecord?
+
+  @@index([tenant_id, form_template_id, status], name: "idx_eng_submissions_template_status")
+  @@index([tenant_id, student_id], name: "idx_eng_submissions_student")
+  @@index([tenant_id, event_id, status], name: "idx_eng_submissions_event_status")
+  @@map("engagement_form_submissions")
+}
+
+model EngagementConsentRecord {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String              @db.Uuid
+  student_id         String              @db.Uuid
+  consent_type       ConsentType
+  form_template_id   String              @db.Uuid
+  form_submission_id String              @unique @db.Uuid
+  event_id           String?             @db.Uuid
+  status             ConsentRecordStatus @default(active)
+  granted_at         DateTime            @db.Timestamptz()
+  expires_at         DateTime?           @db.Timestamptz()
+  revoked_at         DateTime?           @db.Timestamptz()
+  academic_year_id   String              @db.Uuid
+  created_at         DateTime            @default(now()) @db.Timestamptz()
+  updated_at         DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student         Student                 @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  form_template   EngagementFormTemplate  @relation(fields: [form_template_id], references: [id], onDelete: Cascade)
+  form_submission EngagementFormSubmission @relation(fields: [form_submission_id], references: [id], onDelete: Cascade)
+  event           EngagementEvent?        @relation(fields: [event_id], references: [id], onDelete: SetNull)
+  academic_year   AcademicYear            @relation(fields: [academic_year_id], references: [id])
+
+  @@index([tenant_id, student_id, status], name: "idx_eng_consent_student_status")
+  @@index([tenant_id, consent_type, status], name: "idx_eng_consent_type_status")
+  @@index([tenant_id, expires_at], name: "idx_eng_consent_expires")
+  @@map("engagement_consent_records")
+}
+
+model EngagementEvent {
+  id                          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id                   String                @db.Uuid
+  title                       String                @db.VarChar(255)
+  title_ar                    String?               @db.VarChar(255)
+  description                 String?               @db.Text
+  description_ar              String?               @db.Text
+  event_type                  EngagementEventType
+  status                      EngagementEventStatus @default(draft)
+
+  // ─── Scheduling ──────────────────────────────────────────────────────────────
+  start_date                  DateTime?             @db.Date
+  end_date                    DateTime?             @db.Date
+  start_time                  DateTime?             @db.Time
+  end_time                    DateTime?             @db.Time
+  location                    String?               @db.VarChar(255)
+  location_ar                 String?               @db.VarChar(255)
+
+  // ─── Targeting ───────────────────────────────────────────────────────────────
+  capacity                    Int?
+  target_type                 EventTargetType       @default(whole_school)
+  target_config_json          Json?
+
+  // ─── Linked forms ────────────────────────────────────────────────────────────
+  consent_form_template_id    String?               @db.Uuid
+  risk_assessment_template_id String?               @db.Uuid
+
+  // ─── Payment ─────────────────────────────────────────────────────────────────
+  fee_amount                  Decimal?              @db.Decimal(12, 2)
+  fee_description             String?               @db.VarChar(255)
+
+  // ─── Conference-specific ─────────────────────────────────────────────────────
+  slot_duration_minutes       Int?
+  buffer_minutes              Int?
+
+  // ─── Deadlines ───────────────────────────────────────────────────────────────
+  consent_deadline            DateTime?             @db.Date
+  payment_deadline            DateTime?             @db.Date
+  booking_deadline            DateTime?             @db.Date
+
+  // ─── Risk assessment gate ────────────────────────────────────────────────────
+  risk_assessment_required    Boolean               @default(false)
+  risk_assessment_approved    Boolean               @default(false)
+  risk_assessment_approved_by String?               @db.Uuid
+  risk_assessment_approved_at DateTime?             @db.Timestamptz()
+
+  // ─── Metadata ────────────────────────────────────────────────────────────────
+  academic_year_id            String                @db.Uuid
+  created_by_user_id          String                @db.Uuid
+  created_at                  DateTime              @default(now()) @db.Timestamptz()
+  updated_at                  DateTime              @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant                   Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  consent_form_template    EngagementFormTemplate?      @relation("event_consent_form", fields: [consent_form_template_id], references: [id], onDelete: SetNull)
+  risk_assessment_template EngagementFormTemplate?      @relation("event_risk_assessment", fields: [risk_assessment_template_id], references: [id], onDelete: SetNull)
+  academic_year            AcademicYear                 @relation(fields: [academic_year_id], references: [id])
+  created_by               User                         @relation("eng_event_creator", fields: [created_by_user_id], references: [id])
+  risk_approver            User?                        @relation("eng_risk_approver", fields: [risk_assessment_approved_by], references: [id], onDelete: SetNull)
+  staff                    EngagementEventStaff[]
+  participants             EngagementEventParticipant[]
+  form_submissions         EngagementFormSubmission[]
+  consent_records          EngagementConsentRecord[]
+  time_slots               ConferenceTimeSlot[]
+  incident_reports         EngagementIncidentReport[]
+
+  @@index([tenant_id, status], name: "idx_eng_events_tenant_status")
+  @@index([tenant_id, event_type, status], name: "idx_eng_events_type_status")
+  @@index([tenant_id, academic_year_id], name: "idx_eng_events_academic_year")
+  @@index([tenant_id, start_date], name: "idx_eng_events_start_date")
+  @@map("engagement_events")
+}
+
+model EngagementEventStaff {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String         @db.Uuid
+  event_id   String         @db.Uuid
+  staff_id   String         @db.Uuid
+  role       EventStaffRole
+  created_at DateTime       @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  event  EngagementEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  staff  StaffProfile    @relation(fields: [staff_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, event_id, staff_id], name: "uq_eng_event_staff")
+  @@map("engagement_event_staff")
+}
+
+model EngagementEventParticipant {
+  id                   String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String                    @db.Uuid
+  event_id             String                    @db.Uuid
+  student_id           String                    @db.Uuid
+  status               ParticipantStatus         @default(invited)
+  consent_status       ParticipantConsentStatus? @default(pending)
+  payment_status       ParticipantPaymentStatus  @default(not_required)
+  invoice_id           String?                   @db.Uuid
+  registered_at        DateTime?                 @db.Timestamptz()
+  attendance_marked    Boolean                   @default(false)
+  attendance_marked_at DateTime?                 @db.Timestamptz()
+  attendance_marked_by String?                   @db.Uuid
+  withdrawn_at         DateTime?                 @db.Timestamptz()
+  created_at           DateTime                  @default(now()) @db.Timestamptz()
+  updated_at           DateTime                  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  event   EngagementEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  student Student         @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  invoice Invoice?        @relation(fields: [invoice_id], references: [id], onDelete: SetNull)
+
+  @@unique([tenant_id, event_id, student_id], name: "uq_eng_event_participant")
+  @@index([tenant_id, event_id, status], name: "idx_eng_participants_event_status")
+  @@map("engagement_event_participants")
+}
+
+model ConferenceTimeSlot {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String         @db.Uuid
+  event_id   String         @db.Uuid
+  teacher_id String         @db.Uuid
+  start_time DateTime       @db.Timestamptz()
+  end_time   DateTime       @db.Timestamptz()
+  status     TimeSlotStatus @default(available)
+  created_at DateTime       @default(now()) @db.Timestamptz()
+  updated_at DateTime       @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant  Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  event   EngagementEvent   @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  teacher StaffProfile      @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  booking ConferenceBooking?
+
+  @@index([tenant_id, event_id, teacher_id], name: "idx_conf_slots_event_teacher")
+  @@index([tenant_id, event_id, status], name: "idx_conf_slots_event_status")
+  @@map("conference_time_slots")
+}
+
+model ConferenceBooking {
+  id                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id         String                  @db.Uuid
+  time_slot_id      String                  @unique @db.Uuid
+  student_id        String                  @db.Uuid
+  booked_by_user_id String                  @db.Uuid
+  booking_type      BookingType             @default(parent_booked)
+  status            ConferenceBookingStatus @default(confirmed)
+  video_call_link   String?                 @db.VarChar(500)
+  notes             String?                 @db.Text
+  booked_at         DateTime                @default(now()) @db.Timestamptz()
+  cancelled_at      DateTime?               @db.Timestamptz()
+  created_at        DateTime                @default(now()) @db.Timestamptz()
+  updated_at        DateTime                @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant    Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  time_slot ConferenceTimeSlot @relation(fields: [time_slot_id], references: [id], onDelete: Cascade)
+  student   Student            @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  booked_by User               @relation("eng_conf_booker", fields: [booked_by_user_id], references: [id])
+
+  @@index([tenant_id, student_id], name: "idx_conf_bookings_student")
+  @@map("conference_bookings")
+}
+
+model EngagementIncidentReport {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  event_id            String   @db.Uuid
+  title               String   @db.VarChar(255)
+  description         String   @db.Text
+  reported_by_user_id String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz()
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  event       EngagementEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  reported_by User            @relation("eng_incident_reporter", fields: [reported_by_user_id], references: [id])
+
+  @@index([tenant_id, event_id], name: "idx_eng_incidents_event")
+  @@map("engagement_incident_reports")
 }

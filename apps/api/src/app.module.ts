@@ -24,6 +24,7 @@ import { ConfigurationModule } from './modules/configuration/configuration.modul
 import { CriticalIncidentsModule } from './modules/critical-incidents/critical-incidents.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EarlyWarningModule } from './modules/early-warning/early-warning.module';
+import { EngagementModule } from './modules/engagement/engagement.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { GdprModule } from './modules/gdpr/gdpr.module';
 import { GradebookModule } from './modules/gradebook/gradebook.module';
@@ -119,6 +120,7 @@ import { WebsiteModule } from './modules/website/website.module';
     SearchModule,
     DashboardModule,
     EarlyWarningModule,
+    EngagementModule,
     PeriodGridModule,
     ClassRequirementsModule,
     StaffAvailabilityModule,

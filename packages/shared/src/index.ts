@@ -155,6 +155,9 @@ export * from './regulatory';
 // Early Warning System
 export * from './early-warning';
 
+// Engagement
+export * from './engagement';
+
 // Parent Daily Digest
 export * from './schemas/parent-digest.schema';
 

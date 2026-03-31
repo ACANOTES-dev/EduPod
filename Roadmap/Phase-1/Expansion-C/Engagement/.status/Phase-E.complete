@@ -1,0 +1,3 @@
+commit: b380b7f
+deployed_at: 2026-03-31 07:40 UTC
+notes: Conference API — slot generation, booking with FOR UPDATE conflict prevention, teacher schedule, parent self-service booking, admin/walk-in, conference reminders cron. 39 tests, 230 engagement total.

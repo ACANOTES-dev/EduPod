@@ -1,0 +1,3 @@
+commit: 8dc7084
+deployed_at: 2026-03-31 08:20 UTC
+notes: 16 files, 3630 insertions. Events API complete — CRUD, lifecycle state machine, participants, dashboard, staff management, 4 BullMQ processors, 2 cron jobs. 161 tests passing. type-check + lint clean.
