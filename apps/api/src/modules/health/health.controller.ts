@@ -5,19 +5,30 @@ import { HealthService } from './health.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private healthService: HealthService) {}
+  constructor(private readonly healthService: HealthService) {}
 
+  // GET /health
   @Get()
   async check(@Res() res: Response) {
     const result = await this.healthService.check();
-    const status = result.status === 'ok' ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
-    res.status(status).json(result);
+    const httpStatus =
+      result.status === 'unhealthy' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
+    res.status(httpStatus).json(result);
   }
 
+  // GET /health/ready — load balancer / readiness probe
   @Get('ready')
   async ready(@Res() res: Response) {
     const result = await this.healthService.getReadiness();
-    const status = result.status === 'unhealthy' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
-    res.status(status).json(result);
+    const httpStatus =
+      result.status === 'unhealthy' ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK;
+    res.status(httpStatus).json(result);
+  }
+
+  // GET /health/live — Kubernetes liveness probe (always 200 if the process responds)
+  @Get('live')
+  live(@Res() res: Response) {
+    const result = this.healthService.getLiveness();
+    res.status(HttpStatus.OK).json(result);
   }
 }
