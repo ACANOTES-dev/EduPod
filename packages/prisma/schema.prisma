@@ -1588,6 +1588,7 @@ model Student {
   allergy_details   String?       @db.Text
   nationality       String?       @db.VarChar(100)
   city_of_birth     String?       @db.VarChar(100)
+  photo_url         String?       @db.Text
   created_at        DateTime      @default(now()) @db.Timestamptz()
   updated_at        DateTime      @default(now()) @updatedAt @db.Timestamptz()
 
@@ -1892,7 +1893,7 @@ model AcademicPeriod {
 model SenProfile {
   id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id               String          @db.Uuid
-  student_id              String          @unique @db.Uuid
+  student_id              String          @db.Uuid
   sen_coordinator_user_id String?         @db.Uuid
   sen_categories          Json
   primary_category        SenCategory
@@ -1918,7 +1919,7 @@ model SenProfile {
   accommodations   SenAccommodation[]
   transition_notes SenTransitionNote[]
 
-  @@index([tenant_id, student_id], name: "idx_sen_profiles_tenant_student")
+  @@unique([tenant_id, student_id], name: "uq_sen_profiles_tenant_student")
   @@index([tenant_id, is_active], name: "idx_sen_profiles_tenant_active")
   @@index([tenant_id, primary_category], name: "idx_sen_profiles_tenant_primary_category")
   @@index([tenant_id, support_level], name: "idx_sen_profiles_tenant_support_level")
