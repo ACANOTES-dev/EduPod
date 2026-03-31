@@ -65,9 +65,8 @@ export const REQUEST_ID_HEADER = 'x-request-id';
 export class CorrelationMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     const incomingId = req.headers[REQUEST_ID_HEADER];
-    const requestId = typeof incomingId === 'string' && incomingId.length > 0
-      ? incomingId
-      : randomUUID();
+    const requestId =
+      typeof incomingId === 'string' && incomingId.length > 0 ? incomingId : randomUUID();
 
     // Set response header for traceability
     res.setHeader(REQUEST_ID_HEADER, requestId);

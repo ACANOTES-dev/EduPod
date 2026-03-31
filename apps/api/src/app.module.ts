@@ -145,9 +145,7 @@ import { WebsiteModule } from './modules/website/website.module';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // Correlation middleware runs first — assigns X-Request-Id before any other middleware
-    consumer
-      .apply(CorrelationMiddleware)
-      .forRoutes('*');
+    consumer.apply(CorrelationMiddleware).forRoutes('*');
 
     consumer
       .apply(TenantResolutionMiddleware)

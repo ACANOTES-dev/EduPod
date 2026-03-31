@@ -111,4 +111,5 @@ export interface TenantSettingsJson {
   compliance: TenantSettingsCompliance;
   behaviour: import('../behaviour/schemas/settings.schema').BehaviourSettings;
   staff_wellbeing: import('../staff-wellbeing/schemas/tenant-settings.schema').StaffWellbeingSettings;
+  parent_digest: import('../schemas/parent-digest.schema').ParentDigestSettingsDto;
 }

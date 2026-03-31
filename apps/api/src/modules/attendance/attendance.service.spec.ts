@@ -10,7 +10,10 @@ import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SchoolClosuresService } from '../school-closures/school-closures.service';
 
+import { AttendanceLockingService } from './attendance-locking.service';
 import { AttendanceParentNotificationService } from './attendance-parent-notification.service';
+import { AttendanceReportingService } from './attendance-reporting.service';
+import { AttendanceSessionService } from './attendance-session.service';
 import { AttendanceService } from './attendance.service';
 import { DailySummaryService } from './daily-summary.service';
 
@@ -39,6 +42,43 @@ jest.mock('../../common/middleware/rls.middleware', () => ({
       .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
+
+// ─── Helper: build a full testing module ─────────────────────────────────────
+
+function buildModule(mockPrisma: object, overrides: Record<string, object> = {}) {
+  return Test.createTestingModule({
+    providers: [
+      AttendanceService,
+      AttendanceSessionService,
+      AttendanceLockingService,
+      AttendanceReportingService,
+      { provide: PrismaService, useValue: mockPrisma },
+      { provide: SchoolClosuresService, useValue: overrides['SchoolClosuresService'] ?? {} },
+      {
+        provide: DailySummaryService,
+        useValue: overrides['DailySummaryService'] ?? {
+          recalculate: jest.fn().mockResolvedValue(null),
+        },
+      },
+      {
+        provide: SettingsService,
+        useValue: overrides['SettingsService'] ?? {
+          getSettings: jest.fn().mockResolvedValue({
+            attendance: { workDays: [1, 2, 3, 4, 5], defaultPresentEnabled: false },
+          }),
+        },
+      },
+      {
+        provide: AttendanceParentNotificationService,
+        useValue: overrides['AttendanceParentNotificationService'] ?? {
+          triggerAbsenceNotification: jest.fn(),
+        },
+      },
+    ],
+  }).compile();
+}
+
+// ─── State machine tests ──────────────────────────────────────────────────────
 
 describe('AttendanceService — state machine', () => {
   let service: AttendanceService;
@@ -75,19 +115,10 @@ describe('AttendanceService — state machine', () => {
     mockRlsTx.attendanceSession.updateMany.mockReset();
     mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 1 });
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: SchoolClosuresService, useValue: {} },
-        { provide: DailySummaryService, useValue: mockDailySummary },
-        { provide: SettingsService, useValue: mockSettings },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
-    }).compile();
+    const module: TestingModule = await buildModule(mockPrisma, {
+      DailySummaryService: mockDailySummary,
+      SettingsService: mockSettings,
+    });
 
     service = module.get<AttendanceService>(AttendanceService);
   });
@@ -204,6 +235,8 @@ describe('AttendanceService — state machine', () => {
   });
 });
 
+// ─── createDefaultPresentRecords tests ───────────────────────────────────────
+
 describe('AttendanceService — createDefaultPresentRecords', () => {
   let service: AttendanceService;
   let mockPrisma: {
@@ -224,19 +257,7 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
     mockRlsTx.attendanceRecord.createMany.mockReset();
     mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 3 });
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: SchoolClosuresService, useValue: {} },
-        { provide: DailySummaryService, useValue: {} },
-        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
-    }).compile();
+    const module: TestingModule = await buildModule(mockPrisma);
 
     service = module.get<AttendanceService>(AttendanceService);
   });
@@ -327,6 +348,8 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
   });
 });
 
+// ─── createSession default_present tests ─────────────────────────────────────
+
 describe('AttendanceService — createSession default_present', () => {
   let service: AttendanceService;
   let mockPrisma: {
@@ -393,19 +416,10 @@ describe('AttendanceService — createSession default_present', () => {
     mockRlsTx.attendanceRecord.createMany.mockReset();
     mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 0 });
 
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AttendanceService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: SchoolClosuresService, useValue: mockClosures },
-        { provide: DailySummaryService, useValue: {} },
-        { provide: SettingsService, useValue: mockSettings },
-        {
-          provide: AttendanceParentNotificationService,
-          useValue: { triggerAbsenceNotification: jest.fn() },
-        },
-      ],
-    }).compile();
+    const module: TestingModule = await buildModule(mockPrisma, {
+      SchoolClosuresService: mockClosures,
+      SettingsService: mockSettings,
+    });
 
     service = module.get<AttendanceService>(AttendanceService);
   });

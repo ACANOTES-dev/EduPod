@@ -7,6 +7,8 @@ import { SearchIndexService } from '../search/search-index.service';
 import { SequenceService } from '../tenants/sequence.service';
 
 import { AdmissionsRateLimitService } from './admissions-rate-limit.service';
+import { ApplicationConversionService } from './application-conversion.service';
+import { ApplicationStateMachineService } from './application-state-machine.service';
 import { ApplicationsService } from './applications.service';
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
@@ -151,6 +153,8 @@ describe('ApplicationsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ApplicationsService,
+        ApplicationStateMachineService,
+        ApplicationConversionService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SequenceService, useValue: mockSequenceService },
         { provide: AdmissionsRateLimitService, useValue: mockRateLimitService },

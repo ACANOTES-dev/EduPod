@@ -34,7 +34,8 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
   constructor(protected prisma: PrismaClient) {}
 
   // UUID v4 format
-  private static readonly UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  private static readonly UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   async execute(data: T): Promise<void> {
     if (!data.tenant_id) {
@@ -44,15 +45,11 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
     }
 
     if (!TenantAwareJob.UUID_RE.test(data.tenant_id)) {
-      throw new Error(
-        `Job rejected: invalid tenant_id format "${data.tenant_id}".`,
-      );
+      throw new Error(`Job rejected: invalid tenant_id format "${data.tenant_id}".`);
     }
 
     if (data.user_id && !TenantAwareJob.UUID_RE.test(data.user_id)) {
-      throw new Error(
-        `Job rejected: invalid user_id format "${data.user_id}".`,
-      );
+      throw new Error(`Job rejected: invalid user_id format "${data.user_id}".`);
     }
 
     // Log correlation ID when present for cross-service tracing

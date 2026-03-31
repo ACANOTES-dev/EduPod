@@ -40,28 +40,24 @@ describe('DashboardController', () => {
 
   beforeEach(async () => {
     mockService = {
-      schoolAdmin: jest
-        .fn()
-        .mockResolvedValue({
-          greeting: 'Good morning, Admin',
-          stats: {},
-          pending_approvals: 0,
-          incomplete_households: [],
-          admissions: {},
-          recent_activity: [],
-          summary: '',
-        }),
+      schoolAdmin: jest.fn().mockResolvedValue({
+        greeting: 'Good morning, Admin',
+        stats: {},
+        pending_approvals: 0,
+        incomplete_households: [],
+        admissions: {},
+        recent_activity: [],
+        summary: '',
+      }),
       parent: jest
         .fn()
         .mockResolvedValue({ greeting: 'Good morning, Parent', students: [], announcements: [] }),
-      teacher: jest
-        .fn()
-        .mockResolvedValue({
-          greeting: 'Good morning, Teacher',
-          todays_schedule: [],
-          todays_sessions: [],
-          pending_submissions: 0,
-        }),
+      teacher: jest.fn().mockResolvedValue({
+        greeting: 'Good morning, Teacher',
+        todays_schedule: [],
+        todays_sessions: [],
+        pending_submissions: 0,
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
