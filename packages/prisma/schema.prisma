@@ -447,6 +447,7 @@ model Tenant {
   modules               TenantModule[]
   branding              TenantBranding?
   settings              TenantSetting?
+  module_settings       TenantModuleSetting[]
   notification_settings TenantNotificationSetting[]
   sequences             TenantSequence[]
   stripe_config         TenantStripeConfig?
@@ -794,6 +795,40 @@ model TenantSetting {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@map("tenant_settings")
+}
+
+enum ModuleKey {
+  attendance
+  gradebook
+  admissions
+  finance
+  communications
+  payroll
+  general
+  scheduling
+  approvals
+  compliance
+  ai
+  homework
+  parent_digest
+
+  @@map("ModuleKey")
+}
+
+model TenantModuleSetting {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String    @db.Uuid
+  module_key ModuleKey
+  settings   Json      @default("{}")
+  created_at DateTime  @default(now()) @db.Timestamptz()
+  updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, module_key])
+  @@index([tenant_id], name: "idx_tenant_module_settings_tenant")
+  @@map("tenant_module_settings")
 }
 
 model TenantNotificationSetting {

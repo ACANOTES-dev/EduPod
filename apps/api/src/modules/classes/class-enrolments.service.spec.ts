@@ -24,9 +24,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -72,10 +72,7 @@ describe('ClassEnrolmentsService — create', () => {
     mockRlsTx.classEnrolment.create.mockReset().mockResolvedValue(baseEnrolment);
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassEnrolmentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassEnrolmentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassEnrolmentsService>(ClassEnrolmentsService);
@@ -159,10 +156,7 @@ describe('ClassEnrolmentsService — findAllForClass', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassEnrolmentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassEnrolmentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassEnrolmentsService>(ClassEnrolmentsService);
@@ -214,10 +208,7 @@ describe('ClassEnrolmentsService — updateStatus', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassEnrolmentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassEnrolmentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassEnrolmentsService>(ClassEnrolmentsService);
@@ -241,11 +232,16 @@ describe('ClassEnrolmentsService — updateStatus', () => {
   });
 
   it('should block completed -> active status transition', async () => {
-    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'completed' });
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({
+      ...baseEnrolment,
+      status: 'completed',
+    });
 
     const dto: UpdateEnrolmentStatusDto = { status: 'active' };
 
-    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should block active -> active status transition', async () => {
@@ -253,7 +249,9 @@ describe('ClassEnrolmentsService — updateStatus', () => {
 
     const dto: UpdateEnrolmentStatusDto = { status: 'active' };
 
-    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should set end_date when dropping an enrolment', async () => {
@@ -278,7 +276,9 @@ describe('ClassEnrolmentsService — updateStatus', () => {
 
     const dto: UpdateEnrolmentStatusDto = { status: 'dropped' };
 
-    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(NotFoundException);
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should allow dropped -> active status transition', async () => {
@@ -289,6 +289,86 @@ describe('ClassEnrolmentsService — updateStatus', () => {
     const dto: UpdateEnrolmentStatusDto = { status: 'active' };
 
     await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).resolves.not.toThrow();
+  });
+
+  it('should allow active -> completed status transition', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'active' });
+
+    mockRlsTx.classEnrolment.update.mockResolvedValue({ ...baseEnrolment, status: 'completed' });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'completed' };
+
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).resolves.not.toThrow();
+    expect(mockRlsTx.classEnrolment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'completed' }),
+      }),
+    );
+  });
+
+  it('should block completed -> dropped status transition', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({
+      ...baseEnrolment,
+      status: 'completed',
+    });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'dropped' };
+
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should block dropped -> completed status transition', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'dropped' });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'completed' };
+
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should block dropped -> dropped status transition', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'dropped' });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'dropped' };
+
+    await expect(service.updateStatus(TENANT_ID, ENROLMENT_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should auto-set end_date when completing without explicit end_date', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'active' });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'completed' };
+
+    await service.updateStatus(TENANT_ID, ENROLMENT_ID, dto);
+
+    expect(mockRlsTx.classEnrolment.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'completed',
+          end_date: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('should NOT include end_date when re-activating from dropped', async () => {
+    mockPrisma.classEnrolment.findFirst.mockResolvedValue({ ...baseEnrolment, status: 'dropped' });
+
+    mockRlsTx.classEnrolment.update.mockResolvedValue({ ...baseEnrolment, status: 'active' });
+
+    const dto: UpdateEnrolmentStatusDto = { status: 'active' };
+
+    await service.updateStatus(TENANT_ID, ENROLMENT_ID, dto);
+
+    const updateCall = mockRlsTx.classEnrolment.update.mock.calls[0]?.[0] as
+      | { data: Record<string, unknown> }
+      | undefined;
+    expect(updateCall?.data).not.toHaveProperty('end_date');
   });
 });
 
@@ -302,10 +382,7 @@ describe('ClassEnrolmentsService — bulkEnrol', () => {
     mockRlsTx.classEnrolment.create.mockReset().mockResolvedValue({ id: ENROLMENT_ID });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassEnrolmentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassEnrolmentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassEnrolmentsService>(ClassEnrolmentsService);
@@ -355,10 +432,7 @@ describe('ClassEnrolmentsService — dropAllActiveForStudent', () => {
     mockPrisma.classEnrolment.updateMany.mockResolvedValue({ count: 2 });
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassEnrolmentsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassEnrolmentsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassEnrolmentsService>(ClassEnrolmentsService);

@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { CommonModule } from './common/common.module';
+import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
 import { AcademicsModule } from './modules/academics/academics.module';
 import { AdmissionsModule } from './modules/admissions/admissions.module';
@@ -43,11 +44,11 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { RbacModule } from './modules/rbac/rbac.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { RegistrationModule } from './modules/registration/registration.module';
+import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RoomsModule } from './modules/rooms/rooms.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
-import { RegulatoryModule } from './modules/regulatory/regulatory.module';
 import { SchedulingModule } from './modules/scheduling/scheduling.module';
 import { SchedulingRunsModule } from './modules/scheduling-runs/scheduling-runs.module';
 import { SchoolClosuresModule } from './modules/school-closures/school-closures.module';
@@ -143,10 +144,14 @@ import { WebsiteModule } from './modules/website/website.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // Correlation middleware runs first — assigns X-Request-Id before any other middleware
+    consumer.apply(CorrelationMiddleware).forRoutes('*');
+
     consumer
       .apply(TenantResolutionMiddleware)
       .exclude(
         { path: 'health', method: RequestMethod.ALL },
+        { path: 'health/(.*)', method: RequestMethod.ALL },
         { path: 'docs(.*)', method: RequestMethod.ALL },
         { path: 'v1/stripe/webhook', method: RequestMethod.POST },
         { path: 'v1/webhooks/(.*)', method: RequestMethod.POST },

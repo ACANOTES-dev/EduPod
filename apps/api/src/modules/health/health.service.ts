@@ -1,31 +1,74 @@
+import * as os from 'os';
+
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { MeilisearchClient } from '../search/meilisearch.client';
 
-interface HealthCheckResult {
-  status: 'ok' | 'degraded';
-  checks: {
-    postgres: 'up' | 'down';
-    redis: 'up' | 'down';
-  };
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface DependencyCheck {
-  status: 'ok' | 'fail';
+  status: 'up' | 'down';
   latency_ms: number;
 }
 
-interface ReadinessResult {
-  status: 'ok' | 'degraded' | 'unhealthy';
+interface BullMQCheck {
+  status: 'up' | 'down';
+  stuck_jobs: number;
+}
+
+interface DiskCheck {
+  status: 'up' | 'down';
+  free_gb: number;
+  total_gb: number;
+}
+
+export interface FullHealthResult {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  uptime: number;
   checks: {
-    postgres: DependencyCheck;
+    postgresql: DependencyCheck;
     redis: DependencyCheck;
     meilisearch: DependencyCheck;
+    bullmq: BullMQCheck;
+    disk: DiskCheck;
   };
-  version: string;
-  uptime_seconds: number;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Jobs active longer than this are considered stuck (5 minutes). */
+const STUCK_JOB_THRESHOLD_MS = 5 * 60 * 1000;
+
+// ─── Disk stats (Node 19+) ────────────────────────────────────────────────────
+
+interface StatfsResult {
+  bsize: number;
+  blocks: number;
+  bfree: number;
+}
+
+/**
+ * Attempts to call os.statfsSync, which was added in Node 19.
+ * Returns null on older runtimes or unsupported platforms so that callers
+ * can degrade gracefully without throwing.
+ */
+function tryStatfsSync(path: string): StatfsResult | null {
+  // Cast os to an open record so we can access the non-standard method
+  // without violating strict no-any rules — this is the sole cast needed.
+  const statfsSync = (os as unknown as Record<string, unknown>)['statfsSync'] as
+    | ((p: string) => StatfsResult)
+    | undefined;
+  if (typeof statfsSync !== 'function') return null;
+  try {
+    return statfsSync(path);
+  } catch {
+    return null;
+  }
 }
 
 @Injectable()
@@ -33,89 +76,121 @@ export class HealthService {
   private readonly startTime = Date.now();
 
   constructor(
-    private prisma: PrismaService,
-    private redis: RedisService,
-    private meilisearch: MeilisearchClient,
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+    private readonly meilisearch: MeilisearchClient,
+    @InjectQueue('notifications') private readonly notificationsQueue: Queue,
   ) {}
 
-  async check(): Promise<HealthCheckResult> {
-    const [postgresUp, redisUp] = await Promise.all([
-      this.checkPostgres(),
+  // ─── Public Methods ─────────────────────────────────────────────────────────
+
+  async check(): Promise<FullHealthResult> {
+    return this.buildFullResult();
+  }
+
+  async getReadiness(): Promise<FullHealthResult> {
+    return this.buildFullResult();
+  }
+
+  getLiveness(): { status: 'alive'; timestamp: string } {
+    return { status: 'alive', timestamp: new Date().toISOString() };
+  }
+
+  // ─── Private: Orchestration ─────────────────────────────────────────────────
+
+  private async buildFullResult(): Promise<FullHealthResult> {
+    const [postgresql, redis, meilisearch, bullmq, disk] = await Promise.all([
+      this.checkPostgresql(),
       this.checkRedis(),
+      this.checkMeilisearch(),
+      this.checkBullMQ(),
+      Promise.resolve(this.checkDisk()),
     ]);
 
-    return {
-      status: postgresUp && redisUp ? 'ok' : 'degraded',
-      checks: {
-        postgres: postgresUp ? 'up' : 'down',
-        redis: redisUp ? 'up' : 'down',
-      },
-    };
-  }
+    const criticalDown = postgresql.status === 'down' || redis.status === 'down';
+    const nonCriticalDown =
+      meilisearch.status === 'down' || bullmq.status === 'down' || disk.status === 'down';
 
-  async getReadiness(): Promise<ReadinessResult> {
-    const [postgres, redis, meilisearch] = await Promise.all([
-      this.checkPostgresLatency(),
-      this.checkRedisLatency(),
-      this.checkMeilisearchLatency(),
-    ]);
-
-    const allOk = postgres.status === 'ok' && redis.status === 'ok' && meilisearch.status === 'ok';
-    const criticalOk = postgres.status === 'ok' && redis.status === 'ok';
-
-    return {
-      status: allOk ? 'ok' : criticalOk ? 'degraded' : 'unhealthy',
-      checks: { postgres, redis, meilisearch },
-      version: process.env.npm_package_version ?? '0.0.0',
-      uptime_seconds: Math.floor((Date.now() - this.startTime) / 1000),
-    };
-  }
-
-  private async checkPostgres(): Promise<boolean> {
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return true;
-    } catch {
-      return false;
+    let status: 'healthy' | 'degraded' | 'unhealthy';
+    if (criticalDown) {
+      status = 'unhealthy';
+    } else if (nonCriticalDown) {
+      status = 'degraded';
+    } else {
+      status = 'healthy';
     }
+
+    return {
+      status,
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor((Date.now() - this.startTime) / 1000),
+      checks: { postgresql, redis, meilisearch, bullmq, disk },
+    };
   }
 
-  private async checkRedis(): Promise<boolean> {
-    return this.redis.ping();
-  }
+  // ─── Private: Dependency Checks ─────────────────────────────────────────────
 
-  private async checkPostgresLatency(): Promise<DependencyCheck> {
+  private async checkPostgresql(): Promise<DependencyCheck> {
     const start = Date.now();
     try {
       await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', latency_ms: Date.now() - start };
+      return { status: 'up', latency_ms: Date.now() - start };
     } catch {
-      return { status: 'fail', latency_ms: Date.now() - start };
+      return { status: 'down', latency_ms: Date.now() - start };
     }
   }
 
-  private async checkRedisLatency(): Promise<DependencyCheck> {
+  private async checkRedis(): Promise<DependencyCheck> {
     const start = Date.now();
     try {
       const ok = await this.redis.ping();
-      return { status: ok ? 'ok' : 'fail', latency_ms: Date.now() - start };
+      return { status: ok ? 'up' : 'down', latency_ms: Date.now() - start };
     } catch {
-      return { status: 'fail', latency_ms: Date.now() - start };
+      return { status: 'down', latency_ms: Date.now() - start };
     }
   }
 
-  private async checkMeilisearchLatency(): Promise<DependencyCheck> {
+  private async checkMeilisearch(): Promise<DependencyCheck> {
     const start = Date.now();
     try {
       if (!this.meilisearch.available) {
-        return { status: 'fail', latency_ms: 0 };
+        return { status: 'down', latency_ms: 0 };
       }
-      // Attempt a lightweight search to verify connectivity
+      // A search on a non-existent index proves connectivity.
       await this.meilisearch.search('_health_check', '', {});
-      return { status: 'ok', latency_ms: Date.now() - start };
+      return { status: 'up', latency_ms: Date.now() - start };
     } catch {
-      // Meilisearch may throw on non-existent index — that still means it's up
-      return { status: 'ok', latency_ms: Date.now() - start };
+      // If Meilisearch threw but was marked available, connectivity is confirmed.
+      return { status: 'up', latency_ms: Date.now() - start };
     }
+  }
+
+  private async checkBullMQ(): Promise<BullMQCheck> {
+    try {
+      const activeJobs = await this.notificationsQueue.getActive();
+      const now = Date.now();
+      const stuckCount = activeJobs.filter((job) => {
+        const startedAt = job.processedOn ?? job.timestamp;
+        return now - startedAt > STUCK_JOB_THRESHOLD_MS;
+      }).length;
+      return { status: 'up', stuck_jobs: stuckCount };
+    } catch {
+      return { status: 'down', stuck_jobs: 0 };
+    }
+  }
+
+  private checkDisk(): DiskCheck {
+    const stats = tryStatfsSync(process.cwd());
+    if (!stats) {
+      // Node < 19 or unsupported platform — report up with unknown values.
+      return { status: 'up', free_gb: 0, total_gb: 0 };
+    }
+    const freeBytes = stats.bfree * stats.bsize;
+    const totalBytes = stats.blocks * stats.bsize;
+    return {
+      status: 'up',
+      free_gb: Math.round((freeBytes / 1_073_741_824) * 10) / 10,
+      total_gb: Math.round((totalBytes / 1_073_741_824) * 10) / 10,
+    };
   }
 }

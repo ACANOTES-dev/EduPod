@@ -28,7 +28,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -126,7 +128,10 @@ describe('StudentsService — create', () => {
     await service.create(TENANT_ID, baseCreateDto);
 
     expect(mockSequence.nextNumber).toHaveBeenCalledWith(
-      TENANT_ID, 'student', expect.anything(), 'STU',
+      TENANT_ID,
+      'student',
+      expect.anything(),
+      'STU',
     );
     expect(mockRlsTx.student.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,9 +172,7 @@ describe('StudentsService — create', () => {
   it('should throw NotFoundException when household does not exist', async () => {
     mockPrisma.household.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.create(TENANT_ID, baseCreateDto),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.create(TENANT_ID, baseCreateDto)).rejects.toThrow(NotFoundException);
   });
 
   it('should throw NotFoundException when year_group_id does not exist', async () => {
@@ -253,9 +256,7 @@ describe('StudentsService — findAll', () => {
     expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: expect.arrayContaining([
-            expect.objectContaining({ first_name: expect.anything() }),
-          ]),
+          OR: expect.arrayContaining([expect.objectContaining({ first_name: expect.anything() })]),
         }),
       }),
     );
@@ -274,9 +275,7 @@ describe('StudentsService — findAll', () => {
   it('should apply correct skip for page 2', async () => {
     await service.findAll(TENANT_ID, { page: 2, pageSize: 20 });
 
-    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 20 }),
-    );
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(expect.objectContaining({ skip: 20 }));
   });
 });
 
@@ -383,9 +382,7 @@ describe('StudentsService — findOne', () => {
   it('should throw NotFoundException when student not found', async () => {
     mockPrisma.student.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.findOne(TENANT_ID, STUDENT_ID),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.findOne(TENANT_ID, STUDENT_ID)).rejects.toThrow(NotFoundException);
   });
 });
 
@@ -492,9 +489,9 @@ describe('StudentsService — updateStatus (status machine)', () => {
   it('should throw BadRequestException for invalid transition (archived -> active)', async () => {
     mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'archived' });
 
-    await expect(
-      service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' }),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' })).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException when withdrawing without reason', async () => {
@@ -516,9 +513,9 @@ describe('StudentsService — updateStatus (status machine)', () => {
   it('should throw NotFoundException when student does not exist', async () => {
     mockPrisma.student.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('edge: graduated -> archived is valid, no class enrolment cleanup needed', async () => {
@@ -580,9 +577,9 @@ describe('StudentsService — update', () => {
   it('should throw NotFoundException when student does not exist', async () => {
     mockPrisma.student.findFirst.mockResolvedValue(null);
 
-    await expect(
-      service.update(TENANT_ID, STUDENT_ID, { first_name: 'Jonathan' }),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.update(TENANT_ID, STUDENT_ID, { first_name: 'Jonathan' })).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should invalidate preview cache after update', async () => {
@@ -591,5 +588,388 @@ describe('StudentsService — update', () => {
     await service.update(TENANT_ID, STUDENT_ID, { first_name: 'Jonathan' });
 
     expect(mockRedis._client.del).toHaveBeenCalledWith(`preview:student:${STUDENT_ID}`);
+  });
+
+  it('should throw NotFoundException when household_id FK not found', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
+    mockPrisma.household.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.update(TENANT_ID, STUDENT_ID, { household_id: 'nonexistent-hh' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw NotFoundException when year_group_id FK not found', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
+    mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.update(TENANT_ID, STUDENT_ID, { year_group_id: 'nonexistent-yg' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw NotFoundException when class_homeroom_id FK not found', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue(baseStudent);
+    mockPrisma.class.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.update(TENANT_ID, STUDENT_ID, { class_homeroom_id: 'nonexistent-class' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ─── preview ─────────────────────────────────────────────────────────────────
+
+describe('StudentsService — preview', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  const studentPreviewEntity = {
+    id: STUDENT_ID,
+    full_name: 'John Doe',
+    first_name: 'John',
+    last_name: 'Doe',
+    status: 'active',
+    date_of_birth: new Date('2010-05-15'),
+    has_allergy: false,
+    year_group: { name: 'Year 5' },
+    homeroom_class: { name: '5A' },
+    household: { household_name: 'Doe Family' },
+  };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return cached preview data on cache hit', async () => {
+    const cachedData = {
+      id: STUDENT_ID,
+      entity_type: 'student',
+      primary_label: 'John Doe',
+      secondary_label: 'Year 5 — 5A',
+      status: 'active',
+      facts: [
+        { label: 'Household', value: 'Doe Family' },
+        { label: 'DOB', value: '2010-05-15' },
+        { label: 'Allergy', value: 'No' },
+      ],
+    };
+    mockRedis._client.get.mockResolvedValue(JSON.stringify(cachedData));
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result).toEqual(cachedData);
+    expect(mockPrisma.student.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('should build preview from DB on cache miss and cache it', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue(studentPreviewEntity);
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result.entity_type).toBe('student');
+    expect(result.primary_label).toBe('John Doe');
+    expect(result.secondary_label).toBe('Year 5 — 5A');
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Household', value: 'Doe Family' }),
+        expect.objectContaining({ label: 'Allergy', value: 'No' }),
+      ]),
+    );
+    expect(mockRedis._client.set).toHaveBeenCalledWith(
+      `preview:student:${STUDENT_ID}`,
+      expect.any(String),
+      'EX',
+      30,
+    );
+  });
+
+  it('should fallback to first_name + last_name when full_name is null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...studentPreviewEntity,
+      full_name: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result.primary_label).toBe('John Doe');
+  });
+
+  it('should omit year_group and homeroom_class from secondary_label when null', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...studentPreviewEntity,
+      year_group: null,
+      homeroom_class: null,
+    });
+
+    const result = await service.preview(TENANT_ID, STUDENT_ID);
+
+    expect(result.secondary_label).toBe('');
+  });
+
+  it('should throw NotFoundException when student not found on cache miss', async () => {
+    mockRedis._client.get.mockResolvedValue(null);
+    mockPrisma.student.findFirst.mockResolvedValue(null);
+
+    await expect(service.preview(TENANT_ID, STUDENT_ID)).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ─── getExportData ───────────────────────────────────────────────────────────
+
+describe('StudentsService — getExportData', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockPrisma.student.findMany.mockResolvedValue([
+      {
+        id: STUDENT_ID,
+        student_number: 'STU-001',
+        first_name: 'John',
+        middle_name: null,
+        last_name: 'Doe',
+        national_id: 'NID-001',
+        nationality: 'Jordanian',
+        city_of_birth: null,
+        gender: 'male',
+        date_of_birth: new Date('2010-05-15'),
+        status: 'active',
+        entry_date: new Date('2023-09-01'),
+        medical_notes: null,
+        has_allergy: false,
+        allergy_details: null,
+        year_group: { id: 'yg-1', name: 'Year 5' },
+        household: { id: HOUSEHOLD_ID, household_name: 'Doe Family' },
+        homeroom_class: { id: 'class-1', name: '5A' },
+        student_parents: [],
+      },
+    ]);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should filter by status when provided', async () => {
+    await service.getExportData(TENANT_ID, { status: 'active' });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'active' }),
+      }),
+    );
+  });
+
+  it('should filter by has_allergy when provided', async () => {
+    await service.getExportData(TENANT_ID, { has_allergy: true });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ has_allergy: true }),
+      }),
+    );
+  });
+
+  it('should apply search filter on name fields', async () => {
+    await service.getExportData(TENANT_ID, { search: 'Doe' });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            expect.objectContaining({ last_name: expect.objectContaining({ contains: 'Doe' }) }),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('should filter by year_group_id when provided', async () => {
+    await service.getExportData(TENANT_ID, { year_group_id: 'yg-1' });
+
+    expect(mockPrisma.student.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ year_group_id: 'yg-1' }),
+      }),
+    );
+  });
+
+  it('should return data wrapper with students array', async () => {
+    const result = await service.getExportData(TENANT_ID, {});
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.first_name).toBe('John');
+  });
+});
+
+// ─── exportPack ──────────────────────────────────────────────────────────────
+
+describe('StudentsService — exportPack', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return profile with placeholder arrays', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({
+      ...baseStudent,
+      household: { id: HOUSEHOLD_ID, household_name: 'Doe Family' },
+      year_group: null,
+      homeroom_class: null,
+      student_parents: [],
+      class_enrolments: [],
+    });
+
+    const result = await service.exportPack(TENANT_ID, STUDENT_ID);
+
+    expect(result.profile).toBeDefined();
+    expect(result.profile.id).toBe(STUDENT_ID);
+    expect(result.attendance_summary).toEqual([]);
+    expect(result.grades).toEqual([]);
+    expect(result.report_cards).toEqual([]);
+  });
+
+  it('should throw NotFoundException when student not found', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue(null);
+
+    await expect(service.exportPack(TENANT_ID, STUDENT_ID)).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ─── updateStatus re-enrolment ───────────────────────────────────────────────
+
+describe('StudentsService — updateStatus (re-enrolment transitions)', () => {
+  let service: StudentsService;
+  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockRedis: ReturnType<typeof buildMockRedis>;
+  let mockSequence: { nextNumber: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = buildMockPrisma();
+    mockRedis = buildMockRedis();
+    mockSequence = { nextNumber: jest.fn() };
+
+    mockRlsTx.student.update.mockReset().mockResolvedValue({ ...baseStudent, status: 'active' });
+    mockRlsTx.classEnrolment.updateMany.mockReset().mockResolvedValue({ count: 0 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StudentsService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: RedisService, useValue: mockRedis },
+        { provide: SequenceService, useValue: mockSequence },
+      ],
+    }).compile();
+
+    service = module.get<StudentsService>(StudentsService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should allow withdrawn -> active (re-enrolment)', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'withdrawn' });
+
+    await service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'active' }),
+      }),
+    );
+  });
+
+  it('should block graduated -> active (not allowed)', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'graduated' });
+
+    await expect(service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' })).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('should NOT drop class enrolments when re-enrolling (withdrawn -> active)', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'withdrawn' });
+
+    await service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'active' });
+
+    expect(mockRlsTx.classEnrolment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('edge: active -> archived is a valid transition', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'active' });
+    mockRlsTx.student.update.mockResolvedValue({ ...baseStudent, status: 'archived' });
+
+    await service.updateStatus(TENANT_ID, STUDENT_ID, { status: 'archived' });
+
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'archived' }),
+      }),
+    );
+  });
+
+  it('edge: applicant -> withdrawn is blocked', async () => {
+    mockPrisma.student.findFirst.mockResolvedValue({ ...baseStudent, status: 'applicant' });
+
+    await expect(
+      service.updateStatus(TENANT_ID, STUDENT_ID, {
+        status: 'withdrawn',
+        reason: 'Changed mind',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });

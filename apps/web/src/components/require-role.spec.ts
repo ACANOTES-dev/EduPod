@@ -7,6 +7,8 @@
  * branch without mounting React components.
  */
 
+export {}; // Module boundary — prevents global scope collisions with other spec files
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type RoleKey =

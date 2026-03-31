@@ -3,18 +3,48 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
+import type { FullHealthResult } from './health.service';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function buildHealthResult(status: FullHealthResult['status']): FullHealthResult {
+  return {
+    status,
+    timestamp: new Date().toISOString(),
+    uptime: 120,
+    checks: {
+      postgresql: { status: 'up', latency_ms: 2 },
+      redis: { status: 'up', latency_ms: 1 },
+      meilisearch: { status: 'up', latency_ms: 5 },
+      bullmq: { status: 'up', stuck_jobs: 0 },
+      disk: { status: 'up', free_gb: 45.2, total_gb: 100 },
+    },
+  };
+}
+
+function createMockResponse() {
+  const res = {
+    status: jest.fn().mockReturnThis(),
+    json: jest.fn().mockReturnThis(),
+  };
+  return res as unknown as import('express').Response;
+}
+
+// ─── Describe ─────────────────────────────────────────────────────────────────
 
 describe('HealthController', () => {
   let controller: HealthController;
   let mockService: {
     check: jest.Mock;
     getReadiness: jest.Mock;
+    getLiveness: jest.Mock;
   };
 
   beforeEach(async () => {
     mockService = {
       check: jest.fn(),
       getReadiness: jest.fn(),
+      getLiveness: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -27,17 +57,11 @@ describe('HealthController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  function createMockResponse() {
-    const res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
-    return res as unknown as import('express').Response;
-  }
+  // ─── check() ────────────────────────────────────────────────────────────
 
   describe('check()', () => {
-    it('should return 200 when all services are ok', async () => {
-      const result = { status: 'ok', checks: { postgres: 'up', redis: 'up' } };
+    it('should return 200 when status is healthy', async () => {
+      const result = buildHealthResult('healthy');
       mockService.check.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -47,8 +71,18 @@ describe('HealthController', () => {
       expect(res.json).toHaveBeenCalledWith(result);
     });
 
-    it('should return 503 when status is degraded', async () => {
-      const result = { status: 'degraded', checks: { postgres: 'down', redis: 'up' } };
+    it('should return 200 when status is degraded', async () => {
+      const result = buildHealthResult('degraded');
+      mockService.check.mockResolvedValue(result);
+      const res = createMockResponse();
+
+      await controller.check(res);
+
+      expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
+    });
+
+    it('should return 503 when status is unhealthy', async () => {
+      const result = buildHealthResult('unhealthy');
       mockService.check.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -59,7 +93,7 @@ describe('HealthController', () => {
     });
 
     it('should call healthService.check exactly once', async () => {
-      mockService.check.mockResolvedValue({ status: 'ok', checks: { postgres: 'up', redis: 'up' } });
+      mockService.check.mockResolvedValue(buildHealthResult('healthy'));
       const res = createMockResponse();
 
       await controller.check(res);
@@ -68,18 +102,11 @@ describe('HealthController', () => {
     });
   });
 
+  // ─── ready() ────────────────────────────────────────────────────────────
+
   describe('ready()', () => {
-    it('should return 200 when readiness is ok', async () => {
-      const result = {
-        status: 'ok',
-        checks: {
-          postgres: { status: 'ok', latency_ms: 2 },
-          redis: { status: 'ok', latency_ms: 1 },
-          meilisearch: { status: 'ok', latency_ms: 5 },
-        },
-        version: '1.0.0',
-        uptime_seconds: 120,
-      };
+    it('should return 200 when readiness is healthy', async () => {
+      const result = buildHealthResult('healthy');
       mockService.getReadiness.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -89,17 +116,18 @@ describe('HealthController', () => {
       expect(res.json).toHaveBeenCalledWith(result);
     });
 
+    it('should return 200 when readiness is degraded', async () => {
+      const result = buildHealthResult('degraded');
+      mockService.getReadiness.mockResolvedValue(result);
+      const res = createMockResponse();
+
+      await controller.ready(res);
+
+      expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
+    });
+
     it('should return 503 when readiness is unhealthy', async () => {
-      const result = {
-        status: 'unhealthy',
-        checks: {
-          postgres: { status: 'fail', latency_ms: 0 },
-          redis: { status: 'ok', latency_ms: 1 },
-          meilisearch: { status: 'ok', latency_ms: 5 },
-        },
-        version: '1.0.0',
-        uptime_seconds: 120,
-      };
+      const result = buildHealthResult('unhealthy');
       mockService.getReadiness.mockResolvedValue(result);
       const res = createMockResponse();
 
@@ -108,25 +136,32 @@ describe('HealthController', () => {
       expect(res.status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
       expect(res.json).toHaveBeenCalledWith(result);
     });
+  });
 
-    it('should return 200 when readiness is degraded', async () => {
-      const result = {
-        status: 'degraded',
-        checks: {
-          postgres: { status: 'ok', latency_ms: 2 },
-          redis: { status: 'ok', latency_ms: 1 },
-          meilisearch: { status: 'fail', latency_ms: 0 },
-        },
-        version: '1.0.0',
-        uptime_seconds: 60,
-      };
-      mockService.getReadiness.mockResolvedValue(result);
+  // ─── live() ─────────────────────────────────────────────────────────────
+
+  describe('live()', () => {
+    it('should always return 200 with alive status', () => {
+      const livenessResult = { status: 'alive' as const, timestamp: new Date().toISOString() };
+      mockService.getLiveness.mockReturnValue(livenessResult);
       const res = createMockResponse();
 
-      await controller.ready(res);
+      controller.live(res);
 
       expect(res.status).toHaveBeenCalledWith(HttpStatus.OK);
-      expect(res.json).toHaveBeenCalledWith(result);
+      expect(res.json).toHaveBeenCalledWith(livenessResult);
+    });
+
+    it('should call getLiveness exactly once', () => {
+      mockService.getLiveness.mockReturnValue({
+        status: 'alive',
+        timestamp: new Date().toISOString(),
+      });
+      const res = createMockResponse();
+
+      controller.live(res);
+
+      expect(mockService.getLiveness).toHaveBeenCalledTimes(1);
     });
   });
 });
