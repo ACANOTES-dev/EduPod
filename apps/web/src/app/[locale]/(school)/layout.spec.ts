@@ -10,6 +10,8 @@
  * triggering API calls.
  */
 
+export {}; // Module boundary — prevents global scope collisions with other spec files
+
 // ─── Types (mirrored from layout.tsx) ────────────────────────────────────────
 
 type RoleKey =
