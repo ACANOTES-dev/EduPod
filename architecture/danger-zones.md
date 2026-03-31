@@ -83,20 +83,22 @@ This works because the sequence service doesn't validate against the constant �
 
 ---
 
-## DZ-05: TenantSettings JSONB Is a God Object
+## DZ-05: TenantSettings JSONB Is a God Object — RESOLVED
 
-**Risk**: Settings schema changes require migrating ALL tenants' stored data
-**Location**: `packages/shared/src/schemas/tenant.schema.ts` -> `tenantSettingsSchema`
+**Risk**: ~~Settings schema changes require migrating ALL tenants' stored data~~
+**Location**: `packages/shared/src/schemas/tenant.schema.ts` -> `tenantSettingsSchema`, `packages/prisma/schema.prisma` -> `TenantModuleSetting`
+**Status**: RESOLVED (2026-03-31, Batch 9.1)
 
-The `tenant_settings.settings` JSONB field contains configuration for attendance, gradebook, admissions, finance, communications, payroll, general, scheduling, approvals, compliance, and AI — everything in one bag.
+The monolithic `tenant_settings.settings` JSONB blob has been decomposed into a relational `tenant_module_settings` table with one row per (tenant, module_key) pair. Each row stores only that module's configuration in its `settings` JSONB column, validated through the per-module Zod schema.
 
-Adding a new required field means every existing tenant's stored JSON is now invalid against the schema. The schema uses `.optional()` / `.default()` extensively to handle this, but:
+**What changed:**
 
-- If you add a required field without a default, all existing tenants break on next settings read
-- If you rename a field, existing values are silently lost
-- There is no migration mechanism for JSONB — unlike Prisma migrations for columns
+- New `tenant_module_settings` table with `ModuleKey` enum, `(tenant_id, module_key)` unique constraint, and RLS policy
+- `SettingsService.getModuleSettings()` reads from the per-module row first, falls back to the legacy blob
+- `SettingsService.updateModuleSettings()` upserts the per-module row via RLS transaction and syncs the legacy blob for backward compatibility
+- `SettingsService.getSettings()` merges per-module rows over the legacy blob, so both sources are honoured during transition
 
-**Rule**: Every new settings field MUST have a `.default()` value. Never rename a field — deprecate and add a new one.
+**Remaining rule**: Every new settings field MUST still have a `.default()` value. The per-module decomposition eliminates the cross-module corruption risk but doesn't change the need for safe schema evolution within each module.
 
 ---
 

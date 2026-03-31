@@ -4,6 +4,7 @@ import { TENANT_SETTINGS_MODULE_SCHEMAS, tenantSettingsSchema } from '@school/sh
 import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared';
 import { ZodError } from 'zod';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -69,21 +70,27 @@ export class SettingsService {
 
   /**
    * Get tenant settings, parsed through Zod to fill defaults.
-   * Each module section is individually validated to surface per-module errors.
+   * Reads from per-module rows first, falls back to the legacy JSONB blob
+   * for any module that doesn't yet have a dedicated row.
    */
   async getSettings(tenantId: string): Promise<TenantSettingsDto> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
+    // Fetch per-module rows and legacy blob in parallel
+    const [moduleRows, legacyRecord] = await Promise.all([
+      this.prisma.tenantModuleSetting.findMany({
+        where: { tenant_id: tenantId },
+      }),
+      this.prisma.tenantSetting.findUnique({
+        where: { tenant_id: tenantId },
+      }),
+    ]);
 
-    if (!record) {
-      throw new NotFoundException({
-        code: 'SETTINGS_NOT_FOUND',
-        message: 'Settings not found for this tenant',
-      });
+    // Build a combined raw object: per-module rows take priority over legacy blob
+    const legacySettings = (legacyRecord?.settings ?? {}) as Record<string, unknown>;
+    const raw: Record<string, unknown> = { ...legacySettings };
+
+    for (const row of moduleRows) {
+      raw[row.module_key] = row.settings;
     }
-
-    const raw = (record.settings ?? {}) as Record<string, unknown>;
 
     // Validate each module section individually, logging any per-module errors.
     // Replace invalid sections with defaults so the full parse always succeeds.
@@ -105,34 +112,50 @@ export class SettingsService {
 
   /**
    * Get a single module's settings, validated through its per-module Zod schema.
+   * Reads from the per-module row first; falls back to the legacy JSONB blob
+   * if no dedicated row exists yet.
    */
   async getModuleSettings<K extends TenantSettingsModuleKey>(
     tenantId: string,
     moduleKey: K,
   ): Promise<TenantSettingsDto[K]> {
-    const record = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
+    // Try per-module row first
+    const moduleRow = await this.prisma.tenantModuleSetting.findUnique({
+      where: { tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey } },
     });
 
-    if (!record) {
-      throw new NotFoundException({
-        code: 'SETTINGS_NOT_FOUND',
-        message: 'Settings not found for this tenant',
+    let moduleData: unknown;
+
+    if (moduleRow) {
+      moduleData = moduleRow.settings;
+    } else {
+      // Fall back to legacy blob
+      const legacyRecord = await this.prisma.tenantSetting.findUnique({
+        where: { tenant_id: tenantId },
       });
+
+      if (!legacyRecord) {
+        // No settings at all — return defaults
+        const schema = TENANT_SETTINGS_MODULE_SCHEMAS[moduleKey];
+        return schema.parse({}) as TenantSettingsDto[K];
+      }
+
+      const raw = (legacyRecord.settings ?? {}) as Record<string, unknown>;
+      moduleData = raw[moduleKey] ?? {};
     }
 
-    const raw = (record.settings ?? {}) as Record<string, unknown>;
-    const moduleData = raw[moduleKey] ?? {};
     const schema = TENANT_SETTINGS_MODULE_SCHEMAS[moduleKey];
-
     return schema.parse(moduleData) as TenantSettingsDto[K];
   }
 
-  // ─── Write: full settings (existing behaviour) ─────────────────────────────
+  // ─── Write: full settings (existing behaviour — legacy compat) ─────────────
 
   /**
    * Update tenant settings via deep merge, validate, and save.
    * Returns updated settings + any cross-module warnings.
+   *
+   * This method still writes to the legacy JSONB blob for backward compatibility.
+   * Per-module writes should use updateModuleSettings instead.
    */
   async updateSettings(tenantId: string, data: Partial<TenantSettingsDto>) {
     const existing = await this.prisma.tenantSetting.findUnique({
@@ -155,7 +178,7 @@ export class SettingsService {
     // Validate merged result through Zod (fills any missing defaults)
     const validated = tenantSettingsSchema.parse(merged);
 
-    // Save
+    // Save to legacy blob
     await this.prisma.tenantSetting.update({
       where: { tenant_id: tenantId },
       data: { settings: validated as unknown as Prisma.InputJsonValue },
@@ -174,27 +197,18 @@ export class SettingsService {
 
   /**
    * Update a single module's settings. Validates ONLY the target module section
-   * against its per-module Zod schema before merging, so a malformed write to
-   * one module cannot corrupt other modules' settings (DZ-05 mitigation).
+   * against its per-module Zod schema before writing to the dedicated row.
+   *
+   * Uses RLS-scoped upsert to write to the per-module table. Also syncs the
+   * legacy JSONB blob for backward compatibility during the transition period.
    */
   async updateModuleSettings<K extends TenantSettingsModuleKey>(
     tenantId: string,
     moduleKey: K,
     data: Record<string, unknown>,
   ) {
-    const existing = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
-
-    if (!existing) {
-      throw new NotFoundException({
-        code: 'SETTINGS_NOT_FOUND',
-        message: 'Settings not found for this tenant',
-      });
-    }
-
-    const existingSettings = (existing.settings ?? {}) as Record<string, unknown>;
-    const existingModuleData = (existingSettings[moduleKey] ?? {}) as Record<string, unknown>;
+    // Read existing module data from the per-module row (or legacy blob fallback)
+    const existingModuleData = await this.getExistingModuleData(tenantId, moduleKey);
 
     // Deep merge the incoming partial data with the existing module section
     const mergedModuleData = deepMerge(existingModuleData, data);
@@ -219,26 +233,80 @@ export class SettingsService {
       throw err;
     }
 
-    // Replace only the target module section, leaving all other sections untouched
-    const updatedSettings = {
-      ...existingSettings,
-      [moduleKey]: validatedModule,
-    };
+    // Write to both the per-module table (RLS-scoped) and the legacy blob
+    const rlsClient = createRlsClient(this.prisma as unknown as import('@prisma/client').PrismaClient, { tenant_id: tenantId });
+    await (rlsClient as unknown as PrismaService).$transaction(async (tx: PrismaService) => {
+      // Upsert the per-module row
+      await tx.tenantModuleSetting.upsert({
+        where: { tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey } },
+        create: {
+          tenant_id: tenantId,
+          module_key: moduleKey,
+          settings: validatedModule as unknown as Prisma.InputJsonValue,
+        },
+        update: {
+          settings: validatedModule as unknown as Prisma.InputJsonValue,
+        },
+      });
 
-    // Save
-    await this.prisma.tenantSetting.update({
-      where: { tenant_id: tenantId },
-      data: { settings: updatedSettings as unknown as Prisma.InputJsonValue },
+      // Sync legacy blob — read existing, replace the module section, save
+      const legacyRecord = await tx.tenantSetting.findUnique({
+        where: { tenant_id: tenantId },
+      });
+
+      if (legacyRecord) {
+        const existingSettings = (legacyRecord.settings ?? {}) as Record<string, unknown>;
+        const updatedSettings = {
+          ...existingSettings,
+          [moduleKey]: validatedModule,
+        };
+
+        await tx.tenantSetting.update({
+          where: { tenant_id: tenantId },
+          data: { settings: updatedSettings as unknown as Prisma.InputJsonValue },
+        });
+      }
     });
 
-    // Re-parse the full blob to get a typed result for warnings check
-    const fullSettings = tenantSettingsSchema.parse(updatedSettings);
+    // Re-read full settings for warnings check
+    const fullSettings = await this.getSettings(tenantId);
     const warnings = await this.getWarnings(tenantId, fullSettings);
 
     return {
       settings: validatedModule,
       warnings,
     };
+  }
+
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Read existing module data from the per-module row, falling back to the
+   * legacy JSONB blob if no dedicated row exists yet.
+   */
+  private async getExistingModuleData(
+    tenantId: string,
+    moduleKey: TenantSettingsModuleKey,
+  ): Promise<Record<string, unknown>> {
+    const moduleRow = await this.prisma.tenantModuleSetting.findUnique({
+      where: { tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey } },
+    });
+
+    if (moduleRow) {
+      return (moduleRow.settings ?? {}) as Record<string, unknown>;
+    }
+
+    // Fall back to legacy blob
+    const legacyRecord = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+    });
+
+    if (!legacyRecord) {
+      return {};
+    }
+
+    const raw = (legacyRecord.settings ?? {}) as Record<string, unknown>;
+    return (raw[moduleKey] ?? {}) as Record<string, unknown>;
   }
 
   // ─── Validation helpers ─────────────────────────────────────────────────────

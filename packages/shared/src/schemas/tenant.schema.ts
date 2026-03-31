@@ -216,6 +216,11 @@ export const TENANT_SETTINGS_MODULE_SCHEMAS = {
 /** Valid module keys for per-module settings validation */
 export type TenantSettingsModuleKey = keyof typeof TENANT_SETTINGS_MODULE_SCHEMAS;
 
+/** Ordered array of all valid module key strings — mirrors the Prisma ModuleKey enum */
+export const MODULE_KEY_VALUES: readonly TenantSettingsModuleKey[] = Object.keys(
+  TENANT_SETTINGS_MODULE_SCHEMAS,
+) as TenantSettingsModuleKey[];
+
 export const updateBrandingSchema = z.object({
   logo_url: z.string().url().nullable().optional(),
   favicon_url: z.string().url().nullable().optional(),
