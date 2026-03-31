@@ -8,6 +8,7 @@ import { DashboardService } from './dashboard.service';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const TENANT_ID_B = 'aaaaaaaa-aaaa-aaaa-aaaa-bbbbbbbbbbbb';
 const CLASS_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const REQUIREMENT_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 const YEAR_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -34,7 +35,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -53,9 +56,25 @@ function buildAdminStats() {
   mockRlsTx.academicYear.findFirst.mockResolvedValueOnce({ name: '2025-2026' });
   mockRlsTx.household.findMany.mockResolvedValueOnce([]);
   mockRlsTx.application.count
-    .mockResolvedValueOnce(5)  // recentApplications
-    .mockResolvedValueOnce(8)  // pendingApplications
+    .mockResolvedValueOnce(5) // recentApplications
+    .mockResolvedValueOnce(8) // pendingApplications
     .mockResolvedValueOnce(12); // acceptedApplications
+}
+
+function buildZeroAdminStats() {
+  mockRlsTx.student.count
+    .mockResolvedValueOnce(0)
+    .mockResolvedValueOnce(0)
+    .mockResolvedValueOnce(0);
+  mockRlsTx.staffProfile.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+  mockRlsTx.class.count.mockResolvedValueOnce(0);
+  mockRlsTx.approvalRequest.count.mockResolvedValueOnce(0);
+  mockRlsTx.academicYear.findFirst.mockResolvedValueOnce(null);
+  mockRlsTx.household.findMany.mockResolvedValueOnce([]);
+  mockRlsTx.application.count
+    .mockResolvedValueOnce(0)
+    .mockResolvedValueOnce(0)
+    .mockResolvedValueOnce(0);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -72,10 +91,7 @@ describe('DashboardService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        DashboardService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [DashboardService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<DashboardService>(DashboardService);
@@ -123,9 +139,7 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      mockRlsTx.staffProfile.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockRlsTx.staffProfile.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       mockRlsTx.class.count.mockResolvedValueOnce(0);
       mockRlsTx.approvalRequest.count.mockResolvedValueOnce(0);
       mockRlsTx.academicYear.findFirst.mockResolvedValueOnce(null);
@@ -157,9 +171,7 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      mockRlsTx.staffProfile.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockRlsTx.staffProfile.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       mockRlsTx.class.count.mockResolvedValueOnce(0);
       mockRlsTx.approvalRequest.count.mockResolvedValueOnce(0);
       mockRlsTx.academicYear.findFirst.mockResolvedValueOnce(null);
@@ -190,9 +202,7 @@ describe('DashboardService', () => {
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      mockRlsTx.staffProfile.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockRlsTx.staffProfile.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
       mockRlsTx.class.count.mockResolvedValueOnce(0);
       mockRlsTx.approvalRequest.count.mockResolvedValueOnce(0);
       mockRlsTx.academicYear.findFirst.mockResolvedValueOnce(null);
@@ -205,6 +215,91 @@ describe('DashboardService', () => {
       const result = await service.schoolAdmin(TENANT_ID, USER_ID);
 
       expect(result.stats.active_academic_year_name).toBeNull();
+    });
+
+    it('should return correct summary format with staff and class counts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Eve' });
+      buildAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(result.summary).toBe('120 active students \u00B7 15 staff \u00B7 20 classes');
+    });
+
+    it('should return empty recent_activity array', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Zara' });
+      buildAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(result.recent_activity).toEqual([]);
+    });
+
+    it('should flag both issues when household is missing billing parent and contacts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Multi' });
+
+      mockRlsTx.student.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      mockRlsTx.staffProfile.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+      mockRlsTx.class.count.mockResolvedValueOnce(0);
+      mockRlsTx.approvalRequest.count.mockResolvedValueOnce(0);
+      mockRlsTx.academicYear.findFirst.mockResolvedValueOnce(null);
+      mockRlsTx.household.findMany.mockResolvedValueOnce([
+        {
+          id: 'hh-3',
+          household_name: 'Incomplete Family',
+          primary_billing_parent_id: null,
+          _count: { emergency_contacts: 0 },
+        },
+      ]);
+      mockRlsTx.application.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test assertion on extended return shape
+      const ext = result as any;
+      expect(ext.incomplete_households[0].completion_issues).toContain('missing_billing_parent');
+      expect(ext.incomplete_households[0].completion_issues).toContain('missing_emergency_contact');
+      expect(ext.incomplete_households[0].completion_issues).toHaveLength(2);
+    });
+  });
+
+  // ─── schoolAdmin — data shape verification ────────────────────────────────
+
+  describe('schoolAdmin — data shape', () => {
+    it('should return stats object with all expected numeric fields', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape' });
+      buildAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(typeof result.stats.total_students).toBe('number');
+      expect(typeof result.stats.active_students).toBe('number');
+      expect(typeof result.stats.applicants).toBe('number');
+      expect(typeof result.stats.total_staff).toBe('number');
+      expect(typeof result.stats.active_staff).toBe('number');
+      expect(typeof result.stats.total_classes).toBe('number');
+    });
+
+    it('should return admissions object with all expected fields', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Admissions' });
+      buildAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test assertion on extended return shape
+      const ext = result as any;
+      expect(ext.admissions).toHaveProperty('recent_submissions');
+      expect(ext.admissions).toHaveProperty('pending_review');
+      expect(ext.admissions).toHaveProperty('accepted');
+      expect(typeof ext.admissions.recent_submissions).toBe('number');
+      expect(typeof ext.admissions.pending_review).toBe('number');
+      expect(typeof ext.admissions.accepted).toBe('number');
     });
   });
 
@@ -291,6 +386,99 @@ describe('DashboardService', () => {
 
       expect(result.students[0]!.year_group_name).toBeNull();
       expect(result.students[0]!.class_homeroom_name).toBeNull();
+    });
+
+    it('should return multiple students when parent has multiple children', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Karen', preferred_locale: 'en' });
+      mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-multi' });
+      mockRlsTx.studentParent.findMany.mockResolvedValue([
+        {
+          student: {
+            id: 'student-a',
+            first_name: 'Child A',
+            last_name: 'Multi',
+            student_number: 'S100',
+            status: 'active',
+            year_group: { name: 'Year 3' },
+            homeroom_class: { name: '3B' },
+          },
+        },
+        {
+          student: {
+            id: 'student-b',
+            first_name: 'Child B',
+            last_name: 'Multi',
+            student_number: 'S101',
+            status: 'active',
+            year_group: { name: 'Year 6' },
+            homeroom_class: { name: '6A' },
+          },
+        },
+      ]);
+
+      const result = await service.parent(TENANT_ID, USER_ID);
+
+      expect(result.students).toHaveLength(2);
+      expect(result.students[0]!.first_name).toBe('Child A');
+      expect(result.students[1]!.first_name).toBe('Child B');
+    });
+
+    it('should return empty announcements array', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Ann', preferred_locale: null });
+      mockRlsTx.parent.findFirst.mockResolvedValue(null);
+
+      const result = await service.parent(TENANT_ID, USER_ID);
+
+      expect(result.announcements).toEqual([]);
+    });
+  });
+
+  // ─── parent — data shape verification ─────────────────────────────────────
+
+  describe('parent — data shape', () => {
+    it('should return student objects with all required fields', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape', preferred_locale: 'en' });
+      mockRlsTx.parent.findFirst.mockResolvedValue({ id: 'parent-shape' });
+      mockRlsTx.studentParent.findMany.mockResolvedValue([
+        {
+          student: {
+            id: 'student-shape',
+            first_name: 'Student',
+            last_name: 'Shape',
+            student_number: 'S999',
+            status: 'active',
+            year_group: { name: 'Year 1' },
+            homeroom_class: { name: '1A' },
+          },
+        },
+      ]);
+
+      const result = await service.parent(TENANT_ID, USER_ID);
+      const student = result.students[0]!;
+
+      expect(student).toHaveProperty('student_id');
+      expect(student).toHaveProperty('first_name');
+      expect(student).toHaveProperty('last_name');
+      expect(student).toHaveProperty('student_number');
+      expect(student).toHaveProperty('status');
+      expect(student).toHaveProperty('year_group_name');
+      expect(student).toHaveProperty('class_homeroom_name');
+    });
+
+    it('should NOT include admin-level stats in parent dashboard', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        first_name: 'Parent',
+        preferred_locale: 'en',
+      });
+      mockRlsTx.parent.findFirst.mockResolvedValue(null);
+
+      const result = await service.parent(TENANT_ID, USER_ID);
+
+      // Parent dashboard should not have admin-specific fields
+      expect(result).not.toHaveProperty('stats');
+      expect(result).not.toHaveProperty('pending_approvals');
+      expect(result).not.toHaveProperty('incomplete_households');
+      expect(result).not.toHaveProperty('admissions');
     });
   });
 
@@ -395,6 +583,169 @@ describe('DashboardService', () => {
 
       expect(result.pending_submissions).toBe(0); // status is 'submitted', not 'open'
     });
+
+    it('should handle schedule entries without room', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'NoRoom' });
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-noroom' });
+      mockRlsTx.schedule.findMany.mockResolvedValue([
+        {
+          id: 'sched-noroom',
+          weekday: 2,
+          start_time: new Date('1970-01-01T10:00:00Z'),
+          end_time: new Date('1970-01-01T11:00:00Z'),
+          class_id: CLASS_ID,
+          room_id: null,
+          teacher_staff_id: 'staff-noroom',
+          class_entity: { name: 'Art 7C' },
+          room: null,
+        },
+      ]);
+      mockRlsTx.classStaff.findMany.mockResolvedValue([]);
+      mockRlsTx.attendanceSession.findMany.mockResolvedValue([]);
+
+      const result = await service.teacher(TENANT_ID, USER_ID);
+
+      expect(result.todays_schedule).toHaveLength(1);
+      expect(result.todays_schedule[0]!.room_name).toBeUndefined();
+      expect(result.todays_schedule[0]!.room_id).toBeUndefined();
+    });
+  });
+
+  // ─── teacher — data shape verification ────────────────────────────────────
+
+  describe('teacher — data shape', () => {
+    it('should return schedule entries with all required fields', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Shape' });
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue({ id: 'staff-shape' });
+      mockRlsTx.schedule.findMany.mockResolvedValue([
+        {
+          id: 'sched-shape',
+          weekday: 0,
+          start_time: new Date('1970-01-01T08:30:00Z'),
+          end_time: new Date('1970-01-01T09:30:00Z'),
+          class_id: CLASS_ID,
+          room_id: ROOM_ID,
+          teacher_staff_id: 'staff-shape',
+          class_entity: { name: 'English 8A' },
+          room: { name: 'Room 202' },
+        },
+      ]);
+      mockRlsTx.classStaff.findMany.mockResolvedValue([]);
+      mockRlsTx.attendanceSession.findMany.mockResolvedValue([]);
+
+      const result = await service.teacher(TENANT_ID, USER_ID);
+      const entry = result.todays_schedule[0]!;
+
+      expect(entry).toHaveProperty('schedule_id');
+      expect(entry).toHaveProperty('weekday');
+      expect(entry).toHaveProperty('start_time');
+      expect(entry).toHaveProperty('end_time');
+      expect(entry).toHaveProperty('class_id');
+      expect(entry).toHaveProperty('class_name');
+      expect(entry.start_time).toBe('08:30');
+      expect(entry.end_time).toBe('09:30');
+    });
+
+    it('should NOT include admin-level stats in teacher dashboard', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Teacher' });
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
+
+      const result = await service.teacher(TENANT_ID, USER_ID);
+
+      // Teacher dashboard should not have admin-specific fields
+      expect(result).not.toHaveProperty('stats');
+      expect(result).not.toHaveProperty('pending_approvals');
+      expect(result).not.toHaveProperty('incomplete_households');
+      expect(result).not.toHaveProperty('admissions');
+      expect(result).not.toHaveProperty('students');
+      expect(result).not.toHaveProperty('announcements');
+    });
+
+    it('should NOT include parent-level fields in teacher dashboard', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Teacher' });
+      mockRlsTx.staffProfile.findFirst.mockResolvedValue(null);
+
+      const result = await service.teacher(TENANT_ID, USER_ID);
+
+      expect(result).not.toHaveProperty('students');
+      expect(result).not.toHaveProperty('announcements');
+    });
+  });
+
+  // ─── greeting time-of-day logic ───────────────────────────────────────────
+
+  describe('greeting — time-of-day', () => {
+    it('should produce morning greeting before 12:00', async () => {
+      const realDate = globalThis.Date;
+      const mockDate = new Date('2026-03-31T09:00:00');
+      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
+        if (args.length === 0) return mockDate;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
+        return new realDate(...(args as [any]));
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Morning' });
+      buildZeroAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(result.greeting).toBe('Good morning, Morning');
+
+      jest.restoreAllMocks();
+      // Re-setup mockPrisma after restoreAllMocks
+      mockPrisma = { user: { findUnique: jest.fn() } };
+    });
+
+    it('should produce afternoon greeting between 12:00 and 17:00', async () => {
+      const realDate = globalThis.Date;
+      const mockDate = new Date('2026-03-31T14:00:00');
+      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
+        if (args.length === 0) return mockDate;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
+        return new realDate(...(args as [any]));
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Afternoon' });
+      buildZeroAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(result.greeting).toBe('Good afternoon, Afternoon');
+
+      jest.restoreAllMocks();
+      mockPrisma = { user: { findUnique: jest.fn() } };
+    });
+
+    it('should produce evening greeting after 17:00', async () => {
+      const realDate = globalThis.Date;
+      const mockDate = new Date('2026-03-31T20:00:00');
+      jest.spyOn(globalThis, 'Date').mockImplementation((...args: unknown[]) => {
+        if (args.length === 0) return mockDate;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Date constructor overload
+        return new realDate(...(args as [any]));
+      });
+
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'Evening' });
+      buildZeroAdminStats();
+
+      const result = await service.schoolAdmin(TENANT_ID, USER_ID);
+
+      expect(result.greeting).toBe('Good evening, Evening');
+
+      jest.restoreAllMocks();
+      mockPrisma = { user: { findUnique: jest.fn() } };
+    });
+
+    it('should produce Arabic greeting for parent with ar locale', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ first_name: 'احمد', preferred_locale: 'ar' });
+      mockRlsTx.parent.findFirst.mockResolvedValue(null);
+
+      const result = await service.parent(TENANT_ID, USER_ID);
+
+      expect(result.greeting).toContain('احمد');
+      // Arabic greetings always contain the name
+      expect(result.greeting).toMatch(/الخير/); // all Arabic greetings contain الخير
+    });
   });
 
   // ─── unused constant suppression ──────────────────────────────────────────
@@ -403,5 +754,6 @@ describe('DashboardService', () => {
     expect(REQUIREMENT_ID).toBeDefined();
     expect(YEAR_ID).toBeDefined();
     expect(ROOM_ID).toBeDefined();
+    expect(TENANT_ID_B).toBeDefined();
   });
 });

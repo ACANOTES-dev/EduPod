@@ -1,4 +1,9 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { SettingsService } from '../configuration/settings.service';
@@ -29,7 +34,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -51,12 +58,14 @@ describe('AttendanceService — state machine', () => {
     };
 
     mockDailySummary = { recalculate: jest.fn().mockResolvedValue(null) };
-    mockSettings = { getSettings: jest.fn().mockResolvedValue({
-      attendance: {
-        workDays: [1, 2, 3, 4, 5],
-        defaultPresentEnabled: false,
-      },
-    }) };
+    mockSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        attendance: {
+          workDays: [1, 2, 3, 4, 5],
+          defaultPresentEnabled: false,
+        },
+      }),
+    };
 
     mockRlsTx.attendanceSession.update.mockReset();
     mockRlsTx.attendanceSession.update.mockResolvedValue({
@@ -73,7 +82,10 @@ describe('AttendanceService — state machine', () => {
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
         { provide: SettingsService, useValue: mockSettings },
-        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -144,9 +156,7 @@ describe('AttendanceService — state machine', () => {
       status: 'submitted',
     });
 
-    await expect(
-      service.cancelSession(TENANT_ID, SESSION_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.cancelSession(TENANT_ID, SESSION_ID)).rejects.toThrow(ConflictException);
   });
 
   // ─── 5. locked -> any state blocked ────────────────────────────────────
@@ -157,9 +167,7 @@ describe('AttendanceService — state machine', () => {
       status: 'locked',
     });
 
-    await expect(
-      service.cancelSession(TENANT_ID, SESSION_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.cancelSession(TENANT_ID, SESSION_ID)).rejects.toThrow(ConflictException);
 
     // submitSession with locked session
     mockPrisma.attendanceSession.findFirst.mockResolvedValue({
@@ -168,9 +176,9 @@ describe('AttendanceService — state machine', () => {
       session_date: new Date('2026-03-10'),
     });
 
-    await expect(
-      service.submitSession(TENANT_ID, SESSION_ID, USER_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.submitSession(TENANT_ID, SESSION_ID, USER_ID)).rejects.toThrow(
+      ConflictException,
+    );
   });
 
   // ─── 6. cancelled -> any state blocked ─────────────────────────────────
@@ -182,9 +190,9 @@ describe('AttendanceService — state machine', () => {
       session_date: new Date('2026-03-10'),
     });
 
-    await expect(
-      service.submitSession(TENANT_ID, SESSION_ID, USER_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.submitSession(TENANT_ID, SESSION_ID, USER_ID)).rejects.toThrow(
+      ConflictException,
+    );
 
     // cancelSession with cancelled session
     mockPrisma.attendanceSession.findFirst.mockResolvedValue({
@@ -192,9 +200,7 @@ describe('AttendanceService — state machine', () => {
       status: 'cancelled',
     });
 
-    await expect(
-      service.cancelSession(TENANT_ID, SESSION_ID),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.cancelSession(TENANT_ID, SESSION_ID)).rejects.toThrow(ConflictException);
   });
 });
 
@@ -225,7 +231,10 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: {} },
         { provide: SettingsService, useValue: { getSettings: jest.fn() } },
-        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -301,9 +310,7 @@ describe('AttendanceService — createDefaultPresentRecords', () => {
   });
 
   it('should use skipDuplicates to handle concurrent inserts', async () => {
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
-      { student_id: 'student-1' },
-    ]);
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: 'student-1' }]);
     mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 0 });
 
     const count = await service.createDefaultPresentRecords(
@@ -393,7 +400,10 @@ describe('AttendanceService — createSession default_present', () => {
         { provide: SchoolClosuresService, useValue: mockClosures },
         { provide: DailySummaryService, useValue: {} },
         { provide: SettingsService, useValue: mockSettings },
-        { provide: AttendanceParentNotificationService, useValue: { triggerAbsenceNotification: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -403,19 +413,13 @@ describe('AttendanceService — createSession default_present', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should call createDefaultPresentRecords when dto.default_present is true', async () => {
-    const enrolledStudents = [
-      { student_id: 'student-1' },
-      { student_id: 'student-2' },
-    ];
+    const enrolledStudents = [{ student_id: 'student-1' }, { student_id: 'student-2' }];
     mockPrisma.classEnrolment.findMany.mockResolvedValue(enrolledStudents);
     mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 2 });
 
-    await service.createSession(
-      TENANT_ID,
-      USER_ID,
-      { ...baseDto, default_present: true },
-      ['attendance.manage'],
-    );
+    await service.createSession(TENANT_ID, USER_ID, { ...baseDto, default_present: true }, [
+      'attendance.manage',
+    ]);
 
     // Session should be created with default_present: true
     expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
@@ -431,12 +435,9 @@ describe('AttendanceService — createSession default_present', () => {
   });
 
   it('should NOT call createDefaultPresentRecords when dto.default_present is false', async () => {
-    await service.createSession(
-      TENANT_ID,
-      USER_ID,
-      { ...baseDto, default_present: false },
-      ['attendance.manage'],
-    );
+    await service.createSession(TENANT_ID, USER_ID, { ...baseDto, default_present: false }, [
+      'attendance.manage',
+    ]);
 
     expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -456,17 +457,10 @@ describe('AttendanceService — createSession default_present', () => {
         defaultPresentEnabled: true,
       },
     });
-    mockPrisma.classEnrolment.findMany.mockResolvedValue([
-      { student_id: 'student-1' },
-    ]);
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: 'student-1' }]);
     mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 1 });
 
-    await service.createSession(
-      TENANT_ID,
-      USER_ID,
-      baseDto,
-      ['attendance.manage'],
-    );
+    await service.createSession(TENANT_ID, USER_ID, baseDto, ['attendance.manage']);
 
     // Session should be created with default_present: true (from tenant settings)
     expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
@@ -489,12 +483,7 @@ describe('AttendanceService — createSession default_present', () => {
       },
     });
 
-    await service.createSession(
-      TENANT_ID,
-      USER_ID,
-      baseDto,
-      ['attendance.manage'],
-    );
+    await service.createSession(TENANT_ID, USER_ID, baseDto, ['attendance.manage']);
 
     expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -516,16 +505,1187 @@ describe('AttendanceService — createSession default_present', () => {
       status: 'open',
     });
 
-    await service.createSession(
-      TENANT_ID,
-      USER_ID,
-      { ...baseDto, default_present: true },
-      ['attendance.manage'],
-    );
+    await service.createSession(TENANT_ID, USER_ID, { ...baseDto, default_present: true }, [
+      'attendance.manage',
+    ]);
 
     // create should NOT have been called since the session already existed
     expect(mockRlsTx.attendanceSession.create).not.toHaveBeenCalled();
     // Should NOT create attendance records for an existing session
     expect(mockRlsTx.attendanceRecord.createMany).not.toHaveBeenCalled();
+  });
+});
+
+// ─── P1: Session generation — creation, idempotency, work-day validation, academic year boundaries ───
+
+describe('AttendanceService — createSession validation', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    class: { findFirst: jest.Mock };
+    classStaff: { findFirst: jest.Mock };
+    classEnrolment: { findMany: jest.Mock };
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockSettings: { getSettings: jest.Mock };
+  let mockClosures: { isClosureDate: jest.Mock };
+
+  const baseClass = {
+    id: CLASS_ID,
+    academic_year_id: 'ay-1',
+    year_group_id: null,
+    academic_year: {
+      start_date: new Date('2025-09-01'),
+      end_date: new Date('2026-06-30'),
+    },
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      class: { findFirst: jest.fn().mockResolvedValue(baseClass) },
+      classStaff: { findFirst: jest.fn() },
+      classEnrolment: { findMany: jest.fn().mockResolvedValue([]) },
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        attendance: {
+          workDays: [1, 2, 3, 4, 5], // Mon–Fri
+          defaultPresentEnabled: false,
+        },
+      }),
+    };
+
+    mockClosures = { isClosureDate: jest.fn().mockResolvedValue(false) };
+
+    mockRlsTx.attendanceSession.findFirst.mockReset();
+    mockRlsTx.attendanceSession.findFirst.mockResolvedValue(null);
+    mockRlsTx.attendanceSession.create.mockReset();
+    mockRlsTx.attendanceSession.create.mockResolvedValue({
+      id: SESSION_ID,
+      tenant_id: TENANT_ID,
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      status: 'open',
+    });
+    mockRlsTx.attendanceRecord.createMany.mockReset();
+    mockRlsTx.attendanceRecord.createMany.mockResolvedValue({ count: 0 });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: mockClosures },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: mockSettings },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when class does not exist', async () => {
+    mockPrisma.class.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: 'non-existent', session_date: '2026-03-10' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw BadRequestException when session_date is not a work day (Saturday)', async () => {
+    // 2026-03-14 is a Saturday (day 6), workDays=[1,2,3,4,5]
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-03-14' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when session_date is not a work day (Sunday)', async () => {
+    // 2026-03-15 is a Sunday (day 0), workDays=[1,2,3,4,5]
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-03-15' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when session_date is before academic year start', async () => {
+    // Academic year starts 2025-09-01, try 2025-08-01 (Friday = day 5, valid work day)
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2025-08-01' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw BadRequestException when session_date is after academic year end', async () => {
+    // Academic year ends 2026-06-30, try 2026-07-06 (Monday = day 1, valid work day)
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-07-06' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should throw ConflictException when session_date falls on a school closure (without override)', async () => {
+    mockClosures.isClosureDate.mockResolvedValue(true);
+
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-03-10' },
+        ['attendance.manage'],
+      ),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('should throw ForbiddenException when override_closure is true but user lacks permission', async () => {
+    mockClosures.isClosureDate.mockResolvedValue(true);
+
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        {
+          class_id: CLASS_ID,
+          session_date: '2026-03-10',
+          override_closure: true,
+          override_reason: 'make-up day',
+        },
+        ['attendance.manage'], // no attendance.override_closure
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should throw BadRequestException when override_closure is true but override_reason is missing', async () => {
+    mockClosures.isClosureDate.mockResolvedValue(true);
+
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-03-10', override_closure: true },
+        ['attendance.manage', 'attendance.override_closure'],
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should create session successfully when override_closure is valid with reason and permission', async () => {
+    mockClosures.isClosureDate.mockResolvedValue(true);
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      {
+        class_id: CLASS_ID,
+        session_date: '2026-03-10',
+        override_closure: true,
+        override_reason: 'Make-up day',
+      },
+      ['attendance.manage', 'attendance.override_closure'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          override_reason: 'Make-up day',
+          status: 'open',
+        }),
+      }),
+    );
+  });
+
+  it('should succeed for a valid work day within academic year', async () => {
+    // 2026-03-10 is a Tuesday (day 2), within academic year
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { class_id: CLASS_ID, session_date: '2026-03-10' },
+      ['attendance.manage'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
+  });
+
+  it('edge: should accept the exact academic year start date', async () => {
+    // 2025-09-01 is Monday (day 1), valid work day, start of academic year
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { class_id: CLASS_ID, session_date: '2025-09-01' },
+      ['attendance.manage'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
+  });
+
+  it('edge: should accept the exact academic year end date if work day', async () => {
+    // 2026-06-30 is Tuesday (day 2), valid work day, end of academic year
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { class_id: CLASS_ID, session_date: '2026-06-30' },
+      ['attendance.manage'],
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
+  });
+});
+
+// ─── P2: Mark/amend attendance — saveRecords, amendRecord, student enrollment validation ───
+
+describe('AttendanceService — saveRecords', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    attendanceSession: { findFirst: jest.Mock };
+    classEnrolment: { findMany: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockDailySummary: { recalculate: jest.Mock };
+  let mockParentNotification: { triggerAbsenceNotification: jest.Mock };
+
+  const mockRlsRecordFindFirst = jest.fn();
+  const mockRlsRecordCreate = jest.fn();
+  const mockRlsRecordUpdate = jest.fn();
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceSession: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: SESSION_ID,
+          status: 'open',
+          class_id: CLASS_ID,
+          session_date: new Date('2026-03-10'),
+        }),
+      },
+      classEnrolment: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ student_id: 'student-1' }, { student_id: 'student-2' }]),
+      },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockDailySummary = { recalculate: jest.fn().mockResolvedValue(null) };
+    mockParentNotification = { triggerAbsenceNotification: jest.fn().mockResolvedValue(undefined) };
+
+    // For saveRecords, the RLS transaction delegates to a loop of findFirst/create/update
+    // We need to mock the transaction to expose these inner operations
+    mockRlsRecordFindFirst.mockReset();
+    mockRlsRecordCreate.mockReset();
+    mockRlsRecordUpdate.mockReset();
+
+    // Override the global mockRlsTx to add attendanceRecord methods for the transaction
+    mockRlsTx.attendanceRecord.createMany.mockReset();
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn({
+          attendanceSession: mockRlsTx.attendanceSession,
+          attendanceRecord: {
+            findFirst: mockRlsRecordFindFirst,
+            create: mockRlsRecordCreate,
+            update: mockRlsRecordUpdate,
+            createMany: mockRlsTx.attendanceRecord.createMany,
+          },
+        });
+      }),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: mockDailySummary },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        { provide: AttendanceParentNotificationService, useValue: mockParentNotification },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when session does not exist', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+        records: [{ student_id: 'student-1', status: 'present' }],
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ConflictException when session status is submitted', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'submitted',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+    });
+
+    await expect(
+      service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+        records: [{ student_id: 'student-1', status: 'present' }],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('edge: should throw ConflictException when session status is locked', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'locked',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+    });
+
+    await expect(
+      service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+        records: [{ student_id: 'student-1', status: 'present' }],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('edge: should throw ConflictException when session status is cancelled', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'cancelled',
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+    });
+
+    await expect(
+      service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+        records: [{ student_id: 'student-1', status: 'present' }],
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('should throw BadRequestException when students are not enrolled in the class', async () => {
+    mockPrisma.classEnrolment.findMany.mockResolvedValue([{ student_id: 'student-1' }]); // Only student-1 is enrolled
+
+    await expect(
+      service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+        records: [
+          { student_id: 'student-1', status: 'present' },
+          { student_id: 'student-99', status: 'absent_unexcused' },
+        ],
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('should create new records when none exist', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue(null); // No existing record
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'rec-1',
+      student_id: 'student-1',
+      status: 'present',
+    });
+
+    const result = await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'present' }],
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(mockRlsRecordCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenant_id: TENANT_ID,
+          attendance_session_id: SESSION_ID,
+          student_id: 'student-1',
+          status: 'present',
+          marked_by_user_id: USER_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should update existing records', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue({ id: 'existing-rec-1' });
+    mockRlsRecordUpdate.mockResolvedValue({
+      id: 'existing-rec-1',
+      student_id: 'student-1',
+      status: 'absent_excused',
+    });
+
+    const result = await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'absent_excused', reason: 'Doctor visit' }],
+    });
+
+    expect(result.data).toHaveLength(1);
+    expect(mockRlsRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'existing-rec-1' },
+        data: expect.objectContaining({
+          status: 'absent_excused',
+          reason: 'Doctor visit',
+          marked_by_user_id: USER_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should trigger parent notification for non-present records', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'rec-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+    });
+
+    await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'absent_unexcused' }],
+    });
+
+    expect(mockParentNotification.triggerAbsenceNotification).toHaveBeenCalledWith(
+      TENANT_ID,
+      'student-1',
+      'rec-1',
+      'absent_unexcused',
+      '2026-03-10',
+    );
+  });
+
+  it('should not trigger parent notification for present records', async () => {
+    mockRlsRecordFindFirst.mockResolvedValue(null);
+    mockRlsRecordCreate.mockResolvedValue({
+      id: 'rec-1',
+      student_id: 'student-1',
+      status: 'present',
+    });
+
+    await service.saveRecords(TENANT_ID, SESSION_ID, USER_ID, {
+      records: [{ student_id: 'student-1', status: 'present' }],
+    });
+
+    expect(mockParentNotification.triggerAbsenceNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe('AttendanceService — amendRecord', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    attendanceRecord: { findFirst: jest.Mock; findMany: jest.Mock };
+    attendanceSession: { findFirst: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockDailySummary: { recalculate: jest.Mock };
+
+  const mockRlsRecordUpdate = jest.fn();
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceRecord: {
+        findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      attendanceSession: { findFirst: jest.fn() },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockDailySummary = { recalculate: jest.fn().mockResolvedValue(null) };
+    mockRlsRecordUpdate.mockReset();
+
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+        return fn({
+          attendanceRecord: {
+            update: mockRlsRecordUpdate,
+          },
+        });
+      }),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: mockDailySummary },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when record does not exist', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.amendRecord(TENANT_ID, 'non-existent-record', USER_ID, {
+        status: 'absent_excused',
+        amendment_reason: 'Medical cert received',
+      }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('should throw ConflictException when session status is open', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue({
+      id: 'record-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+      session: { id: SESSION_ID, status: 'open', session_date: new Date('2026-03-10') },
+    });
+
+    await expect(
+      service.amendRecord(TENANT_ID, 'record-1', USER_ID, {
+        status: 'absent_excused',
+        amendment_reason: 'Medical cert received',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('edge: should throw ConflictException when session status is cancelled', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue({
+      id: 'record-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+      session: { id: SESSION_ID, status: 'cancelled', session_date: new Date('2026-03-10') },
+    });
+
+    await expect(
+      service.amendRecord(TENANT_ID, 'record-1', USER_ID, {
+        status: 'absent_excused',
+        amendment_reason: 'Medical cert received',
+      }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('should allow amending a record on a submitted session', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue({
+      id: 'record-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+      session: { id: SESSION_ID, status: 'submitted', session_date: new Date('2026-03-10') },
+    });
+    mockRlsRecordUpdate.mockResolvedValue({
+      id: 'record-1',
+      status: 'absent_excused',
+      amended_from_status: 'absent_unexcused',
+    });
+
+    const result = await service.amendRecord(TENANT_ID, 'record-1', USER_ID, {
+      status: 'absent_excused',
+      amendment_reason: 'Medical cert received',
+    });
+
+    expect(result).toEqual(expect.objectContaining({ id: 'record-1', status: 'absent_excused' }));
+    expect(mockRlsRecordUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'record-1' },
+        data: expect.objectContaining({
+          amended_from_status: 'absent_unexcused',
+          status: 'absent_excused',
+          amendment_reason: 'Medical cert received',
+          marked_by_user_id: USER_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should allow amending a record on a locked session', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue({
+      id: 'record-1',
+      student_id: 'student-1',
+      status: 'late',
+      session: { id: SESSION_ID, status: 'locked', session_date: new Date('2026-03-10') },
+    });
+    mockRlsRecordUpdate.mockResolvedValue({
+      id: 'record-1',
+      status: 'present',
+      amended_from_status: 'late',
+    });
+
+    const result = await service.amendRecord(TENANT_ID, 'record-1', USER_ID, {
+      status: 'present',
+      amendment_reason: 'Arrived on time, recorded in error',
+    });
+
+    expect(result).toEqual(expect.objectContaining({ id: 'record-1', status: 'present' }));
+  });
+
+  it('should trigger daily summary recalculation after amendment', async () => {
+    mockPrisma.attendanceRecord.findFirst.mockResolvedValue({
+      id: 'record-1',
+      student_id: 'student-1',
+      status: 'absent_unexcused',
+      session: { id: SESSION_ID, status: 'submitted', session_date: new Date('2026-03-10') },
+    });
+    mockRlsRecordUpdate.mockResolvedValue({
+      id: 'record-1',
+      status: 'absent_excused',
+    });
+
+    await service.amendRecord(TENANT_ID, 'record-1', USER_ID, {
+      status: 'absent_excused',
+      amendment_reason: 'Late cert',
+    });
+
+    expect(mockDailySummary.recalculate).toHaveBeenCalledWith(
+      TENANT_ID,
+      'student-1',
+      new Date('2026-03-10'),
+    );
+  });
+});
+
+// ─── P3: Auto-lock — lockExpiredSessions, threshold computation ───
+
+describe('AttendanceService — lockExpiredSessions', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn() },
+    };
+
+    mockRlsTx.attendanceSession.updateMany.mockReset();
+    mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
+
+    // Restore default RLS mock for updateMany-based tests
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should return locked_count: 0 when autoLockAfterDays is not configured', async () => {
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+
+    const result = await service.lockExpiredSessions(TENANT_ID);
+
+    expect(result).toEqual({ locked_count: 0 });
+    expect(mockRlsTx.attendanceSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('should return locked_count: 0 when settings exist but autoLockAfterDays is undefined', async () => {
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: {} },
+    });
+
+    const result = await service.lockExpiredSessions(TENANT_ID);
+
+    expect(result).toEqual({ locked_count: 0 });
+    expect(mockRlsTx.attendanceSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('should lock submitted sessions older than autoLockAfterDays', async () => {
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { autoLockAfterDays: 3 } },
+    });
+    mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 5 });
+
+    const result = await service.lockExpiredSessions(TENANT_ID);
+
+    expect(result).toEqual({ locked_count: 5 });
+    const updateCall = mockRlsTx.attendanceSession.updateMany.mock.calls[0]![0] as {
+      where: { tenant_id: string; status: string; session_date: { lte: Date } };
+      data: { status: string };
+    };
+    expect(updateCall.where.tenant_id).toBe(TENANT_ID);
+    expect(updateCall.where.status).toBe('submitted');
+    expect(updateCall.data.status).toBe('locked');
+
+    // Verify cutoff date is approximately autoLockAfterDays ago
+    const cutoff = updateCall.where.session_date.lte;
+    const expectedCutoff = new Date();
+    expectedCutoff.setDate(expectedCutoff.getDate() - 3);
+    const diffMs = Math.abs(cutoff.getTime() - expectedCutoff.getTime());
+    expect(diffMs).toBeLessThan(5000); // Within 5 seconds
+  });
+
+  it('should use the correct autoLockAfterDays value from settings', async () => {
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { autoLockAfterDays: 14 } },
+    });
+    mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
+
+    await service.lockExpiredSessions(TENANT_ID);
+
+    const updateCall = mockRlsTx.attendanceSession.updateMany.mock.calls[0]![0] as {
+      where: { session_date: { lte: Date } };
+    };
+    const cutoff = updateCall.where.session_date.lte;
+    const expectedCutoff = new Date();
+    expectedCutoff.setDate(expectedCutoff.getDate() - 14);
+    const diffMs = Math.abs(cutoff.getTime() - expectedCutoff.getTime());
+    expect(diffMs).toBeLessThan(5000);
+  });
+
+  it('edge: should return locked_count: 0 when no sessions match the criteria', async () => {
+    mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+      settings: { attendance: { autoLockAfterDays: 7 } },
+    });
+    mockRlsTx.attendanceSession.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.lockExpiredSessions(TENANT_ID);
+
+    expect(result).toEqual({ locked_count: 0 });
+  });
+});
+
+// ─── P4: Teacher permissions — class assignment filtering, ForbiddenException ───
+
+describe('AttendanceService — teacher permission filtering', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    class: { findFirst: jest.Mock };
+    classStaff: { findFirst: jest.Mock; findMany: jest.Mock };
+    classEnrolment: { findMany: jest.Mock };
+    attendanceSession: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockSettings: { getSettings: jest.Mock };
+  let mockClosures: { isClosureDate: jest.Mock };
+
+  const STAFF_PROFILE_ID = 'staff-profile-1';
+
+  const baseClass = {
+    id: CLASS_ID,
+    academic_year_id: 'ay-1',
+    year_group_id: null,
+    academic_year: {
+      start_date: new Date('2025-09-01'),
+      end_date: new Date('2026-06-30'),
+    },
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      class: { findFirst: jest.fn().mockResolvedValue(baseClass) },
+      classStaff: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+      },
+      classEnrolment: { findMany: jest.fn().mockResolvedValue([]) },
+      attendanceSession: {
+        findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        attendance: {
+          workDays: [0, 1, 2, 3, 4, 5, 6],
+          defaultPresentEnabled: false,
+        },
+      }),
+    };
+
+    mockClosures = { isClosureDate: jest.fn().mockResolvedValue(false) };
+
+    mockRlsTx.attendanceSession.findFirst.mockReset();
+    mockRlsTx.attendanceSession.findFirst.mockResolvedValue(null);
+    mockRlsTx.attendanceSession.create.mockReset();
+    mockRlsTx.attendanceSession.create.mockResolvedValue({
+      id: SESSION_ID,
+      tenant_id: TENANT_ID,
+      class_id: CLASS_ID,
+      session_date: new Date('2026-03-10'),
+      status: 'open',
+    });
+    mockRlsTx.attendanceRecord.createMany.mockReset();
+
+    // Restore default RLS mock
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: mockClosures },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: mockSettings },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw ForbiddenException when teacher is not assigned to class', async () => {
+    mockPrisma.classStaff.findFirst.mockResolvedValue(null); // No assignment
+
+    await expect(
+      service.createSession(
+        TENANT_ID,
+        USER_ID,
+        { class_id: CLASS_ID, session_date: '2026-03-10' },
+        ['attendance.take'], // has take but NOT manage
+        STAFF_PROFILE_ID,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should allow session creation when teacher is assigned to class', async () => {
+    mockPrisma.classStaff.findFirst.mockResolvedValue({
+      class_id: CLASS_ID,
+    }); // Is assigned
+
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { class_id: CLASS_ID, session_date: '2026-03-10' },
+      ['attendance.take'],
+      STAFF_PROFILE_ID,
+    );
+
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
+  });
+
+  it('should skip class assignment check when user has attendance.manage', async () => {
+    // classStaff.findFirst should never be called for admin users
+    await service.createSession(
+      TENANT_ID,
+      USER_ID,
+      { class_id: CLASS_ID, session_date: '2026-03-10' },
+      ['attendance.manage'],
+      STAFF_PROFILE_ID,
+    );
+
+    expect(mockPrisma.classStaff.findFirst).not.toHaveBeenCalled();
+    expect(mockRlsTx.attendanceSession.create).toHaveBeenCalled();
+  });
+
+  it('should filter sessions by teacher assigned classes in findAllSessions', async () => {
+    mockPrisma.classStaff.findMany.mockResolvedValue([
+      { class_id: 'assigned-class-1' },
+      { class_id: 'assigned-class-2' },
+    ]);
+    mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+    mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+    await service.findAllSessions(
+      TENANT_ID,
+      { page: 1, pageSize: 20 },
+      STAFF_PROFILE_ID, // teacher's staff profile
+    );
+
+    // Should fetch the teacher's class assignments
+    expect(mockPrisma.classStaff.findMany).toHaveBeenCalledWith({
+      where: { staff_profile_id: STAFF_PROFILE_ID, tenant_id: TENANT_ID },
+      select: { class_id: true },
+    });
+
+    // Should filter by assigned class IDs
+    expect(mockPrisma.attendanceSession.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          class_id: { in: ['assigned-class-1', 'assigned-class-2'] },
+        }),
+      }),
+    );
+  });
+
+  it('should return empty result when teacher requests non-assigned class', async () => {
+    mockPrisma.classStaff.findMany.mockResolvedValue([{ class_id: 'assigned-class-1' }]);
+
+    const result = await service.findAllSessions(
+      TENANT_ID,
+      { page: 1, pageSize: 20, class_id: 'non-assigned-class' },
+      STAFF_PROFILE_ID,
+    );
+
+    expect(result).toEqual({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+  });
+
+  it('should not filter sessions when no staffProfileId is provided (admin)', async () => {
+    mockPrisma.attendanceSession.findMany.mockResolvedValue([]);
+    mockPrisma.attendanceSession.count.mockResolvedValue(0);
+
+    await service.findAllSessions(
+      TENANT_ID,
+      { page: 1, pageSize: 20 },
+      undefined, // No staff profile = admin
+    );
+
+    expect(mockPrisma.classStaff.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ─── P5: Edge cases — submitSession additional coverage ───
+
+describe('AttendanceService — submitSession', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+  let mockDailySummary: { recalculate: jest.Mock };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockDailySummary = { recalculate: jest.fn().mockResolvedValue(null) };
+
+    mockRlsTx.attendanceSession.update.mockReset();
+    mockRlsTx.attendanceSession.update.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'submitted',
+    });
+
+    // Restore default RLS mock
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: mockDailySummary },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when session does not exist', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+
+    await expect(service.submitSession(TENANT_ID, 'non-existent', USER_ID)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should trigger daily summary recalculation for each student', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+    });
+    mockPrisma.attendanceRecord.findMany.mockResolvedValue([
+      { student_id: 'student-1' },
+      { student_id: 'student-2' },
+      { student_id: 'student-1' }, // duplicate
+    ]);
+
+    await service.submitSession(TENANT_ID, SESSION_ID, USER_ID);
+
+    // Should deduplicate student IDs
+    expect(mockDailySummary.recalculate).toHaveBeenCalledTimes(2);
+    expect(mockDailySummary.recalculate).toHaveBeenCalledWith(
+      TENANT_ID,
+      'student-1',
+      new Date('2026-03-10'),
+    );
+    expect(mockDailySummary.recalculate).toHaveBeenCalledWith(
+      TENANT_ID,
+      'student-2',
+      new Date('2026-03-10'),
+    );
+  });
+
+  it('should set submitted_by_user_id and submitted_at on the session', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+      session_date: new Date('2026-03-10'),
+    });
+
+    await service.submitSession(TENANT_ID, SESSION_ID, USER_ID);
+
+    expect(mockRlsTx.attendanceSession.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: SESSION_ID },
+        data: expect.objectContaining({
+          status: 'submitted',
+          submitted_by_user_id: USER_ID,
+        }),
+      }),
+    );
+
+    // Verify submitted_at is set to a recent Date
+    const updateCall = mockRlsTx.attendanceSession.update.mock.calls[0]![0] as {
+      data: { submitted_at: Date };
+    };
+    const submittedAt = updateCall.data.submitted_at;
+    expect(submittedAt).toBeInstanceOf(Date);
+    expect(Date.now() - submittedAt.getTime()).toBeLessThan(5000);
+  });
+});
+
+// ─── P5: Edge cases — cancelSession additional coverage ───
+
+describe('AttendanceService — cancelSession', () => {
+  let service: AttendanceService;
+  let mockPrisma: {
+    attendanceSession: { findFirst: jest.Mock };
+    attendanceRecord: { findMany: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+  };
+
+  beforeEach(async () => {
+    mockPrisma = {
+      attendanceSession: { findFirst: jest.fn() },
+      attendanceRecord: { findMany: jest.fn().mockResolvedValue([]) },
+      tenantSetting: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+
+    mockRlsTx.attendanceSession.update.mockReset();
+    mockRlsTx.attendanceSession.update.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'cancelled',
+    });
+
+    // Restore default RLS mock
+    const { createRlsClient } = jest.requireMock('../../common/middleware/rls.middleware') as {
+      createRlsClient: jest.Mock;
+    };
+    createRlsClient.mockReturnValue({
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AttendanceService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: SchoolClosuresService, useValue: {} },
+        { provide: DailySummaryService, useValue: {} },
+        { provide: SettingsService, useValue: { getSettings: jest.fn() } },
+        {
+          provide: AttendanceParentNotificationService,
+          useValue: { triggerAbsenceNotification: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AttendanceService>(AttendanceService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it('should throw NotFoundException when session does not exist', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue(null);
+
+    await expect(service.cancelSession(TENANT_ID, 'non-existent')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('should successfully cancel an open session', async () => {
+    mockPrisma.attendanceSession.findFirst.mockResolvedValue({
+      id: SESSION_ID,
+      status: 'open',
+    });
+
+    await service.cancelSession(TENANT_ID, SESSION_ID);
+
+    expect(mockRlsTx.attendanceSession.update).toHaveBeenCalledWith({
+      where: { id: SESSION_ID },
+      data: { status: 'cancelled' },
+    });
   });
 });

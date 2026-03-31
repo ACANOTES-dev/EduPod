@@ -27,6 +27,9 @@ describe('AdmissionFormsService', () => {
       create: jest.Mock;
       deleteMany: jest.Mock;
     };
+    auditLog: {
+      create: jest.Mock;
+    };
   };
 
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
@@ -80,13 +83,13 @@ describe('AdmissionFormsService', () => {
         create: jest.fn(),
         deleteMany: jest.fn(),
       },
+      auditLog: {
+        create: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AdmissionFormsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AdmissionFormsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AdmissionFormsService>(AdmissionFormsService);
@@ -138,9 +141,9 @@ describe('AdmissionFormsService', () => {
         buildFormField({ field_key: 'same_key', display_order: 1 }),
       ];
 
-      await expect(
-        service.create(TENANT_ID, { name: 'Test', fields }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
+        BadRequestException,
+      );
 
       try {
         await service.create(TENANT_ID, { name: 'Test', fields });
@@ -163,9 +166,9 @@ describe('AdmissionFormsService', () => {
         }),
       ];
 
-      await expect(
-        service.create(TENANT_ID, { name: 'Test', fields }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
+        BadRequestException,
+      );
 
       try {
         await service.create(TENANT_ID, { name: 'Test', fields });
@@ -186,9 +189,9 @@ describe('AdmissionFormsService', () => {
         }),
       ];
 
-      await expect(
-        service.create(TENANT_ID, { name: 'Test', fields }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
+        BadRequestException,
+      );
 
       try {
         await service.create(TENANT_ID, { name: 'Test', fields });
@@ -362,18 +365,14 @@ describe('AdmissionFormsService', () => {
       const form = buildFormRecord({ status: 'published', fields: [{ id: 'f1' }] });
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
 
-      await expect(
-        service.publish(TENANT_ID, 'form-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
     });
 
     it('should reject publishing empty form', async () => {
       const form = buildFormRecord({ status: 'draft', fields: [] });
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
 
-      await expect(
-        service.publish(TENANT_ID, 'form-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -415,9 +414,7 @@ describe('AdmissionFormsService', () => {
     it('should throw NotFoundException for missing form', async () => {
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.findOne(TENANT_ID, 'nonexistent'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -443,9 +440,7 @@ describe('AdmissionFormsService', () => {
       const form = buildFormRecord({ status: 'archived' });
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
 
-      await expect(
-        service.archive(TENANT_ID, 'form-1'),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.archive(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -468,9 +463,7 @@ describe('AdmissionFormsService', () => {
     it('should throw when no published form exists', async () => {
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.getPublishedForm(TENANT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getPublishedForm(TENANT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -532,6 +525,338 @@ describe('AdmissionFormsService', () => {
         { field_key: 'medical_notes', label: 'Medical Conditions' },
       ]);
       expect(result).toHaveLength(2);
+    });
+  });
+
+  // ─── Create — additional field validation ───────────────────────────────
+
+  describe('create — additional field validation', () => {
+    it('should accept valid conditional visibility reference', async () => {
+      const fields = [
+        buildFormField({
+          field_key: 'has_allergies',
+          field_type: 'yes_no',
+          display_order: 0,
+        }),
+        buildFormField({
+          field_key: 'allergy_details',
+          display_order: 1,
+          conditional_visibility_json: {
+            depends_on_field_key: 'has_allergies',
+            show_when_value: 'yes',
+          },
+        }),
+      ];
+
+      const createdForm = buildFormRecord();
+      mockPrisma.admissionFormDefinition.create.mockResolvedValue(createdForm);
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue(createdForm);
+      mockPrisma.admissionFormField.create.mockResolvedValue({});
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        ...createdForm,
+        fields,
+      });
+
+      const result = await service.create(TENANT_ID, {
+        name: 'Conditional Form',
+        fields,
+      });
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.admissionFormField.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('should reject multi_select without options', async () => {
+      const fields = [
+        buildFormField({
+          field_key: 'multi_field',
+          field_type: 'multi_select',
+          options_json: [],
+          display_order: 0,
+        }),
+      ];
+
+      await expect(service.create(TENANT_ID, { name: 'Test', fields })).rejects.toThrow(
+        BadRequestException,
+      );
+
+      try {
+        await service.create(TENANT_ID, { name: 'Test', fields });
+      } catch (e) {
+        const err = e as BadRequestException;
+        const response = err.getResponse() as Record<string, Record<string, string>>;
+        expect(response.error?.code).toBe('SELECT_REQUIRES_OPTIONS');
+      }
+    });
+
+    it('should accept single_select with valid options', async () => {
+      const fields = [
+        buildFormField({
+          field_key: 'gender',
+          field_type: 'single_select',
+          options_json: [
+            { value: 'male', label: 'Male' },
+            { value: 'female', label: 'Female' },
+          ],
+          display_order: 0,
+        }),
+      ];
+
+      const createdForm = buildFormRecord();
+      mockPrisma.admissionFormDefinition.create.mockResolvedValue(createdForm);
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue(createdForm);
+      mockPrisma.admissionFormField.create.mockResolvedValue({});
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
+        ...createdForm,
+        fields,
+      });
+
+      const result = await service.create(TENANT_ID, {
+        name: 'Select Form',
+        fields,
+      });
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ─── System Form Creation ───────────────────────────────────────────────
+
+  describe('createSystemForm', () => {
+    it('should create and publish system form when none exists', async () => {
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(null) // no existing system form
+        .mockResolvedValueOnce(
+          buildFormRecord({
+            name: 'System Application Form',
+            status: 'published',
+          }),
+        ); // returned after creation
+      mockPrisma.admissionFormDefinition.create.mockResolvedValue(
+        buildFormRecord({ name: 'System Application Form', status: 'published' }),
+      );
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({});
+      mockPrisma.admissionFormField.create.mockResolvedValue({});
+      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.createSystemForm(TENANT_ID);
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.admissionFormDefinition.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            name: 'System Application Form',
+            status: 'published',
+          }),
+        }),
+      );
+      // Should create system fields
+      expect(mockPrisma.admissionFormField.create).toHaveBeenCalled();
+    });
+
+    it('should return existing system form without creating duplicate', async () => {
+      const existingForm = buildFormRecord({
+        name: 'System Application Form',
+        status: 'published',
+        fields: [buildFormField()],
+      });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(existingForm);
+
+      const result = await service.createSystemForm(TENANT_ID);
+
+      expect(result).toBeDefined();
+      expect(mockPrisma.admissionFormDefinition.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── Form Lifecycle (draft → published → archived) ──────────────────────
+
+  describe('form lifecycle — full state machine', () => {
+    it('draft → published → archived is valid', async () => {
+      // Publish a draft form
+      const draftForm = buildFormRecord({
+        status: 'draft',
+        fields: [{ id: 'f1' }],
+      });
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(draftForm)
+        .mockResolvedValueOnce({ ...draftForm, status: 'published' });
+      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
+        ...draftForm,
+        status: 'published',
+      });
+
+      const published = await service.publish(TENANT_ID, 'form-1');
+      expect(published).toBeDefined();
+
+      // Archive the published form
+      jest.clearAllMocks();
+      const publishedForm = buildFormRecord({ status: 'published' });
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(publishedForm)
+        .mockResolvedValueOnce({ ...publishedForm, status: 'archived' });
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
+        ...publishedForm,
+        status: 'archived',
+      });
+
+      const archived = await service.archive(TENANT_ID, 'form-1');
+      expect(archived).toBeDefined();
+    });
+
+    it('edge: publish should throw for already published form', async () => {
+      const form = buildFormRecord({ status: 'published', fields: [{ id: 'f1' }] });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
+
+      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
+
+      try {
+        await service.publish(TENANT_ID, 'form-1');
+      } catch (e) {
+        const err = e as BadRequestException;
+        const response = err.getResponse() as Record<string, Record<string, string>>;
+        expect(response.error?.code).toBe('INVALID_STATUS_TRANSITION');
+      }
+    });
+
+    it('edge: publish should throw for archived form', async () => {
+      const form = buildFormRecord({ status: 'archived', fields: [{ id: 'f1' }] });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
+
+      await expect(service.publish(TENANT_ID, 'form-1')).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: archive should throw for form not found', async () => {
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
+
+      await expect(service.archive(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+
+    it('should archive a draft form', async () => {
+      const form = buildFormRecord({ status: 'draft' });
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(form)
+        .mockResolvedValueOnce({ ...form, status: 'archived' });
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
+        ...form,
+        status: 'archived',
+      });
+
+      const result = await service.archive(TENANT_ID, 'form-1');
+      expect(result).toBeDefined();
+    });
+  });
+
+  // ─── findAll ──────────────────────────────────────────────────────────────
+
+  describe('findAll', () => {
+    it('should return paginated results', async () => {
+      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([buildFormRecord()]);
+      mockPrisma.admissionFormDefinition.count.mockResolvedValue(1);
+
+      const result = await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should filter by status', async () => {
+      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([]);
+      mockPrisma.admissionFormDefinition.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+        status: 'published',
+      });
+
+      expect(mockPrisma.admissionFormDefinition.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'published',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Update — additional edge cases ─────────────────────────────────────
+
+  describe('update — additional edge cases', () => {
+    it('should throw NotFoundException when form not found', async () => {
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(TENANT_ID, 'nonexistent', {
+          name: 'Test',
+          fields: [buildFormField()],
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getVersions — edge cases ─────────────────────────────────────────────
+
+  describe('getVersions — edge cases', () => {
+    it('should throw NotFoundException when form not found', async () => {
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
+
+      await expect(service.getVersions(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should use form id as base_form_id when base_form_id is null', async () => {
+      const form = buildFormRecord({ id: 'form-root', base_form_id: null });
+      mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(form);
+      mockPrisma.admissionFormDefinition.findMany.mockResolvedValue([form]);
+
+      await service.getVersions(TENANT_ID, 'form-root');
+
+      expect(mockPrisma.admissionFormDefinition.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            base_form_id: 'form-root',
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── Publish — version management ──────────────────────────────────────
+
+  describe('publish — version management', () => {
+    it('should use form.id as base_form_id when base_form_id is null', async () => {
+      const form = buildFormRecord({
+        id: 'form-root',
+        base_form_id: null,
+        status: 'draft',
+        fields: [{ id: 'f1' }],
+      });
+      mockPrisma.admissionFormDefinition.findFirst
+        .mockResolvedValueOnce(form)
+        .mockResolvedValueOnce({ ...form, status: 'published' });
+      mockPrisma.admissionFormDefinition.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.admissionFormDefinition.update.mockResolvedValue({
+        ...form,
+        status: 'published',
+      });
+
+      await service.publish(TENANT_ID, 'form-root');
+
+      expect(mockPrisma.admissionFormDefinition.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            base_form_id: 'form-root',
+          }),
+        }),
+      );
     });
   });
 });
