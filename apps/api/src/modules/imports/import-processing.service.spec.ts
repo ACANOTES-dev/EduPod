@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 import { SequenceService } from '../tenants/sequence.service';
 
+import { ImportExecutorService } from './import-executor.service';
+import { ImportParserService } from './import-parser.service';
 import { ImportProcessingService } from './import-processing.service';
 
 const TENANT_ID = '11111111-1111-1111-1111-111111111111';
@@ -96,11 +98,25 @@ describe('ImportProcessingService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ImportParserService,
+        ImportExecutorService,
         ImportProcessingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: S3Service, useValue: mockS3 },
-        { provide: SequenceService, useValue: { nextNumber: jest.fn().mockResolvedValue('STU-2026-00001'), generateHouseholdReference: jest.fn().mockResolvedValue('HH-2026-0001') } },
-        { provide: EncryptionService, useValue: { encrypt: jest.fn().mockReturnValue({ encrypted: 'enc', keyRef: 'v1' }), decrypt: jest.fn().mockReturnValue('decrypted') } },
+        {
+          provide: SequenceService,
+          useValue: {
+            nextNumber: jest.fn().mockResolvedValue('STU-2026-00001'),
+            generateHouseholdReference: jest.fn().mockResolvedValue('HH-2026-0001'),
+          },
+        },
+        {
+          provide: EncryptionService,
+          useValue: {
+            encrypt: jest.fn().mockReturnValue({ encrypted: 'enc', keyRef: 'v1' }),
+            decrypt: jest.fn().mockReturnValue('decrypted'),
+          },
+        },
       ],
     }).compile();
 
@@ -200,9 +216,7 @@ describe('ImportProcessingService', () => {
   // 3. process parents CSV — create parent + household_parent
   // ─────────────────────────────────────────────────────────────────────
   it('should process parents CSV and create parent + household_parent', async () => {
-    mockPrisma.importJob.findFirst.mockResolvedValue(
-      makeJob({ import_type: 'parents' }),
-    );
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ import_type: 'parents' }));
     mockS3.download.mockResolvedValue(
       csvBuffer([
         'first_name,last_name,email,phone,household_name',
@@ -270,9 +284,7 @@ describe('ImportProcessingService', () => {
   // 4. process staff CSV — create user + staff_profile
   // ─────────────────────────────────────────────────────────────────────
   it('should process staff CSV and create user + staff_profile', async () => {
-    mockPrisma.importJob.findFirst.mockResolvedValue(
-      makeJob({ import_type: 'staff' }),
-    );
+    mockPrisma.importJob.findFirst.mockResolvedValue(makeJob({ import_type: 'staff' }));
     mockS3.download.mockResolvedValue(
       csvBuffer([
         'first_name,last_name,email,job_title,department,employment_type',
@@ -469,9 +481,7 @@ describe('ImportProcessingService', () => {
   it('edge: should handle CSV with only headers (no data rows)', async () => {
     mockPrisma.importJob.findFirst.mockResolvedValue(makeJob());
     mockS3.download.mockResolvedValue(
-      csvBuffer([
-        'first_name,last_name,student_number,date_of_birth,year_group_name,gender',
-      ]),
+      csvBuffer(['first_name,last_name,student_number,date_of_birth,year_group_name,gender']),
     );
 
     await service.process(TENANT_ID, JOB_ID);
