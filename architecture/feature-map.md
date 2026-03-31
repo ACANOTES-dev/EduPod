@@ -39,8 +39,8 @@
 | [Imports](#26-imports)                                  | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
 | [Platform Admin](#27-platform-admin)                    | `modules/tenants/`                                                                                                                                                                                                                        | 16            | 5              | —           |
 | [Behaviour](#28-behaviour)                              | `modules/behaviour/`                                                                                                                                                                                                                      | 214           | 37             | 16          |
-| [SEN](#30-sen)                                          | `packages/prisma/schema.prisma`, `packages/prisma/migrations/20260331100000_add_sen_tables/`, `packages/shared/src/sen/`                                                                                                                  | 0             | —              | —           |
-| **TOTAL**                                               | **40 modules**                                                                                                                                                                                                                            | **~1013**     | **~220**       | **56 jobs** |
+| [SEN](#30-sen)                                          | `modules/sen/`                                                                                                                                                                                                                            | 35            | —              | —           |
+| **TOTAL**                                               | **40 modules**                                                                                                                                                                                                                            | **~1048**     | **~220**       | **56 jobs** |
 
 ---
 
@@ -991,7 +991,7 @@ Settings pages (7):
 
 ## 30. SEN
 
-**What it does**: Phase 01 establishes the data foundation for Special Educational Needs tracking: SEN profiles, support plans, SMART goals and strategies, progress logs, resource allocations, per-student hours, SNA assignments, professional involvements, accommodations, and transition notes. This phase intentionally ships without API endpoints or frontend pages.
+**What it does**: SEN now includes the backend API slices for profile CRUD, support-plan lifecycle management, SMART goals/strategies/progress, and Phase 04 resource management. Schools can create versioned support plans, track goal progress, clone plans into new academic periods, manage school/SENO hour allocations, assign student-level SEN hours, and manage SNA assignments with tenant-configurable schedule formats. Frontend and parent portal flows still arrive in later phases.
 
 **Backend foundation**:
 
@@ -1001,11 +1001,14 @@ Settings pages (7):
 - Tenant settings defaults in `packages/shared/src/schemas/tenant.schema.ts`
 - Permission + role seeds in `packages/prisma/seed/permissions.ts` and `packages/prisma/seed/system-roles.ts`
 - Sequence registration for `sen_support_plan` in `packages/shared/src/constants/sequence-types.ts`
+- NestJS module + controllers/services in `apps/api/src/modules/sen/`
 
 **Current phase status**:
 
-- No NestJS SEN module yet. `apps/api/src/modules/sen/` begins in SEN Phase 02.
+- SEN profile API is implemented.
+- Support plan, goal, strategy, and progress APIs are implemented.
+- Resource allocation, student-hours, and SNA assignment APIs are implemented.
 - No web pages yet. UI and parent portal work begin in SEN Phase 07.
 - No worker jobs yet.
 
-**Depends on**: Students, Staff Profiles, Academics, Tenants/SequenceService, and Pastoral referrals (optional nullable link from professional involvements)
+**Depends on**: Students, Staff Profiles, Academics, Tenants/SequenceService, Configuration/SettingsService, and Pastoral referrals (optional nullable link from professional involvements)

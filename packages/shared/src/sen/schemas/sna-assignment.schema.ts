@@ -2,7 +2,33 @@ import { z } from 'zod';
 
 import { snaAssignmentStatusSchema } from '../enums';
 
-export const senSnaScheduleSchema = z.record(z.string(), z.unknown());
+const timeRangePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export const senSnaTimeRangeSchema = z
+  .object({
+    start: z.string().regex(timeRangePattern, 'Start time must use HH:MM format'),
+    end: z.string().regex(timeRangePattern, 'End time must use HH:MM format'),
+  })
+  .refine((value) => value.start < value.end, {
+    message: 'End time must be after start time',
+    path: ['end'],
+  });
+
+export const senSnaScheduleEntrySchema = z.array(senSnaTimeRangeSchema);
+
+export const senSnaScheduleSchema = z.record(z.string(), senSnaScheduleEntrySchema);
+
+export const senWeeklyScheduleSchema = z
+  .object({
+    monday: senSnaScheduleEntrySchema.default([]),
+    tuesday: senSnaScheduleEntrySchema.default([]),
+    wednesday: senSnaScheduleEntrySchema.default([]),
+    thursday: senSnaScheduleEntrySchema.default([]),
+    friday: senSnaScheduleEntrySchema.default([]),
+  })
+  .strict();
+
+export const senDailyScheduleSchema = z.record(z.string(), senSnaScheduleEntrySchema);
 
 export const createSnaAssignmentSchema = z.object({
   sna_staff_profile_id: z.string().uuid(),
@@ -36,3 +62,9 @@ export const listSnaAssignmentsQuerySchema = z.object({
 });
 
 export type ListSnaAssignmentsQuery = z.infer<typeof listSnaAssignmentsQuerySchema>;
+
+export const endSnaAssignmentSchema = z.object({
+  end_date: z.string().date(),
+});
+
+export type EndSnaAssignmentDto = z.infer<typeof endSnaAssignmentSchema>;

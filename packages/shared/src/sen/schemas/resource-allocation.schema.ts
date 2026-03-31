@@ -54,3 +54,9 @@ export const listSenStudentHoursQuerySchema = z.object({
 });
 
 export type ListSenStudentHoursQuery = z.infer<typeof listSenStudentHoursQuerySchema>;
+
+export const resourceUtilisationQuerySchema = z.object({
+  academic_year_id: z.string().uuid().optional(),
+});
+
+export type ResourceUtilisationQuery = z.infer<typeof resourceUtilisationQuerySchema>;

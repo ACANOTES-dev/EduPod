@@ -78,8 +78,13 @@ closed        -> [archived]
 archived*
 ```
 
-- **Guarded by**: `packages/shared/src/sen/state-machine.ts`
-- **Side effects**: Governs the lifecycle of SEN support plans. `under_review` marks plans currently being evaluated, `closed` ends the working lifecycle, and `archived` is terminal. Phase 01 adds validation only; later SEN services must preserve this contract when they add review workflows and notifications.
+- **Guarded by**: `packages/shared/src/sen/state-machine.ts`, enforced at runtime by `apps/api/src/modules/sen/sen-support-plan.service.ts`
+- **Side effects**:
+  - `draft -> active`: sets `next_review_date` from tenant setting `sen.default_review_cycle_weeks`
+  - `active -> under_review`: stamps `review_date` and `reviewed_by_user_id`
+  - `under_review -> active`: clears review state and assigns a fresh `next_review_date`
+  - `under_review -> closed`: persists final `review_notes` and reviewer
+  - `closed -> archived`: terminal archival, no downstream jobs yet
 
 ### SenGoalStatus
 
@@ -91,8 +96,12 @@ achieved*
 discontinued*
 ```
 
-- **Guarded by**: `packages/shared/src/sen/state-machine.ts`
-- **Side effects**: Controls the progress lifecycle for SEN goals within a support plan. `achieved` and `discontinued` are terminal outcomes. Phase 01 only establishes shared validation helpers; later SEN services must enforce these transitions before mutating goal status.
+- **Guarded by**: `packages/shared/src/sen/state-machine.ts`, enforced at runtime by `apps/api/src/modules/sen/sen-goal.service.ts`
+- **Side effects**:
+  - `not_started -> in_progress`: status only
+  - `in_progress -> partially_achieved`: optional append-only progress note
+  - `* -> achieved`: optional append-only achievement note plus optional `current_level` update
+  - `* -> discontinued`: optional append-only discontinuation note plus optional `current_level` update
 
 ---
 
