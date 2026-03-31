@@ -272,7 +272,11 @@ CREATE TABLE "sen_transition_notes" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "uq_sen_profiles_tenant_student"
+CREATE UNIQUE INDEX "sen_profiles_student_id_key"
+  ON "sen_profiles"("student_id");
+
+-- CreateIndex
+CREATE INDEX "idx_sen_profiles_tenant_student"
   ON "sen_profiles"("tenant_id", "student_id");
 
 -- CreateIndex
