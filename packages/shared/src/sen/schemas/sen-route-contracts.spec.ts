@@ -231,6 +231,7 @@ describe('Resource Allocation schemas', () => {
     expect(ncseReturnQuerySchema.parse({})).toEqual({});
     expect(senOverviewReportQuerySchema.parse({})).toEqual({});
     expect(planComplianceQuerySchema.parse({})).toEqual({
+      overdue: true,
       due_within_days: 14,
       stale_goal_weeks: 4,
     });
