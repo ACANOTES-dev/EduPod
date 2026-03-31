@@ -7,6 +7,7 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { EventParticipantsService } from './event-participants.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
+import { TripPackService } from './trip-pack.service';
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -50,12 +51,24 @@ const mockEventsService = {
   addStaff: jest.fn(),
   removeStaff: jest.fn(),
   listStaff: jest.fn(),
+  approveRiskAssessment: jest.fn(),
+  rejectRiskAssessment: jest.fn(),
+  getAttendance: jest.fn(),
+  markAttendance: jest.fn(),
+  confirmHeadcount: jest.fn(),
+  completeEvent: jest.fn(),
+  createIncident: jest.fn(),
+  listIncidents: jest.fn(),
 };
 
 const mockEventParticipantsService = {
   findAllForEvent: jest.fn(),
   updateParticipant: jest.fn(),
   remindOutstanding: jest.fn(),
+};
+
+const mockTripPackService = {
+  generateTripPack: jest.fn(),
 };
 
 describe('EventsController', () => {
@@ -67,6 +80,7 @@ describe('EventsController', () => {
       providers: [
         { provide: EventsService, useValue: mockEventsService },
         { provide: EventParticipantsService, useValue: mockEventParticipantsService },
+        { provide: TripPackService, useValue: mockTripPackService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -247,5 +261,112 @@ describe('EventsController', () => {
       TENANT_ID,
       EVENT_ID,
     );
+  });
+
+  // ─── Trip & Logistics Endpoints ──────────────────────────────────────────
+
+  it('approveRiskAssessment — delegates to eventsService', async () => {
+    mockEventsService.approveRiskAssessment.mockResolvedValue({ risk_assessment_approved: true });
+
+    await controller.approveRiskAssessment(tenantCtx, userCtx, EVENT_ID);
+
+    expect(mockEventsService.approveRiskAssessment).toHaveBeenCalledWith(
+      TENANT_ID,
+      EVENT_ID,
+      USER_ID,
+    );
+  });
+
+  it('rejectRiskAssessment — delegates to eventsService', async () => {
+    mockEventsService.rejectRiskAssessment.mockResolvedValue({ risk_assessment_approved: false });
+
+    await controller.rejectRiskAssessment(tenantCtx, EVENT_ID);
+
+    expect(mockEventsService.rejectRiskAssessment).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
+  });
+
+  it('generateTripPack — delegates to tripPackService', async () => {
+    mockTripPackService.generateTripPack.mockResolvedValue(Buffer.from('pdf'));
+
+    const result = await controller.generateTripPack(tenantCtx, EVENT_ID);
+
+    expect(mockTripPackService.generateTripPack).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 'en');
+    expect(result).toEqual({ generated: true, size: 3 });
+  });
+
+  it('downloadTripPack — returns PDF buffer', async () => {
+    const pdfBuffer = Buffer.from('pdf-content');
+    mockTripPackService.generateTripPack.mockResolvedValue(pdfBuffer);
+
+    const result = await controller.downloadTripPack(tenantCtx, EVENT_ID);
+
+    expect(result).toBe(pdfBuffer);
+  });
+
+  it('getAttendance — delegates to eventsService', async () => {
+    mockEventsService.getAttendance.mockResolvedValue({
+      data: [],
+      summary: { total: 0, marked_present: 0, marked_absent: 0, unmarked: 0 },
+    });
+
+    await controller.getAttendance(tenantCtx, EVENT_ID);
+
+    expect(mockEventsService.getAttendance).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
+  });
+
+  it('markAttendance — delegates to eventsService', async () => {
+    const STUDENT_ID = '00000000-0000-0000-0000-000000000050';
+    mockEventsService.markAttendance.mockResolvedValue({ attendance_marked: true });
+
+    await controller.markAttendance(tenantCtx, userCtx, EVENT_ID, {
+      student_id: STUDENT_ID,
+      present: true,
+    });
+
+    expect(mockEventsService.markAttendance).toHaveBeenCalledWith(
+      TENANT_ID,
+      EVENT_ID,
+      STUDENT_ID,
+      true,
+      USER_ID,
+    );
+  });
+
+  it('confirmHeadcount — delegates to eventsService', async () => {
+    mockEventsService.confirmHeadcount.mockResolvedValue({ status: 'in_progress' });
+
+    await controller.confirmHeadcount(tenantCtx, EVENT_ID, { count_present: 15 });
+
+    expect(mockEventsService.confirmHeadcount).toHaveBeenCalledWith(TENANT_ID, EVENT_ID, 15);
+  });
+
+  it('completeEvent — delegates to eventsService', async () => {
+    mockEventsService.completeEvent.mockResolvedValue({ status: 'completed' });
+
+    await controller.completeEvent(tenantCtx, EVENT_ID);
+
+    expect(mockEventsService.completeEvent).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
+  });
+
+  it('createIncident — delegates to eventsService', async () => {
+    const dto = { title: 'Incident', description: 'Description' };
+    mockEventsService.createIncident.mockResolvedValue({ id: 'inc-1' });
+
+    await controller.createIncident(tenantCtx, userCtx, EVENT_ID, dto);
+
+    expect(mockEventsService.createIncident).toHaveBeenCalledWith(
+      TENANT_ID,
+      EVENT_ID,
+      USER_ID,
+      dto,
+    );
+  });
+
+  it('listIncidents — delegates to eventsService', async () => {
+    mockEventsService.listIncidents.mockResolvedValue([]);
+
+    await controller.listIncidents(tenantCtx, EVENT_ID);
+
+    expect(mockEventsService.listIncidents).toHaveBeenCalledWith(TENANT_ID, EVENT_ID);
   });
 });

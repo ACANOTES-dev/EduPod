@@ -407,6 +407,230 @@ export class EventsService {
     });
   }
 
+  // ─── Trip & Logistics Operations ──────────────────────────────────────────
+
+  async approveRiskAssessment(tenantId: string, eventId: string, userId: string) {
+    const event = await this.ensureEventExists(tenantId, eventId);
+
+    if (!event.risk_assessment_required) {
+      throw new BadRequestException({
+        code: 'RISK_ASSESSMENT_NOT_REQUIRED',
+        message: 'This event does not require risk assessment approval',
+      });
+    }
+
+    if (event.risk_assessment_approved) {
+      throw new BadRequestException({
+        code: 'RISK_ASSESSMENT_ALREADY_APPROVED',
+        message: 'Risk assessment has already been approved',
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as typeof this.prisma;
+      return db.engagementEvent.update({
+        where: { id: eventId },
+        data: {
+          risk_assessment_approved: true,
+          risk_assessment_approved_by: userId,
+          risk_assessment_approved_at: new Date(),
+        },
+      });
+    });
+  }
+
+  async rejectRiskAssessment(tenantId: string, eventId: string) {
+    const event = await this.ensureEventExists(tenantId, eventId);
+
+    if (!event.risk_assessment_required) {
+      throw new BadRequestException({
+        code: 'RISK_ASSESSMENT_NOT_REQUIRED',
+        message: 'This event does not require risk assessment approval',
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as typeof this.prisma;
+      return db.engagementEvent.update({
+        where: { id: eventId },
+        data: {
+          risk_assessment_approved: false,
+          risk_assessment_approved_by: null,
+          risk_assessment_approved_at: null,
+        },
+      });
+    });
+  }
+
+  async getAttendance(tenantId: string, eventId: string) {
+    await this.ensureEventExists(tenantId, eventId);
+
+    const participants = await this.prisma.engagementEventParticipant.findMany({
+      where: {
+        event_id: eventId,
+        tenant_id: tenantId,
+        status: { notIn: ['withdrawn', 'consent_declined'] },
+      },
+      select: {
+        id: true,
+        student_id: true,
+        attendance_marked: true,
+        attendance_marked_at: true,
+        student: {
+          select: {
+            first_name: true,
+            last_name: true,
+            full_name: true,
+          },
+        },
+      },
+      orderBy: { student: { last_name: 'asc' } },
+    });
+
+    return {
+      data: participants,
+      summary: {
+        total: participants.length,
+        marked_present: participants.filter((p) => p.attendance_marked === true).length,
+        marked_absent: participants.filter(
+          (p) => p.attendance_marked === false && p.attendance_marked_at !== null,
+        ).length,
+        unmarked: participants.filter((p) => p.attendance_marked_at === null).length,
+      },
+    };
+  }
+
+  async markAttendance(
+    tenantId: string,
+    eventId: string,
+    studentId: string,
+    present: boolean,
+    userId: string,
+  ) {
+    await this.ensureEventExists(tenantId, eventId);
+
+    const participant = await this.prisma.engagementEventParticipant.findFirst({
+      where: {
+        event_id: eventId,
+        student_id: studentId,
+        tenant_id: tenantId,
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException({
+        code: 'PARTICIPANT_NOT_FOUND',
+        message: `Student "${studentId}" is not a participant of this event`,
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as typeof this.prisma;
+      return db.engagementEventParticipant.update({
+        where: { id: participant.id },
+        data: {
+          attendance_marked: present,
+          attendance_marked_at: new Date(),
+          attendance_marked_by: userId,
+        },
+      });
+    });
+  }
+
+  async confirmHeadcount(tenantId: string, eventId: string, countPresent: number) {
+    const event = await this.ensureEventExists(tenantId, eventId);
+
+    const markedPresent = await this.prisma.engagementEventParticipant.count({
+      where: {
+        event_id: eventId,
+        tenant_id: tenantId,
+        attendance_marked: true,
+      },
+    });
+
+    if (countPresent !== markedPresent) {
+      throw new BadRequestException({
+        code: 'HEADCOUNT_MISMATCH',
+        message: `Headcount ${countPresent} does not match ${markedPresent} marked present`,
+      });
+    }
+
+    // Transition to in_progress if not already
+    if (event.status === 'closed') {
+      return this.transitionStatus(tenantId, eventId, EngagementEventStatus.in_progress);
+    }
+
+    return event;
+  }
+
+  async completeEvent(tenantId: string, eventId: string) {
+    const event = await this.ensureEventExists(tenantId, eventId);
+
+    if (event.status !== 'in_progress') {
+      throw new BadRequestException({
+        code: 'EVENT_NOT_IN_PROGRESS',
+        message: `Cannot complete event in "${event.status}" status — must be in_progress`,
+      });
+    }
+
+    // Check all participants have attendance resolved (attendance_marked_at is set when marked)
+    const unresolvedCount = await this.prisma.engagementEventParticipant.count({
+      where: {
+        event_id: eventId,
+        tenant_id: tenantId,
+        attendance_marked_at: null,
+        status: { notIn: ['withdrawn', 'consent_declined'] },
+      },
+    });
+
+    if (unresolvedCount > 0) {
+      throw new BadRequestException({
+        code: 'ATTENDANCE_NOT_RESOLVED',
+        message: `${unresolvedCount} participant(s) still have unresolved attendance`,
+      });
+    }
+
+    return this.transitionStatus(tenantId, eventId, EngagementEventStatus.completed);
+  }
+
+  async createIncident(
+    tenantId: string,
+    eventId: string,
+    userId: string,
+    dto: { title: string; description: string },
+  ) {
+    await this.ensureEventExists(tenantId, eventId);
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as typeof this.prisma;
+      return db.engagementIncidentReport.create({
+        data: {
+          tenant_id: tenantId,
+          event_id: eventId,
+          title: dto.title,
+          description: dto.description,
+          reported_by_user_id: userId,
+        },
+      });
+    });
+  }
+
+  async listIncidents(tenantId: string, eventId: string) {
+    await this.ensureEventExists(tenantId, eventId);
+
+    return this.prisma.engagementIncidentReport.findMany({
+      where: { event_id: eventId, tenant_id: tenantId },
+      orderBy: { created_at: 'desc' },
+      include: {
+        reported_by: { select: { id: true, email: true } },
+      },
+    });
+  }
+
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
   private async ensureEventExists(tenantId: string, eventId: string) {

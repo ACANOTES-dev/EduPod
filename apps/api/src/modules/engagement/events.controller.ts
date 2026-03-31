@@ -13,10 +13,19 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { EventStaffRole } from '@prisma/client';
-import { createEngagementEventSchema, updateEngagementEventSchema } from '@school/shared';
+import {
+  createEngagementEventSchema,
+  createIncidentReportSchema,
+  headcountSchema,
+  eventMarkAttendanceSchema,
+  updateEngagementEventSchema,
+} from '@school/shared';
 import type {
   CreateEngagementEventDto,
+  CreateIncidentReportDto,
+  HeadcountDto,
   JwtPayload,
+  EventMarkAttendanceDto,
   TenantContext,
   UpdateEngagementEventDto,
 } from '@school/shared';
@@ -33,6 +42,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { EventParticipantsService } from './event-participants.service';
 import { EventsService } from './events.service';
+import { TripPackService } from './trip-pack.service';
 
 // ─── Inline Schemas ─────────────────────────────────────────────────────────
 
@@ -56,6 +66,7 @@ export class EventsController {
   constructor(
     private readonly eventsService: EventsService,
     private readonly eventParticipantsService: EventParticipantsService,
+    private readonly tripPackService: TripPackService,
   ) {}
 
   // POST /v1/engagement/events
@@ -258,5 +269,137 @@ export class EventsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.eventParticipantsService.remindOutstanding(tenant.tenant_id, id);
+  }
+
+  // ─── Trip & Logistics Endpoints ──────────────────────────────────────────
+
+  // POST /v1/engagement/events/:id/risk-assessment/approve
+  @Post(':id/risk-assessment/approve')
+  @RequiresPermission('engagement.risk_assessment.approve')
+  @HttpCode(HttpStatus.OK)
+  async approveRiskAssessment(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.eventsService.approveRiskAssessment(tenant.tenant_id, id, user.sub);
+  }
+
+  // POST /v1/engagement/events/:id/risk-assessment/reject
+  @Post(':id/risk-assessment/reject')
+  @RequiresPermission('engagement.risk_assessment.approve')
+  @HttpCode(HttpStatus.OK)
+  async rejectRiskAssessment(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.eventsService.rejectRiskAssessment(tenant.tenant_id, id);
+  }
+
+  // POST /v1/engagement/events/:id/trip-pack/generate
+  @Post(':id/trip-pack/generate')
+  @RequiresPermission('engagement.trip_pack.generate')
+  @HttpCode(HttpStatus.OK)
+  async generateTripPack(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('locale') locale?: string,
+  ) {
+    const pdfBuffer = await this.tripPackService.generateTripPack(
+      tenant.tenant_id,
+      id,
+      locale ?? tenant.default_locale ?? 'en',
+    );
+    return { generated: true, size: pdfBuffer.length };
+  }
+
+  // GET /v1/engagement/events/:id/trip-pack/download
+  @Get(':id/trip-pack/download')
+  @RequiresPermission('engagement.trip_pack.download')
+  async downloadTripPack(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('locale') locale?: string,
+  ) {
+    const pdfBuffer = await this.tripPackService.generateTripPack(
+      tenant.tenant_id,
+      id,
+      locale ?? tenant.default_locale ?? 'en',
+    );
+    return pdfBuffer;
+  }
+
+  // GET /v1/engagement/events/:id/attendance
+  @Get(':id/attendance')
+  @RequiresPermission('engagement.events.view')
+  async getAttendance(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.eventsService.getAttendance(tenant.tenant_id, id);
+  }
+
+  // POST /v1/engagement/events/:id/attendance
+  @Post(':id/attendance')
+  @RequiresPermission('engagement.events.edit')
+  @HttpCode(HttpStatus.OK)
+  async markAttendance(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(eventMarkAttendanceSchema)) dto: EventMarkAttendanceDto,
+  ) {
+    return this.eventsService.markAttendance(
+      tenant.tenant_id,
+      id,
+      dto.student_id,
+      dto.present,
+      user.sub,
+    );
+  }
+
+  // POST /v1/engagement/events/:id/headcount
+  @Post(':id/headcount')
+  @RequiresPermission('engagement.events.edit')
+  @HttpCode(HttpStatus.OK)
+  async confirmHeadcount(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(headcountSchema)) dto: HeadcountDto,
+  ) {
+    return this.eventsService.confirmHeadcount(tenant.tenant_id, id, dto.count_present);
+  }
+
+  // POST /v1/engagement/events/:id/complete
+  @Post(':id/complete')
+  @RequiresPermission('engagement.events.edit')
+  @HttpCode(HttpStatus.OK)
+  async completeEvent(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.eventsService.completeEvent(tenant.tenant_id, id);
+  }
+
+  // POST /v1/engagement/events/:id/incidents
+  @Post(':id/incidents')
+  @RequiresPermission('engagement.incidents.create')
+  async createIncident(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(createIncidentReportSchema)) dto: CreateIncidentReportDto,
+  ) {
+    return this.eventsService.createIncident(tenant.tenant_id, id, user.sub, dto);
+  }
+
+  // GET /v1/engagement/events/:id/incidents
+  @Get(':id/incidents')
+  @RequiresPermission('engagement.incidents.view')
+  async listIncidents(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.eventsService.listIncidents(tenant.tenant_id, id);
   }
 }

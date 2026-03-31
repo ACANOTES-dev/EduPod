@@ -4,3 +4,4 @@ export * from './engagement-event.schema';
 export * from './engagement-conference.schema';
 export * from './engagement-config.schema';
 export * from './engagement-constants';
+export * from './engagement-trip-pack.schema';

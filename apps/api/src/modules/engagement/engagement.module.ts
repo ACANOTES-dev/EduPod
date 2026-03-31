@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 
+import { PdfRenderingModule } from '../pdf-rendering/pdf-rendering.module';
 import { PrismaModule } from '../prisma/prisma.module';
 
 import { ConsentRecordsController } from './consent-records.controller';
@@ -14,9 +15,11 @@ import { FormTemplatesController } from './form-templates.controller';
 import { FormTemplatesService } from './form-templates.service';
 import { ParentEventsController } from './parent-events.controller';
 import { ParentFormsController } from './parent-forms.controller';
+import { TripPackService } from './trip-pack.service';
 
 @Module({
   imports: [
+    PdfRenderingModule,
     PrismaModule,
     BullModule.registerQueue({ name: 'engagement' }),
     BullModule.registerQueue({ name: 'notifications' }),
@@ -35,6 +38,7 @@ import { ParentFormsController } from './parent-forms.controller';
     EventsService,
     FormSubmissionsService,
     FormTemplatesService,
+    TripPackService,
   ],
   exports: [
     ConsentRecordsService,
@@ -42,6 +46,7 @@ import { ParentFormsController } from './parent-forms.controller';
     EventsService,
     FormSubmissionsService,
     FormTemplatesService,
+    TripPackService,
   ],
 })
 export class EngagementModule {}

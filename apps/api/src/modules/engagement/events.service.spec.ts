@@ -19,6 +19,9 @@ const EVENT_ID = '00000000-0000-0000-0000-000000000010';
 const USER_ID = '00000000-0000-0000-0000-000000000020';
 const STAFF_ID = '00000000-0000-0000-0000-000000000030';
 const ACADEMIC_YEAR_ID = '00000000-0000-0000-0000-000000000040';
+const STUDENT_ID = '00000000-0000-0000-0000-000000000050';
+const PARTICIPANT_ID = '00000000-0000-0000-0000-000000000060';
+const INCIDENT_ID = '00000000-0000-0000-0000-000000000070';
 
 const mockEvent = {
   id: EVENT_ID,
@@ -54,6 +57,13 @@ const mockPrisma = {
     deleteMany: jest.fn(),
   },
   engagementEventParticipant: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
+    update: jest.fn(),
+  },
+  engagementIncidentReport: {
+    create: jest.fn(),
     findMany: jest.fn(),
   },
 };
@@ -71,6 +81,12 @@ const mockTx = {
     createMany: jest.fn(),
     delete: jest.fn(),
     deleteMany: jest.fn(),
+  },
+  engagementEventParticipant: {
+    update: jest.fn(),
+  },
+  engagementIncidentReport: {
+    create: jest.fn(),
   },
 };
 
@@ -496,6 +512,282 @@ describe('EventsService', () => {
       const result = await service.listStaff(TENANT_ID, EVENT_ID);
 
       expect(result).toEqual(staffList);
+    });
+  });
+
+  // ─── approveRiskAssessment ─────────────────────────────────────────────────
+
+  describe('approveRiskAssessment', () => {
+    it('should set approval fields', async () => {
+      const tripEvent = {
+        ...mockEvent,
+        risk_assessment_required: true,
+        risk_assessment_approved: false,
+      };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(tripEvent);
+      mockTx.engagementEvent.update.mockResolvedValue({
+        ...tripEvent,
+        risk_assessment_approved: true,
+        risk_assessment_approved_by: USER_ID,
+      });
+
+      const result = await service.approveRiskAssessment(TENANT_ID, EVENT_ID, USER_ID);
+
+      expect(mockTx.engagementEvent.update).toHaveBeenCalledWith({
+        where: { id: EVENT_ID },
+        data: expect.objectContaining({
+          risk_assessment_approved: true,
+          risk_assessment_approved_by: USER_ID,
+        }),
+      });
+      expect((result as Record<string, unknown>).risk_assessment_approved).toBe(true);
+    });
+
+    it('should throw if risk assessment not required', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        risk_assessment_required: false,
+      });
+
+      await expect(service.approveRiskAssessment(TENANT_ID, EVENT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw if already approved', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        risk_assessment_required: true,
+        risk_assessment_approved: true,
+      });
+
+      await expect(service.approveRiskAssessment(TENANT_ID, EVENT_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── rejectRiskAssessment ─────────────────────────────────────────────────
+
+  describe('rejectRiskAssessment', () => {
+    it('should clear approval fields', async () => {
+      const approvedEvent = {
+        ...mockEvent,
+        risk_assessment_required: true,
+        risk_assessment_approved: true,
+        risk_assessment_approved_by: USER_ID,
+      };
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(approvedEvent);
+      mockTx.engagementEvent.update.mockResolvedValue({
+        ...approvedEvent,
+        risk_assessment_approved: false,
+        risk_assessment_approved_by: null,
+        risk_assessment_approved_at: null,
+      });
+
+      await service.rejectRiskAssessment(TENANT_ID, EVENT_ID);
+
+      expect(mockTx.engagementEvent.update).toHaveBeenCalledWith({
+        where: { id: EVENT_ID },
+        data: {
+          risk_assessment_approved: false,
+          risk_assessment_approved_by: null,
+          risk_assessment_approved_at: null,
+        },
+      });
+    });
+
+    it('should throw if risk assessment not required', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        risk_assessment_required: false,
+      });
+
+      await expect(service.rejectRiskAssessment(TENANT_ID, EVENT_ID)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── markAttendance ───────────────────────────────────────────────────────
+
+  describe('markAttendance', () => {
+    it('should update participant attendance', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findFirst.mockResolvedValue({
+        id: PARTICIPANT_ID,
+        event_id: EVENT_ID,
+        student_id: STUDENT_ID,
+      });
+      mockTx.engagementEventParticipant.update.mockResolvedValue({
+        id: PARTICIPANT_ID,
+        attendance_marked: true,
+        attendance_marked_by: USER_ID,
+      });
+
+      const result = await service.markAttendance(TENANT_ID, EVENT_ID, STUDENT_ID, true, USER_ID);
+
+      expect(mockTx.engagementEventParticipant.update).toHaveBeenCalledWith({
+        where: { id: PARTICIPANT_ID },
+        data: expect.objectContaining({
+          attendance_marked: true,
+          attendance_marked_by: USER_ID,
+        }),
+      });
+      expect((result as Record<string, unknown>).attendance_marked).toBe(true);
+    });
+
+    it('should throw NotFoundException for non-participant', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.markAttendance(TENANT_ID, EVENT_ID, STUDENT_ID, true, USER_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── confirmHeadcount ─────────────────────────────────────────────────────
+
+  describe('confirmHeadcount', () => {
+    it('should validate count matches marked present', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        status: 'in_progress',
+      });
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(15);
+
+      const result = await service.confirmHeadcount(TENANT_ID, EVENT_ID, 15);
+
+      expect(result).toBeDefined();
+    });
+
+    it('should throw on mismatch', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        status: 'in_progress',
+      });
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(10);
+
+      await expect(service.confirmHeadcount(TENANT_ID, EVENT_ID, 12)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should transition to in_progress if status is closed', async () => {
+      const closedEvent = { ...mockEvent, status: 'closed' };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(closedEvent)
+        .mockResolvedValueOnce(closedEvent);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(10);
+      mockTx.engagementEvent.update.mockResolvedValue({
+        ...closedEvent,
+        status: 'in_progress',
+      });
+
+      const result = await service.confirmHeadcount(TENANT_ID, EVENT_ID, 10);
+
+      expect((result as Record<string, unknown>).status).toBe('in_progress');
+    });
+  });
+
+  // ─── completeEvent ────────────────────────────────────────────────────────
+
+  describe('completeEvent', () => {
+    it('should transition to completed when all attendance resolved', async () => {
+      const inProgressEvent = { ...mockEvent, status: 'in_progress' };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(inProgressEvent)
+        .mockResolvedValueOnce(inProgressEvent);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(0);
+      mockTx.engagementEvent.update.mockResolvedValue({
+        ...inProgressEvent,
+        status: 'completed',
+      });
+
+      const result = await service.completeEvent(TENANT_ID, EVENT_ID);
+
+      expect((result as Record<string, unknown>).status).toBe('completed');
+    });
+
+    it('should throw when attendance unresolved', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        status: 'in_progress',
+      });
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(3);
+
+      await expect(service.completeEvent(TENANT_ID, EVENT_ID)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw when event not in_progress', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue({
+        ...mockEvent,
+        status: 'open',
+      });
+
+      await expect(service.completeEvent(TENANT_ID, EVENT_ID)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ─── createIncident ───────────────────────────────────────────────────────
+
+  describe('createIncident', () => {
+    it('should create incident report', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      const incident = {
+        id: INCIDENT_ID,
+        tenant_id: TENANT_ID,
+        event_id: EVENT_ID,
+        title: 'Student injury',
+        description: 'Minor scrape on knee',
+        reported_by_user_id: USER_ID,
+      };
+      mockTx.engagementIncidentReport.create.mockResolvedValue(incident);
+
+      const result = await service.createIncident(TENANT_ID, EVENT_ID, USER_ID, {
+        title: 'Student injury',
+        description: 'Minor scrape on knee',
+      });
+
+      expect(mockTx.engagementIncidentReport.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: TENANT_ID,
+          event_id: EVENT_ID,
+          title: 'Student injury',
+          description: 'Minor scrape on knee',
+          reported_by_user_id: USER_ID,
+        },
+      });
+      expect((result as Record<string, unknown>).id).toBe(INCIDENT_ID);
+    });
+  });
+
+  // ─── listIncidents ────────────────────────────────────────────────────────
+
+  describe('listIncidents', () => {
+    it('should return incident reports ordered by created_at desc', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      const incidents = [
+        {
+          id: INCIDENT_ID,
+          title: 'Incident 1',
+          created_at: new Date('2026-03-31T10:00:00Z'),
+          reported_by: { id: USER_ID, email: 'user@school.com' },
+        },
+      ];
+      mockPrisma.engagementIncidentReport.findMany.mockResolvedValue(incidents);
+
+      const result = await service.listIncidents(TENANT_ID, EVENT_ID);
+
+      expect(mockPrisma.engagementIncidentReport.findMany).toHaveBeenCalledWith({
+        where: { event_id: EVENT_ID, tenant_id: TENANT_ID },
+        orderBy: { created_at: 'desc' },
+        include: {
+          reported_by: { select: { id: true, email: true } },
+        },
+      });
+      expect(result).toEqual(incidents);
     });
   });
 

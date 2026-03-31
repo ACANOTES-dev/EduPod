@@ -28,6 +28,8 @@ import { renderSstActivityAr } from './templates/sst-activity-ar.template';
 import { renderSstActivityEn } from './templates/sst-activity-en.template';
 import { renderTranscriptAr } from './templates/transcript-ar.template';
 import { renderTranscriptEn } from './templates/transcript-en.template';
+import { renderTripLeaderPackAr } from './templates/trip-leader-pack-ar.template';
+import { renderTripLeaderPackEn } from './templates/trip-leader-pack-en.template';
 import { renderWellbeingProgrammeAr } from './templates/wellbeing-programme-ar.template';
 import { renderWellbeingProgrammeEn } from './templates/wellbeing-programme-en.template';
 
@@ -46,15 +48,15 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
     en: renderReportCardEn as TemplateFn,
     ar: renderReportCardAr as TemplateFn,
   },
-  'transcript': {
+  transcript: {
     en: renderTranscriptEn as TemplateFn,
     ar: renderTranscriptAr as TemplateFn,
   },
-  'invoice': {
+  invoice: {
     en: renderInvoiceEn as TemplateFn,
     ar: renderInvoiceAr as TemplateFn,
   },
-  'receipt': {
+  receipt: {
     en: renderReceiptEn as TemplateFn,
     ar: renderReceiptAr as TemplateFn,
   },
@@ -62,7 +64,7 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
     en: renderHouseholdStatementEn as TemplateFn,
     ar: renderHouseholdStatementAr as TemplateFn,
   },
-  'payslip': {
+  payslip: {
     en: renderPayslipEn as TemplateFn,
     ar: renderPayslipAr as TemplateFn,
   },
@@ -89,6 +91,10 @@ const TEMPLATES: Record<string, Record<string, TemplateFn>> = {
   'des-inspection': {
     en: renderDesInspectionEn as TemplateFn,
     ar: renderDesInspectionAr as TemplateFn,
+  },
+  'trip-leader-pack': {
+    en: renderTripLeaderPackEn as TemplateFn,
+    ar: renderTripLeaderPackAr as TemplateFn,
   },
 };
 
@@ -159,12 +165,7 @@ export class PdfRenderingService implements OnModuleDestroy {
    * Render HTML string from a registered template without creating a PDF.
    * Used for batch PDF generation where multiple pages are combined.
    */
-  renderHtml(
-    templateKey: string,
-    locale: string,
-    data: unknown,
-    branding: PdfBranding,
-  ): string {
+  renderHtml(templateKey: string, locale: string, data: unknown, branding: PdfBranding): string {
     const templateFn = this.getTemplate(templateKey, locale);
     return templateFn(data, branding);
   }
