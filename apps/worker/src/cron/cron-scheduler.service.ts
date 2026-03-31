@@ -20,6 +20,7 @@ import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processo
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstanding.processor';
+import { CONFERENCE_REMINDERS_JOB } from '../processors/engagement/engagement-conference-reminders.processor';
 import { EXPIRE_PENDING_JOB } from '../processors/engagement/expire-pending.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
@@ -609,5 +610,20 @@ export class CronSchedulerService implements OnModuleInit {
       },
     );
     this.logger.log(`Registered repeatable cron: ${EXPIRE_PENDING_JOB} (daily 00:00 UTC)`);
+
+    // ── engagement:conference-reminders ──────────────────────────────────────
+    // Runs daily at 08:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Sends reminders for conference bookings in the next 24 hours.
+    await this.engagementQueue.add(
+      CONFERENCE_REMINDERS_JOB,
+      {},
+      {
+        repeat: { pattern: '0 8 * * *' },
+        jobId: `cron:${CONFERENCE_REMINDERS_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${CONFERENCE_REMINDERS_JOB} (daily 08:00 UTC)`);
   }
 }
