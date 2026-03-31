@@ -26,9 +26,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -84,10 +84,7 @@ describe('ClassAssignmentService — getAssignments', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassAssignmentService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
@@ -104,7 +101,11 @@ describe('ClassAssignmentService — getAssignments', () => {
   it('should return year groups with students and classes', async () => {
     mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
     mockPrisma.student.findMany.mockResolvedValue([
-      { ...baseStudent, class_homeroom_id: CLASS_ID, homeroom_class: { id: CLASS_ID, name: '10A' } },
+      {
+        ...baseStudent,
+        class_homeroom_id: CLASS_ID,
+        homeroom_class: { id: CLASS_ID, name: '10A' },
+      },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([baseClass]);
     mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
@@ -121,7 +122,12 @@ describe('ClassAssignmentService — getAssignments', () => {
     mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
     // Two students: one assigned, one unassigned
     mockPrisma.student.findMany.mockResolvedValue([
-      { ...baseStudent, id: STUDENT_ID, class_homeroom_id: CLASS_ID, homeroom_class: { id: CLASS_ID, name: '10A' } },
+      {
+        ...baseStudent,
+        id: STUDENT_ID,
+        class_homeroom_id: CLASS_ID,
+        homeroom_class: { id: CLASS_ID, name: '10A' },
+      },
       { ...baseStudent, id: 'student-2', class_homeroom_id: null, homeroom_class: null },
     ]);
     mockPrisma.class.findMany.mockResolvedValue([baseClass]);
@@ -148,9 +154,15 @@ describe('ClassAssignmentService — getAssignments', () => {
   it('should map enrolled_count from _count on homeroom classes', async () => {
     mockPrisma.academicYear.findFirst.mockResolvedValue(activeAcademicYear);
     mockPrisma.student.findMany.mockResolvedValue([
-      { ...baseStudent, class_homeroom_id: CLASS_ID, homeroom_class: { id: CLASS_ID, name: '10A' } },
+      {
+        ...baseStudent,
+        class_homeroom_id: CLASS_ID,
+        homeroom_class: { id: CLASS_ID, name: '10A' },
+      },
     ]);
-    mockPrisma.class.findMany.mockResolvedValue([{ ...baseClass, _count: { class_enrolments: 12 } }]);
+    mockPrisma.class.findMany.mockResolvedValue([
+      { ...baseClass, _count: { class_enrolments: 12 } },
+    ]);
     mockPrisma.yearGroup.findMany.mockResolvedValue([baseYearGroup]);
 
     const result = await service.getAssignments(TENANT_ID);
@@ -175,10 +187,7 @@ describe('ClassAssignmentService — bulkAssign', () => {
     mockRlsTx.student.update.mockReset().mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassAssignmentService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
@@ -292,6 +301,122 @@ describe('ClassAssignmentService — bulkAssign', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]?.reason).toMatch(/not found/i);
   });
+
+  it('should report error when class not found', async () => {
+    mockRlsTx.student.findMany.mockResolvedValue([
+      { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([]);
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [{ student_id: STUDENT_ID, class_id: CLASS_ID }],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toMatch(/not found/i);
+  });
+
+  it('should report error when class is not active', async () => {
+    mockRlsTx.student.findMany.mockResolvedValue([
+      { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([
+      { id: CLASS_ID, status: 'inactive', subject_id: null, year_group_id: YEAR_ID },
+    ]);
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [{ student_id: STUDENT_ID, class_id: CLASS_ID }],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toMatch(/not active/i);
+  });
+
+  it('should report error when class is a subject class (not homeroom)', async () => {
+    mockRlsTx.student.findMany.mockResolvedValue([
+      { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: null },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([
+      { id: CLASS_ID, status: 'active', subject_id: 'some-subject', year_group_id: YEAR_ID },
+    ]);
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [{ student_id: STUDENT_ID, class_id: CLASS_ID }],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toMatch(/not a homeroom/i);
+  });
+
+  it('should drop existing homeroom enrolment when reassigning to a different class', async () => {
+    const oldClassId = 'old-class-id';
+    mockRlsTx.student.findMany.mockResolvedValue([
+      { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: oldClassId },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([
+      { id: CLASS_ID, status: 'active', subject_id: null, year_group_id: YEAR_ID },
+    ]);
+    mockRlsTx.classEnrolment.create.mockResolvedValue({ id: ENROLMENT_ID });
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [{ student_id: STUDENT_ID, class_id: CLASS_ID }],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.assigned).toBe(1);
+    // Should have dropped old enrolments
+    expect(mockRlsTx.classEnrolment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          student_id: STUDENT_ID,
+          class_id: oldClassId,
+          status: 'active',
+        }),
+        data: expect.objectContaining({ status: 'dropped' }),
+      }),
+    );
+  });
+
+  it('should use existing enrolment when one already exists in target class', async () => {
+    const oldClassId = 'old-class-id';
+    mockRlsTx.student.findMany.mockResolvedValue([
+      { id: STUDENT_ID, status: 'active', year_group_id: YEAR_ID, class_homeroom_id: oldClassId },
+    ]);
+    mockRlsTx.class.findMany.mockResolvedValue([
+      { id: CLASS_ID, status: 'active', subject_id: null, year_group_id: YEAR_ID },
+    ]);
+    // Existing active enrolment in the target class
+    mockRlsTx.classEnrolment.findFirst.mockResolvedValue({ id: 'existing-enrolment' });
+
+    const dto: BulkClassAssignmentDto = {
+      start_date: '2025-09-01',
+      assignments: [{ student_id: STUDENT_ID, class_id: CLASS_ID }],
+    };
+
+    const result = await service.bulkAssign(TENANT_ID, dto);
+
+    expect(result.assigned).toBe(1);
+    // Should NOT create a new enrolment
+    expect(mockRlsTx.classEnrolment.create).not.toHaveBeenCalled();
+    // Should update the student's homeroom pointer
+    expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: STUDENT_ID },
+        data: { class_homeroom_id: CLASS_ID },
+      }),
+    );
+  });
 });
 
 describe('ClassAssignmentService — getExportData', () => {
@@ -302,10 +427,7 @@ describe('ClassAssignmentService — getExportData', () => {
     mockPrisma = buildMockPrisma();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassAssignmentService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassAssignmentService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassAssignmentService>(ClassAssignmentService);
