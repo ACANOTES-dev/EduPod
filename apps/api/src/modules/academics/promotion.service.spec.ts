@@ -28,7 +28,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -87,10 +89,7 @@ describe('PromotionService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PromotionService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PromotionService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PromotionService>(PromotionService);
@@ -132,7 +131,9 @@ describe('PromotionService', () => {
     it('should propose promote for students with a next year group', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([makeStudent(STUDENT_ID_1, YEAR_GROUP_ID_1)]);
+      mockPrisma.student.findMany.mockResolvedValueOnce([
+        makeStudent(STUDENT_ID_1, YEAR_GROUP_ID_1),
+      ]);
 
       const result = await service.preview(TENANT_ID, ACADEMIC_YEAR_ID);
 
@@ -145,7 +146,9 @@ describe('PromotionService', () => {
     it('should propose graduate for students in the final year group (no next)', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce(academicYear);
       mockPrisma.yearGroup.findMany.mockResolvedValueOnce([yearGroupWithNext, finalYearGroup]);
-      mockPrisma.student.findMany.mockResolvedValueOnce([makeStudent(STUDENT_ID_2, YEAR_GROUP_ID_2)]);
+      mockPrisma.student.findMany.mockResolvedValueOnce([
+        makeStudent(STUDENT_ID_2, YEAR_GROUP_ID_2),
+      ]);
 
       const result = await service.preview(TENANT_ID, ACADEMIC_YEAR_ID);
 
@@ -257,6 +260,146 @@ describe('PromotionService', () => {
           }),
         }),
       );
+    });
+
+    it('should count held_back students correctly in commit', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [
+          { student_id: STUDENT_ID_1, action: 'hold_back' },
+          { student_id: STUDENT_ID_2, action: 'hold_back' },
+        ],
+      });
+
+      expect(result.held_back).toBe(2);
+      expect(result.promoted).toBe(0);
+      expect(result.graduated).toBe(0);
+      expect(result.withdrawn).toBe(0);
+      expect(result.skipped).toBe(0);
+    });
+
+    it('should drop enrolments but NOT update year_group_id on hold_back', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [{ student_id: STUDENT_ID_1, action: 'hold_back' }],
+      });
+
+      // hold_back should NOT call student.update — only classEnrolment.updateMany
+      expect(mockRlsTx.student.update).not.toHaveBeenCalled();
+      expect(mockRlsTx.classEnrolment.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ student_id: STUDENT_ID_1 }),
+          data: expect.objectContaining({ status: 'dropped' }),
+        }),
+      );
+    });
+
+    it('should count skipped students correctly in commit', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [
+          { student_id: STUDENT_ID_1, action: 'skip', target_year_group_id: YEAR_GROUP_ID_2 },
+        ],
+      });
+
+      expect(result.skipped).toBe(1);
+      expect(result.promoted).toBe(0);
+      expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: STUDENT_ID_1 }),
+          data: expect.objectContaining({ year_group_id: YEAR_GROUP_ID_2 }),
+        }),
+      );
+    });
+
+    it('should count withdrawn students and set student status to withdrawn', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [{ student_id: STUDENT_ID_1, action: 'withdraw' }],
+      });
+
+      expect(result.withdrawn).toBe(1);
+      expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: STUDENT_ID_1 }),
+          data: expect.objectContaining({ status: 'withdrawn' }),
+        }),
+      );
+    });
+
+    it('should set student status to graduated and set exit_date on graduate', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [{ student_id: STUDENT_ID_1, action: 'graduate' }],
+      });
+
+      expect(mockRlsTx.student.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: STUDENT_ID_1 }),
+          data: expect.objectContaining({
+            status: 'graduated',
+            exit_date: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('should handle mixed actions and count all types correctly', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+      mockRlsTx.student.update.mockResolvedValue(undefined);
+      mockRlsTx.classEnrolment.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [
+          { student_id: STUDENT_ID_1, action: 'promote', target_year_group_id: YEAR_GROUP_ID_2 },
+          { student_id: STUDENT_ID_2, action: 'graduate' },
+          { student_id: STUDENT_ID_3, action: 'hold_back' },
+        ],
+      });
+
+      expect(result.promoted).toBe(1);
+      expect(result.graduated).toBe(1);
+      expect(result.held_back).toBe(1);
+      expect(result.withdrawn).toBe(0);
+      expect(result.skipped).toBe(0);
+    });
+
+    it('edge: should return zero counts for empty actions array', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ id: ACADEMIC_YEAR_ID });
+
+      const result = await service.commit(TENANT_ID, {
+        academic_year_id: ACADEMIC_YEAR_ID,
+        actions: [],
+      });
+
+      expect(result).toEqual({
+        promoted: 0,
+        held_back: 0,
+        graduated: 0,
+        withdrawn: 0,
+        skipped: 0,
+      });
     });
   });
 });

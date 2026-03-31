@@ -22,7 +22,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -60,10 +62,7 @@ describe('AcademicYearsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AcademicYearsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [AcademicYearsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<AcademicYearsService>(AcademicYearsService);
@@ -271,6 +270,161 @@ describe('AcademicYearsService', () => {
     });
   });
 
+  // ─── update (additional) ──────────────────────────────────────────────────
+
+  describe('update — additional cases', () => {
+    it('should throw ConflictException on duplicate name during update', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({
+        id: YEAR_ID,
+        status: 'planned',
+      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+      });
+      mockRlsTx.academicYear.update.mockRejectedValueOnce(p2002);
+
+      let caught: unknown;
+      try {
+        await service.update(TENANT_ID, YEAR_ID, { name: 'Duplicate Name' });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect((caught as ConflictException).getResponse()).toMatchObject({
+        code: 'DUPLICATE_NAME',
+      });
+    });
+
+    it('should throw ConflictException on overlapping dates during update', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({
+        id: YEAR_ID,
+        status: 'planned',
+      });
+      const exclusionErr = new Error('excl_academic_years_date_range violated');
+      mockRlsTx.academicYear.update.mockRejectedValueOnce(exclusionErr);
+
+      let caught: unknown;
+      try {
+        await service.update(TENANT_ID, YEAR_ID, {
+          start_date: '2024-09-01',
+          end_date: '2025-06-30',
+        });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect((caught as ConflictException).getResponse()).toMatchObject({
+        code: 'OVERLAPPING_ACADEMIC_YEAR',
+      });
+    });
+
+    it('should throw BadRequestException when changing dates on closed year', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({
+        id: YEAR_ID,
+        status: 'closed',
+      });
+
+      let caught: unknown;
+      try {
+        await service.update(TENANT_ID, YEAR_ID, { end_date: '2025-07-31' });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        error: expect.objectContaining({ code: 'DATES_LOCKED' }),
+      });
+    });
+
+    it('should allow updating name on an active year (only dates locked)', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({
+        id: YEAR_ID,
+        status: 'active',
+      });
+      const updated = { ...baseYear, name: 'Renamed Active Year', status: 'active' };
+      mockRlsTx.academicYear.update.mockResolvedValueOnce(updated);
+
+      const result = await service.update(TENANT_ID, YEAR_ID, { name: 'Renamed Active Year' });
+
+      expect(mockRlsTx.academicYear.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: YEAR_ID },
+          data: { name: 'Renamed Active Year' },
+        }),
+      );
+      expect(result).toEqual(updated);
+    });
+  });
+
+  // ─── create (additional) ─────────────────────────────────────────────────
+
+  describe('create — additional cases', () => {
+    it('should use provided status when explicitly set to planned', async () => {
+      mockRlsTx.academicYear.create.mockResolvedValueOnce(baseYear);
+
+      await service.create(TENANT_ID, {
+        name: '2024-2025',
+        start_date: '2024-09-01',
+        end_date: '2025-06-30',
+        status: 'planned',
+      });
+
+      expect(mockRlsTx.academicYear.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'planned',
+        }),
+      });
+    });
+
+    it('should throw ConflictException on P2010 exclusion constraint error', async () => {
+      const p2010 = new Prisma.PrismaClientKnownRequestError('Raw DB error', {
+        code: 'P2010',
+        clientVersion: '5.0.0',
+      });
+      mockRlsTx.academicYear.create.mockRejectedValueOnce(p2010);
+
+      let caught: unknown;
+      try {
+        await service.create(TENANT_ID, {
+          name: '2024-2025',
+          start_date: '2024-09-01',
+          end_date: '2025-06-30',
+          status: 'planned',
+        });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect((caught as ConflictException).getResponse()).toMatchObject({
+        code: 'OVERLAPPING_ACADEMIC_YEAR',
+      });
+    });
+
+    it('edge: should rethrow non-Prisma errors that are not exclusion constraints', async () => {
+      const genericError = new Error('Something unexpected');
+      mockRlsTx.academicYear.create.mockRejectedValueOnce(genericError);
+
+      let caught: unknown;
+      try {
+        await service.create(TENANT_ID, {
+          name: '2024-2025',
+          start_date: '2024-09-01',
+          end_date: '2025-06-30',
+          status: 'planned',
+        });
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBe(genericError);
+    });
+  });
+
   // ─── updateStatus ─────────────────────────────────────────────────────────
 
   describe('updateStatus', () => {
@@ -288,12 +442,77 @@ describe('AcademicYearsService', () => {
       expect(result).toEqual(updated);
     });
 
+    it('should allow active -> closed status transition', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ ...baseYear, status: 'active' });
+      const updated = { ...baseYear, status: 'closed' };
+      mockRlsTx.academicYear.update.mockResolvedValueOnce(updated);
+
+      const result = await service.updateStatus(TENANT_ID, YEAR_ID, 'closed');
+
+      expect(mockRlsTx.academicYear.update).toHaveBeenCalledWith({
+        where: { id: YEAR_ID },
+        data: { status: 'closed' },
+      });
+      expect(result).toEqual(updated);
+    });
+
     it('should block planned -> closed status transition', async () => {
       mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ ...baseYear, status: 'planned' });
 
       let caught: unknown;
       try {
         await service.updateStatus(TENANT_ID, YEAR_ID, 'closed');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'INVALID_STATUS_TRANSITION',
+      });
+      expect(mockRlsTx.academicYear.update).not.toHaveBeenCalled();
+    });
+
+    it('should block closed -> active status transition', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ ...baseYear, status: 'closed' });
+
+      let caught: unknown;
+      try {
+        await service.updateStatus(TENANT_ID, YEAR_ID, 'active');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'INVALID_STATUS_TRANSITION',
+      });
+      expect(mockRlsTx.academicYear.update).not.toHaveBeenCalled();
+    });
+
+    it('should block closed -> planned status transition', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ ...baseYear, status: 'closed' });
+
+      let caught: unknown;
+      try {
+        await service.updateStatus(TENANT_ID, YEAR_ID, 'planned');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      expect((caught as BadRequestException).getResponse()).toMatchObject({
+        code: 'INVALID_STATUS_TRANSITION',
+      });
+      expect(mockRlsTx.academicYear.update).not.toHaveBeenCalled();
+    });
+
+    it('should block active -> planned status transition (no rollback)', async () => {
+      mockPrisma.academicYear.findFirst.mockResolvedValueOnce({ ...baseYear, status: 'active' });
+
+      let caught: unknown;
+      try {
+        await service.updateStatus(TENANT_ID, YEAR_ID, 'planned');
       } catch (e) {
         caught = e;
       }
