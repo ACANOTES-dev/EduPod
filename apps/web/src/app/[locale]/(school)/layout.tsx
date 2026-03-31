@@ -35,6 +35,7 @@ import {
   Mail,
   Menu,
   MessageSquare,
+  PenSquare,
   Plus,
   Settings,
   Shield,
@@ -51,6 +52,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
+
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
@@ -60,7 +63,6 @@ import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
-import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
@@ -223,6 +225,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         labelKey: 'nav.admissions',
         href: '/admissions',
         roles: [...ADMIN_ROLES, 'front_office'],
+      },
+      {
+        icon: PenSquare,
+        labelKey: 'nav.engagement',
+        href: '/engagement',
+        roles: STAFF_ROLES,
       },
       { icon: Mail, labelKey: 'nav.communications', href: '/communications', roles: ADMIN_ROLES },
       { icon: ShieldCheck, labelKey: 'nav.approvals', href: '/approvals', roles: ADMIN_ROLES },
