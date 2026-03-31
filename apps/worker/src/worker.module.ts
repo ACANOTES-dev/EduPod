@@ -41,7 +41,11 @@ import { RetentionEnforcementProcessor } from './processors/compliance/retention
 import { ComputeDailyProcessor } from './processors/early-warning/compute-daily.processor';
 import { ComputeStudentProcessor } from './processors/early-warning/compute-student.processor';
 import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
+import { CancelEventProcessor } from './processors/engagement/cancel-event.processor';
+import { ChaseOutstandingProcessor } from './processors/engagement/chase-outstanding.processor';
 import { EngagementDistributeFormsProcessor } from './processors/engagement/engagement-distribute-forms.processor';
+import { ExpirePendingProcessor } from './processors/engagement/expire-pending.processor';
+import { GenerateEventInvoicesProcessor } from './processors/engagement/generate-invoices.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
 import { OverdueDetectionProcessor } from './processors/finance/overdue-detection.processor';
 import { BulkImportProcessor } from './processors/gradebook/bulk-import.processor';
@@ -394,7 +398,11 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     ComputeStudentProcessor,
     WeeklyDigestProcessor,
     // Engagement queue processors
+    CancelEventProcessor,
+    ChaseOutstandingProcessor,
     EngagementDistributeFormsProcessor,
+    ExpirePendingProcessor,
+    GenerateEventInvoicesProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

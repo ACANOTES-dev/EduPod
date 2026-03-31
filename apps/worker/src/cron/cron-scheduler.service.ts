@@ -3,7 +3,6 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
 
-
 import { QUEUE_NAMES } from '../base/queue.constants';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';
 import {
@@ -20,6 +19,8 @@ import {
 import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processor';
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
+import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstanding.processor';
+import { EXPIRE_PENDING_JOB } from '../processors/engagement/expire-pending.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
 import { REPORT_CARD_AUTO_GENERATE_JOB } from '../processors/gradebook/report-card-auto-generate.processor';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../processors/homework/completion-reminder.processor';
@@ -59,6 +60,7 @@ export class CronSchedulerService implements OnModuleInit {
     @InjectQueue(QUEUE_NAMES.HOMEWORK) private readonly homeworkQueue: Queue,
     @InjectQueue(QUEUE_NAMES.REGULATORY) private readonly regulatoryQueue: Queue,
     @InjectQueue(QUEUE_NAMES.APPROVALS) private readonly approvalsQueue: Queue,
+    @InjectQueue(QUEUE_NAMES.ENGAGEMENT) private readonly engagementQueue: Queue,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -74,6 +76,7 @@ export class CronSchedulerService implements OnModuleInit {
     await this.registerHomeworkCronJobs();
     await this.registerParentDigestCronJobs();
     await this.registerApprovalsCronJobs();
+    await this.registerEngagementCronJobs();
   }
 
   private async registerEarlyWarningCronJobs(): Promise<void> {
@@ -573,5 +576,38 @@ export class CronSchedulerService implements OnModuleInit {
     this.logger.log(
       `Registered repeatable cron: ${APPROVAL_CALLBACK_RECONCILIATION_JOB} (daily 04:30 UTC)`,
     );
+  }
+
+  private async registerEngagementCronJobs(): Promise<void> {
+    // ── engagement:chase-outstanding ────────────────────────────────────────
+    // Runs daily at 09:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Iterates all tenants, finds events/forms with pending submissions
+    // within configured reminder thresholds and dispatches reminders.
+    await this.engagementQueue.add(
+      CHASE_OUTSTANDING_JOB,
+      {},
+      {
+        repeat: { pattern: '0 9 * * *' },
+        jobId: `cron:${CHASE_OUTSTANDING_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${CHASE_OUTSTANDING_JOB} (daily 09:00 UTC)`);
+
+    // ── engagement:expire-pending ──────────────────────────────────────────
+    // Runs daily at 00:00 UTC. Cross-tenant — no tenant_id in payload.
+    // Finds pending submissions past their deadline and transitions to expired.
+    await this.engagementQueue.add(
+      EXPIRE_PENDING_JOB,
+      {},
+      {
+        repeat: { pattern: '0 0 * * *' },
+        jobId: `cron:${EXPIRE_PENDING_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${EXPIRE_PENDING_JOB} (daily 00:00 UTC)`);
   }
 }
