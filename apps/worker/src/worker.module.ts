@@ -43,6 +43,7 @@ import { ComputeStudentProcessor } from './processors/early-warning/compute-stud
 import { WeeklyDigestProcessor } from './processors/early-warning/weekly-digest.processor';
 import { CancelEventProcessor } from './processors/engagement/cancel-event.processor';
 import { ChaseOutstandingProcessor } from './processors/engagement/chase-outstanding.processor';
+import { EngagementAnnualRenewalProcessor } from './processors/engagement/engagement-annual-renewal.processor';
 import { EngagementConferenceRemindersProcessor } from './processors/engagement/engagement-conference-reminders.processor';
 import { EngagementDistributeFormsProcessor } from './processors/engagement/engagement-distribute-forms.processor';
 import { ExpirePendingProcessor } from './processors/engagement/expire-pending.processor';
@@ -401,6 +402,7 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     // Engagement queue processors
     CancelEventProcessor,
     ChaseOutstandingProcessor,
+    EngagementAnnualRenewalProcessor,
     EngagementConferenceRemindersProcessor,
     EngagementDistributeFormsProcessor,
     ExpirePendingProcessor,

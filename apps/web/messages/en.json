@@ -316,6 +316,7 @@
     "nav": {
       "formTemplates": "Form Templates",
       "events": "Events",
+      "analytics": "Analytics",
       "consentArchive": "Consent Archive"
     },
     "shared": {
@@ -609,7 +610,84 @@
           "attendance": "Attendance",
           "actions": "Actions"
         }
+      },
+      "analytics": {
+        "title": "Engagement Analytics",
+        "description": "Review completion rates, response times, and outstanding parent actions across events and forms.",
+        "backToEvents": "Back to events",
+        "filters": {
+          "academicYear": "Academic year",
+          "allAcademicYears": "All academic years",
+          "eventType": "Event type",
+          "allEventTypes": "All event types",
+          "dateFrom": "Date from",
+          "dateTo": "Date to"
+        },
+        "cards": {
+          "totalEvents": "Total events",
+          "totalForms": "Forms distributed",
+          "totalSubmissions": "Submissions received",
+          "averageCompletionRate": "Average completion rate",
+          "averageResponseTime": "Average response time",
+          "outstandingItems": "Outstanding actions"
+        },
+        "completionChart": {
+          "title": "Completion by event type",
+          "description": "Compare how quickly families are completing the required actions for each type of engagement event."
+        },
+        "responseTrend": {
+          "title": "Response time trend",
+          "description": "Track how long families take to respond after a form is distributed."
+        },
+        "outstanding": {
+          "title": "Outstanding action items",
+          "description": "Focus follow-up on the events and forms with the highest volume of incomplete parent actions.",
+          "columns": {
+            "name": "Item",
+            "kind": "Kind",
+            "dueDate": "Due date",
+            "outstanding": "Outstanding",
+            "completionRate": "Completion rate"
+          },
+          "kinds": {
+            "event": "Event",
+            "form": "Form"
+          },
+          "empty": "There are no outstanding engagement items for the current filters."
+        },
+        "tooltip": {
+          "completion": "Completion rate",
+          "responseTime": "Average response time"
+        },
+        "emptyChart": "No analytics data is available for the current filters.",
+        "loadError": "We could not load the engagement analytics right now.",
+        "zeroHours": "Under 1 hour",
+        "responseTimeDays": "{days} days",
+        "responseTimeHours": "{hours} hours"
       }
+    },
+    "calendar": {
+      "weekdays": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "moreEvents": "+{count} more",
+      "dayAgenda": "Agenda for {date}",
+      "itemsLabel": "items",
+      "noEventsSelectedDay": "There are no engagement events on the selected day.",
+      "empty": "No engagement events match the current month and filters.",
+      "selectDay": "Select a day to review the engagement agenda.",
+      "schoolCalendarTitle": "School calendar",
+      "integratedBadge": "Engagement events",
+      "schoolCalendarDescription": "Keep trips, conferences, policy sign-offs, and activities visible alongside timetable planning.",
+      "filterByType": "Filter by event type",
+      "allEventTypes": "All event types",
+      "unavailable": "The engagement calendar is temporarily unavailable."
     },
     "parent": {
       "eventsTitle": "Upcoming events",
@@ -2991,6 +3069,11 @@
     "overrideReason": "Override Reason",
     "teacher": "Teacher",
     "student": "Student",
+    "academicYear": "Academic year",
+    "allAcademicYears": "All academic years",
+    "selectTeacher": "Select teacher",
+    "selectRoom": "Select room",
+    "selectStudent": "Select student",
     "monday": "Monday",
     "tuesday": "Tuesday",
     "wednesday": "Wednesday",

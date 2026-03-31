@@ -24,7 +24,7 @@
 | [Payroll](#12-payroll)                                  | `modules/payroll/`                                                                                                                                                                                                                        | 79            | 10             | 3           |
 | [Communications](#13-communications)                    | `modules/communications/`                                                                                                                                                                                                                 | 17            | 5              | 7           |
 | [Parent Inquiries](#14-parent-inquiries)                | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
-| [Engagement](#29-engagement)                            | `modules/engagement/`                                                                                                                                                                                                                     | 61            | 21             | 7           |
+| [Engagement](#29-engagement)                            | `modules/engagement/`                                                                                                                                                                                                                     | 64            | 22             | 8           |
 | [Admissions](#15-admissions)                            | `modules/admissions/`                                                                                                                                                                                                                     | 21            | 4              | 1           |
 | [Approvals](#16-approvals)                              | `modules/approvals/`                                                                                                                                                                                                                      | 9             | —              | —           |
 | [Reports & Analytics](#17-reports--analytics)           | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
@@ -39,7 +39,7 @@
 | [Imports](#26-imports)                                  | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
 | [Platform Admin](#27-platform-admin)                    | `modules/tenants/`                                                                                                                                                                                                                        | 16            | 5              | —           |
 | [Behaviour](#28-behaviour)                              | `modules/behaviour/`                                                                                                                                                                                                                      | 214           | 37             | 16          |
-| **TOTAL**                                               | **40 modules**                                                                                                                                                                                                                            | **~1010**     | **~219**       | **55 jobs** |
+| **TOTAL**                                               | **40 modules**                                                                                                                                                                                                                            | **~1013**     | **~220**       | **56 jobs** |
 
 ---
 
@@ -247,7 +247,7 @@
 
 ## 8. Scheduling
 
-**What it does**: The largest feature domain. Manual timetable management, CSP auto-scheduler (constraint propagation + backtracking), substitution management with AI-ranked suggestions, exam session scheduling, what-if scenarios, rotation weeks (Week A/B), personal timetables with calendar subscription (webcal://), period grid configuration, room/teacher/subject requirements, staff availability and preferences, scheduling analytics, cover reports, and a public substitution board.
+**What it does**: The largest feature domain. Manual timetable management, CSP auto-scheduler (constraint propagation + backtracking), substitution management with AI-ranked suggestions, exam session scheduling, what-if scenarios, rotation weeks (Week A/B), personal timetables with calendar subscription (webcal://), integrated school calendar visibility for engagement events, period grid configuration, room/teacher/subject requirements, staff availability and preferences, scheduling analytics, cover reports, and a public substitution board.
 
 **Backend**: 9 modules, 128 total endpoints
 
@@ -282,6 +282,7 @@ Key pages:
 | `/scheduling/substitutions` | Today tab with AI suggestions + history tab |
 | `/scheduling/substitution-board` | Public display board (auto-refresh, branding) |
 | `/scheduling/my-timetable` | Personal timetable with calendar export |
+| `/timetables` | Teacher/room/student timetable viewer with integrated engagement school calendar filters |
 | `/scheduling/exams` | Exam session management with auto-generate/invigilator assignment |
 | `/scheduling/scenarios` | What-if scenario comparison |
 | `/scheduling/cover-reports` | Cover duty reports with fairness analysis |
@@ -900,15 +901,16 @@ Settings pages (7):
 
 ## 29. Engagement
 
-**What it does**: Parent-facing forms, consent records, events, trip logistics, parent conference booking, consent revocation, reminder dispatch, and event participation workflows for trips, activities, policy sign-offs, and conferences.
+**What it does**: Parent-facing forms, consent records, events, trip logistics, parent conference booking, consent revocation, reminder dispatch, aggregate analytics, school calendar integration, annual consent renewal automation, and event participation workflows for trips, activities, policy sign-offs, and conferences.
 
 **Backend**: `apps/api/src/modules/engagement/`
 
-- 8 controllers, 61 endpoints total
+- 9 controllers, 64 endpoints total
 - `form-templates.controller.ts` — template CRUD, publish/archive, distribution
 - `form-submissions.controller.ts` — admin submission review, acknowledgement, completion stats
 - `consent-records.controller.ts` — consent archive queries, student consent history
 - `events.controller.ts` — event CRUD, lifecycle transitions, staff assignment, participant management, dashboards, logistics, incidents, reminders
+- `engagement-analytics.controller.ts` — dashboard aggregates, completion-rate drill-down, school calendar event feed
 - `conferences.controller.ts` — time-slot generation, booking management, schedule stats
 - `parent-forms.controller.ts` — pending forms, parent form retrieval/submission, consent revocation
 - `parent-events.controller.ts` — parent event list/detail, register, withdraw
@@ -928,6 +930,9 @@ Settings pages (7):
 | GET | `v1/engagement/events/:id/participants` | Participant status table for consent/payment/attendance | `engagement.events.view` |
 | GET | `v1/engagement/events/:id/trip-pack` | HTML trip-pack preview data matching the PDF payload | `engagement.trip_pack.generate` |
 | POST | `v1/engagement/events/:id/remind-outstanding` | Send reminders to parents with pending consent/payment | `engagement.events.edit` |
+| GET | `v1/engagement/analytics/overview` | Aggregate engagement KPIs, response-time trend, and top outstanding items | `engagement.events.view_dashboard` |
+| GET | `v1/engagement/analytics/completion-rates` | Per-event, per-form, and per-event-type completion rates with filters | `engagement.events.view_dashboard` |
+| GET | `v1/engagement/calendar-events` | Calendar-ready engagement event feed for the scheduling surface | `engagement.events.view` |
 | GET | `v1/parent/engagement/pending-forms` | Parent pending-form inbox across linked children | `parent.view_engagement` |
 | GET | `v1/parent/engagement/events` | Parent event list for linked children | `parent.view_engagement` |
 | POST | `v1/parent/engagement/events/:id/register/:studentId` | Register linked child for an event | `parent.manage_engagement` |
@@ -942,6 +947,7 @@ Settings pages (7):
 | `/engagement/form-templates/[id]` | Draft editing or published submission/distribution management |
 | `/engagement/consent-archive` | Consent archive table with student/type/status/date filters |
 | `/engagement/events` | Event list in card/table modes with filters and search |
+| `/engagement/analytics` | Engagement dashboard with completion, response-time, and outstanding-action views |
 | `/engagement/events/new` | Multi-step event creation wizard |
 | `/engagement/events/[id]` | Event dashboard with lifecycle actions and participant/staff/settings tabs |
 | `/engagement/events/[id]/participants` | Participant manager with reminders and CSV export |
@@ -969,6 +975,7 @@ Settings pages (7):
 
 **Worker jobs**: `apps/worker/src/processors/engagement/`
 
+- `engagement-annual-renewal.processor.ts`
 - `engagement-distribute-forms.processor.ts`
 - `generate-invoices.processor.ts`
 - `chase-outstanding.processor.ts`

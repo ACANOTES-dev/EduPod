@@ -308,6 +308,7 @@
     "nav": {
       "formTemplates": "قوالب النماذج",
       "events": "الفعاليات",
+      "analytics": "التحليلات",
       "consentArchive": "أرشيف الموافقات"
     },
     "shared": {
@@ -601,7 +602,84 @@
           "attendance": "الحضور",
           "actions": "الإجراءات"
         }
+      },
+      "analytics": {
+        "title": "تحليلات المشاركة",
+        "description": "راجع نسب الإكمال وأوقات الاستجابة والإجراءات المعلقة عبر الفعاليات والنماذج.",
+        "backToEvents": "العودة إلى الفعاليات",
+        "filters": {
+          "academicYear": "العام الدراسي",
+          "allAcademicYears": "جميع الأعوام الدراسية",
+          "eventType": "نوع الفعالية",
+          "allEventTypes": "جميع أنواع الفعاليات",
+          "dateFrom": "من تاريخ",
+          "dateTo": "إلى تاريخ"
+        },
+        "cards": {
+          "totalEvents": "إجمالي الفعاليات",
+          "totalForms": "النماذج الموزعة",
+          "totalSubmissions": "الإرسالات المستلمة",
+          "averageCompletionRate": "متوسط نسبة الإكمال",
+          "averageResponseTime": "متوسط وقت الاستجابة",
+          "outstandingItems": "الإجراءات المعلقة"
+        },
+        "completionChart": {
+          "title": "الإكمال حسب نوع الفعالية",
+          "description": "قارن مدى سرعة الأسر في استكمال الإجراءات المطلوبة لكل نوع من فعاليات المشاركة."
+        },
+        "responseTrend": {
+          "title": "اتجاه وقت الاستجابة",
+          "description": "تابع الوقت الذي تستغرقه الأسر للرد بعد توزيع النموذج."
+        },
+        "outstanding": {
+          "title": "الإجراءات المعلقة",
+          "description": "ركّز المتابعة على الفعاليات والنماذج التي تحتوي على أكبر عدد من الإجراءات غير المكتملة من أولياء الأمور.",
+          "columns": {
+            "name": "العنصر",
+            "kind": "النوع",
+            "dueDate": "تاريخ الاستحقاق",
+            "outstanding": "المعلق",
+            "completionRate": "نسبة الإكمال"
+          },
+          "kinds": {
+            "event": "فعالية",
+            "form": "نموذج"
+          },
+          "empty": "لا توجد عناصر مشاركة معلقة ضمن الفلاتر الحالية."
+        },
+        "tooltip": {
+          "completion": "نسبة الإكمال",
+          "responseTime": "متوسط وقت الاستجابة"
+        },
+        "emptyChart": "لا تتوفر بيانات تحليلات للفلاتر الحالية.",
+        "loadError": "تعذر تحميل تحليلات المشاركة الآن.",
+        "zeroHours": "أقل من ساعة",
+        "responseTimeDays": "{days} يوم",
+        "responseTimeHours": "{hours} ساعة"
       }
+    },
+    "calendar": {
+      "weekdays": {
+        "mon": "الإثنين",
+        "tue": "الثلاثاء",
+        "wed": "الأربعاء",
+        "thu": "الخميس",
+        "fri": "الجمعة",
+        "sat": "السبت",
+        "sun": "الأحد"
+      },
+      "moreEvents": "+{count} إضافية",
+      "dayAgenda": "جدول يوم {date}",
+      "itemsLabel": "عناصر",
+      "noEventsSelectedDay": "لا توجد فعاليات مشاركة في اليوم المحدد.",
+      "empty": "لا توجد فعاليات مشاركة تطابق الشهر الحالي والفلاتر المحددة.",
+      "selectDay": "اختر يومًا لمراجعة جدول المشاركة.",
+      "schoolCalendarTitle": "تقويم المدرسة",
+      "integratedBadge": "فعاليات المشاركة",
+      "schoolCalendarDescription": "أبقِ الرحلات واللقاءات وإقرارات السياسات والأنشطة ظاهرة إلى جانب تخطيط الجداول الزمنية.",
+      "filterByType": "التصفية حسب نوع الفعالية",
+      "allEventTypes": "جميع أنواع الفعاليات",
+      "unavailable": "تقويم المشاركة غير متاح مؤقتًا."
     },
     "parent": {
       "eventsTitle": "الفعاليات القادمة",
@@ -2983,6 +3061,11 @@
     "overrideReason": "سبب التجاوز",
     "teacher": "المعلم",
     "student": "الطالب",
+    "academicYear": "العام الدراسي",
+    "allAcademicYears": "جميع الأعوام الدراسية",
+    "selectTeacher": "اختر المعلم",
+    "selectRoom": "اختر الغرفة",
+    "selectStudent": "اختر الطالب",
     "monday": "الإثنين",
     "tuesday": "الثلاثاء",
     "wednesday": "الأربعاء",

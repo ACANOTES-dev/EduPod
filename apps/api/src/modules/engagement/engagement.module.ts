@@ -8,6 +8,8 @@ import { ConferencesController } from './conferences.controller';
 import { ConferencesService } from './conferences.service';
 import { ConsentRecordsController } from './consent-records.controller';
 import { ConsentRecordsService } from './consent-records.service';
+import { EngagementAnalyticsController } from './engagement-analytics.controller';
+import { EngagementAnalyticsService } from './engagement-analytics.service';
 import { EventParticipantsService } from './event-participants.service';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
@@ -30,6 +32,7 @@ import { TripPackService } from './trip-pack.service';
   controllers: [
     ConferencesController,
     ConsentRecordsController,
+    EngagementAnalyticsController,
     EventsController,
     FormTemplatesController,
     FormSubmissionsController,
@@ -40,6 +43,7 @@ import { TripPackService } from './trip-pack.service';
   providers: [
     ConferencesService,
     ConsentRecordsService,
+    EngagementAnalyticsService,
     EventParticipantsService,
     EventsService,
     FormSubmissionsService,
@@ -49,6 +53,7 @@ import { TripPackService } from './trip-pack.service';
   exports: [
     ConferencesService,
     ConsentRecordsService,
+    EngagementAnalyticsService,
     EventParticipantsService,
     EventsService,
     FormSubmissionsService,

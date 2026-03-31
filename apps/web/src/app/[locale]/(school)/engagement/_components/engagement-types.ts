@@ -222,6 +222,37 @@ export interface EventDashboardData {
   capacity_used: number;
 }
 
+export interface EngagementAnalyticsOutstandingItem {
+  id: string;
+  kind: 'event' | 'form';
+  name: string;
+  title_ar?: string | null;
+  event_type?: CreateEngagementEventDto['event_type'];
+  form_type?: CreateEngagementFormTemplateDto['form_type'];
+  start_date?: string | null;
+  end_date?: string | null;
+  due_date?: string | null;
+  total_distributed: number;
+  submitted: number;
+  expired: number;
+  outstanding_count: number;
+  completion_percentage: number;
+}
+
+export interface EngagementCalendarEventRecord {
+  id: string;
+  title: string;
+  title_ar?: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  event_type: CreateEngagementEventDto['event_type'];
+  status: EngagementEventStatus;
+  colour_code: string;
+  location?: string | null;
+  location_ar?: string | null;
+  href: string;
+}
+
 export interface EventParticipantRow {
   id: string;
   student_id: string;

@@ -11,7 +11,7 @@
 - **No EventEmitter2 / @OnEvent patterns** — all async communication is via BullMQ queues
 - **Hub-and-spoke**: API enqueues jobs, Worker processes them. No queue-to-queue chaining within Worker.
 - **Every job payload MUST include `tenant_id`** — enforced by TenantAwareJob base class
-- **19 queues**, **~54 documented job types**, **30 cron registrations** (29 by pattern + 1 by interval)
+- **19 queues**, **~55 documented job types**, **31 cron registrations** (30 by pattern + 1 by interval)
 
 ---
 
@@ -124,6 +124,21 @@ Cron trigger
     -> OverdueDetectionProcessor
       -> marks invoices as overdue
       -> (payment reminders are separate, triggered by settings)
+```
+
+### Engagement Annual Renewal Flow
+
+```
+Daily 04:15 UTC
+  -> engagement queue: engagement:annual-consent-renewal
+    -> EngagementAnnualRenewalProcessor
+      -> iterates ALL active tenants
+      -> finds expired active annual consent records outside the current active academic year
+      -> dedupes by (student_id, form_template_id)
+      -> skips students already issued a current-year renewal submission
+      -> creates new pending engagement_form_submission rows for the active academic year
+      -> marks prior consent records as expired
+      -> creates in-app notifications for linked parents
 ```
 
 ### Payroll Flow
@@ -239,6 +254,7 @@ ComplianceService.approve()
 | behaviour     | 3           | 5s exponential  | 23+ job types: cron dispatch (daily/SLA/monthly), policy evaluation, pattern detection, MV refreshes (3), parent notification, digest notifications, task reminders, suspension return, check awards, attachment scan, break-glass expiry, SLA check, critical escalation, guardian restriction check, retention check, partition maintenance                                            |
 | compliance    | 2           | 10s exponential | 2 job types: compliance:execute (on-demand erasure/anonymisation), data-retention:enforce (cron weekly Sunday 03:00), compliance:deadline-check (cron daily 06:00). NOTE: compliance:execute still routes through imports queue (legacy).                                                                                                                                                |
 | early-warning | 3           | 5s exponential  | 3 job types: early-warning:compute-daily (cron daily 01:00 UTC), early-warning:compute-student (on-demand, triggered by evaluate-policy/notify-concern/attendance-pattern-detection), early-warning:weekly-digest (cron daily 07:00 UTC)                                                                                                                                                 |
+| engagement    | 3           | 5s exponential  | 7 job types: engagement:annual-consent-renewal (cron daily 04:15 UTC), engagement:chase-outstanding (cron daily 09:00 UTC), engagement:expire-pending (cron daily 00:00 UTC), engagement:conference-reminders (cron daily 07:00 UTC), engagement:distribute-forms (on-demand), engagement:generate-invoices (on-demand), engagement:cancel-event (on-demand)                             |
 | finance       | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | gradebook     | 3           | 5s exponential  |                                                                                                                                                                                                                                                                                                                                                                                          |
 | homework      | 3           | 5s exponential  | 4 job types: homework:overdue-detection (cron 06:00), homework:generate-recurring (cron 05:00), homework:digest-homework (daily per tenant), homework:completion-reminder (daily per tenant 15:00)                                                                                                                                                                                       |

@@ -20,6 +20,7 @@ import { IP_CLEANUP_JOB } from '../processors/communications/ip-cleanup.processo
 import { DEADLINE_CHECK_JOB } from '../processors/compliance/deadline-check.processor';
 import { RETENTION_ENFORCEMENT_JOB } from '../processors/compliance/retention-enforcement.processor';
 import { CHASE_OUTSTANDING_JOB } from '../processors/engagement/chase-outstanding.processor';
+import { ANNUAL_CONSENT_RENEWAL_JOB } from '../processors/engagement/engagement-annual-renewal.processor';
 import { CONFERENCE_REMINDERS_JOB } from '../processors/engagement/engagement-conference-reminders.processor';
 import { EXPIRE_PENDING_JOB } from '../processors/engagement/expire-pending.processor';
 import { GRADEBOOK_DETECT_RISKS_JOB } from '../processors/gradebook/gradebook-risk-detection.processor';
@@ -580,6 +581,22 @@ export class CronSchedulerService implements OnModuleInit {
   }
 
   private async registerEngagementCronJobs(): Promise<void> {
+    // ── engagement:annual-consent-renewal ───────────────────────────────────
+    // Runs daily at 04:15 UTC. Cross-tenant — processor checks whether a
+    // tenant has crossed into a new active academic year and renews annual
+    // consent submissions only when prior-year consents have expired.
+    await this.engagementQueue.add(
+      ANNUAL_CONSENT_RENEWAL_JOB,
+      {},
+      {
+        repeat: { pattern: '15 4 * * *' },
+        jobId: `cron:${ANNUAL_CONSENT_RENEWAL_JOB}`,
+        removeOnComplete: 10,
+        removeOnFail: 50,
+      },
+    );
+    this.logger.log(`Registered repeatable cron: ${ANNUAL_CONSENT_RENEWAL_JOB} (daily 04:15 UTC)`);
+
     // ── engagement:chase-outstanding ────────────────────────────────────────
     // Runs daily at 09:00 UTC. Cross-tenant — no tenant_id in payload.
     // Iterates all tenants, finds events/forms with pending submissions

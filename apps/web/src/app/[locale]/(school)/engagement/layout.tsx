@@ -1,6 +1,6 @@
 'use client';
 
-import { ClipboardCheck, ClipboardList, CalendarDays } from 'lucide-react';
+import { BarChart3, CalendarDays, ClipboardCheck, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -18,6 +18,12 @@ const engagementTabs = [
     label: 'events',
     href: '/engagement/events',
     icon: CalendarDays,
+  },
+  {
+    key: 'analytics',
+    label: 'analytics',
+    href: '/engagement/analytics',
+    icon: BarChart3,
   },
   {
     key: 'consentArchive',
