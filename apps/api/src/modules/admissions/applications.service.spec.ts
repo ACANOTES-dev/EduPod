@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -174,7 +174,14 @@ describe('ApplicationsService', () => {
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
         id: 'form-1',
         status: 'published',
-        fields: [{ field_key: 'first_name', required: true, field_type: 'short_text', visible_to_parent: true }],
+        fields: [
+          {
+            field_key: 'first_name',
+            required: true,
+            field_type: 'short_text',
+            visible_to_parent: true,
+          },
+        ],
       });
       mockSequenceService.nextNumber.mockResolvedValue('APP-202603-000001');
       mockPrisma.application.create.mockResolvedValue({
@@ -183,17 +190,21 @@ describe('ApplicationsService', () => {
         status: 'draft',
       });
 
-      const result = await service.createPublic(TENANT_ID, {
-        form_definition_id: 'form-1',
-        student_first_name: 'John',
-        student_last_name: 'Doe',
-        date_of_birth: '2018-05-15',
-        payload_json: { first_name: 'John' },
-        consents: {
-          ...DEFAULT_CONSENTS,
-          health_data: true,
+      const result = (await service.createPublic(
+        TENANT_ID,
+        {
+          form_definition_id: 'form-1',
+          student_first_name: 'John',
+          student_last_name: 'Doe',
+          date_of_birth: '2018-05-15',
+          payload_json: { first_name: 'John' },
+          consents: {
+            ...DEFAULT_CONSENTS,
+            health_data: true,
+          },
         },
-      }, IP) as Record<string, unknown>;
+        IP,
+      )) as Record<string, unknown>;
 
       expect(result.id).toBe('app-1');
       expect(result.application_number).toBe('APP-202603-000001');
@@ -201,14 +212,18 @@ describe('ApplicationsService', () => {
     });
 
     it('should silently reject honeypot submissions', async () => {
-      const result = await service.createPublic(TENANT_ID, {
-        form_definition_id: 'form-1',
-        student_first_name: 'Bot',
-        student_last_name: 'User',
-        payload_json: {},
-        consents: DEFAULT_CONSENTS,
-        website_url: 'http://spam.com', // honeypot filled
-      }, IP) as Record<string, unknown>;
+      const result = (await service.createPublic(
+        TENANT_ID,
+        {
+          form_definition_id: 'form-1',
+          student_first_name: 'Bot',
+          student_last_name: 'User',
+          payload_json: {},
+          consents: DEFAULT_CONSENTS,
+          website_url: 'http://spam.com', // honeypot filled
+        },
+        IP,
+      )) as Record<string, unknown>;
 
       expect(result.id).toBe('ignored');
       expect(result.status).toBe('draft');
@@ -221,13 +236,17 @@ describe('ApplicationsService', () => {
       mockRateLimitService.checkAndIncrement.mockResolvedValue({ allowed: false, remaining: 0 });
 
       await expect(
-        service.createPublic(TENANT_ID, {
-          form_definition_id: 'form-1',
-          student_first_name: 'John',
-          student_last_name: 'Doe',
-          payload_json: {},
-          consents: DEFAULT_CONSENTS,
-        }, IP),
+        service.createPublic(
+          TENANT_ID,
+          {
+            form_definition_id: 'form-1',
+            student_first_name: 'John',
+            student_last_name: 'Doe',
+            payload_json: {},
+            consents: DEFAULT_CONSENTS,
+          },
+          IP,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -236,13 +255,17 @@ describe('ApplicationsService', () => {
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createPublic(TENANT_ID, {
-          form_definition_id: 'form-1',
-          student_first_name: 'John',
-          student_last_name: 'Doe',
-          payload_json: {},
-          consents: DEFAULT_CONSENTS,
-        }, IP),
+        service.createPublic(
+          TENANT_ID,
+          {
+            form_definition_id: 'form-1',
+            student_first_name: 'John',
+            student_last_name: 'Doe',
+            payload_json: {},
+            consents: DEFAULT_CONSENTS,
+          },
+          IP,
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -251,22 +274,28 @@ describe('ApplicationsService', () => {
       mockPrisma.admissionFormDefinition.findFirst.mockResolvedValue({
         id: 'form-1',
         status: 'published',
-        fields: [{
-          field_key: 'required_field',
-          required: true,
-          field_type: 'short_text',
-          visible_to_parent: true,
-        }],
+        fields: [
+          {
+            field_key: 'required_field',
+            required: true,
+            field_type: 'short_text',
+            visible_to_parent: true,
+          },
+        ],
       });
 
       await expect(
-        service.createPublic(TENANT_ID, {
-          form_definition_id: 'form-1',
-          student_first_name: 'John',
-          student_last_name: 'Doe',
-          payload_json: {}, // missing required_field
-          consents: DEFAULT_CONSENTS,
-        }, IP),
+        service.createPublic(
+          TENANT_ID,
+          {
+            form_definition_id: 'form-1',
+            student_first_name: 'John',
+            student_last_name: 'Doe',
+            payload_json: {}, // missing required_field
+            consents: DEFAULT_CONSENTS,
+          },
+          IP,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -383,9 +412,9 @@ describe('ApplicationsService', () => {
       const app = buildApplication({ status: 'submitted' });
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
-      await expect(
-        service.submit(TENANT_ID, 'app-1', USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.submit(TENANT_ID, 'app-1', USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should work without parent record', async () => {
@@ -426,10 +455,15 @@ describe('ApplicationsService', () => {
         status: 'under_review',
       });
 
-      const result = await service.review(TENANT_ID, 'app-1', {
-        status: 'under_review',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID) as Record<string, unknown>;
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'under_review',
+          expected_updated_at: '2026-01-01T00:00:00.000Z',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
 
       expect(result.status).toBe('under_review');
     });
@@ -439,7 +473,11 @@ describe('ApplicationsService', () => {
         status: 'submitted',
         updated_at: new Date('2026-01-01T00:00:00.000Z'),
       });
-      const rejectedApp = { ...app, status: 'rejected', rejection_reason: 'Does not meet criteria' };
+      const rejectedApp = {
+        ...app,
+        status: 'rejected',
+        rejection_reason: 'Does not meet criteria',
+      };
       // First findFirst returns the app for status check; second returns after update
       mockPrisma.application.findFirst
         .mockResolvedValueOnce(app)
@@ -447,11 +485,16 @@ describe('ApplicationsService', () => {
       mockPrisma.application.update.mockResolvedValue(rejectedApp);
       mockPrisma.applicationNote.create.mockResolvedValue({});
 
-      const result = await service.review(TENANT_ID, 'app-1', {
-        status: 'rejected',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-        rejection_reason: 'Does not meet criteria',
-      }, USER_ID) as Record<string, unknown>;
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'rejected',
+          expected_updated_at: '2026-01-01T00:00:00.000Z',
+          rejection_reason: 'Does not meet criteria',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
     });
@@ -474,10 +517,15 @@ describe('ApplicationsService', () => {
         status: 'pending_acceptance_approval',
       });
 
-      const result = await service.review(TENANT_ID, 'app-1', {
-        status: 'pending_acceptance_approval',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID) as Record<string, unknown>;
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'pending_acceptance_approval',
+          expected_updated_at: '2026-01-01T00:00:00.000Z',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
 
       expect(result.status).toBe('pending_acceptance_approval');
       expect(result.approval_required).toBe(true);
@@ -497,10 +545,15 @@ describe('ApplicationsService', () => {
         status: 'accepted',
       });
 
-      const result = await service.review(TENANT_ID, 'app-1', {
-        status: 'pending_acceptance_approval',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-      }, USER_ID) as Record<string, unknown>;
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'pending_acceptance_approval',
+          expected_updated_at: '2026-01-01T00:00:00.000Z',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
 
       expect(result.status).toBe('accepted');
     });
@@ -517,11 +570,16 @@ describe('ApplicationsService', () => {
       mockPrisma.application.update.mockResolvedValue(rejectedApp);
       mockPrisma.applicationNote.create.mockResolvedValue({});
 
-      const result = await service.review(TENANT_ID, 'app-1', {
-        status: 'rejected',
-        expected_updated_at: '2026-01-01T00:00:00.000Z',
-        rejection_reason: 'Not suitable',
-      }, USER_ID) as Record<string, unknown>;
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'rejected',
+          expected_updated_at: '2026-01-01T00:00:00.000Z',
+          rejection_reason: 'Not suitable',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
 
       expect(result.status).toBe('rejected');
     });
@@ -534,10 +592,15 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
       await expect(
-        service.review(TENANT_ID, 'app-1', {
-          status: 'under_review',
-          expected_updated_at: '2026-01-01T00:00:00.000Z',
-        }, USER_ID),
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'under_review',
+            expected_updated_at: '2026-01-01T00:00:00.000Z',
+          },
+          USER_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -549,10 +612,15 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
       await expect(
-        service.review(TENANT_ID, 'app-1', {
-          status: 'rejected',
-          expected_updated_at: '2026-01-01T00:00:00.000Z',
-        }, USER_ID),
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'rejected',
+            expected_updated_at: '2026-01-01T00:00:00.000Z',
+          },
+          USER_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -564,10 +632,15 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
       await expect(
-        service.review(TENANT_ID, 'app-1', {
-          status: 'under_review',
-          expected_updated_at: '2026-01-01T12:00:00.000Z', // stale
-        }, USER_ID),
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'under_review',
+            expected_updated_at: '2026-01-01T12:00:00.000Z', // stale
+          },
+          USER_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -580,7 +653,10 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
       mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
 
-      const result = await service.withdraw(TENANT_ID, 'app-1', USER_ID, false) as Record<string, unknown>;
+      const result = (await service.withdraw(TENANT_ID, 'app-1', USER_ID, false)) as Record<
+        string,
+        unknown
+      >;
 
       expect(result.status).toBe('withdrawn');
     });
@@ -589,9 +665,9 @@ describe('ApplicationsService', () => {
       const app = buildApplication({ status: 'accepted' });
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
-      await expect(
-        service.withdraw(TENANT_ID, 'app-1', USER_ID, false),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.withdraw(TENANT_ID, 'app-1', USER_ID, false)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('parent should only withdraw own application', async () => {
@@ -602,9 +678,9 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findFirst.mockResolvedValue(app);
       mockPrisma.parent.findFirst.mockResolvedValue({ id: 'parent-mine' });
 
-      await expect(
-        service.withdraw(TENANT_ID, 'app-1', USER_ID, true),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.withdraw(TENANT_ID, 'app-1', USER_ID, true)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -689,10 +765,15 @@ describe('ApplicationsService', () => {
       mockPrisma.applicationNote.create.mockResolvedValue({});
       mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
 
-      const result = await service.convert(TENANT_ID, 'app-1', {
-        ...convertDto,
-        parent1_link_existing_id: 'existing-parent',
-      }, USER_ID);
+      const result = await service.convert(
+        TENANT_ID,
+        'app-1',
+        {
+          ...convertDto,
+          parent1_link_existing_id: 'existing-parent',
+        },
+        USER_ID,
+      );
 
       expect(result.parent1_id).toBe('existing-parent');
       // Should NOT have called parent.create for parent1
@@ -765,12 +846,17 @@ describe('ApplicationsService', () => {
       mockPrisma.applicationNote.create.mockResolvedValue({});
       mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
 
-      const result = await service.convert(TENANT_ID, 'app-1', {
-        ...convertDto,
-        parent2_first_name: 'Bob',
-        parent2_last_name: 'Doe',
-        parent2_email: 'bob@test.com',
-      }, USER_ID);
+      const result = await service.convert(
+        TENANT_ID,
+        'app-1',
+        {
+          ...convertDto,
+          parent2_first_name: 'Bob',
+          parent2_last_name: 'Doe',
+          parent2_email: 'bob@test.com',
+        },
+        USER_ID,
+      );
 
       expect(result.parent2_id).toBe('parent2');
       expect(mockPrisma.parent.create).toHaveBeenCalledTimes(2);
@@ -784,9 +870,9 @@ describe('ApplicationsService', () => {
       const app = buildApplication({ status: 'under_review' });
       mockPrisma.application.findFirst.mockResolvedValue(app);
 
-      await expect(
-        service.convert(TENANT_ID, 'app-1', convertDto, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.convert(TENANT_ID, 'app-1', convertDto, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should reject if year_group not found', async () => {
@@ -798,9 +884,9 @@ describe('ApplicationsService', () => {
       mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.yearGroup.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.convert(TENANT_ID, 'app-1', convertDto, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.convert(TENANT_ID, 'app-1', convertDto, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('edge: concurrent conversion should fail', async () => {
@@ -812,10 +898,15 @@ describe('ApplicationsService', () => {
       mockPrisma.application.updateMany.mockResolvedValue({ count: 1 });
 
       await expect(
-        service.convert(TENANT_ID, 'app-1', {
-          ...convertDto,
-          expected_updated_at: '2026-01-01T12:00:00.000Z', // stale
-        }, USER_ID),
+        service.convert(
+          TENANT_ID,
+          'app-1',
+          {
+            ...convertDto,
+            expected_updated_at: '2026-01-01T12:00:00.000Z', // stale
+          },
+          USER_ID,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -858,6 +949,622 @@ describe('ApplicationsService', () => {
     });
   });
 
+  // ─── review — additional state machine coverage ──────────────────────────
+
+  describe('review — exhaustive blocked transitions', () => {
+    const TIMESTAMP = '2026-01-01T00:00:00.000Z';
+
+    it('edge: rejected → under_review should fail', async () => {
+      const app = buildApplication({
+        status: 'rejected',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'under_review',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: rejected → pending_acceptance_approval should fail', async () => {
+      const app = buildApplication({
+        status: 'rejected',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'pending_acceptance_approval',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: withdrawn → under_review should fail', async () => {
+      const app = buildApplication({
+        status: 'withdrawn',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'under_review',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: pending_acceptance_approval → under_review should fail', async () => {
+      const app = buildApplication({
+        status: 'pending_acceptance_approval',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'under_review',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('edge: submitted → pending_acceptance_approval should fail (must go through under_review)', async () => {
+      const app = buildApplication({
+        status: 'submitted',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'pending_acceptance_approval',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('pending_acceptance_approval → rejected should succeed', async () => {
+      const app = buildApplication({
+        status: 'pending_acceptance_approval',
+        updated_at: new Date(TIMESTAMP),
+      });
+      const rejectedApp = { ...app, status: 'rejected', rejection_reason: 'Board declined' };
+      mockPrisma.application.findFirst
+        .mockResolvedValueOnce(app)
+        .mockResolvedValueOnce(rejectedApp);
+      mockPrisma.application.update.mockResolvedValue(rejectedApp);
+      mockPrisma.applicationNote.create.mockResolvedValue({});
+
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'rejected',
+          expected_updated_at: TIMESTAMP,
+          rejection_reason: 'Board declined',
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('rejected');
+    });
+
+    it('should require rejection_reason when rejecting', async () => {
+      const app = buildApplication({
+        status: 'submitted',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'rejected',
+            expected_updated_at: TIMESTAMP,
+            rejection_reason: '',
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      try {
+        await service.review(
+          TENANT_ID,
+          'app-1',
+          {
+            status: 'rejected',
+            expected_updated_at: TIMESTAMP,
+            rejection_reason: '   ',
+          },
+          USER_ID,
+        );
+      } catch (e) {
+        const err = e as BadRequestException;
+        const response = err.getResponse() as Record<string, Record<string, string>>;
+        expect(response.error?.code).toBe('REJECTION_REASON_REQUIRED');
+      }
+    });
+
+    it('should throw NotFoundException when application does not exist', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.review(
+          TENANT_ID,
+          'nonexistent',
+          {
+            status: 'under_review',
+            expected_updated_at: TIMESTAMP,
+          },
+          USER_ID,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── review — approval flow deep coverage ─────────────────────────────────
+
+  describe('review — approval flow', () => {
+    const TIMESTAMP = '2026-01-01T00:00:00.000Z';
+
+    it('under_review → accepted directly when auto-approved', async () => {
+      const app = buildApplication({
+        status: 'under_review',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+        settings: { admissions: { requireApprovalForAcceptance: true } },
+      });
+      mockApprovalRequestsService.checkAndCreateIfNeeded.mockResolvedValue({
+        approved: true,
+        request_id: null,
+      });
+      mockPrisma.application.update.mockResolvedValue({
+        ...app,
+        status: 'accepted',
+      });
+
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'pending_acceptance_approval',
+          expected_updated_at: TIMESTAMP,
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('accepted');
+    });
+
+    it('should respect tenant setting disabling approval requirement', async () => {
+      const app = buildApplication({
+        status: 'under_review',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue({
+        settings: { admissions: { requireApprovalForAcceptance: false } },
+      });
+      mockPrisma.application.update.mockResolvedValue({
+        ...app,
+        status: 'accepted',
+      });
+
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'pending_acceptance_approval',
+          expected_updated_at: TIMESTAMP,
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
+
+      expect(result.status).toBe('accepted');
+      // Should NOT have called approval service
+      expect(mockApprovalRequestsService.checkAndCreateIfNeeded).not.toHaveBeenCalled();
+    });
+
+    it('should handle missing tenant settings (defaults to approval required)', async () => {
+      const app = buildApplication({
+        status: 'under_review',
+        updated_at: new Date(TIMESTAMP),
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.tenantSetting.findFirst.mockResolvedValue(null);
+      mockApprovalRequestsService.checkAndCreateIfNeeded.mockResolvedValue({
+        approved: false,
+        request_id: 'approval-req-2',
+      });
+      mockPrisma.application.update.mockResolvedValue({
+        ...app,
+        status: 'pending_acceptance_approval',
+      });
+
+      const result = (await service.review(
+        TENANT_ID,
+        'app-1',
+        {
+          status: 'pending_acceptance_approval',
+          expected_updated_at: TIMESTAMP,
+        },
+        USER_ID,
+      )) as Record<string, unknown>;
+
+      expect(result.approval_required).toBe(true);
+      expect(result.approval_request_id).toBe('approval-req-2');
+    });
+  });
+
+  // ─── withdraw — additional coverage ──────────────────────────────────────
+
+  describe('withdraw — additional coverage', () => {
+    it('should allow withdrawing a draft application', async () => {
+      const app = buildApplication({ status: 'draft' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
+
+      const result = (await service.withdraw(TENANT_ID, 'app-1', USER_ID, false)) as Record<
+        string,
+        unknown
+      >;
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('should allow withdrawing under_review application', async () => {
+      const app = buildApplication({ status: 'under_review' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
+
+      const result = (await service.withdraw(TENANT_ID, 'app-1', USER_ID, false)) as Record<
+        string,
+        unknown
+      >;
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('should allow withdrawing pending_acceptance_approval application', async () => {
+      const app = buildApplication({ status: 'pending_acceptance_approval' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
+
+      const result = (await service.withdraw(TENANT_ID, 'app-1', USER_ID, false)) as Record<
+        string,
+        unknown
+      >;
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('edge: should reject withdrawing rejected application', async () => {
+      const app = buildApplication({ status: 'rejected' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(service.withdraw(TENANT_ID, 'app-1', USER_ID, false)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('edge: should reject withdrawing withdrawn application', async () => {
+      const app = buildApplication({ status: 'withdrawn' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(service.withdraw(TENANT_ID, 'app-1', USER_ID, false)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw NotFoundException for missing application', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(service.withdraw(TENANT_ID, 'nonexistent', USER_ID, false)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('parent should be able to withdraw own application', async () => {
+      const app = buildApplication({
+        status: 'submitted',
+        submitted_by_parent_id: 'parent-mine',
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findFirst.mockResolvedValue({ id: 'parent-mine' });
+      mockPrisma.application.update.mockResolvedValue({ ...app, status: 'withdrawn' });
+
+      const result = (await service.withdraw(TENANT_ID, 'app-1', USER_ID, true)) as Record<
+        string,
+        unknown
+      >;
+
+      expect(result.status).toBe('withdrawn');
+    });
+
+    it('edge: parent without a parent record should fail to withdraw', async () => {
+      const app = buildApplication({
+        status: 'submitted',
+        submitted_by_parent_id: 'parent-other',
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findFirst.mockResolvedValue(null);
+
+      await expect(service.withdraw(TENANT_ID, 'app-1', USER_ID, true)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── submit — additional coverage ────────────────────────────────────────
+
+  describe('submit — ownership guard', () => {
+    it('should throw ForbiddenException when parent does not own application', async () => {
+      const app = buildApplication({
+        status: 'draft',
+        submitted_by_parent_id: 'parent-other',
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findFirst.mockResolvedValue({ id: 'parent-mine' });
+
+      await expect(service.submit(TENANT_ID, 'app-1', USER_ID)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException when application not found', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(service.submit(TENANT_ID, 'nonexistent', USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should skip duplicate detection when date_of_birth is null', async () => {
+      const app = buildApplication({
+        status: 'draft',
+        date_of_birth: null,
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findFirst.mockResolvedValue(null);
+      mockPrisma.application.update.mockResolvedValue({
+        ...app,
+        status: 'submitted',
+      });
+      mockSearchIndexService.indexEntity.mockResolvedValue(undefined);
+
+      await service.submit(TENANT_ID, 'app-1', USER_ID);
+
+      // findMany should NOT have been called for duplicate check
+      expect(mockPrisma.application.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── findOne ──────────────────────────────────────────────────────────────
+
+  describe('findOne', () => {
+    it('should return application with full detail', async () => {
+      const appDetail = {
+        ...buildApplication(),
+        form_definition: { id: 'form-1', name: 'Test', version_number: 1, fields: [] },
+        submitted_by: null,
+        reviewed_by: null,
+        notes: [],
+      };
+      mockPrisma.application.findFirst.mockResolvedValue(appDetail);
+
+      const result = await service.findOne(TENANT_ID, 'app-1');
+
+      expect(result).toBeDefined();
+      expect(result.form_definition).toBeDefined();
+    });
+
+    it('should throw NotFoundException when application not found', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── preview ──────────────────────────────────────────────────────────────
+
+  describe('preview', () => {
+    it('should return preview data with entity_type and facts', async () => {
+      const app = {
+        id: 'app-1',
+        application_number: 'APP-202603-000001',
+        student_first_name: 'John',
+        student_last_name: 'Doe',
+        status: 'submitted',
+        submitted_at: new Date('2026-03-01'),
+        created_at: new Date('2026-02-15'),
+        form_definition: { name: 'Application Form' },
+      };
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      const result = (await service.preview(TENANT_ID, 'app-1')) as {
+        entity_type: string;
+        primary_label: string;
+        secondary_label: string;
+        facts: Array<{ label: string; value: string }>;
+      };
+
+      expect(result.entity_type).toBe('application');
+      expect(result.primary_label).toBe('John Doe');
+      expect(result.secondary_label).toBe('APP-202603-000001');
+      expect(result.facts).toHaveLength(3);
+    });
+
+    it('should show "Not yet" for unsubmitted applications', async () => {
+      const app = {
+        id: 'app-1',
+        application_number: 'APP-202603-000001',
+        student_first_name: 'John',
+        student_last_name: 'Doe',
+        status: 'draft',
+        submitted_at: null,
+        created_at: new Date('2026-02-15'),
+        form_definition: { name: 'Application Form' },
+      };
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      const result = (await service.preview(TENANT_ID, 'app-1')) as {
+        facts: Array<{ label: string; value: string }>;
+      };
+
+      const submittedFact = result.facts.find((f) => f.label === 'Submitted');
+      expect(submittedFact?.value).toBe('Not yet');
+    });
+
+    it('should throw NotFoundException for missing application', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(service.preview(TENANT_ID, 'nonexistent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getConversionPreview ─────────────────────────────────────────────────
+
+  describe('getConversionPreview', () => {
+    it('should return preview data for accepted application', async () => {
+      const app = buildApplication({
+        status: 'accepted',
+        payload_json: { parent_email: 'jane@test.com' },
+        submitted_by: {
+          id: 'p1',
+          first_name: 'Jane',
+          last_name: 'Doe',
+          email: 'jane@test.com',
+          phone: null,
+        },
+      });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+      mockPrisma.parent.findMany.mockResolvedValue([]);
+      mockPrisma.yearGroup.findMany.mockResolvedValue([
+        { id: 'yg-1', name: 'Grade 1', display_order: 1 },
+      ]);
+
+      const result = (await service.getConversionPreview(TENANT_ID, 'app-1')) as {
+        application: Record<string, unknown>;
+        year_groups: Array<{ id: string }>;
+      };
+
+      expect(result.application).toBeDefined();
+      expect(result.year_groups).toHaveLength(1);
+    });
+
+    it('should throw NotFoundException for missing application', async () => {
+      mockPrisma.application.findFirst.mockResolvedValue(null);
+
+      await expect(service.getConversionPreview(TENANT_ID, 'nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should reject non-accepted applications', async () => {
+      const app = buildApplication({ status: 'under_review' });
+      mockPrisma.application.findFirst.mockResolvedValue(app);
+
+      await expect(service.getConversionPreview(TENANT_ID, 'app-1')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  // ─── findAll ──────────────────────────────────────────────────────────────
+
+  describe('findAll', () => {
+    it('should return paginated results', async () => {
+      mockPrisma.application.findMany.mockResolvedValue([buildApplication({ id: 'app-1' })]);
+      mockPrisma.application.count.mockResolvedValue(1);
+
+      const result = (await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+      })) as { data: unknown[]; meta: { page: number; pageSize: number; total: number } };
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 1 });
+    });
+
+    it('should filter by status', async () => {
+      mockPrisma.application.findMany.mockResolvedValue([]);
+      mockPrisma.application.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+        status: 'submitted',
+      });
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'submitted',
+          }),
+        }),
+      );
+    });
+
+    it('should filter by search term across name and application_number', async () => {
+      mockPrisma.application.findMany.mockResolvedValue([]);
+      mockPrisma.application.count.mockResolvedValue(0);
+
+      await service.findAll(TENANT_ID, {
+        page: 1,
+        pageSize: 20,
+        order: 'desc' as const,
+        search: 'John',
+      });
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([
+              expect.objectContaining({
+                student_first_name: expect.objectContaining({ contains: 'John' }),
+              }),
+            ]),
+          }),
+        }),
+      );
+    });
+  });
+
   // ─── analytics ────────────────────────────────────────────────────────────
 
   describe('getAnalytics', () => {
@@ -872,7 +1579,7 @@ describe('ApplicationsService', () => {
         .mockResolvedValueOnce(0); // withdrawn
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: 5.2 }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {}) as {
+      const result = (await service.getAnalytics(TENANT_ID, {})) as {
         funnel: Record<string, number>;
         total: number;
         conversion_rate: number;
@@ -896,7 +1603,7 @@ describe('ApplicationsService', () => {
         .mockResolvedValueOnce(0); // withdrawn
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: 3.0 }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {}) as Record<string, unknown>;
+      const result = (await service.getAnalytics(TENANT_ID, {})) as Record<string, unknown>;
 
       expect(result.conversion_rate).toBe(30);
     });
@@ -905,7 +1612,7 @@ describe('ApplicationsService', () => {
       mockPrisma.application.count.mockResolvedValue(0);
       mockPrisma.$queryRaw.mockResolvedValue([{ avg_days: null }]);
 
-      const result = await service.getAnalytics(TENANT_ID, {}) as Record<string, unknown>;
+      const result = (await service.getAnalytics(TENANT_ID, {})) as Record<string, unknown>;
 
       expect(result.avg_days_to_decision).toBeNull();
     });
@@ -914,7 +1621,7 @@ describe('ApplicationsService', () => {
   // ─── findByParent ─────────────────────────────────────────────────────────
 
   describe('findByParent', () => {
-    it('should return only parent\'s own applications', async () => {
+    it("should return only parent's own applications", async () => {
       mockPrisma.parent.findFirst.mockResolvedValue({ id: 'parent-1' });
       mockPrisma.application.findMany.mockResolvedValue([
         buildApplication({ id: 'app-1' }),
