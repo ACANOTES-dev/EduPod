@@ -810,6 +810,7 @@ enum ModuleKey {
   compliance
   ai
   homework
+  parent_digest
 
   @@map("ModuleKey")
 }

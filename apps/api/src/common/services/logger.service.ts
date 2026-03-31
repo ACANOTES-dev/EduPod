@@ -31,7 +31,7 @@ export class StructuredLoggerService extends ConsoleLogger {
 
   // ─── Log level overrides ────────────────────────────────────────────────
 
-  log(message: string, context?: string): void {
+  override log(message: string, context?: string): void {
     if (this.isProduction) {
       this.writeStructured('log', message, context);
     } else {
@@ -39,7 +39,7 @@ export class StructuredLoggerService extends ConsoleLogger {
     }
   }
 
-  error(message: string, trace?: string, context?: string): void {
+  override error(message: string, trace?: string, context?: string): void {
     if (this.isProduction) {
       const entry = this.buildEntry('error', message, context);
       if (trace) {
@@ -51,7 +51,7 @@ export class StructuredLoggerService extends ConsoleLogger {
     }
   }
 
-  warn(message: string, context?: string): void {
+  override warn(message: string, context?: string): void {
     if (this.isProduction) {
       this.writeStructured('warn', message, context);
     } else {
@@ -59,7 +59,7 @@ export class StructuredLoggerService extends ConsoleLogger {
     }
   }
 
-  debug(message: string, context?: string): void {
+  override debug(message: string, context?: string): void {
     if (this.isProduction) {
       this.writeStructured('debug', message, context);
     } else {
@@ -67,7 +67,7 @@ export class StructuredLoggerService extends ConsoleLogger {
     }
   }
 
-  verbose(message: string, context?: string): void {
+  override verbose(message: string, context?: string): void {
     if (this.isProduction) {
       this.writeStructured('verbose', message, context);
     } else {

@@ -11,7 +11,8 @@ CREATE TYPE "ModuleKey" AS ENUM (
   'approvals',
   'compliance',
   'ai',
-  'homework'
+  'homework',
+  'parent_digest'
 );
 
 -- CreateTable

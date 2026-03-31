@@ -234,10 +234,11 @@ export class SettingsService {
     }
 
     // Write to both the per-module table (RLS-scoped) and the legacy blob
-    const rlsClient = createRlsClient(this.prisma as unknown as import('@prisma/client').PrismaClient, { tenant_id: tenantId });
-    await (rlsClient as unknown as PrismaService).$transaction(async (tx: PrismaService) => {
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    await rlsClient.$transaction(async (tx) => {
+      const txClient = tx as unknown as PrismaService;
       // Upsert the per-module row
-      await tx.tenantModuleSetting.upsert({
+      await txClient.tenantModuleSetting.upsert({
         where: { tenant_id_module_key: { tenant_id: tenantId, module_key: moduleKey } },
         create: {
           tenant_id: tenantId,
@@ -250,7 +251,7 @@ export class SettingsService {
       });
 
       // Sync legacy blob — read existing, replace the module section, save
-      const legacyRecord = await tx.tenantSetting.findUnique({
+      const legacyRecord = await txClient.tenantSetting.findUnique({
         where: { tenant_id: tenantId },
       });
 
@@ -261,7 +262,7 @@ export class SettingsService {
           [moduleKey]: validatedModule,
         };
 
-        await tx.tenantSetting.update({
+        await txClient.tenantSetting.update({
           where: { tenant_id: tenantId },
           data: { settings: updatedSettings as unknown as Prisma.InputJsonValue },
         });
