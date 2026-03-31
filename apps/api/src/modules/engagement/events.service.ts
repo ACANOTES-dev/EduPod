@@ -303,10 +303,15 @@ export class EventsService {
   async getDashboard(tenantId: string, eventId: string) {
     const event = await this.ensureEventExists(tenantId, eventId);
 
-    const participants = await this.prisma.engagementEventParticipant.findMany({
-      where: { event_id: eventId, tenant_id: tenantId },
-      select: { status: true, consent_status: true, payment_status: true },
-    });
+    const [participants, staff_count] = await Promise.all([
+      this.prisma.engagementEventParticipant.findMany({
+        where: { event_id: eventId, tenant_id: tenantId },
+        select: { status: true, consent_status: true, payment_status: true },
+      }),
+      this.prisma.engagementEventStaff.count({
+        where: { event_id: eventId, tenant_id: tenantId },
+      }),
+    ]);
 
     const activeStatuses = [
       'registered',
@@ -339,6 +344,12 @@ export class EventsService {
       (p) => !excludedFromCapacity.includes(p.status),
     ).length;
 
+    // Staff-to-student ratio (staff : students, expressed as "1:N" or null when no staff assigned)
+    const staff_to_student_ratio =
+      staff_count > 0 && total_registered > 0
+        ? `1:${Math.ceil(total_registered / staff_count)}`
+        : null;
+
     return {
       total_invited,
       total_registered,
@@ -346,6 +357,8 @@ export class EventsService {
       payment_stats,
       capacity: event.capacity,
       capacity_used,
+      staff_count,
+      staff_to_student_ratio,
     };
   }
 
@@ -483,6 +496,19 @@ export class EventsService {
             first_name: true,
             last_name: true,
             full_name: true,
+            household: {
+              select: {
+                emergency_contacts: {
+                  select: {
+                    id: true,
+                    contact_name: true,
+                    phone: true,
+                    relationship_label: true,
+                  },
+                  orderBy: { display_order: 'asc' as const },
+                },
+              },
+            },
           },
         },
       },
@@ -593,7 +619,37 @@ export class EventsService {
       });
     }
 
-    return this.transitionStatus(tenantId, eventId, EngagementEventStatus.completed);
+    const completedEvent = await this.transitionStatus(
+      tenantId,
+      eventId,
+      EngagementEventStatus.completed,
+    );
+
+    // ─── Financial reconciliation summary ──────────────────────────────────
+    const participants = await this.prisma.engagementEventParticipant.findMany({
+      where: { event_id: eventId, tenant_id: tenantId },
+      select: { payment_status: true },
+    });
+
+    const feeAmount = event.fee_amount ? Number(event.fee_amount) : 0;
+    const paymentRequired = participants.filter((p) => p.payment_status !== 'not_required').length;
+    const paid = participants.filter((p) => p.payment_status === 'paid').length;
+    const unpaid = participants.filter((p) => p.payment_status === 'pending').length;
+    const waived = participants.filter((p) => p.payment_status === 'waived').length;
+    const refunded = participants.filter((p) => p.payment_status === 'refunded').length;
+
+    const financial_reconciliation = {
+      total_participants: participants.length,
+      payment_required: paymentRequired,
+      paid,
+      unpaid,
+      waived,
+      refunded,
+      total_fee_amount: feeAmount * paymentRequired,
+      total_collected: feeAmount * paid,
+    };
+
+    return { event: completedEvent, financial_reconciliation };
   }
 
   async createIncident(

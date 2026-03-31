@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, toast } from '@school/ui';
-import { ClipboardCheck, Eye, Settings, Users, Map as MapIcon } from 'lucide-react';
+import { ClipboardCheck, Eye, Settings, Users, UsersRound, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -177,6 +177,31 @@ export default function EngagementEventDetailPage() {
         capacity={dashboard.capacity}
         capacityUsed={dashboard.capacity_used}
       />
+
+      <div className="flex flex-wrap gap-4 rounded-3xl border border-border bg-surface p-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="rounded-2xl bg-surface-secondary p-3 text-text-secondary">
+            <UsersRound className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-text-tertiary">{t('pages.eventDetail.staffCount')}</p>
+            <p className="text-xl font-semibold text-text-primary">{dashboard.staff_count}</p>
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="rounded-2xl bg-surface-secondary p-3 text-text-secondary">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs text-text-tertiary">
+              {t('pages.eventDetail.staffToStudentRatio')}
+            </p>
+            <p className="text-xl font-semibold text-text-primary">
+              {dashboard.staff_to_student_ratio ?? t('pages.eventDetail.ratioNotAvailable')}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {showTripActions || showConferenceActions ? (
         <section className="grid gap-4 lg:grid-cols-2">

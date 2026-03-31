@@ -555,6 +555,9 @@
         "linkedTemplates": "القوالب المرتبطة",
         "consentTemplate": "نموذج الموافقة",
         "riskTemplate": "قالب تقييم المخاطر",
+        "staffCount": "Staff assigned",
+        "staffToStudentRatio": "Staff-to-student ratio",
+        "ratioNotAvailable": "—",
         "tripLogisticsTitle": "تشغيل الرحلة",
         "tripLogisticsDescription": "افتح أدوات يوم الرحلة لحزمة الرحلة والحضور وفحص المخاطر وتسجيل الحوادث.",
         "tripPack": "حزمة الرحلة",
@@ -774,7 +777,12 @@
       "present": "حاضر",
       "absent": "غائب",
       "markPresentFor": "تحديد {student} حاضرًا",
-      "markAbsentFor": "تحديد {student} غائبًا"
+      "markAbsentFor": "تحديد {student} غائبًا",
+      "emergencyContacts": "Emergency contacts",
+      "showEmergencyContacts": "Show emergency contacts for {student}",
+      "hideEmergencyContacts": "Hide emergency contacts for {student}",
+      "noEmergencyContacts": "No emergency contacts on record.",
+      "callContact": "Call {name}"
     },
     "riskAssessment": {
       "description": "راجع قالب تقييم المخاطر كما سيظهر للموظفين قبل اعتماده أو رفضه.",
@@ -882,7 +890,10 @@
         "blocked": "محظور",
         "completed": "مكتمل",
         "cancelled": "ملغى"
-      }
+      },
+      "video": "فيديو",
+      "videoCallAvailable": "اجتماع فيديو متاح",
+      "videoCallLink": "انضم إلى اجتماع الفيديو"
     },
     "teacherConferenceSchedule": {
       "description": "تسلسل زمني للقراءة فقط لأمسية اللقاء، جاهز للطباعة عند الحاجة.",
@@ -893,7 +904,10 @@
       "student": "الطالب",
       "parent": "ولي الأمر",
       "freeSlot": "موعد فارغ",
-      "notBooked": "غير محجوز"
+      "notBooked": "غير محجوز",
+      "markAvailable": "تعيين كمتاح",
+      "markBlocked": "حظر الموعد",
+      "toggleError": "تعذر تحديث توفر الموعد. يرجى المحاولة مرة أخرى."
     },
     "parentConferenceBooking": {
       "description": "احجز مواعيد اللقاء لكل معلم ولكل طفل مرتبط بأسرتك.",
@@ -922,7 +936,17 @@
       "cancelSuccess": "تم إلغاء الحجز.",
       "cancelError": "تعذر إلغاء هذا الحجز.",
       "date": "التاريخ",
-      "time": "الوقت"
+      "time": "الوقت",
+      "joinMeeting": "انضم إلى الاجتماع"
+    },
+    "parentEvents": {
+      "showCalendar": "إظهار التقويم",
+      "hideCalendar": "إخفاء التقويم",
+      "prevMonth": "الشهر السابق",
+      "nextMonth": "الشهر التالي",
+      "filteringBy": "عرض الفعاليات في {date}.",
+      "clearFilter": "مسح",
+      "noEventsOnDate": "لا توجد فعاليات في هذا التاريخ."
     },
     "eventTypes": {
       "schoolTrip": "رحلة مدرسية",

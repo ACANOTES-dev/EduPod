@@ -563,6 +563,9 @@
         "linkedTemplates": "Linked templates",
         "consentTemplate": "Consent form",
         "riskTemplate": "Risk assessment",
+        "staffCount": "Staff assigned",
+        "staffToStudentRatio": "Staff-to-student ratio",
+        "ratioNotAvailable": "—",
         "tripLogisticsTitle": "Trip logistics",
         "tripLogisticsDescription": "Open the travel-day tools for trip pack generation, attendance, risk checks, and incident capture.",
         "tripPack": "Trip pack",
@@ -782,7 +785,12 @@
       "present": "Present",
       "absent": "Absent",
       "markPresentFor": "Mark {student} as present",
-      "markAbsentFor": "Mark {student} as absent"
+      "markAbsentFor": "Mark {student} as absent",
+      "emergencyContacts": "Emergency contacts",
+      "showEmergencyContacts": "Show emergency contacts for {student}",
+      "hideEmergencyContacts": "Hide emergency contacts for {student}",
+      "noEmergencyContacts": "No emergency contacts on record.",
+      "callContact": "Call {name}"
     },
     "riskAssessment": {
       "description": "Review the risk assessment template exactly as staff will see it before approving or rejecting it.",
@@ -890,7 +898,10 @@
         "blocked": "Blocked",
         "completed": "Completed",
         "cancelled": "Cancelled"
-      }
+      },
+      "video": "Video",
+      "videoCallAvailable": "Video call available",
+      "videoCallLink": "Join video call"
     },
     "teacherConferenceSchedule": {
       "description": "Read-only running order for the evening, ready for printing if needed.",
@@ -901,7 +912,10 @@
       "student": "Student",
       "parent": "Parent",
       "freeSlot": "Free slot",
-      "notBooked": "Not booked"
+      "notBooked": "Not booked",
+      "markAvailable": "Mark available",
+      "markBlocked": "Block slot",
+      "toggleError": "Could not update slot availability. Please try again."
     },
     "parentConferenceBooking": {
       "description": "Book conference times teacher by teacher for each child linked to your household.",
@@ -930,7 +944,17 @@
       "cancelSuccess": "Booking cancelled.",
       "cancelError": "We could not cancel that booking.",
       "date": "Date",
-      "time": "Time"
+      "time": "Time",
+      "joinMeeting": "Join meeting"
+    },
+    "parentEvents": {
+      "showCalendar": "Show calendar",
+      "hideCalendar": "Hide calendar",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "filteringBy": "Showing events on {date}.",
+      "clearFilter": "Clear",
+      "noEventsOnDate": "No events on this date."
     },
     "eventTypes": {
       "schoolTrip": "School trip",

@@ -51,6 +51,7 @@ const mockPrisma = {
   engagementEventStaff: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
     createMany: jest.fn(),
     delete: jest.fn(),
@@ -421,7 +422,7 @@ describe('EventsService', () => {
   // ─── getDashboard ─────────────────────────────────────────────────────────
 
   describe('getDashboard', () => {
-    it('should return aggregated dashboard stats', async () => {
+    it('should return aggregated dashboard stats including staff ratio', async () => {
       mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
       mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
         { status: 'registered', consent_status: 'granted', payment_status: 'paid' },
@@ -429,6 +430,7 @@ describe('EventsService', () => {
         { status: 'confirmed', consent_status: 'granted', payment_status: 'paid' },
         { status: 'withdrawn', consent_status: 'declined', payment_status: 'not_required' },
       ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(2);
 
       const result = await service.getDashboard(TENANT_ID, EVENT_ID);
 
@@ -438,6 +440,21 @@ describe('EventsService', () => {
       expect(result.consent_stats.pending).toBe(1);
       expect(result.payment_stats.paid).toBe(2);
       expect(result.capacity).toBe(30);
+      expect(result.staff_count).toBe(2);
+      expect(result.staff_to_student_ratio).toBe('1:1');
+    });
+
+    it('should return null ratio when no staff assigned', async () => {
+      mockPrisma.engagementEvent.findFirst.mockResolvedValue(mockEvent);
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { status: 'registered', consent_status: 'granted', payment_status: 'paid' },
+      ]);
+      mockPrisma.engagementEventStaff.count.mockResolvedValue(0);
+
+      const result = await service.getDashboard(TENANT_ID, EVENT_ID);
+
+      expect(result.staff_count).toBe(0);
+      expect(result.staff_to_student_ratio).toBeNull();
     });
   });
 
@@ -694,20 +711,52 @@ describe('EventsService', () => {
   // ─── completeEvent ────────────────────────────────────────────────────────
 
   describe('completeEvent', () => {
-    it('should transition to completed when all attendance resolved', async () => {
-      const inProgressEvent = { ...mockEvent, status: 'in_progress' };
+    it('should transition to completed and return financial reconciliation', async () => {
+      const inProgressEvent = { ...mockEvent, status: 'in_progress', fee_amount: 20 };
       mockPrisma.engagementEvent.findFirst
         .mockResolvedValueOnce(inProgressEvent)
         .mockResolvedValueOnce(inProgressEvent);
+      // First count call: unresolved attendance check
       mockPrisma.engagementEventParticipant.count.mockResolvedValue(0);
       mockTx.engagementEvent.update.mockResolvedValue({
         ...inProgressEvent,
         status: 'completed',
       });
+      // findMany for financial reconciliation
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { payment_status: 'paid' },
+        { payment_status: 'paid' },
+        { payment_status: 'pending' },
+        { payment_status: 'waived' },
+        { payment_status: 'not_required' },
+      ]);
 
       const result = await service.completeEvent(TENANT_ID, EVENT_ID);
 
-      expect((result as Record<string, unknown>).status).toBe('completed');
+      expect((result.event as Record<string, unknown>).status).toBe('completed');
+      expect(result.financial_reconciliation.total_participants).toBe(5);
+      expect(result.financial_reconciliation.paid).toBe(2);
+      expect(result.financial_reconciliation.unpaid).toBe(1);
+      expect(result.financial_reconciliation.waived).toBe(1);
+      expect(result.financial_reconciliation.total_collected).toBe(40);
+    });
+
+    it('should return financial reconciliation with zero totals for free events', async () => {
+      const inProgressEvent = { ...mockEvent, status: 'in_progress', fee_amount: null };
+      mockPrisma.engagementEvent.findFirst
+        .mockResolvedValueOnce(inProgressEvent)
+        .mockResolvedValueOnce(inProgressEvent);
+      mockPrisma.engagementEventParticipant.count.mockResolvedValue(0);
+      mockTx.engagementEvent.update.mockResolvedValue({ ...inProgressEvent, status: 'completed' });
+      mockPrisma.engagementEventParticipant.findMany.mockResolvedValue([
+        { payment_status: 'not_required' },
+        { payment_status: 'not_required' },
+      ]);
+
+      const result = await service.completeEvent(TENANT_ID, EVENT_ID);
+
+      expect(result.financial_reconciliation.total_fee_amount).toBe(0);
+      expect(result.financial_reconciliation.total_collected).toBe(0);
     });
 
     it('should throw when attendance unresolved', async () => {

@@ -220,6 +220,19 @@ export interface EventDashboardData {
   };
   capacity: number | null;
   capacity_used: number;
+  staff_count: number;
+  staff_to_student_ratio: string | null;
+}
+
+export interface EventFinancialReconciliation {
+  total_participants: number;
+  payment_required: number;
+  paid: number;
+  unpaid: number;
+  waived: number;
+  refunded: number;
+  total_fee_amount: number;
+  total_collected: number;
 }
 
 export interface EngagementAnalyticsOutstandingItem {
@@ -322,6 +335,13 @@ export interface TripPackPreview {
   generated_at: string;
 }
 
+export interface AttendanceEmergencyContact {
+  id: string;
+  contact_name: string;
+  phone: string;
+  relationship_label: string;
+}
+
 export interface EventAttendanceRow {
   id: string;
   student_id: string;
@@ -331,6 +351,9 @@ export interface EventAttendanceRow {
     first_name: string;
     last_name: string;
     full_name?: string | null;
+    household?: {
+      emergency_contacts: AttendanceEmergencyContact[];
+    } | null;
   };
 }
 
@@ -380,6 +403,7 @@ export interface ConferenceBookingSummary {
   student_id: string;
   booking_type: 'parent_booked' | 'admin_booked' | 'walk_in';
   status: 'confirmed' | 'cancelled' | 'completed';
+  video_call_link?: string | null;
   student: {
     id: string;
     first_name: string;
