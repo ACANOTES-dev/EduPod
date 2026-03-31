@@ -3,8 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { BehaviourAnalyticsService } from './behaviour-analytics.service';
-import { BehaviourPulseService } from './behaviour-pulse.service';
+import { BehaviourComparisonAnalyticsService } from './behaviour-comparison-analytics.service';
+import { BehaviourExportAnalyticsService } from './behaviour-export-analytics.service';
+import { BehaviourIncidentAnalyticsService } from './behaviour-incident-analytics.service';
+import { BehaviourSanctionAnalyticsService } from './behaviour-sanction-analytics.service';
 import { BehaviourScopeService } from './behaviour-scope.service';
+import { BehaviourStaffAnalyticsService } from './behaviour-staff-analytics.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'user-1';
@@ -74,7 +78,6 @@ describe('BehaviourAnalyticsService', () => {
   let service: BehaviourAnalyticsService;
   let mockPrisma: MockPrisma;
   let mockScope: { getUserScope: jest.Mock; buildScopeFilter: jest.Mock };
-  let mockPulse: { getPulseScore: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = makeMockPrisma();
@@ -82,14 +85,17 @@ describe('BehaviourAnalyticsService', () => {
       getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }),
       buildScopeFilter: jest.fn().mockReturnValue({}),
     };
-    mockPulse = { getPulseScore: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BehaviourAnalyticsService,
+        BehaviourIncidentAnalyticsService,
+        BehaviourComparisonAnalyticsService,
+        BehaviourStaffAnalyticsService,
+        BehaviourSanctionAnalyticsService,
+        BehaviourExportAnalyticsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: BehaviourScopeService, useValue: mockScope },
-        { provide: BehaviourPulseService, useValue: mockPulse },
       ],
     }).compile();
 
@@ -145,11 +151,7 @@ describe('BehaviourAnalyticsService', () => {
 
       await service.getOverview(TENANT_ID, USER_ID, ['behaviour.view'], baseQuery);
 
-      expect(mockScope.getUserScope).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        ['behaviour.view'],
-      );
+      expect(mockScope.getUserScope).toHaveBeenCalledWith(TENANT_ID, USER_ID, ['behaviour.view']);
       expect(mockScope.buildScopeFilter).toHaveBeenCalledWith(
         expect.objectContaining({ scope: 'class', classStudentIds: ['s-1', 's-2'] }),
       );
@@ -294,9 +296,7 @@ describe('BehaviourAnalyticsService', () => {
 
       await service.getHeatmap(TENANT_ID, USER_ID, ['behaviour.log'], baseQuery);
 
-      expect(mockScope.getUserScope).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID, ['behaviour.log'],
-      );
+      expect(mockScope.getUserScope).toHaveBeenCalledWith(TENANT_ID, USER_ID, ['behaviour.log']);
     });
 
     it('edge: should return empty matrix for zero incidents', async () => {
@@ -390,7 +390,12 @@ describe('BehaviourAnalyticsService', () => {
       ]);
       mockPrisma.student.count.mockResolvedValueOnce(100);
 
-      const result = await service.getCategories(TENANT_ID, USER_ID, ['behaviour.admin'], baseQuery);
+      const result = await service.getCategories(
+        TENANT_ID,
+        USER_ID,
+        ['behaviour.admin'],
+        baseQuery,
+      );
 
       expect(result.categories).toHaveLength(2);
       expect(result.categories[0]?.category_name).toBe('Disruption');
@@ -412,7 +417,12 @@ describe('BehaviourAnalyticsService', () => {
       ]);
       mockPrisma.student.count.mockResolvedValueOnce(50);
 
-      const result = await service.getCategories(TENANT_ID, USER_ID, ['behaviour.admin'], baseQuery);
+      const result = await service.getCategories(
+        TENANT_ID,
+        USER_ID,
+        ['behaviour.admin'],
+        baseQuery,
+      );
 
       expect(result.categories[0]?.count).toBe(15);
       expect(result.categories[1]?.count).toBe(7);
@@ -636,30 +646,36 @@ describe('BehaviourAnalyticsService', () => {
       mockPrisma.behaviourIncident.findMany.mockResolvedValueOnce([
         {
           polarity: 'positive',
-          participants: [{
-            student: {
-              year_group_id: 'yg-1',
-              year_group: { id: 'yg-1', name: 'Year 7' },
+          participants: [
+            {
+              student: {
+                year_group_id: 'yg-1',
+                year_group: { id: 'yg-1', name: 'Year 7' },
+              },
             },
-          }],
+          ],
         },
         {
           polarity: 'positive',
-          participants: [{
-            student: {
-              year_group_id: 'yg-1',
-              year_group: { id: 'yg-1', name: 'Year 7' },
+          participants: [
+            {
+              student: {
+                year_group_id: 'yg-1',
+                year_group: { id: 'yg-1', name: 'Year 7' },
+              },
             },
-          }],
+          ],
         },
         {
           polarity: 'negative',
-          participants: [{
-            student: {
-              year_group_id: 'yg-1',
-              year_group: { id: 'yg-1', name: 'Year 7' },
+          participants: [
+            {
+              student: {
+                year_group_id: 'yg-1',
+                year_group: { id: 'yg-1', name: 'Year 7' },
+              },
             },
-          }],
+          ],
         },
       ]);
 
@@ -675,12 +691,14 @@ describe('BehaviourAnalyticsService', () => {
       mockPrisma.behaviourIncident.findMany.mockResolvedValueOnce([
         {
           polarity: 'positive',
-          participants: [{
-            student: {
-              year_group_id: 'yg-1',
-              year_group: { id: 'yg-1', name: 'Year 7' },
+          participants: [
+            {
+              student: {
+                year_group_id: 'yg-1',
+                year_group: { id: 'yg-1', name: 'Year 7' },
+              },
             },
-          }],
+          ],
         },
       ]);
 
@@ -729,13 +747,9 @@ describe('BehaviourAnalyticsService', () => {
 
     it('should compute avg_days_to_complete for completed tasks', async () => {
       mockPrisma.behaviourTask.groupBy
-        .mockResolvedValueOnce([
-          { task_type: 'investigation', status: 'completed', _count: 5 },
-        ])
+        .mockResolvedValueOnce([{ task_type: 'investigation', status: 'completed', _count: 5 }])
         .mockResolvedValueOnce([]); // no overdue
-      mockPrisma.$queryRaw.mockResolvedValueOnce([
-        { task_type: 'investigation', avg_days: 3.2 },
-      ]);
+      mockPrisma.$queryRaw.mockResolvedValueOnce([{ task_type: 'investigation', avg_days: 3.2 }]);
 
       const result = await service.getTaskCompletion(TENANT_ID, baseQuery);
 
@@ -745,9 +759,7 @@ describe('BehaviourAnalyticsService', () => {
 
     it('edge: should return null avg_days when no completed tasks', async () => {
       mockPrisma.behaviourTask.groupBy
-        .mockResolvedValueOnce([
-          { task_type: 'follow_up', status: 'pending', _count: 5 },
-        ])
+        .mockResolvedValueOnce([{ task_type: 'follow_up', status: 'pending', _count: 5 }])
         .mockResolvedValueOnce([]); // no overdue
       mockPrisma.$queryRaw.mockResolvedValueOnce([]); // no completion data
 
@@ -864,55 +876,63 @@ describe('BehaviourAnalyticsService', () => {
       mockPrisma.behaviourIncident.findMany.mockResolvedValueOnce([
         {
           polarity: 'positive',
-          participants: [{
-            student: {
-              class_enrolments: [
-                {
-                  class_id: 'class-1',
-                  class_entity: { id: 'class-1', name: '7A' },
-                },
-              ],
+          participants: [
+            {
+              student: {
+                class_enrolments: [
+                  {
+                    class_id: 'class-1',
+                    class_entity: { id: 'class-1', name: '7A' },
+                  },
+                ],
+              },
             },
-          }],
+          ],
         },
         {
           polarity: 'negative',
-          participants: [{
-            student: {
-              class_enrolments: [
-                {
-                  class_id: 'class-1',
-                  class_entity: { id: 'class-1', name: '7A' },
-                },
-              ],
+          participants: [
+            {
+              student: {
+                class_enrolments: [
+                  {
+                    class_id: 'class-1',
+                    class_entity: { id: 'class-1', name: '7A' },
+                  },
+                ],
+              },
             },
-          }],
+          ],
         },
         {
           polarity: 'negative',
-          participants: [{
-            student: {
-              class_enrolments: [
-                {
-                  class_id: 'class-1',
-                  class_entity: { id: 'class-1', name: '7A' },
-                },
-              ],
+          participants: [
+            {
+              student: {
+                class_enrolments: [
+                  {
+                    class_id: 'class-1',
+                    class_entity: { id: 'class-1', name: '7A' },
+                  },
+                ],
+              },
             },
-          }],
+          ],
         },
         {
           polarity: 'positive',
-          participants: [{
-            student: {
-              class_enrolments: [
-                {
-                  class_id: 'class-2',
-                  class_entity: { id: 'class-2', name: '7B' },
-                },
-              ],
+          participants: [
+            {
+              student: {
+                class_enrolments: [
+                  {
+                    class_id: 'class-2',
+                    class_entity: { id: 'class-2', name: '7B' },
+                  },
+                ],
+              },
             },
-          }],
+          ],
         },
       ]);
       mockPrisma.classEnrolment.groupBy.mockResolvedValueOnce([
@@ -920,7 +940,12 @@ describe('BehaviourAnalyticsService', () => {
         { class_id: 'class-2', _count: 20 },
       ]);
 
-      const result = await service.getClassComparisons(TENANT_ID, USER_ID, ['behaviour.admin'], baseQuery);
+      const result = await service.getClassComparisons(
+        TENANT_ID,
+        USER_ID,
+        ['behaviour.admin'],
+        baseQuery,
+      );
 
       expect(result.entries).toHaveLength(2);
       // class-1: 3 incidents, 25 students => rate = 3/25 = 0.12
