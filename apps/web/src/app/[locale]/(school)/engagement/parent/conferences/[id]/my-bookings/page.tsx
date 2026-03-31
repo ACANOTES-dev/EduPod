@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, toast } from '@school/ui';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -18,6 +18,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 
 export default function ParentConferenceBookingsPage() {
   const params = useParams<{ id: string }>();
@@ -150,6 +151,20 @@ export default function ParentConferenceBookingsPage() {
                   </p>
                 </div>
               </div>
+
+              {booking.video_call_link ? (
+                <div className="mt-4">
+                  <a
+                    href={booking.video_call_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                  >
+                    <Video className="h-4 w-4" />
+                    {t('parentConferenceBookings.joinMeeting')}
+                  </a>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

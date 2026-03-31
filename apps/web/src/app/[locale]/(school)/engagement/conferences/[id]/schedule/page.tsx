@@ -10,7 +10,7 @@ import {
   Input,
   toast,
 } from '@school/ui';
-import { Ban, Search, UserPlus } from 'lucide-react';
+import { Ban, Search, UserPlus, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -33,6 +33,7 @@ import { ScheduleGrid } from '../../../_components/schedule-grid';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 
 export default function ConferenceSchedulePage() {
   const params = useParams<{ id: string }>();
@@ -355,8 +356,22 @@ export default function ConferenceSchedulePage() {
                 {t('conferenceSchedule.bookingDetails')}
               </p>
               {selectedSlot.booking ? (
-                <div className="mt-1 text-sm text-text-primary">
-                  {selectedSlot.booking.student.first_name} {selectedSlot.booking.student.last_name}
+                <div className="mt-1 space-y-2">
+                  <p className="text-sm text-text-primary">
+                    {selectedSlot.booking.student.first_name}{' '}
+                    {selectedSlot.booking.student.last_name}
+                  </p>
+                  {selectedSlot.booking.video_call_link ? (
+                    <a
+                      href={selectedSlot.booking.video_call_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      {t('conferenceSchedule.videoCallLink')}
+                    </a>
+                  ) : null}
                 </div>
               ) : (
                 <p className="mt-1 text-sm text-text-secondary">

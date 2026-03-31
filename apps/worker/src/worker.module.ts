@@ -46,6 +46,7 @@ import { ChaseOutstandingProcessor } from './processors/engagement/chase-outstan
 import { EngagementAnnualRenewalProcessor } from './processors/engagement/engagement-annual-renewal.processor';
 import { EngagementConferenceRemindersProcessor } from './processors/engagement/engagement-conference-reminders.processor';
 import { EngagementDistributeFormsProcessor } from './processors/engagement/engagement-distribute-forms.processor';
+import { GenerateTripPackProcessor } from './processors/engagement/engagement-generate-trip-pack.processor';
 import { ExpirePendingProcessor } from './processors/engagement/expire-pending.processor';
 import { GenerateEventInvoicesProcessor } from './processors/engagement/generate-invoices.processor';
 import { InvoiceApprovalCallbackProcessor } from './processors/finance/invoice-approval-callback.processor';
@@ -407,6 +408,7 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     EngagementDistributeFormsProcessor,
     ExpirePendingProcessor,
     GenerateEventInvoicesProcessor,
+    GenerateTripPackProcessor,
     // Staff Wellbeing queue processors
     ModerationScanProcessor,
     SurveyOpenNotifyProcessor,

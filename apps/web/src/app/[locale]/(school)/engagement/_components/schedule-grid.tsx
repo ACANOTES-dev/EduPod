@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@school/ui';
+import { Video } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import {
@@ -166,13 +167,24 @@ export function ScheduleGrid({
                           </Badge>
                         </div>
                         {slot.booking ? (
-                          <p className="mt-2 text-xs text-current/80">
-                            {t('conferenceSchedule.bookingType', {
-                              type: t(
-                                `conferenceSchedule.bookingTypes.${slot.booking.booking_type}`,
-                              ),
-                            })}
-                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <p className="text-xs text-current/80">
+                              {t('conferenceSchedule.bookingType', {
+                                type: t(
+                                  `conferenceSchedule.bookingTypes.${slot.booking.booking_type}`,
+                                ),
+                              })}
+                            </p>
+                            {slot.booking.video_call_link ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+                                title={t('conferenceSchedule.videoCallAvailable')}
+                              >
+                                <Video className="h-3 w-3" />
+                                {t('conferenceSchedule.video')}
+                              </span>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     </button>

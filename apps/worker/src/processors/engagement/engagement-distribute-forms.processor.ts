@@ -163,5 +163,112 @@ class DistributeFormsJob extends TenantAwareJob<DistributeFormsPayload> {
     this.logger.log(
       `Distributed form "${form_template_id}" — ${totalCreated} submissions created for tenant ${tenant_id}`,
     );
+
+    // ─── 5. Notify parents (grouped: one notification per parent) ─────────────
+
+    await this.notifyParents(tx, tenant_id, form_template_id, studentIds);
+  }
+
+  // ─── Parent Notification ──────────────────────────────────────────────────────
+
+  /**
+   * Groups distributed submissions by parent and creates one in-app notification
+   * per parent listing the form name and their children with pending forms.
+   */
+  private async notifyParents(
+    tx: PrismaClient,
+    tenantId: string,
+    formTemplateId: string,
+    studentIds: string[],
+  ): Promise<void> {
+    if (studentIds.length === 0) return;
+
+    // 5a. Load form template name for the notification message
+    const formTemplate = await tx.engagementFormTemplate.findFirst({
+      where: { tenant_id: tenantId, id: formTemplateId },
+      select: { name: true },
+    });
+
+    const formName = formTemplate?.name ?? 'Form';
+
+    // 5b. Resolve each student's household parents with user accounts
+    const students = await tx.student.findMany({
+      where: { tenant_id: tenantId, id: { in: studentIds } },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        household: {
+          select: {
+            household_parents: {
+              select: {
+                parent: {
+                  select: { user_id: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 5c. Group students by parent user_id
+    const parentStudentMap = new Map<string, { student_id: string; student_name: string }[]>();
+
+    for (const student of students) {
+      const parentUserIds =
+        student.household?.household_parents
+          ?.map((hp) => hp.parent?.user_id)
+          .filter((uid): uid is string => uid != null) ?? [];
+
+      const studentName = `${student.first_name} ${student.last_name}`;
+
+      for (const parentUserId of parentUserIds) {
+        const existing = parentStudentMap.get(parentUserId);
+        if (existing) {
+          existing.push({ student_id: student.id, student_name: studentName });
+        } else {
+          parentStudentMap.set(parentUserId, [
+            { student_id: student.id, student_name: studentName },
+          ]);
+        }
+      }
+    }
+
+    // 5d. Create one notification per parent
+    let notificationCount = 0;
+
+    for (const [recipientUserId, children] of parentStudentMap) {
+      const childNames = children.map((c) => c.student_name);
+      const studentIdsForParent = children.map((c) => c.student_id);
+
+      await tx.notification.create({
+        data: {
+          tenant_id: tenantId,
+          recipient_user_id: recipientUserId,
+          channel: 'in_app',
+          template_key: 'engagement_form_distributed',
+          locale: 'en',
+          status: 'queued',
+          payload_json: {
+            form_template_id: formTemplateId,
+            form_name: formName,
+            child_count: children.length,
+            child_names: childNames,
+            student_ids: studentIdsForParent,
+          },
+          source_entity_type: 'engagement_form_template',
+          source_entity_id: formTemplateId,
+        },
+      });
+
+      notificationCount++;
+    }
+
+    if (notificationCount > 0) {
+      this.logger.log(
+        `Notified ${notificationCount} parent(s) about form "${formName}" for tenant ${tenantId}`,
+      );
+    }
   }
 }

@@ -318,6 +318,63 @@ export class ConferencesService {
     });
   }
 
+  // ─── Teacher Own Slot Management ──────────────────────────────────────
+
+  async updateOwnTimeSlot(
+    tenantId: string,
+    eventId: string,
+    slotId: string,
+    userId: string,
+    status: 'available' | 'blocked',
+  ) {
+    await this.ensureConferenceEvent(tenantId, eventId);
+
+    const staff = await this.prisma.staffProfile.findFirst({
+      where: { user_id: userId, tenant_id: tenantId },
+    });
+
+    if (!staff) {
+      throw new NotFoundException({
+        code: 'STAFF_NOT_FOUND',
+        message: 'No staff profile found for the current user',
+      });
+    }
+
+    const slot = await this.prisma.conferenceTimeSlot.findFirst({
+      where: { id: slotId, event_id: eventId, tenant_id: tenantId },
+    });
+
+    if (!slot) {
+      throw new NotFoundException({
+        code: 'SLOT_NOT_FOUND',
+        message: `Time slot with id "${slotId}" not found`,
+      });
+    }
+
+    if (slot.teacher_id !== staff.id) {
+      throw new ForbiddenException({
+        code: 'SLOT_NOT_OWNED',
+        message: 'You can only manage your own time slots',
+      });
+    }
+
+    if (slot.status === 'booked' || slot.status === 'completed') {
+      throw new BadRequestException({
+        code: 'SLOT_NOT_MODIFIABLE',
+        message: `Cannot change availability of a slot in "${slot.status}" status`,
+      });
+    }
+
+    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+    return rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as typeof this.prisma;
+      return db.conferenceTimeSlot.update({
+        where: { id: slotId },
+        data: { status },
+      });
+    });
+  }
+
   // ─── Teacher Schedule ──────────────────────────────────────────────────
 
   async getTeacherSchedule(tenantId: string, eventId: string, userId: string) {

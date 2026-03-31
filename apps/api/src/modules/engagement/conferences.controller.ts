@@ -124,6 +124,25 @@ export class ConferencesController {
     return this.conferencesService.createBooking(tenant.tenant_id, eventId, user.sub, dto);
   }
 
+  // PATCH /v1/engagement/conferences/:eventId/my-slots/:slotId
+  @Patch(':eventId/my-slots/:slotId')
+  @RequiresPermission('engagement.conferences.view_schedule')
+  async updateOwnTimeSlot(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
+    @Param('eventId', ParseUUIDPipe) eventId: string,
+    @Param('slotId', ParseUUIDPipe) slotId: string,
+    @Body(new ZodValidationPipe(updateTimeSlotSchema)) dto: { status: 'available' | 'blocked' },
+  ) {
+    return this.conferencesService.updateOwnTimeSlot(
+      tenant.tenant_id,
+      eventId,
+      slotId,
+      user.sub,
+      dto.status,
+    );
+  }
+
   // PATCH /v1/engagement/conferences/:eventId/time-slots/:slotId
   @Patch(':eventId/time-slots/:slotId')
   @RequiresPermission('engagement.conferences.manage')

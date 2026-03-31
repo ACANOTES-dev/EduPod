@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@school/ui';
+import { Button, toast } from '@school/ui';
 import { Printer } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -17,6 +17,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
+
 export default function TeacherConferenceSchedulePage() {
   const params = useParams<{ id: string }>();
   const eventId = params?.id ?? '';
@@ -25,11 +26,10 @@ export default function TeacherConferenceSchedulePage() {
   const [event, setEvent] = React.useState<EventRecord | null>(null);
   const [schedule, setSchedule] = React.useState<TeacherConferenceSchedule | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [togglingSlotId, setTogglingSlotId] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    let isMounted = true;
-
-    async function loadData() {
+  const loadData = React.useCallback(
+    async (isMounted: { current: boolean }) => {
       setIsLoading(true);
 
       try {
@@ -40,7 +40,7 @@ export default function TeacherConferenceSchedulePage() {
           ),
         ]);
 
-        if (!isMounted) {
+        if (!isMounted.current) {
           return;
         }
 
@@ -49,18 +49,41 @@ export default function TeacherConferenceSchedulePage() {
       } catch (error) {
         console.error('[TeacherConferenceSchedulePage.loadData]', error);
       } finally {
-        if (isMounted) {
+        if (isMounted.current) {
           setIsLoading(false);
         }
       }
-    }
+    },
+    [eventId],
+  );
 
-    void loadData();
-
+  React.useEffect(() => {
+    const isMounted = { current: true };
+    void loadData(isMounted);
     return () => {
-      isMounted = false;
+      isMounted.current = false;
     };
-  }, [eventId]);
+  }, [loadData]);
+
+  async function handleToggleSlot(slotId: string, currentStatus: 'available' | 'blocked') {
+    const newStatus = currentStatus === 'available' ? 'blocked' : 'available';
+    setTogglingSlotId(slotId);
+
+    try {
+      await apiClient(`/api/v1/engagement/conferences/${eventId}/my-slots/${slotId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const isMounted = { current: true };
+      await loadData(isMounted);
+    } catch (error) {
+      console.error('[TeacherConferenceSchedulePage.handleToggleSlot]', error);
+      toast.error(t('teacherConferenceSchedule.toggleError'));
+    } finally {
+      setTogglingSlotId(null);
+    }
+  }
 
   if (isLoading || !event || !schedule) {
     return <div className="h-72 animate-pulse rounded-3xl bg-surface-secondary" />;
@@ -133,9 +156,11 @@ export default function TeacherConferenceSchedulePage() {
               slot.booking?.booked_by?.email ||
               t('teacherConferenceSchedule.notBooked');
 
+            const canToggle = slot.status === 'available' || slot.status === 'blocked';
+
             return (
               <article key={slot.id} className="rounded-2xl border border-border p-4">
-                <div className="grid gap-4 md:grid-cols-[180px_1fr_1fr]">
+                <div className="grid gap-4 md:grid-cols-[180px_1fr_1fr_auto]">
                   <div>
                     <p className="text-sm font-semibold text-text-primary">
                       {formatDisplayTimeRange(slot.start_time, slot.end_time, locale)}
@@ -160,6 +185,22 @@ export default function TeacherConferenceSchedulePage() {
                     </p>
                     <p className="mt-1 text-sm text-text-primary">{bookedByName}</p>
                   </div>
+                  {canToggle && (
+                    <div className="flex items-center print-hidden">
+                      <Button
+                        size="sm"
+                        variant={slot.status === 'blocked' ? 'default' : 'outline'}
+                        disabled={togglingSlotId === slot.id}
+                        onClick={() => {
+                          void handleToggleSlot(slot.id, slot.status as 'available' | 'blocked');
+                        }}
+                      >
+                        {slot.status === 'blocked'
+                          ? t('teacherConferenceSchedule.markAvailable')
+                          : t('teacherConferenceSchedule.markBlocked')}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </article>
             );
