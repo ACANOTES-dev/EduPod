@@ -9,6 +9,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor';
+import { StructuredLoggerService } from './common/services/logger.service';
 import { validateEnv } from './modules/config/env.validation';
 
 // ─── Pre-bootstrap env validation ─────────────────────────────────────────────
@@ -17,7 +18,13 @@ import { validateEnv } from './modules/config/env.validation';
 validateEnv();
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const logger = new StructuredLoggerService();
+  logger.setLogLevels(StructuredLoggerService.getLogLevels());
+
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    logger,
+  });
 
   // Security
   app.use(helmet());

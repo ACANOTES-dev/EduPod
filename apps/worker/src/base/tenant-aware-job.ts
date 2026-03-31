@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 /**
@@ -14,6 +15,7 @@ export const SYSTEM_USER_SENTINEL = '00000000-0000-0000-0000-000000000000';
  * 2. Wraps execution in an interactive Prisma transaction
  * 3. Sets RLS context (SET LOCAL app.current_tenant_id) before any DB operation
  * 4. Sets user context (SET LOCAL app.current_user_id) — defaults to sentinel for system jobs
+ * 5. Logs correlation_id when present for cross-service tracing
  *
  * Subclasses implement `processJob()` which receives the tenant-scoped
  * Prisma transaction client.
@@ -21,10 +23,14 @@ export const SYSTEM_USER_SENTINEL = '00000000-0000-0000-0000-000000000000';
 export interface TenantJobPayload {
   tenant_id: string;
   user_id?: string;
+  /** HTTP request correlation ID — propagated from the API for cross-service tracing */
+  correlation_id?: string;
   [key: string]: unknown;
 }
 
 export abstract class TenantAwareJob<T extends TenantJobPayload> {
+  private static readonly logger = new Logger('TenantAwareJob');
+
   constructor(protected prisma: PrismaClient) {}
 
   // UUID v4 format
@@ -46,6 +52,13 @@ export abstract class TenantAwareJob<T extends TenantJobPayload> {
     if (data.user_id && !TenantAwareJob.UUID_RE.test(data.user_id)) {
       throw new Error(
         `Job rejected: invalid user_id format "${data.user_id}".`,
+      );
+    }
+
+    // Log correlation ID when present for cross-service tracing
+    if (data.correlation_id) {
+      TenantAwareJob.logger.log(
+        `Processing job — tenant=${data.tenant_id} correlationId=${data.correlation_id}`,
       );
     }
 

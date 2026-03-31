@@ -5,6 +5,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 
 import { CommonModule } from './common/common.module';
+import { CorrelationMiddleware } from './common/middleware/correlation.middleware';
 import { TenantResolutionMiddleware } from './common/middleware/tenant-resolution.middleware';
 import { AcademicsModule } from './modules/academics/academics.module';
 import { AdmissionsModule } from './modules/admissions/admissions.module';
@@ -143,6 +144,11 @@ import { WebsiteModule } from './modules/website/website.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // Correlation middleware runs first — assigns X-Request-Id before any other middleware
+    consumer
+      .apply(CorrelationMiddleware)
+      .forRoutes('*');
+
     consumer
       .apply(TenantResolutionMiddleware)
       .exclude(
