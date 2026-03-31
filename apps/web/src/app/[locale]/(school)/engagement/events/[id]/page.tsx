@@ -1,18 +1,19 @@
 'use client';
 
 import { Button, toast } from '@school/ui';
-import { Eye, Settings, Users } from 'lucide-react';
+import { ClipboardCheck, Eye, Settings, Users, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
-
 
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {
   EVENT_TYPE_OPTIONS,
   formatDisplayDate,
   humanizeStatus,
+  isConferenceEvent,
+  isTripEvent,
   pickLocalizedValue,
   type EventDashboardData,
   type EventParticipantRow,
@@ -99,6 +100,8 @@ export default function EngagementEventDetailPage() {
         staffMember.id,
     ]),
   );
+  const showTripActions = isTripEvent(event.event_type);
+  const showConferenceActions = isConferenceEvent(event.event_type);
 
   return (
     <div className="space-y-6">
@@ -174,6 +177,87 @@ export default function EngagementEventDetailPage() {
         capacity={dashboard.capacity}
         capacityUsed={dashboard.capacity_used}
       />
+
+      {showTripActions || showConferenceActions ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {showTripActions ? (
+            <>
+              <div className="rounded-3xl border border-border bg-surface p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-primary-50 p-3 text-primary-700">
+                    <MapIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-text-primary">
+                      {t('pages.eventDetail.tripLogisticsTitle')}
+                    </h2>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {t('pages.eventDetail.tripLogisticsDescription')}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/events/${event.id}/trip-pack`}>
+                      {t('pages.eventDetail.tripPack')}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/events/${event.id}/attendance`}>
+                      {t('pages.eventDetail.attendance')}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/events/${event.id}/risk-assessment`}>
+                      {t('pages.eventDetail.riskAssessment')}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/events/${event.id}/incidents`}>
+                      {t('pages.eventDetail.incidents')}
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {showConferenceActions ? (
+            <div className="rounded-3xl border border-border bg-surface p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">
+                  <ClipboardCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-text-primary">
+                    {t('pages.eventDetail.conferenceTitle')}
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {t('pages.eventDetail.conferenceDescription')}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button asChild variant="outline">
+                  <Link href={`/${locale}/engagement/conferences/${event.id}/setup`}>
+                    {t('pages.eventDetail.setupConference')}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={`/${locale}/engagement/conferences/${event.id}/schedule`}>
+                    {t('pages.eventDetail.viewConferenceSchedule')}
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href={`/${locale}/engagement/conferences/${event.id}/my-schedule`}>
+                    {t('pages.eventDetail.myConferenceSchedule')}
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="flex gap-1 overflow-x-auto rounded-3xl border border-border bg-surface p-2">
         {[

@@ -9,6 +9,7 @@ import * as React from 'react';
 
 import {
   formatDisplayDate,
+  isConferenceEvent,
   pickLocalizedValue,
   type ParentEventDetail,
   type ParentPendingForm,
@@ -17,7 +18,6 @@ import { EventStatusBadge } from '../../../_components/event-status-badge';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function ParentEngagementEventDetailPage() {
   const params = useParams<{ id: string }>();
@@ -67,6 +67,8 @@ export default function ParentEngagementEventDetailPage() {
     return <div className="h-64 animate-pulse rounded-3xl bg-surface-secondary" />;
   }
 
+  const isConference = isConferenceEvent(event.event_type);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -85,6 +87,33 @@ export default function ParentEngagementEventDetailPage() {
           </span>
         </div>
       </div>
+
+      {isConference ? (
+        <section className="rounded-3xl border border-border bg-surface p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('parent.conferenceActionsTitle')}
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                {t('parent.conferenceActionsDescription')}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/engagement/parent/conferences/${event.id}/book`}>
+                  {t('parent.bookConference')}
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/${locale}/engagement/parent/conferences/${event.id}/my-bookings`}>
+                  {t('parent.myConferenceBookings')}
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <section className="rounded-3xl border border-border bg-surface p-5">

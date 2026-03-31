@@ -341,7 +341,14 @@ export class ConferencesService {
         booking: {
           include: {
             student: { select: { id: true, first_name: true, last_name: true } },
-            booked_by: { select: { id: true, email: true } },
+            booked_by: {
+              select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
           },
         },
       },
@@ -467,13 +474,7 @@ export class ConferencesService {
     await this.ensureConferenceEvent(tenantId, eventId);
 
     // Check tenant config for cancellation policy
-    const tenantSettings = await this.prisma.tenantSetting.findUnique({
-      where: { tenant_id: tenantId },
-    });
-
-    const settings = (tenantSettings?.settings ?? {}) as Record<string, unknown>;
-    const engConfig = (settings.engagement ?? {}) as Record<string, unknown>;
-    const allowCancel = engConfig.allow_parent_conference_cancellation !== false;
+    const allowCancel = await this.isParentCancellationAllowed(tenantId);
 
     if (!allowCancel) {
       throw new ForbiddenException({
@@ -528,6 +529,7 @@ export class ConferencesService {
     await this.ensureConferenceEvent(tenantId, eventId);
 
     const studentIds = await this.getParentStudentIds(userId, tenantId);
+    const allowCancel = await this.isParentCancellationAllowed(tenantId);
 
     const bookings = await this.prisma.conferenceBooking.findMany({
       where: {
@@ -549,7 +551,10 @@ export class ConferencesService {
       },
     });
 
-    return { data: bookings };
+    return {
+      data: bookings,
+      allow_parent_conference_cancellation: allowCancel,
+    };
   }
 
   // ─── Stats ────────────────────────────────────────────────────────────
@@ -691,5 +696,16 @@ export class ConferencesService {
         message: 'You are not linked to this student',
       });
     }
+  }
+
+  private async isParentCancellationAllowed(tenantId: string): Promise<boolean> {
+    const tenantSettings = await this.prisma.tenantSetting.findUnique({
+      where: { tenant_id: tenantId },
+    });
+
+    const settings = (tenantSettings?.settings ?? {}) as Record<string, unknown>;
+    const engConfig = (settings.engagement ?? {}) as Record<string, unknown>;
+
+    return engConfig.allow_parent_conference_cancellation !== false;
   }
 }

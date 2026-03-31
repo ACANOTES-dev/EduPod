@@ -24,7 +24,7 @@
 | [Payroll](#12-payroll)                                  | `modules/payroll/`                                                                                                                                                                                                                        | 79            | 10             | 3           |
 | [Communications](#13-communications)                    | `modules/communications/`                                                                                                                                                                                                                 | 17            | 5              | 7           |
 | [Parent Inquiries](#14-parent-inquiries)                | `modules/parent-inquiries/`                                                                                                                                                                                                               | 8             | 3              | 2           |
-| [Engagement](#29-engagement)                            | `modules/engagement/`                                                                                                                                                                                                                     | 60            | 12             | 7           |
+| [Engagement](#29-engagement)                            | `modules/engagement/`                                                                                                                                                                                                                     | 61            | 21             | 7           |
 | [Admissions](#15-admissions)                            | `modules/admissions/`                                                                                                                                                                                                                     | 21            | 4              | 1           |
 | [Approvals](#16-approvals)                              | `modules/approvals/`                                                                                                                                                                                                                      | 9             | —              | —           |
 | [Reports & Analytics](#17-reports--analytics)           | `modules/reports/`                                                                                                                                                                                                                        | 66            | 20             | —           |
@@ -904,7 +904,7 @@ Settings pages (7):
 
 **Backend**: `apps/api/src/modules/engagement/`
 
-- 8 controllers, 60 endpoints total
+- 8 controllers, 61 endpoints total
 - `form-templates.controller.ts` — template CRUD, publish/archive, distribution
 - `form-submissions.controller.ts` — admin submission review, acknowledgement, completion stats
 - `consent-records.controller.ts` — consent archive queries, student consent history
@@ -926,6 +926,7 @@ Settings pages (7):
 | POST | `v1/engagement/events/:id/open` | Open published event and trigger downstream form/invoice jobs | `engagement.events.edit` |
 | GET | `v1/engagement/events/:id/dashboard` | Event completion dashboard totals | `engagement.events.view_dashboard` |
 | GET | `v1/engagement/events/:id/participants` | Participant status table for consent/payment/attendance | `engagement.events.view` |
+| GET | `v1/engagement/events/:id/trip-pack` | HTML trip-pack preview data matching the PDF payload | `engagement.trip_pack.generate` |
 | POST | `v1/engagement/events/:id/remind-outstanding` | Send reminders to parents with pending consent/payment | `engagement.events.edit` |
 | GET | `v1/parent/engagement/pending-forms` | Parent pending-form inbox across linked children | `parent.view_engagement` |
 | GET | `v1/parent/engagement/events` | Parent event list for linked children | `parent.view_engagement` |
@@ -944,8 +945,17 @@ Settings pages (7):
 | `/engagement/events/new` | Multi-step event creation wizard |
 | `/engagement/events/[id]` | Event dashboard with lifecycle actions and participant/staff/settings tabs |
 | `/engagement/events/[id]/participants` | Participant manager with reminders and CSV export |
+| `/engagement/events/[id]/trip-pack` | Trip-leader pack preview with PDF download workflow |
+| `/engagement/events/[id]/attendance` | Mobile-first attendance and headcount confirmation view for trip staff |
+| `/engagement/events/[id]/risk-assessment` | Read-only risk assessment preview with approve/reject actions |
+| `/engagement/events/[id]/incidents` | Incident reporting workspace gated to in-progress/completed events |
+| `/engagement/conferences/[id]/setup` | Conference slot generation setup with teacher selection and slot preview |
+| `/engagement/conferences/[id]/schedule` | Admin schedule grid for booking, blocking, and reviewing teacher availability |
+| `/engagement/conferences/[id]/my-schedule` | Print-friendly teacher conference running order |
 | `/engagement/parent/events` | Parent event inbox across linked children |
 | `/engagement/parent/events/[id]` | Parent event detail with per-child actions |
+| `/engagement/parent/conferences/[id]/book` | Parent conference slot booking flow with overlap warnings |
+| `/engagement/parent/conferences/[id]/my-bookings` | Parent summary of booked conference slots with optional cancellation |
 | `/engagement/parent/forms/[submissionId]` | Mobile-first parent form completion with signature capture |
 
 **Shared types**: `packages/shared/src/engagement/`

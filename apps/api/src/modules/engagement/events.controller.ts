@@ -313,6 +313,16 @@ export class EventsController {
     return { generated: true, size: pdfBuffer.length };
   }
 
+  // GET /v1/engagement/events/:id/trip-pack
+  @Get(':id/trip-pack')
+  @RequiresPermission('engagement.trip_pack.generate')
+  async getTripPackPreview(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.tripPackService.getTripPackData(tenant.tenant_id, id);
+  }
+
   // GET /v1/engagement/events/:id/trip-pack/download
   @Get(':id/trip-pack/download')
   @RequiresPermission('engagement.trip_pack.download')

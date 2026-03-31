@@ -8,6 +8,7 @@ import * as React from 'react';
 
 import {
   formatDisplayDate,
+  isConferenceEvent,
   pickLocalizedValue,
   type ParentEventRow,
   type ParentPendingForm,
@@ -17,7 +18,6 @@ import { EventStatusBadge } from '../../_components/event-status-badge';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function ParentEngagementEventsPage() {
   const locale = useLocale();
@@ -67,6 +67,7 @@ export default function ParentEngagementEventsPage() {
           const canRegister = event.participants.some((participant) =>
             ['invited', 'withdrawn'].includes(participant.status),
           );
+          const isConference = isConferenceEvent(event.event_type);
 
           return (
             <article key={event.id} className="rounded-3xl border border-border bg-surface p-5">
@@ -101,6 +102,20 @@ export default function ParentEngagementEventsPage() {
                     {t('parent.viewEvent')}
                   </Link>
                 </Button>
+                {isConference ? (
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/parent/conferences/${event.id}/book`}>
+                      {t('parent.bookConference')}
+                    </Link>
+                  </Button>
+                ) : null}
+                {isConference ? (
+                  <Button asChild variant="outline">
+                    <Link href={`/${locale}/engagement/parent/conferences/${event.id}/my-bookings`}>
+                      {t('parent.myConferenceBookings')}
+                    </Link>
+                  </Button>
+                ) : null}
                 {canRegister ? (
                   <Button asChild>
                     <Link href={`/${locale}/engagement/parent/events/${event.id}`}>

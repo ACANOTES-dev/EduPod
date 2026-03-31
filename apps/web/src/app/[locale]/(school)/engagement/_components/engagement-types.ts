@@ -248,6 +248,202 @@ export interface EventParticipantRow {
   };
 }
 
+export interface TripPackStaffMember {
+  id: string;
+  role: string;
+  name?: string | null;
+}
+
+export interface TripPackEmergencyContact {
+  contact_name: string;
+  phone: string;
+  relationship_label: string;
+}
+
+export interface TripPackStudent {
+  id?: string;
+  name: string;
+  year_group: string;
+  class_name: string;
+  date_of_birth: string;
+  medical_notes: string | null;
+  has_allergy: boolean;
+  allergy_details: string | null;
+  emergency_contacts: TripPackEmergencyContact[];
+  consent_status: string;
+  consent_submitted_at: string | null;
+}
+
+export interface TripPackPreview {
+  event: {
+    title: string;
+    title_ar?: string | null;
+    start_date: string;
+    end_date: string;
+    start_time: string | null;
+    end_time: string | null;
+    location: string;
+    location_ar?: string | null;
+    risk_assessment_approved: boolean;
+  };
+  staff: TripPackStaffMember[];
+  students: TripPackStudent[];
+  generated_at: string;
+}
+
+export interface EventAttendanceRow {
+  id: string;
+  student_id: string;
+  attendance_marked: boolean;
+  attendance_marked_at: string | null;
+  student: {
+    first_name: string;
+    last_name: string;
+    full_name?: string | null;
+  };
+}
+
+export interface EventAttendanceSummary {
+  total: number;
+  marked_present: number;
+  marked_absent: number;
+  unmarked: number;
+}
+
+export interface EventAttendanceResponse {
+  data: EventAttendanceRow[];
+  summary: EventAttendanceSummary;
+}
+
+export interface EngagementIncidentReport {
+  id: string;
+  tenant_id?: string;
+  event_id: string;
+  title: string;
+  description: string;
+  reported_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+  reported_by?: {
+    id: string;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+}
+
+export interface ConferenceTeacherRef {
+  id: string;
+  user_id?: string | null;
+  user?: {
+    id: string;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+export interface ConferenceBookingSummary {
+  id: string;
+  student_id: string;
+  booking_type: 'parent_booked' | 'admin_booked' | 'walk_in';
+  status: 'confirmed' | 'cancelled' | 'completed';
+  student: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface ConferenceTimeSlotRecord {
+  id: string;
+  tenant_id?: string;
+  event_id: string;
+  teacher_id: string;
+  start_time: string;
+  end_time: string;
+  status: 'available' | 'booked' | 'blocked' | 'completed' | 'cancelled';
+  created_at?: string;
+  updated_at?: string;
+  teacher?: ConferenceTeacherRef | null;
+  booking?: ConferenceBookingSummary | null;
+}
+
+export interface ConferenceBookingRecord {
+  id: string;
+  tenant_id?: string;
+  time_slot_id: string;
+  student_id: string;
+  booked_by_user_id: string;
+  booking_type: 'parent_booked' | 'admin_booked' | 'walk_in';
+  status: 'confirmed' | 'cancelled' | 'completed';
+  video_call_link?: string | null;
+  notes?: string | null;
+  booked_at: string;
+  cancelled_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  time_slot: {
+    id: string;
+    start_time: string;
+    end_time: string;
+    teacher_id?: string;
+    teacher?: ConferenceTeacherRef | null;
+  };
+  student: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface ConferenceStatsPerTeacher {
+  teacher_id: string;
+  total: number;
+  available: number;
+  booked: number;
+  blocked: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface ConferenceBookingStats {
+  per_teacher: ConferenceStatsPerTeacher[];
+  totals: {
+    total: number;
+    available: number;
+    booked: number;
+    blocked: number;
+    completed: number;
+    cancelled: number;
+  };
+}
+
+export interface TeacherConferenceSchedule {
+  teacher_id: string;
+  event_id: string;
+  slots: Array<
+    ConferenceTimeSlotRecord & {
+      booking?:
+        | (ConferenceBookingRecord & {
+            booked_by?: {
+              id: string;
+              email?: string | null;
+              first_name?: string | null;
+              last_name?: string | null;
+            } | null;
+          })
+        | null;
+    }
+  >;
+}
+
+export interface ParentConferenceBookingsResponse {
+  data: ConferenceBookingRecord[];
+  allow_parent_conference_cancellation?: boolean;
+}
+
 export interface ParentPendingForm {
   id: string;
   form_template_id: string;
@@ -412,6 +608,51 @@ export function formatDisplayDateTime(value: string | null | undefined, locale: 
   }).format(date);
 }
 
+export function formatDisplayTime(value: string | null | undefined, locale: string): string {
+  if (!value) {
+    return '—';
+  }
+
+  const date = new Date(value);
+
+  if (!Number.isNaN(date.getTime())) {
+    return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-IE', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  const [hours, minutes] = value.split(':');
+
+  if (!hours || !minutes) {
+    return value;
+  }
+
+  const syntheticDate = new Date();
+  syntheticDate.setHours(Number(hours), Number(minutes), 0, 0);
+
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar' : 'en-IE', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(syntheticDate);
+}
+
+export function formatDisplayTimeRange(
+  startValue: string | null | undefined,
+  endValue: string | null | undefined,
+  locale: string,
+): string {
+  if (!startValue && !endValue) {
+    return '—';
+  }
+
+  if (!endValue) {
+    return formatDisplayTime(startValue, locale);
+  }
+
+  return `${formatDisplayTime(startValue, locale)} - ${formatDisplayTime(endValue, locale)}`;
+}
+
 export function parseFieldOptions(
   field: EngagementFormField,
 ): Array<{ value: string; label: string }> {
@@ -508,6 +749,48 @@ export function getParticipantClassName(participant: EventParticipantRow): strin
 export function getParticipantYearGroupName(participant: EventParticipantRow): string {
   const activeEnrolment = participant.student.class_enrolments[0];
   return activeEnrolment?.class_entity?.year_group?.name ?? '—';
+}
+
+export function getStaffDisplayName(staff: {
+  first_name?: string | null;
+  last_name?: string | null;
+  staff_number?: string | null;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+}): string {
+  const userName = staff.user?.name?.trim();
+
+  if (userName) {
+    return userName;
+  }
+
+  const userFirstLast = [staff.user?.first_name, staff.user?.last_name].filter(Boolean).join(' ');
+
+  if (userFirstLast) {
+    return userFirstLast;
+  }
+
+  const directName = [staff.first_name, staff.last_name].filter(Boolean).join(' ');
+
+  if (directName) {
+    return directName;
+  }
+
+  return staff.user?.email ?? staff.staff_number ?? '—';
+}
+
+export function isTripEvent(eventType: CreateEngagementEventDto['event_type'] | string): boolean {
+  return eventType === 'school_trip' || eventType === 'overnight_trip';
+}
+
+export function isConferenceEvent(
+  eventType: CreateEngagementEventDto['event_type'] | string,
+): boolean {
+  return eventType === 'parent_conference';
 }
 
 export function needsAction(participant: {

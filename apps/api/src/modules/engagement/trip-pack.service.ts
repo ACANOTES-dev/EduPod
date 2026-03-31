@@ -17,9 +17,9 @@ export class TripPackService {
     private readonly pdfRenderingService: PdfRenderingService,
   ) {}
 
-  // ─── Generate trip leader pack ────────────────────────────────────────────────
+  // ─── Shared trip leader pack data ─────────────────────────────────────────
 
-  async generateTripPack(tenantId: string, eventId: string, locale: string): Promise<Buffer> {
+  async getTripPackData(tenantId: string, eventId: string) {
     const event = await this.prisma.engagementEvent.findFirst({
       where: { id: eventId, tenant_id: tenantId },
       include: {
@@ -100,30 +100,12 @@ export class TripPackService {
         student_id: true,
         status: true,
         submitted_at: true,
-        signature_json: true,
-        submitted_by: { select: { id: true } },
       },
     });
-
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: {
-        name: true,
-        settings: true,
-      },
-    });
-
-    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
-    const branding: PdfBranding = {
-      school_name: (settings.school_name as string) ?? tenant?.name ?? '',
-      school_name_ar: settings.school_name_ar as string | undefined,
-      logo_url: settings.logo_url as string | undefined,
-      primary_color: settings.primary_color as string | undefined,
-    };
 
     const consentMap = new Map(consentSubmissions.map((s) => [s.student_id, s]));
 
-    const templateData = {
+    return {
       event: {
         title: event.title,
         title_ar: event.title_ar,
@@ -153,6 +135,28 @@ export class TripPackService {
       })),
       generated_at: new Date().toISOString(),
     };
+  }
+
+  // ─── Generate trip leader pack ────────────────────────────────────────────
+
+  async generateTripPack(tenantId: string, eventId: string, locale: string): Promise<Buffer> {
+    const templateData = await this.getTripPackData(tenantId, eventId);
+
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: {
+        name: true,
+        settings: true,
+      },
+    });
+
+    const settings = (tenant?.settings ?? {}) as Record<string, unknown>;
+    const branding: PdfBranding = {
+      school_name: (settings.school_name as string) ?? tenant?.name ?? '',
+      school_name_ar: settings.school_name_ar as string | undefined,
+      logo_url: settings.logo_url as string | undefined,
+      primary_color: settings.primary_color as string | undefined,
+    };
 
     const pdfBuffer = await this.pdfRenderingService.renderPdf(
       'trip-leader-pack',
@@ -161,7 +165,9 @@ export class TripPackService {
       branding,
     );
 
-    this.logger.log(`Generated trip pack for event ${eventId}, ${participants.length} students`);
+    this.logger.log(
+      `Generated trip pack for event ${eventId}, ${templateData.students.length} students`,
+    );
 
     return pdfBuffer;
   }
