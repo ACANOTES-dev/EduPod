@@ -6,3 +6,4 @@ export * from './professional-involvement.schema';
 export * from './accommodation.schema';
 export * from './sna-assignment.schema';
 export * from './transition-note.schema';
+export * from './sen-report.schema';

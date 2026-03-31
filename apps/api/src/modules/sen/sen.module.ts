@@ -12,6 +12,8 @@ import { SenProfessionalController } from './sen-professional.controller';
 import { SenProfessionalService } from './sen-professional.service';
 import { SenProfileController } from './sen-profile.controller';
 import { SenProfileService } from './sen-profile.service';
+import { SenReportsController } from './sen-reports.controller';
+import { SenReportsService } from './sen-reports.service';
 import { SenResourceController } from './sen-resource.controller';
 import { SenResourceService } from './sen-resource.service';
 import { SenScopeService } from './sen-scope.service';
@@ -19,6 +21,8 @@ import { SenSnaController } from './sen-sna.controller';
 import { SenSnaService } from './sen-sna.service';
 import { SenSupportPlanController } from './sen-support-plan.controller';
 import { SenSupportPlanService } from './sen-support-plan.service';
+import { SenTransitionController } from './sen-transition.controller';
+import { SenTransitionService } from './sen-transition.service';
 
 @Module({
   imports: [AuthModule, ConfigurationModule, TenantsModule],
@@ -30,6 +34,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenSnaController,
     SenProfessionalController,
     SenAccommodationController,
+    SenReportsController,
+    SenTransitionController,
   ],
   providers: [
     SenProfileService,
@@ -40,6 +46,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenSnaService,
     SenProfessionalService,
     SenAccommodationService,
+    SenReportsService,
+    SenTransitionService,
   ],
   exports: [
     SenProfileService,
@@ -50,6 +58,8 @@ import { SenSupportPlanService } from './sen-support-plan.service';
     SenSnaService,
     SenProfessionalService,
     SenAccommodationService,
+    SenReportsService,
+    SenTransitionService,
   ],
 })
 export class SenModule {}

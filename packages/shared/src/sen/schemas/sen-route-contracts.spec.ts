@@ -1,3 +1,5 @@
+import { senTransitionNoteTypeSchema } from '../enums';
+
 import {
   cloneSupportPlanSchema,
   createResourceAllocationSchema,
@@ -7,13 +9,19 @@ import {
   createSenStudentHoursSchema,
   createSnaAssignmentSchema,
   createSupportPlanSchema,
+  createTransitionNoteSchema,
   endSnaAssignmentSchema,
+  listTransitionNotesQuerySchema,
   listResourceAllocationsQuerySchema,
   listSenGoalProgressQuerySchema,
   listSnaAssignmentsQuerySchema,
+  ncseReturnQuerySchema,
+  planComplianceQuerySchema,
+  professionalInvolvementReportQuerySchema,
   resourceUtilisationQuerySchema,
   senGoalStatusTransitionSchema,
   senSnaTimeRangeSchema,
+  senOverviewReportQuerySchema,
   senWeeklyScheduleSchema,
   supportPlanStatusTransitionSchema,
   updateResourceAllocationSchema,
@@ -100,6 +108,25 @@ describe('SEN route-aligned schemas', () => {
       page: 1,
       pageSize: 20,
     });
+  });
+
+  it('validates transition note payloads and note-type filtering', () => {
+    expect(
+      createTransitionNoteSchema.parse({
+        sen_profile_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        note_type: 'year_to_year',
+        content: 'Continue phonics warm-up and check-ins.',
+      }),
+    ).toEqual({
+      sen_profile_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      note_type: 'year_to_year',
+      content: 'Continue phonics warm-up and check-ins.',
+    });
+
+    expect(listTransitionNotesQuerySchema.parse({ note_type: 'general' })).toEqual({
+      note_type: 'general',
+    });
+    expect(senTransitionNoteTypeSchema.safeParse('unsupported').success).toBe(false);
   });
 });
 
@@ -198,6 +225,22 @@ describe('Resource Allocation schemas', () => {
       academic_year_id: 'not-a-uuid',
     });
     expect(result.success).toBe(false);
+  });
+
+  it('defaults Phase 06 report queries and validates academic year ids', () => {
+    expect(ncseReturnQuerySchema.parse({})).toEqual({});
+    expect(senOverviewReportQuerySchema.parse({})).toEqual({});
+    expect(planComplianceQuerySchema.parse({})).toEqual({
+      due_within_days: 14,
+      stale_goal_weeks: 4,
+    });
+    expect(professionalInvolvementReportQuerySchema.parse({})).toEqual({});
+
+    expect(
+      planComplianceQuerySchema.safeParse({
+        academic_year_id: 'not-a-uuid',
+      }).success,
+    ).toBe(false);
   });
 });
 

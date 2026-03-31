@@ -991,7 +991,7 @@ Settings pages (7):
 
 ## 30. SEN
 
-**What it does**: SEN now includes the backend API slices for profile CRUD, support-plan lifecycle management, SMART goals/strategies/progress, and Phase 04 resource management. Schools can create versioned support plans, track goal progress, clone plans into new academic periods, manage school/SENO hour allocations, assign student-level SEN hours, and manage SNA assignments with tenant-configurable schedule formats. Frontend and parent portal flows still arrive in later phases.
+**What it does**: SEN now includes backend API slices for profile CRUD, support-plan lifecycle management, SMART goals/strategies/progress, resource management, compliance reporting, and transition planning. Schools can create versioned support plans, track goal progress, clone plans into new academic periods, manage school/SENO hour allocations, assign student-level SEN hours, manage SNA assignments with tenant-configurable schedule formats, review NCSE/operational SEN reports, and generate structured handover packs with append-only transition notes. Frontend and parent portal flows still arrive in later phases.
 
 **Backend foundation**:
 
@@ -1008,6 +1008,9 @@ Settings pages (7):
 - SEN profile API is implemented.
 - Support plan, goal, strategy, and progress APIs are implemented.
 - Resource allocation, student-hours, and SNA assignment APIs are implemented.
+- Professional involvement and accommodation APIs are implemented.
+- Compliance reporting APIs are implemented under `v1/sen/reports/*`.
+- Transition notes and structured handover-pack APIs are implemented under `v1/sen/profiles/:profileId/transition-notes` and `v1/sen/transition/handover-pack/:studentId`.
 - No web pages yet. UI and parent portal work begin in SEN Phase 07.
 - No worker jobs yet.
 

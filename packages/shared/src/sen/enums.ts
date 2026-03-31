@@ -70,3 +70,12 @@ export const snaAssignmentStatusSchema = z.enum(SNA_ASSIGNMENT_STATUS_VALUES);
 export const SEN_RESOURCE_SOURCE_VALUES = ['seno', 'school'] as const;
 export type SenResourceSource = (typeof SEN_RESOURCE_SOURCE_VALUES)[number];
 export const senResourceSourceSchema = z.enum(SEN_RESOURCE_SOURCE_VALUES);
+
+export const SEN_TRANSITION_NOTE_TYPE_VALUES = [
+  'class_to_class',
+  'year_to_year',
+  'school_to_school',
+  'general',
+] as const;
+export type SenTransitionNoteType = (typeof SEN_TRANSITION_NOTE_TYPE_VALUES)[number];
+export const senTransitionNoteTypeSchema = z.enum(SEN_TRANSITION_NOTE_TYPE_VALUES);
