@@ -592,6 +592,9 @@ describe('AttendanceService — createSession validation', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: mockClosures },
         { provide: DailySummaryService, useValue: {} },
@@ -843,6 +846,9 @@ describe('AttendanceService — saveRecords', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
@@ -1052,6 +1058,9 @@ describe('AttendanceService — amendRecord', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
@@ -1222,6 +1231,9 @@ describe('AttendanceService — lockExpiredSessions', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: {} },
@@ -1393,6 +1405,9 @@ describe('AttendanceService — teacher permission filtering', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: mockClosures },
         { provide: DailySummaryService, useValue: {} },
@@ -1548,6 +1563,9 @@ describe('AttendanceService — submitSession', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: mockDailySummary },
@@ -1665,6 +1683,9 @@ describe('AttendanceService — cancelSession', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
+        AttendanceSessionService,
+        AttendanceLockingService,
+        AttendanceReportingService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SchoolClosuresService, useValue: {} },
         { provide: DailySummaryService, useValue: {} },
