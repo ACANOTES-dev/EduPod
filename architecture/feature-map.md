@@ -39,6 +39,7 @@
 | [Imports](#26-imports)                                  | `modules/imports/`                                                                                                                                                                                                                        | 6             | 1              | 3           |
 | [Platform Admin](#27-platform-admin)                    | `modules/tenants/`                                                                                                                                                                                                                        | 16            | 5              | —           |
 | [Behaviour](#28-behaviour)                              | `modules/behaviour/`                                                                                                                                                                                                                      | 214           | 37             | 16          |
+| [SEN](#30-sen)                                          | `packages/prisma/schema.prisma`, `packages/prisma/migrations/20260331100000_add_sen_tables/`, `packages/shared/src/sen/`                                                                                                                  | 0             | —              | —           |
 | **TOTAL**                                               | **40 modules**                                                                                                                                                                                                                            | **~1013**     | **~220**       | **56 jobs** |
 
 ---
@@ -985,3 +986,26 @@ Settings pages (7):
 - `engagement-generate-trip-pack.processor.ts`
 
 **Depends on**: StudentsModule (target resolution, parent-child linkage), ClassesModule and AcademicsModule (year group/class targeting), FinanceModule (event fee invoices and parent payment flows), CommunicationsModule (parent reminders), PdfRenderingModule (trip packs), BullMQ engagement + notifications queues
+
+---
+
+## 30. SEN
+
+**What it does**: Phase 01 establishes the data foundation for Special Educational Needs tracking: SEN profiles, support plans, SMART goals and strategies, progress logs, resource allocations, per-student hours, SNA assignments, professional involvements, accommodations, and transition notes. This phase intentionally ships without API endpoints or frontend pages.
+
+**Backend foundation**:
+
+- Prisma schema + relations in `packages/prisma/schema.prisma`
+- Migration + RLS policies in `packages/prisma/migrations/20260331100000_add_sen_tables/` and `packages/prisma/rls/policies.sql`
+- Shared enums, state machines, and Zod contracts in `packages/shared/src/sen/`
+- Tenant settings defaults in `packages/shared/src/schemas/tenant.schema.ts`
+- Permission + role seeds in `packages/prisma/seed/permissions.ts` and `packages/prisma/seed/system-roles.ts`
+- Sequence registration for `sen_support_plan` in `packages/shared/src/constants/sequence-types.ts`
+
+**Current phase status**:
+
+- No NestJS SEN module yet. `apps/api/src/modules/sen/` begins in SEN Phase 02.
+- No web pages yet. UI and parent portal work begin in SEN Phase 07.
+- No worker jobs yet.
+
+**Depends on**: Students, Staff Profiles, Academics, Tenants/SequenceService, and Pastoral referrals (optional nullable link from professional involvements)

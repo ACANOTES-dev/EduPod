@@ -98,6 +98,15 @@ export interface TenantSettingsCompliance {
   auditLogRetentionMonths: number;
 }
 
+export interface TenantSettingsSen {
+  module_enabled: boolean;
+  default_review_cycle_weeks: number;
+  auto_flag_on_referral: boolean;
+  sna_schedule_format: 'weekly' | 'daily';
+  enable_parent_portal_access: boolean;
+  plan_number_prefix: string;
+}
+
 export interface TenantSettingsJson {
   attendance: TenantSettingsAttendance;
   gradebook: TenantSettingsGradebook;
@@ -109,6 +118,7 @@ export interface TenantSettingsJson {
   scheduling: TenantSettingsScheduling;
   approvals: TenantSettingsApprovals;
   compliance: TenantSettingsCompliance;
+  sen: TenantSettingsSen;
   behaviour: import('../behaviour/schemas/settings.schema').BehaviourSettings;
   staff_wellbeing: import('../staff-wellbeing/schemas/tenant-settings.schema').StaffWellbeingSettings;
   parent_digest: import('../schemas/parent-digest.schema').ParentDigestSettingsDto;

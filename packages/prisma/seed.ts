@@ -1,10 +1,8 @@
-import { Client } from 'pg';
-import Redis from 'ioredis';
-
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+import { Client } from 'pg';
 
-import { PERMISSION_SEEDS } from './seed/permissions';
-import { SYSTEM_ROLES } from './seed/system-roles';
+
 import {
   DEV_TENANTS,
   DEV_PLATFORM_USER,
@@ -13,6 +11,8 @@ import {
   DEV_PASSWORD,
 } from './seed/dev-data';
 import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
+import { PERMISSION_SEEDS } from './seed/permissions';
+import { SYSTEM_ROLES } from './seed/system-roles';
 
 /**
  * Seed script for the School Operating System.
@@ -27,38 +27,101 @@ import { GDPR_EXPORT_POLICY_SEEDS } from './seed/gdpr-export-policies';
  */
 
 const MODULE_KEYS = [
-  'admissions', 'attendance', 'gradebook', 'finance', 'payroll',
-  'communications', 'website', 'analytics', 'compliance',
-  'parent_inquiries', 'auto_scheduling', 'staff_wellbeing',
-  'behaviour', 'pastoral', 'ai_functions',
+  'admissions',
+  'attendance',
+  'gradebook',
+  'finance',
+  'payroll',
+  'communications',
+  'website',
+  'analytics',
+  'compliance',
+  'parent_inquiries',
+  'auto_scheduling',
+  'staff_wellbeing',
+  'sen',
+  'behaviour',
+  'pastoral',
+  'ai_functions',
 ];
 
 const NOTIFICATION_TYPES = [
-  'invoice.issued', 'payment.received', 'payment.failed',
-  'report_card.published', 'attendance.exception', 'admission.status_change',
-  'announcement.published', 'approval.requested', 'approval.decided',
-  'inquiry.new_message', 'payroll.finalised', 'payslip.generated',
+  'invoice.issued',
+  'payment.received',
+  'payment.failed',
+  'report_card.published',
+  'attendance.exception',
+  'admission.status_change',
+  'announcement.published',
+  'approval.requested',
+  'approval.decided',
+  'inquiry.new_message',
+  'payroll.finalised',
+  'payslip.generated',
 ];
 
-const SEQUENCE_TYPES = ['receipt', 'invoice', 'application', 'payslip', 'student', 'staff', 'household', 'payment', 'pastoral_case'];
+const SEQUENCE_TYPES = [
+  'receipt',
+  'invoice',
+  'application',
+  'payslip',
+  'student',
+  'staff',
+  'household',
+  'payment',
+  'pastoral_case',
+  'sen_support_plan',
+];
 
 const DEFAULT_SETTINGS = {
   attendance: { allowTeacherAmendment: false, autoLockAfterDays: null, pendingAlertTimeHour: 14 },
   gradebook: { defaultMissingGradePolicy: 'exclude', requireGradeComment: false },
   admissions: { requireApprovalForAcceptance: true },
-  finance: { requireApprovalForInvoiceIssue: false, defaultPaymentTermDays: 30, allowPartialPayment: true },
+  finance: {
+    requireApprovalForInvoiceIssue: false,
+    defaultPaymentTermDays: 30,
+    allowPartialPayment: true,
+  },
   communications: { primaryOutboundChannel: 'email', requireApprovalForAnnouncements: true },
-  payroll: { requireApprovalForNonPrincipal: true, defaultBonusMultiplier: 1.0, autoPopulateClassCounts: true },
-  general: { parentPortalEnabled: true, attendanceVisibleToParents: true, gradesVisibleToParents: true, inquiryStaleHours: 48 },
+  payroll: {
+    requireApprovalForNonPrincipal: true,
+    defaultBonusMultiplier: 1.0,
+    autoPopulateClassCounts: true,
+  },
+  general: {
+    parentPortalEnabled: true,
+    attendanceVisibleToParents: true,
+    gradesVisibleToParents: true,
+    inquiryStaleHours: 48,
+  },
   scheduling: {
-    teacherWeeklyMaxPeriods: null, autoSchedulerEnabled: true, requireApprovalForNonPrincipal: true,
+    teacherWeeklyMaxPeriods: null,
+    autoSchedulerEnabled: true,
+    requireApprovalForNonPrincipal: true,
     maxSolverDurationSeconds: 120,
     preferenceWeights: { low: 1, medium: 2, high: 3 },
-    globalSoftWeights: { evenSubjectSpread: 2, minimiseTeacherGaps: 1, roomConsistency: 1, workloadBalance: 1 },
+    globalSoftWeights: {
+      evenSubjectSpread: 2,
+      minimiseTeacherGaps: 1,
+      roomConsistency: 1,
+      workloadBalance: 1,
+    },
   },
   approvals: { expiryDays: 7, reminderAfterHours: 48 },
   compliance: { auditLogRetentionMonths: 36 },
+  sen: {
+    module_enabled: false,
+    default_review_cycle_weeks: 12,
+    auto_flag_on_referral: true,
+    sna_schedule_format: 'weekly',
+    enable_parent_portal_access: true,
+    plan_number_prefix: 'SSP',
+  },
 };
+
+function getDefaultModuleEnabledState(moduleKey: string): boolean {
+  return moduleKey !== 'sen';
+}
 
 async function main() {
   if (process.env.NODE_ENV === 'production') {
@@ -159,7 +222,9 @@ async function main() {
       const permId = permissionMap.get(permKey);
       if (permId) {
         await prisma.rolePermission.upsert({
-          where: { role_id_permission_id: { role_id: platformOwnerRole.id, permission_id: permId } },
+          where: {
+            role_id_permission_id: { role_id: platformOwnerRole.id, permission_id: permId },
+          },
           update: {},
           create: { role_id: platformOwnerRole.id, permission_id: permId, tenant_id: null },
         });
@@ -223,14 +288,19 @@ async function main() {
         },
       });
 
-      // Create modules (all enabled)
+      // Create module rows for every supported module. SEN remains disabled
+      // until the tenant explicitly enables the rollout.
       for (const mk of MODULE_KEYS) {
         const existing = await prisma.tenantModule.findFirst({
           where: { tenant_id: tenant.id, module_key: mk },
         });
         if (!existing) {
           await prisma.tenantModule.create({
-            data: { tenant_id: tenant.id, module_key: mk, is_enabled: true },
+            data: {
+              tenant_id: tenant.id,
+              module_key: mk,
+              is_enabled: getDefaultModuleEnabledState(mk),
+            },
           });
         }
       }
@@ -270,15 +340,17 @@ async function main() {
         const existingRole = await prisma.role.findFirst({
           where: { tenant_id: tenant.id, role_key: roleDef.role_key },
         });
-        const role = existingRole ?? await prisma.role.create({
-          data: {
-            tenant_id: tenant.id,
-            role_key: roleDef.role_key,
-            display_name: roleDef.display_name,
-            is_system_role: true,
-            role_tier: roleDef.role_tier as never,
-          },
-        });
+        const role =
+          existingRole ??
+          (await prisma.role.create({
+            data: {
+              tenant_id: tenant.id,
+              role_key: roleDef.role_key,
+              display_name: roleDef.display_name,
+              is_system_role: true,
+              role_tier: roleDef.role_tier as never,
+            },
+          }));
 
         for (const permKey of roleDef.default_permissions) {
           const permId = permissionMap.get(permKey);
@@ -376,11 +448,41 @@ async function main() {
     for (const [slug, tenantId] of tenantMap.entries()) {
       // Create rooms
       const roomDefs = [
-        { name: 'Room 101', room_type: 'classroom' as const, capacity: 30, is_exclusive: true, active: true },
-        { name: 'Room 102', room_type: 'classroom' as const, capacity: 30, is_exclusive: true, active: true },
-        { name: 'Science Lab', room_type: 'lab' as const, capacity: 25, is_exclusive: true, active: true },
-        { name: 'Gymnasium', room_type: 'gym' as const, capacity: 100, is_exclusive: false, active: true },
-        { name: 'Library', room_type: 'library' as const, capacity: 50, is_exclusive: false, active: true },
+        {
+          name: 'Room 101',
+          room_type: 'classroom' as const,
+          capacity: 30,
+          is_exclusive: true,
+          active: true,
+        },
+        {
+          name: 'Room 102',
+          room_type: 'classroom' as const,
+          capacity: 30,
+          is_exclusive: true,
+          active: true,
+        },
+        {
+          name: 'Science Lab',
+          room_type: 'lab' as const,
+          capacity: 25,
+          is_exclusive: true,
+          active: true,
+        },
+        {
+          name: 'Gymnasium',
+          room_type: 'gym' as const,
+          capacity: 100,
+          is_exclusive: false,
+          active: true,
+        },
+        {
+          name: 'Library',
+          room_type: 'library' as const,
+          capacity: 50,
+          is_exclusive: false,
+          active: true,
+        },
       ];
 
       for (const rd of roomDefs) {
@@ -649,7 +751,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'A {{sanction_type}} has been issued for {{student_name}} on {{sanction_date}}',
+        body_template:
+          'A {{sanction_type}} has been issued for {{student_name}} on {{sanction_date}}',
       },
       // behaviour_sanction_parent — in_app ar
       {
@@ -719,7 +822,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'Formal exclusion notice issued for {{student_name}} — case {{exclusion_case_number}}',
+        body_template:
+          'Formal exclusion notice issued for {{student_name}} — case {{exclusion_case_number}}',
       },
       // behaviour_exclusion_notice_parent — in_app ar
       {
@@ -727,7 +831,8 @@ async function main() {
         channel: 'in_app',
         locale: 'ar',
         subject_template: null,
-        body_template: 'تم إصدار إشعار فصل رسمي لـ {{student_name}} — القضية {{exclusion_case_number}}',
+        body_template:
+          'تم إصدار إشعار فصل رسمي لـ {{student_name}} — القضية {{exclusion_case_number}}',
       },
 
       // behaviour_exclusion_decision_parent — email en
@@ -789,7 +894,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'Correction to previous behaviour notice for {{student_name}}: {{correction_what_changed}}',
+        body_template:
+          'Correction to previous behaviour notice for {{student_name}}: {{correction_what_changed}}',
       },
       // behaviour_correction_parent — in_app ar
       {
@@ -797,7 +903,8 @@ async function main() {
         channel: 'in_app',
         locale: 'ar',
         subject_template: null,
-        body_template: 'تصحيح على إشعار سلوكي سابق لـ {{student_name}}: {{correction_what_changed}}',
+        body_template:
+          'تصحيح على إشعار سلوكي سابق لـ {{student_name}}: {{correction_what_changed}}',
       },
 
       // behaviour_reacknowledgement_request — email en
@@ -931,7 +1038,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: '{{student_name}} earned an award: {{award_name}} (+{{points_awarded}} points)',
+        body_template:
+          '{{student_name}} earned an award: {{award_name}} (+{{points_awarded}} points)',
       },
       // behaviour_award_parent — in_app ar
       {
@@ -1057,7 +1165,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'Behaviour digest: {{total_incidents}} incidents recorded for {{student_name}}',
+        body_template:
+          'Behaviour digest: {{total_incidents}} incidents recorded for {{student_name}}',
       },
       // behaviour_digest_parent — in_app ar
       {
@@ -1130,7 +1239,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'URGENT: Safeguarding escalation requires immediate attention — {{concern_number}}',
+        body_template:
+          'URGENT: Safeguarding escalation requires immediate attention — {{concern_number}}',
       },
       // safeguarding_critical_escalation — in_app ar
       {
@@ -1147,7 +1257,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'Your safeguarding concern {{concern_number}} has been received and is being reviewed',
+        body_template:
+          'Your safeguarding concern {{concern_number}} has been received and is being reviewed',
       },
       // safeguarding_reporter_ack — in_app only ar
       {
@@ -1182,7 +1293,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'SLA breached for safeguarding concern {{concern_number}} — due {{sla_due_time}}',
+        body_template:
+          'SLA breached for safeguarding concern {{concern_number}} — due {{sla_due_time}}',
       },
       // safeguarding_sla_breach — in_app ar
       {
@@ -1190,7 +1302,8 @@ async function main() {
         channel: 'in_app',
         locale: 'ar',
         subject_template: null,
-        body_template: 'تم تجاوز مستوى الخدمة لقلق الحماية {{concern_number}} — المستحق {{sla_due_time}}',
+        body_template:
+          'تم تجاوز مستوى الخدمة لقلق الحماية {{concern_number}} — المستحق {{sla_due_time}}',
       },
 
       // safeguarding_break_glass_review — email en
@@ -1217,7 +1330,8 @@ async function main() {
         channel: 'in_app',
         locale: 'en',
         subject_template: null,
-        body_template: 'Break-glass access session expired for {{concern_number}} — review required',
+        body_template:
+          'Break-glass access session expired for {{concern_number}} — review required',
       },
       // safeguarding_break_glass_review — in_app ar
       {

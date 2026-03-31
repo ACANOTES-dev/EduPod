@@ -15,8 +15,8 @@ import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
-import { AuthService } from '../auth/auth.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -96,6 +96,8 @@ const mockPrisma = {
 describe('TenantsService', () => {
   let service: TenantsService;
 
+  const isModuleEnabledByDefault = (moduleKey: (typeof MODULE_KEYS)[number]) => moduleKey !== 'sen';
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -163,7 +165,7 @@ describe('TenantsService', () => {
         id: `module-${k}`,
         tenant_id: 'new-tenant-id',
         module_key: k,
-        is_enabled: true,
+        is_enabled: isModuleEnabledByDefault(k),
       })),
       domains: [
         {
@@ -245,14 +247,14 @@ describe('TenantsService', () => {
       // Modules created — one per MODULE_KEY
       expect(mockPrisma.tenantModule.create).toHaveBeenCalledTimes(MODULE_KEYS.length);
 
-      // Each MODULE_KEY created with is_enabled: true
+      // Each MODULE_KEY created with its default enabled state
       for (const moduleKey of MODULE_KEYS) {
         expect(mockPrisma.tenantModule.create).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
               tenant_id: 'new-tenant-id',
               module_key: moduleKey,
-              is_enabled: true,
+              is_enabled: isModuleEnabledByDefault(moduleKey),
             }),
           }),
         );

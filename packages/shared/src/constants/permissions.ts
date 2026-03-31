@@ -198,6 +198,14 @@ export const PERMISSIONS = {
     ai_query: 'behaviour.ai_query',
     appeal: 'behaviour.appeal',
   },
+  // SEN (admin + staff tier)
+  sen: {
+    view: 'sen.view',
+    manage: 'sen.manage',
+    manage_resources: 'sen.manage_resources',
+    view_sensitive: 'sen.view_sensitive',
+    admin: 'sen.admin',
+  },
   // Safeguarding (admin tier)
   safeguarding: {
     report: 'safeguarding.report',
@@ -321,6 +329,8 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.consent.view]: 'admin',
   [PERMISSIONS.behaviour.admin]: 'admin',
   [PERMISSIONS.behaviour.view_staff_analytics]: 'admin',
+  [PERMISSIONS.sen.manage_resources]: 'admin',
+  [PERMISSIONS.sen.admin]: 'admin',
   [PERMISSIONS.safeguarding.view]: 'admin',
   [PERMISSIONS.safeguarding.manage]: 'admin',
   [PERMISSIONS.safeguarding.seal]: 'admin',
@@ -338,6 +348,9 @@ export const PERMISSION_TIER_MAP: Record<string, RoleTier> = {
   [PERMISSIONS.behaviour.manage]: 'staff',
   [PERMISSIONS.behaviour.view_sensitive]: 'staff',
   [PERMISSIONS.behaviour.ai_query]: 'staff',
+  [PERMISSIONS.sen.view]: 'staff',
+  [PERMISSIONS.sen.manage]: 'staff',
+  [PERMISSIONS.sen.view_sensitive]: 'staff',
   [PERMISSIONS.safeguarding.report]: 'staff',
 
   // Parent tier
@@ -464,6 +477,11 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.behaviour.view_sensitive,
     PERMISSIONS.behaviour.view_staff_analytics,
     PERMISSIONS.behaviour.ai_query,
+    PERMISSIONS.sen.view,
+    PERMISSIONS.sen.manage,
+    PERMISSIONS.sen.manage_resources,
+    PERMISSIONS.sen.view_sensitive,
+    PERMISSIONS.sen.admin,
     PERMISSIONS.safeguarding.report,
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
@@ -546,6 +564,11 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.behaviour.view_sensitive,
     PERMISSIONS.behaviour.view_staff_analytics,
     PERMISSIONS.behaviour.ai_query,
+    PERMISSIONS.sen.view,
+    PERMISSIONS.sen.manage,
+    PERMISSIONS.sen.manage_resources,
+    PERMISSIONS.sen.view_sensitive,
+    PERMISSIONS.sen.admin,
     PERMISSIONS.safeguarding.report,
     PERMISSIONS.safeguarding.view,
     PERMISSIONS.safeguarding.manage,
@@ -563,6 +586,7 @@ export const SYSTEM_ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.gradebook.manage_ai_grading,
     PERMISSIONS.students.view,
     PERMISSIONS.legal.view,
+    PERMISSIONS.sen.view,
     // Behaviour (staff tier)
     PERMISSIONS.behaviour.log,
     PERMISSIONS.behaviour.view,

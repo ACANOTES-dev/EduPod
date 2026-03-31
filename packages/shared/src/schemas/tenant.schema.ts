@@ -176,6 +176,17 @@ export const aiSettingsSchema = z.object({
 
 export type AiSettingsDto = z.infer<typeof aiSettingsSchema>;
 
+export const senSettingsSchema = z.object({
+  module_enabled: z.boolean().default(false),
+  default_review_cycle_weeks: z.number().int().min(1).default(12),
+  auto_flag_on_referral: z.boolean().default(true),
+  sna_schedule_format: z.enum(['weekly', 'daily']).default('weekly'),
+  enable_parent_portal_access: z.boolean().default(true),
+  plan_number_prefix: z.string().default('SSP'),
+});
+
+export type SenSettingsDto = z.infer<typeof senSettingsSchema>;
+
 // ─── Composite settings schema ───────────────────────────────────────────────
 // Composed from the individual module schemas above.
 
@@ -191,6 +202,7 @@ export const tenantSettingsSchema = z.object({
   approvals: approvalsSettingsSchema.default({}),
   compliance: complianceSettingsSchema.default({}),
   ai: aiSettingsSchema.default({}),
+  sen: senSettingsSchema.default({}),
   homework: homeworkSettingsSchema.default({}),
   parent_digest: parentDigestSettingsSchema.default({}),
 });
@@ -212,6 +224,7 @@ export const TENANT_SETTINGS_MODULE_SCHEMAS = {
   approvals: approvalsSettingsSchema,
   compliance: complianceSettingsSchema,
   ai: aiSettingsSchema,
+  sen: senSettingsSchema,
   homework: homeworkSettingsSchema,
   parent_digest: parentDigestSettingsSchema,
 } as const;

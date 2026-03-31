@@ -68,6 +68,32 @@ closed*
 - **Guarded by**: `academic-periods.service.ts` line 17
 - **Side effects**: `closed` triggers the `report-cards:auto-generate` cron job (daily 03:00 UTC check). Gradebook assessments should be locked before period closure.
 
+### SupportPlanStatus (SEN)
+
+```
+draft         -> [active]
+active        -> [under_review, closed]
+under_review  -> [active, closed]
+closed        -> [archived]
+archived*
+```
+
+- **Guarded by**: `packages/shared/src/sen/state-machine.ts`
+- **Side effects**: Governs the lifecycle of SEN support plans. `under_review` marks plans currently being evaluated, `closed` ends the working lifecycle, and `archived` is terminal. Phase 01 adds validation only; later SEN services must preserve this contract when they add review workflows and notifications.
+
+### SenGoalStatus
+
+```
+not_started        -> [in_progress]
+in_progress        -> [partially_achieved, achieved, discontinued]
+partially_achieved -> [in_progress, achieved, discontinued]
+achieved*
+discontinued*
+```
+
+- **Guarded by**: `packages/shared/src/sen/state-machine.ts`
+- **Side effects**: Controls the progress lifecycle for SEN goals within a support plan. `achieved` and `discontinued` are terminal outcomes. Phase 01 only establishes shared validation helpers; later SEN services must enforce these transitions before mutating goal status.
+
 ---
 
 ## Admissions & Registration

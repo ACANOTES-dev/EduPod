@@ -7,6 +7,7 @@ export const SEQUENCE_TYPES = [
   'staff',
   'household',
   'payment',
+  'sen_support_plan',
   'behaviour_incident',
   'behaviour_sanction',
   'behaviour_intervention',

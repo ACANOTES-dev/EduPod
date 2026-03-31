@@ -137,6 +137,99 @@ CREATE POLICY early_warning_configs_tenant_isolation ON early_warning_configs
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
 -- =============================================================
+-- SEN Module RLS Policies
+-- =============================================================
+-- Defined in: packages/prisma/migrations/20260331100000_add_sen_tables/post_migrate.sql
+
+-- sen_profiles (standard)
+ALTER TABLE sen_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_profiles FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_profiles_tenant_isolation ON sen_profiles;
+CREATE POLICY sen_profiles_tenant_isolation ON sen_profiles
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_support_plans (standard)
+ALTER TABLE sen_support_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_support_plans FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_support_plans_tenant_isolation ON sen_support_plans;
+CREATE POLICY sen_support_plans_tenant_isolation ON sen_support_plans
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_goals (standard)
+ALTER TABLE sen_goals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_goals FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_goals_tenant_isolation ON sen_goals;
+CREATE POLICY sen_goals_tenant_isolation ON sen_goals
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_goal_strategies (standard)
+ALTER TABLE sen_goal_strategies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_goal_strategies FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_goal_strategies_tenant_isolation ON sen_goal_strategies;
+CREATE POLICY sen_goal_strategies_tenant_isolation ON sen_goal_strategies
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_goal_progress (standard)
+ALTER TABLE sen_goal_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_goal_progress FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_goal_progress_tenant_isolation ON sen_goal_progress;
+CREATE POLICY sen_goal_progress_tenant_isolation ON sen_goal_progress
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_resource_allocations (standard)
+ALTER TABLE sen_resource_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_resource_allocations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_resource_allocations_tenant_isolation ON sen_resource_allocations;
+CREATE POLICY sen_resource_allocations_tenant_isolation ON sen_resource_allocations
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_student_hours (standard)
+ALTER TABLE sen_student_hours ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_student_hours FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_student_hours_tenant_isolation ON sen_student_hours;
+CREATE POLICY sen_student_hours_tenant_isolation ON sen_student_hours
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_sna_assignments (standard)
+ALTER TABLE sen_sna_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_sna_assignments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_sna_assignments_tenant_isolation ON sen_sna_assignments;
+CREATE POLICY sen_sna_assignments_tenant_isolation ON sen_sna_assignments
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_professional_involvements (standard)
+ALTER TABLE sen_professional_involvements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_professional_involvements FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_professional_involvements_tenant_isolation ON sen_professional_involvements;
+CREATE POLICY sen_professional_involvements_tenant_isolation ON sen_professional_involvements
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_accommodations (standard)
+ALTER TABLE sen_accommodations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_accommodations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_accommodations_tenant_isolation ON sen_accommodations;
+CREATE POLICY sen_accommodations_tenant_isolation ON sen_accommodations
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- sen_transition_notes (standard)
+ALTER TABLE sen_transition_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sen_transition_notes FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sen_transition_notes_tenant_isolation ON sen_transition_notes;
+CREATE POLICY sen_transition_notes_tenant_isolation ON sen_transition_notes
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- =============================================================
 -- Homework & Diary RLS Policies
 -- =============================================================
 -- Defined in: packages/prisma/migrations/20260330000000_add_homework_diary_tables/post_migrate.sql

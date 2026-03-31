@@ -11,221 +11,896 @@ export interface PermissionSeed {
 
 export const PERMISSION_SEEDS: PermissionSeed[] = [
   // ─── Platform tier ─────────────────────────────────────────────────────────
-  { permission_key: 'tenants.manage', description: 'Create, update, suspend, and archive tenants', permission_tier: 'platform' },
-  { permission_key: 'tenants.view', description: 'View tenant list and details', permission_tier: 'platform' },
-  { permission_key: 'platform.impersonate', description: 'Impersonate users in any tenant (read-only)', permission_tier: 'platform' },
-  { permission_key: 'platform.reset_mfa', description: 'Reset MFA for any user', permission_tier: 'platform' },
+  {
+    permission_key: 'tenants.manage',
+    description: 'Create, update, suspend, and archive tenants',
+    permission_tier: 'platform',
+  },
+  {
+    permission_key: 'tenants.view',
+    description: 'View tenant list and details',
+    permission_tier: 'platform',
+  },
+  {
+    permission_key: 'platform.impersonate',
+    description: 'Impersonate users in any tenant (read-only)',
+    permission_tier: 'platform',
+  },
+  {
+    permission_key: 'platform.reset_mfa',
+    description: 'Reset MFA for any user',
+    permission_tier: 'platform',
+  },
 
   // ─── Admin tier — User & Role management ───────────────────────────────────
-  { permission_key: 'users.manage', description: 'Manage users within tenant (suspend, reactivate)', permission_tier: 'admin' },
-  { permission_key: 'users.invite', description: 'Send invitations to new users', permission_tier: 'admin' },
-  { permission_key: 'users.view', description: 'View user list within tenant', permission_tier: 'admin' },
-  { permission_key: 'roles.manage', description: 'Create, edit, and delete custom roles', permission_tier: 'admin' },
+  {
+    permission_key: 'users.manage',
+    description: 'Manage users within tenant (suspend, reactivate)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'users.invite',
+    description: 'Send invitations to new users',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'users.view',
+    description: 'View user list within tenant',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'roles.manage',
+    description: 'Create, edit, and delete custom roles',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Settings & Configuration ─────────────────────────────────
-  { permission_key: 'settings.manage', description: 'Manage tenant settings', permission_tier: 'admin' },
-  { permission_key: 'branding.manage', description: 'Manage school branding and logos', permission_tier: 'admin' },
-  { permission_key: 'stripe.manage', description: 'Configure Stripe payment keys', permission_tier: 'admin' },
-  { permission_key: 'notifications.manage', description: 'Manage notification settings', permission_tier: 'admin' },
-  { permission_key: 'modules.manage', description: 'Enable or disable tenant modules', permission_tier: 'admin' },
-  { permission_key: 'domains.manage', description: 'Manage custom domains', permission_tier: 'admin' },
+  {
+    permission_key: 'settings.manage',
+    description: 'Manage tenant settings',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'branding.manage',
+    description: 'Manage school branding and logos',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'stripe.manage',
+    description: 'Configure Stripe payment keys',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'notifications.manage',
+    description: 'Manage notification settings',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'modules.manage',
+    description: 'Enable or disable tenant modules',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'domains.manage',
+    description: 'Manage custom domains',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Approvals ────────────────────────────────────────────────
-  { permission_key: 'approvals.manage', description: 'Configure approval workflows', permission_tier: 'admin' },
-  { permission_key: 'approvals.view', description: 'View approval requests', permission_tier: 'admin' },
+  {
+    permission_key: 'approvals.manage',
+    description: 'Configure approval workflows',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'approvals.view',
+    description: 'View approval requests',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Payroll ──────────────────────────────────────────────────
-  { permission_key: 'payroll.view', description: 'View payroll runs, entries, payslips, and reports', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_compensation', description: 'Create and edit staff compensation records', permission_tier: 'admin' },
-  { permission_key: 'payroll.create_run', description: 'Create and edit draft payroll runs', permission_tier: 'admin' },
-  { permission_key: 'payroll.finalise_run', description: 'Finalise payroll runs', permission_tier: 'admin' },
-  { permission_key: 'payroll.generate_payslips', description: 'Generate and export payslip PDFs', permission_tier: 'admin' },
-  { permission_key: 'payroll.view_bank_details', description: 'View decrypted staff bank account details (audit-logged)', permission_tier: 'admin' },
-  { permission_key: 'payroll.view_reports', description: 'View payroll analytics and summary reports', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_attendance', description: 'Mark and manage daily staff attendance records', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_class_delivery', description: 'Confirm and manage class delivery records', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_exports', description: 'Create export templates and export payroll data', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_allowances', description: 'Configure allowance types and staff allowance assignments', permission_tier: 'admin' },
-  { permission_key: 'payroll.manage_deductions', description: 'Create and manage staff recurring deductions', permission_tier: 'admin' },
+  {
+    permission_key: 'payroll.view',
+    description: 'View payroll runs, entries, payslips, and reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_compensation',
+    description: 'Create and edit staff compensation records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.create_run',
+    description: 'Create and edit draft payroll runs',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.finalise_run',
+    description: 'Finalise payroll runs',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.generate_payslips',
+    description: 'Generate and export payslip PDFs',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.view_bank_details',
+    description: 'View decrypted staff bank account details (audit-logged)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.view_reports',
+    description: 'View payroll analytics and summary reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_attendance',
+    description: 'Mark and manage daily staff attendance records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_class_delivery',
+    description: 'Confirm and manage class delivery records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_exports',
+    description: 'Create export templates and export payroll data',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_allowances',
+    description: 'Configure allowance types and staff allowance assignments',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'payroll.manage_deductions',
+    description: 'Create and manage staff recurring deductions',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Schedule ─────────────────────────────────────────────────
-  { permission_key: 'schedule.manage', description: 'Manage schedule entries (create, edit, delete)', permission_tier: 'admin' },
-  { permission_key: 'schedule.override_conflict', description: 'Override hard scheduling conflicts with reason', permission_tier: 'admin' },
-  { permission_key: 'schedule.manage_closures', description: 'Manage school closures and non-teaching days', permission_tier: 'admin' },
-  { permission_key: 'schedule.configure_period_grid', description: 'Configure period grid (time slots, breaks)', permission_tier: 'admin' },
-  { permission_key: 'schedule.configure_requirements', description: 'Configure scheduling requirements per class', permission_tier: 'admin' },
-  { permission_key: 'schedule.configure_availability', description: 'Configure teacher and room availability', permission_tier: 'admin' },
-  { permission_key: 'schedule.manage_preferences', description: 'Manage teacher scheduling preferences', permission_tier: 'admin' },
-  { permission_key: 'schedule.run_auto', description: 'Run auto-scheduler solver', permission_tier: 'admin' },
-  { permission_key: 'schedule.apply_auto', description: 'Apply auto-scheduler results to live schedule', permission_tier: 'admin' },
-  { permission_key: 'schedule.pin_entries', description: 'Pin schedule entries (prevent auto-scheduler changes)', permission_tier: 'admin' },
-  { permission_key: 'schedule.view_auto_reports', description: 'View auto-scheduler reports and diagnostics', permission_tier: 'admin' },
-  { permission_key: 'schedule.manage_substitutions', description: 'Report teacher absences, find and assign substitutes', permission_tier: 'admin' },
-  { permission_key: 'schedule.view_reports', description: 'View scheduling reports: cover analytics, workload heatmap, room utilization', permission_tier: 'admin' },
-  { permission_key: 'schedule.manage_exams', description: 'Create and manage exam timetable sessions and slots', permission_tier: 'admin' },
-  { permission_key: 'schedule.manage_scenarios', description: 'Create and manage what-if scheduling scenarios', permission_tier: 'admin' },
+  {
+    permission_key: 'schedule.manage',
+    description: 'Manage schedule entries (create, edit, delete)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.override_conflict',
+    description: 'Override hard scheduling conflicts with reason',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.manage_closures',
+    description: 'Manage school closures and non-teaching days',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.configure_period_grid',
+    description: 'Configure period grid (time slots, breaks)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.configure_requirements',
+    description: 'Configure scheduling requirements per class',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.configure_availability',
+    description: 'Configure teacher and room availability',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.manage_preferences',
+    description: 'Manage teacher scheduling preferences',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.run_auto',
+    description: 'Run auto-scheduler solver',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.apply_auto',
+    description: 'Apply auto-scheduler results to live schedule',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.pin_entries',
+    description: 'Pin schedule entries (prevent auto-scheduler changes)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.view_auto_reports',
+    description: 'View auto-scheduler reports and diagnostics',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.manage_substitutions',
+    description: 'Report teacher absences, find and assign substitutes',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.view_reports',
+    description: 'View scheduling reports: cover analytics, workload heatmap, room utilization',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.manage_exams',
+    description: 'Create and manage exam timetable sessions and slots',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'schedule.manage_scenarios',
+    description: 'Create and manage what-if scheduling scenarios',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Students ─────────────────────────────────────────────────
-  { permission_key: 'students.manage', description: 'Manage student records', permission_tier: 'admin' },
-  { permission_key: 'students.view', description: 'View student records', permission_tier: 'admin' },
+  {
+    permission_key: 'students.manage',
+    description: 'Manage student records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'students.view',
+    description: 'View student records',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Attendance ───────────────────────────────────────────────
-  { permission_key: 'attendance.manage', description: 'Manage attendance configuration and overrides', permission_tier: 'admin' },
-  { permission_key: 'attendance.view', description: 'View attendance records', permission_tier: 'admin' },
-  { permission_key: 'attendance.amend_historical', description: 'Amend past attendance records', permission_tier: 'admin' },
-  { permission_key: 'attendance.override_closure', description: 'Create attendance session on a closure date', permission_tier: 'admin' },
+  {
+    permission_key: 'attendance.manage',
+    description: 'Manage attendance configuration and overrides',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'attendance.view',
+    description: 'View attendance records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'attendance.amend_historical',
+    description: 'Amend past attendance records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'attendance.override_closure',
+    description: 'Create attendance session on a closure date',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Gradebook ────────────────────────────────────────────────
-  { permission_key: 'gradebook.manage', description: 'Manage gradebook configuration', permission_tier: 'admin' },
-  { permission_key: 'gradebook.view', description: 'View gradebook data', permission_tier: 'admin' },
-  { permission_key: 'gradebook.override_final_grade', description: 'Override computed period grade display value', permission_tier: 'admin' },
-  { permission_key: 'gradebook.publish_report_cards', description: 'Publish report cards to parents', permission_tier: 'admin' },
-  { permission_key: 'gradebook.apply_curve', description: 'Apply grade curves and adjustments to assessment scores', permission_tier: 'admin' },
-  { permission_key: 'gradebook.view_analytics', description: 'View gradebook analytics and performance reports', permission_tier: 'admin' },
-  { permission_key: 'gradebook.publish_grades_to_parents', description: 'Publish individual grades to parent portal', permission_tier: 'admin' },
-  { permission_key: 'gradebook.approve_ai_grading', description: 'Review and approve AI-generated grading suggestions', permission_tier: 'admin' },
-  { permission_key: 'transcripts.generate', description: 'Generate academic transcripts', permission_tier: 'admin' },
+  {
+    permission_key: 'gradebook.manage',
+    description: 'Manage gradebook configuration',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.view',
+    description: 'View gradebook data',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.override_final_grade',
+    description: 'Override computed period grade display value',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.publish_report_cards',
+    description: 'Publish report cards to parents',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.apply_curve',
+    description: 'Apply grade curves and adjustments to assessment scores',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.view_analytics',
+    description: 'View gradebook analytics and performance reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.publish_grades_to_parents',
+    description: 'Publish individual grades to parent portal',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gradebook.approve_ai_grading',
+    description: 'Review and approve AI-generated grading suggestions',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'transcripts.generate',
+    description: 'Generate academic transcripts',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Report Cards ─────────────────────────────────────────────
-  { permission_key: 'report_cards.approve', description: 'Approve report cards before publishing', permission_tier: 'admin' },
-  { permission_key: 'report_cards.manage_templates', description: 'Create and manage report card templates', permission_tier: 'admin' },
-  { permission_key: 'report_cards.bulk_operations', description: 'Perform bulk operations on report cards (generate, publish, export)', permission_tier: 'admin' },
+  {
+    permission_key: 'report_cards.approve',
+    description: 'Approve report cards before publishing',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'report_cards.manage_templates',
+    description: 'Create and manage report card templates',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'report_cards.bulk_operations',
+    description: 'Perform bulk operations on report cards (generate, publish, export)',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Admissions ───────────────────────────────────────────────
-  { permission_key: 'admissions.manage', description: 'Manage admissions applications and workflows', permission_tier: 'admin' },
-  { permission_key: 'admissions.view', description: 'View admissions applications', permission_tier: 'admin' },
+  {
+    permission_key: 'admissions.manage',
+    description: 'Manage admissions applications and workflows',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'admissions.view',
+    description: 'View admissions applications',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Finance ──────────────────────────────────────────────────
-  { permission_key: 'finance.manage', description: 'Manage finance configuration and fee structures', permission_tier: 'admin' },
+  {
+    permission_key: 'finance.manage',
+    description: 'Manage finance configuration and fee structures',
+    permission_tier: 'admin',
+  },
   { permission_key: 'finance.view', description: 'View financial data', permission_tier: 'admin' },
-  { permission_key: 'finance.process_payments', description: 'Process and record payments', permission_tier: 'admin' },
-  { permission_key: 'finance.issue_refunds', description: 'Issue refunds', permission_tier: 'admin' },
+  {
+    permission_key: 'finance.process_payments',
+    description: 'Process and record payments',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'finance.issue_refunds',
+    description: 'Issue refunds',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Communications ───────────────────────────────────────────
-  { permission_key: 'communications.manage', description: 'Manage communications and announcements', permission_tier: 'admin' },
-  { permission_key: 'communications.view', description: 'View communication history', permission_tier: 'admin' },
-  { permission_key: 'communications.send', description: 'Send communications and announcements', permission_tier: 'admin' },
+  {
+    permission_key: 'communications.manage',
+    description: 'Manage communications and announcements',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'communications.view',
+    description: 'View communication history',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'communications.send',
+    description: 'Send communications and announcements',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Parent Inquiries ─────────────────────────────────────────
-  { permission_key: 'inquiries.view', description: 'View parent inquiries and messages', permission_tier: 'admin' },
-  { permission_key: 'inquiries.respond', description: 'Respond to parent inquiries', permission_tier: 'admin' },
+  {
+    permission_key: 'inquiries.view',
+    description: 'View parent inquiries and messages',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'inquiries.respond',
+    description: 'Respond to parent inquiries',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Website ──────────────────────────────────────────────────
-  { permission_key: 'website.manage', description: 'Manage public school website content', permission_tier: 'admin' },
+  {
+    permission_key: 'website.manage',
+    description: 'Manage public school website content',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Analytics ────────────────────────────────────────────────
-  { permission_key: 'analytics.view', description: 'View analytics dashboards and reports', permission_tier: 'admin' },
-  { permission_key: 'analytics.manage_reports', description: 'Create custom reports, schedule delivery, and set threshold alerts', permission_tier: 'admin' },
-  { permission_key: 'analytics.view_board_reports', description: 'View and generate board governance reports', permission_tier: 'admin' },
-  { permission_key: 'analytics.manage_compliance', description: 'Configure compliance report templates for regulatory submissions', permission_tier: 'admin' },
+  {
+    permission_key: 'analytics.view',
+    description: 'View analytics dashboards and reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'analytics.manage_reports',
+    description: 'Create custom reports, schedule delivery, and set threshold alerts',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'analytics.view_board_reports',
+    description: 'View and generate board governance reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'analytics.manage_compliance',
+    description: 'Configure compliance report templates for regulatory submissions',
+    permission_tier: 'admin',
+  },
 
   // ─── Admin tier — Compliance ───────────────────────────────────────────────
-  { permission_key: 'curriculum_matrix.manage', description: 'Unlock and modify the curriculum matrix (class-subject assignments)', permission_tier: 'admin' },
-  { permission_key: 'compliance.manage', description: 'Manage compliance and GDPR settings', permission_tier: 'admin' },
-  { permission_key: 'compliance.view', description: 'View audit logs and compliance reports', permission_tier: 'admin' },
-  { permission_key: 'gdpr.view', description: 'View GDPR export policies and token usage audit logs', permission_tier: 'admin' },
-  { permission_key: 'legal.view', description: 'View data processing agreement status and legal documents', permission_tier: 'parent' },
-  { permission_key: 'legal.manage', description: 'Accept and manage tenant data processing agreement records', permission_tier: 'admin' },
-  { permission_key: 'privacy.view', description: 'View privacy notice version history', permission_tier: 'admin' },
-  { permission_key: 'privacy.manage', description: 'Create and publish privacy notice versions', permission_tier: 'admin' },
-  { permission_key: 'consent.manage', description: 'Grant and withdraw consent records for tenant subjects', permission_tier: 'admin' },
-  { permission_key: 'consent.view', description: 'View consent records for tenant subjects', permission_tier: 'admin' },
+  {
+    permission_key: 'curriculum_matrix.manage',
+    description: 'Unlock and modify the curriculum matrix (class-subject assignments)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'compliance.manage',
+    description: 'Manage compliance and GDPR settings',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'compliance.view',
+    description: 'View audit logs and compliance reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'gdpr.view',
+    description: 'View GDPR export policies and token usage audit logs',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'legal.view',
+    description: 'View data processing agreement status and legal documents',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'legal.manage',
+    description: 'Accept and manage tenant data processing agreement records',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'privacy.view',
+    description: 'View privacy notice version history',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'privacy.manage',
+    description: 'Create and publish privacy notice versions',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'consent.manage',
+    description: 'Grant and withdraw consent records for tenant subjects',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'consent.view',
+    description: 'View consent records for tenant subjects',
+    permission_tier: 'admin',
+  },
 
   // ─── Staff tier ────────────────────────────────────────────────────────────
-  { permission_key: 'attendance.take', description: 'Take attendance for assigned classes', permission_tier: 'staff' },
-  { permission_key: 'gradebook.enter_grades', description: 'Enter grades for assigned classes', permission_tier: 'staff' },
-  { permission_key: 'gradebook.manage_ai_grading', description: 'Configure and use AI grading for assigned classes', permission_tier: 'staff' },
-  { permission_key: 'schedule.view_own', description: 'View own schedule', permission_tier: 'staff' },
-  { permission_key: 'schedule.manage_own_preferences', description: 'Manage own scheduling preferences', permission_tier: 'staff' },
-  { permission_key: 'schedule.view_own_satisfaction', description: 'View own preference satisfaction score', permission_tier: 'staff' },
-  { permission_key: 'schedule.view_personal_timetable', description: 'View personal timetable and generate calendar subscription links', permission_tier: 'staff' },
+  {
+    permission_key: 'attendance.take',
+    description: 'Take attendance for assigned classes',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'gradebook.enter_grades',
+    description: 'Enter grades for assigned classes',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'gradebook.manage_ai_grading',
+    description: 'Configure and use AI grading for assigned classes',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'schedule.view_own',
+    description: 'View own schedule',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'schedule.manage_own_preferences',
+    description: 'Manage own scheduling preferences',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'schedule.view_own_satisfaction',
+    description: 'View own preference satisfaction score',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'schedule.view_personal_timetable',
+    description: 'View personal timetable and generate calendar subscription links',
+    permission_tier: 'staff',
+  },
 
   // ─── Parent tier ───────────────────────────────────────────────────────────
-  { permission_key: 'parent.view_own_students', description: 'View own linked students', permission_tier: 'parent' },
-  { permission_key: 'parent.view_attendance', description: 'View attendance for linked students', permission_tier: 'parent' },
-  { permission_key: 'parent.view_grades', description: 'View grades for linked students', permission_tier: 'parent' },
-  { permission_key: 'parent.view_invoices', description: 'View invoices for household', permission_tier: 'parent' },
-  { permission_key: 'parent.make_payments', description: 'Make payments for household invoices', permission_tier: 'parent' },
-  { permission_key: 'parent.submit_inquiry', description: 'Submit parent inquiries', permission_tier: 'parent' },
-  { permission_key: 'parent.view_announcements', description: 'View school announcements', permission_tier: 'parent' },
-  { permission_key: 'parent.view_transcripts', description: 'View and download own children\'s transcripts', permission_tier: 'parent' },
-  { permission_key: 'parent.view_behaviour', description: 'View behaviour data for linked students', permission_tier: 'parent' },
+  {
+    permission_key: 'parent.view_own_students',
+    description: 'View own linked students',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_attendance',
+    description: 'View attendance for linked students',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_grades',
+    description: 'View grades for linked students',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_invoices',
+    description: 'View invoices for household',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.make_payments',
+    description: 'Make payments for household invoices',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.submit_inquiry',
+    description: 'Submit parent inquiries',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_announcements',
+    description: 'View school announcements',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_transcripts',
+    description: "View and download own children's transcripts",
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'parent.view_behaviour',
+    description: 'View behaviour data for linked students',
+    permission_tier: 'parent',
+  },
 
   // ─── Behaviour Management ──────────────────────────────────────────────────
-  { permission_key: 'behaviour.log', description: 'Create incidents, access quick-log', permission_tier: 'staff' },
-  { permission_key: 'behaviour.view', description: 'View incidents within scope', permission_tier: 'staff' },
-  { permission_key: 'behaviour.manage', description: 'Manage sanctions, interventions, tasks, appeals', permission_tier: 'staff' },
-  { permission_key: 'behaviour.admin', description: 'Configure behaviour module, admin operations', permission_tier: 'admin' },
-  { permission_key: 'behaviour.view_sensitive', description: 'View context notes and SEND notes', permission_tier: 'staff' },
-  { permission_key: 'behaviour.view_staff_analytics', description: 'View staff logging activity', permission_tier: 'admin' },
-  { permission_key: 'behaviour.ai_query', description: 'AI narrative and natural language query', permission_tier: 'staff' },
-  { permission_key: 'behaviour.appeal', description: 'Submit appeal as parent', permission_tier: 'parent' },
-  { permission_key: 'behaviour.amend', description: 'Send correction notices for incident amendments', permission_tier: 'staff' },
+  {
+    permission_key: 'behaviour.log',
+    description: 'Create incidents, access quick-log',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'behaviour.view',
+    description: 'View incidents within scope',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'behaviour.manage',
+    description: 'Manage sanctions, interventions, tasks, appeals',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'behaviour.admin',
+    description: 'Configure behaviour module, admin operations',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'behaviour.view_sensitive',
+    description: 'View context notes and SEND notes',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'behaviour.view_staff_analytics',
+    description: 'View staff logging activity',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'behaviour.ai_query',
+    description: 'AI narrative and natural language query',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'behaviour.appeal',
+    description: 'Submit appeal as parent',
+    permission_tier: 'parent',
+  },
+  {
+    permission_key: 'behaviour.amend',
+    description: 'Send correction notices for incident amendments',
+    permission_tier: 'staff',
+  },
+
+  // ─── SEN ────────────────────────────────────────────────────────────────
+  {
+    permission_key: 'sen.view',
+    description: 'View SEN profiles and support plans within scope',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'sen.manage',
+    description: 'Create and update SEN profiles, support plans, and goals',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'sen.manage_resources',
+    description: 'Manage SENO resource allocations and SNA assignments',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'sen.view_sensitive',
+    description: 'View diagnosis details and professional involvement records',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'sen.admin',
+    description: 'Administer SEN settings and oversight workflows',
+    permission_tier: 'admin',
+  },
 
   // ─── Pastoral Care ────────────────────────────────────────────────────────
-  { permission_key: 'pastoral.log_concern', description: 'Create a concern for any student', permission_tier: 'staff' },
-  { permission_key: 'pastoral.view_tier1', description: 'View Tier 1 (general pastoral) concerns', permission_tier: 'staff' },
-  { permission_key: 'pastoral.view_tier2', description: 'View Tier 2 (sensitive pastoral) concerns and cases', permission_tier: 'staff' },
-  { permission_key: 'pastoral.manage_cases', description: 'Create/edit cases, assign owners, change status', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_interventions', description: 'Create/edit intervention plans and actions', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_referrals', description: 'Create/edit NEPS and external referrals', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_sst', description: 'Manage SST roster, schedule meetings, manage agenda', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_checkins', description: 'Configure self-check-in settings, view individual check-ins', permission_tier: 'admin' },
-  { permission_key: 'pastoral.view_checkin_aggregate', description: 'View anonymised aggregate check-in analytics', permission_tier: 'admin' },
-  { permission_key: 'pastoral.export_tier1_2', description: 'Export Tier 1/2 records (standard flow)', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_critical_incidents', description: 'Declare and manage critical incidents', permission_tier: 'admin' },
-  { permission_key: 'pastoral.view_reports', description: 'View pastoral reports and analytics', permission_tier: 'admin' },
-  { permission_key: 'pastoral.dsar_review', description: 'Review pastoral records for DSAR responses', permission_tier: 'admin' },
-  { permission_key: 'pastoral.import_historical', description: 'Import historical concerns via CSV', permission_tier: 'admin' },
+  {
+    permission_key: 'pastoral.log_concern',
+    description: 'Create a concern for any student',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'pastoral.view_tier1',
+    description: 'View Tier 1 (general pastoral) concerns',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'pastoral.view_tier2',
+    description: 'View Tier 2 (sensitive pastoral) concerns and cases',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'pastoral.manage_cases',
+    description: 'Create/edit cases, assign owners, change status',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_interventions',
+    description: 'Create/edit intervention plans and actions',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_referrals',
+    description: 'Create/edit NEPS and external referrals',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_sst',
+    description: 'Manage SST roster, schedule meetings, manage agenda',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_checkins',
+    description: 'Configure self-check-in settings, view individual check-ins',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.view_checkin_aggregate',
+    description: 'View anonymised aggregate check-in analytics',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.export_tier1_2',
+    description: 'Export Tier 1/2 records (standard flow)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_critical_incidents',
+    description: 'Declare and manage critical incidents',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.view_reports',
+    description: 'View pastoral reports and analytics',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.dsar_review',
+    description: 'Review pastoral records for DSAR responses',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.import_historical',
+    description: 'Import historical concerns via CSV',
+    permission_tier: 'admin',
+  },
 
   // ─── Pastoral Care — Tier 3 / CP operations ──────────────────────────────
-  { permission_key: 'pastoral.manage_cp_access', description: 'Grant/revoke CP access to other users', permission_tier: 'admin' },
-  { permission_key: 'pastoral.export_tier3', description: 'Export Tier 3 records (purpose/confirm/watermark flow)', permission_tier: 'admin' },
-  { permission_key: 'pastoral.manage_mandated_reports', description: 'Create/submit mandated reports', permission_tier: 'admin' },
+  {
+    permission_key: 'pastoral.manage_cp_access',
+    description: 'Grant/revoke CP access to other users',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.export_tier3',
+    description: 'Export Tier 3 records (purpose/confirm/watermark flow)',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'pastoral.manage_mandated_reports',
+    description: 'Create/submit mandated reports',
+    permission_tier: 'admin',
+  },
 
   // ─── Pastoral Care — Parent tier ─────────────────────────────────────────
-  { permission_key: 'pastoral.parent_self_referral', description: 'Submit a concern about own child (parent)', permission_tier: 'parent' },
+  {
+    permission_key: 'pastoral.parent_self_referral',
+    description: 'Submit a concern about own child (parent)',
+    permission_tier: 'parent',
+  },
 
   // ─── Safeguarding ────────────────────────────────────────────────────────
-  { permission_key: 'safeguarding.report', description: 'Report safeguarding concerns', permission_tier: 'staff' },
-  { permission_key: 'safeguarding.view', description: 'View safeguarding concerns', permission_tier: 'admin' },
-  { permission_key: 'safeguarding.manage', description: 'Manage safeguarding concerns', permission_tier: 'admin' },
-  { permission_key: 'safeguarding.seal', description: 'Seal safeguarding concerns (irreversible)', permission_tier: 'admin' },
+  {
+    permission_key: 'safeguarding.report',
+    description: 'Report safeguarding concerns',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'safeguarding.view',
+    description: 'View safeguarding concerns',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'safeguarding.manage',
+    description: 'Manage safeguarding concerns',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'safeguarding.seal',
+    description: 'Seal safeguarding concerns (irreversible)',
+    permission_tier: 'admin',
+  },
 
   // ─── Regulatory Portal ─────────────────────────────────────────────────────
-  { permission_key: 'regulatory.view', description: 'View regulatory dashboard, calendar, and compliance status', permission_tier: 'staff' },
-  { permission_key: 'regulatory.manage', description: 'Manage regulatory calendar, submissions, and configuration', permission_tier: 'admin' },
-  { permission_key: 'regulatory.view_tusla', description: 'View Tusla threshold monitor and absence reports', permission_tier: 'staff' },
-  { permission_key: 'regulatory.manage_tusla', description: 'Generate Tusla SARs and AARs, manage absence code mappings', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_des', description: 'Generate DES September Returns files and manage subject mappings', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_october_returns', description: 'View and validate October Returns readiness', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_ppod', description: 'Manage P-POD/POD sync, import/export student data', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_cba', description: 'Sync CBA results to PPOD', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_transfers', description: 'Manage inter-school transfers via PPOD', permission_tier: 'admin' },
-  { permission_key: 'regulatory.manage_reduced_days', description: 'Manage reduced school day records and Tusla notifications', permission_tier: 'admin' },
-  { permission_key: 'regulatory.view_submissions', description: 'View regulatory submission audit log', permission_tier: 'admin' },
+  {
+    permission_key: 'regulatory.view',
+    description: 'View regulatory dashboard, calendar, and compliance status',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'regulatory.manage',
+    description: 'Manage regulatory calendar, submissions, and configuration',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.view_tusla',
+    description: 'View Tusla threshold monitor and absence reports',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'regulatory.manage_tusla',
+    description: 'Generate Tusla SARs and AARs, manage absence code mappings',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_des',
+    description: 'Generate DES September Returns files and manage subject mappings',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_october_returns',
+    description: 'View and validate October Returns readiness',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_ppod',
+    description: 'Manage P-POD/POD sync, import/export student data',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_cba',
+    description: 'Sync CBA results to PPOD',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_transfers',
+    description: 'Manage inter-school transfers via PPOD',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.manage_reduced_days',
+    description: 'Manage reduced school day records and Tusla notifications',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'regulatory.view_submissions',
+    description: 'View regulatory submission audit log',
+    permission_tier: 'admin',
+  },
 
   // ─── Staff Wellbeing ──────────────────────────────────────────────────────
-  { permission_key: 'wellbeing.view_own_workload', description: 'View own personal workload dashboard', permission_tier: 'staff' },
-  { permission_key: 'wellbeing.view_aggregate', description: 'View school-wide aggregate wellbeing dashboards', permission_tier: 'admin' },
-  { permission_key: 'wellbeing.manage_surveys', description: 'Create, edit, activate, and close staff surveys', permission_tier: 'admin' },
-  { permission_key: 'wellbeing.view_survey_results', description: 'View aggregate survey results after close', permission_tier: 'admin' },
-  { permission_key: 'wellbeing.moderate_surveys', description: 'Access moderation queue, approve/flag/redact responses', permission_tier: 'admin' },
-  { permission_key: 'wellbeing.view_board_report', description: 'View and generate termly board wellbeing report', permission_tier: 'admin' },
-  { permission_key: 'wellbeing.manage_resources', description: 'Edit EAP and support resource configuration', permission_tier: 'admin' },
+  {
+    permission_key: 'wellbeing.view_own_workload',
+    description: 'View own personal workload dashboard',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'wellbeing.view_aggregate',
+    description: 'View school-wide aggregate wellbeing dashboards',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.manage_surveys',
+    description: 'Create, edit, activate, and close staff surveys',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.view_survey_results',
+    description: 'View aggregate survey results after close',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.moderate_surveys',
+    description: 'Access moderation queue, approve/flag/redact responses',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.view_board_report',
+    description: 'View and generate termly board wellbeing report',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'wellbeing.manage_resources',
+    description: 'Edit EAP and support resource configuration',
+    permission_tier: 'admin',
+  },
 
   // ─── Early Warning System ─────────────────────────────────────────────────
-  { permission_key: 'early_warning.view', description: 'View early warning risk profiles', permission_tier: 'staff' },
-  { permission_key: 'early_warning.manage', description: 'Manage early warning configuration', permission_tier: 'admin' },
-  { permission_key: 'early_warning.acknowledge', description: 'Acknowledge reviewed risk profiles', permission_tier: 'staff' },
-  { permission_key: 'early_warning.assign', description: 'Assign staff to risk profiles', permission_tier: 'admin' },
+  {
+    permission_key: 'early_warning.view',
+    description: 'View early warning risk profiles',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'early_warning.manage',
+    description: 'Manage early warning configuration',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'early_warning.acknowledge',
+    description: 'Acknowledge reviewed risk profiles',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'early_warning.assign',
+    description: 'Assign staff to risk profiles',
+    permission_tier: 'admin',
+  },
 
   // ─── Homework & Diary ─────────────────────────────────────────────────────
-  { permission_key: 'homework.view', description: 'View homework assignments and completions', permission_tier: 'staff' },
-  { permission_key: 'homework.manage', description: 'Create, edit, delete assignments; manage completions', permission_tier: 'staff' },
-  { permission_key: 'homework.mark_own', description: 'Mark own class completions (teacher marking)', permission_tier: 'staff' },
-  { permission_key: 'homework.view_diary', description: 'View diary notes for assigned students', permission_tier: 'staff' },
-  { permission_key: 'homework.write_diary', description: 'Write diary notes (proxy for student, or student in future)', permission_tier: 'staff' },
-  { permission_key: 'homework.view_analytics', description: 'View homework analytics and load reports', permission_tier: 'admin' },
-  { permission_key: 'parent.homework', description: 'View homework, mark self-reported completion, diary notes', permission_tier: 'parent' },
+  {
+    permission_key: 'homework.view',
+    description: 'View homework assignments and completions',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'homework.manage',
+    description: 'Create, edit, delete assignments; manage completions',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'homework.mark_own',
+    description: 'Mark own class completions (teacher marking)',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'homework.view_diary',
+    description: 'View diary notes for assigned students',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'homework.write_diary',
+    description: 'Write diary notes (proxy for student, or student in future)',
+    permission_tier: 'staff',
+  },
+  {
+    permission_key: 'homework.view_analytics',
+    description: 'View homework analytics and load reports',
+    permission_tier: 'admin',
+  },
+  {
+    permission_key: 'parent.homework',
+    description: 'View homework, mark self-reported completion, diary notes',
+    permission_tier: 'parent',
+  },
 ];

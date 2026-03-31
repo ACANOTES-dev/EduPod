@@ -20,4 +20,15 @@ describe('tenantSettingsSchema defaults', () => {
 
     expect(defaults.gradebook.riskDetection.enabled).toBe(false);
   });
+
+  it('should default SEN settings safely for tenant rollout', () => {
+    const defaults = tenantSettingsSchema.parse({});
+
+    expect(defaults.sen.module_enabled).toBe(false);
+    expect(defaults.sen.default_review_cycle_weeks).toBe(12);
+    expect(defaults.sen.auto_flag_on_referral).toBe(true);
+    expect(defaults.sen.sna_schedule_format).toBe('weekly');
+    expect(defaults.sen.enable_parent_portal_access).toBe(true);
+    expect(defaults.sen.plan_number_prefix).toBe('SSP');
+  });
 });

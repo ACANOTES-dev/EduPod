@@ -12,8 +12,8 @@ import {
   type RoleTier,
 } from '@school/shared';
 
-import { AuthService } from '../auth/auth.service';
 import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -92,7 +92,19 @@ const DEFAULT_SETTINGS = {
   compliance: {
     auditLogRetentionMonths: 36,
   },
+  sen: {
+    module_enabled: false,
+    default_review_cycle_weeks: 12,
+    auto_flag_on_referral: true,
+    sna_schedule_format: 'weekly',
+    enable_parent_portal_access: true,
+    plan_number_prefix: 'SSP',
+  },
 };
+
+function getDefaultModuleEnabledState(moduleKey: (typeof MODULE_KEYS)[number]): boolean {
+  return moduleKey !== 'sen';
+}
 
 interface PaginationParams {
   page: number;
@@ -173,13 +185,14 @@ export class TenantsService {
       },
     });
 
-    // Create all modules (all enabled)
+    // Create module rows for every supported module. SEN ships disabled by
+    // default until the tenant explicitly enables the rollout.
     for (const moduleKey of MODULE_KEYS) {
       await this.prisma.tenantModule.create({
         data: {
           tenant_id: tenant.id,
           module_key: moduleKey,
-          is_enabled: true,
+          is_enabled: getDefaultModuleEnabledState(moduleKey),
         },
       });
     }

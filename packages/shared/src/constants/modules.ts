@@ -3,6 +3,7 @@ export const MODULE_KEYS = [
   'attendance',
   'gradebook',
   'homework',
+  'sen',
   'finance',
   'payroll',
   'communications',

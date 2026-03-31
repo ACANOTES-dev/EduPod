@@ -140,6 +140,9 @@ export * from './behaviour';
 // Pastoral Care
 export * from './pastoral';
 
+// SEN
+export * from './sen';
+
 // Staff Wellbeing
 export * from './staff-wellbeing';
 

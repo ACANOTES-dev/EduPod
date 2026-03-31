@@ -715,6 +715,19 @@ model Tenant {
   early_warning_tier_transitions EarlyWarningTierTransition[]
   early_warning_configs          EarlyWarningConfig?
 
+  // SEN Relations
+  sen_profiles                  SenProfile[]
+  sen_support_plans             SenSupportPlan[]
+  sen_goals                     SenGoal[]
+  sen_goal_strategies           SenGoalStrategy[]
+  sen_goal_progress             SenGoalProgress[]
+  sen_resource_allocations      SenResourceAllocation[]
+  sen_student_hours             SenStudentHours[]
+  sen_sna_assignments           SenSnaAssignment[]
+  sen_professional_involvements SenProfessionalInvolvement[]
+  sen_accommodations            SenAccommodation[]
+  sen_transition_notes          SenTransitionNote[]
+
   // Homework Relations
   homework_assignments      HomeworkAssignment[]
   homework_attachments      HomeworkAttachment[]
@@ -820,10 +833,77 @@ enum ModuleKey {
   approvals
   compliance
   ai
+  sen
   homework
   parent_digest
 
   @@map("ModuleKey")
+}
+
+enum SenCategory {
+  learning
+  emotional_behavioural
+  physical
+  sensory
+  asd
+  speech_language
+  multiple
+  other
+}
+
+enum SenSupportLevel {
+  school_support
+  school_support_plus
+}
+
+enum SupportPlanStatus {
+  draft
+  active
+  under_review
+  closed
+  archived
+}
+
+enum SenGoalStatus {
+  not_started
+  in_progress
+  partially_achieved
+  achieved
+  discontinued
+}
+
+enum SenProfessionalType {
+  educational_psychologist
+  speech_therapist
+  occupational_therapist
+  camhs
+  physiotherapist
+  seno
+  neps
+  other
+}
+
+enum SenReferralStatus {
+  pending
+  scheduled
+  completed
+  report_received
+}
+
+enum AccommodationType {
+  exam
+  classroom
+  assistive_technology
+}
+
+enum SnaAssignmentStatus {
+  active
+  ended
+}
+
+enum SenResourceSource {
+  seno
+  school
 }
 
 model TenantModuleSetting {
@@ -1112,6 +1192,15 @@ model User {
   ew_risk_profiles_assigned     StudentRiskProfile[]         @relation("ew_risk_profile_assigned_to")
   ew_risk_profiles_acknowledged StudentRiskProfile[]         @relation("ew_risk_profile_acknowledged_by")
   ew_tier_transitions_routed_to EarlyWarningTierTransition[] @relation("ew_tier_transition_routed_to")
+
+  // SEN Relations
+  sen_profiles_coordinated        SenProfile[]        @relation("sen_profile_coordinator")
+  sen_support_plans_reviewed      SenSupportPlan[]    @relation("sen_support_plan_reviewer")
+  sen_support_plans_created       SenSupportPlan[]    @relation("sen_support_plan_creator")
+  sen_goal_strategies_responsible SenGoalStrategy[]   @relation("sen_goal_strategy_responsible")
+  sen_goal_progress_recorded      SenGoalProgress[]   @relation("sen_goal_progress_recorder")
+  sen_accommodations_approved     SenAccommodation[]  @relation("sen_accommodation_approver")
+  sen_transition_notes_created    SenTransitionNote[] @relation("sen_transition_note_creator")
 
   // Homework Relations
   hw_assignments          HomeworkAssignment[] @relation("hw_assigned_by")
@@ -1574,6 +1663,11 @@ model Student {
   ew_risk_signals     StudentRiskSignal[]          @relation("ew_risk_signal_student")
   ew_tier_transitions EarlyWarningTierTransition[] @relation("ew_tier_transition_student")
 
+  // SEN Relations
+  sen_profile         SenProfile?
+  sen_student_hours   SenStudentHours[]
+  sen_sna_assignments SenSnaAssignment[]
+
   // Homework Relations
   hw_completions        HomeworkCompletion[]
   hw_diary_notes        DiaryNote[]
@@ -1666,6 +1760,9 @@ model StaffProfile {
   // Pastoral Care Relations
   pc_critical_affected CriticalIncidentAffected[] @relation("pc_critical_affected_staff")
 
+  // SEN Relations
+  sen_sna_assignments SenSnaAssignment[]
+
   // Engagement Relations
   eng_event_staff     EngagementEventStaff[]
   eng_conf_time_slots ConferenceTimeSlot[]
@@ -1719,6 +1816,10 @@ model AcademicYear {
   // Early Warning Relations
   ew_risk_profiles StudentRiskProfile[] @relation("ew_risk_profile_academic_year")
   ew_risk_signals  StudentRiskSignal[]  @relation("ew_risk_signal_academic_year")
+
+  // SEN Relations
+  sen_support_plans        SenSupportPlan[]
+  sen_resource_allocations SenResourceAllocation[]
 
   // Homework Relations
   homework_assignments HomeworkAssignment[]
@@ -1775,12 +1876,295 @@ model AcademicPeriod {
   // Behaviour Management Relations
   bh_incidents BehaviourIncident[] @relation("bh_incident_academic_period")
 
+  // SEN Relations
+  sen_support_plans SenSupportPlan[]
+
   // Homework Relations
   homework_assignments HomeworkAssignment[]
 
   @@unique([tenant_id, academic_year_id, name], name: "idx_academic_periods_tenant_year_name")
   @@index([tenant_id, academic_year_id], name: "idx_academic_periods_tenant_year")
   @@map("academic_periods")
+}
+
+// ─── SEN Module Foundation ──────────────────────────────────────────────────
+
+model SenProfile {
+  id                      String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id               String          @db.Uuid
+  student_id              String          @unique @db.Uuid
+  sen_coordinator_user_id String?         @db.Uuid
+  sen_categories          Json
+  primary_category        SenCategory
+  support_level           SenSupportLevel
+  diagnosis               String?         @db.VarChar(255)
+  diagnosis_date          DateTime?       @db.Date
+  diagnosis_source        String?         @db.VarChar(255)
+  assessment_notes        String?         @db.Text
+  is_active               Boolean         @default(true)
+  flagged_date            DateTime?       @db.Date
+  unflagged_date          DateTime?       @db.Date
+  created_at              DateTime        @default(now()) @db.Timestamptz()
+  updated_at              DateTime        @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant           Tenant                      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  student          Student                     @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  sen_coordinator  User?                       @relation("sen_profile_coordinator", fields: [sen_coordinator_user_id], references: [id], onDelete: SetNull)
+  support_plans    SenSupportPlan[]
+  student_hours    SenStudentHours[]
+  sna_assignments  SenSnaAssignment[]
+  involvements     SenProfessionalInvolvement[]
+  accommodations   SenAccommodation[]
+  transition_notes SenTransitionNote[]
+
+  @@index([tenant_id, student_id], name: "idx_sen_profiles_tenant_student")
+  @@index([tenant_id, is_active], name: "idx_sen_profiles_tenant_active")
+  @@index([tenant_id, primary_category], name: "idx_sen_profiles_tenant_primary_category")
+  @@index([tenant_id, support_level], name: "idx_sen_profiles_tenant_support_level")
+  @@map("sen_profiles")
+}
+
+model SenSupportPlan {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String            @db.Uuid
+  sen_profile_id      String            @db.Uuid
+  academic_year_id    String            @db.Uuid
+  academic_period_id  String?           @db.Uuid
+  plan_number         String            @db.VarChar(50)
+  version             Int               @default(1)
+  parent_version_id   String?           @db.Uuid
+  status              SupportPlanStatus @default(draft)
+  review_date         DateTime?         @db.Date
+  next_review_date    DateTime?         @db.Date
+  reviewed_by_user_id String?           @db.Uuid
+  review_notes        String?           @db.Text
+  parent_input        String?           @db.Text
+  student_voice       String?           @db.Text
+  staff_notes         String?           @db.Text
+  created_by_user_id  String            @db.Uuid
+  created_at          DateTime          @default(now()) @db.Timestamptz()
+  updated_at          DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  sen_profile     SenProfile       @relation(fields: [sen_profile_id], references: [id], onDelete: Cascade)
+  academic_year   AcademicYear     @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  academic_period AcademicPeriod?  @relation(fields: [academic_period_id], references: [id], onDelete: SetNull)
+  parent_version  SenSupportPlan?  @relation("sen_support_plan_versions", fields: [parent_version_id], references: [id], onDelete: SetNull)
+  child_versions  SenSupportPlan[] @relation("sen_support_plan_versions")
+  reviewed_by     User?            @relation("sen_support_plan_reviewer", fields: [reviewed_by_user_id], references: [id], onDelete: SetNull)
+  created_by      User             @relation("sen_support_plan_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+  goals           SenGoal[]
+
+  @@index([tenant_id, sen_profile_id], name: "idx_sen_support_plans_tenant_profile")
+  @@index([tenant_id, status], name: "idx_sen_support_plans_tenant_status")
+  @@index([tenant_id, academic_year_id], name: "idx_sen_support_plans_tenant_year")
+  @@map("sen_support_plans")
+}
+
+model SenGoal {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String        @db.Uuid
+  support_plan_id String        @db.Uuid
+  title           String        @db.VarChar(255)
+  description     String?       @db.Text
+  target          String        @db.Text
+  baseline        String        @db.Text
+  current_level   String?       @db.Text
+  target_date     DateTime      @db.Date
+  status          SenGoalStatus @default(not_started)
+  display_order   Int           @default(0) @db.SmallInt
+  created_at      DateTime      @default(now()) @db.Timestamptz()
+  updated_at      DateTime      @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant         Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  support_plan   SenSupportPlan     @relation(fields: [support_plan_id], references: [id], onDelete: Cascade)
+  strategies     SenGoalStrategy[]
+  progress_notes SenGoalProgress[]
+
+  @@index([tenant_id, support_plan_id], name: "idx_sen_goals_tenant_plan")
+  @@map("sen_goals")
+}
+
+model SenGoalStrategy {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  goal_id             String   @db.Uuid
+  description         String   @db.Text
+  responsible_user_id String?  @db.Uuid
+  frequency           String?  @db.VarChar(100)
+  is_active           Boolean  @default(true)
+  created_at          DateTime @default(now()) @db.Timestamptz()
+  updated_at          DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  goal        SenGoal @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  responsible User?   @relation("sen_goal_strategy_responsible", fields: [responsible_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, goal_id], name: "idx_sen_goal_strategies_tenant_goal")
+  @@map("sen_goal_strategies")
+}
+
+/// Append-only -- no updated_at
+model SenGoalProgress {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String   @db.Uuid
+  goal_id             String   @db.Uuid
+  note                String   @db.Text
+  current_level       String?  @db.Text
+  recorded_by_user_id String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  goal        SenGoal @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  recorded_by User    @relation("sen_goal_progress_recorder", fields: [recorded_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, goal_id], name: "idx_sen_goal_progress_tenant_goal")
+  @@map("sen_goal_progress")
+}
+
+model SenResourceAllocation {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String            @db.Uuid
+  academic_year_id String            @db.Uuid
+  total_hours      Decimal           @db.Decimal(8, 2)
+  source           SenResourceSource
+  notes            String?           @db.Text
+  created_at       DateTime          @default(now()) @db.Timestamptz()
+  updated_at       DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  academic_year       AcademicYear      @relation(fields: [academic_year_id], references: [id], onDelete: Restrict)
+  student_allocations SenStudentHours[]
+
+  @@unique([tenant_id, academic_year_id, source], name: "idx_sen_resource_allocations_tenant_year_source")
+  @@index([tenant_id, academic_year_id], name: "idx_sen_resource_allocations_tenant_year")
+  @@map("sen_resource_allocations")
+}
+
+model SenStudentHours {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id              String   @db.Uuid
+  resource_allocation_id String   @db.Uuid
+  student_id             String   @db.Uuid
+  sen_profile_id         String   @db.Uuid
+  allocated_hours        Decimal  @db.Decimal(6, 2)
+  used_hours             Decimal  @default(0) @db.Decimal(6, 2)
+  notes                  String?  @db.Text
+  created_at             DateTime @default(now()) @db.Timestamptz()
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant              Tenant                @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  resource_allocation SenResourceAllocation @relation(fields: [resource_allocation_id], references: [id], onDelete: Cascade)
+  student             Student               @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  sen_profile         SenProfile            @relation(fields: [sen_profile_id], references: [id], onDelete: Restrict)
+
+  @@unique([tenant_id, resource_allocation_id, student_id], name: "idx_sen_student_hours_tenant_allocation_student")
+  @@index([tenant_id, sen_profile_id], name: "idx_sen_student_hours_tenant_profile")
+  @@map("sen_student_hours")
+}
+
+model SenSnaAssignment {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String              @db.Uuid
+  sna_staff_profile_id String              @db.Uuid
+  student_id           String              @db.Uuid
+  sen_profile_id       String              @db.Uuid
+  schedule             Json
+  status               SnaAssignmentStatus @default(active)
+  start_date           DateTime            @db.Date
+  end_date             DateTime?           @db.Date
+  notes                String?             @db.Text
+  created_at           DateTime            @default(now()) @db.Timestamptz()
+  updated_at           DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  staff_profile StaffProfile @relation(fields: [sna_staff_profile_id], references: [id], onDelete: Restrict)
+  student       Student      @relation(fields: [student_id], references: [id], onDelete: Restrict)
+  sen_profile   SenProfile   @relation(fields: [sen_profile_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, status], name: "idx_sen_sna_assignments_tenant_status")
+  @@index([tenant_id, sna_staff_profile_id], name: "idx_sen_sna_assignments_tenant_staff")
+  @@index([tenant_id, student_id], name: "idx_sen_sna_assignments_tenant_student")
+  @@map("sen_sna_assignments")
+}
+
+model SenProfessionalInvolvement {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id            String              @db.Uuid
+  sen_profile_id       String              @db.Uuid
+  professional_type    SenProfessionalType
+  professional_name    String?             @db.VarChar(255)
+  organisation         String?             @db.VarChar(255)
+  referral_date        DateTime?           @db.Date
+  assessment_date      DateTime?           @db.Date
+  report_received_date DateTime?           @db.Date
+  recommendations      String?             @db.Text
+  status               SenReferralStatus   @default(pending)
+  pastoral_referral_id String?             @db.Uuid
+  notes                String?             @db.Text
+  created_at           DateTime            @default(now()) @db.Timestamptz()
+  updated_at           DateTime            @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant            Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  sen_profile       SenProfile        @relation(fields: [sen_profile_id], references: [id], onDelete: Cascade)
+  pastoral_referral PastoralReferral? @relation(fields: [pastoral_referral_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, sen_profile_id], name: "idx_sen_professional_involvements_tenant_profile")
+  @@index([tenant_id, status], name: "idx_sen_professional_involvements_tenant_status")
+  @@map("sen_professional_involvements")
+}
+
+model SenAccommodation {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id           String            @db.Uuid
+  sen_profile_id      String            @db.Uuid
+  accommodation_type  AccommodationType
+  description         String            @db.Text
+  details             Json              @default("{}")
+  start_date          DateTime?         @db.Date
+  end_date            DateTime?         @db.Date
+  is_active           Boolean           @default(true)
+  approved_by_user_id String?           @db.Uuid
+  approved_at         DateTime?         @db.Timestamptz()
+  created_at          DateTime          @default(now()) @db.Timestamptz()
+  updated_at          DateTime          @default(now()) @updatedAt @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  sen_profile SenProfile @relation(fields: [sen_profile_id], references: [id], onDelete: Cascade)
+  approved_by User?      @relation("sen_accommodation_approver", fields: [approved_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([tenant_id, sen_profile_id], name: "idx_sen_accommodations_tenant_profile")
+  @@index([tenant_id, accommodation_type], name: "idx_sen_accommodations_tenant_type")
+  @@map("sen_accommodations")
+}
+
+/// Append-only -- no updated_at
+model SenTransitionNote {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id          String   @db.Uuid
+  sen_profile_id     String   @db.Uuid
+  note_type          String   @db.VarChar(100)
+  content            String   @db.Text
+  created_by_user_id String   @db.Uuid
+  created_at         DateTime @default(now()) @db.Timestamptz()
+
+  // Relations
+  tenant      Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  sen_profile SenProfile @relation(fields: [sen_profile_id], references: [id], onDelete: Cascade)
+  created_by  User       @relation("sen_transition_note_creator", fields: [created_by_user_id], references: [id], onDelete: Restrict)
+
+  @@index([tenant_id, sen_profile_id], name: "idx_sen_transition_notes_tenant_profile")
+  @@map("sen_transition_notes")
 }
 
 model YearGroup {
@@ -7216,6 +7600,7 @@ model PastoralReferral {
   created_by          User?                            @relation("pc_referral_created_by", fields: [created_by_user_id], references: [id], onDelete: SetNull)
   recommendations     PastoralReferralRecommendation[]
   neps_visit_students PastoralNepsVisitStudent[]
+  sen_involvements    SenProfessionalInvolvement[]
 
   @@index([tenant_id, student_id, status], map: "idx_pastoral_referrals_tenant_student_status")
   @@index([tenant_id, referral_type, status], map: "idx_pastoral_referrals_tenant_type_status")
