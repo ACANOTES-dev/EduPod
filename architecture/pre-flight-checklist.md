@@ -15,7 +15,7 @@
 
 ### 1b. Governance Check
 
-- [ ] Am I taking an architecture, testing, or ops shortcut? -> Write the tradeoff down in `Plans/health-governance/governance-policy.md` before treating it as accepted
+- [ ] Am I taking an architecture, testing, or ops shortcut? -> Write the tradeoff down in `Governance/governance-policy.md` before treating it as accepted
 - [ ] Does this touch a critical workflow? -> Confirm code + tests + ops/runbook + docs + rollback/containment are all covered before calling it complete
 
 ### 2. Schema Check (if touching Prisma schema or DB)

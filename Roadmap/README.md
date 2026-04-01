@@ -1,7 +1,7 @@
 # Roadmap Execution Policy
 
 > Last updated: 2026-04-01
-> Governing inputs: [Plans/HEALTH-RECOVERY-MASTERPLAN.md](../Plans/HEALTH-RECOVERY-MASTERPLAN.md), [Plans/health-governance/recovery-backlog.md](../Plans/health-governance/recovery-backlog.md), [Audit-Claude/health-recovery-plan-combined_2026-04-01_02-39-37.md](../Audit-Claude/health-recovery-plan-combined_2026-04-01_02-39-37.md)
+> Governing inputs: [Plans/HEALTH-RECOVERY-MASTERPLAN.md](../Plans/HEALTH-RECOVERY-MASTERPLAN.md), [Governance/recovery-backlog.md](../Governance/recovery-backlog.md), [Audit-Claude/health-recovery-plan-combined_2026-04-01_02-39-37.md](../Audit-Claude/health-recovery-plan-combined_2026-04-01_02-39-37.md)
 
 The roadmap remains the sequencing plan for feature work, but it is now subordinate to the health recovery backlog until the platform exits the current high-risk band.
 

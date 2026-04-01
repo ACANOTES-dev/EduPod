@@ -1,8 +1,8 @@
-# Health Governance Docs
+# Governance
 
 > Last updated: 2026-04-01
 
-This directory is the version-controlled home for the operating rules that keep codebase health visible and enforceable between audits.
+This directory is the visible, version-controlled home for the operating rules that keep codebase health visible and enforceable between audits.
 
 ## Primary documents
 
@@ -24,13 +24,13 @@ This directory is the version-controlled home for the operating rules that keep 
 
 ## Adjacent repo sources of truth
 
-- [Plans/HEALTH-RECOVERY-MASTERPLAN.md](../HEALTH-RECOVERY-MASTERPLAN.md)
+- [Plans/HEALTH-RECOVERY-MASTERPLAN.md](../Plans/HEALTH-RECOVERY-MASTERPLAN.md)
   - wave model, scorecard dimensions, and target posture
-- [Roadmap/README.md](../../Roadmap/README.md)
+- [Roadmap/README.md](../Roadmap/README.md)
   - roadmap gating and reserved delivery-capacity rule
-- [architecture/](../../architecture/)
+- [architecture/](../architecture/)
   - blast radius, event/job catalog, state machines, danger zones, and pre-flight checklist
-- [docs/runbooks/](../../docs/runbooks/)
+- [docs/runbooks/](../docs/runbooks/)
   - operational procedures that must stay aligned with health fixes
 
 ## Rule of use
