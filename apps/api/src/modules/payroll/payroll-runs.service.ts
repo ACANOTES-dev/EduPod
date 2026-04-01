@@ -741,29 +741,44 @@ export class PayrollRunsService {
     }
 
     if (run.status === 'draft' && requireApproval && !isSchoolOwner) {
-      // Check approval workflow
-      const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
-        tenantId,
-        'payroll_finalise',
-        'payroll_run',
-        runId,
-        userId,
-        false,
-      );
+      // R-21: Approval creation + entity status change must be atomic
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      const approvalTxResult = (await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as PrismaService;
 
-      if (!approvalResult.approved) {
-        // Set run to pending_approval
-        await this.prisma.payrollRun.update({
-          where: { id: runId },
-          data: {
-            status: 'pending_approval',
+        const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
+          tenantId,
+          'payroll_finalise',
+          'payroll_run',
+          runId,
+          userId,
+          false,
+          db,
+        );
+
+        if (!approvalResult.approved) {
+          // Set run to pending_approval within the same transaction
+          await db.payrollRun.update({
+            where: { id: runId },
+            data: {
+              status: 'pending_approval',
+              approval_request_id: approvalResult.request_id,
+            },
+          });
+
+          return {
+            pending: true as const,
             approval_request_id: approvalResult.request_id,
-          },
-        });
+          };
+        }
 
+        return { pending: false as const };
+      })) as { pending: true; approval_request_id: string | undefined } | { pending: false };
+
+      if (approvalTxResult.pending) {
         return {
           status: 'pending_approval',
-          approval_request_id: approvalResult.request_id,
+          approval_request_id: approvalTxResult.approval_request_id,
           message: 'Payroll run requires approval before finalisation',
         };
       }

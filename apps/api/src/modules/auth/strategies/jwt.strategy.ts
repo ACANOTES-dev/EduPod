@@ -4,7 +4,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import type { JwtPayload } from '@school/shared';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
@@ -22,7 +21,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   validate(payload: JwtPayload): JwtPayload {
     if (payload.type !== 'access') {
-      throw new UnauthorizedException('Invalid token type');
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN_TYPE',
+        message: 'Invalid token type — access token required',
+      });
     }
     return payload;
   }

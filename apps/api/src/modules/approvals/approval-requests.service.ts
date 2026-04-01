@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -125,12 +126,7 @@ export class ApprovalRequestsService {
   /**
    * Approve an approval request.
    */
-  async approve(
-    tenantId: string,
-    requestId: string,
-    approverUserId: string,
-    comment?: string,
-  ) {
+  async approve(tenantId: string, requestId: string, approverUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,
@@ -161,7 +157,10 @@ export class ApprovalRequestsService {
 
     // Mode A: Auto-execute on approval
     const MODE_A_CALLBACKS: Record<string, { queue: Queue; jobName: string }> = {
-      announcement_publish: { queue: this.notificationsQueue, jobName: 'communications:on-approval' },
+      announcement_publish: {
+        queue: this.notificationsQueue,
+        jobName: 'communications:on-approval',
+      },
       invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
       payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
     };
@@ -209,9 +208,7 @@ export class ApprovalRequestsService {
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `Failed to enqueue callback for approval ${requestId}: ${errorMessage}`,
-        );
+        this.logger.error(`Failed to enqueue callback for approval ${requestId}: ${errorMessage}`);
         // Mark callback as failed so reconciliation can retry
         await this.prisma.approvalRequest.update({
           where: { id: requestId },
@@ -229,12 +226,7 @@ export class ApprovalRequestsService {
   /**
    * Reject an approval request.
    */
-  async reject(
-    tenantId: string,
-    requestId: string,
-    approverUserId: string,
-    comment?: string,
-  ) {
+  async reject(tenantId: string, requestId: string, approverUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,
@@ -297,12 +289,7 @@ export class ApprovalRequestsService {
   /**
    * Cancel an approval request. Only the requester can cancel.
    */
-  async cancel(
-    tenantId: string,
-    requestId: string,
-    requesterUserId: string,
-    comment?: string,
-  ) {
+  async cancel(tenantId: string, requestId: string, requesterUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,
@@ -365,6 +352,8 @@ export class ApprovalRequestsService {
    * Cross-module engine method: check if an approval is needed and create one if so.
    *
    * Called by other modules (e.g., payroll, admissions) before executing an action.
+   * Accepts an optional transaction client (`db`) so callers already inside an RLS
+   * transaction can keep the approval creation atomic with their domain state change.
    *
    * Returns:
    *   { approved: true } — no workflow or user has direct authority, proceed
@@ -377,9 +366,12 @@ export class ApprovalRequestsService {
     targetEntityId: string,
     requesterId: string,
     hasDirectAuthority: boolean,
+    db?: PrismaService,
   ): Promise<{ approved: boolean; request_id?: string }> {
+    const prisma = db ?? this.prisma;
+
     // Find active workflow for this action type
-    const workflow = await this.prisma.approvalWorkflow.findFirst({
+    const workflow = await prisma.approvalWorkflow.findFirst({
       where: {
         tenant_id: tenantId,
         action_type: actionType as ApprovalActionType,
@@ -397,8 +389,26 @@ export class ApprovalRequestsService {
       return { approved: true };
     }
 
+    // ─── R-22: Duplicate guard — reject if an open request already exists ───
+    const existing = await prisma.approvalRequest.findFirst({
+      where: {
+        tenant_id: tenantId,
+        target_entity_type: targetEntityType,
+        target_entity_id: targetEntityId,
+        action_type: actionType,
+        status: { in: ['pending_approval'] },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException({
+        code: 'DUPLICATE_APPROVAL_REQUEST',
+        message: `An open approval request already exists for this ${targetEntityType}`,
+      });
+    }
+
     // Create approval request
-    const request = await this.prisma.approvalRequest.create({
+    const request = await prisma.approvalRequest.create({
       data: {
         tenant_id: tenantId,
         action_type: actionType,
