@@ -1,12 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isValidPaymentTransition } from '@school/shared';
 import type {
   AllocationSuggestion,
   ConfirmAllocationsDto,
   CreatePaymentDto,
+  PaymentStatus,
 } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -39,7 +37,17 @@ export class PaymentsService {
   ) {}
 
   async findAll(tenantId: string, filters: PaymentFilters) {
-    const { page, pageSize, household_id, status, payment_method, date_from, date_to, search, accepted_by_user_id } = filters;
+    const {
+      page,
+      pageSize,
+      household_id,
+      status,
+      payment_method,
+      date_from,
+      date_to,
+      search,
+      accepted_by_user_id,
+    } = filters;
     const skip = (page - 1) * pageSize;
 
     const where: Record<string, unknown> = { tenant_id: tenantId };
@@ -260,7 +268,12 @@ export class PaymentsService {
     return suggestions;
   }
 
-  async confirmAllocations(tenantId: string, paymentId: string, userId: string, dto: ConfirmAllocationsDto) {
+  async confirmAllocations(
+    tenantId: string,
+    paymentId: string,
+    userId: string,
+    dto: ConfirmAllocationsDto,
+  ) {
     const payment = await this.prisma.payment.findFirst({
       where: { id: paymentId, tenant_id: tenantId },
     });
@@ -271,9 +284,11 @@ export class PaymentsService {
       });
     }
 
-    if (payment.status !== 'posted') {
+    // Allocations can only be made from a posted payment (checked via state machine:
+    // posted is the only status that allows transitions to refunded states)
+    if (!isValidPaymentTransition(payment.status as PaymentStatus, 'refunded_partial')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
+        code: 'INVALID_STATUS_TRANSITION',
         message: `Cannot allocate from a payment with status "${payment.status}"`,
       });
     }

@@ -235,7 +235,10 @@ describe('SenProfessionalService', () => {
 
   describe('update', () => {
     it('should update a professional involvement record successfully', async () => {
-      senProfessionalInvolvementMock.findFirst.mockResolvedValue({ id: INVOLVEMENT_ID });
+      senProfessionalInvolvementMock.findFirst.mockResolvedValue({
+        id: INVOLVEMENT_ID,
+        status: 'scheduled',
+      });
       senProfessionalInvolvementMock.update.mockResolvedValue(
         createInvolvementRecord({
           status: 'completed',

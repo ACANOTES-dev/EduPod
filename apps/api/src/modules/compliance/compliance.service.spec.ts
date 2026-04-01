@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AgeGateService } from '../gdpr/age-gate.service';
@@ -145,7 +141,9 @@ describe('ComplianceService', () => {
 
     service = module.get<ComplianceService>(ComplianceService);
 
-    mockPastoralDsar.routeForReview.mockReset().mockResolvedValue({ reviewCount: 0, tier3Count: 0 });
+    mockPastoralDsar.routeForReview
+      .mockReset()
+      .mockResolvedValue({ reviewCount: 0, tier3Count: 0 });
     mockPastoralDsar.allReviewsComplete.mockReset().mockResolvedValue(true);
     mockPastoralDsar.getReviewedRecords.mockReset().mockResolvedValue([]);
   });
@@ -410,17 +408,13 @@ describe('ComplianceService', () => {
     it('should throw COMPLIANCE_REQUEST_NOT_FOUND for invalid ID', async () => {
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.get(TENANT_ID, 'non-existent-id'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.get(TENANT_ID, 'non-existent-id')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw COMPLIANCE_REQUEST_NOT_FOUND for wrong tenant', async () => {
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.get(OTHER_TENANT_ID, REQUEST_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.get(OTHER_TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -614,9 +608,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'submitted' }),
       );
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -626,9 +618,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'approved' }),
       );
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -639,23 +629,16 @@ describe('ComplianceService', () => {
   // ---------------------------------------------------------------------------
 
   describe('reject', () => {
-    it('should transition submitted to rejected', async () => {
+    it('should block submitted → rejected (must be classified first)', async () => {
       const submitted = buildMockRequest({ status: 'submitted' });
-      const rejected = buildMockRequest({ status: 'rejected' });
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(submitted);
-      mockPrisma.complianceRequest.update.mockResolvedValue(rejected);
 
-      const result = await service.reject(TENANT_ID, REQUEST_ID, {
-        decision_notes: 'Not needed',
+      await expect(
+        service.reject(TENANT_ID, REQUEST_ID, { decision_notes: 'Not needed' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'INVALID_STATUS_TRANSITION' }),
       });
-
-      expect(result.status).toBe('rejected');
-      expect(mockPrisma.complianceRequest.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ status: 'rejected' }),
-        }),
-      );
     });
 
     it('should transition classified to rejected', async () => {
@@ -675,9 +658,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'approved' }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -687,9 +668,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'completed' }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -699,9 +678,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'rejected' }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, {}),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, {})).rejects.toThrow(BadRequestException);
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -936,9 +913,7 @@ describe('ComplianceService', () => {
         buildMockRequest({ status: 'classified' }),
       );
 
-      await expect(
-        service.execute(TENANT_ID, REQUEST_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.execute(TENANT_ID, REQUEST_ID)).rejects.toThrow(BadRequestException);
 
       expect(mockAccessExport.exportDataPackage).not.toHaveBeenCalled();
       expect(mockAnonymisation.anonymiseSubject).not.toHaveBeenCalled();
@@ -1007,10 +982,7 @@ describe('ComplianceService', () => {
         SUBJECT_ID,
         USER_ID,
       );
-      expect(mockPastoralDsar.allReviewsComplete).toHaveBeenCalledWith(
-        TENANT_ID,
-        REQUEST_ID,
-      );
+      expect(mockPastoralDsar.allReviewsComplete).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
     });
 
     it('should leave the request approved when student pastoral DSAR reviews are still pending', async () => {
@@ -1022,12 +994,10 @@ describe('ComplianceService', () => {
         requested_by_user_id: USER_ID,
       });
 
-      mockPrisma.complianceRequest.findFirst
-        .mockResolvedValueOnce(approved)
-        .mockResolvedValueOnce({
-          ...approved,
-          requested_by: REQUESTED_BY_SELECT,
-        });
+      mockPrisma.complianceRequest.findFirst.mockResolvedValueOnce(approved).mockResolvedValueOnce({
+        ...approved,
+        requested_by: REQUESTED_BY_SELECT,
+      });
       mockPastoralDsar.allReviewsComplete.mockResolvedValue(false);
 
       const result = await service.execute(TENANT_ID, REQUEST_ID);
@@ -1078,10 +1048,7 @@ describe('ComplianceService', () => {
 
       await service.execute(TENANT_ID, REQUEST_ID);
 
-      expect(mockPastoralDsar.getReviewedRecords).toHaveBeenCalledWith(
-        TENANT_ID,
-        REQUEST_ID,
-      );
+      expect(mockPastoralDsar.getReviewedRecords).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
       expect(mockAccessExport.exportDataPackage).toHaveBeenCalledWith(
         TENANT_ID,
         REQUEST_ID,
@@ -1155,9 +1122,7 @@ describe('ComplianceService', () => {
         }),
       );
 
-      await expect(
-        service.getExportUrl(TENANT_ID, REQUEST_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getExportUrl(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NOT_FOUND when status is not completed', async () => {
@@ -1169,9 +1134,7 @@ describe('ComplianceService', () => {
         }),
       );
 
-      await expect(
-        service.getExportUrl(TENANT_ID, REQUEST_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getExportUrl(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NOT_FOUND when export_file_key is null', async () => {
@@ -1183,9 +1146,7 @@ describe('ComplianceService', () => {
         }),
       );
 
-      await expect(
-        service.getExportUrl(TENANT_ID, REQUEST_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getExportUrl(TENANT_ID, REQUEST_ID)).rejects.toThrow(NotFoundException);
     });
 
     it('should return export_file_key for completed portability request', async () => {
@@ -1656,9 +1617,9 @@ describe('ComplianceService', () => {
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
 
-      await expect(
-        service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
@@ -1673,9 +1634,9 @@ describe('ComplianceService', () => {
 
       mockPrisma.complianceRequest.findFirst.mockResolvedValue(request);
 
-      await expect(
-        service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.confirmAgeGate(TENANT_ID, REQUEST_ID, USER_ID)).rejects.toThrow(
+        ConflictException,
+      );
 
       expect(mockPrisma.complianceRequest.update).not.toHaveBeenCalled();
     });
