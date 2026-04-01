@@ -1,17 +1,21 @@
-/* eslint-disable import/order -- dotenv must load before NestJS reads process.env */
-import { resolve } from 'path';
-import { config } from 'dotenv';
+/* eslint-disable import/order -- instrument must load before NestJS reads process.env */
+import './instrument';
 
-// Preload .env so process.env is populated before NestJS/Prisma/BullMQ reads it
-config({ path: resolve(__dirname, '../../.env') });
-config({ path: resolve(__dirname, '../../../.env') });
-
+import * as Sentry from '@sentry/nestjs';
 import { NestFactory } from '@nestjs/core';
 
 import { WorkerModule } from './worker.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(WorkerModule);
+
+  // Global BullMQ worker error handler — captures unhandled worker-level errors to Sentry.
+  // Job-level errors are handled by individual processors; this catches infrastructure-level
+  // failures (e.g. Redis connection drops, serialisation errors) that escape processor scope.
+  process.on('unhandledRejection', (reason) => {
+    console.error('[worker] Unhandled rejection:', reason);
+    Sentry.captureException(reason);
+  });
 
   // Health check endpoint for container health checks
   const port = process.env.WORKER_PORT || 5556;
@@ -21,5 +25,6 @@ async function bootstrap() {
 
 bootstrap().catch((err) => {
   console.error('Worker bootstrap failed:', err);
+  Sentry.captureException(err);
   process.exit(1);
 });

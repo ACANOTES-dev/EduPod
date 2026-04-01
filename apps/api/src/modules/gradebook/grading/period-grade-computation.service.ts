@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -39,6 +35,8 @@ export interface ComputationWarning {
 
 @Injectable()
 export class PeriodGradeComputationService {
+  private readonly logger = new Logger(PeriodGradeComputationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gpaService: GpaService,
@@ -51,12 +49,7 @@ export class PeriodGradeComputationService {
    * apply grading scale, upsert snapshots.
    * Optionally triggers GPA and competency snapshot computation afterward.
    */
-  async compute(
-    tenantId: string,
-    classId: string,
-    subjectId: string,
-    periodId: string,
-  ) {
+  async compute(tenantId: string, classId: string, subjectId: string, periodId: string) {
     const warnings: ComputationWarning[] = [];
 
     // 1. Look up class to get year_group_id
@@ -99,7 +92,9 @@ export class PeriodGradeComputationService {
       scaleConfig = config.grading_scale.config_json as unknown as GradingScaleConfig;
       // Use class-subject weights as fallback if no year-group weights found
       if (categoryWeightsRaw.length === 0) {
-        const fallbackConfig = config.category_weight_json as unknown as { weights: CategoryWeight[] };
+        const fallbackConfig = config.category_weight_json as unknown as {
+          weights: CategoryWeight[];
+        };
         categoryWeightsRaw = fallbackConfig?.weights ?? [];
       }
     }
@@ -119,7 +114,8 @@ export class PeriodGradeComputationService {
 
     const settings = (tenantSetting?.settings ?? {}) as Record<string, unknown>;
     const gradebookSettings = (settings['gradebook'] ?? {}) as Record<string, unknown>;
-    const missingGradePolicy = (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
+    const missingGradePolicy =
+      (gradebookSettings['defaultMissingGradePolicy'] as string) ?? 'exclude';
     const formativeWeightCap = gradebookSettings['formativeWeightCap'] as number | null | undefined;
     const formativeIncluded = gradebookSettings['formativeIncludedInPeriodGrade'] !== false;
 
@@ -176,7 +172,8 @@ export class PeriodGradeComputationService {
     if (includedAssessments.length === 0) {
       throw new BadRequestException({
         code: 'NO_ASSESSMENTS',
-        message: 'No summative assessments found and formative grades are excluded from period grade',
+        message:
+          'No summative assessments found and formative grades are excluded from period grade',
       });
     }
 
@@ -192,9 +189,7 @@ export class PeriodGradeComputationService {
     );
 
     // Build a map of category_id -> weight
-    const categoryWeightMap = new Map(
-      categoryWeights.map((w) => [w.category_id, w.weight]),
-    );
+    const categoryWeightMap = new Map(categoryWeights.map((w) => [w.category_id, w.weight]));
 
     // Group assessments by category
     const assessmentsByCategory = new Map<string, typeof includedAssessments>();
@@ -237,9 +232,10 @@ export class PeriodGradeComputationService {
             }
           } else {
             // 'zero' policy: treat missing as 0
-            const score = grade?.raw_score !== null && grade?.raw_score !== undefined
-              ? Number(grade.raw_score)
-              : 0;
+            const score =
+              grade?.raw_score !== null && grade?.raw_score !== undefined
+                ? Number(grade.raw_score)
+                : 0;
             categoryNumerator += score;
             categoryDenominator += maxScore;
             hasCategoryData = true;
@@ -254,9 +250,7 @@ export class PeriodGradeComputationService {
       }
 
       // Compute weighted average
-      const computedValue = totalUsedWeight > 0
-        ? totalWeightedScore / totalUsedWeight
-        : 0;
+      const computedValue = totalUsedWeight > 0 ? totalWeightedScore / totalUsedWeight : 0;
 
       // Apply grading scale for display_value (if available)
       const displayValue = scaleConfig
@@ -370,9 +364,7 @@ export class PeriodGradeComputationService {
 
     // Apply formative cap if configured
     if (formativeWeightCap != null && formativeWeightCap >= 0) {
-      const typeMap = new Map(
-        categoryTypes.map((ct) => [ct.category_id, ct.assessment_type]),
-      );
+      const typeMap = new Map(categoryTypes.map((ct) => [ct.category_id, ct.assessment_type]));
 
       const formativeWeights = normalizedWeights.filter(
         (w) => typeMap.get(w.category_id) === 'formative',
@@ -381,10 +373,7 @@ export class PeriodGradeComputationService {
         (w) => typeMap.get(w.category_id) !== 'formative',
       );
 
-      const currentFormativeTotal = formativeWeights.reduce(
-        (sum, w) => sum + w.weight,
-        0,
-      );
+      const currentFormativeTotal = formativeWeights.reduce((sum, w) => sum + w.weight, 0);
 
       if (currentFormativeTotal > formativeWeightCap) {
         warnings.push({
@@ -401,14 +390,10 @@ export class PeriodGradeComputationService {
 
         // Scale summative weights up to fill the remaining (100 - cap)%
         const remainingSummativeWeight = 100 - formativeWeightCap;
-        const currentSummativeTotal = summativeWeights.reduce(
-          (sum, w) => sum + w.weight,
-          0,
-        );
+        const currentSummativeTotal = summativeWeights.reduce((sum, w) => sum + w.weight, 0);
 
-        const summativeScaleFactor = currentSummativeTotal > 0
-          ? remainingSummativeWeight / currentSummativeTotal
-          : 1;
+        const summativeScaleFactor =
+          currentSummativeTotal > 0 ? remainingSummativeWeight / currentSummativeTotal : 1;
 
         const scaledSummative = summativeWeights.map((w) => ({
           ...w,
@@ -425,10 +410,7 @@ export class PeriodGradeComputationService {
   /**
    * Apply grading scale to a computed percentage to get display value.
    */
-  private applyGradingScale(
-    percentage: number,
-    config: GradingScaleConfig,
-  ): string {
+  private applyGradingScale(percentage: number, config: GradingScaleConfig): string {
     if (config.type === 'numeric' && config.ranges) {
       // Find the range that contains this percentage
       for (const range of config.ranges) {
@@ -476,8 +458,11 @@ export class PeriodGradeComputationService {
     for (const studentId of studentIds) {
       try {
         await this.gpaService.computeGpa(tenantId, studentId, periodId);
-      } catch {
-        // Best-effort: GPA computation failure should not fail period grade computation
+      } catch (err) {
+        this.logger.warn(
+          `GPA computation failed for student ${studentId} in period ${periodId} — period grade computation continues`,
+          err,
+        );
       }
     }
   }
@@ -493,8 +478,11 @@ export class PeriodGradeComputationService {
     for (const studentId of studentIds) {
       try {
         await this.standardsService.computeCompetencySnapshots(tenantId, studentId, periodId);
-      } catch {
-        // Best-effort: competency computation failure should not fail period grade computation
+      } catch (err) {
+        this.logger.warn(
+          `Competency snapshot computation failed for student ${studentId} in period ${periodId} — period grade computation continues`,
+          err,
+        );
       }
     }
   }

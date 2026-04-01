@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { WorkerHealthController } from './health/worker-health.controller';
+import { WorkerHealthService } from './health/worker-health.service';
 import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
@@ -305,6 +306,8 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
         return client;
       },
     },
+    // Health service
+    WorkerHealthService,
     // Approvals queue processors
     ApprovalCallbackReconciliationProcessor,
     // Admissions queue processors

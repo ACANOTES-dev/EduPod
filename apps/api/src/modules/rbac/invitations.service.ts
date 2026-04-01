@@ -1,15 +1,10 @@
 import { createHash, randomBytes } from 'crypto';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 import { hash } from 'bcryptjs';
 import { Queue } from 'bullmq';
-
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -22,6 +17,8 @@ interface RegistrationData {
 
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
@@ -31,11 +28,7 @@ export class InvitationsService {
    * Create an invitation to join a tenant.
    * Generates a secure token, stores the SHA-256 hash, 72-hour expiry.
    */
-  async createInvitation(
-    tenantId: string,
-    invitedByUserId: string,
-    data: CreateInvitationDto,
-  ) {
+  async createInvitation(tenantId: string, invitedByUserId: string, data: CreateInvitationDto) {
     // Check for existing pending invitation for this email at this tenant
     const existingInvitation = await this.prisma.invitation.findFirst({
       where: {
@@ -136,8 +129,11 @@ export class InvitationsService {
         },
         { attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
       );
-    } catch {
-      // Queue failure should not block invitation creation
+    } catch (err) {
+      this.logger.warn(
+        'Failed to enqueue communications:send-invitation — invitation creation succeeded',
+        err,
+      );
     }
 
     return invitation;
@@ -320,8 +316,7 @@ export class InvitationsService {
         ) {
           throw new BadRequestException({
             code: 'REGISTRATION_DATA_REQUIRED',
-            message:
-              'first_name, last_name, and password are required for new users',
+            message: 'first_name, last_name, and password are required for new users',
           });
         }
 
@@ -407,5 +402,4 @@ export class InvitationsService {
       });
     }
   }
-
 }

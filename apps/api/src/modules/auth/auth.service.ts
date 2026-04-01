@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -21,9 +22,9 @@ import * as jwt from 'jsonwebtoken';
 import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SecurityAuditService } from '../audit-log/security-audit.service';
 
 export interface LoginResult {
   access_token: string;
@@ -66,6 +67,8 @@ export interface SessionInfo {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private configService: ConfigService,
     private redis: RedisService,
@@ -952,8 +955,11 @@ export class AuthService {
         session.tenant_id = targetTenantId;
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
-      } catch {
-        /* skip malformed sessions */
+      } catch (err) {
+        this.logger.warn(
+          `Skipping malformed session ${sessionId} during tenant switch for user ${userId}`,
+          err,
+        );
       }
     }
 
