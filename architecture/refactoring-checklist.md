@@ -81,6 +81,18 @@ Copy everything from `---BEGIN---` to `---END---` into your PR description.
 
 ---
 
+## Bug Fixes During Refactoring
+
+If you discover and fix a bug while refactoring, the bug fix must not be folded silently into the refactoring commit. Instead:
+
+- Extract the bug fix as a separate, atomic commit before or after the refactoring.
+- Include a regression test in that commit, following the convention in [`architecture/bug-fix-regression-convention.md`](bug-fix-regression-convention.md).
+- The regression test description must be prefixed with `regression:` — e.g., `"regression: should not double-allocate payment when called concurrently"`.
+
+A refactoring commit that also silently fixes bugs makes it impossible to bisect history or attribute test coverage correctly.
+
+---
+
 ## Red Flags — Stop and Reassess
 
 If any of the following arise during a refactoring, stop. Do not proceed until resolved.

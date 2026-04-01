@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Secret scanning
         uses: gitleaks/gitleaks-action@v2
@@ -37,11 +39,11 @@ jobs:
       - name: Type check
         run: pnpm -r run type-check
 
-      - name: Run unit tests
-        run: pnpm turbo run test
+      - name: Run unit tests with coverage enforcement
+        run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
 
-      - name: Enforce coverage thresholds
-        run: pnpm --filter @school/api --filter @school/worker run test:coverage
+      - name: Test coverage gate
+        run: pnpm run check:test-gate
 
       - name: Build
         run: pnpm build --force

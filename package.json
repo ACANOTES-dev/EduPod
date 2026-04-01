@@ -21,6 +21,7 @@
     "snapshot:api": "tsx scripts/generate-api-surface.ts",
     "snapshot:schema": "bash scripts/snapshot-prisma-schema.sh",
     "check:characterization": "bash scripts/check-characterization-tests.sh",
+    "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
     "prepare": "husky"
   },
   "lint-staged": {
