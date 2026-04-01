@@ -1,0 +1,46 @@
+data_dir = "/var/lib/vector"
+
+[sources.pm2_api]
+type = "file"
+include = ["/home/edupod/.pm2/logs/api-*.log"]
+read_from = "end"
+
+[sources.pm2_web]
+type = "file"
+include = ["/home/edupod/.pm2/logs/web-*.log"]
+read_from = "end"
+
+[sources.pm2_worker]
+type = "file"
+include = ["/home/edupod/.pm2/logs/worker-*.log"]
+read_from = "end"
+
+[sinks.loki_api]
+type = "loki"
+inputs = ["pm2_api"]
+endpoint = "${LOKI_PUSH_URL}"
+labels.job = "edupod"
+labels.service = "api"
+labels.environment = "production"
+healthcheck = true
+encoding.codec = "text"
+
+[sinks.loki_web]
+type = "loki"
+inputs = ["pm2_web"]
+endpoint = "${LOKI_PUSH_URL}"
+labels.job = "edupod"
+labels.service = "web"
+labels.environment = "production"
+healthcheck = true
+encoding.codec = "text"
+
+[sinks.loki_worker]
+type = "loki"
+inputs = ["pm2_worker"]
+endpoint = "${LOKI_PUSH_URL}"
+labels.job = "edupod"
+labels.service = "worker"
+labels.environment = "production"
+healthcheck = true
+encoding.codec = "text"

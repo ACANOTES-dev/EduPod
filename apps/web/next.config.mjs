@@ -20,6 +20,7 @@ const nextConfig = {
 
 export default withSentryConfig(withNextIntl(nextConfig), {
   silent: true,
-  org: 'edupod',
-  project: 'node-nestjs',
+  org: process.env.SENTRY_ORG || 'edupod',
+  project: process.env.SENTRY_PROJECT_FRONTEND || 'school-web',
+  release: process.env.SENTRY_RELEASE,
 });
