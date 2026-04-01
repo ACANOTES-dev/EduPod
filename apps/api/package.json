@@ -10,8 +10,12 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:changed": "jest --changedSince=main --passWithNoTests",
+    "test:coverage": "jest --coverage",
     "test:integration": "jest --config jest.integration.config.js",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "coverage:modules": "jest --coverage --coverageReporters=json --silent && tsx ../../scripts/coverage-by-module.ts",
+    "test:mutation": "stryker run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
@@ -80,6 +84,9 @@
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "@stryker-mutator/core": "^8.6.0",
+    "@stryker-mutator/jest-runner": "^8.6.0",
+    "@stryker-mutator/typescript-checker": "^8.6.0"
   }
 }

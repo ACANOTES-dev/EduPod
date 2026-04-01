@@ -13,6 +13,11 @@
 - [ ] Open `architecture/module-blast-radius.md` and check: what other modules depend on the ones I'm touching?
 - [ ] If changing a Tier 1 or Tier 2 service interface: full regression required
 
+### 1b. Governance Check
+
+- [ ] Am I taking an architecture, testing, or ops shortcut? -> Write the tradeoff down in `Governance/governance-policy.md` before treating it as accepted
+- [ ] Does this touch a critical workflow? -> Confirm code + tests + ops/runbook + docs + rollback/containment are all covered before calling it complete
+
 ### 2. Schema Check (if touching Prisma schema or DB)
 
 - [ ] Is this a tenant-scoped table? -> Must have `tenant_id` + RLS policy
@@ -67,3 +72,8 @@ If YES to any of the above: **write an ADR in `architecture/adrs/` and add it to
 - [ ] All pre-existing tests pass
 - [ ] If I changed a state machine: transitions and blocked transitions are tested
 - [ ] If I changed an RLS-scoped table: RLS leakage test exists
+
+### 8. Risk Closure Check
+
+- [ ] If I am closing a tracked health risk: did I attach regression proof before marking it retired?
+- [ ] If I changed a critical workflow: did I document the rollback or containment path in the same change?
