@@ -80,8 +80,8 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### EncryptionService (ConfigurationModule)
 
-- **Consumed by**: Admissions payment, finance/Stripe, payslips, staff profiles
-- **Blast radius**: MEDIUM. All encrypted field access (bank details, Stripe keys).
+- **Consumed by**: Admissions payment, finance/Stripe, payslips, staff profiles, AuthModule (MFA TOTP secret encryption)
+- **Blast radius**: MEDIUM. All encrypted field access (bank details, Stripe keys, MFA secrets).
 - **Danger**: Changing encryption/decryption logic makes existing encrypted data unreadable.
 
 ### ApprovalRequestsService (ApprovalsModule)
@@ -111,6 +111,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### AuthService (AuthModule)
 
+- **Imports**: ConfigurationModule (EncryptionService for MFA TOTP secret encryption/decryption)
 - **Consumed by**: TenantsModule
 - **Blast radius**: LOW (only tenant provisioning uses it directly; auth flow is middleware-based)
 

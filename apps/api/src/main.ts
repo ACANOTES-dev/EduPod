@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
@@ -27,14 +28,37 @@ async function bootstrap() {
   });
 
   // Security
-  app.use(helmet());
+  const isProduction = process.env.NODE_ENV === 'production';
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", 'https://*.sentry.io', 'https://*.stripe.com'],
+          frameSrc: ["'self'", 'https://*.stripe.com'],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+    }),
+  );
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+    next();
+  });
   app.use(compression());
   app.use(cookieParser());
 
   // CORS
   const corsOrigins: (string | RegExp)[] = [
     process.env.APP_URL || 'http://localhost:5551',
-    /^https?:\/\/[\w-]+\.edupod\.app(:\d+)?$/,
+    isProduction ? /^https:\/\/[\w-]+\.edupod\.app$/ : /^https?:\/\/[\w-]+\.edupod\.app(:\d+)?$/,
   ];
   app.enableCors({
     origin: corsOrigins,

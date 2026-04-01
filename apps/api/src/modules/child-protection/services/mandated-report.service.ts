@@ -80,7 +80,7 @@ function toResponse(record: CpRecordRow): MandatedReportResponse {
     cp_record_id: record.id,
     student_id: record.student_id,
     mandated_report_status: record.mandated_report_status
-      ? PRISMA_TO_STATUS[record.mandated_report_status] ?? String(record.mandated_report_status)
+      ? (PRISMA_TO_STATUS[record.mandated_report_status] ?? String(record.mandated_report_status))
       : 'none',
     mandated_report_ref: record.mandated_report_ref,
     tusla_contact_name: record.tusla_contact_name,
@@ -130,14 +130,18 @@ export class MandatedReportService {
       });
 
       if (!cpRecord) {
-        throw new NotFoundException('CP record not found');
+        throw new NotFoundException({
+          code: 'CP_RECORD_NOT_FOUND',
+          message: `CP record with id "${cpRecordId}" not found`,
+        });
       }
 
       // 2. Check that no mandated report already exists on this record
       if (cpRecord.mandated_report_status !== null) {
-        throw new ConflictException(
-          'A mandated report already exists for this CP record',
-        );
+        throw new ConflictException({
+          code: 'MANDATED_REPORT_ALREADY_EXISTS',
+          message: `A mandated report already exists for CP record "${cpRecordId}"`,
+        });
       }
 
       // 3. Set mandated_report_status to draft
@@ -196,7 +200,10 @@ export class MandatedReportService {
       });
 
       if (!cpRecord) {
-        throw new NotFoundException('CP record not found');
+        throw new NotFoundException({
+          code: 'CP_RECORD_NOT_FOUND',
+          message: `CP record with id "${cpRecordId}" not found`,
+        });
       }
 
       // 2. Validate current status is 'draft'
@@ -274,7 +281,10 @@ export class MandatedReportService {
       });
 
       if (!cpRecord) {
-        throw new NotFoundException('CP record not found');
+        throw new NotFoundException({
+          code: 'CP_RECORD_NOT_FOUND',
+          message: `CP record with id "${cpRecordId}" not found`,
+        });
       }
 
       // 2. Determine current status
@@ -375,7 +385,10 @@ export class MandatedReportService {
     })) as CpRecordRow | null;
 
     if (!cpRecord) {
-      throw new NotFoundException('CP record not found');
+      throw new NotFoundException({
+        code: 'CP_RECORD_NOT_FOUND',
+        message: `CP record with id "${cpRecordId}" not found`,
+      });
     }
 
     // Write access audit event
@@ -426,7 +439,10 @@ export class MandatedReportService {
       });
 
       if (!cpRecord) {
-        throw new NotFoundException('CP record not found');
+        throw new NotFoundException({
+          code: 'CP_RECORD_NOT_FOUND',
+          message: `CP record with id "${cpRecordId}" not found`,
+        });
       }
 
       // Find all CP records for this student that have mandated reports

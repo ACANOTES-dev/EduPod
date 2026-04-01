@@ -1,13 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { UserListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -17,6 +14,7 @@ export class MembershipsService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly permissionCacheService: PermissionCacheService,
+    private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   /**
@@ -153,6 +151,7 @@ export class MembershipsService {
     tenantId: string,
     userId: string,
     roleIds: string[],
+    actorUserId?: string,
   ) {
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
@@ -204,6 +203,15 @@ export class MembershipsService {
     // Invalidate permission cache
     await this.permissionCacheService.invalidate(membership.id);
 
+    if (actorUserId) {
+      await this.securityAuditService.logMembershipRoleChange(
+        tenantId,
+        actorUserId,
+        userId,
+        roleIds,
+      );
+    }
+
     return this.getUser(tenantId, userId);
   }
 
@@ -212,7 +220,7 @@ export class MembershipsService {
    * Guards against suspending the last school_owner.
    * Clears Redis sessions and permission cache.
    */
-  async suspendMembership(tenantId: string, userId: string) {
+  async suspendMembership(tenantId: string, userId: string, actorUserId?: string) {
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
         tenant_id: tenantId,
@@ -284,13 +292,22 @@ export class MembershipsService {
     // Invalidate permission cache
     await this.permissionCacheService.invalidate(membership.id);
 
+    if (actorUserId) {
+      await this.securityAuditService.logUserStatusChange(
+        tenantId,
+        actorUserId,
+        userId,
+        'suspended',
+      );
+    }
+
     return this.getUser(tenantId, userId);
   }
 
   /**
    * Reactivate a suspended membership.
    */
-  async reactivateMembership(tenantId: string, userId: string) {
+  async reactivateMembership(tenantId: string, userId: string, actorUserId?: string) {
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
         tenant_id: tenantId,
@@ -316,6 +333,10 @@ export class MembershipsService {
       where: { id: membership.id },
       data: { membership_status: 'active' },
     });
+
+    if (actorUserId) {
+      await this.securityAuditService.logUserStatusChange(tenantId, actorUserId, userId, 'active');
+    }
 
     return this.getUser(tenantId, userId);
   }

@@ -40,7 +40,10 @@ export class PlatformOwnerGuard implements CanActivate {
     const user = request.currentUser;
 
     if (!user) {
-      throw new UnauthorizedException('Authentication required');
+      throw new UnauthorizedException({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: 'Authentication required',
+      });
     }
 
     const client = this.redis.getClient();
@@ -89,7 +92,8 @@ export class PlatformOwnerGuard implements CanActivate {
       await client.setex(userCacheKey, 60, 'false');
       throw new ForbiddenException({
         code: 'PLATFORM_ACCESS_DENIED',
-        message: 'Platform owner access required. Please re-run the seed script to populate platform owner data.',
+        message:
+          'Platform owner access required. Please re-run the seed script to populate platform owner data.',
       });
     }
 

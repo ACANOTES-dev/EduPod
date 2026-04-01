@@ -6,6 +6,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
 }));
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { SecurityAuditService } from '../../audit-log/security-audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { DpaService } from '../dpa.service';
@@ -34,6 +35,9 @@ describe('DpaService', () => {
   const mockPlatformLegalService = {
     ensureSeeded: jest.fn(),
   };
+  const mockSecurityAuditService = {
+    logDpaAcceptance: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
@@ -52,6 +56,7 @@ describe('DpaService', () => {
         DpaService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PlatformLegalService, useValue: mockPlatformLegalService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 
@@ -123,7 +128,12 @@ describe('DpaService', () => {
       superseded_at: null,
       created_at: new Date('2026-03-27T00:00:00Z'),
     });
-    mockPrisma.dataProcessingAgreement.findFirst.mockResolvedValue(null);
+    // First findFirst: pre-check returns null (not yet accepted)
+    // Second findFirst: re-fetch after creation returns the created record
+    mockPrisma.dataProcessingAgreement.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: 'acceptance-id',
+      dpa_version: '2026.03',
+    });
     mockPrisma.dataProcessingAgreement.create.mockResolvedValue({
       id: 'acceptance-id',
       dpa_version: '2026.03',
@@ -148,6 +158,12 @@ describe('DpaService', () => {
         ip_address: '127.0.0.1',
       },
     });
+    expect(mockSecurityAuditService.logDpaAcceptance).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      '2026.03',
+      '127.0.0.1',
+    );
   });
 
   // ─── Expanded coverage ─────────────────────────────────────────────────────
@@ -265,12 +281,14 @@ describe('DpaService', () => {
         tenant_id: TENANT_ID,
         accepted_by_user_id: USER_ID,
       };
+      // Pre-check findFirst returns existing acceptance
       mockPrisma.dataProcessingAgreement.findFirst.mockResolvedValue(existingAcceptance);
 
       const result = await service.acceptCurrentVersion(TENANT_ID, USER_ID);
 
       expect(result).toEqual(existingAcceptance);
       expect(mockPrisma.dataProcessingAgreement.create).not.toHaveBeenCalled();
+      expect(mockSecurityAuditService.logDpaAcceptance).not.toHaveBeenCalled();
     });
 
     it('should store null for ip_address when not provided', async () => {
@@ -283,7 +301,13 @@ describe('DpaService', () => {
         superseded_at: null,
         created_at: new Date('2026-03-27T00:00:00Z'),
       });
-      mockPrisma.dataProcessingAgreement.findFirst.mockResolvedValue(null);
+      // First findFirst: pre-check returns null; second findFirst: re-fetch
+      mockPrisma.dataProcessingAgreement.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'acceptance-id',
+          dpa_version: '2026.03',
+        });
       mockPrisma.dataProcessingAgreement.create.mockResolvedValue({
         id: 'acceptance-id',
         dpa_version: '2026.03',

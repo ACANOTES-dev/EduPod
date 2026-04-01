@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import type {
   CreateDocumentTemplateDto,
@@ -26,7 +22,7 @@ const COMMON_MERGE_FIELDS: MergeFieldDefinition[] = [
   { field_name: 'school_address', source: 'school', description: 'School address' },
   { field_name: 'school_logo_url', source: 'school', description: 'School logo URL' },
   { field_name: 'principal_name', source: 'school', description: 'Principal name' },
-  { field_name: 'today_date', source: 'system', description: 'Today\'s date formatted' },
+  { field_name: 'today_date', source: 'system', description: "Today's date formatted" },
   { field_name: 'academic_year', source: 'system', description: 'Current academic year' },
   { field_name: 'parent_name', source: 'parent', description: 'Primary guardian name' },
   { field_name: 'parent_address', source: 'parent', description: 'Parent address' },
@@ -35,7 +31,11 @@ const COMMON_MERGE_FIELDS: MergeFieldDefinition[] = [
 const INCIDENT_FIELDS: MergeFieldDefinition[] = [
   { field_name: 'incident_date', source: 'incident', description: 'Incident date formatted' },
   { field_name: 'incident_category', source: 'incident', description: 'Category name' },
-  { field_name: 'incident_description', source: 'incident', description: 'Parent-safe description' },
+  {
+    field_name: 'incident_description',
+    source: 'incident',
+    description: 'Parent-safe description',
+  },
   { field_name: 'incident_location', source: 'incident', description: 'Location' },
 ];
 
@@ -148,7 +148,10 @@ export class BehaviourDocumentTemplateService {
       });
 
       if (!template) {
-        throw new NotFoundException('Document template not found');
+        throw new NotFoundException({
+          code: 'DOCUMENT_TEMPLATE_NOT_FOUND',
+          message: `Document template with id "${templateId}" not found`,
+        });
       }
 
       const updateData: Record<string, unknown> = {};
@@ -158,7 +161,10 @@ export class BehaviourDocumentTemplateService {
         if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
         if (dto.template_body !== undefined) updateData.template_body = dto.template_body;
         if (dto.name !== undefined) {
-          throw new BadRequestException('Cannot rename system templates');
+          throw new BadRequestException({
+            code: 'SYSTEM_TEMPLATE_RENAME_FORBIDDEN',
+            message: 'Cannot rename system templates',
+          });
         }
       } else {
         // Custom templates: all fields editable

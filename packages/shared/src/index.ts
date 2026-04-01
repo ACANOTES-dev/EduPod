@@ -89,11 +89,17 @@ export * from './types/finance';
 // P6 Schemas
 export * from './schemas/finance.schema';
 
+// P6 Finance State Machine
+export * from './finance/state-machine-payment';
+
 // P6B Types
 export * from './types/payroll';
 
 // P6B Schemas
 export * from './schemas/payroll.schema';
+
+// P6B Payroll State Machine
+export * from './payroll/state-machine';
 
 // P7 Types
 export * from './types/announcement';
@@ -122,6 +128,9 @@ export * from './schemas/audit-log.schema';
 export * from './schemas/compliance.schema';
 export * from './schemas/import.schema';
 export * from './schemas/report.schema';
+
+// P8 Compliance State Machine
+export * from './compliance/state-machine';
 
 // Scheduling v2 Schemas
 export * from './schemas/scheduling.schema';

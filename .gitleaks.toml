@@ -1,0 +1,10 @@
+[allowlist]
+description = "Allowlisted patterns"
+paths = [
+  '''packages/prisma/seed\.ts''',
+  '''\.spec\.ts$''',
+  '''\.test\.ts$''',
+  '''Plans/''',
+  '''Manuals/''',
+  '''scripts/setup-db-role\.sql''',
+]

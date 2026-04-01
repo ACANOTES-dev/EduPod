@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
 import * as XLSX from 'xlsx';
 
@@ -96,6 +96,8 @@ function getHeaderIndex(indices: Map<string, number>, key: string): number {
 
 @Injectable()
 export class AttendanceUploadService {
+  private readonly logger = new Logger(AttendanceUploadService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly settingsService: SettingsService,
@@ -310,7 +312,11 @@ export class AttendanceUploadService {
 
       // Validate student_number
       if (!row.student_number || row.student_number.trim() === '') {
-        errors.push({ row: rowNum, field: 'student_number', message: 'Student number is required' });
+        errors.push({
+          row: rowNum,
+          field: 'student_number',
+          message: 'Student number is required',
+        });
         continue;
       }
 
@@ -720,8 +726,11 @@ export class AttendanceUploadService {
             sessionDate,
           );
         }
-      } catch {
-        // Notification failure must never break attendance operations
+      } catch (err) {
+        this.logger.warn(
+          `Failed to trigger absence notification for student ${entry.student_id} — attendance operation continues`,
+          err,
+        );
       }
     }
 
@@ -750,7 +759,8 @@ export class AttendanceUploadService {
     if (!raw) {
       throw new BadRequestException({
         code: 'UNDO_EXPIRED_OR_NOT_FOUND',
-        message: 'Undo window has expired or batch not found. Changes can only be undone within 5 minutes.',
+        message:
+          'Undo window has expired or batch not found. Changes can only be undone within 5 minutes.',
       });
     }
 

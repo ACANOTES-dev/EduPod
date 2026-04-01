@@ -14,6 +14,11 @@ export interface PartitionMaintenancePayload {
   // Not tenant-aware — this manages DB schema, not tenant data
 }
 
+// ─── SQL identifier / date safety guards ────────────────────────────────────
+
+const SAFE_IDENTIFIER_RE = /^[a-z_][a-z0-9_]*$/;
+const SAFE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 // ─── Partitioned tables configuration ───────────────────────────────────────
 
 interface PartitionConfig {
@@ -59,7 +64,12 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
             const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1);
             const rangeEnd = this.formatDate(nextMonth);
 
-            await this.createPartitionIfNotExists(config.table, partitionName, rangeStart, rangeEnd);
+            await this.createPartitionIfNotExists(
+              config.table,
+              partitionName,
+              rangeStart,
+              rangeEnd,
+            );
             created.push(partitionName);
           }
         } else {
@@ -70,7 +80,12 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
             const rangeStart = `${year}-01-01`;
             const rangeEnd = `${year + 1}-01-01`;
 
-            await this.createPartitionIfNotExists(config.table, partitionName, rangeStart, rangeEnd);
+            await this.createPartitionIfNotExists(
+              config.table,
+              partitionName,
+              rangeStart,
+              rangeEnd,
+            );
             created.push(partitionName);
           }
         }
@@ -79,7 +94,9 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
       }
     }
 
-    this.logger.log(`Partition maintenance complete. Created/verified: ${created.length} partitions.`);
+    this.logger.log(
+      `Partition maintenance complete. Created/verified: ${created.length} partitions.`,
+    );
 
     return { created_partitions: created.length, tables_processed: PARTITIONED_TABLES.length };
   }
@@ -98,12 +115,27 @@ export class PartitionMaintenanceProcessor extends WorkerHost {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
   }
 
+  private assertSafeIdentifier(name: string, context: string): void {
+    if (!SAFE_IDENTIFIER_RE.test(name)) {
+      throw new Error(
+        `Unsafe SQL identifier in ${context}: "${name}" — must match /^[a-z_][a-z0-9_]*$/`,
+      );
+    }
+  }
+
   private async createPartitionIfNotExists(
     parentTable: string,
     partitionName: string,
     rangeStart: string,
     rangeEnd: string,
   ): Promise<void> {
+    this.assertSafeIdentifier(parentTable, 'parentTable');
+    this.assertSafeIdentifier(partitionName, 'partitionName');
+
+    if (!SAFE_DATE_RE.test(rangeStart) || !SAFE_DATE_RE.test(rangeEnd)) {
+      throw new Error(`Unsafe date range: "${rangeStart}" to "${rangeEnd}"`);
+    }
+
     // Check if partition already exists
     // eslint-disable-next-line school/no-raw-sql-outside-rls -- partition DDL requires raw SQL
     const exists = await this.prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(

@@ -1,5 +1,10 @@
 import { getQueueToken } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -102,8 +107,18 @@ describe('ApprovalRequestsService', () => {
         approver_user_id: APPROVER_USER_ID,
         decided_at: new Date(),
         decision_comment: 'Looks good',
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
-        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
@@ -129,9 +144,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'approved' }),
       );
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -141,9 +156,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'cancelled' }),
       );
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -154,17 +169,17 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'pending_approval', requester_user_id: APPROVER_USER_ID }),
       );
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when request does not exist', async () => {
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.approve(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should set callback_status to pending for action types with callbacks', async () => {
@@ -177,8 +192,18 @@ describe('ApprovalRequestsService', () => {
         status: 'approved',
         callback_status: 'pending',
         callback_attempts: 0,
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
-        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
@@ -211,8 +236,18 @@ describe('ApprovalRequestsService', () => {
       const approvedRequest = {
         ...pendingRequest,
         status: 'approved',
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
-        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
@@ -237,8 +272,18 @@ describe('ApprovalRequestsService', () => {
         ...pendingRequest,
         status: 'approved',
         callback_status: 'pending',
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
-        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
@@ -273,14 +318,29 @@ describe('ApprovalRequestsService', () => {
         approver_user_id: APPROVER_USER_ID,
         decided_at: new Date(),
         decision_comment: 'Not authorised',
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
-        approver: { id: APPROVER_USER_ID, first_name: 'Bob', last_name: 'Jones', email: 'bob@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
+        approver: {
+          id: APPROVER_USER_ID,
+          first_name: 'Bob',
+          last_name: 'Jones',
+          email: 'bob@school.test',
+        },
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
       mockPrisma.approvalRequest.update.mockResolvedValue(rejectedRequest);
 
-      const result = await service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID, 'Not authorised');
+      const result = await service.reject(
+        TENANT_ID,
+        REQUEST_ID,
+        APPROVER_USER_ID,
+        'Not authorised',
+      );
 
       expect(result.status).toBe('rejected');
       expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
@@ -300,9 +360,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'approved' }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -312,9 +372,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'cancelled' }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -324,17 +384,17 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'pending_approval', requester_user_id: APPROVER_USER_ID }),
       );
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException when request does not exist', async () => {
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.reject(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -350,14 +410,24 @@ describe('ApprovalRequestsService', () => {
         status: 'cancelled',
         decided_at: new Date(),
         decision_comment: 'Changed my mind',
-        requester: { id: REQUESTER_USER_ID, first_name: 'Alice', last_name: 'Smith', email: 'alice@school.test' },
+        requester: {
+          id: REQUESTER_USER_ID,
+          first_name: 'Alice',
+          last_name: 'Smith',
+          email: 'alice@school.test',
+        },
         approver: null,
       };
 
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(pendingRequest);
       mockPrisma.approvalRequest.update.mockResolvedValue(cancelledRequest);
 
-      const result = await service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID, 'Changed my mind');
+      const result = await service.cancel(
+        TENANT_ID,
+        REQUEST_ID,
+        REQUESTER_USER_ID,
+        'Changed my mind',
+      );
 
       expect(result.status).toBe('cancelled');
       expect(mockPrisma.approvalRequest.update).toHaveBeenCalledWith(
@@ -377,9 +447,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'pending_approval', requester_user_id: REQUESTER_USER_ID }),
       );
 
-      await expect(
-        service.cancel(TENANT_ID, REQUEST_ID, APPROVER_USER_ID),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.cancel(TENANT_ID, REQUEST_ID, APPROVER_USER_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -389,9 +459,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'approved' }),
       );
 
-      await expect(
-        service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -401,9 +471,9 @@ describe('ApprovalRequestsService', () => {
         buildMockRequest({ status: 'cancelled' }),
       );
 
-      await expect(
-        service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockPrisma.approvalRequest.update).not.toHaveBeenCalled();
     });
@@ -411,9 +481,9 @@ describe('ApprovalRequestsService', () => {
     it('should throw NotFoundException when request does not exist', async () => {
       mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.cancel(TENANT_ID, REQUEST_ID, REQUESTER_USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -464,6 +534,8 @@ describe('ApprovalRequestsService', () => {
         action_type: 'payroll.finalise_run',
         is_enabled: true,
       });
+      // No existing open request (duplicate check passes)
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue(null);
       mockPrisma.approvalRequest.create.mockResolvedValue({
         id: 'new-request-uuid-1',
         status: 'pending_approval',
@@ -489,6 +561,71 @@ describe('ApprovalRequestsService', () => {
           }),
         }),
       );
+    });
+
+    it('should throw ConflictException when a duplicate open approval request exists (R-22)', async () => {
+      mockPrisma.approvalWorkflow.findFirst.mockResolvedValue({
+        id: 'workflow-uuid-1',
+        action_type: 'payroll.finalise_run',
+        is_enabled: true,
+      });
+      // An open request already exists for this entity
+      mockPrisma.approvalRequest.findFirst.mockResolvedValue({
+        id: 'existing-request-uuid',
+        status: 'pending_approval',
+        target_entity_type: 'payroll_run',
+        target_entity_id: 'payroll-run-uuid-1',
+      });
+
+      await expect(
+        service.checkAndCreateIfNeeded(
+          TENANT_ID,
+          'payroll.finalise_run',
+          'payroll_run',
+          'payroll-run-uuid-1',
+          REQUESTER_USER_ID,
+          false,
+        ),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrisma.approvalRequest.create).not.toHaveBeenCalled();
+    });
+
+    it('should use the provided db client when passed (R-21 atomicity)', async () => {
+      const mockDb = {
+        approvalWorkflow: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'workflow-uuid-1',
+            action_type: 'payroll.finalise_run',
+            is_enabled: true,
+          }),
+        },
+        approvalRequest: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({
+            id: 'new-request-uuid-1',
+            status: 'pending_approval',
+          }),
+        },
+      } as unknown as typeof mockPrisma;
+
+      const result = await service.checkAndCreateIfNeeded(
+        TENANT_ID,
+        'payroll.finalise_run',
+        'payroll_run',
+        'payroll-run-uuid-1',
+        REQUESTER_USER_ID,
+        false,
+        mockDb as unknown as PrismaService,
+      );
+
+      expect(result.approved).toBe(false);
+      // Should have used the passed db client, not this.prisma
+      expect(mockPrisma.approvalWorkflow.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.approvalRequest.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.approvalRequest.create).not.toHaveBeenCalled();
+      expect(mockDb.approvalWorkflow.findFirst).toHaveBeenCalled();
+      expect(mockDb.approvalRequest.create).toHaveBeenCalled();
     });
   });
 });

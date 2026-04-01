@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { SANCTION_PARENT_VISIBLE_FIELDS } from '@school/shared';
 import type { AmendmentListQuery } from '@school/shared';
@@ -56,6 +56,8 @@ interface CheckAndCreateAmendmentParams {
 
 @Injectable()
 export class BehaviourAmendmentsService {
+  private readonly logger = new Logger(BehaviourAmendmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
@@ -64,9 +66,7 @@ export class BehaviourAmendmentsService {
 
   // ─── Create Amendment Notice ────────────────────────────────────────────────
 
-  async createAmendmentNotice(
-    params: CreateAmendmentNoticeParams,
-  ) {
+  async createAmendmentNotice(params: CreateAmendmentNoticeParams) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: params.tenantId,
     });
@@ -82,14 +82,9 @@ export class BehaviourAmendmentsService {
    * Internal: create amendment notice within an existing transaction.
    * This is called both from the public method and from the appeal service.
    */
-  async createAmendmentNoticeInTx(
-    db: PrismaService,
-    params: CreateAmendmentNoticeParams,
-  ) {
+  async createAmendmentNoticeInTx(db: PrismaService, params: CreateAmendmentNoticeParams) {
     // Build what_changed JSONB diff from parent-visible fields only
-    const parentVisibleFields = this.getParentVisibleFields(
-      params.entityType,
-    );
+    const parentVisibleFields = this.getParentVisibleFields(params.entityType);
     const whatChanged: Array<{
       field: string;
       old_value: unknown;
@@ -97,10 +92,7 @@ export class BehaviourAmendmentsService {
     }> = [];
 
     for (const field of parentVisibleFields) {
-      if (
-        params.previousValues[field] !== undefined ||
-        params.newValues[field] !== undefined
-      ) {
+      if (params.previousValues[field] !== undefined || params.newValues[field] !== undefined) {
         const oldVal = params.previousValues[field] ?? null;
         const newVal = params.newValues[field] ?? null;
         if (oldVal !== newVal) {
@@ -125,8 +117,7 @@ export class BehaviourAmendmentsService {
     );
 
     // Map amendment type
-    const amendmentType =
-      params.amendmentType as $Enums.AmendmentType;
+    const amendmentType = params.amendmentType as $Enums.AmendmentType;
 
     // Insert the amendment notice
     const notice = await db.behaviourAmendmentNotice.create({
@@ -135,8 +126,7 @@ export class BehaviourAmendmentsService {
         entity_type: params.entityType,
         entity_id: params.entityId,
         amendment_type: amendmentType,
-        what_changed:
-          whatChanged as unknown as Prisma.InputJsonValue,
+        what_changed: whatChanged as unknown as Prisma.InputJsonValue,
         change_reason: params.reason,
         changed_by_id: params.changedById,
         authorised_by_id: params.authorisedById ?? null,
@@ -175,8 +165,7 @@ export class BehaviourAmendmentsService {
       where.entity_type = filters.entity_type;
     }
     if (filters.amendment_type) {
-      where.amendment_type =
-        filters.amendment_type as $Enums.AmendmentType;
+      where.amendment_type = filters.amendment_type as $Enums.AmendmentType;
     }
     if (filters.correction_sent !== undefined) {
       where.correction_notification_sent = filters.correction_sent;
@@ -288,8 +277,11 @@ export class BehaviourAmendmentsService {
                 sent_at: now,
               },
             });
-          } catch {
-            // Don't fail the entire correction if a single ack row fails
+          } catch (err) {
+            this.logger.warn(
+              `Failed to create parent acknowledgement row for amendment ${notice.id} — correction continues`,
+              err,
+            );
           }
 
           // ── Step 6: Create in-app notification for correction ──────────
@@ -300,26 +292,27 @@ export class BehaviourAmendmentsService {
                   tenant_id: tenantId,
                   recipient_user_id: sp.parent.user_id,
                   channel: 'in_app',
-                  template_key:
-                    notice.requires_parent_reacknowledgement
-                      ? 'behaviour_reacknowledgement_request'
-                      : 'behaviour_correction_parent',
+                  template_key: notice.requires_parent_reacknowledgement
+                    ? 'behaviour_reacknowledgement_request'
+                    : 'behaviour_correction_parent',
                   locale: 'en',
                   status: 'delivered',
                   payload_json: {
                     amendment_notice_id: notice.id,
                     entity_type: notice.entity_type,
                     entity_id: notice.entity_id,
-                    requires_reacknowledgement:
-                      notice.requires_parent_reacknowledgement,
+                    requires_reacknowledgement: notice.requires_parent_reacknowledgement,
                   },
                   source_entity_type: 'behaviour_amendment_notice',
                   source_entity_id: notice.id,
                   delivered_at: now,
                 },
               });
-            } catch {
-              // Don't fail the correction if notification creation fails
+            } catch (err) {
+              this.logger.warn(
+                `Failed to create in-app notification for amendment ${notice.id} — correction continues`,
+                err,
+              );
             }
           }
         }
@@ -354,39 +347,42 @@ export class BehaviourAmendmentsService {
             },
           });
         }
-      } catch {
-        // Don't fail the correction if document supersession fails
+      } catch (err) {
+        this.logger.warn(
+          `Failed to supersede existing behaviour document for amendment ${id} — correction continues`,
+          err,
+        );
       }
 
       // Enqueue correction notification to parent (async delivery)
       try {
-        await this.notificationsQueue.add(
-          'behaviour:correction-parent',
-          {
-            tenant_id: tenantId,
-            amendment_notice_id: id,
-            entity_type: notice.entity_type,
-            entity_id: notice.entity_id,
-          },
+        await this.notificationsQueue.add('behaviour:correction-parent', {
+          tenant_id: tenantId,
+          amendment_notice_id: id,
+          entity_type: notice.entity_type,
+          entity_id: notice.entity_id,
+        });
+      } catch (err) {
+        this.logger.warn(
+          'Failed to enqueue behaviour:correction-parent — correction send succeeded',
+          err,
         );
-      } catch {
-        // Don't fail the send if queue add fails
       }
 
       // If requires re-acknowledgement, enqueue re-ack request
       if (notice.requires_parent_reacknowledgement) {
         try {
-          await this.notificationsQueue.add(
-            'behaviour:parent-reacknowledgement',
-            {
-              tenant_id: tenantId,
-              amendment_notice_id: id,
-              entity_type: notice.entity_type,
-              entity_id: notice.entity_id,
-            },
+          await this.notificationsQueue.add('behaviour:parent-reacknowledgement', {
+            tenant_id: tenantId,
+            amendment_notice_id: id,
+            entity_type: notice.entity_type,
+            entity_id: notice.entity_id,
+          });
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-reacknowledgement — correction send succeeded',
+            err,
           );
-        } catch {
-          // Don't fail the send if queue add fails
         }
       }
 
@@ -402,8 +398,7 @@ export class BehaviourAmendmentsService {
         {
           correction_notification_sent: true,
           amendment_notice_id: id,
-          requires_reacknowledgement:
-            notice.requires_parent_reacknowledgement,
+          requires_reacknowledgement: notice.requires_parent_reacknowledgement,
         },
       );
 
@@ -444,9 +439,7 @@ export class BehaviourAmendmentsService {
    * Checks if parent notification was already sent and if any parent-visible
    * field changed. If both conditions are met, creates an amendment notice.
    */
-  async checkAndCreateAmendment(
-    params: CheckAndCreateAmendmentParams,
-  ): Promise<boolean> {
+  async checkAndCreateAmendment(params: CheckAndCreateAmendmentParams): Promise<boolean> {
     const sentStatuses = ['sent', 'delivered', 'acknowledged'];
 
     // Check if notification was already sent to parent
@@ -460,17 +453,13 @@ export class BehaviourAmendmentsService {
 
     // Get the correct parent-visible fields list
     const parentVisibleFields =
-      params.parentVisibleFields ??
-      this.getParentVisibleFields(params.entityType);
+      params.parentVisibleFields ?? this.getParentVisibleFields(params.entityType);
 
     // Check if any parent-visible field changed
     const hasVisibleChange = parentVisibleFields.some((field) => {
       const oldVal = params.previousValues[field];
       const newVal = params.newValues[field];
-      return (
-        newVal !== undefined &&
-        oldVal !== newVal
-      );
+      return newVal !== undefined && oldVal !== newVal;
     });
 
     if (!hasVisibleChange) {
@@ -523,16 +512,15 @@ export class BehaviourAmendmentsService {
 
     if (entityType === 'incident') {
       // Incidents don't have a direct student_id; find the subject participant
-      const subjectParticipant =
-        await db.behaviourIncidentParticipant.findFirst({
-          where: {
-            incident_id: entityId,
-            tenant_id: tenantId,
-            role: 'subject',
-            student_id: { not: null },
-          },
-          select: { student_id: true },
-        });
+      const subjectParticipant = await db.behaviourIncidentParticipant.findFirst({
+        where: {
+          incident_id: entityId,
+          tenant_id: tenantId,
+          role: 'subject',
+          student_id: { not: null },
+        },
+        select: { student_id: true },
+      });
       return {
         studentId: subjectParticipant?.student_id ?? null,
         incidentId: entityId,
