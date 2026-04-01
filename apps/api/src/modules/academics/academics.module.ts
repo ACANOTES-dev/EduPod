@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 
 import { AcademicPeriodsController } from './academic-periods.controller';
 import { AcademicPeriodsService } from './academic-periods.service';
+import { AcademicReadFacade } from './academic-read.facade';
 import { AcademicYearsController } from './academic-years.controller';
 import { AcademicYearsService } from './academic-years.service';
 import { CurriculumMatrixController } from './curriculum-matrix.controller';
@@ -28,6 +29,7 @@ import { YearGroupsService } from './year-groups.service';
   providers: [
     AcademicYearsService,
     AcademicPeriodsService,
+    AcademicReadFacade,
     YearGroupsService,
     SubjectsService,
     PromotionService,
@@ -36,6 +38,7 @@ import { YearGroupsService } from './year-groups.service';
   exports: [
     AcademicYearsService,
     AcademicPeriodsService,
+    AcademicReadFacade,
     YearGroupsService,
     SubjectsService,
     PromotionService,
