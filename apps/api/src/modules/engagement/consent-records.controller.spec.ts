@@ -75,7 +75,7 @@ describe('ConsentRecordsController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [ConsentRecordsController],
-      providers: [{ provide: ConsentRecordsService, useValue: consentService }],
+      providers: [{ provide: ConsentRecordsService, useValue: {} }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -96,7 +96,7 @@ describe('ConsentRecordsController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks engagement.consent_archive.view permission (GET /v1/engagement/consent-records)', async () => {

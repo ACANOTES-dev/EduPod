@@ -84,7 +84,7 @@ describe('StaffAvailabilityController — permission denied', () => {
     const module = await Test.createTestingModule({
       controllers: [StaffAvailabilityController],
       providers: [
-        { provide: StaffAvailabilityService, useValue: mockService },
+        { provide: StaffAvailabilityService, useValue: {} },
         { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
       ],
     })
@@ -107,7 +107,7 @@ describe('StaffAvailabilityController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks schedule.configure_availability permission (GET /v1/staff-availability)', async () => {

@@ -86,7 +86,7 @@ describe('NotificationSettingsController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [NotificationSettingsController],
-      providers: [{ provide: NotificationSettingsService, useValue: mockService }],
+      providers: [{ provide: NotificationSettingsService, useValue: {} }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -107,7 +107,7 @@ describe('NotificationSettingsController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks notifications.manage permission (GET /v1/notification-settings)', async () => {

@@ -7,10 +7,7 @@ import request from 'supertest';
 import { MODULE_ENABLED_KEY } from '../../common/decorators/module-enabled.decorator';
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
@@ -146,8 +143,8 @@ describe('SenTransitionController — permission denied', () => {
     const module = await Test.createTestingModule({
       controllers: [SenTransitionController],
       providers: [
-        { provide: SenTransitionService, useValue: mockService },
-        { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: SenTransitionService, useValue: {} },
+        { provide: PermissionCacheService, useValue: { getPermissions: () => [] } },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -169,7 +166,7 @@ describe('SenTransitionController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks sen.manage permission (GET /v1/sen/transition/handover-pack/123e4567-e89b-12d3-a456-426614174000)', async () => {

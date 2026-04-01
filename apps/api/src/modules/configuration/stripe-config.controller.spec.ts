@@ -105,7 +105,7 @@ describe('StripeConfigController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [StripeConfigController],
-      providers: [{ provide: StripeConfigService, useValue: mockService }],
+      providers: [{ provide: StripeConfigService, useValue: {} }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -126,7 +126,7 @@ describe('StripeConfigController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks stripe.manage permission (GET /v1/stripe-config)', async () => {

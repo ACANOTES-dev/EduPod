@@ -98,7 +98,7 @@ describe('CpAccessGuard', () => {
       fail('Expected ForbiddenException to be thrown');
     } catch (error: unknown) {
       expect(error).toBeInstanceOf(ForbiddenException);
-      expect(error).toMatchObject({ response: { code: expect.any(String) } });
+      expect(error).toMatchObject({ response: { error: { code: expect.any(String) } } });
       const forbiddenError = error as ForbiddenException;
       const response = forbiddenError.getResponse() as Record<string, unknown>;
       const errorBody = response['error'] as Record<string, unknown>;

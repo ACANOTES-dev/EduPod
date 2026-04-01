@@ -524,7 +524,7 @@ describe('MandatedReportService', () => {
         fail('Expected BadRequestException');
       } catch (error: unknown) {
         expect(error).toBeInstanceOf(BadRequestException);
-        expect(error).toMatchObject({ response: { code: expect.any(String) } });
+        expect(error).toMatchObject({ response: { error: { code: expect.any(String) } } });
         const response = (error as BadRequestException).getResponse();
         expect(response).toEqual(
           expect.objectContaining({

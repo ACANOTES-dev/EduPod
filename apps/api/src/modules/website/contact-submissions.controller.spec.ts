@@ -94,7 +94,7 @@ describe('ContactSubmissionsController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [ContactSubmissionsController],
-      providers: [{ provide: ContactFormService, useValue: mockService }],
+      providers: [{ provide: ContactFormService, useValue: {} }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -115,7 +115,7 @@ describe('ContactSubmissionsController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks communications.view permission (GET /v1/contact-submissions)', async () => {

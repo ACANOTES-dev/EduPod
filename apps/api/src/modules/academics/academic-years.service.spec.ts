@@ -251,7 +251,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
-      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
+      expect(caught).toMatchObject({ response: { error: { code: expect.any(String) } } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         error: expect.objectContaining({ code: 'DATES_LOCKED' }),
       });
@@ -342,7 +342,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
-      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
+      expect(caught).toMatchObject({ response: { error: { code: expect.any(String) } } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         error: expect.objectContaining({ code: 'DATES_LOCKED' }),
       });

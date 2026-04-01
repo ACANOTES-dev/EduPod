@@ -93,7 +93,7 @@ describe('BoardReportController — permission denied', () => {
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [BoardReportController],
-      providers: [{ provide: BoardReportService, useValue: mockService }],
+      providers: [{ provide: BoardReportService, useValue: {} }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -114,7 +114,7 @@ describe('BoardReportController — permission denied', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it('should return 403 when user lacks wellbeing.view_board_report permission (GET /v1/staff-wellbeing/reports/termly-summary)', async () => {
