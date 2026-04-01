@@ -182,6 +182,9 @@ export * from './constants/homework-type';
 export * from './constants/completion-status';
 export * from './types/homework';
 
+// Helpers
+export * from './helpers/notification';
+
 // Scheduling v2 Solver Types & Functions
 export * from './scheduler/types-v2';
 export { validateSchedule } from './scheduler/validation';

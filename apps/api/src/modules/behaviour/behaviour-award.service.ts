@@ -7,8 +7,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
-import type { CreateManualAwardDto, ListAwardsQuery } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import type { CreateManualAwardDto, ListAwardsQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -157,7 +158,7 @@ export class BehaviourAwardService {
         } catch (err) {
           this.logger.warn(
             'Failed to enqueue behaviour:parent-notification for award — award creation succeeded',
-            err,
+            err instanceof Error ? err.stack : String(err),
           );
         }
 
@@ -261,7 +262,7 @@ export class BehaviourAwardService {
         } catch (err) {
           this.logger.warn(
             'Failed to enqueue behaviour:parent-notification for auto-award — award creation succeeded',
-            err,
+            err instanceof Error ? err.stack : String(err),
           );
         }
       }

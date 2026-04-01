@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { toNotificationChannel } from '@school/shared';
+
 import { PrismaService } from '../prisma/prisma.service';
 
 interface ListTemplatesFilters {
@@ -20,10 +22,7 @@ export class NotificationTemplatesService {
 
   async list(tenantId: string, filters: ListTemplatesFilters) {
     const where: Record<string, unknown> = {
-      OR: [
-        { tenant_id: tenantId },
-        { tenant_id: null },
-      ],
+      OR: [{ tenant_id: tenantId }, { tenant_id: null }],
     };
     if (filters.template_key) {
       where.template_key = filters.template_key;
@@ -59,19 +58,21 @@ export class NotificationTemplatesService {
     return template;
   }
 
-  async create(tenantId: string, dto: {
-    channel: string;
-    template_key: string;
-    locale: string;
-    subject_template?: string | null;
-    body_template: string;
-  }) {
+  async create(
+    tenantId: string,
+    dto: {
+      channel: string;
+      template_key: string;
+      locale: string;
+      subject_template?: string | null;
+      body_template: string;
+    },
+  ) {
     try {
       return await this.prisma.notificationTemplate.create({
         data: {
           tenant_id: tenantId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          channel: dto.channel as any,
+          channel: toNotificationChannel(dto.channel),
           template_key: dto.template_key,
           locale: dto.locale,
           subject_template: dto.subject_template ?? null,
@@ -80,10 +81,7 @@ export class NotificationTemplatesService {
         },
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException({
           code: 'TEMPLATE_ALREADY_EXISTS',
           message: `A template with key "${dto.template_key}", channel "${dto.channel}", and locale "${dto.locale}" already exists for this tenant`,
@@ -93,10 +91,14 @@ export class NotificationTemplatesService {
     }
   }
 
-  async update(tenantId: string, id: string, dto: {
-    subject_template?: string | null;
-    body_template?: string;
-  }) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: {
+      subject_template?: string | null;
+      body_template?: string;
+    },
+  ) {
     const template = await this.getById(tenantId, id);
 
     if (template.is_system) {
@@ -123,19 +125,13 @@ export class NotificationTemplatesService {
     });
   }
 
-  async resolveTemplate(
-    tenantId: string,
-    templateKey: string,
-    channel: string,
-    locale: string,
-  ) {
+  async resolveTemplate(tenantId: string, templateKey: string, channel: string, locale: string) {
     // Tenant-level first
     const tenantTemplate = await this.prisma.notificationTemplate.findFirst({
       where: {
         tenant_id: tenantId,
         template_key: templateKey,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        channel: channel as any,
+        channel: toNotificationChannel(channel),
         locale,
       },
     });
@@ -147,8 +143,7 @@ export class NotificationTemplatesService {
       where: {
         tenant_id: null,
         template_key: templateKey,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        channel: channel as any,
+        channel: toNotificationChannel(channel),
         locale,
       },
     });

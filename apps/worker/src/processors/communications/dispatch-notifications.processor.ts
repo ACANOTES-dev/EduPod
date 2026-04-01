@@ -9,6 +9,8 @@ import { Resend } from 'resend';
 import twilio from 'twilio';
 import type { Twilio } from 'twilio';
 
+import { toNotificationChannel } from '@school/shared';
+
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
@@ -16,28 +18,25 @@ import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 const Handlebars = require('handlebars') as typeof import('handlebars');
 
 // Register custom Handlebars helpers (matching API's template-renderer)
-Handlebars.registerHelper(
-  'formatDate',
-  (date: unknown, locale?: unknown): string => {
-    if (!date) return '';
-    const d = date instanceof Date ? date : new Date(String(date));
-    if (isNaN(d.getTime())) return String(date);
-    const loc = typeof locale === 'string' ? locale : 'en';
-    try {
-      return d.toLocaleDateString(loc, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    } catch {
-      return d.toLocaleDateString('en', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-    }
-  },
-);
+Handlebars.registerHelper('formatDate', (date: unknown, locale?: unknown): string => {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(String(date));
+  if (isNaN(d.getTime())) return String(date);
+  const loc = typeof locale === 'string' ? locale : 'en';
+  try {
+    return d.toLocaleDateString(loc, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return d.toLocaleDateString('en', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+});
 
 Handlebars.registerHelper('stripHtml', (html: unknown): string => {
   if (typeof html !== 'string') return '';
@@ -84,10 +83,7 @@ function compileTemplate(body: string): CompiledTemplate {
   return compiled;
 }
 
-function renderTemplate(
-  templateBody: string,
-  variables: Record<string, unknown>,
-): string {
+function renderTemplate(templateBody: string, variables: Record<string, unknown>): string {
   const compiled = compileTemplate(templateBody);
   try {
     return compiled(variables);
@@ -195,9 +191,7 @@ export class DispatchNotificationsProcessor extends WorkerHost {
 
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     if (!apiKey) {
-      throw new Error(
-        'Resend is not configured. Set RESEND_API_KEY environment variable.',
-      );
+      throw new Error('Resend is not configured. Set RESEND_API_KEY environment variable.');
     }
 
     this.resendClient = new Resend(apiKey);
@@ -235,10 +229,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     super(prisma);
   }
 
-  protected async processJob(
-    data: DispatchNotificationsPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: DispatchNotificationsPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, notification_ids, announcement_id } = data;
 
     // Resolve notification IDs: either from explicit list or by querying for announcement
@@ -372,8 +363,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
 
     // Send via Resend
     const resend = this.getResend();
-    const defaultFrom =
-      this.configService.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@edupod.app';
+    const defaultFrom = this.configService.get<string>('RESEND_FROM_EMAIL') ?? 'noreply@edupod.app';
 
     const { data: sendData, error } = await resend.emails.send({
       from: defaultFrom,
@@ -470,9 +460,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     }
 
     const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
-    const from = whatsappFrom.startsWith('whatsapp:')
-      ? whatsappFrom
-      : `whatsapp:${whatsappFrom}`;
+    const from = whatsappFrom.startsWith('whatsapp:') ? whatsappFrom : `whatsapp:${whatsappFrom}`;
 
     const message = await client.messages.create({
       body: strippedBody,
@@ -491,9 +479,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       },
     });
 
-    this.logger.log(
-      `WhatsApp sent to=${to} sid=${message.sid} notification=${notification.id}`,
-    );
+    this.logger.log(`WhatsApp sent to=${to} sid=${message.sid} notification=${notification.id}`);
   }
 
   private async dispatchSms(
@@ -560,9 +546,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
     const client = this.getTwilio();
     const smsFrom = this.configService.get<string>('TWILIO_SMS_FROM');
     if (!smsFrom) {
-      throw new Error(
-        'Twilio SMS is not configured. Set TWILIO_SMS_FROM environment variable.',
-      );
+      throw new Error('Twilio SMS is not configured. Set TWILIO_SMS_FROM environment variable.');
     }
 
     const message = await client.messages.create({
@@ -582,9 +566,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       },
     });
 
-    this.logger.log(
-      `SMS sent to=${phone} sid=${message.sid} notification=${notification.id}`,
-    );
+    this.logger.log(`SMS sent to=${phone} sid=${message.sid} notification=${notification.id}`);
   }
 
   // ─── Template resolution ──────────────────────────────────────────────
@@ -601,8 +583,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       where: {
         tenant_id: tenantId,
         template_key: templateKey,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        channel: channel as any,
+        channel: toNotificationChannel(channel),
         locale,
       },
       select: { subject_template: true, body_template: true },
@@ -615,8 +596,7 @@ class DispatchNotificationsJob extends TenantAwareJob<DispatchNotificationsPaylo
       where: {
         tenant_id: null,
         template_key: templateKey,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        channel: channel as any,
+        channel: toNotificationChannel(channel),
         locale,
       },
       select: { subject_template: true, body_template: true },

@@ -46,7 +46,7 @@ export interface ExportColumn {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function formatDate(dateStr: string | null): string {
+export function formatDateForExport(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -66,37 +66,194 @@ function formatStatus(status: string): string {
 export const ALL_EXPORT_COLUMNS: ExportColumn[] = [
   // Student fields
   { key: 'row_number', label: '#', group: 'student', getValue: (_s, i) => String(i + 1), width: 5 },
-  { key: 'student_number', label: 'Student Number', group: 'student', getValue: (s) => s.student_number ?? '—', width: 18 },
-  { key: 'first_name', label: 'First Name', group: 'student', getValue: (s) => s.first_name, width: 16 },
-  { key: 'middle_name', label: 'Middle Name', group: 'student', getValue: (s) => s.middle_name ?? '—', width: 14 },
-  { key: 'last_name', label: 'Last Name', group: 'student', getValue: (s) => s.last_name, width: 16 },
-  { key: 'gender', label: 'Gender', group: 'student', getValue: (s) => formatGender(s.gender), width: 10 },
-  { key: 'date_of_birth', label: 'Date of Birth', group: 'student', getValue: (s) => formatDate(s.date_of_birth), width: 14 },
-  { key: 'nationality', label: 'Nationality', group: 'student', getValue: (s) => s.nationality ?? '—', width: 14 },
-  { key: 'city_of_birth', label: 'City of Birth', group: 'student', getValue: (s) => s.city_of_birth ?? '—', width: 14 },
-  { key: 'national_id', label: 'National ID', group: 'student', getValue: (s) => s.national_id ?? '—', width: 16 },
+  {
+    key: 'student_number',
+    label: 'Student Number',
+    group: 'student',
+    getValue: (s) => s.student_number ?? '—',
+    width: 18,
+  },
+  {
+    key: 'first_name',
+    label: 'First Name',
+    group: 'student',
+    getValue: (s) => s.first_name,
+    width: 16,
+  },
+  {
+    key: 'middle_name',
+    label: 'Middle Name',
+    group: 'student',
+    getValue: (s) => s.middle_name ?? '—',
+    width: 14,
+  },
+  {
+    key: 'last_name',
+    label: 'Last Name',
+    group: 'student',
+    getValue: (s) => s.last_name,
+    width: 16,
+  },
+  {
+    key: 'gender',
+    label: 'Gender',
+    group: 'student',
+    getValue: (s) => formatGender(s.gender),
+    width: 10,
+  },
+  {
+    key: 'date_of_birth',
+    label: 'Date of Birth',
+    group: 'student',
+    getValue: (s) => formatDateForExport(s.date_of_birth),
+    width: 14,
+  },
+  {
+    key: 'nationality',
+    label: 'Nationality',
+    group: 'student',
+    getValue: (s) => s.nationality ?? '—',
+    width: 14,
+  },
+  {
+    key: 'city_of_birth',
+    label: 'City of Birth',
+    group: 'student',
+    getValue: (s) => s.city_of_birth ?? '—',
+    width: 14,
+  },
+  {
+    key: 'national_id',
+    label: 'National ID',
+    group: 'student',
+    getValue: (s) => s.national_id ?? '—',
+    width: 16,
+  },
   // Enrolment fields
-  { key: 'status', label: 'Status', group: 'enrolment', getValue: (s) => formatStatus(s.status), width: 12 },
-  { key: 'entry_date', label: 'Entry Date', group: 'enrolment', getValue: (s) => formatDate(s.entry_date), width: 14 },
-  { key: 'year_group', label: 'Year Group', group: 'enrolment', getValue: (s) => s.year_group?.name ?? '—', width: 14 },
-  { key: 'homeroom_class', label: 'Homeroom Class', group: 'enrolment', getValue: (s) => s.homeroom_class?.name ?? '—', width: 16 },
-  { key: 'household', label: 'Household', group: 'enrolment', getValue: (s) => s.household?.household_name ?? '—', width: 18 },
+  {
+    key: 'status',
+    label: 'Status',
+    group: 'enrolment',
+    getValue: (s) => formatStatus(s.status),
+    width: 12,
+  },
+  {
+    key: 'entry_date',
+    label: 'Entry Date',
+    group: 'enrolment',
+    getValue: (s) => formatDateForExport(s.entry_date),
+    width: 14,
+  },
+  {
+    key: 'year_group',
+    label: 'Year Group',
+    group: 'enrolment',
+    getValue: (s) => s.year_group?.name ?? '—',
+    width: 14,
+  },
+  {
+    key: 'homeroom_class',
+    label: 'Homeroom Class',
+    group: 'enrolment',
+    getValue: (s) => s.homeroom_class?.name ?? '—',
+    width: 16,
+  },
+  {
+    key: 'household',
+    label: 'Household',
+    group: 'enrolment',
+    getValue: (s) => s.household?.household_name ?? '—',
+    width: 18,
+  },
   // Parent fields
-  { key: 'parent1_name', label: 'Parent 1 Name', group: 'parent', getValue: (s) => { const p = s.student_parents[0]; return p ? `${p.parent.first_name} ${p.parent.last_name}` : '—'; }, width: 18 },
-  { key: 'parent1_relation', label: 'Parent 1 Relation', group: 'parent', getValue: (s) => s.student_parents[0]?.relationship_label ?? '—', width: 14 },
-  { key: 'parent1_email', label: 'Parent 1 Email', group: 'parent', getValue: (s) => s.student_parents[0]?.parent.email ?? '—', width: 22 },
-  { key: 'parent1_phone', label: 'Parent 1 Phone', group: 'parent', getValue: (s) => s.student_parents[0]?.parent.phone ?? '—', width: 16 },
-  { key: 'parent2_name', label: 'Parent 2 Name', group: 'parent', getValue: (s) => { const p = s.student_parents[1]; return p ? `${p.parent.first_name} ${p.parent.last_name}` : '—'; }, width: 18 },
-  { key: 'parent2_relation', label: 'Parent 2 Relation', group: 'parent', getValue: (s) => s.student_parents[1]?.relationship_label ?? '—', width: 14 },
-  { key: 'parent2_email', label: 'Parent 2 Email', group: 'parent', getValue: (s) => s.student_parents[1]?.parent.email ?? '—', width: 22 },
-  { key: 'parent2_phone', label: 'Parent 2 Phone', group: 'parent', getValue: (s) => s.student_parents[1]?.parent.phone ?? '—', width: 16 },
+  {
+    key: 'parent1_name',
+    label: 'Parent 1 Name',
+    group: 'parent',
+    getValue: (s) => {
+      const p = s.student_parents[0];
+      return p ? `${p.parent.first_name} ${p.parent.last_name}` : '—';
+    },
+    width: 18,
+  },
+  {
+    key: 'parent1_relation',
+    label: 'Parent 1 Relation',
+    group: 'parent',
+    getValue: (s) => s.student_parents[0]?.relationship_label ?? '—',
+    width: 14,
+  },
+  {
+    key: 'parent1_email',
+    label: 'Parent 1 Email',
+    group: 'parent',
+    getValue: (s) => s.student_parents[0]?.parent.email ?? '—',
+    width: 22,
+  },
+  {
+    key: 'parent1_phone',
+    label: 'Parent 1 Phone',
+    group: 'parent',
+    getValue: (s) => s.student_parents[0]?.parent.phone ?? '—',
+    width: 16,
+  },
+  {
+    key: 'parent2_name',
+    label: 'Parent 2 Name',
+    group: 'parent',
+    getValue: (s) => {
+      const p = s.student_parents[1];
+      return p ? `${p.parent.first_name} ${p.parent.last_name}` : '—';
+    },
+    width: 18,
+  },
+  {
+    key: 'parent2_relation',
+    label: 'Parent 2 Relation',
+    group: 'parent',
+    getValue: (s) => s.student_parents[1]?.relationship_label ?? '—',
+    width: 14,
+  },
+  {
+    key: 'parent2_email',
+    label: 'Parent 2 Email',
+    group: 'parent',
+    getValue: (s) => s.student_parents[1]?.parent.email ?? '—',
+    width: 22,
+  },
+  {
+    key: 'parent2_phone',
+    label: 'Parent 2 Phone',
+    group: 'parent',
+    getValue: (s) => s.student_parents[1]?.parent.phone ?? '—',
+    width: 16,
+  },
   // Medical fields
-  { key: 'medical_notes', label: 'Medical Notes', group: 'medical', getValue: (s) => s.medical_notes ?? '—', width: 20 },
-  { key: 'allergy_details', label: 'Allergy Details', group: 'medical', getValue: (s) => s.has_allergy ? (s.allergy_details ?? '—') : 'None', width: 20 },
+  {
+    key: 'medical_notes',
+    label: 'Medical Notes',
+    group: 'medical',
+    getValue: (s) => s.medical_notes ?? '—',
+    width: 20,
+  },
+  {
+    key: 'allergy_details',
+    label: 'Allergy Details',
+    group: 'medical',
+    getValue: (s) => (s.has_allergy ? (s.allergy_details ?? '—') : 'None'),
+    width: 20,
+  },
 ];
 
 export const DEFAULT_SELECTED_COLUMNS = new Set([
-  'row_number', 'student_number', 'first_name', 'last_name', 'gender', 'date_of_birth', 'year_group', 'status',
+  'row_number',
+  'student_number',
+  'first_name',
+  'last_name',
+  'gender',
+  'date_of_birth',
+  'year_group',
+  'status',
 ]);
 
 // ─── Presets ──────────────────────────────────────────────────────────────────
@@ -126,7 +283,11 @@ export function deletePresetFromStorage(name: string): void {
 
 // ─── Excel export ─────────────────────────────────────────────────────────────
 
-export function generateExcel(students: ExportStudent[], columns: ExportColumn[], title: string): void {
+export function generateExcel(
+  students: ExportStudent[],
+  columns: ExportColumn[],
+  title: string,
+): void {
   const wb = XLSX.utils.book_new();
 
   const headers = columns.map((c) => c.label);
@@ -145,8 +306,16 @@ export function generateExcel(students: ExportStudent[], columns: ExportColumn[]
 
 // ─── PDF export ───────────────────────────────────────────────────────────────
 
-export function generatePdf(students: ExportStudent[], columns: ExportColumn[], title: string): void {
-  const doc = new jsPDF({ orientation: columns.length > 8 ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+export function generatePdf(
+  students: ExportStudent[],
+  columns: ExportColumn[],
+  title: string,
+): void {
+  const doc = new jsPDF({
+    orientation: columns.length > 8 ? 'landscape' : 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
   const margin = 15;
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -159,7 +328,11 @@ export function generatePdf(students: ExportStudent[], columns: ExportColumn[], 
   doc.text(title, margin, margin + 5);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${today}  •  ${students.length} student${students.length !== 1 ? 's' : ''}`, margin, margin + 11);
+  doc.text(
+    `${today}  •  ${students.length} student${students.length !== 1 ? 's' : ''}`,
+    margin,
+    margin + 11,
+  );
 
   autoTable(doc, {
     startY: margin + 18,

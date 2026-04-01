@@ -461,7 +461,7 @@ export class PeriodGradeComputationService {
       } catch (err) {
         this.logger.warn(
           `GPA computation failed for student ${studentId} in period ${periodId} — period grade computation continues`,
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }
@@ -481,7 +481,7 @@ export class PeriodGradeComputationService {
       } catch (err) {
         this.logger.warn(
           `Competency snapshot computation failed for student ${studentId} in period ${periodId} — period grade computation continues`,
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

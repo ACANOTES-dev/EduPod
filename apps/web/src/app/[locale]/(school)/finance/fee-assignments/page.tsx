@@ -1,17 +1,19 @@
 'use client';
 
-import { Button, EmptyState } from '@school/ui';
 import { FileText, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, EmptyState } from '@school/ui';
+
+import { HouseholdSelector } from '../_components/household-selector';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 
-import { HouseholdSelector } from '../_components/household-selector';
 
 interface FeeAssignment {
   id: string;
@@ -67,7 +69,7 @@ export default function FeeAssignmentsPage() {
     setPage(1);
   }, [householdFilter]);
 
-  const formatDate = (dateStr: string) => {
+  const formatDateShort = (dateStr: string) => {
     try {
       return new Date(dateStr).toLocaleDateString('en-GB', {
         day: '2-digit',
@@ -84,18 +86,14 @@ export default function FeeAssignmentsPage() {
       key: 'household',
       header: t('feeAssignments.colHousehold'),
       render: (row: FeeAssignment) => (
-        <span className="font-medium text-text-primary">
-          {row.household.household_name}
-        </span>
+        <span className="font-medium text-text-primary">{row.household.household_name}</span>
       ),
     },
     {
       key: 'student',
       header: t('feeAssignments.colStudent'),
       render: (row: FeeAssignment) => (
-        <span className="text-text-secondary">
-          {row.student?.full_name ?? '—'}
-        </span>
+        <span className="text-text-secondary">{row.student?.full_name ?? '—'}</span>
       ),
     },
     {
@@ -117,8 +115,8 @@ export default function FeeAssignmentsPage() {
       header: t('feeAssignments.colEffectiveDates'),
       render: (row: FeeAssignment) => (
         <span className="text-text-secondary text-sm" dir="ltr">
-          {formatDate(row.effective_from)}
-          {row.effective_to ? ` – ${formatDate(row.effective_to)}` : ' – Ongoing'}
+          {formatDateShort(row.effective_from)}
+          {row.effective_to ? ` – ${formatDateShort(row.effective_to)}` : ' – Ongoing'}
         </span>
       ),
     },
@@ -134,11 +132,7 @@ export default function FeeAssignmentsPage() {
         />
       </div>
       {householdFilter && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setHouseholdFilter('')}
-        >
+        <Button variant="ghost" size="sm" onClick={() => setHouseholdFilter('')}>
           {t('feeAssignments.clearFilter')}
         </Button>
       )}
@@ -165,10 +159,14 @@ export default function FeeAssignmentsPage() {
           icon={FileText}
           title={t('feeAssignments.emptyTitle')}
           description={t('feeAssignments.emptyDescription')}
-          action={canManage ? {
-            label: t('feeAssignments.newButton'),
-            onClick: () => router.push('fee-assignments/new'),
-          } : undefined}
+          action={
+            canManage
+              ? {
+                  label: t('feeAssignments.newButton'),
+                  onClick: () => router.push('fee-assignments/new'),
+                }
+              : undefined
+          }
         />
       ) : (
         <DataTable

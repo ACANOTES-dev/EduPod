@@ -1,9 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import { SANCTION_PARENT_VISIBLE_FIELDS } from '@school/shared';
 import type { AmendmentListQuery } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -281,7 +282,7 @@ export class BehaviourAmendmentsService {
           } catch (err) {
             this.logger.warn(
               `Failed to create parent acknowledgement row for amendment ${notice.id} — correction continues`,
-              err,
+              err instanceof Error ? err.stack : String(err),
             );
           }
 
@@ -312,7 +313,7 @@ export class BehaviourAmendmentsService {
             } catch (err) {
               this.logger.warn(
                 `Failed to create in-app notification for amendment ${notice.id} — correction continues`,
-                err,
+                err instanceof Error ? err.stack : String(err),
               );
             }
           }
@@ -351,7 +352,7 @@ export class BehaviourAmendmentsService {
       } catch (err) {
         this.logger.warn(
           `Failed to supersede existing behaviour document for amendment ${id} — correction continues`,
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
 
@@ -366,7 +367,7 @@ export class BehaviourAmendmentsService {
       } catch (err) {
         this.logger.warn(
           'Failed to enqueue behaviour:correction-parent — correction send succeeded',
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
 
@@ -382,7 +383,7 @@ export class BehaviourAmendmentsService {
         } catch (err) {
           this.logger.warn(
             'Failed to enqueue behaviour:parent-reacknowledgement — correction send succeeded',
-            err,
+            err instanceof Error ? err.stack : String(err),
           );
         }
       }

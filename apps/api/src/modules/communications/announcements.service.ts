@@ -1,8 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { publishAnnouncementJobPayloadSchema } from '@school/shared';
+import { Prisma, type AnnouncementScope, type NotificationChannel } from '@prisma/client';
 import { Queue } from 'bullmq';
+
+import { publishAnnouncementJobPayloadSchema } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
@@ -103,12 +104,10 @@ export class AnnouncementsService {
         title: dto.title,
         body_html: cleanHtml,
         status: 'draft',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        scope: dto.scope as any, // Prisma enum cast
+        scope: dto.scope as AnnouncementScope,
         target_payload: dto.target_payload as Prisma.InputJsonValue,
         scheduled_publish_at: dto.scheduled_publish_at ? new Date(dto.scheduled_publish_at) : null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delivery_channels: channels as any,
+        delivery_channels: channels as NotificationChannel[],
         author_user_id: userId,
       },
       include: {

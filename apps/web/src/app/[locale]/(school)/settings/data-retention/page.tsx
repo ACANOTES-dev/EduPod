@@ -1,5 +1,9 @@
 'use client';
 
+import { Eye, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -23,15 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@school/ui';
-import {
-  Eye,
-  Lock,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -93,7 +88,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const SUBJECT_TYPES = ['student', 'parent', 'staff', 'household'] as const;
 
-const SUBJECT_TYPE_LABELS: Record<typeof SUBJECT_TYPES[number], string> = {
+const SUBJECT_TYPE_LABELS: Record<(typeof SUBJECT_TYPES)[number], string> = {
   student: 'Student',
   parent: 'Parent',
   staff: 'Staff',
@@ -108,7 +103,10 @@ function formatRetention(months: number): string {
   return `${months} month${months > 1 ? 's' : ''}`;
 }
 
-function formatActionBadge(action: string): { label: string; variant: 'default' | 'warning' | 'danger' | 'secondary' } {
+function formatActionBadge(action: string): {
+  label: string;
+  variant: 'default' | 'warning' | 'danger' | 'secondary';
+} {
   switch (action) {
     case 'anonymise':
       return { label: 'Anonymise', variant: 'warning' };
@@ -121,7 +119,7 @@ function formatActionBadge(action: string): { label: string; variant: 'default' 
   }
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTimeLocale(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -218,10 +216,10 @@ export default function DataRetentionSettingsPage() {
     }
     setEditSaving(true);
     try {
-      const updated = await apiClient<RetentionPolicy>(
-        `/v1/retention-policies/${editPolicy.id}`,
-        { method: 'PATCH', body: JSON.stringify({ retention_months: editMonths }) },
-      );
+      const updated = await apiClient<RetentionPolicy>(`/v1/retention-policies/${editPolicy.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ retention_months: editMonths }),
+      });
       setPolicies((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       toast.success(t('saved'));
       setEditPolicy(null);
@@ -238,10 +236,10 @@ export default function DataRetentionSettingsPage() {
     setPreviewOpen(true);
     setPreviewLoading(true);
     try {
-      const res = await apiClient<{ data: PreviewItem[] }>(
-        '/v1/retention-policies/preview',
-        { method: 'POST', body: JSON.stringify({}) },
-      );
+      const res = await apiClient<{ data: PreviewItem[] }>('/v1/retention-policies/preview', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
       setPreviewData(res.data);
     } catch (err) {
       console.error('[DataRetentionSettingsPage.handlePreview]', err);
@@ -308,10 +306,7 @@ export default function DataRetentionSettingsPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* ── Retention Policies ──────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface">
@@ -329,12 +324,24 @@ export default function DataRetentionSettingsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-t border-border">
-                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('category')}</th>
-                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('retentionPeriod')}</th>
-                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('actionOnExpiry')}</th>
-                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('status')}</th>
-                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('statutoryBasis')}</th>
-                <th className="px-5 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('actions')}</th>
+                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('category')}
+                </th>
+                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('retentionPeriod')}
+                </th>
+                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('actionOnExpiry')}
+                </th>
+                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('status')}
+                </th>
+                <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('statutoryBasis')}
+                </th>
+                <th className="px-5 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  {t('actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -380,11 +387,7 @@ export default function DataRetentionSettingsPage() {
                     </td>
                     <td className="px-5 py-3 text-end">
                       {policy.is_overridable ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditOpen(policy)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => handleEditOpen(policy)}>
                           <Pencil className="h-3.5 w-3.5" />
                           <span className="sr-only">{t('editRetention')}</span>
                         </Button>
@@ -435,17 +438,32 @@ export default function DataRetentionSettingsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-t border-border">
-                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('subjectType')}</th>
-                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('subjectId')}</th>
-                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('reason')}</th>
-                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('heldBy')}</th>
-                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('heldAt')}</th>
-                  <th className="px-5 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('actions')}</th>
+                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('subjectType')}
+                  </th>
+                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('subjectId')}
+                  </th>
+                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('reason')}
+                  </th>
+                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('heldBy')}
+                  </th>
+                  <th className="px-5 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('heldAt')}
+                  </th>
+                  <th className="px-5 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    {t('actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {holds.map((hold) => (
-                  <tr key={hold.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
+                  <tr
+                    key={hold.id}
+                    className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                  >
                     <td className="px-5 py-3">
                       <Badge variant="secondary">{hold.subject_type}</Badge>
                     </td>
@@ -459,7 +477,7 @@ export default function DataRetentionSettingsPage() {
                       {hold.held_by_user_id}
                     </td>
                     <td className="px-5 py-3 text-sm text-text-secondary">
-                      {formatDateTime(hold.held_at)}
+                      {formatDateTimeLocale(hold.held_at)}
                     </td>
                     <td className="px-5 py-3 text-end">
                       <Button
@@ -481,12 +499,21 @@ export default function DataRetentionSettingsPage() {
       </div>
 
       {/* ── Edit Policy Dialog ──────────────────────────────────────────────── */}
-      <Dialog open={editPolicy !== null} onOpenChange={(open) => { if (!open) { setEditPolicy(null); setEditConfirming(false); } }}>
+      <Dialog
+        open={editPolicy !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditPolicy(null);
+            setEditConfirming(false);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('editRetention')}</DialogTitle>
             <DialogDescription>
-              {editPolicy && (CATEGORY_LABELS[editPolicy.data_category] ?? editPolicy.data_category)}
+              {editPolicy &&
+                (CATEGORY_LABELS[editPolicy.data_category] ?? editPolicy.data_category)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -497,7 +524,10 @@ export default function DataRetentionSettingsPage() {
                 type="number"
                 min={editPolicy?.default_retention_months ?? 1}
                 value={editMonths}
-                onChange={(e) => { setEditMonths(Number(e.target.value)); setEditConfirming(false); }}
+                onChange={(e) => {
+                  setEditMonths(Number(e.target.value));
+                  setEditConfirming(false);
+                }}
                 className="w-full text-base"
               />
               {editPolicy && (
@@ -509,13 +539,21 @@ export default function DataRetentionSettingsPage() {
           </div>
           {editConfirming && editPolicy && (
             <p className="px-1 text-sm text-warning-text">
-              {t('saveConfirmPrompt', { category: CATEGORY_LABELS[editPolicy.data_category] ?? editPolicy.data_category })}
+              {t('saveConfirmPrompt', {
+                category: CATEGORY_LABELS[editPolicy.data_category] ?? editPolicy.data_category,
+              })}
             </p>
           )}
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => { if (editConfirming) { setEditConfirming(false); } else { setEditPolicy(null); } }}
+              onClick={() => {
+                if (editConfirming) {
+                  setEditConfirming(false);
+                } else {
+                  setEditPolicy(null);
+                }
+              }}
             >
               {editConfirming ? t('back') : t('cancel')}
             </Button>
@@ -545,17 +583,28 @@ export default function DataRetentionSettingsPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('category')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('retentionPeriod')}</th>
-                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('actionOnExpiry')}</th>
-                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('affectedRecords')}</th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('category')}
+                      </th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('retentionPeriod')}
+                      </th>
+                      <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('actionOnExpiry')}
+                      </th>
+                      <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                        {t('affectedRecords')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewData.map((item) => {
                       const action = formatActionBadge(item.action_on_expiry);
                       return (
-                        <tr key={item.data_category} className="border-b border-border last:border-b-0">
+                        <tr
+                          key={item.data_category}
+                          className="border-b border-border last:border-b-0"
+                        >
                           <td className="px-4 py-3 text-sm font-medium text-text-primary">
                             {CATEGORY_LABELS[item.data_category] ?? item.data_category}
                           </td>
@@ -644,7 +693,12 @@ export default function DataRetentionSettingsPage() {
       </Dialog>
 
       {/* ── Release Hold Confirmation Dialog ────────────────────────────────── */}
-      <Dialog open={releaseHoldId !== null} onOpenChange={(open) => { if (!open) setReleaseHoldId(null); }}>
+      <Dialog
+        open={releaseHoldId !== null}
+        onOpenChange={(open) => {
+          if (!open) setReleaseHoldId(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('releaseHold')}</DialogTitle>
@@ -654,11 +708,7 @@ export default function DataRetentionSettingsPage() {
             <Button variant="outline" onClick={() => setReleaseHoldId(null)}>
               {t('cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReleaseHold}
-              disabled={releaseLoading}
-            >
+            <Button variant="destructive" onClick={handleReleaseHold} disabled={releaseLoading}>
               {t('releaseHold')}
             </Button>
           </DialogFooter>

@@ -491,7 +491,7 @@ export class ParentPastoralService {
     } catch (err) {
       this.logger.warn(
         `Auto-assign homeroom teacher failed for concern ${concernId} — operation continues`,
-        err,
+        err instanceof Error ? err.stack : String(err),
       );
     }
   }

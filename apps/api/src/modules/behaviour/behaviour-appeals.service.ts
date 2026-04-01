@@ -1,6 +1,14 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import {
   isValidAppealTransition,
   SANCTION_PARENT_VISIBLE_FIELDS,
@@ -11,7 +19,6 @@ import {
   type UpdateAppealDto,
   type WithdrawAppealDto,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,6 +70,8 @@ const INCIDENT_PARENT_VISIBLE_FIELDS = [
 
 @Injectable()
 export class BehaviourAppealsService {
+  private readonly logger = new Logger(BehaviourAppealsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
@@ -532,8 +541,12 @@ export class BehaviourAppealsService {
             appeal.student_id,
             'en',
           );
-        } catch {
+        } catch (err) {
           // Don't fail appeal update if document generation fails
+          this.logger.warn(
+            '[update] document generation failed',
+            err instanceof Error ? err.stack : String(err),
+          );
         }
       }
 
@@ -857,8 +870,12 @@ export class BehaviourAppealsService {
               appeal.student_id,
               'en',
             );
-          } catch {
+          } catch (err) {
             // Don't fail appeal decision if document generation fails
+            this.logger.warn(
+              '[decide] document generation failed',
+              err instanceof Error ? err.stack : String(err),
+            );
           }
         }
 

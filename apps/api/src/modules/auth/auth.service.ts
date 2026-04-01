@@ -8,6 +8,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
+import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
+import * as QRCode from 'qrcode';
+
 import {
   BRUTE_FORCE_THRESHOLDS,
   BRUTE_FORCE_WINDOW_SECONDS,
@@ -17,10 +22,6 @@ import {
   type RefreshTokenPayload,
   type SessionMetadata,
 } from '@school/shared';
-import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
-import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
-import * as QRCode from 'qrcode';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -390,7 +391,11 @@ export class AuthService {
     let payload: RefreshTokenPayload;
     try {
       payload = this.verifyRefreshToken(refreshToken);
-    } catch {
+    } catch (err) {
+      this.logger.error(
+        '[refresh] refresh token verification failed',
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new UnauthorizedException({
         code: 'INVALID_REFRESH_TOKEN',
         message: 'Invalid or expired refresh token',
@@ -840,7 +845,7 @@ export class AuthService {
       } catch (err) {
         this.logger.warn(
           `Skipping malformed session ${sessionId} during tenant switch for user ${userId}`,
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

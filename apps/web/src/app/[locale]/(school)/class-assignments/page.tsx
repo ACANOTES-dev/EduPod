@@ -1,12 +1,11 @@
 'use client';
 
-import { Button, Switch, Label, toast } from '@school/ui';
 import { Download, LayoutGrid, List, Printer } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button, Switch, Label, toast } from '@school/ui';
+
 
 import { AssignmentBoard } from './_components/assignment-board';
 import { AssignmentList } from './_components/assignment-list';
@@ -19,13 +18,16 @@ import {
   ExportDataResponse,
   Student,
   YearGroup,
-  formatDate,
+  formatDateForExport,
   formatGender,
   generateExcel,
   generatePdf,
   mergeByYearLevel,
 } from './_components/export-utils';
 import { BulkAssignBar, SaveBar } from './_components/floating-action-bars';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -45,7 +47,10 @@ export default function ClassAssignmentsPage() {
   const [exportGrouping, setExportGrouping] = React.useState<'subclass' | 'year_level'>('subclass');
   const [viewMode, setViewMode] = React.useState<'list' | 'board'>('list');
   const [presetName, setPresetName] = React.useState('');
-  const [draggedStudent, setDraggedStudent] = React.useState<{ id: string; yearGroupId: string } | null>(null);
+  const [draggedStudent, setDraggedStudent] = React.useState<{
+    id: string;
+    yearGroupId: string;
+  } | null>(null);
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
   const [pendingChanges, setPendingChanges] = React.useState<Map<string, string>>(new Map());
   const [selectedStudents, setSelectedStudents] = React.useState<Set<string>>(new Set());
@@ -83,8 +88,13 @@ export default function ClassAssignmentsPage() {
     let count = 0;
     for (const s of group.students) {
       const pending = pendingChanges.get(s.id);
-      if (pending === classId) { count++; continue; }
-      if (!pending && s.current_homeroom_class_id === classId) { count++; }
+      if (pending === classId) {
+        count++;
+        continue;
+      }
+      if (!pending && s.current_homeroom_class_id === classId) {
+        count++;
+      }
     }
     return count;
   };
@@ -170,14 +180,12 @@ export default function ClassAssignmentsPage() {
         assignedCount += result.data.assigned;
       }
 
-      toast.success(
-        `${t('savedSuccessfully')} (${assignedCount} ${t('changes').toLowerCase()})`,
-      );
+      toast.success(`${t('savedSuccessfully')} (${assignedCount} ${t('changes').toLowerCase()})`);
       setPendingChanges(new Map());
       setSelectedStudents(new Set());
       fetchData();
-    } catch {
-      // apiClient handles error toasts
+    } catch (err) {
+      console.error('[saveAssignments]', err);
     } finally {
       setSaving(false);
     }
@@ -263,7 +271,9 @@ export default function ClassAssignmentsPage() {
       return next;
     });
 
-    toast.success(t('autoBalanced', { count: unassigned.length, classes: group.homeroom_classes.length }));
+    toast.success(
+      t('autoBalanced', { count: unassigned.length, classes: group.homeroom_classes.length }),
+    );
   };
 
   // ─── Print handler ────────────────────────────────────────────────────────
@@ -296,7 +306,10 @@ export default function ClassAssignmentsPage() {
   tr:nth-child(even) td { background: #f8f8f8; }
   @media print { .page { page-break-after: always; } }
 </style></head><body>
-${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
+${data.class_lists
+  .filter((cl) => cl.students.length > 0)
+  .map(
+    (cl) => `
   <div class="page">
     <h1>${data.school_name}</h1>
     <div class="date">${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
@@ -304,11 +317,17 @@ ${data.class_lists.filter((cl) => cl.students.length > 0).map((cl) => `
     <div class="count">${cl.students.length} student${cl.students.length !== 1 ? 's' : ''}</div>
     <table>
       <thead><tr><th>#</th><th>Student No.</th><th>First Name</th><th>Last Name</th><th>Gender</th><th>DOB</th></tr></thead>
-      <tbody>${cl.students.map((s, i) => `
-        <tr><td>${i + 1}</td><td>${s.student_number ?? '—'}</td><td>${s.first_name}</td><td>${s.last_name}</td><td>${formatGender(s.gender)}</td><td>${formatDate(s.date_of_birth)}</td></tr>`).join('')}
+      <tbody>${cl.students
+        .map(
+          (s, i) => `
+        <tr><td>${i + 1}</td><td>${s.student_number ?? '—'}</td><td>${s.first_name}</td><td>${s.last_name}</td><td>${formatGender(s.gender)}</td><td>${formatDateForExport(s.date_of_birth)}</td></tr>`,
+        )
+        .join('')}
       </tbody>
     </table>
-  </div>`).join('')}
+  </div>`,
+  )
+  .join('')}
 </body></html>`;
 
       printWindow.document.write(html);

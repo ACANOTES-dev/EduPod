@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -7,6 +7,8 @@ const TRANSCRIPT_CACHE_TTL_SECONDS = 300; // 5 minutes
 
 @Injectable()
 export class TranscriptsService {
+  private readonly logger = new Logger(TranscriptsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
@@ -27,8 +29,12 @@ export class TranscriptsService {
       if (cached) {
         return JSON.parse(cached) as TranscriptData;
       }
-    } catch {
+    } catch (err) {
       // Cache miss or connection error — proceed to compute
+      this.logger.warn(
+        '[getTranscriptData] cache read failed',
+        err instanceof Error ? err.stack : String(err),
+      );
     }
 
     // 2. Verify student exists
@@ -82,24 +88,30 @@ export class TranscriptsService {
     });
 
     // 4. Group by academic_year -> period -> subject
-    const yearMap = new Map<string, {
-      academic_year_id: string;
-      academic_year_name: string;
-      periods: Map<string, {
-        period_id: string;
-        period_name: string;
-        start_date: string;
-        end_date: string;
-        subjects: Array<{
-          subject_id: string;
-          subject_name: string;
-          subject_code: string | null;
-          computed_value: number;
-          display_value: string;
-          overridden_value: string | null;
-        }>;
-      }>;
-    }>();
+    const yearMap = new Map<
+      string,
+      {
+        academic_year_id: string;
+        academic_year_name: string;
+        periods: Map<
+          string,
+          {
+            period_id: string;
+            period_name: string;
+            start_date: string;
+            end_date: string;
+            subjects: Array<{
+              subject_id: string;
+              subject_name: string;
+              subject_code: string | null;
+              computed_value: number;
+              display_value: string;
+              overridden_value: string | null;
+            }>;
+          }
+        >;
+      }
+    >();
 
     for (const snapshot of snapshots) {
       const yearId = snapshot.academic_period.academic_year.id;
@@ -160,8 +172,12 @@ export class TranscriptsService {
     try {
       const redis = this.redisService.getClient();
       await redis.set(cacheKey, JSON.stringify(transcriptData), 'EX', TRANSCRIPT_CACHE_TTL_SECONDS);
-    } catch {
+    } catch (err) {
       // Cache write failure should not break the flow
+      this.logger.warn(
+        '[getTranscriptData] cache write failed',
+        err instanceof Error ? err.stack : String(err),
+      );
     }
 
     return transcriptData;
@@ -174,8 +190,12 @@ export class TranscriptsService {
     try {
       const redis = this.redisService.getClient();
       await redis.del(`transcript:${tenantId}:${studentId}`);
-    } catch {
+    } catch (err) {
       // Cache invalidation failure should not break the flow
+      this.logger.warn(
+        '[invalidateCache] cache invalidation failed',
+        err instanceof Error ? err.stack : String(err),
+      );
     }
   }
 }

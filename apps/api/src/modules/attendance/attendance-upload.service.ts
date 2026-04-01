@@ -729,7 +729,7 @@ export class AttendanceUploadService {
       } catch (err) {
         this.logger.warn(
           `Failed to trigger absence notification for student ${entry.student_id} — attendance operation continues`,
-          err,
+          err instanceof Error ? err.stack : String(err),
         );
       }
     }

@@ -1,12 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type {
-  CreateReportAlertDto,
-  UpdateReportAlertDto,
-} from '@school/shared';
+
+import type { CreateReportAlertDto, UpdateReportAlertDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -40,6 +35,8 @@ export interface AlertCheckResult {
 
 @Injectable()
 export class ReportAlertsService {
+  private readonly logger = new Logger(ReportAlertsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly unifiedDashboard: UnifiedDashboardService,
@@ -70,7 +67,10 @@ export class ReportAlertsService {
         data: alerts.map((a) => this.toRow(a)),
         meta: { page, pageSize, total },
       };
-    }) as unknown as { data: ReportAlertRow[]; meta: { page: number; pageSize: number; total: number } };
+    }) as unknown as {
+      data: ReportAlertRow[];
+      meta: { page: number; pageSize: number; total: number };
+    };
   }
 
   async get(tenantId: string, alertId: string): Promise<ReportAlertRow> {
@@ -217,8 +217,12 @@ export class ReportAlertsService {
             data: { last_triggered_at: new Date() },
           });
         }
-      } catch {
+      } catch (err) {
         // Log and continue — don't fail all alerts because one errored
+        this.logger.error(
+          '[checkThresholds] alert check failed',
+          err instanceof Error ? err.stack : String(err),
+        );
       }
     }
 
@@ -241,7 +245,7 @@ export class ReportAlertsService {
         return kpi.average_grade ?? 0;
       case 'staff_absence_rate':
         return kpi.active_staff_count > 0
-          ? 100 - ((kpi.active_staff_count / Math.max(1, kpi.active_staff_count)) * 100)
+          ? 100 - (kpi.active_staff_count / Math.max(1, kpi.active_staff_count)) * 100
           : 0;
       default:
         return 0;

@@ -29,7 +29,7 @@ export interface TenantJobPayload {
 }
 
 export abstract class TenantAwareJob<T extends TenantJobPayload> {
-  private static readonly logger = new Logger('TenantAwareJob');
+  private static readonly logger = new Logger(TenantAwareJob.name);
 
   constructor(protected prisma: PrismaClient) {}
 

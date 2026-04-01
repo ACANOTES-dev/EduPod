@@ -1,12 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { hash } from 'bcryptjs';
+
 import type {
   CreateStaffProfileDto,
   PreviewResponse,
   StaffProfileQueryDto,
   UpdateStaffProfileDto,
 } from '@school/shared';
-import { hash } from 'bcryptjs';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -467,8 +468,7 @@ export class StaffProfilesService {
       const db = tx as unknown as PrismaService;
       return db.staffProfile.update({
         where: { id },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data: { ...profileFields, ...bankUpdates } as any,
+        data: { ...profileFields, ...bankUpdates } as Prisma.StaffProfileUpdateInput,
         include: {
           user: {
             select: {
