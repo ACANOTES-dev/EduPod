@@ -81,3 +81,4 @@ yarn-error.log*
 .playwright-mcp/
 Code Review/
 apps/web/public/brand/edupod-logo.svg
+.worktrees/

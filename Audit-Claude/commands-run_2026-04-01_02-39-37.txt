@@ -1,0 +1,44 @@
+Commands Run — Audit 2026-04-01_02-39-37
+=========================================
+
+MAIN SESSION COMMANDS:
+mkdir -p Audit-Claude && date +"%Y-%m-%d_%H-%M-%S"
+find apps packages \( -name "*.ts" -o -name "*.tsx" \) | wc -l
+find apps packages \( -name "*.spec.ts" -o -name "*.spec.tsx" -o -name "*.test.ts" -o -name "*.test.tsx" \) | wc -l
+find apps/api -name "*.spec.ts" | wc -l
+find apps/worker -name "*.spec.ts" | wc -l
+find packages \( -name "*.spec.ts" -o -name "*.test.ts" \) | wc -l
+find apps/web \( -name "*.spec.*" -o -name "*.test.*" \) | sort
+find apps/web/src/app -name "page.tsx" | wc -l
+find apps/web/src/app -path "*/_components/*.tsx" | wc -l
+find apps/web/src/components -name "*.tsx" | wc -l
+find apps/worker/src -name "*.processor.ts" | wc -l
+find apps/api/src/modules -maxdepth 1 -mindepth 1 -type d | sort
+# Per-module file/line count loop (see fact pack for full output)
+# Cross-module import hotspot loop (see fact pack)
+find apps/api/src -name "*.ts" ! -name "*.spec.ts" | xargs wc -l | sort -rn | head -40
+find apps/web/src -name "*.tsx" | xargs wc -l | sort -rn | head -25
+find apps/worker/src -name "*.ts" ! -name "*.spec.ts" | xargs wc -l | sort -rn | head -25
+grep -c "^model " packages/prisma/schema.prisma
+grep -c "tenant_id" packages/prisma/schema.prisma
+# RLS gap analysis (see fact pack for full pipeline)
+grep -rn ": any\|as any" apps/api/src apps/web/src apps/worker/src --include="*.ts" --include="*.tsx" | grep -v spec | wc -l
+grep -rn "@ts-ignore\|@ts-expect-error" apps/api/src apps/web/src apps/worker/src --include="*.ts" --include="*.tsx" | wc -l
+grep -rcn "TODO\|FIXME\|HACK\|XXX\|TEMP\|WORKAROUND" apps/api/src apps/web/src apps/worker/src --include="*.ts" --include="*.tsx" | grep -v ":0$" | sort -t: -k2 -rn | head -30
+find apps/worker/src -name "*.processor.ts" | sed 's#.*/##' | sort
+cat .github/workflows/ci.yml | head -80
+cat .github/workflows/deploy.yml | head -80
+pnpm turbo run lint 2>&1 | tail -30
+pnpm turbo run type-check 2>&1 | tail -30
+cd apps/api && pnpm test 2>&1 | tail -60
+cd apps/worker && pnpm test 2>&1 | tail -40
+cd packages/shared && pnpm test 2>&1 | tail -40
+cat .env.example | head -40
+ls .husky/
+cat .husky/pre-commit
+find . -name "ecosystem.config.*" -o -name "pm2.*"
+grep -rn "Sentry\|sentry\|SENTRY" apps/api/src/main.ts apps/api/src/instrument.ts
+cat docker-compose.yml | head -40
+# Total LOC counts (all TS/TSX)
+find apps packages \( -name "*.ts" -o -name "*.tsx" \) ! -name "*.spec.*" ! -name "*.test.*" ! -path "*/node_modules/*" ! -path "*/dist/*" ! -path "*/.next/*" -exec cat {} + | wc -l
+find apps packages \( -name "*.ts" -o -name "*.tsx" \) ! -path "*/node_modules/*" ! -path "*/dist/*" ! -path "*/.next/*" -exec cat {} + | wc -l
