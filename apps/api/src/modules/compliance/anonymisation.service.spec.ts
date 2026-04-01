@@ -1,8 +1,8 @@
 import { Test } from '@nestjs/testing';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { S3Service } from '../s3/s3.service';
 import { SearchIndexService } from '../search/search-index.service';
 

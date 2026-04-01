@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-
 import type { CreatePrivacyNoticeDto, UpdatePrivacyNoticeDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -49,10 +48,12 @@ export class PrivacyNoticesService {
 
     const supportEmail = tenant?.branding?.support_email ?? 'support@edupod.app';
     const nextVersionNumber =
-      (await this.prisma.privacyNoticeVersion.aggregate({
-        where: { tenant_id: tenantId },
-        _max: { version_number: true },
-      }))._max.version_number ?? 0;
+      (
+        await this.prisma.privacyNoticeVersion.aggregate({
+          where: { tenant_id: tenantId },
+          _max: { version_number: true },
+        })
+      )._max.version_number ?? 0;
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId, user_id: userId });
 

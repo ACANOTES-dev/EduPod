@@ -64,6 +64,7 @@ import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
 
+
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
 type RoleKey =

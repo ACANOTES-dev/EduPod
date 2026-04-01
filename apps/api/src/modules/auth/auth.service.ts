@@ -21,9 +21,9 @@ import * as jwt from 'jsonwebtoken';
 import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SecurityAuditService } from '../audit-log/security-audit.service';
 
 export interface LoginResult {
   access_token: string;

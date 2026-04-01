@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 
+
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {
   EVENT_TYPE_OPTIONS,

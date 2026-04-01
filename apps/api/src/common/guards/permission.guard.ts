@@ -8,9 +8,9 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { JwtPayload } from '@school/shared';
 
+import { SecurityAuditService } from '../../modules/audit-log/security-audit.service';
 import { REQUIRES_PERMISSION_KEY } from '../decorators/requires-permission.decorator';
 import { PermissionCacheService } from '../services/permission-cache.service';
-import { SecurityAuditService } from '../../modules/audit-log/security-audit.service';
 
 /**
  * Permission guard.

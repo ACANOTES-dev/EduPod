@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -57,9 +57,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -172,9 +172,7 @@ describe('BehaviourSanctionsService', () => {
         id: STUDENT_ID,
         tenant_id: TENANT_ID,
       });
-      mockRlsTx.tenantSetting!.findFirst.mockResolvedValue(
-        makeSettings(settingsOverrides),
-      );
+      mockRlsTx.tenantSetting!.findFirst.mockResolvedValue(makeSettings(settingsOverrides));
       mockRlsTx.schoolClosure!.findFirst.mockResolvedValue(null);
       mockRlsTx.behaviourSanction!.create.mockResolvedValue(
         makeSanction({ type: 'suspension_internal' }),
@@ -399,9 +397,7 @@ describe('BehaviourSanctionsService', () => {
     });
 
     it('should throw BadRequestException for invalid state transition (served -> appealed)', async () => {
-      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
-        makeSanction({ status: 'served' }),
-      );
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(makeSanction({ status: 'served' }));
 
       await expect(
         service.transitionStatus(TENANT_ID, SANCTION_ID, 'appealed', undefined, USER_ID),
@@ -416,10 +412,16 @@ describe('BehaviourSanctionsService', () => {
       const sanctionIds = ['s1', 's2', 's3'];
 
       // s1 = scheduled (valid), s2 = scheduled (valid), s3 = served (invalid — terminal)
-      mockRlsTx.behaviourSanction!.findFirst
-        .mockResolvedValueOnce(makeSanction({ id: 's1', sanction_number: 'SN-001', status: 'scheduled' }))
-        .mockResolvedValueOnce(makeSanction({ id: 's2', sanction_number: 'SN-002', status: 'scheduled' }))
-        .mockResolvedValueOnce(makeSanction({ id: 's3', sanction_number: 'SN-003', status: 'served' }));
+      mockRlsTx
+        .behaviourSanction!.findFirst.mockResolvedValueOnce(
+          makeSanction({ id: 's1', sanction_number: 'SN-001', status: 'scheduled' }),
+        )
+        .mockResolvedValueOnce(
+          makeSanction({ id: 's2', sanction_number: 'SN-002', status: 'scheduled' }),
+        )
+        .mockResolvedValueOnce(
+          makeSanction({ id: 's3', sanction_number: 'SN-003', status: 'served' }),
+        );
 
       mockRlsTx.behaviourSanction!.update.mockResolvedValue({});
 
@@ -442,9 +444,7 @@ describe('BehaviourSanctionsService', () => {
 
   describe('blocked transitions', () => {
     it('should reject served -> any (terminal status)', async () => {
-      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(
-        makeSanction({ status: 'served' }),
-      );
+      mockRlsTx.behaviourSanction!.findFirst.mockResolvedValue(makeSanction({ status: 'served' }));
 
       await expect(
         service.transitionStatus(TENANT_ID, SANCTION_ID, 'scheduled', undefined, USER_ID),

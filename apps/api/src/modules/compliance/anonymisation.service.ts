@@ -1,16 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { PrismaClient } from '@prisma/client';
-import {
-  ComplianceAnonymisationCore,
-} from '@school/prisma';
-import type {
-  AnonymisationCleanupPlan,
-  AnonymisationResult,
-} from '@school/prisma';
+import { ComplianceAnonymisationCore } from '@school/prisma';
+import type { AnonymisationCleanupPlan, AnonymisationResult } from '@school/prisma';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
-import { RedisService } from '../redis/redis.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { S3Service } from '../s3/s3.service';
 import { SearchIndexService } from '../search/search-index.service';
 
@@ -32,9 +27,9 @@ export class AnonymisationService {
     subjectId: string,
   ): Promise<{ anonymised_entities: string[] }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-    const result = await rlsClient.$transaction(async (tx: PrismaClient) => {
+    const result = (await rlsClient.$transaction(async (tx: PrismaClient) => {
       return this.core.anonymiseSubject(tenantId, subjectType, subjectId, tx);
-    }) as AnonymisationResult;
+    })) as AnonymisationResult;
 
     await this.runCleanupPlan(tenantId, result.cleanup);
 
@@ -45,44 +40,25 @@ export class AnonymisationService {
     return { anonymised_entities: result.anonymised_entities };
   }
 
-  async anonymiseParent(
-    tenantId: string,
-    parentId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseParent(tenantId: string, parentId: string, tx: PrismaClient): Promise<void> {
     await this.core.anonymiseParent(tenantId, parentId, tx);
   }
 
-  async anonymiseStudent(
-    tenantId: string,
-    studentId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseStudent(tenantId: string, studentId: string, tx: PrismaClient): Promise<void> {
     await this.core.anonymiseStudent(tenantId, studentId, tx);
   }
 
-  async anonymiseHousehold(
-    tenantId: string,
-    householdId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseHousehold(tenantId: string, householdId: string, tx: PrismaClient): Promise<void> {
     await this.core.anonymiseHousehold(tenantId, householdId, tx);
   }
 
-  async anonymiseStaff(
-    tenantId: string,
-    staffProfileId: string,
-    tx: PrismaClient,
-  ): Promise<void> {
+  async anonymiseStaff(tenantId: string, staffProfileId: string, tx: PrismaClient): Promise<void> {
     await this.core.anonymiseStaff(tenantId, staffProfileId, tx);
   }
 
   // ─── Secondary cleanup ────────────────────────────────────────────────────
 
-  private async runCleanupPlan(
-    tenantId: string,
-    cleanup: AnonymisationCleanupPlan,
-  ): Promise<void> {
+  private async runCleanupPlan(tenantId: string, cleanup: AnonymisationCleanupPlan): Promise<void> {
     const results = await Promise.allSettled([
       this.removeSearchEntries(cleanup),
       this.deleteComplianceExports(cleanup),
@@ -93,9 +69,7 @@ export class AnonymisationService {
     this.logSettledFailures(results, 'runCleanupPlan');
   }
 
-  private async removeSearchEntries(
-    cleanup: AnonymisationCleanupPlan,
-  ): Promise<void> {
+  private async removeSearchEntries(cleanup: AnonymisationCleanupPlan): Promise<void> {
     const results = await Promise.allSettled(
       cleanup.searchRemovals.map((removal) =>
         this.searchIndexService.removeEntity(removal.entityType, removal.entityId),
@@ -105,9 +79,7 @@ export class AnonymisationService {
     this.logSettledFailures(results, 'removeSearchEntries');
   }
 
-  private async deleteComplianceExports(
-    cleanup: AnonymisationCleanupPlan,
-  ): Promise<void> {
+  private async deleteComplianceExports(cleanup: AnonymisationCleanupPlan): Promise<void> {
     const results = await Promise.allSettled(
       cleanup.s3ObjectKeys.map((key) => this.s3Service.delete(key)),
     );
@@ -115,9 +87,7 @@ export class AnonymisationService {
     this.logSettledFailures(results, 'deleteComplianceExports');
   }
 
-  private async clearExportPointers(
-    cleanup: AnonymisationCleanupPlan,
-  ): Promise<void> {
+  private async clearExportPointers(cleanup: AnonymisationCleanupPlan): Promise<void> {
     if (cleanup.complianceRequestIdsToClear.length === 0) {
       return;
     }
@@ -179,13 +149,7 @@ export class AnonymisationService {
     let cursor = '0';
 
     do {
-      const [nextCursor, foundKeys] = await client.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        '100',
-      );
+      const [nextCursor, foundKeys] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
       cursor = nextCursor;
       for (const key of foundKeys) {
         keys.add(key);
@@ -195,10 +159,7 @@ export class AnonymisationService {
     return Array.from(keys);
   }
 
-  private logSettledFailures(
-    results: PromiseSettledResult<unknown>[],
-    label: string,
-  ): void {
+  private logSettledFailures(results: PromiseSettledResult<unknown>[], label: string): void {
     for (const result of results) {
       if (result.status === 'rejected') {
         this.logger.error(
