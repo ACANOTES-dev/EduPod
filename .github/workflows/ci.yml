@@ -32,6 +32,20 @@ jobs:
       - name: Type check
         run: pnpm -r run type-check
 
+      - name: Module cohesion check
+        run: node scripts/check-module-cohesion.js
+        continue-on-error: true
+
+      - name: Module tier dependency check
+        run: node scripts/check-module-tiers.js
+
+      - name: Global provider registry check
+        run: node scripts/check-global-providers.js
+
+      - name: Cross-module dependency check
+        run: node scripts/check-cross-module-deps.js
+        continue-on-error: true
+
       - name: Run unit tests
         run: pnpm turbo run test
 
