@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
 import type {
+  JwtPayload,
   TenantContext,
   UpdateMembershipRolesDto,
   UserListQuery,
@@ -11,6 +12,17 @@ import { MembershipsService } from './memberships.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const USER_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const ACTOR_USER_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+
+const mockUser: JwtPayload = {
+  sub: ACTOR_USER_ID,
+  email: 'admin@school.com',
+  tenant_id: TENANT_ID,
+  membership_id: 'mem-1',
+  type: 'access',
+  iat: 1000000,
+  exp: 2000000,
+};
 
 const mockTenant: TenantContext = {
   tenant_id: TENANT_ID,
@@ -44,9 +56,7 @@ describe('MembershipsController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(
-        require('../../common/guards/permission.guard').PermissionGuard,
-      )
+      .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -80,52 +90,46 @@ describe('MembershipsController', () => {
     expect(result).toBe(expected);
   });
 
-  it('should call updateMembershipRoles with tenant_id, user id, and role_ids', async () => {
+  it('should call updateMembershipRoles with tenant_id, user id, role_ids, and actor user ID', async () => {
     const roleIds = ['role-1', 'role-2'];
     const dto: UpdateMembershipRolesDto = { role_ids: roleIds };
     const expected = { id: 'mem-1', membership_roles: [] };
     service.updateMembershipRoles.mockResolvedValue(expected);
 
-    const result = await controller.updateMembershipRoles(
-      mockTenant,
-      USER_ID,
-      dto,
-    );
+    const result = await controller.updateMembershipRoles(mockTenant, mockUser, USER_ID, dto);
 
     expect(service.updateMembershipRoles).toHaveBeenCalledWith(
       TENANT_ID,
       USER_ID,
       roleIds,
+      ACTOR_USER_ID,
     );
     expect(result).toBe(expected);
   });
 
-  it('should call suspendMembership with tenant_id and user id', async () => {
+  it('should call suspendMembership with tenant_id, user id, and actor user ID', async () => {
     const expected = {
       id: 'mem-1',
       membership_status: 'suspended',
     };
     service.suspendMembership.mockResolvedValue(expected);
 
-    const result = await controller.suspendMembership(mockTenant, USER_ID);
+    const result = await controller.suspendMembership(mockTenant, mockUser, USER_ID);
 
-    expect(service.suspendMembership).toHaveBeenCalledWith(TENANT_ID, USER_ID);
+    expect(service.suspendMembership).toHaveBeenCalledWith(TENANT_ID, USER_ID, ACTOR_USER_ID);
     expect(result).toBe(expected);
   });
 
-  it('should call reactivateMembership with tenant_id and user id', async () => {
+  it('should call reactivateMembership with tenant_id, user id, and actor user ID', async () => {
     const expected = {
       id: 'mem-1',
       membership_status: 'active',
     };
     service.reactivateMembership.mockResolvedValue(expected);
 
-    const result = await controller.reactivateMembership(mockTenant, USER_ID);
+    const result = await controller.reactivateMembership(mockTenant, mockUser, USER_ID);
 
-    expect(service.reactivateMembership).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-    );
+    expect(service.reactivateMembership).toHaveBeenCalledWith(TENANT_ID, USER_ID, ACTOR_USER_ID);
     expect(result).toBe(expected);
   });
 

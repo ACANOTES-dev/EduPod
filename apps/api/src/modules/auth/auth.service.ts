@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -21,9 +22,10 @@ import * as jwt from 'jsonwebtoken';
 import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
 import * as QRCode from 'qrcode';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
+import { EncryptionService } from '../configuration/encryption.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SecurityAuditService } from '../audit-log/security-audit.service';
 
 export interface LoginResult {
   access_token: string;
@@ -66,11 +68,14 @@ export interface SessionInfo {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private configService: ConfigService,
     private redis: RedisService,
     private prisma: PrismaService,
     private readonly securityAuditService: SecurityAuditService,
+    private readonly encryptionService: EncryptionService,
   ) {}
 
   // ─── Token signing / verification ──────────────────────────────────────────
@@ -377,9 +382,12 @@ export class AuthService {
         });
       }
 
+      // Decrypt the stored secret before TOTP verification
+      const decryptedSecret = this.decryptMfaSecret(user.mfa_secret, user.mfa_secret_key_ref);
+
       const verifyResult = await otpVerify({
         token: mfaCode,
-        secret: user.mfa_secret,
+        secret: decryptedSecret,
       });
       const isValid = verifyResult.valid;
 
@@ -651,10 +659,13 @@ export class AuthService {
     // Generate TOTP secret
     const secret = otpGenerateSecret();
 
-    // Store secret temporarily (don't enable MFA yet)
+    // Encrypt the secret before storing
+    const { encrypted, keyRef } = this.encryptionService.encrypt(secret);
+
+    // Store encrypted secret temporarily (don't enable MFA yet)
     await this.prisma.user.update({
       where: { id: userId },
-      data: { mfa_secret: secret },
+      data: { mfa_secret: encrypted, mfa_secret_key_ref: keyRef },
     });
 
     // Generate otpauth URI
@@ -694,10 +705,13 @@ export class AuthService {
       });
     }
 
+    // Decrypt the stored secret before TOTP verification
+    const decryptedSecret = this.decryptMfaSecret(user.mfa_secret, user.mfa_secret_key_ref);
+
     // Verify TOTP code against secret
     const verifyResult = await otpVerify({
       token: code,
-      secret: user.mfa_secret,
+      secret: decryptedSecret,
     });
     const isValid = verifyResult.valid;
 
@@ -855,7 +869,7 @@ export class AuthService {
     // 6. Disable MFA
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { mfa_enabled: false, mfa_secret: null },
+      data: { mfa_enabled: false, mfa_secret: null, mfa_secret_key_ref: null },
     });
     await this.securityAuditService.logMfaDisable(user.id, null, 'recovery_code');
 
@@ -952,8 +966,11 @@ export class AuthService {
         session.tenant_id = targetTenantId;
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
-      } catch {
-        /* skip malformed sessions */
+      } catch (err) {
+        this.logger.warn(
+          `Skipping malformed session ${sessionId} during tenant switch for user ${userId}`,
+          err,
+        );
       }
     }
 
@@ -1081,6 +1098,18 @@ export class AuthService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /**
+   * Decrypt an MFA TOTP secret. Handles both legacy plaintext secrets
+   * (where keyRef is null, pre-encryption migration) and encrypted secrets.
+   */
+  private decryptMfaSecret(encrypted: string, keyRef: string | null): string {
+    if (!keyRef) {
+      // Legacy plaintext — return as-is (pre-migration data)
+      return encrypted;
+    }
+    return this.encryptionService.decrypt(encrypted, keyRef);
+  }
 
   private sanitiseUser(user: {
     id: string;

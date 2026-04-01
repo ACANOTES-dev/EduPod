@@ -357,7 +357,7 @@ export class TenantsService {
   /**
    * Suspend a tenant. Invalidates all sessions and caches.
    */
-  async suspendTenant(id: string) {
+  async suspendTenant(id: string, actorUserId?: string) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -394,13 +394,22 @@ export class TenantsService {
     await this.invalidateAllTenantSessions(id);
     await this.invalidateTenantDomainCaches(id);
 
+    if (actorUserId) {
+      await this.securityAuditService.logTenantStatusChange(
+        id,
+        actorUserId,
+        'suspended',
+        tenant.status,
+      );
+    }
+
     return updated;
   }
 
   /**
    * Reactivate a suspended tenant.
    */
-  async reactivateTenant(id: string) {
+  async reactivateTenant(id: string, actorUserId?: string) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -427,13 +436,17 @@ export class TenantsService {
     // Invalidate domain caches to pick up new status
     await this.invalidateTenantDomainCaches(id);
 
+    if (actorUserId) {
+      await this.securityAuditService.logTenantStatusChange(id, actorUserId, 'active', 'suspended');
+    }
+
     return updated;
   }
 
   /**
    * Archive a tenant. Invalidates all sessions and caches.
    */
-  async archiveTenant(id: string) {
+  async archiveTenant(id: string, actorUserId?: string) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
       throw new NotFoundException({
@@ -462,6 +475,15 @@ export class TenantsService {
     // Invalidate all sessions and caches
     await this.invalidateAllTenantSessions(id);
     await this.invalidateTenantDomainCaches(id);
+
+    if (actorUserId) {
+      await this.securityAuditService.logTenantStatusChange(
+        id,
+        actorUserId,
+        'archived',
+        tenant.status,
+      );
+    }
 
     return updated;
   }
@@ -613,7 +635,12 @@ export class TenantsService {
   /**
    * Toggle a module on or off for a tenant.
    */
-  async toggleModule(tenantId: string, moduleKey: string, isEnabled: boolean) {
+  async toggleModule(
+    tenantId: string,
+    moduleKey: string,
+    isEnabled: boolean,
+    actorUserId?: string,
+  ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
     });
@@ -643,10 +670,16 @@ export class TenantsService {
       });
     }
 
-    return this.prisma.tenantModule.update({
+    const result = await this.prisma.tenantModule.update({
       where: { id: existing.id },
       data: { is_enabled: isEnabled },
     });
+
+    if (actorUserId) {
+      await this.securityAuditService.logModuleToggle(tenantId, actorUserId, moduleKey, isEnabled);
+    }
+
+    return result;
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

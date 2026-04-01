@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
@@ -48,6 +49,8 @@ function toContextType(value: string): $Enums.ContextType {
 
 @Injectable()
 export class BehaviourService {
+  private readonly logger = new Logger(BehaviourService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,

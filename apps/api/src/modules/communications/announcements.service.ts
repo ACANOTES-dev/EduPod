@@ -1,19 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
 
+import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { AudienceResolutionService } from './audience-resolution.service';
 import { NotificationsService } from './notifications.service';
-
 
 interface ListAnnouncementsFilters {
   page: number;
@@ -79,14 +75,18 @@ export class AnnouncementsService {
     return announcement;
   }
 
-  async create(tenantId: string, userId: string, dto: {
-    title: string;
-    body_html: string;
-    scope: string;
-    target_payload: Record<string, unknown>;
-    scheduled_publish_at?: string | null;
-    delivery_channels?: string[];
-  }) {
+  async create(
+    tenantId: string,
+    userId: string,
+    dto: {
+      title: string;
+      body_html: string;
+      scope: string;
+      target_payload: Record<string, unknown>;
+      scheduled_publish_at?: string | null;
+      delivery_channels?: string[];
+    },
+  ) {
     const cleanHtml = sanitiseHtml(dto.body_html);
 
     // Ensure in_app is always present
@@ -117,14 +117,18 @@ export class AnnouncementsService {
     });
   }
 
-  async update(tenantId: string, id: string, dto: {
-    title?: string;
-    body_html?: string;
-    scope?: string;
-    target_payload?: Record<string, unknown>;
-    scheduled_publish_at?: string | null;
-    delivery_channels?: string[];
-  }) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: {
+      title?: string;
+      body_html?: string;
+      scope?: string;
+      target_payload?: Record<string, unknown>;
+      scheduled_publish_at?: string | null;
+      delivery_channels?: string[];
+    },
+  ) {
     const existing = await this.getById(tenantId, id);
 
     if (existing.status !== 'draft') {
@@ -182,34 +186,46 @@ export class AnnouncementsService {
     });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const settingsJson = (settings?.settings as Record<string, any>) ?? {};
-    const requireApproval =
-      settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
+    const requireApproval = settingsJson?.communications?.requireApprovalForAnnouncements ?? true;
 
     if (requireApproval) {
-      const approvalResult = await this.approvalService.checkAndCreateIfNeeded(
-        tenantId,
-        'announcement_publish',
-        'announcement',
-        id,
-        userId,
-        false,
-      );
+      // R-21: Approval creation + entity status change must be atomic
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      const approvalTxResult = (await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as typeof this.prisma;
 
-      if (!approvalResult.approved) {
-        const updated = await this.prisma.announcement.update({
-          where: { id },
-          data: {
-            status: 'pending_approval',
-            approval_request_id: approvalResult.request_id,
-          },
-          include: {
-            author: {
-              select: { id: true, first_name: true, last_name: true, email: true },
+        const approvalResult = await this.approvalService.checkAndCreateIfNeeded(
+          tenantId,
+          'announcement_publish',
+          'announcement',
+          id,
+          userId,
+          false,
+          db,
+        );
+
+        if (!approvalResult.approved) {
+          const updated = await db.announcement.update({
+            where: { id },
+            data: {
+              status: 'pending_approval',
+              approval_request_id: approvalResult.request_id,
             },
-          },
-        });
+            include: {
+              author: {
+                select: { id: true, first_name: true, last_name: true, email: true },
+              },
+            },
+          });
 
-        return { data: updated, approval_required: true };
+          return { needsApproval: true as const, data: updated };
+        }
+
+        return { needsApproval: false as const };
+      })) as { needsApproval: true; data: Record<string, unknown> } | { needsApproval: false };
+
+      if (approvalTxResult.needsApproval) {
+        return { data: approvalTxResult.data, approval_required: true };
       }
     }
 
@@ -352,7 +368,11 @@ export class AnnouncementsService {
     return result;
   }
 
-  async listForParent(tenantId: string, userId: string, filters: { page: number; pageSize: number }) {
+  async listForParent(
+    tenantId: string,
+    userId: string,
+    filters: { page: number; pageSize: number },
+  ) {
     const { page, pageSize } = filters;
     const skip = (page - 1) * pageSize;
 

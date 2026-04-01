@@ -340,33 +340,50 @@ export class InvoicesService {
     // Check if approval is required
     const settings = await this.settingsService.getSettings(tenantId);
     if (settings.finance.requireApprovalForInvoiceIssue) {
-      const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
-        tenantId,
-        'invoice_issue',
-        'invoice',
-        id,
-        userId,
-        hasDirectAuthority,
-      );
+      // R-21: Approval creation + entity status change must be atomic
+      const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+      return (await rlsClient.$transaction(async (tx) => {
+        const db = tx as unknown as typeof this.prisma;
 
-      if (!approvalResult.approved) {
-        // Set invoice to pending_approval
-        const updated = await this.prisma.invoice.update({
+        const approvalResult = await this.approvalRequestsService.checkAndCreateIfNeeded(
+          tenantId,
+          'invoice_issue',
+          'invoice',
+          id,
+          userId,
+          hasDirectAuthority,
+          db,
+        );
+
+        if (!approvalResult.approved) {
+          // Set invoice to pending_approval
+          const updated = await db.invoice.update({
+            where: { id },
+            data: {
+              status: 'pending_approval',
+              approval_request_id: approvalResult.request_id,
+            },
+          });
+          return {
+            ...this.serializeInvoice(updated),
+            approval_status: 'pending_approval' as const,
+            approval_request_id: approvalResult.request_id,
+          };
+        }
+
+        // Issue directly (within transaction since approval check was auto-approved)
+        const updated = await db.invoice.update({
           where: { id },
           data: {
-            status: 'pending_approval',
-            approval_request_id: approvalResult.request_id,
+            status: 'issued',
+            issue_date: new Date(),
           },
         });
-        return {
-          ...this.serializeInvoice(updated),
-          approval_status: 'pending_approval',
-          approval_request_id: approvalResult.request_id,
-        };
-      }
+        return this.serializeInvoice(updated);
+      })) as Record<string, unknown>;
     }
 
-    // Issue directly
+    // No approval required — issue directly
     const updated = await this.prisma.invoice.update({
       where: { id },
       data: {

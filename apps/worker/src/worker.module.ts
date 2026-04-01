@@ -7,6 +7,7 @@ import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
 import { envValidation } from './env.validation';
 import { WorkerHealthController } from './health/worker-health.controller';
+import { WorkerHealthService } from './health/worker-health.service';
 import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
 import { AttendanceAutoLockProcessor } from './processors/attendance-auto-lock.processor';
@@ -22,6 +23,7 @@ import { DetectPatternsProcessor } from './processors/behaviour/detect-patterns.
 import { DigestNotificationsProcessor } from './processors/behaviour/digest-notifications.processor';
 import { EvaluatePolicyProcessor } from './processors/behaviour/evaluate-policy.processor';
 import { BehaviourGuardianRestrictionCheckProcessor } from './processors/behaviour/guardian-restriction-check.processor';
+import { NotificationReconciliationProcessor } from './processors/behaviour/notification-reconciliation.processor';
 import { BehaviourParentNotificationProcessor } from './processors/behaviour/parent-notification.processor';
 import { PartitionMaintenanceProcessor } from './processors/behaviour/partition-maintenance.processor';
 import { RefreshMVProcessor } from './processors/behaviour/refresh-mv.processor';
@@ -63,6 +65,7 @@ import { HomeworkOverdueDetectionProcessor } from './processors/homework/overdue
 import { ImportFileCleanupProcessor } from './processors/imports/import-file-cleanup.processor';
 import { ImportProcessingProcessor } from './processors/imports/import-processing.processor';
 import { ImportValidationProcessor } from './processors/imports/import-validation.processor';
+import { DlqMonitorProcessor } from './processors/monitoring/dlq-monitor.processor';
 import { DispatchQueuedProcessor } from './processors/notifications/dispatch-queued.processor';
 import { ParentDailyDigestProcessor } from './processors/notifications/parent-daily-digest.processor';
 import { CheckinAlertProcessor } from './processors/pastoral/checkin-alert.processor';
@@ -70,6 +73,7 @@ import { EscalationTimeoutProcessor } from './processors/pastoral/escalation-tim
 import { InterventionReviewReminderProcessor } from './processors/pastoral/intervention-review-reminder.processor';
 import { NotifyConcernProcessor } from './processors/pastoral/notify-concern.processor';
 import { OverdueActionsProcessor } from './processors/pastoral/overdue-actions.processor';
+import { PastoralCronDispatchProcessor } from './processors/pastoral/pastoral-cron-dispatch.processor';
 import { PrecomputeAgendaProcessor } from './processors/pastoral/precompute-agenda.processor';
 import { SyncBehaviourSafeguardingProcessor } from './processors/pastoral/sync-behaviour-safeguarding.processor';
 import { WellbeingFlagExpiryProcessor } from './processors/pastoral/wellbeing-flag-expiry.processor';
@@ -321,6 +325,8 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
         return client;
       },
     },
+    // Health service
+    WorkerHealthService,
     // Approvals queue processors
     ApprovalCallbackReconciliationProcessor,
     // Admissions queue processors
@@ -328,6 +334,7 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     // Behaviour queue processors
     BehaviourCronDispatchProcessor,
     BehaviourParentNotificationProcessor,
+    NotificationReconciliationProcessor,
     DigestNotificationsProcessor,
     BehaviourTaskRemindersProcessor,
     BehaviourCheckAwardsProcessor,
@@ -399,6 +406,9 @@ const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
     InterventionReviewReminderProcessor,
     CheckinAlertProcessor,
     WellbeingFlagExpiryProcessor,
+    PastoralCronDispatchProcessor,
+    // Monitoring processors
+    DlqMonitorProcessor,
     // Security queue processors
     KeyRotationProcessor,
     AnomalyScanProcessor,

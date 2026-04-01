@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
@@ -31,6 +32,8 @@ interface AwardTypeEligibility {
 
 @Injectable()
 export class BehaviourAwardService {
+  private readonly logger = new Logger(BehaviourAwardService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
@@ -151,8 +154,11 @@ export class BehaviourAwardService {
             student_ids: [dto.student_id],
             award_id: award.id,
           });
-        } catch {
-          // Don't fail the award creation if queue add fails
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-notification for award — award creation succeeded',
+            err,
+          );
         }
 
         return award;
@@ -252,8 +258,11 @@ export class BehaviourAwardService {
             student_ids: [studentId],
             award_id: award.id,
           });
-        } catch {
-          // Don't fail award creation if queue add fails
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-notification for auto-award — award creation succeeded',
+            err,
+          );
         }
       }
     }

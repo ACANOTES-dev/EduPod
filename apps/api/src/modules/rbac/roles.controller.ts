@@ -12,19 +12,17 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import {
-  assignPermissionsSchema,
-  createRoleSchema,
-  updateRoleSchema,
-} from '@school/shared';
+import { assignPermissionsSchema, createRoleSchema, updateRoleSchema } from '@school/shared';
 import type {
   AssignPermissionsDto,
   CreateRoleDto,
+  JwtPayload,
+  TenantContext,
   UpdateRoleDto,
 } from '@school/shared';
-import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
@@ -47,17 +45,15 @@ export class RolesController {
   @RequiresPermission('roles.manage')
   async createRole(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(createRoleSchema)) dto: CreateRoleDto,
   ) {
-    return this.rolesService.createRole(tenant.tenant_id, dto);
+    return this.rolesService.createRole(tenant.tenant_id, dto, user.sub);
   }
 
   @Get(':id')
   @RequiresPermission('roles.manage')
-  async getRole(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getRole(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.getRole(tenant.tenant_id, id);
   }
 
@@ -65,10 +61,11 @@ export class RolesController {
   @RequiresPermission('roles.manage')
   async updateRole(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateRoleSchema)) dto: UpdateRoleDto,
   ) {
-    return this.rolesService.updateRole(tenant.tenant_id, id, dto);
+    return this.rolesService.updateRole(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Delete(':id')
@@ -76,23 +73,21 @@ export class RolesController {
   @RequiresPermission('roles.manage')
   async deleteRole(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.rolesService.deleteRole(tenant.tenant_id, id);
+    return this.rolesService.deleteRole(tenant.tenant_id, id, user.sub);
   }
 
   @Put(':id/permissions')
   @RequiresPermission('roles.manage')
   async assignPermissions(
     @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(assignPermissionsSchema))
     dto: AssignPermissionsDto,
   ) {
-    return this.rolesService.assignPermissions(
-      tenant.tenant_id,
-      id,
-      dto.permission_ids,
-    );
+    return this.rolesService.assignPermissions(tenant.tenant_id, id, dto.permission_ids, user.sub);
   }
 }

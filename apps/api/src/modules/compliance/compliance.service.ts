@@ -4,10 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isValidComplianceTransition } from '@school/shared';
 import type {
   ClassifyComplianceRequestDto,
   ComplianceDecisionDto,
   ComplianceFilterDto,
+  ComplianceRequestStatus,
   CreateComplianceRequestDto,
   ExtendComplianceRequestDto,
   GdprEntityType,
@@ -241,10 +243,10 @@ export class ComplianceService {
   async classify(tenantId: string, requestId: string, dto: ClassifyComplianceRequestDto) {
     const request = await this.findOrThrow(tenantId, requestId);
 
-    if (request.status !== 'submitted') {
+    if (!isValidComplianceTransition(request.status as ComplianceRequestStatus, 'classified')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot classify a request with status "${request.status}". Expected "submitted".`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from "${request.status}" to "classified"`,
       });
     }
 
@@ -275,10 +277,10 @@ export class ComplianceService {
   async approve(tenantId: string, requestId: string, dto: ComplianceDecisionDto) {
     const request = await this.findOrThrow(tenantId, requestId);
 
-    if (request.status !== 'classified') {
+    if (!isValidComplianceTransition(request.status as ComplianceRequestStatus, 'approved')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot approve a request with status "${request.status}". Expected "classified".`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from "${request.status}" to "approved"`,
       });
     }
 
@@ -303,15 +305,15 @@ export class ComplianceService {
 
   /**
    * Reject a compliance request.
-   * State transition: submitted|classified -> rejected
+   * State transition: classified -> rejected
    */
   async reject(tenantId: string, requestId: string, dto: ComplianceDecisionDto) {
     const request = await this.findOrThrow(tenantId, requestId);
 
-    if (request.status !== 'submitted' && request.status !== 'classified') {
+    if (!isValidComplianceTransition(request.status as ComplianceRequestStatus, 'rejected')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot reject a request with status "${request.status}". Expected "submitted" or "classified".`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from "${request.status}" to "rejected"`,
       });
     }
 
@@ -345,10 +347,10 @@ export class ComplianceService {
   async execute(tenantId: string, requestId: string, format: 'json' | 'csv' = 'json') {
     const request = await this.findOrThrow(tenantId, requestId);
 
-    if (request.status !== 'approved') {
+    if (!isValidComplianceTransition(request.status as ComplianceRequestStatus, 'completed')) {
       throw new BadRequestException({
-        code: 'INVALID_STATUS',
-        message: `Cannot execute a request with status "${request.status}". Expected "approved".`,
+        code: 'INVALID_STATUS_TRANSITION',
+        message: `Cannot transition from "${request.status}" to "completed"`,
       });
     }
 
@@ -357,7 +359,7 @@ export class ComplianceService {
       throw new BadRequestException({
         code: 'AGE_GATE_NOT_CONFIRMED',
         message:
-          'This request requires age-gated review confirmation before execution. The student is 17+ and per DPC guidance, school must confirm processing is in the student\'s best interest.',
+          "This request requires age-gated review confirmation before execution. The student is 17+ and per DPC guidance, school must confirm processing is in the student's best interest.",
       });
     }
 
@@ -585,18 +587,11 @@ export class ComplianceService {
   }
 
   private getAccessExportType(requestType: string): string {
-    return requestType === 'portability'
-      ? 'dsar_portability'
-      : 'dsar_access_export';
+    return requestType === 'portability' ? 'dsar_portability' : 'dsar_access_export';
   }
 
   private buildGdprAuditData(subjectType: string, subjectId: string): GdprOutboundData {
-    const gdprEntityTypes = new Set<GdprEntityType>([
-      'student',
-      'parent',
-      'staff',
-      'household',
-    ]);
+    const gdprEntityTypes = new Set<GdprEntityType>(['student', 'parent', 'staff', 'household']);
 
     if (gdprEntityTypes.has(subjectType as GdprEntityType)) {
       return {

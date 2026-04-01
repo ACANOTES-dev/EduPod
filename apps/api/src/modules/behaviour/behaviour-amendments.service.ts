@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
 import { SANCTION_PARENT_VISIBLE_FIELDS } from '@school/shared';
 import type { AmendmentListQuery } from '@school/shared';
@@ -56,6 +56,8 @@ interface CheckAndCreateAmendmentParams {
 
 @Injectable()
 export class BehaviourAmendmentsService {
+  private readonly logger = new Logger(BehaviourAmendmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly historyService: BehaviourHistoryService,
@@ -276,8 +278,11 @@ export class BehaviourAmendmentsService {
                 sent_at: now,
               },
             });
-          } catch {
-            // Don't fail the entire correction if a single ack row fails
+          } catch (err) {
+            this.logger.warn(
+              `Failed to create parent acknowledgement row for amendment ${notice.id} — correction continues`,
+              err,
+            );
           }
 
           // ── Step 6: Create in-app notification for correction ──────────
@@ -304,8 +309,11 @@ export class BehaviourAmendmentsService {
                   delivered_at: now,
                 },
               });
-            } catch {
-              // Don't fail the correction if notification creation fails
+            } catch (err) {
+              this.logger.warn(
+                `Failed to create in-app notification for amendment ${notice.id} — correction continues`,
+                err,
+              );
             }
           }
         }
@@ -340,8 +348,11 @@ export class BehaviourAmendmentsService {
             },
           });
         }
-      } catch {
-        // Don't fail the correction if document supersession fails
+      } catch (err) {
+        this.logger.warn(
+          `Failed to supersede existing behaviour document for amendment ${id} — correction continues`,
+          err,
+        );
       }
 
       // Enqueue correction notification to parent (async delivery)
@@ -352,8 +363,11 @@ export class BehaviourAmendmentsService {
           entity_type: notice.entity_type,
           entity_id: notice.entity_id,
         });
-      } catch {
-        // Don't fail the send if queue add fails
+      } catch (err) {
+        this.logger.warn(
+          'Failed to enqueue behaviour:correction-parent — correction send succeeded',
+          err,
+        );
       }
 
       // If requires re-acknowledgement, enqueue re-ack request
@@ -365,8 +379,11 @@ export class BehaviourAmendmentsService {
             entity_type: notice.entity_type,
             entity_id: notice.entity_id,
           });
-        } catch {
-          // Don't fail the send if queue add fails
+        } catch (err) {
+          this.logger.warn(
+            'Failed to enqueue behaviour:parent-reacknowledgement — correction send succeeded',
+            err,
+          );
         }
       }
 

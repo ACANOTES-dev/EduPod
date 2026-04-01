@@ -400,12 +400,18 @@ export class PastoralDsarService {
       })) as DsarReviewRow | null;
 
       if (!review) {
-        throw new NotFoundException('Review not found');
+        throw new NotFoundException({
+          code: 'DSAR_REVIEW_NOT_FOUND',
+          message: `DSAR review with id "${reviewId}" not found`,
+        });
       }
 
       // Tier 3 zero-discoverability: throw 404 (not 403) if no cp_access
       if (review.tier === 3 && !hasCpAccess) {
-        throw new NotFoundException('Review not found');
+        throw new NotFoundException({
+          code: 'DSAR_REVIEW_NOT_FOUND',
+          message: `DSAR review with id "${reviewId}" not found`,
+        });
       }
 
       const recordSummary = await this.getRecordSummary(
@@ -442,17 +448,26 @@ export class PastoralDsarService {
       })) as DsarReviewRow | null;
 
       if (!review) {
-        throw new NotFoundException('Review not found');
+        throw new NotFoundException({
+          code: 'DSAR_REVIEW_NOT_FOUND',
+          message: `DSAR review with id "${reviewId}" not found`,
+        });
       }
 
       // Must still be pending
       if (review.decision !== null) {
-        throw new BadRequestException('Review has already been decided');
+        throw new BadRequestException({
+          code: 'DSAR_REVIEW_ALREADY_DECIDED',
+          message: 'This DSAR review has already been decided',
+        });
       }
 
       // Tier 3 cp_access check
       if (review.tier === 3 && !hasCpAccess) {
-        throw new NotFoundException('Review not found');
+        throw new NotFoundException({
+          code: 'DSAR_REVIEW_NOT_FOUND',
+          message: `DSAR review with id "${reviewId}" not found`,
+        });
       }
 
       // Validate decision-specific fields
@@ -686,23 +701,31 @@ export class PastoralDsarService {
   private validateDecisionDto(dto: SubmitDecisionDto): void {
     if (dto.decision === 'redact') {
       if (!dto.justification || dto.justification.trim().length === 0) {
-        throw new BadRequestException(
-          'Justification (redaction details) is required for redact decisions',
-        );
+        throw new BadRequestException({
+          code: 'DSAR_JUSTIFICATION_REQUIRED',
+          message: 'Justification (redaction details) is required for redact decisions',
+        });
       }
     }
 
     if (dto.decision === 'exclude') {
       if (!dto.legal_basis || dto.legal_basis.trim().length === 0) {
-        throw new BadRequestException('Legal basis is required for exclude decisions');
+        throw new BadRequestException({
+          code: 'DSAR_LEGAL_BASIS_REQUIRED',
+          message: 'Legal basis is required for exclude decisions',
+        });
       }
       if (!dto.justification || dto.justification.trim().length === 0) {
-        throw new BadRequestException('Justification is required for exclude decisions');
+        throw new BadRequestException({
+          code: 'DSAR_JUSTIFICATION_REQUIRED',
+          message: 'Justification is required for exclude decisions',
+        });
       }
       if (dto.legal_basis === 'other' && dto.justification.trim().length <= 20) {
-        throw new BadRequestException(
-          'Justification must be more than 20 characters when legal basis is "other"',
-        );
+        throw new BadRequestException({
+          code: 'DSAR_JUSTIFICATION_TOO_SHORT',
+          message: 'Justification must be more than 20 characters when legal basis is "other"',
+        });
       }
     }
   }
