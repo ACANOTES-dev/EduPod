@@ -7,7 +7,7 @@ export type PayrollRunStatus = PayrollRun['status'];
 // ─── Status transition map ────────────────────────────────────────────────────
 
 const VALID_TRANSITIONS: Record<PayrollRunStatus, PayrollRunStatus[]> = {
-  draft: ['pending_approval', 'cancelled'],
+  draft: ['pending_approval', 'finalised', 'cancelled'],
   pending_approval: ['draft', 'finalised'],
   finalised: [],
   cancelled: [],

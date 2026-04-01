@@ -26,8 +26,8 @@ describe('PayrollRunStatus state machine', () => {
 
   // ─── Blocked transitions ───────────────────────────────────────────────────
 
-  it('should block draft → finalised (skipping approval)', () => {
-    expect(isValidPayrollRunTransition('draft', 'finalised')).toBe(false);
+  it('should allow draft → finalised (owner auto-approve bypass)', () => {
+    expect(isValidPayrollRunTransition('draft', 'finalised')).toBe(true);
   });
 
   it('should block draft → draft', () => {
@@ -84,8 +84,10 @@ describe('PayrollRunStatus state machine', () => {
 
   it('should return correct transitions for draft', () => {
     const transitions = getValidPayrollRunTransitions('draft');
-    expect(transitions).toEqual(expect.arrayContaining(['pending_approval', 'cancelled']));
-    expect(transitions).toHaveLength(2);
+    expect(transitions).toEqual(
+      expect.arrayContaining(['pending_approval', 'finalised', 'cancelled']),
+    );
+    expect(transitions).toHaveLength(3);
   });
 
   it('should return correct transitions for pending_approval', () => {
