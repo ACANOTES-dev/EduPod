@@ -19,7 +19,12 @@ type RoleKey =
 /** Routes that any authenticated user can access (no role check needed). */
 const UNRESTRICTED_PATHS = ['/dashboard', '/profile', '/profile/communication', '/select-school'];
 
-const ADMIN_ROLES: RoleKey[] = ['school_owner', 'school_principal', 'admin', 'school_vice_principal'];
+const ADMIN_ROLES: RoleKey[] = [
+  'school_owner',
+  'school_principal',
+  'admin',
+  'school_vice_principal',
+];
 const STAFF_ROLES: RoleKey[] = [...ADMIN_ROLES, 'teacher', 'accounting', 'front_office'];
 const LEGAL_ROLES: RoleKey[] = [...STAFF_ROLES, 'parent', 'student'];
 
@@ -35,6 +40,11 @@ const ROUTE_ROLE_MAP: { prefix: string; roles: RoleKey[] }[] = [
     prefix: '/applications',
     roles: ['parent', ...ADMIN_ROLES, 'front_office'],
   },
+
+  // SEN — parent portal (must precede /sen so it matches first)
+  { prefix: '/parent/sen', roles: ['parent'] },
+  // SEN — staff pages
+  { prefix: '/sen', roles: STAFF_ROLES },
 
   // Behaviour — parent portal (must precede /behaviour so it matches first)
   { prefix: '/behaviour/parent-portal', roles: ['parent'] },

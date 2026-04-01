@@ -28,6 +28,7 @@ import {
   GraduationCap,
   Grid3X3,
   Heart,
+  HeartHandshake,
   Home,
   LayoutGrid,
   LayoutDashboard,
@@ -62,7 +63,6 @@ import { UserMenu } from '@/components/user-menu';
 import { useShortcuts } from '@/hooks/use-shortcuts';
 import { apiClient, setApiErrorHandler } from '@/lib/api-client';
 import { RequireAuth, useAuth } from '@/providers/auth-provider';
-
 
 // ─── Role-based navigation ──────────────────────────────────────────────────
 
@@ -116,6 +116,12 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         icon: ClipboardList,
         labelKey: 'nav.applications',
         href: '/applications',
+        roles: ['parent'],
+      },
+      {
+        icon: HeartHandshake,
+        labelKey: 'nav.senParent',
+        href: '/parent/sen',
         roles: ['parent'],
       },
     ],
@@ -207,6 +213,17 @@ const navSections: { labelKey: string; items: NavItem[]; roles?: RoleKey[] }[] =
         href: '/wellbeing/reports',
         roles: ADMIN_ROLES,
       },
+    ],
+  },
+  {
+    labelKey: 'nav.sen',
+    roles: STAFF_ROLES,
+    items: [
+      { icon: HeartHandshake, labelKey: 'nav.senDashboard', href: '/sen' },
+      { icon: GraduationCap, labelKey: 'nav.senStudents', href: '/sen/students' },
+      { icon: Clock, labelKey: 'nav.senResourceAllocation', href: '/sen/resource-allocation' },
+      { icon: Users, labelKey: 'nav.senSnaAssignments', href: '/sen/sna-assignments' },
+      { icon: BarChart3, labelKey: 'nav.senReports', href: '/sen/reports' },
     ],
   },
   {
@@ -396,6 +413,7 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
     if (path.startsWith('/admissions/analytics')) return t('nav.admissions');
     if (path.startsWith('/finance/')) return t('nav.finance');
     if (path.startsWith('/payroll/')) return t('nav.payroll');
+    if (path.startsWith('/sen')) return t('nav.sen');
     if (path.startsWith('/wellbeing/')) return t('nav.wellbeing');
     if (path.startsWith('/settings/legal')) return t('nav.legal');
     if (path.startsWith('/privacy-notice')) return t('nav.legal');

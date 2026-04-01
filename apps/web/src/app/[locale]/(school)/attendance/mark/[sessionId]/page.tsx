@@ -1,12 +1,17 @@
 'use client';
 
 import {
+  Badge,
   Button,
   Input,
   RadioGroup,
   RadioGroupItem,
   Label,
   Textarea,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   toast,
 } from '@school/ui';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
@@ -51,6 +56,37 @@ interface ApiSession {
   enrolled_students: Array<{ id: string; first_name: string; last_name: string }>;
 }
 
+// ─── SEN Profile Types ───────────────────────────────────────────────────────
+
+interface SenProfileSummary {
+  student_id: string;
+  primary_category: string;
+  support_level: string;
+}
+
+interface SenProfileApiItem {
+  student: { id: string };
+  primary_category: string;
+  support_level: string;
+  is_active: boolean;
+}
+
+const SEN_CATEGORY_LABELS: Record<string, string> = {
+  learning: 'Learning',
+  emotional_behavioural: 'Emotional / Behavioural',
+  physical: 'Physical',
+  sensory: 'Sensory',
+  asd: 'ASD',
+  speech_language: 'Speech & Language',
+  multiple: 'Multiple',
+  other: 'Other',
+};
+
+const SEN_SUPPORT_LEVEL_LABELS: Record<string, string> = {
+  school_support: 'School Support',
+  school_support_plus: 'School Support Plus',
+};
+
 const ATTENDANCE_STATUSES = [
   { value: 'present', labelKey: 'present' },
   { value: 'absent_unexcused', labelKey: 'absentUnexcused' },
@@ -74,6 +110,7 @@ export default function MarkAttendancePage() {
   const [saving, setSaving] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [senMap, setSenMap] = React.useState<Map<string, SenProfileSummary>>(new Map());
 
   React.useEffect(() => {
     if (!sessionId) return;
@@ -123,6 +160,28 @@ export default function MarkAttendancePage() {
       .finally(() => setLoading(false));
   }, [sessionId]);
 
+  // ─── Fetch active SEN profiles (silent — no error if user lacks SEN permission) ──
+  React.useEffect(() => {
+    if (!sessionId) return;
+    apiClient<{ data: SenProfileApiItem[] }>('/api/v1/sen/profiles?is_active=true&pageSize=100', {
+      silent: true,
+    })
+      .then((res) => {
+        const map = new Map<string, SenProfileSummary>();
+        for (const profile of res.data ?? []) {
+          map.set(profile.student.id, {
+            student_id: profile.student.id,
+            primary_category: profile.primary_category,
+            support_level: profile.support_level,
+          });
+        }
+        setSenMap(map);
+      })
+      .catch((err) => {
+        console.error('[MarkAttendancePage] Failed to fetch SEN profiles', err);
+      });
+  }, [sessionId]);
+
   const updateRecordStatus = (studentId: string, status: string) => {
     setRecords((prev) =>
       prev.map((r) => {
@@ -140,9 +199,7 @@ export default function MarkAttendancePage() {
   };
 
   const updateRecordReason = (studentId: string, reason: string) => {
-    setRecords((prev) =>
-      prev.map((r) => (r.student_id === studentId ? { ...r, reason } : r)),
-    );
+    setRecords((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, reason } : r)));
   };
 
   const updateRecordArrivalTime = (studentId: string, arrivalTime: string | null) => {
@@ -167,7 +224,7 @@ export default function MarkAttendancePage() {
             student_id: r.student_id,
             status: r.status,
             reason: r.reason || null,
-            arrival_time: r.status === 'late' ? (r.arrival_time || null) : null,
+            arrival_time: r.status === 'late' ? r.arrival_time || null : null,
           })),
         }),
       });
@@ -189,7 +246,7 @@ export default function MarkAttendancePage() {
             student_id: r.student_id,
             status: r.status,
             reason: r.reason || null,
-            arrival_time: r.status === 'late' ? (r.arrival_time || null) : null,
+            arrival_time: r.status === 'late' ? r.arrival_time || null : null,
           })),
         }),
       });
@@ -270,8 +327,32 @@ export default function MarkAttendancePage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-secondary text-sm font-medium text-text-primary">
                   {record.student_name.charAt(0)}
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-text-primary">{record.student_name}</p>
+                  {senMap.has(record.student_id) && (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="info"
+                            className="cursor-default px-1.5 py-0.5 text-[10px]"
+                          >
+                            SEN
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {SEN_CATEGORY_LABELS[senMap.get(record.student_id)!.primary_category] ??
+                              senMap.get(record.student_id)!.primary_category}
+                            {' — '}
+                            {SEN_SUPPORT_LEVEL_LABELS[
+                              senMap.get(record.student_id)!.support_level
+                            ] ?? senMap.get(record.student_id)!.support_level}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </div>
               </div>
 
@@ -298,7 +379,9 @@ export default function MarkAttendancePage() {
                     <Input
                       type="time"
                       value={record.arrival_time ?? ''}
-                      onChange={(e) => updateRecordArrivalTime(record.student_id, e.target.value || null)}
+                      onChange={(e) =>
+                        updateRecordArrivalTime(record.student_id, e.target.value || null)
+                      }
                       className="w-28"
                       aria-label={t('arrivalTime')}
                     />
