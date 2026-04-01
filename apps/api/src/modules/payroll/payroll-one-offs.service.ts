@@ -1,14 +1,8 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateOneOffItemDto,
-  UpdateOneOffItemDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import type { CreateOneOffItemDto, UpdateOneOffItemDto } from '@school/shared';
+
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -40,12 +34,8 @@ export class PayrollOneOffsService {
       });
     }
 
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
-      const item = await db.payrollOneOffItem.create({
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
+      const item = await tx.payrollOneOffItem.create({
         data: {
           tenant_id: tenantId,
           payroll_entry_id: entryId,
@@ -95,11 +85,7 @@ export class PayrollOneOffsService {
     return this.serializeItem(item);
   }
 
-  async updateOneOffItem(
-    tenantId: string,
-    itemId: string,
-    dto: UpdateOneOffItemDto,
-  ) {
+  async updateOneOffItem(tenantId: string, itemId: string, dto: UpdateOneOffItemDto) {
     const item = await this.prisma.payrollOneOffItem.findFirst({
       where: { id: itemId, tenant_id: tenantId },
       include: {

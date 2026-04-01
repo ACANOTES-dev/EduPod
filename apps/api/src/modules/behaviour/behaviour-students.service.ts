@@ -663,23 +663,7 @@ export class BehaviourStudentsService {
     ]);
 
     // Map incidents to use parent_description instead of description
-    const parentIncidents = incidents.map((inc) => ({
-      id: inc.id,
-      incident_number: inc.incident_number,
-      polarity: inc.polarity,
-      severity: inc.severity,
-      description: inc.parent_description ?? inc.category?.name ?? 'Incident',
-      description_ar: inc.parent_description_ar ?? inc.category?.name_ar ?? null,
-      occurred_at: inc.occurred_at,
-      category: inc.category
-        ? {
-            id: inc.category.id,
-            name: inc.category.name,
-            name_ar: inc.category.name_ar,
-            polarity: inc.category.polarity,
-          }
-        : null,
-    }));
+    const parentIncidents = incidents.map(mapParentIncidentToDto);
 
     return {
       data: {

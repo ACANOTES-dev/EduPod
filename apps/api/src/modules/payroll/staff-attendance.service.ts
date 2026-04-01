@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   BulkMarkAttendanceDto,
   CalculateDaysWorkedDto,
@@ -9,25 +7,17 @@ import type {
   StaffAttendanceQueryDto,
 } from '@school/shared';
 
-import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { withRls } from '../../common/helpers/with-rls';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class StaffAttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async markAttendance(
-    tenantId: string,
-    userId: string,
-    dto: MarkAttendanceDto,
-  ) {
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
-
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
+  async markAttendance(tenantId: string, userId: string, dto: MarkAttendanceDto) {
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
       // Upsert — idempotent so re-marking is allowed
-      const existing = await db.staffAttendanceRecord.findUnique({
+      const existing = await tx.staffAttendanceRecord.findUnique({
         where: {
           idx_staff_attendance_unique: {
             tenant_id: tenantId,
@@ -38,7 +28,7 @@ export class StaffAttendanceService {
       });
 
       if (existing) {
-        return db.staffAttendanceRecord.update({
+        return tx.staffAttendanceRecord.update({
           where: { id: existing.id },
           data: {
             status: dto.status,
@@ -48,7 +38,7 @@ export class StaffAttendanceService {
         });
       }
 
-      return db.staffAttendanceRecord.create({
+      return tx.staffAttendanceRecord.create({
         data: {
           tenant_id: tenantId,
           staff_profile_id: dto.staff_profile_id,
@@ -61,21 +51,14 @@ export class StaffAttendanceService {
     });
   }
 
-  async bulkMarkAttendance(
-    tenantId: string,
-    userId: string,
-    dto: BulkMarkAttendanceDto,
-  ) {
-    const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
+  async bulkMarkAttendance(tenantId: string, userId: string, dto: BulkMarkAttendanceDto) {
     const dateObj = new Date(dto.date);
 
-    return rlsClient.$transaction(async (tx) => {
-      const db = tx as unknown as PrismaService;
-
+    return withRls(this.prisma, { tenant_id: tenantId }, async (tx) => {
       const results: Array<{ staff_profile_id: string; status: string }> = [];
 
       for (const record of dto.records) {
-        const existing = await db.staffAttendanceRecord.findUnique({
+        const existing = await tx.staffAttendanceRecord.findUnique({
           where: {
             idx_staff_attendance_unique: {
               tenant_id: tenantId,
@@ -86,7 +69,7 @@ export class StaffAttendanceService {
         });
 
         if (existing) {
-          await db.staffAttendanceRecord.update({
+          await tx.staffAttendanceRecord.update({
             where: { id: existing.id },
             data: {
               status: record.status,
@@ -95,7 +78,7 @@ export class StaffAttendanceService {
             },
           });
         } else {
-          await db.staffAttendanceRecord.create({
+          await tx.staffAttendanceRecord.create({
             data: {
               tenant_id: tenantId,
               staff_profile_id: record.staff_profile_id,
@@ -117,10 +100,7 @@ export class StaffAttendanceService {
     });
   }
 
-  async getDailyAttendance(
-    tenantId: string,
-    query: StaffAttendanceQueryDto,
-  ) {
+  async getDailyAttendance(tenantId: string, query: StaffAttendanceQueryDto) {
     const { date, page, pageSize } = query;
 
     if (!date) {
@@ -167,10 +147,7 @@ export class StaffAttendanceService {
     };
   }
 
-  async getMonthlyAttendance(
-    tenantId: string,
-    query: StaffAttendanceQueryDto,
-  ) {
+  async getMonthlyAttendance(tenantId: string, query: StaffAttendanceQueryDto) {
     const { month, year, staff_profile_id, page, pageSize } = query;
     const effectiveYear = year ?? new Date().getFullYear();
     const effectiveMonth = month ?? new Date().getMonth() + 1;
@@ -213,10 +190,7 @@ export class StaffAttendanceService {
     };
   }
 
-  async calculateDaysWorked(
-    tenantId: string,
-    dto: CalculateDaysWorkedDto,
-  ) {
+  async calculateDaysWorked(tenantId: string, dto: CalculateDaysWorkedDto) {
     const records = await this.prisma.staffAttendanceRecord.findMany({
       where: {
         tenant_id: tenantId,

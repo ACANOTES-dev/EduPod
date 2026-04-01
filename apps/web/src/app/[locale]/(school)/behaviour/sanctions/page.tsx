@@ -1,5 +1,11 @@
 'use client';
 
+import { Calendar, CheckCircle, ExternalLink, List } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -10,11 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Calendar, CheckCircle, ExternalLink, List } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -55,12 +56,12 @@ interface SanctionsResponse {
 
 // ─── View Tabs ───────────────────────────────────────────────────────────────
 
-const VIEW_TABS = [
+const VIEW_TAB_KEYS = [
   { key: 'list', icon: List },
   { key: 'calendar', icon: Calendar },
 ] as const;
 
-type ViewTab = (typeof VIEW_TABS)[number]['key'];
+type ViewTab = (typeof VIEW_TAB_KEYS)[number]['key'];
 
 // ─── Sanction Type / Status Config ───────────────────────────────────────────
 
@@ -197,8 +198,8 @@ export default function SanctionListPage() {
       });
       // Refresh list
       void fetchSanctions(page, typeFilter, statusFilter, dateFrom, dateTo, debouncedSearch);
-    } catch {
-      // Error toast handled by apiClient
+    } catch (err) {
+      console.error('[markServed]', err);
     } finally {
       setMarkingServed(null);
     }
@@ -448,7 +449,7 @@ export default function SanctionListPage() {
       {/* View Toggle Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {VIEW_TABS.map((tab) => {
+          {VIEW_TAB_KEYS.map((tab) => {
             const Icon = tab.icon;
             return (
               <button

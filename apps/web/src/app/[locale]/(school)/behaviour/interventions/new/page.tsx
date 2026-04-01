@@ -1,5 +1,11 @@
 'use client';
 
+import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,11 +18,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -44,21 +45,22 @@ interface StrategyRow {
   frequency: string;
 }
 
-const INTERVENTION_TYPES = [
-  { value: 'behaviour_plan', label: 'Behaviour Plan' },
-  { value: 'mentoring', label: 'Mentoring' },
-  { value: 'counselling_referral', label: 'Counselling Referral' },
-  { value: 'restorative', label: 'Restorative' },
-  { value: 'academic_support', label: 'Academic Support' },
-  { value: 'parent_engagement', label: 'Parent Engagement' },
-  { value: 'external_agency', label: 'External Agency' },
-  { value: 'other', label: 'Other' },
-];
+const INTERVENTION_TYPE_VALUES = [
+  'behaviour_plan',
+  'mentoring',
+  'counselling_referral',
+  'restorative',
+  'academic_support',
+  'parent_engagement',
+  'external_agency',
+  'other',
+] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CreateInterventionPage() {
   const t = useTranslations('behaviour.newIntervention');
+  const tInterventions = useTranslations('behaviour.interventions');
   const pathname = usePathname();
   const router = useRouter();
   const locale = (pathname ?? '').split('/').filter(Boolean)[0] ?? 'en';
@@ -173,38 +175,35 @@ export default function CreateInterventionPage() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await apiClient<{ data: { id: string } }>(
-        '/api/v1/behaviour/interventions',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            student_id: selectedStudent.id,
-            intervention_type: interventionType,
-            title: title.trim(),
-            trigger_description: triggerDescription.trim() || undefined,
-            send_awareness: sendAwareness,
-            send_notes: sendAwareness ? sendNotes.trim() || undefined : undefined,
-            goals: goals
-              .filter((g) => g.goal_text.trim())
-              .map((g) => ({
-                goal_text: g.goal_text.trim(),
-                measurable_target: g.measurable_target.trim() || undefined,
-                deadline: g.deadline || undefined,
-              })),
-            strategies: strategies
-              .filter((s) => s.strategy_text.trim())
-              .map((s) => ({
-                strategy_text: s.strategy_text.trim(),
-                responsible_staff_id: s.responsible_staff_id || undefined,
-                frequency: s.frequency.trim() || undefined,
-              })),
-            start_date: startDate,
-            target_end_date: targetEndDate || undefined,
-            review_frequency_days: parseInt(reviewFrequencyDays, 10) || 14,
-            assigned_to: assignedToId || undefined,
-          }),
-        },
-      );
+      const res = await apiClient<{ data: { id: string } }>('/api/v1/behaviour/interventions', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: selectedStudent.id,
+          intervention_type: interventionType,
+          title: title.trim(),
+          trigger_description: triggerDescription.trim() || undefined,
+          send_awareness: sendAwareness,
+          send_notes: sendAwareness ? sendNotes.trim() || undefined : undefined,
+          goals: goals
+            .filter((g) => g.goal_text.trim())
+            .map((g) => ({
+              goal_text: g.goal_text.trim(),
+              measurable_target: g.measurable_target.trim() || undefined,
+              deadline: g.deadline || undefined,
+            })),
+          strategies: strategies
+            .filter((s) => s.strategy_text.trim())
+            .map((s) => ({
+              strategy_text: s.strategy_text.trim(),
+              responsible_staff_id: s.responsible_staff_id || undefined,
+              frequency: s.frequency.trim() || undefined,
+            })),
+          start_date: startDate,
+          target_end_date: targetEndDate || undefined,
+          review_frequency_days: parseInt(reviewFrequencyDays, 10) || 14,
+          assigned_to: assignedToId || undefined,
+        }),
+      });
       router.push(`/${locale}/behaviour/interventions/${res.data.id}`);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -238,9 +237,15 @@ export default function CreateInterventionPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700">
                 {selectedStudent.first_name} {selectedStudent.last_name}
                 {selectedStudent.year_group && (
-                  <span className="text-xs text-primary-500">({selectedStudent.year_group.name})</span>
+                  <span className="text-xs text-primary-500">
+                    ({selectedStudent.year_group.name})
+                  </span>
                 )}
-                <button type="button" onClick={() => setSelectedStudent(null)} className="hover:text-primary-900">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="hover:text-primary-900"
+                >
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -288,9 +293,9 @@ export default function CreateInterventionPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {INTERVENTION_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
+                  {INTERVENTION_TYPE_VALUES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {tInterventions(`types.${value}` as Parameters<typeof tInterventions>[0])}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -301,7 +306,7 @@ export default function CreateInterventionPage() {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Behaviour Support Plan - Term 2"
+                placeholder={t('placeholders.title')}
                 className="text-base"
                 required
               />
@@ -315,7 +320,7 @@ export default function CreateInterventionPage() {
           <Textarea
             value={triggerDescription}
             onChange={(e) => setTriggerDescription(e.target.value)}
-            placeholder="What behaviours or incidents triggered this intervention..."
+            placeholder={t('placeholders.trigger')}
             rows={3}
             className="text-base"
           />
@@ -326,21 +331,19 @@ export default function CreateInterventionPage() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm font-medium">{t('labels.sendAwareness')}</Label>
-              <p className="text-xs text-text-tertiary">
-                {t('labels.sendAwarenessDescription')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('labels.sendAwarenessDescription')}</p>
             </div>
             <Switch checked={sendAwareness} onCheckedChange={setSendAwareness} />
           </div>
           {sendAwareness && (
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
               <Label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-amber-700">
-                Sensitive - SEND Notes
+                {t('labels.sendNotes')}
               </Label>
               <Textarea
                 value={sendNotes}
                 onChange={(e) => setSendNotes(e.target.value)}
-                placeholder="Relevant SEND information for this intervention..."
+                placeholder={t('placeholders.sendNotes')}
                 rows={3}
                 className="border-amber-200 text-base"
               />
@@ -351,10 +354,10 @@ export default function CreateInterventionPage() {
         {/* 5. Goals Builder */}
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="mb-3 flex items-center justify-between">
-            <Label className="text-sm font-semibold">Goals</Label>
+            <Label className="text-sm font-semibold">{t('labels.goals')}</Label>
             <Button type="button" variant="outline" size="sm" onClick={addGoal}>
               <Plus className="me-1.5 h-3.5 w-3.5" />
-              Add Goal
+              {t('addGoal')}
             </Button>
           </div>
           <div className="space-y-3">
@@ -364,7 +367,9 @@ export default function CreateInterventionPage() {
                 className="rounded-lg border border-border bg-surface-secondary p-4"
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-text-tertiary">Goal {idx + 1}</span>
+                  <span className="text-xs font-medium text-text-tertiary">
+                    {t('labels.goalNumber', { index: idx + 1 })}
+                  </span>
                   {goals.length > 1 && (
                     <button
                       type="button"
@@ -377,25 +382,27 @@ export default function CreateInterventionPage() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1 sm:col-span-2">
-                    <Label className="text-xs text-text-tertiary">Goal</Label>
+                    <Label className="text-xs text-text-tertiary">{t('labels.goal')}</Label>
                     <Input
                       value={goal.goal_text}
                       onChange={(e) => updateGoal(goal.id, 'goal_text', e.target.value)}
-                      placeholder="What should the student achieve?"
+                      placeholder={t('placeholders.goal')}
                       className="text-base"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-text-tertiary">Measurable Target</Label>
+                    <Label className="text-xs text-text-tertiary">
+                      {t('labels.measurableTarget')}
+                    </Label>
                     <Input
                       value={goal.measurable_target}
                       onChange={(e) => updateGoal(goal.id, 'measurable_target', e.target.value)}
-                      placeholder="e.g. Reduce incidents by 50%"
+                      placeholder={t('placeholders.measurableTarget')}
                       className="text-base"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-text-tertiary">Deadline (optional)</Label>
+                    <Label className="text-xs text-text-tertiary">{t('labels.deadline')}</Label>
                     <Input
                       type="date"
                       value={goal.deadline}
@@ -412,10 +419,10 @@ export default function CreateInterventionPage() {
         {/* 6. Strategies Builder */}
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="mb-3 flex items-center justify-between">
-            <Label className="text-sm font-semibold">Strategies</Label>
+            <Label className="text-sm font-semibold">{t('labels.strategies')}</Label>
             <Button type="button" variant="outline" size="sm" onClick={addStrategy}>
               <Plus className="me-1.5 h-3.5 w-3.5" />
-              Add Strategy
+              {t('addStrategy')}
             </Button>
           </div>
           <div className="space-y-3">
@@ -425,7 +432,9 @@ export default function CreateInterventionPage() {
                 className="rounded-lg border border-border bg-surface-secondary p-4"
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-text-tertiary">Strategy {idx + 1}</span>
+                  <span className="text-xs font-medium text-text-tertiary">
+                    {t('labels.strategyNumber', { index: idx + 1 })}
+                  </span>
                   {strategies.length > 1 && (
                     <button
                       type="button"
@@ -438,31 +447,33 @@ export default function CreateInterventionPage() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1 sm:col-span-2">
-                    <Label className="text-xs text-text-tertiary">Strategy</Label>
+                    <Label className="text-xs text-text-tertiary">{t('labels.strategy')}</Label>
                     <Input
                       value={strategy.strategy_text}
                       onChange={(e) => updateStrategy(strategy.id, 'strategy_text', e.target.value)}
-                      placeholder="What approach will be used?"
+                      placeholder={t('placeholders.strategy')}
                       className="text-base"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-text-tertiary">Responsible Staff (UUID)</Label>
+                    <Label className="text-xs text-text-tertiary">
+                      {t('labels.responsibleStaff')}
+                    </Label>
                     <Input
                       value={strategy.responsible_staff_id}
                       onChange={(e) =>
                         updateStrategy(strategy.id, 'responsible_staff_id', e.target.value)
                       }
-                      placeholder="Staff member UUID"
+                      placeholder={t('placeholders.responsibleStaff')}
                       className="font-mono text-sm"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-text-tertiary">Frequency</Label>
+                    <Label className="text-xs text-text-tertiary">{t('labels.frequency')}</Label>
                     <Input
                       value={strategy.frequency}
                       onChange={(e) => updateStrategy(strategy.id, 'frequency', e.target.value)}
-                      placeholder="e.g. Daily, Weekly, As needed"
+                      placeholder={t('placeholders.frequency')}
                       className="text-base"
                     />
                   </div>
@@ -474,10 +485,10 @@ export default function CreateInterventionPage() {
 
         {/* 7. Dates + Review Frequency */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Schedule</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.schedule')}</Label>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Start Date *</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.startDate')}</Label>
               <Input
                 type="date"
                 value={startDate}
@@ -487,7 +498,7 @@ export default function CreateInterventionPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Target End Date</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.targetEndDate')}</Label>
               <Input
                 type="date"
                 value={targetEndDate}
@@ -496,7 +507,7 @@ export default function CreateInterventionPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-text-tertiary">Review Every (days)</Label>
+              <Label className="text-xs text-text-tertiary">{t('labels.reviewFrequency')}</Label>
               <Input
                 type="number"
                 min="1"
@@ -510,16 +521,14 @@ export default function CreateInterventionPage() {
 
         {/* 8. Assigned To */}
         <div className="rounded-xl border border-border bg-surface p-5">
-          <Label className="mb-3 block text-sm font-semibold">Assigned To</Label>
+          <Label className="mb-3 block text-sm font-semibold">{t('labels.assignedTo')}</Label>
           <Input
             value={assignedToId}
             onChange={(e) => setAssignedToId(e.target.value)}
-            placeholder="Staff member UUID (defaults to current user)"
+            placeholder={t('placeholders.assignedTo')}
             className="font-mono text-sm"
           />
-          <p className="mt-1.5 text-xs text-text-tertiary">
-            Leave blank to assign to yourself
-          </p>
+          <p className="mt-1.5 text-xs text-text-tertiary">{t('labels.assignedToHint')}</p>
         </div>
 
         {/* Error */}

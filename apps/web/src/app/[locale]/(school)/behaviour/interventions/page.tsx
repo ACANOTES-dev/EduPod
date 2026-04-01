@@ -1,11 +1,12 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { AlertTriangle, CalendarClock, Plus, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -88,7 +89,7 @@ export default function InterventionListPage() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const [activeTab, setActiveTab] = React.useState<TabKey>(
-    (searchParams?.get('tab') as TabKey) ?? 'active',
+    (searchParams?.get('tab') as TabKey | undefined) ?? 'active',
   );
 
   const isMobile = useIsMobile();

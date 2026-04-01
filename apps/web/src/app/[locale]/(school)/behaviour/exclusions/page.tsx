@@ -1,11 +1,12 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { AlertTriangle, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -166,14 +167,14 @@ export default function ExclusionListPage() {
         const indicator = getComplianceIndicator(row.statutory_timeline);
         if (indicator === 'overdue') {
           return (
-            <span title="Statutory step overdue">
+            <span title={t('tooltips.overdueStep')}>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </span>
           );
         }
         if (indicator === 'warning') {
           return (
-            <span title="Statutory step pending">
+            <span title={t('tooltips.pendingStep')}>
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </span>
           );
@@ -276,11 +277,13 @@ export default function ExclusionListPage() {
                       : 'text-text-tertiary'
                 }`}
               >
-                {days === 0 ? 'Today' : `${days}d remaining`}
+                {days === 0 ? t('appealDays.today') : t('appealDays.remaining', { days })}
               </span>
             )}
             {days !== null && days < 0 && (
-              <span className="text-xs font-medium text-red-600 dark:text-red-400">Expired</span>
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                {t('appealDays.expired')}
+              </span>
             )}
           </div>
         );
@@ -346,7 +349,7 @@ export default function ExclusionListPage() {
                     : 'text-text-tertiary'
               }`}
             >
-              Appeal: {days === 0 ? 'Today' : `${days}d`}
+              {days === 0 ? t('appealDays.today') : t('appealDays.appeal', { days })}
             </span>
           )}
         </div>
@@ -402,7 +405,7 @@ export default function ExclusionListPage() {
             ) : data.length === 0 ? (
               <div className="rounded-xl border border-border bg-surface py-12 text-center">
                 <ShieldAlert className="mx-auto h-8 w-8 text-text-tertiary" />
-                <p className="mt-2 text-sm text-text-tertiary">{t('noResults')}</p>
+                <p className="mt-2 text-sm text-text-tertiary">{t('noExclusionCases')}</p>
               </div>
             ) : (
               data.map(renderMobileCard)

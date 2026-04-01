@@ -1,5 +1,10 @@
 'use client';
 
+import { Search, UserPlus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -13,10 +18,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Search, UserPlus } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -393,7 +394,7 @@ export default function AppealsListPage() {
         }}
       >
         <SelectTrigger className="w-full sm:w-48">
-          <SelectValue placeholder="Grounds" />
+          <SelectValue placeholder={t('filters.groundsPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filters.allGrounds')}</SelectItem>
@@ -417,7 +418,7 @@ export default function AppealsListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
-        aria-label="Date from"
+        aria-label={t('filters.dateFrom')}
       />
       <input
         type="date"
@@ -427,7 +428,7 @@ export default function AppealsListPage() {
           setPage(1);
         }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
-        aria-label="Date to"
+        aria-label={t('filters.dateTo')}
       />
     </div>
   );

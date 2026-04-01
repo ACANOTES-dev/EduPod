@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckCircle2, CreditCard, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
 interface MetricCardProps {
@@ -8,6 +9,8 @@ interface MetricCardProps {
   description: string;
   current: number;
   total: number;
+  progressComplete: string;
+  progressTotal: string;
   accentClassName: string;
   icon: React.ElementType;
 }
@@ -17,6 +20,8 @@ function MetricCard({
   description,
   current,
   total,
+  progressComplete,
+  progressTotal,
   accentClassName,
   icon: Icon,
 }: MetricCardProps) {
@@ -46,8 +51,8 @@ function MetricCard({
           />
         </div>
         <div className="mt-2 flex items-center justify-between text-xs text-text-tertiary">
-          <span>{current} complete</span>
-          <span>{total} total</span>
+          <span>{progressComplete}</span>
+          <span>{progressTotal}</span>
         </div>
       </div>
     </article>
@@ -75,33 +80,43 @@ export function CompletionDashboard({
   capacity,
   capacityUsed,
 }: CompletionDashboardProps) {
+  const t = useTranslations('engagement.completionDashboard');
+
+  const registrationDescription = capacity
+    ? t('registrationDescriptionWithCapacity', { capacity })
+    : t('registrationDescription');
+
   return (
     <section className="grid gap-4 lg:grid-cols-3">
       <MetricCard
-        title="Consent"
-        description="Families that have completed the required consent step."
+        title={t('consent')}
+        description={t('consentDescription')}
         current={consentGranted}
         total={consentTotal}
+        progressComplete={t('progressComplete', { current: consentGranted })}
+        progressTotal={t('progressTotal', { total: consentTotal })}
         accentClassName="bg-emerald-100 text-emerald-700"
         icon={CheckCircle2}
       />
       <MetricCard
-        title="Payment"
-        description="Participants who have completed payment or been waived."
+        title={t('payment')}
+        description={t('paymentDescription')}
         current={paymentPaid}
         total={paymentTotal}
+        progressComplete={t('progressComplete', { current: paymentPaid })}
+        progressTotal={t('progressTotal', { total: paymentTotal })}
         accentClassName="bg-sky-100 text-sky-700"
         icon={CreditCard}
       />
       <MetricCard
-        title="Registration"
-        description={
-          capacity
-            ? `Registration progress against ${capacity} available places.`
-            : 'Confirmed registrations compared with invited participants.'
-        }
+        title={t('registration')}
+        description={registrationDescription}
         current={capacity ? (capacityUsed ?? registered) : registered}
         total={capacity ?? invited}
+        progressComplete={t('progressComplete', {
+          current: capacity ? (capacityUsed ?? registered) : registered,
+        })}
+        progressTotal={t('progressTotal', { total: capacity ?? invited })}
         accentClassName="bg-amber-100 text-amber-700"
         icon={Users}
       />

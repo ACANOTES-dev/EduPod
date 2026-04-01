@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   CreateHouseholdDto,
   EmergencyContactDto,
@@ -12,6 +13,8 @@ import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { SequenceService } from '../sequence/sequence.service';
+
+import { buildCompletionIssues, buildHouseholdPreviewResult } from './households.helpers';
 
 // ─── Query filter type ────────────────────────────────────────────────────────
 
@@ -235,11 +238,11 @@ export class HouseholdsService {
     const [raw, total] = result;
 
     const data = raw.map((hh) => {
-      const completion_issues: string[] = [];
-      if (hh.needs_completion) {
-        if (hh._count.emergency_contacts < 1) completion_issues.push('missing_emergency_contact');
-        if (hh.primary_billing_parent_id === null) completion_issues.push('missing_billing_parent');
-      }
+      const completion_issues = buildCompletionIssues(
+        hh.needs_completion,
+        hh._count.emergency_contacts,
+        hh.primary_billing_parent_id,
+      );
       return {
         id: hh.id,
         household_name: hh.household_name,
@@ -320,13 +323,11 @@ export class HouseholdsService {
       });
     }
 
-    const completion_issues: string[] = [];
-    if (household.needs_completion) {
-      if (household.emergency_contacts.length < 1)
-        completion_issues.push('missing_emergency_contact');
-      if (household.primary_billing_parent_id === null)
-        completion_issues.push('missing_billing_parent');
-    }
+    const completion_issues = buildCompletionIssues(
+      household.needs_completion,
+      household.emergency_contacts.length,
+      household.primary_billing_parent_id,
+    );
 
     return { ...household, completion_issues };
   }
@@ -728,9 +729,11 @@ export class HouseholdsService {
       // Lock in sorted ID order to prevent deadlocks
       const [h1Id, h2Id] = [sourceId, targetId].sort();
       const rawTx = tx as unknown as { $queryRaw: (sql: Prisma.Sql) => Promise<unknown> };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE lock ordering within RLS transaction
       await rawTx.$queryRaw(
         Prisma.sql`SELECT id FROM households WHERE id = ${h1Id}::uuid FOR UPDATE`,
       );
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE lock ordering within RLS transaction
       await rawTx.$queryRaw(
         Prisma.sql`SELECT id FROM households WHERE id = ${h2Id}::uuid FOR UPDATE`,
       );
@@ -902,6 +905,7 @@ export class HouseholdsService {
 
       // Lock source household
       const rawTx = tx as unknown as { $queryRaw: (sql: Prisma.Sql) => Promise<unknown> };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE lock within RLS transaction
       await rawTx.$queryRaw(
         Prisma.sql`SELECT id FROM households WHERE id = ${dto.source_household_id}::uuid FOR UPDATE`,
       );
@@ -1073,25 +1077,7 @@ export class HouseholdsService {
       });
     }
 
-    const billingParentName = household.billing_parent
-      ? `${household.billing_parent.first_name} ${household.billing_parent.last_name}`
-      : 'No billing parent';
-
-    const result = {
-      id: household.id,
-      entity_type: 'household',
-      primary_label: household.household_name,
-      secondary_label: billingParentName,
-      status: household.status,
-      facts: [
-        { label: 'Students', value: String(household._count.students) },
-        { label: 'Parents', value: String(household._count.household_parents) },
-        {
-          label: 'Emergency contacts',
-          value: `${household._count.emergency_contacts}/3`,
-        },
-      ],
-    };
+    const result = buildHouseholdPreviewResult(household);
 
     await client.setex(cacheKey, 30, JSON.stringify(result));
 
