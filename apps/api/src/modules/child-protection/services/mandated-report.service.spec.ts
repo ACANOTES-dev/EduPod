@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MandatedReportStatus } from '@prisma/client';
 
@@ -33,9 +29,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -102,13 +96,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.update.mockResolvedValue(updatedRecord);
 
-      const result = await service.createDraft(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        {},
-        IP_ADDRESS,
-      );
+      const result = await service.createDraft(TENANT_ID, USER_ID, CP_RECORD_ID, {}, IP_ADDRESS);
 
       expect(result.data.mandated_report_status).toBe('draft');
       expect(result.data.cp_record_id).toBe(CP_RECORD_ID);
@@ -132,13 +120,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.update.mockResolvedValue(updatedRecord);
 
-      await service.createDraft(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        {},
-        IP_ADDRESS,
-      );
+      await service.createDraft(TENANT_ID, USER_ID, CP_RECORD_ID, {}, IP_ADDRESS);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -204,13 +186,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.update.mockResolvedValue(updatedRecord);
 
-      const result = await service.submit(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        submitDto,
-        IP_ADDRESS,
-      );
+      const result = await service.submit(TENANT_ID, USER_ID, CP_RECORD_ID, submitDto, IP_ADDRESS);
 
       expect(result.data.mandated_report_status).toBe('submitted');
       expect(result.data.mandated_report_ref).toBe('TUSLA-2026-001');
@@ -260,13 +236,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.update.mockResolvedValue(updatedRecord);
 
-      await service.submit(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        submitDto,
-        IP_ADDRESS,
-      );
+      await service.submit(TENANT_ID, USER_ID, CP_RECORD_ID, submitDto, IP_ADDRESS);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -286,13 +256,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
       await expect(
-        service.submit(
-          TENANT_ID,
-          USER_ID,
-          CP_RECORD_ID,
-          submitDto,
-          IP_ADDRESS,
-        ),
+        service.submit(TENANT_ID, USER_ID, CP_RECORD_ID, submitDto, IP_ADDRESS),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -302,13 +266,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
       await expect(
-        service.submit(
-          TENANT_ID,
-          USER_ID,
-          CP_RECORD_ID,
-          submitDto,
-          IP_ADDRESS,
-        ),
+        service.submit(TENANT_ID, USER_ID, CP_RECORD_ID, submitDto, IP_ADDRESS),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -316,13 +274,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.submit(
-          TENANT_ID,
-          USER_ID,
-          CP_RECORD_ID,
-          submitDto,
-          IP_ADDRESS,
-        ),
+        service.submit(TENANT_ID, USER_ID, CP_RECORD_ID, submitDto, IP_ADDRESS),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -572,6 +524,7 @@ describe('MandatedReportService', () => {
         fail('Expected BadRequestException');
       } catch (error: unknown) {
         expect(error).toBeInstanceOf(BadRequestException);
+        expect(error).toMatchObject({ response: { code: expect.any(String) } });
         const response = (error as BadRequestException).getResponse();
         expect(response).toEqual(
           expect.objectContaining({
@@ -625,12 +578,7 @@ describe('MandatedReportService', () => {
 
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
-      const result = await service.getForCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      const result = await service.getForCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(result.data).not.toBeNull();
       expect(result.data?.mandated_report_status).toBe('submitted');
@@ -643,12 +591,7 @@ describe('MandatedReportService', () => {
 
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
-      const result = await service.getForCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      const result = await service.getForCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(result.data).toBeNull();
     });
@@ -660,12 +603,7 @@ describe('MandatedReportService', () => {
 
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
-      await service.getForCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      await service.getForCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -686,12 +624,7 @@ describe('MandatedReportService', () => {
 
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
 
-      await service.getForCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      await service.getForCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledTimes(1);
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
@@ -705,12 +638,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.getForCpRecord(
-          TENANT_ID,
-          USER_ID,
-          CP_RECORD_ID,
-          IP_ADDRESS,
-        ),
+        service.getForCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -735,12 +663,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.findMany.mockResolvedValue(reportRecords);
 
-      const result = await service.findByCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      const result = await service.findByCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(result.data).toHaveLength(2);
       expect(result.data[0]!.mandated_report_status).toBe('submitted');
@@ -753,12 +676,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.findMany.mockResolvedValue([]);
 
-      const result = await service.findByCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      const result = await service.findByCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(result.data).toHaveLength(0);
     });
@@ -774,12 +692,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(cpRecord);
       mockRlsTx.cpRecord.findMany.mockResolvedValue(reportRecords);
 
-      await service.findByCpRecord(
-        TENANT_ID,
-        USER_ID,
-        CP_RECORD_ID,
-        IP_ADDRESS,
-      );
+      await service.findByCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS);
 
       expect(mockPastoralEventService.write).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -795,12 +708,7 @@ describe('MandatedReportService', () => {
       mockRlsTx.cpRecord.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.findByCpRecord(
-          TENANT_ID,
-          USER_ID,
-          CP_RECORD_ID,
-          IP_ADDRESS,
-        ),
+        service.findByCpRecord(TENANT_ID, USER_ID, CP_RECORD_ID, IP_ADDRESS),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -880,9 +788,7 @@ describe('MandatedReportService', () => {
         { status: 'outcome_received' },
         IP_ADDRESS,
       );
-      expect(outcomeResult.data.mandated_report_status).toBe(
-        'outcome_received',
-      );
+      expect(outcomeResult.data.mandated_report_status).toBe('outcome_received');
 
       // Verify all 4 audit events were written
       // createDraft: mandated_report_generated

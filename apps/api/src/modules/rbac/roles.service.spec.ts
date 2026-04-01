@@ -74,14 +74,26 @@ describe('RolesService', () => {
       const staffRoleWithPerms = {
         ...staffRole,
         role_permissions: [
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
-          { permission: { id: PERM_ID_STAFF_2, permission_key: 'students.list', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
+          {
+            permission: {
+              id: PERM_ID_STAFF_2,
+              permission_key: 'students.list',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
       // First findFirst: role lookup in assignPermissions
       mockPrisma.role.findFirst
-        .mockResolvedValueOnce(staffRole)       // assignPermissions role lookup
+        .mockResolvedValueOnce(staffRole) // assignPermissions role lookup
         .mockResolvedValueOnce(staffRoleWithPerms); // getRole at end
 
       // permission.findMany returns two staff-tier permissions
@@ -133,6 +145,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'TIER_VIOLATION',
       });
@@ -151,7 +164,13 @@ describe('RolesService', () => {
       const systemRoleWithPerms = {
         ...systemRole,
         role_permissions: [
-          { permission: { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' } },
+          {
+            permission: {
+              id: PERM_ID_ADMIN,
+              permission_key: 'tenant.manage',
+              permission_tier: 'admin',
+            },
+          },
         ],
       };
 
@@ -191,6 +210,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -209,8 +229,20 @@ describe('RolesService', () => {
       const adminRoleWithPerms = {
         ...adminRole,
         role_permissions: [
-          { permission: { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' } },
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_ADMIN,
+              permission_key: 'tenant.manage',
+              permission_tier: 'admin',
+            },
+          },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
@@ -264,6 +296,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -317,6 +350,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ROLE_IN_USE',
       });
@@ -334,6 +368,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ROLE_NOT_FOUND',
       });
@@ -361,6 +396,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_NAME_LOCKED',
       });
@@ -379,7 +415,13 @@ describe('RolesService', () => {
       const updatedRole = {
         ...systemRole,
         role_permissions: [
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
@@ -421,6 +463,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -439,7 +482,8 @@ describe('RolesService', () => {
       // Duplicate key check: role.findFirst → null (no existing)
       mockPrisma.role.findFirst
         .mockResolvedValueOnce(null) // duplicate check
-        .mockResolvedValueOnce({    // getRole at end
+        .mockResolvedValueOnce({
+          // getRole at end
           id: ROLE_ID,
           tenant_id: TENANT_ID,
           role_key: 'teacher',
@@ -447,7 +491,13 @@ describe('RolesService', () => {
           is_system_role: false,
           role_tier: 'staff',
           role_permissions: [
-            { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+            {
+              permission: {
+                id: PERM_ID_STAFF_1,
+                permission_key: 'students.view',
+                permission_tier: 'staff',
+              },
+            },
           ],
         });
 
@@ -507,6 +557,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ROLE_KEY_EXISTS',
       });

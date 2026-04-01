@@ -29,7 +29,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -71,10 +73,7 @@ describe('SubjectsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        SubjectsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [SubjectsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<SubjectsService>(SubjectsService);
@@ -114,12 +113,17 @@ describe('SubjectsService', () => {
 
       let caught: unknown;
       try {
-        await service.create(TENANT_ID, { name: 'Mathematics', subject_type: 'academic', active: true });
+        await service.create(TENANT_ID, {
+          name: 'Mathematics',
+          subject_type: 'academic',
+          active: true,
+        });
       } catch (e) {
         caught = e;
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -151,7 +155,12 @@ describe('SubjectsService', () => {
       mockRlsTx.subject.findMany.mockResolvedValueOnce([baseSubject]);
       mockRlsTx.subject.count.mockResolvedValueOnce(1);
 
-      await service.findAll(TENANT_ID, { subject_type: 'academic', active: true, page: 1, pageSize: 20 });
+      await service.findAll(TENANT_ID, {
+        subject_type: 'academic',
+        active: true,
+        page: 1,
+        pageSize: 20,
+      });
 
       expect(mockRlsTx.subject.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -192,6 +201,7 @@ describe('SubjectsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'SUBJECT_NOT_FOUND',
       });
@@ -226,6 +236,7 @@ describe('SubjectsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SUBJECT_IN_USE',
       });
@@ -243,6 +254,7 @@ describe('SubjectsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'SUBJECT_NOT_FOUND',
       });

@@ -109,20 +109,27 @@ describe('InvitationsService', () => {
       mockPrisma.role.findMany.mockResolvedValueOnce([{ id: ROLE_ID_1 }]);
 
       let capturedTokenHash = '';
-      mockPrisma.invitation.create.mockImplementationOnce(({ data }: { data: Record<string, unknown> }) => {
-        capturedTokenHash = data['token_hash'] as string;
-        return {
-          id: INVITATION_ID,
-          tenant_id: TENANT_ID,
-          email: BASE_CREATE_DTO.email,
-          invited_role_payload: { role_ids: [ROLE_ID_1] },
-          invited_by_user_id: INVITED_BY_USER_ID,
-          token_hash: capturedTokenHash,
-          expires_at: data['expires_at'],
-          status: 'pending',
-          invited_by: { id: INVITED_BY_USER_ID, first_name: 'Admin', last_name: 'User', email: 'admin@school.com' },
-        };
-      });
+      mockPrisma.invitation.create.mockImplementationOnce(
+        ({ data }: { data: Record<string, unknown> }) => {
+          capturedTokenHash = data['token_hash'] as string;
+          return {
+            id: INVITATION_ID,
+            tenant_id: TENANT_ID,
+            email: BASE_CREATE_DTO.email,
+            invited_role_payload: { role_ids: [ROLE_ID_1] },
+            invited_by_user_id: INVITED_BY_USER_ID,
+            token_hash: capturedTokenHash,
+            expires_at: data['expires_at'],
+            status: 'pending',
+            invited_by: {
+              id: INVITED_BY_USER_ID,
+              first_name: 'Admin',
+              last_name: 'User',
+              email: 'admin@school.com',
+            },
+          };
+        },
+      );
 
       const result = await service.createInvitation(TENANT_ID, INVITED_BY_USER_ID, BASE_CREATE_DTO);
 
@@ -143,17 +150,24 @@ describe('InvitationsService', () => {
 
       const beforeCall = Date.now();
 
-      mockPrisma.invitation.create.mockImplementationOnce(({ data }: { data: Record<string, unknown> }) => ({
-        id: INVITATION_ID,
-        tenant_id: TENANT_ID,
-        email: BASE_CREATE_DTO.email,
-        invited_role_payload: { role_ids: [ROLE_ID_1] },
-        invited_by_user_id: INVITED_BY_USER_ID,
-        token_hash: data['token_hash'],
-        expires_at: data['expires_at'],
-        status: 'pending',
-        invited_by: { id: INVITED_BY_USER_ID, first_name: 'Admin', last_name: 'User', email: 'admin@school.com' },
-      }));
+      mockPrisma.invitation.create.mockImplementationOnce(
+        ({ data }: { data: Record<string, unknown> }) => ({
+          id: INVITATION_ID,
+          tenant_id: TENANT_ID,
+          email: BASE_CREATE_DTO.email,
+          invited_role_payload: { role_ids: [ROLE_ID_1] },
+          invited_by_user_id: INVITED_BY_USER_ID,
+          token_hash: data['token_hash'],
+          expires_at: data['expires_at'],
+          status: 'pending',
+          invited_by: {
+            id: INVITED_BY_USER_ID,
+            first_name: 'Admin',
+            last_name: 'User',
+            email: 'admin@school.com',
+          },
+        }),
+      );
 
       const result = await service.createInvitation(TENANT_ID, INVITED_BY_USER_ID, BASE_CREATE_DTO);
 
@@ -184,6 +198,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVITATION_EXISTS',
       });
@@ -207,6 +222,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'USER_ALREADY_MEMBER',
       });
@@ -232,7 +248,10 @@ describe('InvitationsService', () => {
       };
 
       mockPrisma.invitation.findFirst.mockResolvedValueOnce(expiredInvitation);
-      mockPrisma.invitation.update.mockResolvedValueOnce({ ...expiredInvitation, status: 'expired' });
+      mockPrisma.invitation.update.mockResolvedValueOnce({
+        ...expiredInvitation,
+        status: 'expired',
+      });
 
       let caught: unknown;
       try {
@@ -242,6 +261,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVITATION_EXPIRED',
       });
@@ -265,6 +285,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVITATION_NOT_FOUND',
       });
@@ -287,15 +308,27 @@ describe('InvitationsService', () => {
       mockPrisma.invitation.findFirst.mockResolvedValueOnce(validInvitation);
 
       // Existing user (no new registration needed)
-      const existingUser = { id: 'user-existing', email: 'newstaff@school.com', first_name: 'Jane', last_name: 'Doe' };
+      const existingUser = {
+        id: 'user-existing',
+        email: 'newstaff@school.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+      };
       mockPrisma.user.findUnique.mockResolvedValueOnce(existingUser);
       mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(null); // no existing membership
 
-      const createdMembership = { id: MEMBERSHIP_ID, tenant_id: TENANT_ID, user_id: existingUser.id };
+      const createdMembership = {
+        id: MEMBERSHIP_ID,
+        tenant_id: TENANT_ID,
+        user_id: existingUser.id,
+      };
       mockPrisma.tenantMembership.create.mockResolvedValueOnce(createdMembership);
       mockPrisma.membershipRole.deleteMany.mockResolvedValueOnce({ count: 0 });
       mockPrisma.membershipRole.createMany.mockResolvedValueOnce({ count: 1 });
-      mockPrisma.invitation.update.mockResolvedValueOnce({ ...validInvitation, status: 'accepted' });
+      mockPrisma.invitation.update.mockResolvedValueOnce({
+        ...validInvitation,
+        status: 'accepted',
+      });
 
       const result = await service.acceptInvitation(plainToken);
 
@@ -491,6 +524,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'REGISTRATION_DATA_REQUIRED',
       });
@@ -536,6 +570,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVITATION_NOT_PENDING',
       });
@@ -552,6 +587,7 @@ describe('InvitationsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'INVITATION_NOT_FOUND',
       });

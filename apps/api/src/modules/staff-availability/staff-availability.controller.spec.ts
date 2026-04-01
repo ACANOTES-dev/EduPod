@@ -1,5 +1,10 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
 import { StaffAvailabilityController } from './staff-availability.controller';
@@ -67,5 +72,45 @@ describe('StaffAvailabilityController', () => {
     await controller.remove(tenant, AVAIL_ID);
 
     expect(mockService.delete).toHaveBeenCalledWith(TENANT_ID, AVAIL_ID);
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('StaffAvailabilityController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [StaffAvailabilityController],
+      providers: [
+        { provide: StaffAvailabilityService, useValue: mockService },
+        { provide: PermissionCacheService, useValue: { getPermissions: jest.fn() } },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks schedule.configure_availability permission (GET /v1/staff-availability)', async () => {
+    await request(app.getHttpServer()).get('/v1/staff-availability').send({}).expect(403);
   });
 });

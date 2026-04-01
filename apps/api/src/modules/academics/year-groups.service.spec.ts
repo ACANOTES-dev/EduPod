@@ -24,7 +24,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -67,10 +69,7 @@ describe('YearGroupsService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        YearGroupsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [YearGroupsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<YearGroupsService>(YearGroupsService);
@@ -113,6 +112,7 @@ describe('YearGroupsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -136,7 +136,9 @@ describe('YearGroupsService', () => {
           next_year_group_id: NEXT_YEAR_GROUP_ID,
         },
       });
-      expect((result as { next_year_group_id: string }).next_year_group_id).toBe(NEXT_YEAR_GROUP_ID);
+      expect((result as { next_year_group_id: string }).next_year_group_id).toBe(
+        NEXT_YEAR_GROUP_ID,
+      );
     });
   });
 
@@ -165,7 +167,11 @@ describe('YearGroupsService', () => {
   describe('update', () => {
     it('should update a year group including next_year_group_id', async () => {
       mockPrisma.yearGroup.findFirst.mockResolvedValueOnce({ id: YEAR_GROUP_ID });
-      const updated = { ...baseYearGroup, name: 'Year 1 Updated', next_year_group_id: NEXT_YEAR_GROUP_ID };
+      const updated = {
+        ...baseYearGroup,
+        name: 'Year 1 Updated',
+        next_year_group_id: NEXT_YEAR_GROUP_ID,
+      };
       mockRlsTx.yearGroup.update.mockResolvedValueOnce(updated);
 
       const result = await service.update(TENANT_ID, YEAR_GROUP_ID, {
@@ -196,6 +202,7 @@ describe('YearGroupsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'YEAR_GROUP_NOT_FOUND',
       });
@@ -230,6 +237,7 @@ describe('YearGroupsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'YEAR_GROUP_IN_USE',
       });
@@ -249,6 +257,7 @@ describe('YearGroupsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'YEAR_GROUP_IN_USE',
       });
@@ -266,6 +275,7 @@ describe('YearGroupsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'YEAR_GROUP_NOT_FOUND',
       });

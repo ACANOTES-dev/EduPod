@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
+
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { ConsentRecordsController } from './consent-records.controller';
 import { ConsentRecordsService } from './consent-records.service';
@@ -58,5 +64,42 @@ describe('ConsentRecordsController', () => {
 
     expect(consentService.findByStudent).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
     expect(result).toBe(expected);
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('ConsentRecordsController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [ConsentRecordsController],
+      providers: [{ provide: ConsentRecordsService, useValue: consentService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks engagement.consent_archive.view permission (GET /v1/engagement/consent-records)', async () => {
+    await request(app.getHttpServer()).get('/v1/engagement/consent-records').send({}).expect(403);
   });
 });

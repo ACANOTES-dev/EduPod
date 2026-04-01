@@ -1,11 +1,16 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { MODULE_ENABLED_KEY } from '../../common/decorators/module-enabled.decorator';
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
 
@@ -129,5 +134,48 @@ describe('SenTransitionController', () => {
     expect(
       Reflect.getMetadata(PATH_METADATA, SenTransitionController.prototype.generateHandoverPack),
     ).toBe('sen/transition/handover-pack/:studentId');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('SenTransitionController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [SenTransitionController],
+      providers: [
+        { provide: SenTransitionService, useValue: mockService },
+        { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks sen.manage permission (GET /v1/sen/transition/handover-pack/123e4567-e89b-12d3-a456-426614174000)', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/sen/transition/handover-pack/123e4567-e89b-12d3-a456-426614174000')
+      .send({})
+      .expect(403);
   });
 });
