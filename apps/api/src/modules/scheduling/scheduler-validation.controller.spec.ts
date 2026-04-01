@@ -1,10 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
+import request from 'supertest';
+
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { SchedulerValidationController } from './scheduler-validation.controller';
 import { SchedulerValidationService } from './scheduler-validation.service';
-
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -26,18 +31,14 @@ describe('SchedulerValidationController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulerValidationController],
-      providers: [
-        { provide: SchedulerValidationService, useValue: mockService },
-      ],
+      providers: [{ provide: SchedulerValidationService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<SchedulerValidationController>(
-      SchedulerValidationController,
-    );
+    controller = module.get<SchedulerValidationController>(SchedulerValidationController);
     jest.clearAllMocks();
   });
 
@@ -59,8 +60,18 @@ describe('SchedulerValidationController', () => {
   it('should return violations when schedule is invalid', async () => {
     const validationResult = {
       violations: [
-        { constraint: 'teacher_conflict', tier: 1, message: 'Teacher assigned to 2 classes at same time', affected_cells: [] },
-        { constraint: 'consecutive_periods', tier: 2, message: 'Teacher has 6 consecutive periods', affected_cells: [] },
+        {
+          constraint: 'teacher_conflict',
+          tier: 1,
+          message: 'Teacher assigned to 2 classes at same time',
+          affected_cells: [],
+        },
+        {
+          constraint: 'consecutive_periods',
+          tier: 2,
+          message: 'Teacher has 6 consecutive periods',
+          affected_cells: [],
+        },
       ],
       health_score: 50,
       summary: { tier1: 1, tier2: 1, tier3: 0 },
@@ -75,12 +86,48 @@ describe('SchedulerValidationController', () => {
   });
 
   it('should propagate service errors', async () => {
-    mockService.validateRun.mockRejectedValue(
-      new Error('Run not found'),
-    );
+    mockService.validateRun.mockRejectedValue(new Error('Run not found'));
 
-    await expect(controller.validate(TENANT, RUN_ID)).rejects.toThrow(
-      'Run not found',
-    );
+    await expect(controller.validate(TENANT, RUN_ID)).rejects.toThrow('Run not found');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('SchedulerValidationController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [SchedulerValidationController],
+      providers: [{ provide: SchedulerValidationService, useValue: mockService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks schedule.run_auto permission (POST /v1/scheduling/runs/123e4567-e89b-12d3-a456-426614174000/validate)', async () => {
+    await request(app.getHttpServer())
+      .post('/v1/scheduling/runs/123e4567-e89b-12d3-a456-426614174000/validate')
+      .send({})
+      .expect(403);
   });
 });

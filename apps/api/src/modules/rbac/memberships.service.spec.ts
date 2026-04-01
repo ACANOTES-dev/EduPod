@@ -107,7 +107,15 @@ describe('MembershipsService', () => {
         user_id: USER_ID,
         membership_status: 'active',
         membership_roles: [
-          { role: { id: 'role-so', role_key: 'school_owner', display_name: 'School Owner', role_tier: 'platform', is_system_role: true } },
+          {
+            role: {
+              id: 'role-so',
+              role_key: 'school_owner',
+              display_name: 'School Owner',
+              role_tier: 'platform',
+              is_system_role: true,
+            },
+          },
         ],
       };
       mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(schoolOwnerMembership);
@@ -120,6 +128,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SCHOOL_OWNER_PROTECTED',
       });
@@ -138,6 +147,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'LAST_SCHOOL_PRINCIPAL',
       });
@@ -155,7 +165,7 @@ describe('MembershipsService', () => {
     it('should allow suspending an owner when multiple owners exist', async () => {
       // Two calls to findFirst: one in suspendMembership, one in getUser at the end
       mockPrisma.tenantMembership.findFirst
-        .mockResolvedValueOnce(ownerMembership)   // suspendMembership lookup
+        .mockResolvedValueOnce(ownerMembership) // suspendMembership lookup
         .mockResolvedValueOnce(ownerMembershipFull); // getUser lookup after suspend
 
       // Two active owners exist — safe to suspend this one
@@ -190,6 +200,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'MEMBERSHIP_NOT_FOUND',
       });
@@ -209,6 +220,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ALREADY_SUSPENDED',
       });
@@ -225,7 +237,14 @@ describe('MembershipsService', () => {
           user_id: USER_ID,
           membership_status: 'active',
           membership_roles: [
-            { role: { id: 'role-staff', role_key: 'custom_staff', role_tier: 'staff', is_system_role: false } },
+            {
+              role: {
+                id: 'role-staff',
+                role_key: 'custom_staff',
+                role_tier: 'staff',
+                is_system_role: false,
+              },
+            },
           ],
         })
         .mockResolvedValueOnce(ownerMembershipFull); // getUser at end
@@ -289,6 +308,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'NOT_SUSPENDED',
       });
@@ -305,6 +325,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'MEMBERSHIP_NOT_FOUND',
       });

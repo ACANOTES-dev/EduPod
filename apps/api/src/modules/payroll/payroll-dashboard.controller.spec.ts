@@ -1,6 +1,11 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { PayrollDashboardController } from './payroll-dashboard.controller';
@@ -28,12 +33,12 @@ describe('PayrollDashboardController', () => {
 
     const module = await Test.createTestingModule({
       controllers: [PayrollDashboardController],
-      providers: [
-        { provide: PayrollDashboardService, useValue: mockService },
-      ],
+      providers: [{ provide: PayrollDashboardService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue({ canActivate: () => true })
-      .overrideGuard(PermissionGuard).useValue({ canActivate: () => true })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<PayrollDashboardController>(PayrollDashboardController);
@@ -72,11 +77,54 @@ describe('PayrollDashboardController', () => {
     });
 
     it('should call service exactly once per request', async () => {
-      mockService.getDashboard.mockResolvedValue({ latest_run: null, latest_finalised: null, cost_trend: [], incomplete_entries: [], current_draft_id: null });
+      mockService.getDashboard.mockResolvedValue({
+        latest_run: null,
+        latest_finalised: null,
+        cost_trend: [],
+        incomplete_entries: [],
+        current_draft_id: null,
+      });
 
       await controller.getDashboard(tenantContext);
 
       expect(mockService.getDashboard).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('PayrollDashboardController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [PayrollDashboardController],
+      providers: [{ provide: PayrollDashboardService, useValue: mockService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks payroll.view permission (GET /v1/payroll/dashboard)', async () => {
+    await request(app.getHttpServer()).get('/v1/payroll/dashboard').send({}).expect(403);
   });
 });

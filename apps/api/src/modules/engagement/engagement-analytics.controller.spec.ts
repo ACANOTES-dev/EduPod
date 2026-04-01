@@ -1,7 +1,12 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { EngagementAnalyticsController } from './engagement-analytics.controller';
@@ -84,5 +89,45 @@ describe('EngagementAnalyticsController', () => {
     await controller.getCalendarEvents(tenantCtx, query);
 
     expect(mockAnalyticsService.getCalendarEvents).toHaveBeenCalledWith(TENANT_ID, query);
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('EngagementAnalyticsController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [EngagementAnalyticsController],
+      providers: [{ provide: EngagementAnalyticsService, useValue: mockAnalyticsService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks engagement.events.view_dashboard permission (GET /v1/engagement/analytics/overview)', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/engagement/analytics/overview')
+      .send({})
+      .expect(403);
   });
 });

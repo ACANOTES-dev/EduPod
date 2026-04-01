@@ -113,6 +113,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -135,6 +136,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_ACADEMIC_YEAR',
       });
@@ -192,6 +194,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });
@@ -248,6 +251,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { error: { code: expect.any(String) } } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         error: expect.objectContaining({ code: 'DATES_LOCKED' }),
       });
@@ -264,6 +268,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });
@@ -292,6 +297,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'DUPLICATE_NAME',
       });
@@ -316,6 +322,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_ACADEMIC_YEAR',
       });
@@ -335,6 +342,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { error: { code: expect.any(String) } } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         error: expect.objectContaining({ code: 'DATES_LOCKED' }),
       });
@@ -400,6 +408,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as ConflictException).getResponse()).toMatchObject({
         code: 'OVERLAPPING_ACADEMIC_YEAR',
       });
@@ -467,6 +476,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -484,6 +494,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -501,6 +512,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -518,6 +530,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'INVALID_STATUS_TRANSITION',
       });
@@ -535,6 +548,7 @@ describe('AcademicYearsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });

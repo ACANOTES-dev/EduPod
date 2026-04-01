@@ -1,7 +1,12 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { NotificationSettingsController } from './notification-settings.controller';
@@ -32,9 +37,7 @@ describe('NotificationSettingsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NotificationSettingsController],
-      providers: [
-        { provide: NotificationSettingsService, useValue: mockService },
-      ],
+      providers: [{ provide: NotificationSettingsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -48,9 +51,7 @@ describe('NotificationSettingsController', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should call notificationSettingsService.listSettings with tenant_id', async () => {
-    const expected = [
-      { id: '1', notification_type: 'invoice.issued', is_enabled: true },
-    ];
+    const expected = [{ id: '1', notification_type: 'invoice.issued', is_enabled: true }];
     mockService.listSettings.mockResolvedValue(expected);
 
     const result = await controller.listSettings(tenantCtx);
@@ -74,5 +75,42 @@ describe('NotificationSettingsController', () => {
     mockService.listSettings.mockRejectedValue(new Error('Database error'));
 
     await expect(controller.listSettings(tenantCtx)).rejects.toThrow('Database error');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('NotificationSettingsController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [NotificationSettingsController],
+      providers: [{ provide: NotificationSettingsService, useValue: {} }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should return 403 when user lacks notifications.manage permission (GET /v1/notification-settings)', async () => {
+    await request(app.getHttpServer()).get('/v1/notification-settings').send({}).expect(403);
   });
 });

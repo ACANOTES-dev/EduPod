@@ -1,7 +1,12 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { FinanceDashboardController } from './finance-dashboard.controller';
@@ -55,5 +60,42 @@ describe('FinanceDashboardController', () => {
   it('should propagate errors from service', async () => {
     mockService.getDashboardData.mockRejectedValue(new Error('DB error'));
     await expect(controller.getDashboard(TENANT)).rejects.toThrow('DB error');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('FinanceDashboardController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [FinanceDashboardController],
+      providers: [{ provide: FinanceDashboardService, useValue: mockService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks finance.view permission (GET /v1/finance/dashboard)', async () => {
+    await request(app.getHttpServer()).get('/v1/finance/dashboard').send({}).expect(403);
   });
 });

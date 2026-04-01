@@ -109,6 +109,7 @@ describe('PromotionService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });
@@ -194,6 +195,7 @@ describe('PromotionService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ACADEMIC_YEAR_NOT_FOUND',
       });

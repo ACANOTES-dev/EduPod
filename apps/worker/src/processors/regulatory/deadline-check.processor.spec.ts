@@ -54,13 +54,11 @@ function buildMockPrisma(options: BuildMockPrismaOptions = {}) {
 
   return {
     membershipRole: {
-      findMany: jest
-        .fn()
-        .mockImplementation(async (args: { where: { tenant_id: string } }) =>
-          (options.adminUserIdsByTenant?.[args.where.tenant_id] ?? []).map((user_id) => ({
-            membership: { user_id },
-          })),
-        ),
+      findMany: jest.fn().mockImplementation(async (args: { where: { tenant_id: string } }) =>
+        (options.adminUserIdsByTenant?.[args.where.tenant_id] ?? []).map((user_id) => ({
+          membership: { user_id },
+        })),
+      ),
     },
     notification: {
       create: jest.fn().mockResolvedValue({ id: 'notification-id' }),

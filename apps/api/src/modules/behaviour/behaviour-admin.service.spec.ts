@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -34,11 +34,16 @@ const mockRlsTx = {
   behaviourLegalHold: {
     count: jest.fn(),
   },
+  behaviourParentAcknowledgement: {
+    create: jest.fn(),
+  },
 };
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -87,7 +92,10 @@ describe('BehaviourAdminService', () => {
         BehaviourAdminService,
         { provide: PrismaService, useValue: { $executeRaw: jest.fn() } },
         { provide: RedisService, useValue: { getClient: () => mockRedisClient } },
-        { provide: BehaviourScopeService, useValue: { getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }) } },
+        {
+          provide: BehaviourScopeService,
+          useValue: { getUserScope: jest.fn().mockResolvedValue({ scope: 'all' }) },
+        },
         { provide: PolicyReplayService, useValue: { dryRun: jest.fn().mockResolvedValue({}) } },
         { provide: getQueueToken('behaviour'), useValue: mockBehaviourQueue },
         { provide: getQueueToken('notifications'), useValue: mockNotificationsQueue },
@@ -133,7 +141,13 @@ describe('BehaviourAdminService', () => {
   describe('listDeadLetterJobs', () => {
     it('should return failed jobs sorted by date', async () => {
       mockBehaviourQueue.getFailed.mockResolvedValue([
-        { id: 'j1', name: 'behaviour:detect-patterns', finishedOn: Date.now(), failedReason: 'timeout', attemptsMade: 3 },
+        {
+          id: 'j1',
+          name: 'behaviour:detect-patterns',
+          finishedOn: Date.now(),
+          failedReason: 'timeout',
+          attemptsMade: 3,
+        },
       ]);
       mockNotificationsQueue.getFailed.mockResolvedValue([]);
 
@@ -175,7 +189,9 @@ describe('BehaviourAdminService', () => {
       });
 
       expect(result.affected_students).toBe(500);
-      expect(result.warnings).toContain('This will invalidate all cached point totals for the entire school.');
+      expect(result.warnings).toContain(
+        'This will invalidate all cached point totals for the entire school.',
+      );
     });
   });
 
@@ -227,6 +243,89 @@ describe('BehaviourAdminService', () => {
         expect.any(Object),
       );
       expect(result.job_id).toBe('job-1');
+    });
+  });
+
+  // ─── Reindex Search ───────────────────────────────────────────────────────
+
+  describe('reindexSearchPreview', () => {
+    it('should return search reindex preview', async () => {
+      mockRlsTx.behaviourIncident.count.mockResolvedValue(100);
+
+      const result = await service.reindexSearchPreview(TENANT_ID);
+
+      expect(result.affected_records).toBe(100);
+      expect(result.reversible).toBe(true);
+    });
+  });
+
+  describe('reindexSearch', () => {
+    it('should enqueue search sync job', async () => {
+      const result = await service.reindexSearch(TENANT_ID);
+      expect(mockSearchSyncQueue.add).toHaveBeenCalledWith(
+        'search:full-reindex',
+        { tenant_id: TENANT_ID },
+        expect.any(Object),
+      );
+      expect(result.job_id).toBe('job-3');
+    });
+  });
+
+  // ─── Resend Notification ──────────────────────────────────────────────────
+
+  describe('resendNotification', () => {
+    it('should enqueue notification and create acknowledgement record', async () => {
+      await service.resendNotification(TENANT_ID, {
+        incident_id: 'i-1',
+        parent_id: 'p-1',
+        channel: 'email',
+      });
+
+      expect(mockRlsTx.behaviourParentAcknowledgement.create).toHaveBeenCalled();
+      expect(mockNotificationsQueue.add).toHaveBeenCalledWith(
+        'behaviour:parent-notification',
+        expect.objectContaining({
+          tenant_id: TENANT_ID,
+          parent_id: 'p-1',
+          incident_id: 'i-1',
+          channel: 'email',
+          is_resend: true,
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it('should require either incident_id or sanction_id', async () => {
+      await expect(
+        service.resendNotification(TENANT_ID, {
+          parent_id: 'p-1',
+          channel: 'email',
+        } as unknown),
+      ).rejects.toThrow('Either incident_id or sanction_id is required');
+    });
+  });
+
+  // ─── Policy Dry Run ───────────────────────────────────────────────────────
+
+  describe('policyDryRun', () => {
+    it('should delegate to policyReplayService', async () => {
+      const policyService = (service as unknown).policyReplayService;
+      policyService.dryRun = jest.fn().mockResolvedValue({ some: 'data' });
+
+      const result = await service.policyDryRun(TENANT_ID, {
+        category_id: 'c-1',
+        polarity: 'negative',
+        severity: 3,
+        context_type: 'class',
+      });
+
+      expect(policyService.dryRun).toHaveBeenCalledWith(TENANT_ID, {
+        category_id: 'c-1',
+        polarity: 'negative',
+        severity: 3,
+        context_type: 'class',
+      });
+      expect(result).toEqual({ some: 'data' });
     });
   });
 });

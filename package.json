@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "turbo run test",
+    "test:health": "pnpm turbo run lint && pnpm turbo run type-check && pnpm turbo run test && pnpm --filter @school/api run test:integration",
     "test:changed": "turbo run test:changed",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",

@@ -154,6 +154,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'CLASS_NOT_FOUND',
       });
@@ -171,6 +172,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'SUBJECT_NOT_FOUND',
       });
@@ -225,6 +227,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'NO_GRADING_SCALE',
       });
@@ -257,6 +260,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ASSESSMENTS_EXIST',
       });
@@ -280,6 +284,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'NO_CLASSES_IN_YEAR_GROUP',
       });
@@ -299,6 +304,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'NO_GRADING_SCALE',
       });
@@ -383,6 +389,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'PERIOD_NOT_FOUND',
       });
@@ -400,6 +407,7 @@ describe('CurriculumMatrixService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'CATEGORY_NOT_FOUND',
       });
