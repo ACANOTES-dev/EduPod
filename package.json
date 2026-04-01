@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "check:worker-processor-specs": "node scripts/check-worker-processor-specs.mjs",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "pnpm test:unit",
@@ -15,6 +16,7 @@
     "test:unit": "pnpm turbo run test",
     "test:integration": "pnpm --filter @school/api test:integration -- --runInBand",
     "test:visual": "API_URL=http://localhost:5552 APP_URL=http://localhost:5551 NEXT_PUBLIC_API_URL= pnpm --filter @school/web test:visual",
+    "test:changed": "turbo run test:changed",
     "validate": "pnpm lint && pnpm type-check && pnpm test:unit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
@@ -27,6 +29,10 @@
     "doctor": "node scripts/doctor.mjs",
     "changelog": "pnpm exec conventional-changelog -p conventionalcommits --output-unreleased -i CHANGELOG.md -s",
     "changelog:preview": "pnpm exec conventional-changelog -p conventionalcommits --output-unreleased --stdout",
+    "snapshot:api": "tsx scripts/generate-api-surface.ts",
+    "snapshot:schema": "bash scripts/snapshot-prisma-schema.sh",
+    "check:characterization": "bash scripts/check-characterization-tests.sh",
+    "check:test-gate": "bash scripts/check-test-coverage-gate.sh",
     "prepare": "husky"
   },
   "lint-staged": {
