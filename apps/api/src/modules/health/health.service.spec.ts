@@ -22,13 +22,35 @@ describe('HealthService', () => {
   let prisma: { $queryRaw: jest.Mock };
   let redis: { ping: jest.Mock };
   let meili: { available: boolean; search: jest.Mock };
-  let queue: { getActive: jest.Mock };
+  let queues: {
+    behaviour: { getActive: jest.Mock };
+    compliance: { getActive: jest.Mock };
+    finance: { getActive: jest.Mock };
+    notifications: { getActive: jest.Mock };
+    pastoral: { getActive: jest.Mock };
+  };
+
+  function buildMockQueue(): { getActive: jest.Mock } {
+    return { getActive: jest.fn().mockResolvedValue([]) };
+  }
+
+  function mockAllQueuesEmpty(): void {
+    for (const q of Object.values(queues)) {
+      q.getActive.mockResolvedValue([]);
+    }
+  }
 
   beforeEach(async () => {
     prisma = { $queryRaw: jest.fn() };
     redis = { ping: jest.fn() };
     meili = { available: true, search: jest.fn() };
-    queue = { getActive: jest.fn() };
+    queues = {
+      behaviour: buildMockQueue(),
+      compliance: buildMockQueue(),
+      finance: buildMockQueue(),
+      notifications: buildMockQueue(),
+      pastoral: buildMockQueue(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -36,7 +58,11 @@ describe('HealthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: RedisService, useValue: redis },
         { provide: MeilisearchClient, useValue: meili },
-        { provide: getQueueToken('notifications'), useValue: queue },
+        { provide: getQueueToken('behaviour'), useValue: queues.behaviour },
+        { provide: getQueueToken('compliance'), useValue: queues.compliance },
+        { provide: getQueueToken('finance'), useValue: queues.finance },
+        { provide: getQueueToken('notifications'), useValue: queues.notifications },
+        { provide: getQueueToken('pastoral'), useValue: queues.pastoral },
       ],
     }).compile();
 
@@ -52,7 +78,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
@@ -68,7 +94,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockRejectedValue(new Error('Connection refused'));
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
@@ -80,7 +106,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(false);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
@@ -92,7 +118,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.available = false;
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
@@ -104,7 +130,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockRejectedValue(new Error('Redis connection lost'));
+      queues.notifications.getActive.mockRejectedValue(new Error('Redis connection lost'));
 
       const result = await service.check();
 
@@ -116,7 +142,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
@@ -133,7 +159,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.getReadiness();
 
@@ -144,7 +170,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockRejectedValue(new Error('Connection refused'));
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.getReadiness();
 
@@ -156,7 +182,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(false);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.getReadiness();
 
@@ -168,7 +194,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.available = false;
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.getReadiness();
 
@@ -180,7 +206,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.getReadiness();
 
@@ -211,7 +237,8 @@ describe('HealthService', () => {
 
       const SIX_MINUTES_MS = 6 * 60 * 1000;
       const ONE_MINUTE_MS = 1 * 60 * 1000;
-      queue.getActive.mockResolvedValue([
+      mockAllQueuesEmpty();
+      queues.notifications.getActive.mockResolvedValue([
         buildMockJob(SIX_MINUTES_MS), // stuck
         buildMockJob(ONE_MINUTE_MS), // not stuck
         buildMockJob(SIX_MINUTES_MS), // stuck
@@ -220,18 +247,19 @@ describe('HealthService', () => {
       const result = await service.check();
 
       expect(result.checks.bullmq.status).toBe('up');
-      expect(result.checks.bullmq.stuck_jobs).toBe(2);
+      expect(result.checks.bullmq.total_stuck_jobs).toBe(2);
+      expect(result.checks.bullmq.queues['notifications']!.stuck_jobs).toBe(2);
     });
 
-    it('should report zero stuck_jobs when queue is empty', async () => {
+    it('should report zero total_stuck_jobs when all queues are empty', async () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 
-      expect(result.checks.bullmq.stuck_jobs).toBe(0);
+      expect(result.checks.bullmq.total_stuck_jobs).toBe(0);
     });
 
     it('should use job.timestamp as fallback when processedOn is absent', async () => {
@@ -240,14 +268,14 @@ describe('HealthService', () => {
       meili.search.mockResolvedValue(null);
 
       const SIX_MINUTES_MS = 6 * 60 * 1000;
-      // Job with no processedOn — falls back to timestamp
-      queue.getActive.mockResolvedValue([
+      mockAllQueuesEmpty();
+      queues.pastoral.getActive.mockResolvedValue([
         { processedOn: undefined, timestamp: Date.now() - SIX_MINUTES_MS },
       ]);
 
       const result = await service.check();
 
-      expect(result.checks.bullmq.stuck_jobs).toBe(1);
+      expect(result.checks.bullmq.total_stuck_jobs).toBe(1);
     });
   });
 
@@ -258,7 +286,7 @@ describe('HealthService', () => {
       prisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
       redis.ping.mockResolvedValue(true);
       meili.search.mockResolvedValue(null);
-      queue.getActive.mockResolvedValue([]);
+      mockAllQueuesEmpty();
 
       const result = await service.check();
 

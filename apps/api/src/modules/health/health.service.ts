@@ -15,9 +15,15 @@ interface DependencyCheck {
   latency_ms: number;
 }
 
-interface BullMQCheck {
+interface QueueCheck {
   status: 'up' | 'down';
   stuck_jobs: number;
+}
+
+interface BullMQCheck {
+  status: 'up' | 'down';
+  total_stuck_jobs: number;
+  queues: Record<string, QueueCheck>;
 }
 
 interface DiskCheck {
@@ -75,12 +81,26 @@ function tryStatfsSync(path: string): StatfsResult | null {
 export class HealthService {
   private readonly startTime = Date.now();
 
+  private readonly criticalQueues: { name: string; queue: Queue }[];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly meilisearch: MeilisearchClient,
+    @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
+    @InjectQueue('compliance') private readonly complianceQueue: Queue,
+    @InjectQueue('finance') private readonly financeQueue: Queue,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
-  ) {}
+    @InjectQueue('pastoral') private readonly pastoralQueue: Queue,
+  ) {
+    this.criticalQueues = [
+      { name: 'behaviour', queue: this.behaviourQueue },
+      { name: 'compliance', queue: this.complianceQueue },
+      { name: 'finance', queue: this.financeQueue },
+      { name: 'notifications', queue: this.notificationsQueue },
+      { name: 'pastoral', queue: this.pastoralQueue },
+    ];
+  }
 
   // ─── Public Methods ─────────────────────────────────────────────────────────
 
@@ -166,17 +186,37 @@ export class HealthService {
   }
 
   private async checkBullMQ(): Promise<BullMQCheck> {
-    try {
-      const activeJobs = await this.notificationsQueue.getActive();
-      const now = Date.now();
-      const stuckCount = activeJobs.filter((job) => {
-        const startedAt = job.processedOn ?? job.timestamp;
-        return now - startedAt > STUCK_JOB_THRESHOLD_MS;
-      }).length;
-      return { status: 'up', stuck_jobs: stuckCount };
-    } catch {
-      return { status: 'down', stuck_jobs: 0 };
+    const results = await Promise.all(
+      this.criticalQueues.map(async ({ name, queue }): Promise<[string, QueueCheck]> => {
+        try {
+          const activeJobs = await queue.getActive();
+          const now = Date.now();
+          const stuckCount = activeJobs.filter((job) => {
+            const startedAt = job.processedOn ?? job.timestamp;
+            return now - startedAt > STUCK_JOB_THRESHOLD_MS;
+          }).length;
+          return [name, { status: 'up', stuck_jobs: stuckCount }];
+        } catch {
+          return [name, { status: 'down', stuck_jobs: 0 }];
+        }
+      }),
+    );
+
+    const queues: Record<string, QueueCheck> = {};
+    let totalStuck = 0;
+    let anyDown = false;
+
+    for (const [name, check] of results) {
+      queues[name] = check;
+      totalStuck += check.stuck_jobs;
+      if (check.status === 'down') anyDown = true;
     }
+
+    return {
+      status: anyDown ? 'down' : 'up',
+      total_stuck_jobs: totalStuck,
+      queues,
+    };
   }
 
   private checkDisk(): DiskCheck {
