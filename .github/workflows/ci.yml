@@ -42,3 +42,69 @@ jobs:
 
       - name: Build
         run: pnpm build --force
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: school_platform
+          POSTGRES_PASSWORD: localpassword
+          POSTGRES_USER: postgres
+        ports:
+          - 5553:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d school_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 5554:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      API_PORT: '0'
+      APP_URL: http://localhost:5551
+      DATABASE_URL: postgresql://postgres:localpassword@localhost:5553/school_platform
+      ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
+      JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
+      MFA_ISSUER: SchoolOS-Test
+      NODE_ENV: test
+      PLATFORM_DOMAIN: edupod.app
+      REDIS_URL: redis://localhost:5554
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Apply Prisma migrations
+        run: pnpm --filter @school/prisma exec prisma migrate deploy
+
+      - name: Apply post-migrate SQL
+        run: pnpm db:post-migrate
+
+      - name: Seed base data
+        run: pnpm db:seed
+
+      - name: Run integration tests
+        run: pnpm --filter @school/api test:integration -- --runInBand
