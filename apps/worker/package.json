@@ -10,6 +10,7 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:changed": "jest --changedSince=main --passWithNoTests",
     "test:coverage": "jest --coverage"
   },
   "dependencies": {

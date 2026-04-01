@@ -10,9 +10,11 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "jest",
+    "test:changed": "jest --changedSince=main --passWithNoTests",
     "test:coverage": "jest --coverage",
     "test:integration": "jest --config jest.integration.config.js",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "coverage:modules": "jest --coverage --coverageReporters=json --silent && tsx ../../scripts/coverage-by-module.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
