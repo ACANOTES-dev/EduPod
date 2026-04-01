@@ -29,13 +29,6 @@ import { StripeConfigService } from './stripe-config.service';
     EncryptionService,
     KeyRotationService,
   ],
-  exports: [
-    BrandingService,
-    SettingsService,
-    StripeConfigService,
-    NotificationSettingsService,
-    EncryptionService,
-    KeyRotationService,
-  ],
+  exports: [EncryptionService, SettingsService],
 })
 export class ConfigurationModule {}

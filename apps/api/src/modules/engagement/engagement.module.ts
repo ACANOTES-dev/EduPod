@@ -50,15 +50,6 @@ import { TripPackService } from './trip-pack.service';
     FormTemplatesService,
     TripPackService,
   ],
-  exports: [
-    ConferencesService,
-    ConsentRecordsService,
-    EngagementAnalyticsService,
-    EventParticipantsService,
-    EventsService,
-    FormSubmissionsService,
-    FormTemplatesService,
-    TripPackService,
-  ],
+  exports: [],
 })
 export class EngagementModule {}

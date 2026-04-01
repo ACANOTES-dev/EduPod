@@ -2,7 +2,7 @@
 
 > **Purpose**: Before modifying a module's public service API, check here to know what else breaks.
 > **Maintenance**: Update when adding new cross-module imports or changing module exports.
-> **Last verified**: 2026-03-30
+> **Last verified**: 2026-04-01
 
 ---
 
@@ -57,7 +57,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 ### DpaService + PrivacyNoticesService + SubProcessorsService (GdprModule)
 
 - **Exports**: `DpaService`, `PrivacyNoticesService`, `SubProcessorsService`
-- **Consumed by**: Global `DpaAcceptedGuard` (`APP_GUARD`), CommunicationsModule (`NotificationsService` via `forwardRef()`), all tenant-scoped API surfaces indirectly through the guard, the legal settings UI, the parent portal privacy notice page, and the public sub-processor register page
+- **Consumed by**: Global `DpaAcceptedGuard` (`APP_GUARD`), all tenant-scoped API surfaces indirectly through the guard, the legal settings UI, the parent portal privacy notice page, and the public sub-processor register page. GDPR no longer imports CommunicationsModule — notifications are written directly via Prisma.
 - **Blast radius**: HIGH. `DpaAcceptedGuard` is global, so changing current-version lookup, acceptance checks, or the exempt-path allowlist can lock every tenant-scoped API surface. Privacy notice publish logic fans out notifications to every active tenant membership and resets acknowledgement requirements for users who only acknowledged older versions. Sub-processor register content is public and versioned, so changes affect both legal disclosure and tenant admin notification flows.
 - **Rule**: Keep the DPA guard allowlist aligned with the frontend redirect destination `/settings/legal/dpa`, and do not relax the draft-only edit rule for privacy notices after `published_at` is set.
 
@@ -73,9 +73,10 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 ### SettingsService (ConfigurationModule)
 
-- **Consumed by**: Attendance (service + upload + pattern + parent notification), behaviour (parent notification send-gate, quick-log defaults, points settings), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports)
+- **Consumed by**: Attendance (service + upload + pattern + parent notification), behaviour (parent notification send-gate, quick-log defaults, points settings), finance (invoices, payment reminders, recurring invoices), payroll (runs, calendar, exports), SEN (review-cycle, plan-number prefix, SNA schedule format)
 - **Blast radius**: HIGH. Settings shape changes affect attendance policies, behaviour module policies, finance billing rules, and payroll calculation.
 - **Danger**: Settings are tenant-specific. A schema change requires migrating ALL tenants' stored JSONB settings. The `tenantSettingsSchema` in shared/ is the single source of truth.
+- **Note**: ConfigurationModule exports only `SettingsService` and `EncryptionService`. All other services (BrandingService, StripeConfigService, NotificationSettingsService, KeyRotationService) are internal.
 
 ### EncryptionService (ConfigurationModule)
 
@@ -133,7 +134,7 @@ If a module isn't listed, it has no downstream dependents (safe to modify in iso
 
 - **Consumed by**: AttendanceModule (parent notifications)
 - **Blast radius**: MEDIUM. Notification channel/template changes affect attendance alerts, GDPR legal/privacy fan-out notifications, and the parent daily digest.
-- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. GDPR Phase E also introduces a `forwardRef()` cycle between `CommunicationsModule` and `GdprModule` because privacy notice publishes and sub-processor register updates notify tenant users/admins in-app.
+- **Danger**: WhatsApp dispatch now hard-depends on `consent_records` through `ConsentService`. Missing or withdrawn `whatsapp_channel` consent marks the original notification failed and creates an SMS fallback. CommunicationsModule imports GdprModule directly (no `forwardRef`) for ConsentService. GdprModule no longer imports CommunicationsModule — privacy notice publishes and sub-processor register updates write `notifications` records directly via Prisma and invalidate Redis unread-count caches.
 - **Parent daily digest cross-module reads**: The `notifications:parent-daily-digest` worker processor reads data from 6+ modules via Prisma direct: `daily_attendance_summaries` (Attendance), `grades` + `assessments` (Gradebook), `behaviour_incidents` + `behaviour_recognition_awards` (Behaviour), `homework_assignments` + `class_enrolments` (Homework/Classes), `invoices` (Finance), `students` + `student_parents` (Students), and `users.preferred_locale` (platform-level). Schema changes to any of these tables affect digest content generation.
 
 ### SchoolClosuresService (SchoolClosuresModule)
@@ -178,11 +179,11 @@ These modules have NO downstream dependents. Changes are contained:
 
 ### RegulatoryModule
 
-- **Last verified**: 2026-03-30
-- **Exports**: `RegulatoryCalendarService`, `RegulatorySubmissionService`, `RegulatoryDashboardService`, `RegulatoryTuslaService`, `RegulatoryDesService`, `RegulatoryOctoberReturnsService`, `RegulatoryPpodService`, `RegulatoryCbaService`, `RegulatoryDesMappingsService`, `RegulatoryTuslaMappingsService`, `RegulatoryReducedDaysService`, `RegulatoryTransfersService`
+- **Last verified**: 2026-04-01
+- **Exports**: None — all services internal to the module
 - **Controllers**: 1 controller (RegulatoryController) — Phases A–E: calendar CRUD, submission CRUD, Tusla compliance, DES returns, October returns, PPOD/POD sync, CBA sync, transfers, dashboard
 - **Imports**: `AuthModule`, `S3Module`
-- **Consumed by**: None yet externally. Worker module has 5 processors on the `regulatory` queue.
+- **Consumed by**: None externally. Worker module has 5 processors on the `regulatory` queue (they re-implement logic using raw PrismaClient, not imported services).
 - **Blast radius**: LOW. Self-contained module with no downstream dependents.
 - **Cross-module Prisma-direct reads**: `students`, `daily_attendance_summaries`, `attendance_records`, `behaviour_sanctions`, `behaviour_exclusion_cases`, `staff_profiles`, `subjects`, `classes`, `class_enrolments`, `ppod_student_mappings`, `ppod_sync_logs`, `attendance_pattern_alerts`
 - **Danger**: Schema changes to `daily_attendance_summaries` or `attendance_records` will affect Tusla threshold/SAR generation and the tusla-threshold-scan worker processor. Schema changes to `behaviour_sanctions` or `behaviour_exclusion_cases` will affect suspension/expulsion notification queries. Schema changes to `staff_profiles` or `subjects` will affect DES September Returns pipeline. Schema changes to `ppod_student_mappings` or `ppod_sync_logs` will affect PPOD sync/import processors.
@@ -243,10 +244,10 @@ ComplianceModule note: anonymisation/export flows now import `SearchModule` and 
 ### SenModule
 
 - **Last verified**: 2026-04-01
-- **Exports**: `SenProfileService`, `SenScopeService`, `SenSupportPlanService`, `SenGoalService`, `SenResourceService`, `SenSnaService`, `SenProfessionalService`, `SenAccommodationService`, `SenReportsService`, `SenTransitionService`
+- **Exports**: None — all services internal to the module
 - **Controllers**: `SenProfileController`, `SenSupportPlanController`, `SenGoalController`, `SenResourceController`, `SenSnaController`, `SenProfessionalController`, `SenAccommodationController`, `SenReportsController`, `SenTransitionController`
 - **Imports**: `AuthModule`, `TenantsModule` (`SequenceService` for support plan numbers), `ConfigurationModule` (`SettingsService` for SEN review-cycle, plan-number prefix, and `sen.sna_schedule_format`)
-- **Consumed by**: No external module imports yet. Controllers use the services directly; read access also depends on `PermissionCacheService` through the global auth/permission stack.
+- **Consumed by**: No external module imports. Controllers use the services directly; read access also depends on `PermissionCacheService` through the global auth/permission stack.
 - **Blast radius**: MEDIUM. Changing support-plan numbering impacts versioned SEN plans across tenants. Changing scope resolution affects which students class teachers can see. Changing goal/progress lifecycle behavior affects plan review workflows, stale-goal compliance reporting, and historical progress tracking. Changing resource-allocation capacity rules affects utilisation dashboards, student-hour assignment limits, SNA coordination workflows, and the NCSE return resource-hour totals. Changing transition-note or handover-pack composition affects controlled information-sharing during class/year/school transitions.
 - **Cross-module Prisma-direct reads**: `students` (via `sen_profiles.student_id` scope chain, reporting, handover, and student-hour/SNA joins), `staff_profiles`, `class_staff`, `class_enrolments`, `academic_years`, `academic_periods`, `year_groups`, `users`, `pastoral_referrals` (optional FK link from professional involvements)
 - **Danger**: `SenScopeService` relies on `staff_profiles`, `class_staff`, and `class_enrolments` to derive class-scoped visibility, so schema or status changes there can silently overexpose or hide SEN records. `SenSupportPlanService` depends on tenant settings defaults for `sen.default_review_cycle_weeks` and `sen.plan_number_prefix`; changing those schemas requires keeping the service behavior and shared defaults aligned. `SenReportsService` reads `students.gender`, `students.year_group_id`, `academic_years`, and goal-progress recency directly for NCSE/overview/compliance reporting, so schema changes there can silently skew statutory or operational outputs. `SenTransitionService` assembles handover packs from support plans, goals, accommodations, professional involvements, student-hours, SNA assignments, and transition notes; changes to any of those shapes can break downstream handover payloads or omit information unexpectedly. `SenSnaService` validates assignment schedules against `sen.sna_schedule_format`, so changing that shared settings schema or its defaults without updating the validator can reject legitimate assignments or accept malformed ones. `SenProfessionalService` reads `pastoral_referrals` directly via Prisma for optional referral linking — schema changes to `pastoral_referrals` can affect professional involvement creation. `SenAccommodationService.getExamReport()` joins through `sen_profiles -> students -> year_groups` — schema changes to `students.year_group_id` or `year_groups` can affect exam accommodation reporting.
@@ -300,15 +301,15 @@ Known Prisma-direct consumers:
 
 **Location**: `apps/api/src/modules/early-warning/early-warning.module.ts`
 
-- **Exports**: `EarlyWarningService`, `EarlyWarningConfigService`, `EarlyWarningCohortService`, `EarlyWarningTriggerService`, `EarlyWarningRoutingService`, 5× signal collectors (`AttendanceSignalCollector`, `BehaviourSignalCollector`, `EngagementSignalCollector`, `GradesSignalCollector`, `WellbeingSignalCollector`)
+- **Exports**: None — all services are internal to the module. No other module injects EarlyWarning services directly.
 - **Consumed by**:
-  - Worker: `evaluate-policy.processor.ts` (behaviour module), `notify-concern.processor.ts` (pastoral module), `attendance-pattern-detection.processor.ts` (attendance module) — all enqueue `early-warning:compute-student` jobs directly onto the EARLY_WARNING queue
-  - API: `EarlyWarningController` and `EarlyWarningService` are IMPLEMENTED (not upcoming) — the controller and service are registered in the module
+  - Worker: `evaluate-policy.processor.ts` (behaviour module), `notify-concern.processor.ts` (pastoral module), `attendance-pattern-detection.processor.ts` (attendance module) — all enqueue `early-warning:compute-student` jobs directly onto the EARLY_WARNING queue via BullMQ. The worker re-implements signal collection logic in `signal-collection.utils.ts` using raw PrismaClient — it does NOT import API services.
+  - API: `EarlyWarningController` and `EarlyWarningService` are internal — the controller and service are registered in the module
 - **Consumes**:
   - `PrismaModule` → `PrismaService` (DB access for signal collectors, routing resolution, trigger config checks)
   - `BullModule` → `early-warning` queue (for `EarlyWarningTriggerService` to enqueue compute-student jobs)
   - Reads from: `early_warning_configs`, `student_risk_profiles`, `student_risk_signals`, `early_warning_tier_transitions`, `class_enrolments`, `class_staff`, `staff_profiles`, `membership_roles`, `students`, `notifications`, `pastoral_cases`, `pastoral_interventions`
-- **Blast radius**: Changes to `EarlyWarningTriggerService` interface affect any module that calls `triggerStudentRecompute()`. Changes to routing resolution logic affect notification delivery for tier changes.
+- **Blast radius**: LOW. Self-contained module with no downstream NestJS dependents.
 - **Reverse blast radius** (changes to these modules affect early-warning):
   - `attendance` module: `daily_attendance_summaries`, `attendance_pattern_alerts` are read by the attendance signal collector
   - `gradebook` module: assessment data read by the grades signal collector

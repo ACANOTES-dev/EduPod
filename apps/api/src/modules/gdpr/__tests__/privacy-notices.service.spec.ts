@@ -7,8 +7,8 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
 }));
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
-import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 
 import { PrivacyNoticesService } from '../privacy-notices.service';
 
@@ -40,6 +40,17 @@ function buildMockPrisma() {
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    notification: {
+      createMany: jest.fn(),
+    },
+  };
+}
+
+function buildMockRedis() {
+  return {
+    getClient: jest.fn().mockReturnValue({
+      del: jest.fn().mockResolvedValue(1),
+    }),
   };
 }
 
@@ -48,14 +59,12 @@ function buildMockPrisma() {
 describe('PrivacyNoticesService', () => {
   let service: PrivacyNoticesService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockNotifications: { createBatch: jest.Mock };
+  let mockRedis: ReturnType<typeof buildMockRedis>;
   const mockCreateRlsClient = createRlsClient as jest.Mock;
 
   beforeEach(async () => {
     mockPrisma = buildMockPrisma();
-    mockNotifications = {
-      createBatch: jest.fn(),
-    };
+    mockRedis = buildMockRedis();
 
     mockCreateRlsClient.mockReturnValue({
       $transaction: jest
@@ -70,7 +79,7 @@ describe('PrivacyNoticesService', () => {
       providers: [
         PrivacyNoticesService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: NotificationsService, useValue: mockNotifications },
+        { provide: RedisService, useValue: mockRedis },
       ],
     }).compile();
 
@@ -223,7 +232,7 @@ describe('PrivacyNoticesService', () => {
   // ─── publishVersion ────────────────────────────────────────────────────────
 
   describe('PrivacyNoticesService -- publishVersion', () => {
-    it('should publish a draft version and notify users', async () => {
+    it('should publish a draft version and create in_app notifications', async () => {
       mockPrisma.privacyNoticeVersion.findFirst.mockResolvedValue({
         id: VERSION_ID,
         tenant_id: TENANT_ID,
@@ -246,13 +255,24 @@ describe('PrivacyNoticesService', () => {
 
       await service.publishVersion(TENANT_ID, VERSION_ID);
 
-      expect(mockNotifications.createBatch).toHaveBeenCalledWith(TENANT_ID, [
-        expect.objectContaining({
-          recipient_user_id: USER_ID,
-          template_key: 'legal.privacy_notice_published',
-          payload_json: expect.objectContaining({ version_number: 4 }),
-        }),
-      ]);
+      expect(mockPrisma.notification.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            tenant_id: TENANT_ID,
+            recipient_user_id: USER_ID,
+            channel: 'in_app',
+            template_key: 'legal.privacy_notice_published',
+            status: 'delivered',
+            payload_json: expect.objectContaining({ version_number: 4 }),
+          }),
+        ],
+      });
+
+      // Verify Redis cache invalidation
+      const redisDel = mockRedis.getClient().del;
+      expect(redisDel).toHaveBeenCalledWith(
+        `tenant:${TENANT_ID}:user:${USER_ID}:unread_notifications`,
+      );
     });
 
     it('should throw NotFoundException when version does not exist', async () => {
@@ -293,7 +313,7 @@ describe('PrivacyNoticesService', () => {
 
       await service.publishVersion(TENANT_ID, VERSION_ID);
 
-      expect(mockNotifications.createBatch).not.toHaveBeenCalled();
+      expect(mockPrisma.notification.createMany).not.toHaveBeenCalled();
     });
   });
 

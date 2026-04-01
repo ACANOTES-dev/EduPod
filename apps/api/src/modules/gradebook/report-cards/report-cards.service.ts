@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -30,11 +26,7 @@ export class ReportCardsService {
    * Generate report cards for multiple students in a given period.
    * Builds snapshot_payload_json from period_grade_snapshots + attendance + metadata.
    */
-  async generate(
-    tenantId: string,
-    studentIds: string[],
-    periodId: string,
-  ) {
+  async generate(tenantId: string, studentIds: string[], periodId: string) {
     // 1. Validate period exists
     const period = await this.prisma.academicPeriod.findFirst({
       where: { id: periodId, tenant_id: tenantId },
@@ -98,39 +90,46 @@ export class ReportCardsService {
 
     const tenantDefaultLocale = tenant?.default_locale ?? 'en';
 
-    // 4. Generate report cards
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    const reportCards = [];
+    // 4. Batch-load all data BEFORE the per-student loop (avoids N+1 queries)
 
-    for (const student of students) {
-      // Load period grade snapshots for this student+period
-      const snapshots = await this.prisma.periodGradeSnapshot.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          academic_period_id: periodId,
+    // 4a. Load ALL period grade snapshots for ALL students in one query
+    const allSnapshots = await this.prisma.periodGradeSnapshot.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        academic_period_id: periodId,
+      },
+      include: {
+        subject: {
+          select: { id: true, name: true, code: true },
         },
-        include: {
-          subject: {
-            select: { id: true, name: true, code: true },
-          },
-        },
-      });
+      },
+    });
 
-      // Load assessment details for each subject
-      const subjectIds = snapshots.map((s) => s.subject_id);
-      const assessments = subjectIds.length > 0
+    // Group snapshots by student_id for fast lookup
+    const snapshotsByStudent = new Map<string, typeof allSnapshots>();
+    for (const snap of allSnapshots) {
+      const existing = snapshotsByStudent.get(snap.student_id) ?? [];
+      existing.push(snap);
+      snapshotsByStudent.set(snap.student_id, existing);
+    }
+
+    // 4b. Load ALL assessments for ALL subjects/classes across all students
+    const allSubjectIds = [...new Set(allSnapshots.map((s) => s.subject_id))];
+    const allClassIds = [...new Set(allSnapshots.map((s) => s.class_id))];
+    const allAssessments =
+      allSubjectIds.length > 0
         ? await this.prisma.assessment.findMany({
             where: {
               tenant_id: tenantId,
               academic_period_id: periodId,
-              subject_id: { in: subjectIds },
-              class_id: { in: snapshots.map((s) => s.class_id) },
+              subject_id: { in: allSubjectIds },
+              class_id: { in: allClassIds },
               status: { not: 'draft' },
             },
             include: {
               grades: {
-                where: { student_id: student.id },
+                where: { student_id: { in: studentIds } },
               },
               category: {
                 select: { name: true },
@@ -139,9 +138,38 @@ export class ReportCardsService {
           })
         : [];
 
-      // Build subjects array for snapshot
-      const subjects = snapshots.map((snapshot) => {
-        const subjectAssessments = assessments.filter(
+    // 4c. Load ALL attendance summaries for ALL students in one groupBy query
+    const allAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['student_id', 'derived_status'],
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        summary_date: {
+          gte: period.start_date,
+          lte: period.end_date,
+        },
+      },
+      _count: { id: true },
+    });
+
+    // Group attendance by student_id
+    const attendanceByStudent = new Map<string, typeof allAttendance>();
+    for (const row of allAttendance) {
+      const existing = attendanceByStudent.get(row.student_id) ?? [];
+      existing.push(row);
+      attendanceByStudent.set(row.student_id, existing);
+    }
+
+    // 5. Build report cards from pre-loaded data
+    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
+    const reportCards = [];
+
+    for (const student of students) {
+      const studentSnapshots = snapshotsByStudent.get(student.id) ?? [];
+
+      // Build subjects array from pre-loaded snapshots + assessments
+      const subjects = studentSnapshots.map((snapshot) => {
+        const subjectAssessments = allAssessments.filter(
           (a) => a.subject_id === snapshot.subject_id && a.class_id === snapshot.class_id,
         );
 
@@ -152,51 +180,40 @@ export class ReportCardsService {
           display_value: snapshot.overridden_value ?? snapshot.display_value,
           overridden_value: snapshot.overridden_value ?? null,
           assessments: subjectAssessments.map((a) => {
-            const grade = a.grades[0];
+            const grade = a.grades.find((g) => g.student_id === student.id);
             return {
               title: a.title,
               category: a.category.name,
               max_score: Number(a.max_score),
-              raw_score: grade?.raw_score !== null && grade?.raw_score !== undefined
-                ? Number(grade.raw_score)
-                : null,
+              raw_score:
+                grade?.raw_score !== null && grade?.raw_score !== undefined
+                  ? Number(grade.raw_score)
+                  : null,
               is_missing: grade?.is_missing ?? true,
             };
           }),
         };
       });
 
-      // Attendance summary: count daily_attendance_summaries within period date range
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
+      // Build attendance summary from pre-loaded data
+      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
+      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
 
-      const statusCounts = new Map(
-        attendanceSummaries.map((s) => [s.derived_status, s._count.id]),
-      );
-
-      const totalDays = attendanceSummaries.reduce((sum, s) => sum + s._count.id, 0);
+      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
-      const absentDays = (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
+      const absentDays =
+        (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
       const lateDays = statusCounts.get('late') ?? 0;
 
-      const attendanceSummary = totalDays > 0
-        ? {
-            total_days: totalDays,
-            present_days: presentDays,
-            absent_days: absentDays,
-            late_days: lateDays,
-          }
-        : undefined;
+      const attendanceSummary =
+        totalDays > 0
+          ? {
+              total_days: totalDays,
+              present_days: presentDays,
+              absent_days: absentDays,
+              late_days: lateDays,
+            }
+          : undefined;
 
       // Determine template locale
       const billingParentLocale = student.household?.billing_parent?.user?.preferred_locale;
@@ -384,7 +401,8 @@ export class ReportCardsService {
       if (reportCard.updated_at.getTime() !== expectedDate.getTime()) {
         throw new ConflictException({
           code: 'CONCURRENT_MODIFICATION',
-          message: 'The report card has been modified by another user. Please refresh and try again.',
+          message:
+            'The report card has been modified by another user. Please refresh and try again.',
         });
       }
     }
@@ -523,11 +541,7 @@ export class ReportCardsService {
    * Build snapshot payloads for all active students in a class for the given period.
    * Returns an array of { student, snapshotPayload } objects, one per student.
    */
-  async buildBatchSnapshots(
-    tenantId: string,
-    classId: string,
-    periodId: string,
-  ) {
+  async buildBatchSnapshots(tenantId: string, classId: string, periodId: string) {
     // 1. Validate period
     const period = await this.prisma.academicPeriod.findFirst({
       where: { id: periodId, tenant_id: tenantId },
@@ -591,7 +605,29 @@ export class ReportCardsService {
       snapshotsByStudent.set(snap.student_id, existing);
     }
 
-    // 4. Build payloads
+    // 4. Batch-load ALL attendance summaries (avoids N+1 per student)
+    const batchAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
+      by: ['student_id', 'derived_status'],
+      where: {
+        tenant_id: tenantId,
+        student_id: { in: studentIds },
+        summary_date: {
+          gte: period.start_date,
+          lte: period.end_date,
+        },
+      },
+      _count: { id: true },
+    });
+
+    // Group attendance by student_id
+    const attendanceByStudent = new Map<string, typeof batchAttendance>();
+    for (const row of batchAttendance) {
+      const existing = attendanceByStudent.get(row.student_id) ?? [];
+      existing.push(row);
+      attendanceByStudent.set(row.student_id, existing);
+    }
+
+    // 5. Build payloads from pre-loaded data
     const results: Array<{
       studentId: string;
       studentName: string;
@@ -609,32 +645,25 @@ export class ReportCardsService {
         overridden_value: snapshot.overridden_value ?? null,
       }));
 
-      // Attendance summary
-      const attendanceSummaries = await this.prisma.dailyAttendanceSummary.groupBy({
-        by: ['derived_status'],
-        where: {
-          tenant_id: tenantId,
-          student_id: student.id,
-          summary_date: {
-            gte: period.start_date,
-            lte: period.end_date,
-          },
-        },
-        _count: { id: true },
-      });
+      // Build attendance summary from pre-loaded data
+      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
+      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
 
-      const statusCounts = new Map(
-        attendanceSummaries.map((s) => [s.derived_status, s._count.id]),
-      );
-
-      const totalDays = attendanceSummaries.reduce((sum, s) => sum + s._count.id, 0);
+      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
       const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
-      const absentDays = (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
+      const absentDays =
+        (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
       const lateDays = statusCounts.get('late') ?? 0;
 
-      const attendanceSummary = totalDays > 0
-        ? { total_days: totalDays, present_days: presentDays, absent_days: absentDays, late_days: lateDays }
-        : undefined;
+      const attendanceSummary =
+        totalDays > 0
+          ? {
+              total_days: totalDays,
+              present_days: presentDays,
+              absent_days: absentDays,
+              late_days: lateDays,
+            }
+          : undefined;
 
       const payload = {
         student: {
@@ -696,10 +725,7 @@ export class ReportCardsService {
         where,
         skip,
         take: pageSize,
-        orderBy: [
-          { student: { last_name: 'asc' } },
-          { subject: { name: 'asc' } },
-        ],
+        orderBy: [{ student: { last_name: 'asc' } }, { subject: { name: 'asc' } }],
         include: {
           student: {
             select: {
@@ -756,11 +782,7 @@ export class ReportCardsService {
    * Generate draft report cards for all active students in a class for a period.
    * Skips students who already have a report card for this period.
    */
-  async generateBulkDrafts(
-    tenantId: string,
-    classId: string,
-    periodId: string,
-  ) {
+  async generateBulkDrafts(tenantId: string, classId: string, periodId: string) {
     // Get all active students in this class
     const enrolments = await this.prisma.classEnrolment.findMany({
       where: { tenant_id: tenantId, class_id: classId, status: 'active' },
@@ -803,11 +825,7 @@ export class ReportCardsService {
   /**
    * Bulk publish multiple report cards.
    */
-  async publishBulk(
-    tenantId: string,
-    reportCardIds: string[],
-    userId: string,
-  ) {
+  async publishBulk(tenantId: string, reportCardIds: string[], userId: string) {
     const results: Array<{ report_card_id: string; success: boolean; error?: string }> = [];
 
     for (const id of reportCardIds) {
@@ -900,27 +918,33 @@ export class ReportCardsService {
     const rcByPeriod = new Map(reportCards.map((rc) => [rc.academic_period_id, rc]));
 
     // Group by year -> period -> subject
-    const yearMap = new Map<string, {
-      academic_year_id: string;
-      academic_year_name: string;
-      periods: Map<string, {
-        period_id: string;
-        period_name: string;
-        start_date: string;
-        end_date: string;
-        gpa: number | null;
-        teacher_comment: string | null;
-        principal_comment: string | null;
-        subjects: Array<{
-          subject_id: string;
-          subject_name: string;
-          subject_code: string | null;
-          computed_value: number;
-          display_value: string;
-          overridden_value: string | null;
-        }>;
-      }>;
-    }>();
+    const yearMap = new Map<
+      string,
+      {
+        academic_year_id: string;
+        academic_year_name: string;
+        periods: Map<
+          string,
+          {
+            period_id: string;
+            period_name: string;
+            start_date: string;
+            end_date: string;
+            gpa: number | null;
+            teacher_comment: string | null;
+            principal_comment: string | null;
+            subjects: Array<{
+              subject_id: string;
+              subject_name: string;
+              subject_code: string | null;
+              computed_value: number;
+              display_value: string;
+              overridden_value: string | null;
+            }>;
+          }
+        >;
+      }
+    >();
 
     for (const snapshot of snapshots) {
       const yearId = snapshot.academic_period.academic_year.id;

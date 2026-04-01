@@ -16,10 +16,7 @@ import { EarlyWarningController } from './early-warning.controller';
 import { EarlyWarningService } from './early-warning.service';
 
 @Module({
-  imports: [
-    PrismaModule,
-    BullModule.registerQueue({ name: 'early-warning' }),
-  ],
+  imports: [PrismaModule, BullModule.registerQueue({ name: 'early-warning' })],
   controllers: [EarlyWarningController],
   providers: [
     EarlyWarningService,
@@ -33,17 +30,6 @@ import { EarlyWarningService } from './early-warning.service';
     EarlyWarningRoutingService,
     EarlyWarningTriggerService,
   ],
-  exports: [
-    EarlyWarningService,
-    EarlyWarningConfigService,
-    EarlyWarningCohortService,
-    AttendanceSignalCollector,
-    BehaviourSignalCollector,
-    EngagementSignalCollector,
-    GradesSignalCollector,
-    WellbeingSignalCollector,
-    EarlyWarningRoutingService,
-    EarlyWarningTriggerService,
-  ],
+  exports: [],
 })
 export class EarlyWarningModule {}

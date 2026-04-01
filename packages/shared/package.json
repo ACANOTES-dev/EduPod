@@ -4,6 +4,68 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./constants/*": {
+      "types": "./src/constants/*.ts",
+      "default": "./dist/constants/*.js"
+    },
+    "./types/*": {
+      "types": "./src/types/*.ts",
+      "default": "./dist/types/*.js"
+    },
+    "./schemas/*": {
+      "types": "./src/schemas/*.ts",
+      "default": "./dist/schemas/*.js"
+    },
+    "./behaviour": {
+      "types": "./src/behaviour/index.ts",
+      "default": "./dist/behaviour/index.js"
+    },
+    "./pastoral": {
+      "types": "./src/pastoral/index.ts",
+      "default": "./dist/pastoral/index.js"
+    },
+    "./sen": {
+      "types": "./src/sen/index.ts",
+      "default": "./dist/sen/index.js"
+    },
+    "./staff-wellbeing": {
+      "types": "./src/staff-wellbeing/index.ts",
+      "default": "./dist/staff-wellbeing/index.js"
+    },
+    "./gdpr": {
+      "types": "./src/gdpr/index.ts",
+      "default": "./dist/gdpr/index.js"
+    },
+    "./security": {
+      "types": "./src/security/index.ts",
+      "default": "./dist/security/index.js"
+    },
+    "./regulatory": {
+      "types": "./src/regulatory/index.ts",
+      "default": "./dist/regulatory/index.js"
+    },
+    "./early-warning": {
+      "types": "./src/early-warning/index.ts",
+      "default": "./dist/early-warning/index.js"
+    },
+    "./engagement": {
+      "types": "./src/engagement/index.ts",
+      "default": "./dist/engagement/index.js"
+    },
+    "./ai": {
+      "types": "./src/ai/index.ts",
+      "default": "./dist/ai/index.js"
+    },
+    "./scheduler": {
+      "types": "./src/scheduler/types-v2.ts",
+      "default": "./dist/scheduler/types-v2.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "lint": "eslint src/",
