@@ -1,8 +1,9 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,13 @@ function getFirstDayOffset(year: number, month: number): number {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function HomeworkCalendar({ month, year, homework, onHomeworkClick, onMonthChange }: HomeworkCalendarProps) {
+export function HomeworkCalendar({
+  month,
+  year,
+  homework,
+  onHomeworkClick,
+  onMonthChange,
+}: HomeworkCalendarProps) {
   const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
 
   const daysInMonth = getDaysInMonth(year, month);
@@ -72,7 +79,10 @@ export function HomeworkCalendar({ month, year, homework, onHomeworkClick, onMon
     else onMonthChange(month + 1, year);
   };
 
-  const monthName = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+  const monthName = new Date(year, month).toLocaleString('default', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <div className="space-y-3">
@@ -88,7 +98,9 @@ export function HomeworkCalendar({ month, year, homework, onHomeworkClick, onMon
 
       <div className="grid grid-cols-7 gap-1">
         {DAY_NAMES.map((d) => (
-          <div key={d} className="py-1 text-center text-xs font-semibold text-text-tertiary">{d}</div>
+          <div key={d} className="py-1 text-center text-xs font-semibold text-text-tertiary">
+            {d}
+          </div>
         ))}
         {Array.from({ length: offset }).map((_, i) => (
           <div key={`pad-${i}`} />
@@ -109,13 +121,20 @@ export function HomeworkCalendar({ month, year, homework, onHomeworkClick, onMon
                 isToday ? 'bg-primary-100 dark:bg-primary-900/20' : ''
               } ${isSelected ? 'ring-2 ring-primary-500' : ''} ${items.length > 0 ? 'cursor-pointer hover:bg-surface-secondary' : 'cursor-default'}`}
             >
-              <span className={`font-medium ${isToday ? 'text-primary-600' : 'text-text-primary'}`}>{day}</span>
+              <span className={`font-medium ${isToday ? 'text-primary-600' : 'text-text-primary'}`}>
+                {day}
+              </span>
               {items.length > 0 && (
                 <div className="mt-0.5 flex gap-0.5">
                   {items.slice(0, 3).map((h) => (
-                    <span key={h.id} className={`h-1.5 w-1.5 rounded-full ${DOT_COLORS[h.homework_type] ?? 'bg-gray-400'}`} />
+                    <span
+                      key={h.id}
+                      className={`h-1.5 w-1.5 rounded-full ${DOT_COLORS[h.homework_type] ?? 'bg-gray-400'}`}
+                    />
                   ))}
-                  {items.length > 3 && <span className="text-[8px] text-text-tertiary">+{items.length - 3}</span>}
+                  {items.length > 3 && (
+                    <span className="text-[8px] text-text-tertiary">+{items.length - 3}</span>
+                  )}
                 </div>
               )}
             </button>

@@ -16,6 +16,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { z } from 'zod';
+
 import {
   createAiGradingInstructionSchema,
   generateAiCommentsSchema,
@@ -27,7 +29,6 @@ import {
   updateProgressReportEntrySchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -90,9 +91,7 @@ const aiGradeInlineQuerySchema = z.object({
 const listInstructionsQuerySchema = z.object({
   class_id: z.string().uuid().optional(),
   subject_id: z.string().uuid().optional(),
-  status: z
-    .enum(['draft', 'pending_approval', 'active', 'rejected'])
-    .optional(),
+  status: z.enum(['draft', 'pending_approval', 'active', 'rejected']).optional(),
 });
 
 const createReferenceSchema = z.object({
@@ -150,10 +149,7 @@ export class GradebookInsightsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
   ) {
-    return this.analyticsService.getGradeDistribution(
-      tenant.tenant_id,
-      assessmentId,
-    );
+    return this.analyticsService.getGradeDistribution(tenant.tenant_id, assessmentId);
   }
 
   @Get('gradebook/analytics/period-distribution')
@@ -188,11 +184,7 @@ export class GradebookInsightsController {
     @Query(new ZodValidationPipe(studentTrendQuerySchema))
     query: z.infer<typeof studentTrendQuerySchema>,
   ) {
-    return this.analyticsService.getStudentTrend(
-      tenant.tenant_id,
-      studentId,
-      query.subject_id,
-    );
+    return this.analyticsService.getStudentTrend(tenant.tenant_id, studentId, query.subject_id);
   }
 
   @Get('gradebook/analytics/classes/:classId/trend')
@@ -249,10 +241,7 @@ export class GradebookInsightsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('reportCardId', ParseUUIDPipe) reportCardId: string,
   ) {
-    return this.aiCommentsService.generateComment(
-      tenant.tenant_id,
-      reportCardId,
-    );
+    return this.aiCommentsService.generateComment(tenant.tenant_id, reportCardId);
   }
 
   @Post('gradebook/ai/generate-comments')
@@ -263,10 +252,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(generateAiCommentsSchema))
     dto: z.infer<typeof generateAiCommentsSchema>,
   ) {
-    return this.aiCommentsService.generateBatchComments(
-      tenant.tenant_id,
-      dto.report_card_ids,
-    );
+    return this.aiCommentsService.generateBatchComments(tenant.tenant_id, dto.report_card_ids);
   }
 
   // ─── B2: AI Grading ─────────────────────────────────────────────────────────
@@ -316,11 +302,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(createAiGradingInstructionSchema))
     dto: z.infer<typeof createAiGradingInstructionSchema>,
   ) {
-    return this.aiGradingInstructionService.upsertInstruction(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.aiGradingInstructionService.upsertInstruction(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('gradebook/ai/grading-instructions')
@@ -330,10 +312,7 @@ export class GradebookInsightsController {
     @Query(new ZodValidationPipe(listInstructionsQuerySchema))
     query: z.infer<typeof listInstructionsQuerySchema>,
   ) {
-    return this.aiGradingInstructionService.listInstructions(
-      tenant.tenant_id,
-      query,
-    );
+    return this.aiGradingInstructionService.listInstructions(tenant.tenant_id, query);
   }
 
   @Get('gradebook/ai/grading-instructions/:id')
@@ -342,10 +321,7 @@ export class GradebookInsightsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.aiGradingInstructionService.findOneInstruction(
-      tenant.tenant_id,
-      id,
-    );
+    return this.aiGradingInstructionService.findOneInstruction(tenant.tenant_id, id);
   }
 
   @Post('gradebook/ai/grading-instructions/:id/approve')
@@ -358,12 +334,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(reviewAiGradingInstructionSchema))
     dto: z.infer<typeof reviewAiGradingInstructionSchema>,
   ) {
-    return this.aiGradingInstructionService.reviewInstruction(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.aiGradingInstructionService.reviewInstruction(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('gradebook/ai/grading-instructions/:id')
@@ -374,11 +345,7 @@ export class GradebookInsightsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.aiGradingInstructionService.deleteInstruction(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    await this.aiGradingInstructionService.deleteInstruction(tenant.tenant_id, id, user.sub);
   }
 
   // ─── B2: AI Grading References ─────────────────────────────────────────────
@@ -392,11 +359,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(createReferenceSchema))
     dto: z.infer<typeof createReferenceSchema>,
   ) {
-    return this.aiGradingInstructionService.createReference(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.aiGradingInstructionService.createReference(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('gradebook/ai/grading-references/:assessmentId')
@@ -405,10 +368,7 @@ export class GradebookInsightsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
   ) {
-    return this.aiGradingInstructionService.listReferences(
-      tenant.tenant_id,
-      assessmentId,
-    );
+    return this.aiGradingInstructionService.listReferences(tenant.tenant_id, assessmentId);
   }
 
   @Post('gradebook/ai/grading-references/:id/approve')
@@ -421,12 +381,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(reviewAiGradingInstructionSchema))
     dto: z.infer<typeof reviewAiGradingInstructionSchema>,
   ) {
-    return this.aiGradingInstructionService.reviewReference(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.aiGradingInstructionService.reviewReference(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('gradebook/ai/grading-references/:id')
@@ -436,10 +391,7 @@ export class GradebookInsightsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.aiGradingInstructionService.deleteReference(
-      tenant.tenant_id,
-      id,
-    );
+    await this.aiGradingInstructionService.deleteReference(tenant.tenant_id, id);
   }
 
   // ─── B5: Natural Language Query ────────────────────────────────────────────
@@ -453,11 +405,7 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(nlQuerySchema))
     dto: z.infer<typeof nlQuerySchema>,
   ) {
-    return this.nlQueryService.processQuery(
-      tenant.tenant_id,
-      user.sub,
-      dto.question,
-    );
+    return this.nlQueryService.processQuery(tenant.tenant_id, user.sub, dto.question);
   }
 
   @Get('gradebook/ai/query/history')
@@ -502,13 +450,10 @@ export class GradebookInsightsController {
     @Query(new ZodValidationPipe(analyticsDistributionQuerySchema))
     query: z.infer<typeof analyticsDistributionQuerySchema>,
   ) {
-    return this.gradePublishingService.getReadinessDashboard(
-      tenant.tenant_id,
-      {
-        period_id: query.period_id,
-        class_id: query.class_id,
-      },
-    );
+    return this.gradePublishingService.getReadinessDashboard(tenant.tenant_id, {
+      period_id: query.period_id,
+      class_id: query.class_id,
+    });
   }
 
   @Post('gradebook/publishing/publish')
@@ -555,11 +500,10 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(generateProgressReportsSchema))
     dto: z.infer<typeof generateProgressReportsSchema>,
   ) {
-    return this.progressReportService.generate(
-      tenant.tenant_id,
-      user.sub,
-      { class_id: dto.class_id, academic_period_id: dto.academic_period_id },
-    );
+    return this.progressReportService.generate(tenant.tenant_id, user.sub, {
+      class_id: dto.class_id,
+      academic_period_id: dto.academic_period_id,
+    });
   }
 
   @Get('gradebook/progress-reports')
@@ -596,10 +540,6 @@ export class GradebookInsightsController {
     @Body(new ZodValidationPipe(sendProgressReportSchema))
     dto: z.infer<typeof sendProgressReportSchema>,
   ) {
-    return this.progressReportService.send(
-      tenant.tenant_id,
-      user.sub,
-      [dto.progress_report_id],
-    );
+    return this.progressReportService.send(tenant.tenant_id, user.sub, [dto.progress_report_id]);
   }
 }

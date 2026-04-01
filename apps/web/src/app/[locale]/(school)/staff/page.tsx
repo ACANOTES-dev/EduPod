@@ -1,5 +1,10 @@
 'use client';
 
+import { Download, Plus, Search } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,14 +16,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Download, Plus, Search } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-import { DataTable } from '@/components/data-table';
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 import { ExportDialog } from './_components/export-dialog';
 import {
@@ -28,6 +25,10 @@ import {
   generateExcel,
   generatePdf,
 } from './_components/export-utils';
+
+import { DataTable } from '@/components/data-table';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,8 +178,17 @@ export default function StaffPage() {
   };
 
   const employmentStatusBadge = (status: string) => {
-    if (status === 'active') return <StatusBadge status="success" dot>{t('statusActive')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{t('statusInactive')}</StatusBadge>;
+    if (status === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('statusActive')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {t('statusInactive')}
+      </StatusBadge>
+    );
   };
 
   const columns = [
@@ -223,7 +233,9 @@ export default function StaffPage() {
       key: 'employment_type',
       header: t('colType'),
       render: (row: StaffProfile) => (
-        <span className="text-text-secondary capitalize">{row.employment_type.replace('_', ' ')}</span>
+        <span className="text-text-secondary capitalize">
+          {row.employment_type.replace('_', ' ')}
+        </span>
       ),
     },
   ];
@@ -240,9 +252,17 @@ export default function StaffPage() {
             className="ps-9 w-full sm:w-64"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm">{tc('search')}</Button>
+        <Button type="submit" variant="outline" size="sm">
+          {tc('search')}
+        </Button>
       </form>
-      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue />
         </SelectTrigger>

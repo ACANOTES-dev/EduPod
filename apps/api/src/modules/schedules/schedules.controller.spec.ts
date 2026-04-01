@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -88,9 +89,7 @@ describe('SchedulesController', () => {
     const result = await controller.create(mockTenant, mockUser, dto);
 
     expect(result).toEqual({ id: SCHEDULE_ID });
-    expect(mockPermissionCache.getPermissions).toHaveBeenCalledWith(
-      MEMBERSHIP_ID,
-    );
+    expect(mockPermissionCache.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
   });
 
   it('should return schedule with conflict meta when conflicts exist', async () => {

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Download, Mail, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -62,14 +63,16 @@ function TemplateForm({
   const [format, setFormat] = React.useState<'csv' | 'xlsx'>(initial?.file_format ?? 'csv');
   const [columns, setColumns] = React.useState<TemplateColumn[]>(
     initial?.columns_json ??
-      AVAILABLE_FIELDS.map((f) => ({ field: f.field, header: f.field.replace(/_/g, ' '), enabled: true })),
+      AVAILABLE_FIELDS.map((f) => ({
+        field: f.field,
+        header: f.field.replace(/_/g, ' '),
+        enabled: true,
+      })),
   );
   const [isSaving, setIsSaving] = React.useState(false);
 
   const toggleColumn = (field: string) => {
-    setColumns((prev) =>
-      prev.map((c) => (c.field === field ? { ...c, enabled: !c.enabled } : c)),
-    );
+    setColumns((prev) => prev.map((c) => (c.field === field ? { ...c, enabled: !c.enabled } : c)));
   };
 
   const handleSave = async () => {
@@ -89,8 +92,9 @@ function TemplateForm({
         });
       }
       onSave();
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[onSave]', err);
     } finally {
       setIsSaving(false);
     }
@@ -190,8 +194,9 @@ export default function ExportsPage() {
       ]);
       setTemplates(tmplRes.data);
       setHistory(histRes.data);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setHistory]', err);
     } finally {
       setIsLoading(false);
     }
@@ -206,16 +211,18 @@ export default function ExportsPage() {
     try {
       await apiClient(`/api/v1/payroll/export-templates/${id}`, { method: 'DELETE' });
       setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setTemplates]', err);
     }
   };
 
   const handleSendToAccountant = async (logId: string) => {
     try {
       await apiClient(`/api/v1/payroll/export-logs/${logId}/send`, { method: 'POST' });
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[apiClient]', err);
     }
   };
 
@@ -230,7 +237,12 @@ export default function ExportsPage() {
         title={t('exports')}
         actions={
           activeTab === 'templates' && (
-            <Button onClick={() => { setEditTemplate(null); setShowForm(true); }}>
+            <Button
+              onClick={() => {
+                setEditTemplate(null);
+                setShowForm(true);
+              }}
+            >
               <Plus className="me-1.5 h-4 w-4" />
               {t('newTemplate')}
             </Button>
@@ -259,8 +271,15 @@ export default function ExportsPage() {
       {showForm && (
         <TemplateForm
           initial={editTemplate ?? undefined}
-          onSave={() => { setShowForm(false); setEditTemplate(null); void fetchData(); }}
-          onCancel={() => { setShowForm(false); setEditTemplate(null); }}
+          onSave={() => {
+            setShowForm(false);
+            setEditTemplate(null);
+            void fetchData();
+          }}
+          onCancel={() => {
+            setShowForm(false);
+            setEditTemplate(null);
+          }}
         />
       )}
 
@@ -286,15 +305,18 @@ export default function ExportsPage() {
                 <div>
                   <p className="text-sm font-semibold text-text-primary">{tmpl.name}</p>
                   <p className="text-xs text-text-secondary">
-                    {tmpl.file_format.toUpperCase()} &middot;{' '}
-                    {tmpl.columns_json.length} {t('columns')}
+                    {tmpl.file_format.toUpperCase()} &middot; {tmpl.columns_json.length}{' '}
+                    {t('columns')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => { setEditTemplate(tmpl); setShowForm(true); }}
+                    onClick={() => {
+                      setEditTemplate(tmpl);
+                      setShowForm(true);
+                    }}
                   >
                     {t('edit')}
                   </Button>

@@ -1,10 +1,10 @@
 'use client';
 
-import type { FeeGenerationPreviewLine } from '@school/shared';
-import { Checkbox, StatusBadge, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { FeeGenerationPreviewLine } from '@school/shared';
+import { Checkbox, StatusBadge, TableWrapper } from '@school/ui';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
@@ -83,9 +83,7 @@ export function FeeGenerationPreview({
                 <td className="px-4 py-3 text-sm text-text-secondary">
                   {line.student_name ?? '—'}
                 </td>
-                <td className="px-4 py-3 text-sm text-text-secondary">
-                  {line.fee_structure_name}
-                </td>
+                <td className="px-4 py-3 text-sm text-text-secondary">{line.fee_structure_name}</td>
                 <td className="px-4 py-3 text-sm">
                   <CurrencyDisplay
                     amount={line.base_amount}
@@ -134,10 +132,7 @@ export function FeeGenerationPreview({
           })}
           {lines.length === 0 && (
             <tr>
-              <td
-                colSpan={8}
-                className="px-4 py-12 text-center text-sm text-text-tertiary"
-              >
+              <td colSpan={8} className="px-4 py-12 text-center text-sm text-text-tertiary">
                 {t('feeGeneration.noPreviewLines')}
               </td>
             </tr>

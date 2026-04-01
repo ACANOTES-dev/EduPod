@@ -1,9 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { Job } from 'bullmq';
+
 import type { RiskTier, SignalResult, TrendJson } from '@school/shared';
 import { EARLY_WARNING_COMPUTE_DAILY_JOB } from '@school/shared';
-import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -43,18 +44,14 @@ export class ComputeDailyProcessor extends WorkerHost {
 
     if (tenant_id) {
       // Per-tenant mode
-      this.logger.log(
-        `Processing ${EARLY_WARNING_COMPUTE_DAILY_JOB} — tenant ${tenant_id}`,
-      );
+      this.logger.log(`Processing ${EARLY_WARNING_COMPUTE_DAILY_JOB} — tenant ${tenant_id}`);
       const innerJob = new ComputeDailyJob(this.prisma);
       await innerJob.execute(job.data);
       return;
     }
 
     // Cross-tenant cron mode: iterate all active tenants
-    this.logger.log(
-      `Processing ${EARLY_WARNING_COMPUTE_DAILY_JOB} — cross-tenant cron run`,
-    );
+    this.logger.log(`Processing ${EARLY_WARNING_COMPUTE_DAILY_JOB} — cross-tenant cron run`);
 
     const tenants = await this.prisma.tenant.findMany({
       where: { status: 'active' },
@@ -68,9 +65,7 @@ export class ComputeDailyProcessor extends WorkerHost {
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Daily compute failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Daily compute failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -85,10 +80,7 @@ export class ComputeDailyProcessor extends WorkerHost {
 class ComputeDailyJob extends TenantAwareJob<ComputeDailyPayload> {
   private readonly logger = new Logger(ComputeDailyJob.name);
 
-  protected async processJob(
-    data: ComputeDailyPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ComputeDailyPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // 1. Load tenant config — skip if early warning is disabled
@@ -111,9 +103,7 @@ class ComputeDailyJob extends TenantAwareJob<ComputeDailyPayload> {
       select: { id: true },
     });
 
-    this.logger.log(
-      `Tenant ${tenant_id}: computing risk for ${students.length} active students`,
-    );
+    this.logger.log(`Tenant ${tenant_id}: computing risk for ${students.length} active students`);
 
     let profilesUpdated = 0;
     let tierTransitions = 0;
@@ -173,13 +163,7 @@ class ComputeDailyJob extends TenantAwareJob<ComputeDailyPayload> {
         profilesUpdated++;
 
         // 4e. Write signal audit trail
-        await writeSignalAuditTrail(
-          tx,
-          tenant_id,
-          student.id,
-          academicYear.id,
-          assessment.signals,
-        );
+        await writeSignalAuditTrail(tx, tenant_id, student.id, academicYear.id, assessment.signals);
 
         // 4f. Log tier transition if changed
         if (assessment.tierChanged) {
@@ -194,9 +178,7 @@ class ComputeDailyJob extends TenantAwareJob<ComputeDailyPayload> {
           tierTransitions++;
         }
       } catch (err: unknown) {
-        this.logger.error(
-          `Failed to compute risk for student ${student.id}: ${String(err)}`,
-        );
+        this.logger.error(`Failed to compute risk for student ${student.id}: ${String(err)}`);
         // Continue processing other students
       }
     }

@@ -1,20 +1,17 @@
 'use client';
 
-import type { BillingFrequency } from '@school/shared';
-import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { BillingFrequency } from '@school/shared';
+import { Button } from '@school/ui';
+
+import { FeeStructureForm, type FeeStructureFormValues } from '../_components/fee-structure-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import {
-  FeeStructureForm,
-  type FeeStructureFormValues,
-} from '../_components/fee-structure-form';
 
 interface FeeStructureDetail {
   id: string;

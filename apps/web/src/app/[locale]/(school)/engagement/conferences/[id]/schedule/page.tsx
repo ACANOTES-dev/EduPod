@@ -1,5 +1,11 @@
 'use client';
 
+import { Ban, Search, UserPlus, Video } from 'lucide-react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -10,11 +16,6 @@ import {
   Input,
   toast,
 } from '@school/ui';
-import { Ban, Search, UserPlus, Video } from 'lucide-react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   formatDisplayDate,
@@ -33,7 +34,6 @@ import { ScheduleGrid } from '../../../_components/schedule-grid';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function ConferenceSchedulePage() {
   const params = useParams<{ id: string }>();

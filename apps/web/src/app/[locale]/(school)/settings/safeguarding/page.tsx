@@ -1,13 +1,10 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Label,
-} from '@school/ui';
 import { Save, ShieldCheck } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -68,14 +65,18 @@ export default function SafeguardingSettingsPage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
+    } catch (err) {
       // Error handled by global toast
+      console.error('[setTimeout]', err);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const updateField = <K extends keyof SafeguardingSettings>(key: K, value: SafeguardingSettings[K]) => {
+  const updateField = <K extends keyof SafeguardingSettings>(
+    key: K,
+    value: SafeguardingSettings[K],
+  ) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -244,9 +245,7 @@ export default function SafeguardingSettingsPage() {
             onChange={(e) => updateField('retention_years', Number(e.target.value))}
             className="w-full text-base sm:w-32"
           />
-          <p className="text-xs text-text-tertiary">
-            {t('labels.retentionHint')}
-          </p>
+          <p className="text-xs text-text-tertiary">{t('labels.retentionHint')}</p>
         </div>
       </div>
     </div>

@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createInterventionActionSchema,
   createPastoralInterventionProgressSchema,
@@ -23,7 +25,6 @@ import {
   updatePastoralInterventionSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -56,24 +57,15 @@ export class InterventionsController {
     @Query(new ZodValidationPipe(pastoralInterventionFiltersSchema))
     query: z.infer<typeof pastoralInterventionFiltersSchema>,
   ) {
-    return this.interventionService.listInterventions(
-      tenant.tenant_id,
-      query,
-    );
+    return this.interventionService.listInterventions(tenant.tenant_id, query);
   }
 
   // 2. Get intervention detail
 
   @Get('pastoral/interventions/:id')
   @RequiresPermission('pastoral.manage_interventions')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.interventionService.getIntervention(
-      tenant.tenant_id,
-      id,
-    );
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.interventionService.getIntervention(tenant.tenant_id, id);
   }
 
   // 3. List interventions for case
@@ -84,10 +76,7 @@ export class InterventionsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('caseId', ParseUUIDPipe) caseId: string,
   ) {
-    return this.interventionService.listInterventionsForCase(
-      tenant.tenant_id,
-      caseId,
-    );
+    return this.interventionService.listInterventionsForCase(tenant.tenant_id, caseId);
   }
 
   // 4. List interventions for student
@@ -98,10 +87,7 @@ export class InterventionsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.interventionService.listInterventionsForStudent(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.interventionService.listInterventionsForStudent(tenant.tenant_id, studentId);
   }
 
   // 5. Create intervention
@@ -115,11 +101,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(createPastoralInterventionSchema))
     dto: z.infer<typeof createPastoralInterventionSchema>,
   ) {
-    return this.interventionService.createIntervention(
-      tenant.tenant_id,
-      dto,
-      user.sub,
-    );
+    return this.interventionService.createIntervention(tenant.tenant_id, dto, user.sub);
   }
 
   // 6. Update intervention (active only)
@@ -133,12 +115,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(updatePastoralInterventionSchema))
     dto: z.infer<typeof updatePastoralInterventionSchema>,
   ) {
-    return this.interventionService.updateIntervention(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionService.updateIntervention(tenant.tenant_id, id, dto, user.sub);
   }
 
   // 7. Change status
@@ -152,12 +129,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(pastoralInterventionStatusTransitionSchema))
     dto: z.infer<typeof pastoralInterventionStatusTransitionSchema>,
   ) {
-    return this.interventionService.changeStatus(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionService.changeStatus(tenant.tenant_id, id, dto, user.sub);
   }
 
   // 8. Record review
@@ -172,12 +144,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(recordReviewSchema))
     dto: z.infer<typeof recordReviewSchema>,
   ) {
-    return this.interventionService.recordReview(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionService.recordReview(tenant.tenant_id, id, dto, user.sub);
   }
 
   // ─── Actions ────────────────────────────────────────────────────────────────
@@ -190,10 +157,7 @@ export class InterventionsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.interventionActionService.listActionsForIntervention(
-      tenant.tenant_id,
-      id,
-    );
+    return this.interventionActionService.listActionsForIntervention(tenant.tenant_id, id);
   }
 
   // 10. List all actions
@@ -205,24 +169,15 @@ export class InterventionsController {
     @Query(new ZodValidationPipe(interventionActionFiltersSchema))
     query: z.infer<typeof interventionActionFiltersSchema>,
   ) {
-    return this.interventionActionService.listAllActions(
-      tenant.tenant_id,
-      query,
-    );
+    return this.interventionActionService.listAllActions(tenant.tenant_id, query);
   }
 
   // 11. My assigned actions
 
   @Get('pastoral/intervention-actions/my')
   @RequiresPermission('pastoral.manage_interventions')
-  async myActions(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.interventionActionService.listMyActions(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async myActions(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.interventionActionService.listMyActions(tenant.tenant_id, user.sub);
   }
 
   // 12. Create action
@@ -237,12 +192,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(createInterventionActionSchema))
     dto: z.infer<typeof createInterventionActionSchema>,
   ) {
-    return this.interventionActionService.createAction(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionActionService.createAction(tenant.tenant_id, id, dto, user.sub);
   }
 
   // 13. Update action
@@ -256,12 +206,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(updateInterventionActionSchema))
     dto: z.infer<typeof updateInterventionActionSchema>,
   ) {
-    return this.interventionActionService.updateAction(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionActionService.updateAction(tenant.tenant_id, id, dto, user.sub);
   }
 
   // 14. Complete action
@@ -273,11 +218,7 @@ export class InterventionsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.interventionActionService.completeAction(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.interventionActionService.completeAction(tenant.tenant_id, id, user.sub);
   }
 
   // ─── Progress ───────────────────────────────────────────────────────────────
@@ -290,10 +231,7 @@ export class InterventionsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.interventionService.listProgressNotes(
-      tenant.tenant_id,
-      id,
-    );
+    return this.interventionService.listProgressNotes(tenant.tenant_id, id);
   }
 
   // 16. Add progress note
@@ -308,12 +246,7 @@ export class InterventionsController {
     @Body(new ZodValidationPipe(createPastoralInterventionProgressSchema))
     dto: z.infer<typeof createPastoralInterventionProgressSchema>,
   ) {
-    return this.interventionService.addProgressNote(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.interventionService.addProgressNote(tenant.tenant_id, id, dto, user.sub);
   }
 
   // ─── Settings ───────────────────────────────────────────────────────────────
@@ -322,11 +255,7 @@ export class InterventionsController {
 
   @Get('pastoral/settings/intervention-types')
   @RequiresPermission('pastoral.manage_interventions')
-  async getInterventionTypes(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
-    return this.interventionService.getInterventionTypes(
-      tenant.tenant_id,
-    );
+  async getInterventionTypes(@CurrentTenant() tenant: TenantContext) {
+    return this.interventionService.getInterventionTypes(tenant.tenant_id);
   }
 }

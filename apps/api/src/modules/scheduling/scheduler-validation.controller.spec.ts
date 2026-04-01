@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { TenantContext } from '@school/shared';
 import request from 'supertest';
+
+import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';

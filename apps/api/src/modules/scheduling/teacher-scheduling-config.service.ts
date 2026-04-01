@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { UpsertTeacherSchedulingConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -130,11 +127,7 @@ export class TeacherSchedulingConfigService {
 
   // ─── Copy from Academic Year ───────────────────────────────────────────────
 
-  async copyFromAcademicYear(
-    tenantId: string,
-    sourceYearId: string,
-    targetYearId: string,
-  ) {
+  async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
     const [sourceYear, targetYear] = await Promise.all([
       this.prisma.academicYear.findFirst({
         where: { id: sourceYearId, tenant_id: tenantId },
@@ -172,7 +165,7 @@ export class TeacherSchedulingConfigService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const created = [];
@@ -191,7 +184,7 @@ export class TeacherSchedulingConfigService {
       }
 
       return created;
-    }) as unknown as Record<string, unknown>[];
+    })) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { copied: result.length } };
   }

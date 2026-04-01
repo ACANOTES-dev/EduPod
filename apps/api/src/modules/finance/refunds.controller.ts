@@ -10,18 +10,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createRefundSchema,
   refundApprovalCommentSchema,
   refundQuerySchema,
   refundRejectionCommentSchema,
 } from '@school/shared';
-import type {
-  CreateRefundDto,
-  JwtPayload,
-  TenantContext,
-} from '@school/shared';
-import { z } from 'zod';
+import type { CreateRefundDto, JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -87,10 +84,7 @@ export class RefundsController {
   @Post(':id/execute')
   @RequiresPermission('finance.manage')
   @HttpCode(HttpStatus.OK)
-  async execute(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async execute(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.refundsService.execute(tenant.tenant_id, id);
   }
 }

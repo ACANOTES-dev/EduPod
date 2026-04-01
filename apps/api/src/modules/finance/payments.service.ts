@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { AllocationSuggestion, ConfirmAllocationsDto, CreatePaymentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

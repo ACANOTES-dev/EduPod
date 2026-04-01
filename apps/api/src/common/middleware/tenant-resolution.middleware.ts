@@ -1,8 +1,9 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { TenantContext } from '@school/shared';
 import { NextFunction, Request, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
+
+import type { TenantContext } from '@school/shared';
 
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { RedisService } from '../../modules/redis/redis.service';
@@ -150,9 +151,7 @@ export class TenantResolutionMiddleware implements NestMiddleware {
         // Next.js rewrite proxy pattern where all /api/* requests are forwarded
         // from the frontend server, losing the original tenant subdomain.
         const isPlatformDomain =
-          hostname === this.platformDomain ||
-          hostname === 'localhost' ||
-          hostname === '127.0.0.1';
+          hostname === this.platformDomain || hostname === 'localhost' || hostname === '127.0.0.1';
 
         if (isPlatformDomain) {
           const tenantFromToken = await this.resolveTenantFromToken(req);

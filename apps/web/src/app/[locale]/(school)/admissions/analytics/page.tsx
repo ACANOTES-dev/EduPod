@@ -1,11 +1,12 @@
 'use client';
 
-import { Button, StatCard } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+import { Button, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -27,7 +28,11 @@ function FunnelChart({ data }: { data: Array<{ stage: string; count: number }> }
       <h3 className="mb-4 text-base font-semibold text-text-primary">Admissions Funnel</h3>
       <div className="h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 20, bottom: 0, left: 80 }}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 0, right: 20, bottom: 0, left: 80 }}
+          >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis type="number" />
             <YAxis type="category" dataKey="stage" width={80} tick={{ fontSize: 12 }} />
@@ -88,17 +93,18 @@ export default function AdmissionsAnalyticsPage() {
       {/* Summary cards */}
       {analytics && (
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatCard
-            label={t('totalApplications')}
-            value={analytics.total}
-          />
+          <StatCard label={t('totalApplications')} value={analytics.total} />
           <StatCard
             label={t('conversionRate')}
             value={`${analytics.conversion_rate.toFixed(1)}%`}
           />
           <StatCard
             label={t('avgDaysToDecision')}
-            value={analytics.avg_days_to_decision != null ? analytics.avg_days_to_decision.toFixed(1) : '—'}
+            value={
+              analytics.avg_days_to_decision != null
+                ? analytics.avg_days_to_decision.toFixed(1)
+                : '—'
+            }
           />
         </div>
       )}

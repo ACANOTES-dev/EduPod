@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -43,9 +44,7 @@ describe('BehaviourAlertsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourAlertsController],
-      providers: [
-        { provide: BehaviourAlertsService, useValue: mockService },
-      ],
+      providers: [{ provide: BehaviourAlertsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -109,7 +108,10 @@ describe('BehaviourAlertsController', () => {
     await controller.snooze(TENANT, USER, 'alert-1', dto as never);
 
     expect(mockService.snooze).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'alert-1', new Date('2026-04-01T00:00:00.000Z'),
+      'tenant-uuid',
+      'user-uuid',
+      'alert-1',
+      new Date('2026-04-01T00:00:00.000Z'),
     );
   });
 
@@ -127,6 +129,11 @@ describe('BehaviourAlertsController', () => {
 
     await controller.dismiss(TENANT, USER, 'alert-1', dto as never);
 
-    expect(mockService.dismiss).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', 'alert-1', 'False positive');
+    expect(mockService.dismiss).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      'alert-1',
+      'False positive',
+    );
   });
 });

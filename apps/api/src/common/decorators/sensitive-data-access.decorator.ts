@@ -1,4 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
+
 import type { AuditLogSensitivity } from '@school/shared';
 
 export const SENSITIVE_DATA_ACCESS_KEY = 'sensitive_data_access';

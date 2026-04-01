@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ReducedSchoolDayReason } from '@prisma/client';
+
 import type { CreateReducedSchoolDayDto, UpdateReducedSchoolDayDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -117,7 +118,9 @@ export class RegulatoryReducedDaysService {
       if (dto.hours_per_day !== undefined) data.hours_per_day = dto.hours_per_day;
       if (dto.reason_detail !== undefined) data.reason_detail = dto.reason_detail;
       if (dto.parent_consent_date !== undefined) {
-        data.parent_consent_date = dto.parent_consent_date ? new Date(dto.parent_consent_date) : null;
+        data.parent_consent_date = dto.parent_consent_date
+          ? new Date(dto.parent_consent_date)
+          : null;
       }
       if (dto.review_date !== undefined) {
         data.review_date = dto.review_date ? new Date(dto.review_date) : null;

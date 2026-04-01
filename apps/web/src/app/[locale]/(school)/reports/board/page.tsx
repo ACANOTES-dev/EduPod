@@ -1,9 +1,19 @@
 'use client';
 
-import { Button, Checkbox, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { Download, FileText, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  Checkbox,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -33,7 +43,7 @@ const SECTIONS = [
   'achievements_concerns',
 ] as const;
 
-type SectionKey = typeof SECTIONS[number];
+type SectionKey = (typeof SECTIONS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -106,7 +116,10 @@ export default function BoardReportPage() {
           <div className="space-y-4">
             <div>
               <Label>{t('board.reportType')}</Label>
-              <Select value={reportType} onValueChange={(v) => setReportType(v as 'termly' | 'annual')}>
+              <Select
+                value={reportType}
+                onValueChange={(v) => setReportType(v as 'termly' | 'annual')}
+              >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -138,7 +151,9 @@ export default function BoardReportPage() {
                       checked={selectedSections.has(section)}
                       onCheckedChange={() => toggleSection(section)}
                     />
-                    <span className="text-sm text-text-secondary">{t(`board.section.${section}`)}</span>
+                    <span className="text-sm text-text-secondary">
+                      {t(`board.section.${section}`)}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -165,7 +180,9 @@ export default function BoardReportPage() {
         {preview && (
           <section className="space-y-4 rounded-xl border border-border bg-surface p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-text-primary">{t('board.previewTitle')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('board.previewTitle')}
+              </h2>
               <Button size="sm" variant="outline" disabled={!preview.file_url}>
                 <Download className="me-2 h-4 w-4" />
                 {t('board.downloadPdf')}
@@ -198,24 +215,33 @@ export default function BoardReportPage() {
 
       {/* History */}
       <section>
-        <h2 className="mb-4 text-base font-semibold text-text-primary">{t('board.historyTitle')}</h2>
+        <h2 className="mb-4 text-base font-semibold text-text-primary">
+          {t('board.historyTitle')}
+        </h2>
         {loadingHistory ? (
           <div className="space-y-2">
-            {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-secondary" />)}
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl bg-surface-secondary" />
+            ))}
           </div>
         ) : history.length === 0 ? (
           <p className="text-sm text-text-tertiary">{t('board.noHistory')}</p>
         ) : (
           <div className="space-y-2">
             {history.map((report) => (
-              <div key={report.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+              <div
+                key={report.id}
+                className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3"
+              >
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-text-primary">{report.title}</p>
-                    <p className="text-xs text-text-tertiary">{new Date(report.generated_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-text-tertiary">
+                      {new Date(report.generated_at).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
                 <Button size="sm" variant="outline" disabled={!report.file_url}>

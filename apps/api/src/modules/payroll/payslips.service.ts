@@ -1,12 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { PayslipSnapshotPayload } from '@school/shared';
 import type { Queue } from 'bullmq';
+
+import type { PayslipSnapshotPayload } from '@school/shared';
 
 import { EncryptionService } from '../configuration/encryption.service';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
@@ -153,20 +150,10 @@ export class PayslipsService {
       logo_url: snapshot.school.logo_url ?? undefined,
     };
 
-    return this.pdfRenderingService.renderPdf(
-      'payslip',
-      renderLocale,
-      snapshot,
-      branding,
-    );
+    return this.pdfRenderingService.renderPdf('payslip', renderLocale, snapshot, branding);
   }
 
-  async generatePayslipsForRun(
-    tenantId: string,
-    runId: string,
-    userId: string,
-    db: unknown,
-  ) {
+  async generatePayslipsForRun(tenantId: string, runId: string, userId: string, db: unknown) {
     const prismaDb = db as unknown as PrismaService;
 
     // Get the run with entries
@@ -216,14 +203,17 @@ export class PayslipsService {
       $executeRaw: (sql: Prisma.Sql) => Promise<number>;
     };
 
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE within RLS transaction
     const seqRows = (await rawTx.$queryRaw(
       Prisma.sql`SELECT current_value FROM tenant_sequences WHERE tenant_id = ${tenantId}::uuid AND sequence_type = 'payslip' FOR UPDATE`,
     )) as Array<{ current_value: bigint }>;
 
-    let currentSeqValue = seqRows.length > 0 ? Number((seqRows[0] as { current_value: bigint }).current_value) : 0;
+    let currentSeqValue =
+      seqRows.length > 0 ? Number((seqRows[0] as { current_value: bigint }).current_value) : 0;
     const entriesToProcess = run.entries;
     const newSeqValue = currentSeqValue + entriesToProcess.length;
 
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- sequence update within RLS transaction
     await rawTx.$executeRaw(
       Prisma.sql`UPDATE tenant_sequences SET current_value = ${newSeqValue} WHERE tenant_id = ${tenantId}::uuid AND sequence_type = 'payslip'`,
     );
@@ -242,7 +232,10 @@ export class PayslipsService {
       let bankAccountLast4: string | null = null;
       let bankIbanLast4: string | null = null;
 
-      if (entry.staff_profile.bank_account_number_encrypted && entry.staff_profile.bank_encryption_key_ref) {
+      if (
+        entry.staff_profile.bank_account_number_encrypted &&
+        entry.staff_profile.bank_encryption_key_ref
+      ) {
         try {
           const decrypted = this.encryptionService.decrypt(
             entry.staff_profile.bank_account_number_encrypted,
@@ -287,11 +280,19 @@ export class PayslipsService {
         },
         compensation: {
           type: entry.compensation_type as 'salaried' | 'per_class',
-          base_salary: entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
-          per_class_rate: entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
+          base_salary:
+            entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
+          per_class_rate:
+            entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
           assigned_class_count: entry.snapshot_assigned_class_count,
-          bonus_class_rate: entry.snapshot_bonus_class_rate !== null ? Number(entry.snapshot_bonus_class_rate) : null,
-          bonus_day_multiplier: entry.snapshot_bonus_day_multiplier !== null ? Number(entry.snapshot_bonus_day_multiplier) : null,
+          bonus_class_rate:
+            entry.snapshot_bonus_class_rate !== null
+              ? Number(entry.snapshot_bonus_class_rate)
+              : null,
+          bonus_day_multiplier:
+            entry.snapshot_bonus_day_multiplier !== null
+              ? Number(entry.snapshot_bonus_day_multiplier)
+              : null,
         },
         inputs: {
           days_worked: entry.days_worked,
@@ -333,7 +334,12 @@ export class PayslipsService {
     const redisKey = `payroll:mass-export:${tenantId}:${runId}`;
     const redis = this.redisService.getClient();
 
-    await redis.set(redisKey, JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }), 'EX', 3600);
+    await redis.set(
+      redisKey,
+      JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }),
+      'EX',
+      3600,
+    );
 
     await this.payrollQueue.add('payroll:mass-export', {
       tenant_id: tenantId,

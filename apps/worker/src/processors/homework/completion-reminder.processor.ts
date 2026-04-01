@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { homeworkSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { homeworkSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -21,9 +22,7 @@ export const HOMEWORK_COMPLETION_REMINDER_JOB = 'homework:completion-reminder';
 
 @Processor(QUEUE_NAMES.HOMEWORK)
 export class HomeworkCompletionReminderProcessor extends WorkerHost {
-  private readonly logger = new Logger(
-    HomeworkCompletionReminderProcessor.name,
-  );
+  private readonly logger = new Logger(HomeworkCompletionReminderProcessor.name);
 
   constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {
     super();
@@ -37,9 +36,7 @@ export class HomeworkCompletionReminderProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${HOMEWORK_COMPLETION_REMINDER_JOB} for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${HOMEWORK_COMPLETION_REMINDER_JOB} for tenant ${tenant_id}`);
 
     const reminderJob = new HomeworkCompletionReminderJob(this.prisma);
     await reminderJob.execute(job.data);
@@ -67,9 +64,7 @@ class HomeworkCompletionReminderJob extends TenantAwareJob<HomeworkCompletionRem
     const homeworkSettings = homeworkSettingsSchema.parse(rawSettings.homework ?? {});
 
     if (!homeworkSettings.completion_reminder_enabled) {
-      this.logger.log(
-        `Completion reminders disabled for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.log(`Completion reminders disabled for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -95,9 +90,7 @@ class HomeworkCompletionReminderJob extends TenantAwareJob<HomeworkCompletionRem
     });
 
     if (assignments.length === 0) {
-      this.logger.log(
-        `No assignments due tomorrow for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.log(`No assignments due tomorrow for tenant ${tenant_id} — skipping`);
       return;
     }
 

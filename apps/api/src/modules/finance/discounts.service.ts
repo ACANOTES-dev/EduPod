@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+
 import type { CreateDiscountDto, UpdateDiscountDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';

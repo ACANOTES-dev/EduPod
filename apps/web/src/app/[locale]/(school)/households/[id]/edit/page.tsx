@@ -1,17 +1,18 @@
 'use client';
 
-import { Skeleton, toast } from '@school/ui';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Skeleton, toast } from '@school/ui';
 
 import {
   HouseholdForm,
   type HouseholdFormData,
   type EmergencyContactData,
 } from '../../_components/household-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 interface HouseholdDetail {
   id: string;
@@ -128,10 +129,7 @@ export default function EditHouseholdPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Edit Household"
-        description={`Editing ${household.household_name}`}
-      />
+      <PageHeader title="Edit Household" description={`Editing ${household.household_name}`} />
       <HouseholdForm initialData={initialData} onSubmit={handleSubmit} isEditMode />
     </div>
   );

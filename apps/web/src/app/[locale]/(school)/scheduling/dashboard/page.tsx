@@ -1,14 +1,6 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
-import {
-  BarChart3,
-  BookOpen,
-  CheckCircle2,
-  Loader2,
-  Pin,
-  Sparkles,
-} from 'lucide-react';
+import { BarChart3, BookOpen, CheckCircle2, Loader2, Pin, Sparkles } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -22,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -89,7 +83,9 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, icon, highlight, sub }: KpiCardProps) {
   return (
-    <div className={`rounded-xl border p-5 ${highlight ? 'border-brand/40 bg-brand/5' : 'border-border bg-surface'}`}>
+    <div
+      className={`rounded-xl border p-5 ${highlight ? 'border-brand/40 bg-brand/5' : 'border-border bg-surface'}`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-text-tertiary uppercase tracking-wide">{label}</p>
@@ -112,7 +108,9 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: WorkloadCell[] }>(`/api/v1/scheduling-dashboard/workload?academic_year_id=${academicYearId}`)
+    apiClient<{ data: WorkloadCell[] }>(
+      `/api/v1/scheduling-dashboard/workload?academic_year_id=${academicYearId}`,
+    )
       .then((res) => setCells(res.data ?? []))
       .catch(() => setCells([]))
       .finally(() => setLoading(false));
@@ -128,7 +126,9 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
   }
 
   if (cells.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-secondary">No workload data available.</p>;
+    return (
+      <p className="py-8 text-center text-sm text-text-secondary">No workload data available.</p>
+    );
   }
 
   // Build unique teachers and periods
@@ -172,10 +172,15 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
             </th>
             {weekdays.flatMap((wd) =>
               periods.map(([po, pn]) => (
-                <th key={`${wd}-${po}`} className="border border-border bg-surface-secondary px-2 py-2 text-center text-xs font-semibold text-text-tertiary">
-                  {WEEKDAY_SHORT[wd]}<br />{pn}
+                <th
+                  key={`${wd}-${po}`}
+                  className="border border-border bg-surface-secondary px-2 py-2 text-center text-xs font-semibold text-text-tertiary"
+                >
+                  {WEEKDAY_SHORT[wd]}
+                  <br />
+                  {pn}
                 </th>
-              ))
+              )),
             )}
           </tr>
         </thead>
@@ -199,7 +204,7 @@ function WorkloadHeatmap({ academicYearId }: { academicYearId: string }) {
                       {count > 0 ? count : ''}
                     </td>
                   );
-                })
+                }),
               )}
             </tr>
           ))}
@@ -234,7 +239,9 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: RoomUtilisation[] }>(`/api/v1/scheduling-dashboard/room-utilisation?academic_year_id=${academicYearId}`)
+    apiClient<{ data: RoomUtilisation[] }>(
+      `/api/v1/scheduling-dashboard/room-utilisation?academic_year_id=${academicYearId}`,
+    )
       .then((res) => setRooms(res.data ?? []))
       .catch(() => setRooms([]))
       .finally(() => setLoading(false));
@@ -257,20 +264,37 @@ function RoomUtilisationTab({ academicYearId }: { academicYearId: string }) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {rooms.map((room) => {
         const pct = room.utilisation_pct;
-        const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : pct >= 40 ? 'bg-green-500' : 'bg-blue-300';
+        const barColor =
+          pct >= 90
+            ? 'bg-red-500'
+            : pct >= 70
+              ? 'bg-yellow-500'
+              : pct >= 40
+                ? 'bg-green-500'
+                : 'bg-blue-300';
         return (
-          <div key={room.room_id} className="rounded-xl border border-border bg-surface p-4 space-y-3">
+          <div
+            key={room.room_id}
+            className="rounded-xl border border-border bg-surface p-4 space-y-3"
+          >
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-text-primary">{room.room_name}</p>
-                <p className="text-xs text-text-tertiary">{room.room_type} &middot; {t('capacity')}: {room.capacity}</p>
+                <p className="text-xs text-text-tertiary">
+                  {room.room_type} &middot; {t('capacity')}: {room.capacity}
+                </p>
               </div>
-              <span className={`text-sm font-bold ${pct >= 90 ? 'text-red-600' : pct >= 70 ? 'text-yellow-600' : 'text-green-600'}`}>
+              <span
+                className={`text-sm font-bold ${pct >= 90 ? 'text-red-600' : pct >= 70 ? 'text-yellow-600' : 'text-green-600'}`}
+              >
                 {Math.round(pct)}%
               </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-secondary">
-              <div className={`h-2 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+              <div
+                className={`h-2 rounded-full transition-all ${barColor}`}
+                style={{ width: `${pct}%` }}
+              />
             </div>
             {pct >= 90 && (
               <p className="text-xs text-red-600 font-medium">⚠ Bottleneck — high demand</p>
@@ -295,7 +319,9 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    apiClient<{ data: TrendPoint[] }>(`/api/v1/scheduling-dashboard/trends?academic_year_id=${academicYearId}`)
+    apiClient<{ data: TrendPoint[] }>(
+      `/api/v1/scheduling-dashboard/trends?academic_year_id=${academicYearId}`,
+    )
       .then((res) => setTrends(res.data ?? []))
       .catch(() => setTrends([]))
       .finally(() => setLoading(false));
@@ -333,8 +359,22 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
               }}
             />
             <Legend />
-            <Line type="monotone" dataKey="room_utilisation" stroke="#3b82f6" name="Room Util %" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="teacher_utilisation" stroke="#8b5cf6" name="Teacher Util %" strokeWidth={2} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="room_utilisation"
+              stroke="#3b82f6"
+              name="Room Util %"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="teacher_utilisation"
+              stroke="#8b5cf6"
+              name="Teacher Util %"
+              strokeWidth={2}
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -356,8 +396,22 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
               }}
             />
             <Legend />
-            <Line type="monotone" dataKey="avg_gaps" stroke="#f59e0b" name="Avg Gaps" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="preference_score" stroke="#22c55e" name="Preference Score %" strokeWidth={2} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="avg_gaps"
+              stroke="#f59e0b"
+              name="Avg Gaps"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="preference_score"
+              stroke="#22c55e"
+              name="Preference Score %"
+              strokeWidth={2}
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -367,7 +421,15 @@ function TrendsTab({ academicYearId }: { academicYearId: string }) {
 
 // ─── Overview Tab (original content) ─────────────────────────────────────────
 
-function OverviewTab({ overview, loading, locale }: { overview: DashboardOverview | null; loading: boolean; locale: string }) {
+function OverviewTab({
+  overview,
+  loading,
+  locale,
+}: {
+  overview: DashboardOverview | null;
+  loading: boolean;
+  locale: string;
+}) {
   const t = useTranslations('scheduling.auto');
   const router = useRouter();
 
@@ -392,13 +454,34 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
     <div className="space-y-6">
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <KpiCard label={t('totalSlots')} value={overview.total_classes} icon={<BookOpen className="h-5 w-5" />} />
-        <KpiCard label={t('configured')} value={overview.configured_classes} icon={<CheckCircle2 className="h-5 w-5" />} />
-        <KpiCard label={t('assignedSlots')} value={overview.scheduled_classes} icon={<Sparkles className="h-5 w-5" />} highlight />
-        <KpiCard label={t('pinnedSlots')} value={overview.pinned_entries} icon={<Pin className="h-5 w-5" />} />
+        <KpiCard
+          label={t('totalSlots')}
+          value={overview.total_classes}
+          icon={<BookOpen className="h-5 w-5" />}
+        />
+        <KpiCard
+          label={t('configured')}
+          value={overview.configured_classes}
+          icon={<CheckCircle2 className="h-5 w-5" />}
+        />
+        <KpiCard
+          label={t('assignedSlots')}
+          value={overview.scheduled_classes}
+          icon={<Sparkles className="h-5 w-5" />}
+          highlight
+        />
+        <KpiCard
+          label={t('pinnedSlots')}
+          value={overview.pinned_entries}
+          icon={<Pin className="h-5 w-5" />}
+        />
         <KpiCard
           label={t('completionPct')}
-          value={overview.total_classes > 0 ? `${Math.round((overview.scheduled_classes / overview.total_classes) * 100)}%` : '0%'}
+          value={
+            overview.total_classes > 0
+              ? `${Math.round((overview.scheduled_classes / overview.total_classes) * 100)}%`
+              : '0%'
+          }
           icon={<BarChart3 className="h-5 w-5" />}
           highlight
         />
@@ -408,16 +491,33 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
       {(overview.room_utilisation_pct != null || overview.teacher_utilisation_pct != null) && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {overview.room_utilisation_pct != null && (
-            <KpiCard label="Room Utilisation" value={`${Math.round(overview.room_utilisation_pct)}%`} icon={<BarChart3 className="h-5 w-5" />} />
+            <KpiCard
+              label="Room Utilisation"
+              value={`${Math.round(overview.room_utilisation_pct)}%`}
+              icon={<BarChart3 className="h-5 w-5" />}
+            />
           )}
           {overview.teacher_utilisation_pct != null && (
-            <KpiCard label="Teacher Utilisation" value={`${Math.round(overview.teacher_utilisation_pct)}%`} icon={<BarChart3 className="h-5 w-5" />} />
+            <KpiCard
+              label="Teacher Utilisation"
+              value={`${Math.round(overview.teacher_utilisation_pct)}%`}
+              icon={<BarChart3 className="h-5 w-5" />}
+            />
           )}
           {overview.avg_gaps != null && (
-            <KpiCard label="Avg Teacher Gaps" value={overview.avg_gaps.toFixed(1)} icon={<BarChart3 className="h-5 w-5" />} />
+            <KpiCard
+              label="Avg Teacher Gaps"
+              value={overview.avg_gaps.toFixed(1)}
+              icon={<BarChart3 className="h-5 w-5" />}
+            />
           )}
           {overview.preference_score != null && (
-            <KpiCard label="Preference Score" value={`${Math.round(overview.preference_score)}%`} icon={<Sparkles className="h-5 w-5" />} highlight />
+            <KpiCard
+              label="Preference Score"
+              value={`${Math.round(overview.preference_score)}%`}
+              icon={<Sparkles className="h-5 w-5" />}
+              highlight
+            />
           )}
         </div>
       )}
@@ -432,7 +532,10 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
                 <p className="text-sm font-medium text-text-primary">{t('lastRun')}</p>
                 <p className="text-xs text-text-tertiary">
                   {new Date(overview.latest_run.created_at).toLocaleString()} &middot;{' '}
-                  <Badge variant={statusBadgeVariant(overview.latest_run.status)} className="text-[10px]">
+                  <Badge
+                    variant={statusBadgeVariant(overview.latest_run.status)}
+                    className="text-[10px]"
+                  >
                     {overview.latest_run.status}
                   </Badge>
                 </p>
@@ -442,7 +545,9 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)}
+                onClick={() =>
+                  router.push(`/${locale}/scheduling/runs/${overview.latest_run!.id}/review`)
+                }
               >
                 {t('viewReview')}
               </Button>
@@ -456,7 +561,8 @@ function OverviewTab({ overview, loading, locale }: { overview: DashboardOvervie
         <h2 className="text-base font-semibold text-text-primary">{t('schedulingStatus')}</h2>
         <p className="text-sm text-text-secondary">
           Use the sidebar to configure scheduling: set up the period grid, curriculum requirements,
-          teacher competencies, and more. Once all prerequisites are met, use the Auto Scheduler to generate timetables.
+          teacher competencies, and more. Once all prerequisites are met, use the Auto Scheduler to
+          generate timetables.
         </p>
       </div>
     </div>
@@ -488,8 +594,10 @@ export default function SchedulingDashboardPage() {
           return;
         }
         setAcademicYearId(yearId);
-        return apiClient<DashboardOverview>(`/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`, { silent: true })
-          .then((ov) => setOverview(ov));
+        return apiClient<DashboardOverview>(
+          `/api/v1/scheduling-dashboard/overview?academic_year_id=${yearId}`,
+          { silent: true },
+        ).then((ov) => setOverview(ov));
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -532,13 +640,17 @@ export default function SchedulingDashboardPage() {
         ))}
       </div>
 
-      {activeTab === 'overview' && <OverviewTab overview={overview} loading={loading} locale={locale} />}
+      {activeTab === 'overview' && (
+        <OverviewTab overview={overview} loading={loading} locale={locale} />
+      )}
       {activeTab === 'workload' && academicYearId && (
         <div className="rounded-2xl border border-border bg-surface p-5">
           <WorkloadHeatmap academicYearId={academicYearId} />
         </div>
       )}
-      {activeTab === 'rooms' && academicYearId && <RoomUtilisationTab academicYearId={academicYearId} />}
+      {activeTab === 'rooms' && academicYearId && (
+        <RoomUtilisationTab academicYearId={academicYearId} />
+      )}
       {activeTab === 'trends' && academicYearId && <TrendsTab academicYearId={academicYearId} />}
     </div>
   );

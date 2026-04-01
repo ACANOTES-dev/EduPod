@@ -1,5 +1,11 @@
 'use client';
 
+import { CalendarClock } from 'lucide-react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -9,11 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { CalendarClock } from 'lucide-react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   getStaffDisplayName,

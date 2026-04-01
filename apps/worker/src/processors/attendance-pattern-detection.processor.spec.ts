@@ -1,5 +1,6 @@
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import {
   ATTENDANCE_DETECT_PATTERNS_JOB,

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -77,54 +78,50 @@ export class WellbeingSignalCollector {
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - CONCERN_LOOKBACK_DAYS);
 
     // Fetch all queries in parallel — single round-trip batch
-    const [checkins, concerns, cases, referrals, incidentAffected] =
-      await Promise.all([
-        this.prisma.studentCheckin.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            checkin_date: { gte: thirtyDaysAgo },
-          },
-          orderBy: { checkin_date: 'desc' },
-        }) as Promise<CheckinRow[]>,
+    const [checkins, concerns, cases, referrals, incidentAffected] = await Promise.all([
+      this.prisma.studentCheckin.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          checkin_date: { gte: thirtyDaysAgo },
+        },
+        orderBy: { checkin_date: 'desc' },
+      }) as Promise<CheckinRow[]>,
 
-        this.prisma.pastoralConcern.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            created_at: { gte: ninetyDaysAgo },
-            OR: [
-              { follow_up_needed: true },
-              { severity: { in: ['urgent', 'critical'] } },
-            ],
-          },
-          orderBy: { created_at: 'desc' },
-        }) as Promise<ConcernRow[]>,
+      this.prisma.pastoralConcern.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          created_at: { gte: ninetyDaysAgo },
+          OR: [{ follow_up_needed: true }, { severity: { in: ['urgent', 'critical'] } }],
+        },
+        orderBy: { created_at: 'desc' },
+      }) as Promise<ConcernRow[]>,
 
-        this.prisma.pastoralCase.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            status: { in: ['open', 'active', 'monitoring'] },
-          },
-        }) as Promise<CaseRow[]>,
+      this.prisma.pastoralCase.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          status: { in: ['open', 'active', 'monitoring'] },
+        },
+      }) as Promise<CaseRow[]>,
 
-        this.prisma.pastoralReferral.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            status: { in: ['submitted', 'acknowledged', 'assessment_scheduled'] },
-          },
-        }) as Promise<ReferralRow[]>,
+      this.prisma.pastoralReferral.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          status: { in: ['submitted', 'acknowledged', 'assessment_scheduled'] },
+        },
+      }) as Promise<ReferralRow[]>,
 
-        this.prisma.criticalIncidentAffected.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            wellbeing_flag_active: true,
-          },
-        }) as Promise<IncidentAffectedRow[]>,
-      ]);
+      this.prisma.criticalIncidentAffected.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          wellbeing_flag_active: true,
+        },
+      }) as Promise<IncidentAffectedRow[]>,
+    ]);
 
     const result: SignalResult = {
       domain: 'wellbeing',
@@ -176,10 +173,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 1: declining_wellbeing_score ──────────────────────────────────
 
-  private checkDecliningWellbeingScore(
-    checkins: CheckinRow[],
-    result: SignalResult,
-  ): void {
+  private checkDecliningWellbeingScore(checkins: CheckinRow[], result: SignalResult): void {
     if (checkins.length < RECENT_CHECKIN_COUNT) return;
 
     const recent = checkins.slice(0, RECENT_CHECKIN_COUNT);
@@ -189,10 +183,8 @@ export class WellbeingSignalCollector {
     const newerHalf = recent.slice(0, midpoint);
     const olderHalf = recent.slice(midpoint);
 
-    const newerAvg =
-      newerHalf.reduce((sum, c) => sum + c.mood_score, 0) / newerHalf.length;
-    const olderAvg =
-      olderHalf.reduce((sum, c) => sum + c.mood_score, 0) / olderHalf.length;
+    const newerAvg = newerHalf.reduce((sum, c) => sum + c.mood_score, 0) / newerHalf.length;
+    const olderAvg = olderHalf.reduce((sum, c) => sum + c.mood_score, 0) / olderHalf.length;
 
     // Declining means the newer scores are lower than the older ones
     const decline = olderAvg - newerAvg;
@@ -227,16 +219,11 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 2: low_mood_pattern ───────────────────────────────────────────
 
-  private checkLowMoodPattern(
-    checkins: CheckinRow[],
-    result: SignalResult,
-  ): void {
+  private checkLowMoodPattern(checkins: CheckinRow[], result: SignalResult): void {
     if (checkins.length < LOW_MOOD_CHECKIN_COUNT) return;
 
     const lastThree = checkins.slice(0, LOW_MOOD_CHECKIN_COUNT);
-    const allLowMood = lastThree.every(
-      (c) => c.mood_score <= LOW_MOOD_THRESHOLD,
-    );
+    const allLowMood = lastThree.every((c) => c.mood_score <= LOW_MOOD_THRESHOLD);
     if (!allLowMood) return;
 
     const scores = lastThree.map((c) => c.mood_score);
@@ -270,10 +257,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 3: active_pastoral_concern ────────────────────────────────────
 
-  private checkActivePastoralConcern(
-    concerns: ConcernRow[],
-    result: SignalResult,
-  ): void {
+  private checkActivePastoralConcern(concerns: ConcernRow[], result: SignalResult): void {
     const firstConcern = concerns[0];
     if (!firstConcern) return;
 
@@ -317,10 +301,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 4: active_pastoral_case ───────────────────────────────────────
 
-  private checkActivePastoralCase(
-    cases: CaseRow[],
-    result: SignalResult,
-  ): void {
+  private checkActivePastoralCase(cases: CaseRow[], result: SignalResult): void {
     const firstCase = cases[0];
     if (!firstCase) return;
 
@@ -343,10 +324,7 @@ export class WellbeingSignalCollector {
 
   // ─── Signal 5: external_referral ──────────────────────────────────────────
 
-  private checkExternalReferral(
-    referrals: ReferralRow[],
-    result: SignalResult,
-  ): void {
+  private checkExternalReferral(referrals: ReferralRow[], result: SignalResult): void {
     const primaryReferral = referrals[0];
     if (!primaryReferral) return;
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 /**

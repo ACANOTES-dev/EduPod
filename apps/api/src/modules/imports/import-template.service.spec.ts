@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { ImportType } from '@school/shared';
 
 import { ImportTemplateService } from './import-template.service';
@@ -61,9 +62,9 @@ describe('ImportTemplateService', () => {
     });
 
     it('should throw BadRequestException for an invalid import type', async () => {
-      await expect(
-        service.generateTemplate('invalid_type' as ImportType),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.generateTemplate('invalid_type' as ImportType)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should produce a buffer that starts with xlsx magic bytes (PK zip header)', async () => {

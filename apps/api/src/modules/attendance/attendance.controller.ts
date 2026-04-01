@@ -18,6 +18,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AttendanceAlertStatus, AttendanceAlertType } from '@prisma/client';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   createAttendanceSessionSchema,
   saveAttendanceRecordsSchema,
@@ -28,8 +31,6 @@ import {
   uploadUndoSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

@@ -1,12 +1,5 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -21,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -105,14 +100,21 @@ export default function ReportCardAnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader title={t('analyticsTitle')} />
-        <Select value={selectedPeriod} onValueChange={(v) => { setSelectedPeriod(v); }}>
+        <Select
+          value={selectedPeriod}
+          onValueChange={(v) => {
+            setSelectedPeriod(v);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectPeriod')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allPeriods')}</SelectItem>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -134,10 +136,7 @@ export default function ReportCardAnalyticsPage() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <SummaryCard
-              label={t('total')}
-              value={analytics.summary.total}
-            />
+            <SummaryCard label={t('total')} value={analytics.summary.total} />
             <SummaryCard
               label={t('statusPublished')}
               value={analytics.summary.published}
@@ -168,7 +167,10 @@ export default function ReportCardAnalyticsPage() {
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics.class_comparison} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <BarChart
+                    data={analytics.class_comparison}
+                    margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis
                       dataKey="class_name"
@@ -187,8 +189,18 @@ export default function ReportCardAnalyticsPage() {
                       }}
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="avg_score" name={t('avgScore')} fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="published" name={t('statusPublished')} fill="var(--color-success-500)" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="avg_score"
+                      name={t('avgScore')}
+                      fill="var(--color-primary-500)"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="published"
+                      name={t('statusPublished')}
+                      fill="var(--color-success-500)"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -203,7 +215,10 @@ export default function ReportCardAnalyticsPage() {
               </h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={analytics.trends} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <LineChart
+                    data={analytics.trends}
+                    margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                     <XAxis
                       dataKey="period_name"

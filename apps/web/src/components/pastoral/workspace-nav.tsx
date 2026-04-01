@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import {
   Activity,
   ClipboardList,
@@ -15,6 +14,8 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+
+import { Badge } from '@school/ui';
 
 import { getLocaleFromPathname } from '@/lib/pastoral';
 

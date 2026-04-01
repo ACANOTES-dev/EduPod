@@ -1,5 +1,10 @@
 'use client';
 
+import { Award, CheckCircle, Crown, Shield, Star, Trophy, XCircle } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,18 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import {
-  Award,
-  CheckCircle,
-  Crown,
-  Shield,
-  Star,
-  Trophy,
-  XCircle,
-} from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -119,7 +112,9 @@ export default function RecognitionWallPage() {
                 }`}
               >
                 <TabIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">{t(`tabs.${tabKey}` as Parameters<typeof t>[0])}</span>
+                <span className="hidden sm:inline">
+                  {t(`tabs.${tabKey}` as Parameters<typeof t>[0])}
+                </span>
                 <span className="sm:hidden">
                   {t(`tabs.${tabKey}Short` as Parameters<typeof t>[0])}
                 </span>
@@ -189,7 +184,9 @@ function WallTab() {
           <SelectContent>
             <SelectItem value="current">{t('filters.currentYear')}</SelectItem>
             {academicYears.map((ay) => (
-              <SelectItem key={ay.id} value={ay.id}>{ay.name}</SelectItem>
+              <SelectItem key={ay.id} value={ay.id}>
+                {ay.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -203,9 +200,7 @@ function WallTab() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-tertiary">
-          {t('noRecognition')}
-        </p>
+        <p className="py-12 text-center text-sm text-text-tertiary">{t('noRecognition')}</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
@@ -217,7 +212,9 @@ function WallTab() {
                 {/* Avatar circle */}
                 <div
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ backgroundColor: item.award?.color ?? item.category?.color ?? '#6366F1' }}
+                  style={{
+                    backgroundColor: item.award?.color ?? item.category?.color ?? '#6366F1',
+                  }}
                 >
                   {getStudentInitial(item.student)}
                 </div>
@@ -231,7 +228,11 @@ function WallTab() {
                     <Badge
                       variant="secondary"
                       className="mt-0.5 text-xs"
-                      style={item.award.color ? { borderColor: item.award.color, color: item.award.color } : undefined}
+                      style={
+                        item.award.color
+                          ? { borderColor: item.award.color, color: item.award.color }
+                          : undefined
+                      }
                     >
                       {item.award.icon && <span className="me-1">{item.award.icon}</span>}
                       {item.award.name}
@@ -251,9 +252,7 @@ function WallTab() {
               </div>
 
               {item.message && (
-                <p className="line-clamp-2 text-xs text-text-secondary">
-                  {item.message}
-                </p>
+                <p className="line-clamp-2 text-xs text-text-secondary">{item.message}</p>
               )}
 
               <p className="text-[11px] text-text-tertiary">
@@ -325,9 +324,7 @@ function LeaderboardTab() {
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-tertiary">
-          {t('noLeaderboard')}
-        </p>
+        <p className="py-12 text-center text-sm text-text-tertiary">{t('noLeaderboard')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -414,9 +411,7 @@ function HousesTab() {
       ) : houses.length === 0 ? (
         <div className="py-12 text-center">
           <Shield className="mx-auto h-12 w-12 text-text-tertiary/30" />
-          <p className="mt-3 text-sm text-text-tertiary">
-            {t('noHouses')}
-          </p>
+          <p className="mt-3 text-sm text-text-tertiary">{t('noHouses')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -445,9 +440,7 @@ function HousesTab() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-text-primary">
-                    {house.name}
-                  </p>
+                  <p className="truncate text-sm font-semibold text-text-primary">{house.name}</p>
                   <p className="mt-0.5 text-xs text-text-tertiary">
                     {t('rankPlace', { rank: getRankLabel(house.rank) })}
                   </p>
@@ -501,8 +494,9 @@ function PendingApprovalsTab() {
         method: 'POST',
       });
       setItems((prev) => prev.filter((item) => item.id !== id));
-    } catch {
+    } catch (err) {
       // handled by global error handler
+      console.error('[setItems]', err);
     } finally {
       setProcessingId(null);
     }
@@ -519,9 +513,7 @@ function PendingApprovalsTab() {
       ) : items.length === 0 ? (
         <div className="py-12 text-center">
           <CheckCircle className="mx-auto h-12 w-12 text-green-400/40" />
-          <p className="mt-3 text-sm text-text-tertiary">
-            {t('noPending')}
-          </p>
+          <p className="mt-3 text-sm text-text-tertiary">{t('noPending')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -557,13 +549,12 @@ function PendingApprovalsTab() {
                   </div>
 
                   {item.message && (
-                    <p className="line-clamp-1 text-xs text-text-secondary">
-                      {item.message}
-                    </p>
+                    <p className="line-clamp-1 text-xs text-text-secondary">{item.message}</p>
                   )}
 
                   <p className="text-[11px] text-text-tertiary">
-                    By {item.awarded_by_user
+                    By{' '}
+                    {item.awarded_by_user
                       ? `${item.awarded_by_user.first_name} ${item.awarded_by_user.last_name}`
                       : 'Unknown'}{' '}
                     &middot; {formatDate(item.created_at)}

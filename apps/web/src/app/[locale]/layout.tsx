@@ -4,6 +4,8 @@ import { getMessages } from 'next-intl/server';
 import * as React from 'react';
 
 import '@/styles/globals.css';
+import { locales, type Locale } from '../../../i18n/config';
+
 import { fonts } from '@/lib/fonts';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CookieConsentProvider } from '@/providers/cookie-consent-provider';
@@ -11,8 +13,6 @@ import { DirectionProvider } from '@/providers/direction-provider';
 import { ShortcutProvider } from '@/providers/shortcut-provider';
 import { SwRegister } from '@/providers/sw-register';
 import { ThemeProvider } from '@/providers/theme-provider';
-
-import { locales, type Locale } from '../../../i18n/config';
 
 interface LocaleLayoutProps {
   children: React.ReactNode;

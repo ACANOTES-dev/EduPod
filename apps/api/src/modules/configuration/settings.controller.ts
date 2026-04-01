@@ -7,6 +7,7 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
+
 import { TENANT_SETTINGS_MODULE_SCHEMAS, tenantSettingsSchema } from '@school/shared';
 import type { JwtPayload, TenantContext, TenantSettingsModuleKey } from '@school/shared';
 

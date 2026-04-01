@@ -1,5 +1,9 @@
 'use client';
 
+import { Download, FileText, Loader2, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Label,
@@ -11,9 +15,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Download, FileText, Loader2, Sparkles } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -137,25 +138,24 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
   const [classFilter, setClassFilter] = React.useState('all');
   const [periodFilter, setPeriodFilter] = React.useState('all');
 
-  const fetchOverview = React.useCallback(
-    async (p: number, classId: string, periodId: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (classId !== 'all') params.set('class_id', classId);
-        if (periodId !== 'all') params.set('academic_period_id', periodId);
-        const res = await apiClient<OverviewResponse>(`/api/v1/report-cards/overview?${params.toString()}`);
-        setData(res.data);
-        setTotal(res.meta.total);
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchOverview = React.useCallback(async (p: number, classId: string, periodId: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (classId !== 'all') params.set('class_id', classId);
+      if (periodId !== 'all') params.set('academic_period_id', periodId);
+      const res = await apiClient<OverviewResponse>(
+        `/api/v1/report-cards/overview?${params.toString()}`,
+      );
+      setData(res.data);
+      setTotal(res.meta.total);
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchOverview(page, classFilter, periodFilter);
@@ -171,7 +171,9 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         const params = new URLSearchParams({ page: String(currentPage), pageSize: '100' });
         if (classFilter !== 'all') params.set('class_id', classFilter);
         if (periodFilter !== 'all') params.set('academic_period_id', periodFilter);
-        const res = await apiClient<OverviewResponse>(`/api/v1/report-cards/overview?${params.toString()}`);
+        const res = await apiClient<OverviewResponse>(
+          `/api/v1/report-cards/overview?${params.toString()}`,
+        );
         allData = [...allData, ...res.data];
         hasMore = allData.length < res.meta.total;
         currentPage++;
@@ -241,7 +243,9 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
         <div>
           <span className="font-medium text-text-primary">{row.student_name}</span>
           {row.student_number && (
-            <span className="ms-2 text-xs text-text-tertiary font-mono" dir="ltr">{row.student_number}</span>
+            <span className="ms-2 text-xs text-text-tertiary font-mono" dir="ltr">
+              {row.student_number}
+            </span>
           )}
         </div>
       ),
@@ -249,16 +253,12 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
     {
       key: 'subject',
       header: t('subject'),
-      render: (row: OverviewRow) => (
-        <span className="text-text-secondary">{row.subject_name}</span>
-      ),
+      render: (row: OverviewRow) => <span className="text-text-secondary">{row.subject_name}</span>,
     },
     {
       key: 'period',
       header: t('period'),
-      render: (row: OverviewRow) => (
-        <span className="text-text-secondary">{row.period_name}</span>
-      ),
+      render: (row: OverviewRow) => <span className="text-text-secondary">{row.period_name}</span>,
     },
     {
       key: 'finalGrade',
@@ -287,25 +287,41 @@ function OverviewTab({ periods, classes, t, tc }: TabProps) {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+      <Select
+        value={classFilter}
+        onValueChange={(v) => {
+          setClassFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={t('selectClass')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('allClasses')}</SelectItem>
           {classes.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v); setPage(1); }}>
+      <Select
+        value={periodFilter}
+        onValueChange={(v) => {
+          setPeriodFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={t('selectPeriod')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('allPeriods')}</SelectItem>
           {periods.map((p) => (
-            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+            <SelectItem key={p.id} value={p.id}>
+              {p.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -421,7 +437,9 @@ function GenerateTab({ periods, classes, t, tc }: TabProps) {
             </SelectTrigger>
             <SelectContent>
               {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -436,7 +454,9 @@ function GenerateTab({ periods, classes, t, tc }: TabProps) {
             </SelectTrigger>
             <SelectContent>
               {periods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -451,18 +471,16 @@ function GenerateTab({ periods, classes, t, tc }: TabProps) {
             </SelectTrigger>
             <SelectContent>
               {TEMPLATES.map((tmpl) => (
-                <SelectItem key={tmpl.id} value={tmpl.id}>{tmpl.name}</SelectItem>
+                <SelectItem key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         {/* Generate button */}
-        <Button
-          onClick={handleGenerate}
-          disabled={generating || !canGenerate}
-          className="w-full"
-        >
+        <Button onClick={handleGenerate} disabled={generating || !canGenerate} className="w-full">
           {generating ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />

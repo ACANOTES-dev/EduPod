@@ -1,10 +1,8 @@
-import {
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type { ImportType } from '@school/shared';
 import * as XLSX from 'xlsx';
+
+import type { ImportType } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -130,11 +128,13 @@ export class ImportValidationService {
           successful: 0,
           failed: 0,
           warnings: 0,
-          errors: [{
-            row: 1,
-            field: 'headers',
-            error: `Missing required headers: ${missingHeaders.join(', ')}`,
-          }],
+          errors: [
+            {
+              row: 1,
+              field: 'headers',
+              error: `Missing required headers: ${missingHeaders.join(', ')}`,
+            },
+          ],
           warnings_list: [],
         });
         return;
@@ -162,7 +162,13 @@ export class ImportValidationService {
           successful: 0,
           failed: 0,
           warnings: 0,
-          errors: [{ row: 0, field: '', error: 'File contains only example rows. Delete the example row and add your data.' }],
+          errors: [
+            {
+              row: 0,
+              field: '',
+              error: 'File contains only example rows. Delete the example row and add your data.',
+            },
+          ],
           warnings_list: [],
         });
         return;
@@ -203,11 +209,13 @@ export class ImportValidationService {
 
         // Type-specific validations
         if (importType === 'students') {
-          rowHasError = this.validateStudentRow(row, rowNumber, errors, warnings, seenStudents) || rowHasError;
+          rowHasError =
+            this.validateStudentRow(row, rowNumber, errors, warnings, seenStudents) || rowHasError;
         }
 
         if (importType === 'parents' || importType === 'staff') {
-          rowHasError = this.validateEmailRow(row, rowNumber, errors, warnings, seenEmails) || rowHasError;
+          rowHasError =
+            this.validateEmailRow(row, rowNumber, errors, warnings, seenEmails) || rowHasError;
         }
 
         if (importType === 'fees') {
@@ -291,11 +299,19 @@ export class ImportValidationService {
 
     // Validate first_name / last_name length
     if (firstName.length > 100) {
-      errors.push({ row: rowNumber, field: 'first_name', error: 'First name must not exceed 100 characters' });
+      errors.push({
+        row: rowNumber,
+        field: 'first_name',
+        error: 'First name must not exceed 100 characters',
+      });
       hasError = true;
     }
     if (lastName.length > 100) {
-      errors.push({ row: rowNumber, field: 'last_name', error: 'Last name must not exceed 100 characters' });
+      errors.push({
+        row: rowNumber,
+        field: 'last_name',
+        error: 'Last name must not exceed 100 characters',
+      });
       hasError = true;
     }
 
@@ -374,7 +390,8 @@ export class ImportValidationService {
       warnings.push({
         row: rowNumber,
         field: 'first_name',
-        warning: 'Possible duplicate: same first_name, last_name, and date_of_birth found in another row',
+        warning:
+          'Possible duplicate: same first_name, last_name, and date_of_birth found in another row',
       });
     }
     seenStudents.add(studentKey);
@@ -442,11 +459,19 @@ export class ImportValidationService {
       hasError = true;
     }
     if (baseSalary.length > 0 && isNaN(Number(baseSalary))) {
-      errors.push({ row: rowNumber, field: 'base_salary', error: 'base_salary must be a valid number' });
+      errors.push({
+        row: rowNumber,
+        field: 'base_salary',
+        error: 'base_salary must be a valid number',
+      });
       hasError = true;
     }
     if (perClassRate.length > 0 && isNaN(Number(perClassRate))) {
-      errors.push({ row: rowNumber, field: 'per_class_rate', error: 'per_class_rate must be a valid number' });
+      errors.push({
+        row: rowNumber,
+        field: 'per_class_rate',
+        error: 'per_class_rate must be a valid number',
+      });
       hasError = true;
     }
 
@@ -569,7 +594,11 @@ export class ImportValidationService {
    * asterisks and leading/trailing spaces from template headers like "first_name *".
    */
   private normalizeHeader(raw: string): string {
-    return raw.trim().toLowerCase().replace(/\s*\*\s*$/, '').trim();
+    return raw
+      .trim()
+      .toLowerCase()
+      .replace(/\s*\*\s*$/, '')
+      .trim();
   }
 
   /**

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { CurriculumRequirementsController } from './curriculum-requirements.controller';
 import { CurriculumRequirementsService } from './curriculum-requirements.service';
-
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -34,18 +34,14 @@ describe('CurriculumRequirementsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CurriculumRequirementsController],
-      providers: [
-        { provide: CurriculumRequirementsService, useValue: mockService },
-      ],
+      providers: [{ provide: CurriculumRequirementsService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<CurriculumRequirementsController>(
-      CurriculumRequirementsController,
-    );
+    controller = module.get<CurriculumRequirementsController>(CurriculumRequirementsController);
     jest.clearAllMocks();
   });
 
@@ -129,12 +125,7 @@ describe('CurriculumRequirementsController', () => {
 
     const result = await controller.bulkUpsert(TENANT, dto);
 
-    expect(mockService.bulkUpsert).toHaveBeenCalledWith(
-      'tenant-uuid',
-      AY_ID,
-      YG_ID,
-      items,
-    );
+    expect(mockService.bulkUpsert).toHaveBeenCalledWith('tenant-uuid', AY_ID, YG_ID, items);
     expect(result).toEqual({ count: 1 });
   });
 

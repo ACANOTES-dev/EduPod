@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   AbsenceTrends,
   AggregateWorkloadSummary,
@@ -37,9 +38,7 @@ function describeCoverDistribution(gini: number): string {
   return 'Right-skewed — a few staff carry disproportionate load';
 }
 
-function computeAverageTimetableScore(
-  quality: AggregateTimetableQuality,
-): number {
+function computeAverageTimetableScore(quality: AggregateTimetableQuality): number {
   // Average the four sub-metrics (each normalised to 0-100 range)
   // consecutive_periods.mean, free_period_clumping.mean, split_timetable_pct, room_changes.mean
   // Lower consecutive is better (invert), higher free clumping is better,
@@ -78,9 +77,7 @@ function computeTrendDirection(
   return 'stable';
 }
 
-function findHighestAbsenceDay(
-  dayOfWeek: AbsenceTrends['day_of_week_pattern'],
-): string | null {
+function findHighestAbsenceDay(dayOfWeek: AbsenceTrends['day_of_week_pattern']): string | null {
   if (dayOfWeek.length === 0) return null;
 
   let highest = dayOfWeek[0]!;
@@ -126,8 +123,7 @@ export class BoardReportService {
     this.logger.log(`Generating termly board report for tenant ${tenantId}`);
 
     // 1. Resolve academic year + term
-    const { termName, academicYearName } =
-      await this.resolveAcademicContext(tenantId);
+    const { termName, academicYearName } = await this.resolveAcademicContext(tenantId);
 
     // 2. Gather all aggregate metrics (cache-first, compute on miss)
     const [
@@ -138,35 +134,23 @@ export class BoardReportService {
       substitutionPressure,
       correlation,
     ] = await Promise.all([
-      this.getCachedOrCompute<AggregateWorkloadSummary>(
-        tenantId,
-        'workload-summary',
-        () => this.computeService.getAggregateWorkloadSummary(tenantId),
+      this.getCachedOrCompute<AggregateWorkloadSummary>(tenantId, 'workload-summary', () =>
+        this.computeService.getAggregateWorkloadSummary(tenantId),
       ),
-      this.getCachedOrCompute<CoverFairnessResult>(
-        tenantId,
-        'cover-fairness',
-        () => this.computeService.getCoverFairness(tenantId),
+      this.getCachedOrCompute<CoverFairnessResult>(tenantId, 'cover-fairness', () =>
+        this.computeService.getCoverFairness(tenantId),
       ),
-      this.getCachedOrCompute<AggregateTimetableQuality>(
-        tenantId,
-        'timetable-quality',
-        () => this.computeService.getAggregateTimetableQuality(tenantId),
+      this.getCachedOrCompute<AggregateTimetableQuality>(tenantId, 'timetable-quality', () =>
+        this.computeService.getAggregateTimetableQuality(tenantId),
       ),
-      this.getCachedOrCompute<AbsenceTrends>(
-        tenantId,
-        'absence-trends',
-        () => this.computeService.getAbsenceTrends(tenantId),
+      this.getCachedOrCompute<AbsenceTrends>(tenantId, 'absence-trends', () =>
+        this.computeService.getAbsenceTrends(tenantId),
       ),
-      this.getCachedOrCompute<SubstitutionPressure>(
-        tenantId,
-        'substitution-pressure',
-        () => this.computeService.getSubstitutionPressure(tenantId),
+      this.getCachedOrCompute<SubstitutionPressure>(tenantId, 'substitution-pressure', () =>
+        this.computeService.getSubstitutionPressure(tenantId),
       ),
-      this.getCachedOrCompute<CorrelationResult>(
-        tenantId,
-        'correlation',
-        () => this.computeService.getCorrelation(tenantId),
+      this.getCachedOrCompute<CorrelationResult>(tenantId, 'correlation', () =>
+        this.computeService.getCorrelation(tenantId),
       ),
     ]);
 
@@ -184,9 +168,7 @@ export class BoardReportService {
       },
       cover_fairness: {
         gini_coefficient: coverFairness.gini_coefficient,
-        distribution_shape: describeCoverDistribution(
-          coverFairness.gini_coefficient,
-        ),
+        distribution_shape: describeCoverDistribution(coverFairness.gini_coefficient),
         assessment: coverFairness.assessment,
       },
       timetable_quality: {
@@ -209,9 +191,7 @@ export class BoardReportService {
       academic_year_name: academicYearName,
     };
 
-    this.logger.log(
-      `Board report generated for tenant ${tenantId} — term: ${termName}`,
-    );
+    this.logger.log(`Board report generated for tenant ${tenantId} — term: ${termName}`);
 
     return report;
   }
@@ -223,10 +203,7 @@ export class BoardReportService {
     metricType: string,
     computeFn: () => Promise<T>,
   ): Promise<T> {
-    const cached = await this.cacheService.getCachedAggregate<T>(
-      tenantId,
-      metricType,
-    );
+    const cached = await this.cacheService.getCachedAggregate<T>(tenantId, metricType);
     if (cached) return cached;
 
     const result = await computeFn();

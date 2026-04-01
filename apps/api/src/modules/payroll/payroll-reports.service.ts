@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   CostTrendPoint,
   YtdStaffSummary,
@@ -84,14 +82,17 @@ export class PayrollReportsService {
     });
 
     // Aggregate per staff
-    const staffMap = new Map<string, {
-      staff_profile_id: string;
-      staff_name: string;
-      compensation_type: string;
-      ytd_basic: number;
-      ytd_bonus: number;
-      ytd_total: number;
-    }>();
+    const staffMap = new Map<
+      string,
+      {
+        staff_profile_id: string;
+        staff_name: string;
+        compensation_type: string;
+        ytd_basic: number;
+        ytd_bonus: number;
+        ytd_total: number;
+      }
+    >();
 
     for (const entry of entries) {
       const key = entry.staff_profile_id;
@@ -130,10 +131,7 @@ export class PayrollReportsService {
     return { data, meta: { page, pageSize, total } };
   }
 
-  async getBonusAnalysis(
-    tenantId: string,
-    year?: number,
-  ): Promise<BonusAnalysisItem[]> {
+  async getBonusAnalysis(tenantId: string, year?: number): Promise<BonusAnalysisItem[]> {
     const currentYear = year ?? new Date().getFullYear();
 
     const entries = await this.prisma.payrollEntry.findMany({
@@ -161,13 +159,16 @@ export class PayrollReportsService {
     });
 
     // Aggregate per staff
-    const staffMap = new Map<string, {
-      staff_profile_id: string;
-      staff_name: string;
-      compensation_type: string;
-      months_with_bonus: number;
-      total_bonus_amount: number;
-    }>();
+    const staffMap = new Map<
+      string,
+      {
+        staff_profile_id: string;
+        staff_name: string;
+        compensation_type: string;
+        months_with_bonus: number;
+        total_bonus_amount: number;
+      }
+    >();
 
     for (const entry of entries) {
       const key = entry.staff_profile_id;
@@ -305,7 +306,10 @@ export class PayrollReportsService {
     staffProfileId: string,
     page = 1,
     pageSize = 20,
-  ): Promise<{ data: StaffPaymentHistoryItem[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: StaffPaymentHistoryItem[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
     const skip = (page - 1) * pageSize;
 
     const [entries, total] = await Promise.all([

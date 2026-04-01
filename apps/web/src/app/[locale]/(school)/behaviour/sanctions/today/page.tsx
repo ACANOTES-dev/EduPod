@@ -1,5 +1,11 @@
 'use client';
 
+import { AlertTriangle, CalendarDays, CheckCircle, Clock, Users } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -10,11 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { AlertTriangle, CalendarDays, CheckCircle, Clock, Users } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -91,8 +92,18 @@ function formatTodayDate(): string {
   const d = new Date();
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   const dayName = days[d.getDay()] ?? '';
   const month = months[d.getMonth()] ?? '';
@@ -103,9 +114,7 @@ function formatTodayDate(): string {
  * Group sanctions by room, then by time slot within each room.
  * Sanctions without a room go into "Unassigned Room".
  */
-function groupByRoomAndTime(
-  sanctions: TodaySanction[],
-): Array<{
+function groupByRoomAndTime(sanctions: TodaySanction[]): Array<{
   room: string;
   timeSlots: Array<{
     time: string;
@@ -226,9 +235,7 @@ export default function TodaySanctionsPage() {
   };
 
   const toggleSelectAll = () => {
-    const scheduledIds = allSanctions
-      .filter((s) => s.status === 'scheduled')
-      .map((s) => s.id);
+    const scheduledIds = allSanctions.filter((s) => s.status === 'scheduled').map((s) => s.id);
     if (scheduledIds.length === 0) return;
 
     const allSelected = scheduledIds.every((id) => selected.has(id));
@@ -254,8 +261,9 @@ export default function TodaySanctionsPage() {
         next.delete(sanctionId);
         return next;
       });
-    } catch {
+    } catch (err) {
       // Error toast handled by apiClient
+      console.error('[delete]', err);
     } finally {
       setUpdatingStatus(null);
     }
@@ -272,8 +280,9 @@ export default function TodaySanctionsPage() {
       });
       setSelected(new Set());
       void fetchToday();
-    } catch {
+    } catch (err) {
       // Error toast handled by apiClient
+      console.error('[fetchToday]', err);
     } finally {
       setBulkMarking(false);
     }
@@ -287,18 +296,12 @@ export default function TodaySanctionsPage() {
         <PageHeader title={t('title')} />
         <div className="grid grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-20 animate-pulse rounded-xl bg-surface-secondary"
-            />
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
           ))}
         </div>
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-xl bg-surface-secondary"
-            />
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-surface-secondary" />
           ))}
         </div>
       </div>
@@ -314,12 +317,7 @@ export default function TodaySanctionsPage() {
         <div className="rounded-xl border border-red-200 bg-red-50 py-12 text-center dark:border-red-800 dark:bg-red-900/20">
           <AlertTriangle className="mx-auto h-8 w-8 text-red-500" />
           <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={() => void fetchToday()}
-          >
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => void fetchToday()}>
             {t('retry')}
           </Button>
         </div>
@@ -343,12 +341,8 @@ export default function TodaySanctionsPage() {
         />
         <div className="rounded-xl border border-border bg-surface py-16 text-center dark:bg-surface">
           <CalendarDays className="mx-auto h-10 w-10 text-text-tertiary" />
-          <p className="mt-3 text-sm font-medium text-text-primary">
-            {t('empty')}
-          </p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {t('emptyDescription')}
-          </p>
+          <p className="mt-3 text-sm font-medium text-text-primary">{t('empty')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('emptyDescription')}</p>
         </div>
       </div>
     );
@@ -382,9 +376,7 @@ export default function TodaySanctionsPage() {
               {t('stats.total')}
             </span>
           </div>
-          <p className="mt-1 text-2xl font-semibold text-text-primary">
-            {allSanctions.length}
-          </p>
+          <p className="mt-1 text-2xl font-semibold text-text-primary">{allSanctions.length}</p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 dark:bg-surface">
           <div className="flex items-center gap-2">
@@ -393,9 +385,7 @@ export default function TodaySanctionsPage() {
               {t('stats.scheduled')}
             </span>
           </div>
-          <p className="mt-1 text-2xl font-semibold text-text-primary">
-            {totalScheduled}
-          </p>
+          <p className="mt-1 text-2xl font-semibold text-text-primary">{totalScheduled}</p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 dark:bg-surface">
           <div className="flex items-center gap-2">
@@ -404,9 +394,7 @@ export default function TodaySanctionsPage() {
               {t('stats.served')}
             </span>
           </div>
-          <p className="mt-1 text-2xl font-semibold text-text-primary">
-            {totalServed}
-          </p>
+          <p className="mt-1 text-2xl font-semibold text-text-primary">{totalServed}</p>
         </div>
         <div className="rounded-xl border border-border bg-surface p-4 dark:bg-surface">
           <div className="flex items-center gap-2">
@@ -442,15 +430,9 @@ export default function TodaySanctionsPage() {
             </span>
           </div>
           {selected.size > 0 && (
-            <Button
-              size="sm"
-              disabled={bulkMarking}
-              onClick={() => void handleBulkMarkServed()}
-            >
+            <Button size="sm" disabled={bulkMarking} onClick={() => void handleBulkMarkServed()}>
               <CheckCircle className="me-1 h-3.5 w-3.5" />
-              {bulkMarking
-                ? t('marking')
-                : t('markAsServed', { count: selected.size })}
+              {bulkMarking ? t('marking') : t('markAsServed', { count: selected.size })}
             </Button>
           )}
         </div>
@@ -462,14 +444,9 @@ export default function TodaySanctionsPage() {
           <div key={roomGroup.room}>
             {/* Room Header */}
             <div className="mb-3 flex items-center gap-2">
-              <h2 className="text-base font-semibold text-text-primary">
-                {roomGroup.room}
-              </h2>
+              <h2 className="text-base font-semibold text-text-primary">{roomGroup.room}</h2>
               <Badge variant="secondary" className="text-xs">
-                {roomGroup.timeSlots.reduce(
-                  (acc, ts) => acc + ts.sanctions.length,
-                  0,
-                )}{' '}
+                {roomGroup.timeSlots.reduce((acc, ts) => acc + ts.sanctions.length, 0)}{' '}
                 {t('sanctionsCount')}
               </Badge>
             </div>
@@ -483,9 +460,7 @@ export default function TodaySanctionsPage() {
                   {/* Time Slot Header */}
                   <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
                     <Clock className="h-4 w-4 text-text-tertiary" />
-                    <span className="text-sm font-medium text-text-primary">
-                      {timeSlot.time}
-                    </span>
+                    <span className="text-sm font-medium text-text-primary">{timeSlot.time}</span>
                     <Badge variant="secondary" className="text-xs">
                       {timeSlot.sanctions.length}
                     </Badge>
@@ -499,9 +474,7 @@ export default function TodaySanctionsPage() {
                         sanction={sanction}
                         isSelected={selected.has(sanction.id)}
                         onToggleSelect={() => toggleSelect(sanction.id)}
-                        onStatusChange={(status) =>
-                          handleStatusChange(sanction.id, status)
-                        }
+                        onStatusChange={(status) => handleStatusChange(sanction.id, status)}
                         isUpdating={updatingStatus === sanction.id}
                         locale={locale}
                       />
@@ -589,11 +562,7 @@ function SanctionRow({
       {/* Status control */}
       <div className="shrink-0">
         {isScheduled ? (
-          <Select
-            value=""
-            onValueChange={(v) => onStatusChange(v)}
-            disabled={isUpdating}
-          >
+          <Select value="" onValueChange={(v) => onStatusChange(v)} disabled={isUpdating}>
             <SelectTrigger className="w-36 text-sm">
               <SelectValue placeholder={isUpdating ? t('updating') : t('setStatus')} />
             </SelectTrigger>

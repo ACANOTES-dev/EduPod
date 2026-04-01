@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, EmptyState, StatusBadge } from '@school/ui';
 import {
   Bell,
   BookOpen,
@@ -14,6 +13,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
+import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { AiInsightCard } from './_components/ai-insight-card';
 import { FinancesTab } from './_components/finances-tab';

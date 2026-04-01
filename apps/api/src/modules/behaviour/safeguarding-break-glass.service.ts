@@ -1,8 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
-import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

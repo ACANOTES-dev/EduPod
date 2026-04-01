@@ -1,19 +1,6 @@
 'use client';
 
 import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
-  toast,
-} from '@school/ui';
-import {
   ArrowLeft,
   Calendar,
   CheckCircle,
@@ -28,6 +15,20 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Badge,
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  toast,
+} from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate, formatDateTime } from '@/lib/format-date';
@@ -119,7 +120,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const GROUNDS_COLORS: Record<string, string> = {
   factual_inaccuracy: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  disproportionate_consequence: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  disproportionate_consequence:
+    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   procedural_error: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   mitigating_circumstances: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   mistaken_identity: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
@@ -135,9 +137,12 @@ const DECISION_COLORS: Record<string, string> = {
 
 function InlineBadge({ value, colorMap }: { value: string; colorMap: Record<string, string> }) {
   const label = value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const color = colorMap[value] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400';
+  const color =
+    colorMap[value] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400';
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}
+    >
       {label}
     </span>
   );
@@ -149,9 +154,7 @@ const PROGRESS_STEPS = ['submitted', 'under_review', 'hearing_scheduled', 'decid
 
 function StatusTimeline({ currentStatus }: { currentStatus: string }) {
   const t = useTranslations('behaviour.appealDetail');
-  const activeIndex = PROGRESS_STEPS.indexOf(
-    currentStatus as (typeof PROGRESS_STEPS)[number],
-  );
+  const activeIndex = PROGRESS_STEPS.indexOf(currentStatus as (typeof PROGRESS_STEPS)[number]);
   const isWithdrawn = currentStatus === 'withdrawn' || currentStatus === 'withdrawn_appeal';
 
   return (
@@ -160,7 +163,9 @@ function StatusTimeline({ currentStatus }: { currentStatus: string }) {
       {isWithdrawn ? (
         <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-3 dark:bg-gray-800/40">
           <XCircle className="h-5 w-5 text-gray-500" />
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('appealWithdrawn')}</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            {t('appealWithdrawn')}
+          </span>
         </div>
       ) : (
         <div className="flex items-center gap-2">
@@ -372,7 +377,10 @@ export default function AppealDetailPage() {
   // ─── Amendment row management ───────────────────────────────────────────────
 
   const addAmendmentRow = () => {
-    setAmendments((prev) => [...prev, { entity_type: 'sanction', entity_id: '', field: '', new_value: '' }]);
+    setAmendments((prev) => [
+      ...prev,
+      { entity_type: 'sanction', entity_id: '', field: '', new_value: '' },
+    ]);
   };
 
   const removeAmendmentRow = (index: number) => {
@@ -380,9 +388,7 @@ export default function AppealDetailPage() {
   };
 
   const updateAmendmentRow = (index: number, key: keyof Amendment, value: string) => {
-    setAmendments((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
-    );
+    setAmendments((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
   };
 
   // ─── Attendee management ────────────────────────────────────────────────────
@@ -396,9 +402,7 @@ export default function AppealDetailPage() {
   };
 
   const updateAttendee = (index: number, key: 'name' | 'role', value: string) => {
-    setAttendees((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
-    );
+    setAttendees((prev) => prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
   };
 
   // ─── Loading / Not found ────────────────────────────────────────────────────
@@ -428,7 +432,10 @@ export default function AppealDetailPage() {
   const studentName = appeal.student
     ? `${appeal.student.first_name} ${appeal.student.last_name}`
     : t('unknownStudent');
-  const isTerminal = appeal.status === 'decided' || appeal.status === 'withdrawn' || appeal.status === 'withdrawn_appeal';
+  const isTerminal =
+    appeal.status === 'decided' ||
+    appeal.status === 'withdrawn' ||
+    appeal.status === 'withdrawn_appeal';
   const canDecide = ['submitted', 'under_review', 'hearing_scheduled'].includes(appeal.status);
   const canWithdraw = !isTerminal;
 
@@ -440,7 +447,11 @@ export default function AppealDetailPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/behaviour/appeals`)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push(`/${locale}/behaviour/appeals`)}
+            >
               <ArrowLeft className="me-1 h-4 w-4 rtl:rotate-180" />
               {t('backToAppeals')}
             </Button>
@@ -489,11 +500,7 @@ export default function AppealDetailPage() {
             </Button>
           )}
           {canWithdraw && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowWithdraw(!showWithdraw)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setShowWithdraw(!showWithdraw)}>
               <XCircle className="me-1 h-4 w-4" />
               {t('withdraw')}
             </Button>
@@ -680,7 +687,9 @@ export default function AppealDetailPage() {
                   size="sm"
                   disabled={actionLoading}
                   onClick={() =>
-                    handleUpdateAppeal({ hearing_attendees: attendees.filter((a) => a.name.trim()) })
+                    handleUpdateAppeal({
+                      hearing_attendees: attendees.filter((a) => a.name.trim()),
+                    })
                   }
                 >
                   {t('saveAttendees')}
@@ -753,13 +762,14 @@ export default function AppealDetailPage() {
                 </Button>
               </div>
               {amendments.length === 0 ? (
-                <p className="text-sm text-text-tertiary">
-                  {t('noAmendments')}
-                </p>
+                <p className="text-sm text-text-tertiary">{t('noAmendments')}</p>
               ) : (
                 <div className="space-y-2">
                   {amendments.map((row, i) => (
-                    <div key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-secondary p-2 dark:bg-surface">
+                    <div
+                      key={i}
+                      className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-secondary p-2 dark:bg-surface"
+                    >
                       <Select
                         value={row.entity_type}
                         onValueChange={(v) => updateAmendmentRow(i, 'entity_type', v)}
@@ -840,7 +850,9 @@ export default function AppealDetailPage() {
           {/* Resulting amendments diff table */}
           {appeal.resulting_amendments && appeal.resulting_amendments.length > 0 && (
             <div className="mt-4">
-              <h3 className="mb-2 text-xs font-semibold text-text-tertiary">{t('amendmentsApplied')}</h3>
+              <h3 className="mb-2 text-xs font-semibold text-text-tertiary">
+                {t('amendmentsApplied')}
+              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -902,9 +914,7 @@ export default function AppealDetailPage() {
                       {formatDateTime(entry.performed_at)}
                     </span>
                   </div>
-                  {entry.notes && (
-                    <p className="mt-1 text-sm text-text-secondary">{entry.notes}</p>
-                  )}
+                  {entry.notes && <p className="mt-1 text-sm text-text-secondary">{entry.notes}</p>}
                   {entry.new_values && Object.keys(entry.new_values).length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {Object.entries(entry.new_values).map(([key, val]) => (

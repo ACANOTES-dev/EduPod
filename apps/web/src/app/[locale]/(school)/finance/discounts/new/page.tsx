@@ -1,15 +1,15 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
+import { Button } from '@school/ui';
+
+import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { DiscountForm, type DiscountFormValues } from '../_components/discount-form';
 
 export default function NewDiscountPage() {
   const t = useTranslations('finance');

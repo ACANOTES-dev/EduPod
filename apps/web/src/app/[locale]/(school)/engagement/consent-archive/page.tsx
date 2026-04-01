@@ -1,8 +1,9 @@
 'use client';
 
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import {
   CONSENT_TYPE_OPTIONS,
@@ -17,7 +18,6 @@ import {
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function ConsentArchivePage() {
   const t = useTranslations('engagement');

@@ -9,9 +9,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import { amendmentListQuerySchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -35,9 +36,7 @@ const paginationQuerySchema = z.object({
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourAmendmentsController {
-  constructor(
-    private readonly amendmentsService: BehaviourAmendmentsService,
-  ) {}
+  constructor(private readonly amendmentsService: BehaviourAmendmentsService) {}
 
   // ─── List Amendments ───────────────────────────────────────────────────────
 
@@ -60,21 +59,14 @@ export class BehaviourAmendmentsController {
     @Query(new ZodValidationPipe(paginationQuerySchema))
     query: z.infer<typeof paginationQuerySchema>,
   ) {
-    return this.amendmentsService.getPending(
-      tenant.tenant_id,
-      query.page,
-      query.pageSize,
-    );
+    return this.amendmentsService.getPending(tenant.tenant_id, query.page, query.pageSize);
   }
 
   // ─── Get Amendment by ID ──────────────────────────────────────────────────
 
   @Get('behaviour/amendments/:id')
   @RequiresPermission('behaviour.manage')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.amendmentsService.getById(tenant.tenant_id, id);
   }
 
@@ -88,10 +80,6 @@ export class BehaviourAmendmentsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.amendmentsService.sendCorrection(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.amendmentsService.sendCorrection(tenant.tenant_id, id, user.sub);
   }
 }

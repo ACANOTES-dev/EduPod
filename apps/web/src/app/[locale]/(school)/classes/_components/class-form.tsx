@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,22 +13,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AcademicYear { id: string; name: string }
-interface YearGroup { id: string; name: string }
-interface Room { id: string; name: string; capacity: number | null }
+interface AcademicYear {
+  id: string;
+  name: string;
+}
+interface YearGroup {
+  id: string;
+  name: string;
+}
+interface Room {
+  id: string;
+  name: string;
+  capacity: number | null;
+}
 interface StaffProfile {
   id: string;
   user: { first_name: string; last_name: string };
 }
 
-interface ListResponse<T> { data: T[] }
+interface ListResponse<T> {
+  data: T[];
+}
 
 export interface ClassFormValues {
   name: string;
@@ -143,7 +156,9 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                  <SelectItem key={y.id} value={y.id}>
+                    {y.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -161,7 +176,9 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
               </SelectTrigger>
               <SelectContent>
                 {yearGroups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -205,12 +222,14 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
             <Label>Class Type *</Label>
             <Select
               value={values.class_type}
-              onValueChange={(v) => setValues((p) => ({
-                ...p,
-                class_type: v,
-                // Clear room when switching to floating
-                homeroom_id: v === 'floating' ? '' : p.homeroom_id,
-              }))}
+              onValueChange={(v) =>
+                setValues((p) => ({
+                  ...p,
+                  class_type: v,
+                  // Clear room when switching to floating
+                  homeroom_id: v === 'floating' ? '' : p.homeroom_id,
+                }))
+              }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select class type" />
@@ -236,7 +255,8 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
                 <SelectContent>
                   {availableRooms.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.name}{r.capacity ? ` (cap: ${r.capacity})` : ''}
+                      {r.name}
+                      {r.capacity ? ` (cap: ${r.capacity})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -249,7 +269,9 @@ export function ClassForm({ initialValues, onSubmit, submitLabel, onCancel }: Cl
             <Label htmlFor="homeroom_teacher_staff_id">{t('fieldHomeroomTeacher')}</Label>
             <Select
               value={values.homeroom_teacher_staff_id || '__none__'}
-              onValueChange={(v) => setValues((p) => ({ ...p, homeroom_teacher_staff_id: v === '__none__' ? '' : v }))}
+              onValueChange={(v) =>
+                setValues((p) => ({ ...p, homeroom_teacher_staff_id: v === '__none__' ? '' : v }))
+              }
             >
               <SelectTrigger id="homeroom_teacher_staff_id">
                 <SelectValue placeholder={t('selectHomeroomTeacher')} />

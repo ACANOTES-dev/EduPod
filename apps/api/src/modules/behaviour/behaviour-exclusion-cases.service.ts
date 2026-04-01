@@ -7,6 +7,8 @@ import {
   Optional,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import {
   type CreateExclusionCaseDto,
   type ExclusionCaseListQuery,
@@ -19,7 +21,6 @@ import {
   computeTimelineStatuses,
   isValidExclusionTransition,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -180,8 +181,12 @@ export class BehaviourExclusionCasesService {
           );
         }
       }
-    } catch {
+    } catch (err) {
       // Don't fail exclusion creation if document generation fails
+      this.logger.error(
+        '[create] Document generation failed',
+        err instanceof Error ? err.stack : String(err),
+      );
     }
 
     return exclusionCase;

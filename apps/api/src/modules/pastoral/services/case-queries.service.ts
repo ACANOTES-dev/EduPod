@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type { CaseFilters } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';

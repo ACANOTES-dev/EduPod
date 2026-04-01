@@ -1,10 +1,10 @@
 'use client';
 
-import { PERMISSIONS, PERMISSION_TIER_MAP } from '@school/shared';
-import { Checkbox, Label } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { PERMISSIONS, PERMISSION_TIER_MAP } from '@school/shared';
+import { Checkbox, Label } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,9 +112,7 @@ export function PermissionPicker({
   };
 
   if (allowedGroups.length === 0) {
-    return (
-      <p className="text-sm text-text-tertiary">{t('permissionsTierNote')}</p>
-    );
+    return <p className="text-sm text-text-tertiary">{t('permissionsTierNote')}</p>;
   }
 
   return (
@@ -164,9 +162,7 @@ export function PermissionPicker({
                       className="cursor-pointer text-sm leading-snug text-text-secondary"
                     >
                       <code className="text-xs text-text-primary">{key}</code>
-                      {desc && (
-                        <span className="block text-xs text-text-tertiary">{desc}</span>
-                      )}
+                      {desc && <span className="block text-xs text-text-tertiary">{desc}</span>}
                     </Label>
                   </div>
                 );

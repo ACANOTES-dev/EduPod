@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { TIER_COLORS } from '@/lib/early-warning';
 
@@ -37,14 +31,10 @@ export function RoutingRulesConfig({ routingRules, onChange }: RoutingRulesConfi
     <div className="space-y-4">
       {/* Yellow tier routing */}
       <div>
-        <Label className={`text-sm ${TIER_COLORS.yellow.text}`}>
-          {t('routing_yellow')}
-        </Label>
+        <Label className={`text-sm ${TIER_COLORS.yellow.text}`}>{t('routing_yellow')}</Label>
         <Select
           value={routingRules.yellow.role}
-          onValueChange={(v) =>
-            onChange({ ...routingRules, yellow: { role: v } })
-          }
+          onValueChange={(v) => onChange({ ...routingRules, yellow: { role: v } })}
         >
           <SelectTrigger className="mt-1 w-full sm:w-64">
             <SelectValue />
@@ -61,14 +51,10 @@ export function RoutingRulesConfig({ routingRules, onChange }: RoutingRulesConfi
 
       {/* Amber tier routing */}
       <div>
-        <Label className={`text-sm ${TIER_COLORS.amber.text}`}>
-          {t('routing_amber')}
-        </Label>
+        <Label className={`text-sm ${TIER_COLORS.amber.text}`}>{t('routing_amber')}</Label>
         <Select
           value={routingRules.amber.role}
-          onValueChange={(v) =>
-            onChange({ ...routingRules, amber: { role: v } })
-          }
+          onValueChange={(v) => onChange({ ...routingRules, amber: { role: v } })}
         >
           <SelectTrigger className="mt-1 w-full sm:w-64">
             <SelectValue />
@@ -85,12 +71,8 @@ export function RoutingRulesConfig({ routingRules, onChange }: RoutingRulesConfi
 
       {/* Red tier routing (multiple roles) */}
       <div>
-        <Label className={`text-sm ${TIER_COLORS.red.text}`}>
-          {t('routing_red')}
-        </Label>
-        <p className="mt-1 text-xs text-text-tertiary">
-          {t('routing_red_description')}
-        </p>
+        <Label className={`text-sm ${TIER_COLORS.red.text}`}>{t('routing_red')}</Label>
+        <p className="mt-1 text-xs text-text-tertiary">{t('routing_red_description')}</p>
         <div className="mt-2 space-y-2">
           {ROLE_OPTIONS.map((opt) => {
             const checked = routingRules.red.roles.includes(opt.value);

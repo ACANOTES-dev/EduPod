@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,16 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { ScheduleForm } from './_components/schedule-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { ScheduleForm } from './_components/schedule-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,16 +104,20 @@ export default function SchedulesPage() {
     Promise.all([
       apiClient<ListResponse<AcademicYear>>('/api/v1/academic-years?pageSize=100'),
       apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100'),
-      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>(
+        '/api/v1/staff-profiles?pageSize=100',
+      ),
       apiClient<ListResponse<SelectOption>>('/api/v1/rooms?pageSize=100'),
     ])
       .then(([yearsRes, classesRes, teachersRes, roomsRes]) => {
         setAcademicYears(yearsRes.data);
         setClasses(classesRes.data);
-        setTeachers((teachersRes.data ?? []).map((s) => ({
-          id: s.id,
-          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
-        })));
+        setTeachers(
+          (teachersRes.data ?? []).map((s) => ({
+            id: s.id,
+            name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+          })),
+        );
         setRooms(roomsRes.data);
       })
       .catch(() => undefined);
@@ -189,7 +193,8 @@ export default function SchedulesPage() {
       header: t('effectiveFrom'),
       render: (row: ScheduleRow) => (
         <span className="text-text-secondary text-xs">
-          {row.effective_from}{row.effective_to ? ` → ${row.effective_to}` : ''}
+          {row.effective_from}
+          {row.effective_to ? ` → ${row.effective_to}` : ''}
         </span>
       ),
     },
@@ -197,62 +202,102 @@ export default function SchedulesPage() {
       key: 'source',
       header: 'Source',
       render: (row: ScheduleRow) => (
-        <Badge variant="secondary" className="text-xs capitalize">{row.source}</Badge>
+        <Badge variant="secondary" className="text-xs capitalize">
+          {row.source}
+        </Badge>
       ),
     },
   ];
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
+      <Select
+        value={yearFilter}
+        onValueChange={(v) => {
+          setYearFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Academic Year" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Years</SelectItem>
           {academicYears.map((y) => (
-            <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+            <SelectItem key={y.id} value={y.id}>
+              {y.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+      <Select
+        value={classFilter}
+        onValueChange={(v) => {
+          setClassFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Class" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Classes</SelectItem>
           {classes.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={teacherFilter} onValueChange={(v) => { setTeacherFilter(v); setPage(1); }}>
+      <Select
+        value={teacherFilter}
+        onValueChange={(v) => {
+          setTeacherFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Teacher" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Teachers</SelectItem>
           {teachers.map((tr) => (
-            <SelectItem key={tr.id} value={tr.id}>{tr.name}</SelectItem>
+            <SelectItem key={tr.id} value={tr.id}>
+              {tr.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={roomFilter} onValueChange={(v) => { setRoomFilter(v); setPage(1); }}>
+      <Select
+        value={roomFilter}
+        onValueChange={(v) => {
+          setRoomFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Room" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Rooms</SelectItem>
           {rooms.map((r) => (
-            <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            <SelectItem key={r.id} value={r.id}>
+              {r.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={weekdayFilter} onValueChange={(v) => { setWeekdayFilter(v); setPage(1); }}>
+      <Select
+        value={weekdayFilter}
+        onValueChange={(v) => {
+          setWeekdayFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Day" />
         </SelectTrigger>
@@ -295,7 +340,16 @@ export default function SchedulesPage() {
       <ScheduleForm
         open={formOpen}
         onOpenChange={setFormOpen}
-        onSuccess={() => void fetchSchedules(page, yearFilter, classFilter, teacherFilter, roomFilter, weekdayFilter)}
+        onSuccess={() =>
+          void fetchSchedules(
+            page,
+            yearFilter,
+            classFilter,
+            teacherFilter,
+            roomFilter,
+            weekdayFilter,
+          )
+        }
       />
     </div>
   );

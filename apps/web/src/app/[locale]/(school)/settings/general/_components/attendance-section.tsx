@@ -1,7 +1,8 @@
 'use client';
 
-import { Label, RadioGroup, RadioGroupItem } from '@school/ui';
 import { useTranslations } from 'next-intl';
+
+import { Label, RadioGroup, RadioGroupItem } from '@school/ui';
 
 import { AttendanceSettings } from './settings-types';
 import { BooleanRow, NumberRow, SectionCard, SubSectionCard } from './settings-ui';
@@ -98,10 +99,7 @@ export function AttendanceSection({ settings, onChange }: AttendanceSectionProps
       />
 
       {/* Pattern detection sub-section */}
-      <SubSectionCard
-        title={t('patternDetection')}
-        description={t('patternDetectionDescription')}
-      >
+      <SubSectionCard title={t('patternDetection')} description={t('patternDetectionDescription')}>
         <BooleanRow
           label={t('patternEnabled')}
           value={settings.patternDetection.enabled}
@@ -149,9 +147,7 @@ export function AttendanceSection({ settings, onChange }: AttendanceSectionProps
             {/* Parent notification mode */}
             <div className="space-y-3">
               <div className="space-y-0.5">
-                <Label className="text-sm text-text-primary">
-                  {t('parentNotificationMode')}
-                </Label>
+                <Label className="text-sm text-text-primary">{t('parentNotificationMode')}</Label>
               </div>
               <RadioGroup
                 value={settings.patternDetection.parentNotificationMode}

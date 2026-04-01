@@ -1,11 +1,11 @@
 'use client';
 
-import { EmptyState, StatusBadge } from '@school/ui';
 import { ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { EmptyState, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -28,7 +28,10 @@ interface ApprovalRequest {
   decided_at: string | null;
 }
 
-const STATUS_MAP: Record<ApprovalStatus, { label: string; variant: 'warning' | 'success' | 'danger' | 'neutral' }> = {
+const STATUS_MAP: Record<
+  ApprovalStatus,
+  { label: string; variant: 'warning' | 'success' | 'danger' | 'neutral' }
+> = {
   pending_approval: { label: 'Pending', variant: 'warning' },
   approved: { label: 'Approved', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'danger' },
@@ -143,7 +146,10 @@ export default function ApprovalsPage() {
         toolbar={
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
             className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-primary"
           >
             <option value="pending_approval">Pending</option>
@@ -159,9 +165,11 @@ export default function ApprovalsPage() {
         <EmptyState
           icon={ShieldCheck}
           title="No approval requests"
-          description={statusFilter === 'pending_approval'
-            ? 'There are no pending approvals right now.'
-            : 'No approval requests match the current filter.'}
+          description={
+            statusFilter === 'pending_approval'
+              ? 'There are no pending approvals right now.'
+              : 'No approval requests match the current filter.'
+          }
         />
       )}
     </div>

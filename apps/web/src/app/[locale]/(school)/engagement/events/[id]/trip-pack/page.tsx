@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { Download, FileCheck2, ShieldAlert, Users } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, toast } from '@school/ui';
 
 import {
   formatDisplayDate,

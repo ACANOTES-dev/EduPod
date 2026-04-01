@@ -1,9 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { Job } from 'bullmq';
+
 import type { RiskTier } from '@school/shared';
 import { EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
-import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -35,18 +36,14 @@ export class WeeklyDigestProcessor extends WorkerHost {
 
     if (tenant_id) {
       // Per-tenant mode
-      this.logger.log(
-        `Processing ${EARLY_WARNING_WEEKLY_DIGEST_JOB} — tenant ${tenant_id}`,
-      );
+      this.logger.log(`Processing ${EARLY_WARNING_WEEKLY_DIGEST_JOB} — tenant ${tenant_id}`);
       const innerJob = new WeeklyDigestJob(this.prisma);
       await innerJob.execute(job.data);
       return;
     }
 
     // Cross-tenant cron mode: iterate all active tenants
-    this.logger.log(
-      `Processing ${EARLY_WARNING_WEEKLY_DIGEST_JOB} — cross-tenant cron run`,
-    );
+    this.logger.log(`Processing ${EARLY_WARNING_WEEKLY_DIGEST_JOB} — cross-tenant cron run`);
 
     const tenants = await this.prisma.tenant.findMany({
       where: { status: 'active' },
@@ -60,9 +57,7 @@ export class WeeklyDigestProcessor extends WorkerHost {
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Weekly digest failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Weekly digest failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -96,10 +91,7 @@ interface DigestStudentEntry {
 class WeeklyDigestJob extends TenantAwareJob<WeeklyDigestPayload> {
   private readonly logger = new Logger(WeeklyDigestJob.name);
 
-  protected async processJob(
-    data: WeeklyDigestPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: WeeklyDigestPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // 1. Load config — skip if disabled
@@ -203,7 +195,7 @@ class WeeklyDigestJob extends TenantAwareJob<WeeklyDigestPayload> {
         risk_tier: tier,
         composite_score: Number(profile.composite_score),
         tier_changed_this_week: !!transition,
-        previous_tier: transition?.from_tier as RiskTier | null ?? null,
+        previous_tier: (transition?.from_tier as RiskTier | null) ?? null,
         summary_text: signalSummary?.summaryText ?? '',
       });
     }
@@ -239,9 +231,7 @@ class WeeklyDigestJob extends TenantAwareJob<WeeklyDigestPayload> {
         });
         notificationsSent++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Failed to send digest notification to user ${userId}: ${String(err)}`,
-        );
+        this.logger.error(`Failed to send digest notification to user ${userId}: ${String(err)}`);
       }
     }
 

@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { CreateReferralDto, ReferralFilters, UpdateReferralDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -118,25 +114,21 @@ export class ReferralService {
 
   // ─── CREATE ─────────────────────────────────────────────────────────────────
 
-  async create(
-    tenantId: string,
-    userId: string,
-    dto: CreateReferralDto,
-  ): Promise<ReferralRow> {
+  async create(tenantId: string, userId: string, dto: CreateReferralDto): Promise<ReferralRow> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const referral = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const createData: Record<string, unknown> = {
-          tenant_id: tenantId,
-          student_id: dto.student_id,
-          case_id: dto.case_id ?? null,
-          referral_type: dto.referral_type,
-          referral_body_name: dto.referral_body_name ?? null,
-          status: 'draft',
-          created_by_user_id: userId,
-        };
+        tenant_id: tenantId,
+        student_id: dto.student_id,
+        case_id: dto.case_id ?? null,
+        referral_type: dto.referral_type,
+        referral_body_name: dto.referral_body_name ?? null,
+        status: 'draft',
+        created_by_user_id: userId,
+      };
 
       if (dto.pre_populated_data !== undefined) {
         createData.pre_populated_data = dto.pre_populated_data;
@@ -145,7 +137,9 @@ export class ReferralService {
         createData.manual_additions = dto.manual_additions;
       }
 
-      return db.pastoralReferral.create({ data: createData } as Parameters<typeof db.pastoralReferral.create>[0]);
+      return db.pastoralReferral.create({ data: createData } as Parameters<
+        typeof db.pastoralReferral.create
+      >[0]);
     })) as ReferralRow;
 
     void this.eventService.write({
@@ -232,10 +226,7 @@ export class ReferralService {
 
   // ─── GET ────────────────────────────────────────────────────────────────────
 
-  async get(
-    tenantId: string,
-    referralId: string,
-  ): Promise<ReferralWithDetails> {
+  async get(tenantId: string, referralId: string): Promise<ReferralWithDetails> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const result = (await rlsClient.$transaction(async (tx) => {
@@ -280,11 +271,7 @@ export class ReferralService {
 
   // ─── UPDATE ─────────────────────────────────────────────────────────────────
 
-  async update(
-    tenantId: string,
-    referralId: string,
-    dto: UpdateReferralDto,
-  ): Promise<ReferralRow> {
+  async update(tenantId: string, referralId: string, dto: UpdateReferralDto): Promise<ReferralRow> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const updated = (await rlsClient.$transaction(async (tx) => {
@@ -337,11 +324,7 @@ export class ReferralService {
 
   // ─── SUBMIT ─────────────────────────────────────────────────────────────────
 
-  async submit(
-    tenantId: string,
-    userId: string,
-    referralId: string,
-  ): Promise<ReferralRow> {
+  async submit(tenantId: string, userId: string, referralId: string): Promise<ReferralRow> {
     return this.transition(tenantId, userId, referralId, 'submitted', {
       submitted_at: new Date(),
       submitted_by_user_id: userId,
@@ -350,11 +333,7 @@ export class ReferralService {
 
   // ─── ACKNOWLEDGE ────────────────────────────────────────────────────────────
 
-  async acknowledge(
-    tenantId: string,
-    userId: string,
-    referralId: string,
-  ): Promise<ReferralRow> {
+  async acknowledge(tenantId: string, userId: string, referralId: string): Promise<ReferralRow> {
     return this.transition(tenantId, userId, referralId, 'acknowledged', {
       acknowledged_at: new Date(),
     });
@@ -519,7 +498,12 @@ export class ReferralService {
       const count = await db.pastoralReferral.count({ where });
 
       return [items, count];
-    })) as [Array<ReferralRow & { student: { id: string; first_name: string; last_name: string } | null }>, number];
+    })) as [
+      Array<
+        ReferralRow & { student: { id: string; first_name: string; last_name: string } | null }
+      >,
+      number,
+    ];
 
     const now = new Date();
     const data: WaitlistItem[] = rawData.map((item) => {

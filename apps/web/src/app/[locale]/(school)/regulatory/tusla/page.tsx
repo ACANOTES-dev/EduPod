@@ -1,18 +1,19 @@
 'use client';
 
-import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared';
 import { BarChart3, Clock, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { ThresholdMonitorTable } from './_components/threshold-monitor-table';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -104,10 +105,7 @@ export default function TuslaHubPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('tusla.pageTitle')}
-        description={t('tusla.pageDescription')}
-      />
+      <PageHeader title={t('tusla.pageTitle')} description={t('tusla.pageDescription')} />
 
       <RegulatoryNav />
 
@@ -116,9 +114,7 @@ export default function TuslaHubPage() {
         {ACTION_CARDS.map((card) => {
           const Icon = card.icon;
           const content = (
-            <div
-              className="flex h-full flex-col rounded-2xl border border-border bg-surface px-4 py-5 transition-colors hover:bg-surface-secondary sm:px-6"
-            >
+            <div className="flex h-full flex-col rounded-2xl border border-border bg-surface px-4 py-5 transition-colors hover:bg-surface-secondary sm:px-6">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
                   <Icon className="h-5 w-5" />
@@ -156,11 +152,7 @@ export default function TuslaHubPage() {
       </div>
 
       {/* ─── Threshold Monitor ─────────────────────────────────────────────── */}
-      <ThresholdMonitorTable
-        data={thresholdData}
-        threshold={threshold}
-        isLoading={isLoading}
-      />
+      <ThresholdMonitorTable data={thresholdData} threshold={threshold} isLoading={isLoading} />
     </div>
   );
 }

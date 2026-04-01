@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, Label } from '@school/ui';
 
 import { useAuth, type AuthUser } from '@/providers/auth-provider';
 
@@ -28,7 +28,10 @@ export default function LoginPage() {
 
   // Sanitise redirect: only allow relative paths to prevent open-redirect attacks
   const rawRedirect = searchParams?.get('redirect') ?? null;
-  const redirectTo = rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : null;
+  const redirectTo =
+    rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : null;
 
   // Extract locale from pathname (e.g. /en/login -> en)
   const locale = React.useMemo(() => {
@@ -37,26 +40,31 @@ export default function LoginPage() {
   }, [pathname]);
 
   // Determine the correct dashboard path based on user roles
-  const getDashboardPath = React.useCallback((u: AuthUser) => {
-    const memberships = u.memberships ?? [];
-    const activeMemberships = memberships.filter(
-      (m) => m.membership_status === 'active',
-    );
+  const getDashboardPath = React.useCallback(
+    (u: AuthUser) => {
+      const memberships = u.memberships ?? [];
+      const activeMemberships = memberships.filter((m) => m.membership_status === 'active');
 
-    // No memberships = platform admin
-    if (activeMemberships.length === 0) {
-      return `/${locale}/admin`;
-    }
+      // No memberships = platform admin
+      if (activeMemberships.length === 0) {
+        return `/${locale}/admin`;
+      }
 
-    // Check the first (or only) membership's role
-    const roles = activeMemberships[0]?.roles ?? [];
-    const roleKeys = roles.map((r) => r.role_key);
-    if (roleKeys.includes('parent')) return `/${locale}/dashboard/parent`;
-    if (roleKeys.includes('teacher') && !roleKeys.includes('school_principal') && !roleKeys.includes('admin')) {
-      return `/${locale}/dashboard/teacher`;
-    }
-    return `/${locale}/dashboard`;
-  }, [locale]);
+      // Check the first (or only) membership's role
+      const roles = activeMemberships[0]?.roles ?? [];
+      const roleKeys = roles.map((r) => r.role_key);
+      if (roleKeys.includes('parent')) return `/${locale}/dashboard/parent`;
+      if (
+        roleKeys.includes('teacher') &&
+        !roleKeys.includes('school_principal') &&
+        !roleKeys.includes('admin')
+      ) {
+        return `/${locale}/dashboard/teacher`;
+      }
+      return `/${locale}/dashboard`;
+    },
+    [locale],
+  );
 
   // If already logged in, redirect based on role
   React.useEffect(() => {
@@ -69,9 +77,7 @@ export default function LoginPage() {
     }
 
     const memberships = user.memberships ?? [];
-    const activeMemberships = memberships.filter(
-      (m) => m.membership_status === 'active',
-    );
+    const activeMemberships = memberships.filter((m) => m.membership_status === 'active');
 
     // No memberships = platform admin
     if (activeMemberships.length === 0) {
@@ -182,11 +188,7 @@ export default function LoginPage() {
                   tabIndex={-1}
                   aria-label={showPassword ? t('hidePassword') : t('showPassword')}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>

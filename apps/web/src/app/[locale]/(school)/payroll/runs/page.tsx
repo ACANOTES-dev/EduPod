@@ -1,5 +1,9 @@
 'use client';
 
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -9,15 +13,12 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CreateRunDialog } from './_components/create-run-dialog';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { CreateRunDialog } from './_components/create-run-dialog';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -75,8 +76,9 @@ export default function PayrollRunsPage() {
       }>(`/api/v1/payroll/runs?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setTotal]', err);
     } finally {
       setIsLoading(false);
     }
@@ -129,9 +131,7 @@ export default function PayrollRunsPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('payrollRuns')}
-        actions={
-          <Button onClick={() => setCreateOpen(true)}>{t('newPayrollRun')}</Button>
-        }
+        actions={<Button onClick={() => setCreateOpen(true)}>{t('newPayrollRun')}</Button>}
       />
 
       <DataTable
@@ -146,7 +146,13 @@ export default function PayrollRunsPage() {
         isLoading={isLoading}
         toolbar={
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder={t('status')} />
               </SelectTrigger>
@@ -158,14 +164,22 @@ export default function PayrollRunsPage() {
                 <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
+            <Select
+              value={yearFilter}
+              onValueChange={(v) => {
+                setYearFilter(v);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-32">
                 <SelectValue placeholder={t('periodYear')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t('periodYear')}</SelectItem>
                 {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -173,11 +187,7 @@ export default function PayrollRunsPage() {
         }
       />
 
-      <CreateRunDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onSuccess={handleCreated}
-      />
+      <CreateRunDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={handleCreated} />
     </div>
   );
 }

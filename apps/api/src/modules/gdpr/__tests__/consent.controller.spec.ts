@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   BulkGrantConsentsDto,
   GetConsentsByTypeQueryDto,
@@ -96,22 +97,14 @@ describe('ConsentController', () => {
 
     const result = await controller.withdrawConsent(TENANT, USER, CONSENT_ID);
 
-    expect(mockConsentService.withdrawConsent).toHaveBeenCalledWith(
-      TENANT_ID,
-      CONSENT_ID,
-      USER_ID,
-    );
+    expect(mockConsentService.withdrawConsent).toHaveBeenCalledWith(TENANT_ID, CONSENT_ID, USER_ID);
     expect(result).toEqual({ id: CONSENT_ID });
   });
 
   it('should call getConsentsForSubject with tenant and subject context', async () => {
     mockConsentService.getConsentsForSubject.mockResolvedValue([{ id: CONSENT_ID }]);
 
-    const result = await controller.getConsentsForSubject(
-      TENANT,
-      'student',
-      STUDENT_ID,
-    );
+    const result = await controller.getConsentsForSubject(TENANT, 'student', STUDENT_ID);
 
     expect(mockConsentService.getConsentsForSubject).toHaveBeenCalledWith(
       TENANT_ID,
@@ -125,11 +118,7 @@ describe('ConsentController', () => {
     const query: GetConsentsByTypeQueryDto = { page: 1, pageSize: 20 };
     mockConsentService.getConsentsByType.mockResolvedValue({ data: [], meta: query });
 
-    const result = await controller.getConsentsByType(
-      TENANT,
-      CONSENT_TYPES.HEALTH_DATA,
-      query,
-    );
+    const result = await controller.getConsentsByType(TENANT, CONSENT_TYPES.HEALTH_DATA, query);
 
     expect(mockConsentService.getConsentsByType).toHaveBeenCalledWith(
       TENANT_ID,
@@ -165,21 +154,21 @@ describe('ConsentController', () => {
   });
 
   it('should require consent.manage on grant, withdraw, and bulk routes', () => {
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.grantConsent),
-    ).toBe('consent.manage');
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.withdrawConsent),
-    ).toBe('consent.manage');
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.bulkGrantConsents),
-    ).toBe('consent.manage');
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.grantConsent)).toBe(
+      'consent.manage',
+    );
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.withdrawConsent)).toBe(
+      'consent.manage',
+    );
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.bulkGrantConsents)).toBe(
+      'consent.manage',
+    );
   });
 
   it('should require consent.view on the subject query route', () => {
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getConsentsForSubject),
-    ).toBe('consent.view');
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getConsentsForSubject)).toBe(
+      'consent.view',
+    );
   });
 });
 
@@ -211,10 +200,7 @@ describe('ParentConsentController', () => {
 
     const result = await controller.getOwnConsents(TENANT, USER);
 
-    expect(mockConsentService.getParentPortalConsents).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-    );
+    expect(mockConsentService.getParentPortalConsents).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     expect(result).toEqual({ data: [] });
   });
 
@@ -223,11 +209,7 @@ describe('ParentConsentController', () => {
       id: CONSENT_ID,
     });
 
-    const result = await controller.withdrawOwnConsent(
-      TENANT,
-      USER,
-      CONSENT_ID,
-    );
+    const result = await controller.withdrawOwnConsent(TENANT, USER, CONSENT_ID);
 
     expect(mockConsentService.withdrawParentPortalConsent).toHaveBeenCalledWith(
       TENANT_ID,
@@ -238,11 +220,11 @@ describe('ParentConsentController', () => {
   });
 
   it('should require parent.view_own_students on self-service routes', () => {
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getOwnConsents),
-    ).toBe('parent.view_own_students');
-    expect(
-      Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.withdrawOwnConsent),
-    ).toBe('parent.view_own_students');
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getOwnConsents)).toBe(
+      'parent.view_own_students',
+    );
+    expect(Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.withdrawOwnConsent)).toBe(
+      'parent.view_own_students',
+    );
   });
 });

@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, Input } from '@school/ui';
 import { Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -19,6 +18,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, Input } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -125,8 +126,9 @@ export default function FinanceReportsPage() {
           );
           setFeePerformanceData(res.data);
         }
-      } catch {
+      } catch (err) {
         // Keep stale data
+        console.error('[setFeePerformanceData]', err);
       } finally {
         setIsLoading(false);
       }
@@ -143,10 +145,7 @@ export default function FinanceReportsPage() {
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
     const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '';
-    window.open(
-      `${baseUrl}/api/v1/finance/reports/export?${params.toString()}`,
-      '_blank',
-    );
+    window.open(`${baseUrl}/api/v1/finance/reports/export?${params.toString()}`, '_blank');
   }
 
   const tabs: Array<{ key: ReportTab; label: string }> = [
@@ -279,15 +278,24 @@ export default function FinanceReportsPage() {
                       </thead>
                       <tbody>
                         {bucket.households.map((hh) => (
-                          <tr key={hh.household_id} className="border-b border-border last:border-b-0">
+                          <tr
+                            key={hh.household_id}
+                            className="border-b border-border last:border-b-0"
+                          >
                             <td className="px-4 py-2 text-text-primary">{hh.household_name}</td>
-                            <td className="px-4 py-2 text-end font-mono text-text-secondary" dir="ltr">
+                            <td
+                              className="px-4 py-2 text-end font-mono text-text-secondary"
+                              dir="ltr"
+                            >
                               {hh.amount.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
                             </td>
-                            <td className="px-4 py-2 text-end font-mono text-text-secondary" dir="ltr">
+                            <td
+                              className="px-4 py-2 text-end font-mono text-text-secondary"
+                              dir="ltr"
+                            >
                               {hh.oldest_days}d
                             </td>
                           </tr>
@@ -374,13 +382,22 @@ export default function FinanceReportsPage() {
                       <tr key={row.month} className="border-b border-border last:border-b-0">
                         <td className="px-4 py-3 font-medium text-text-primary">{row.month}</td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.invoiced.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {row.invoiced.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.collected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {row.collected.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {row.outstanding.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                     ))}
@@ -413,8 +430,18 @@ export default function FinanceReportsPage() {
                     <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="total_billed" name={t('reports.totalBilled')} fill="#6366f1" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="total_collected" name={t('reports.totalCollected')} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="total_billed"
+                      name={t('reports.totalBilled')}
+                      fill="#6366f1"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="total_collected"
+                      name={t('reports.totalCollected')}
+                      fill="#22c55e"
+                      radius={[4, 4, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -440,12 +467,20 @@ export default function FinanceReportsPage() {
                   <tbody>
                     {yearGroupData.map((row) => (
                       <tr key={row.year_group} className="border-b border-border last:border-b-0">
-                        <td className="px-4 py-3 font-medium text-text-primary">{row.year_group}</td>
-                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.total_billed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <td className="px-4 py-3 font-medium text-text-primary">
+                          {row.year_group}
                         </td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.total_collected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {row.total_billed.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
+                          {row.total_collected.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-3 text-end" dir="ltr">
                           <span
@@ -453,8 +488,8 @@ export default function FinanceReportsPage() {
                               row.collection_rate >= 80
                                 ? 'text-success-700 font-semibold'
                                 : row.collection_rate >= 50
-                                ? 'text-warning-700 font-semibold'
-                                : 'text-danger-700 font-semibold'
+                                  ? 'text-warning-700 font-semibold'
+                                  : 'text-danger-700 font-semibold'
                             }
                           >
                             {row.collection_rate.toFixed(1)}%
@@ -491,7 +526,9 @@ export default function FinanceReportsPage() {
                       cy="50%"
                       outerRadius={100}
                       label={({ name, percent }: { name?: string; percent?: number }) =>
-                        name && percent !== undefined ? `${name} (${(percent * 100).toFixed(1)}%)` : ''
+                        name && percent !== undefined
+                          ? `${name} (${(percent * 100).toFixed(1)}%)`
+                          : ''
                       }
                     >
                       {paymentMethodData.map((_, idx) => (
@@ -528,7 +565,10 @@ export default function FinanceReportsPage() {
                           {row.method.replace(/_/g, ' ')}
                         </td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                          {row.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {row.amount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
                           {row.count}
@@ -585,10 +625,16 @@ export default function FinanceReportsPage() {
                       {row.households_assigned}
                     </td>
                     <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                      {row.total_billed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {row.total_billed.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="px-4 py-3 text-end font-mono text-text-secondary" dir="ltr">
-                      {row.total_collected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {row.total_collected.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="px-4 py-3 text-end" dir="ltr">
                       <span
@@ -596,8 +642,8 @@ export default function FinanceReportsPage() {
                           row.collection_rate >= 80
                             ? 'font-semibold text-success-700'
                             : row.collection_rate >= 50
-                            ? 'font-semibold text-warning-700'
-                            : 'font-semibold text-danger-700'
+                              ? 'font-semibold text-warning-700'
+                              : 'font-semibold text-danger-700'
                         }
                       >
                         {row.collection_rate.toFixed(1)}%
@@ -613,7 +659,6 @@ export default function FinanceReportsPage() {
           )}
         </div>
       )}
-
     </div>
   );
 }

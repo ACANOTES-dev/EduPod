@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApplicationFieldType, Prisma } from '@prisma/client';
+
 import { detectSpecialCategoryFields } from '@school/shared';
 import type {
   CreateFormDefinitionDto,
@@ -110,8 +107,7 @@ export class AdmissionFormsService {
             reportable: field.reportable,
             options_json: field.options_json ?? Prisma.JsonNull,
             validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
-            conditional_visibility_json:
-              field.conditional_visibility_json ?? Prisma.JsonNull,
+            conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
             display_order: field.display_order,
             active: field.active,
           },
@@ -227,8 +223,7 @@ export class AdmissionFormsService {
         throw new BadRequestException({
           error: {
             code: 'CONCURRENT_MODIFICATION',
-            message:
-              'The form has been modified by another user. Please reload and try again.',
+            message: 'The form has been modified by another user. Please reload and try again.',
           },
         });
       }
@@ -260,10 +255,8 @@ export class AdmissionFormsService {
               searchable: field.searchable,
               reportable: field.reportable,
               options_json: field.options_json ?? Prisma.JsonNull,
-              validation_rules_json:
-                field.validation_rules_json ?? Prisma.JsonNull,
-              conditional_visibility_json:
-                field.conditional_visibility_json ?? Prisma.JsonNull,
+              validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
+              conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
               display_order: field.display_order,
               active: field.active,
             },
@@ -316,10 +309,8 @@ export class AdmissionFormsService {
               searchable: field.searchable,
               reportable: field.reportable,
               options_json: field.options_json ?? Prisma.JsonNull,
-              validation_rules_json:
-                field.validation_rules_json ?? Prisma.JsonNull,
-              conditional_visibility_json:
-                field.conditional_visibility_json ?? Prisma.JsonNull,
+              validation_rules_json: field.validation_rules_json ?? Prisma.JsonNull,
+              conditional_visibility_json: field.conditional_visibility_json ?? Prisma.JsonNull,
               display_order: field.display_order,
               active: field.active,
             },
@@ -630,54 +621,228 @@ export class AdmissionFormsService {
     let order = 0;
     return [
       // ── Parent/Guardian 1 ──
-      { field_key: 'parent1_first_name', label: 'Parent/Guardian First Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
-      { field_key: 'parent1_last_name', label: 'Parent/Guardian Last Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
-      { field_key: 'parent1_email', label: 'Parent/Guardian Email', field_type: 'email', required: true, searchable: true, help_text: 'Required for online applications', display_order: order++ },
-      { field_key: 'parent1_phone', label: 'Parent/Guardian Phone', field_type: 'phone', required: true, display_order: order++ },
-      { field_key: 'parent1_relationship', label: 'Relationship to Student', field_type: 'single_select', required: true, options_json: [
-        { value: 'father', label: 'Father' },
-        { value: 'mother', label: 'Mother' },
-        { value: 'guardian', label: 'Guardian' },
-        { value: 'other', label: 'Other' },
-      ], display_order: order++ },
+      {
+        field_key: 'parent1_first_name',
+        label: 'Parent/Guardian First Name',
+        field_type: 'short_text',
+        required: true,
+        searchable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent1_last_name',
+        label: 'Parent/Guardian Last Name',
+        field_type: 'short_text',
+        required: true,
+        searchable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent1_email',
+        label: 'Parent/Guardian Email',
+        field_type: 'email',
+        required: true,
+        searchable: true,
+        help_text: 'Required for online applications',
+        display_order: order++,
+      },
+      {
+        field_key: 'parent1_phone',
+        label: 'Parent/Guardian Phone',
+        field_type: 'phone',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent1_relationship',
+        label: 'Relationship to Student',
+        field_type: 'single_select',
+        required: true,
+        options_json: [
+          { value: 'father', label: 'Father' },
+          { value: 'mother', label: 'Mother' },
+          { value: 'guardian', label: 'Guardian' },
+          { value: 'other', label: 'Other' },
+        ],
+        display_order: order++,
+      },
 
       // ── Parent/Guardian 2 (optional) ──
-      { field_key: 'parent2_first_name', label: 'Second Parent First Name', field_type: 'short_text', required: false, display_order: order++ },
-      { field_key: 'parent2_last_name', label: 'Second Parent Last Name', field_type: 'short_text', required: false, display_order: order++ },
-      { field_key: 'parent2_email', label: 'Second Parent Email', field_type: 'email', required: false, display_order: order++ },
-      { field_key: 'parent2_phone', label: 'Second Parent Phone', field_type: 'phone', required: false, display_order: order++ },
-      { field_key: 'parent2_relationship', label: 'Second Parent Relationship', field_type: 'single_select', required: false, options_json: [
-        { value: 'father', label: 'Father' },
-        { value: 'mother', label: 'Mother' },
-        { value: 'guardian', label: 'Guardian' },
-        { value: 'other', label: 'Other' },
-      ], display_order: order++ },
+      {
+        field_key: 'parent2_first_name',
+        label: 'Second Parent First Name',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent2_last_name',
+        label: 'Second Parent Last Name',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent2_email',
+        label: 'Second Parent Email',
+        field_type: 'email',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent2_phone',
+        label: 'Second Parent Phone',
+        field_type: 'phone',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'parent2_relationship',
+        label: 'Second Parent Relationship',
+        field_type: 'single_select',
+        required: false,
+        options_json: [
+          { value: 'father', label: 'Father' },
+          { value: 'mother', label: 'Mother' },
+          { value: 'guardian', label: 'Guardian' },
+          { value: 'other', label: 'Other' },
+        ],
+        display_order: order++,
+      },
 
       // ── Household / Address ──
-      { field_key: 'address_line_1', label: 'Address Line 1', field_type: 'short_text', required: true, display_order: order++ },
-      { field_key: 'address_line_2', label: 'Address Line 2', field_type: 'short_text', required: false, display_order: order++ },
-      { field_key: 'city', label: 'City', field_type: 'short_text', required: true, display_order: order++ },
-      { field_key: 'country', label: 'Country', field_type: 'country', required: true, display_order: order++ },
-      { field_key: 'postal_code', label: 'Postal Code', field_type: 'short_text', required: false, display_order: order++ },
+      {
+        field_key: 'address_line_1',
+        label: 'Address Line 1',
+        field_type: 'short_text',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'address_line_2',
+        label: 'Address Line 2',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'city',
+        label: 'City',
+        field_type: 'short_text',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'country',
+        label: 'Country',
+        field_type: 'country',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'postal_code',
+        label: 'Postal Code',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
 
       // ── Emergency Contact ──
-      { field_key: 'emergency_name', label: 'Emergency Contact Name', field_type: 'short_text', required: false, display_order: order++ },
-      { field_key: 'emergency_phone', label: 'Emergency Contact Phone', field_type: 'phone', required: false, display_order: order++ },
-      { field_key: 'emergency_relationship', label: 'Emergency Contact Relationship', field_type: 'short_text', required: false, display_order: order++ },
+      {
+        field_key: 'emergency_name',
+        label: 'Emergency Contact Name',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'emergency_phone',
+        label: 'Emergency Contact Phone',
+        field_type: 'phone',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'emergency_relationship',
+        label: 'Emergency Contact Relationship',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
 
       // ── Student ──
-      { field_key: 'student_first_name', label: 'Student First Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
-      { field_key: 'student_middle_name', label: 'Student Middle Name', field_type: 'short_text', required: false, display_order: order++ },
-      { field_key: 'student_last_name', label: 'Student Last Name', field_type: 'short_text', required: true, searchable: true, display_order: order++ },
-      { field_key: 'student_dob', label: 'Date of Birth', field_type: 'date', required: true, display_order: order++ },
-      { field_key: 'student_gender', label: 'Gender', field_type: 'single_select', required: true, options_json: [
-        { value: 'male', label: 'Male' },
-        { value: 'female', label: 'Female' },
-      ], reportable: true, display_order: order++ },
-      { field_key: 'student_year_group', label: 'Year Group', field_type: 'short_text', required: true, help_text: 'The year/grade the student is applying for', reportable: true, display_order: order++ },
-      { field_key: 'student_national_id', label: 'National ID', field_type: 'short_text', required: true, display_order: order++ },
-      { field_key: 'student_medical_notes', label: 'Medical Notes', field_type: 'long_text', required: false, display_order: order++ },
-      { field_key: 'student_allergies', label: 'Has Allergies', field_type: 'yes_no', required: false, display_order: order++ },
+      {
+        field_key: 'student_first_name',
+        label: 'Student First Name',
+        field_type: 'short_text',
+        required: true,
+        searchable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_middle_name',
+        label: 'Student Middle Name',
+        field_type: 'short_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_last_name',
+        label: 'Student Last Name',
+        field_type: 'short_text',
+        required: true,
+        searchable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_dob',
+        label: 'Date of Birth',
+        field_type: 'date',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_gender',
+        label: 'Gender',
+        field_type: 'single_select',
+        required: true,
+        options_json: [
+          { value: 'male', label: 'Male' },
+          { value: 'female', label: 'Female' },
+        ],
+        reportable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_year_group',
+        label: 'Year Group',
+        field_type: 'short_text',
+        required: true,
+        help_text: 'The year/grade the student is applying for',
+        reportable: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_national_id',
+        label: 'National ID',
+        field_type: 'short_text',
+        required: true,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_medical_notes',
+        label: 'Medical Notes',
+        field_type: 'long_text',
+        required: false,
+        display_order: order++,
+      },
+      {
+        field_key: 'student_allergies',
+        label: 'Has Allergies',
+        field_type: 'yes_no',
+        required: false,
+        display_order: order++,
+      },
     ];
   }
 
@@ -697,7 +862,12 @@ export class AdmissionFormsService {
     tenantId: string,
     userId: string,
     formId: string,
-    overrides: Array<{ field_key: string; field_label: string; matched_keyword: string; justification: string }>,
+    overrides: Array<{
+      field_key: string;
+      field_label: string;
+      matched_keyword: string;
+      justification: string;
+    }>,
   ): Promise<void> {
     for (const override of overrides) {
       await this.prisma.auditLog.create({
@@ -727,9 +897,7 @@ export class AdmissionFormsService {
     const keys = fields.map((f) => f.field_key);
     const uniqueKeys = new Set(keys);
     if (uniqueKeys.size !== keys.length) {
-      const duplicates = keys.filter(
-        (k, i) => keys.indexOf(k) !== i,
-      );
+      const duplicates = keys.filter((k, i) => keys.indexOf(k) !== i);
       throw new BadRequestException({
         error: {
           code: 'DUPLICATE_FIELD_KEYS',
@@ -741,8 +909,7 @@ export class AdmissionFormsService {
     // Validate select types have options
     for (const field of fields) {
       if (
-        (field.field_type === 'single_select' ||
-          field.field_type === 'multi_select') &&
+        (field.field_type === 'single_select' || field.field_type === 'multi_select') &&
         (!field.options_json || field.options_json.length === 0)
       ) {
         throw new BadRequestException({

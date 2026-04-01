@@ -10,12 +10,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createParentContactSchema,
-  parentContactFiltersSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
+
+import { createParentContactSchema, parentContactFiltersSchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -31,9 +29,7 @@ import { ParentContactService } from '../services/parent-contact.service';
 @ModuleEnabled('pastoral')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class ParentContactsController {
-  constructor(
-    private readonly parentContactService: ParentContactService,
-  ) {}
+  constructor(private readonly parentContactService: ParentContactService) {}
 
   // ─── 1. Log Parent Contact ────────────────────────────────────────────────
 
@@ -46,11 +42,7 @@ export class ParentContactsController {
     @Body(new ZodValidationPipe(createParentContactSchema))
     dto: z.infer<typeof createParentContactSchema>,
   ) {
-    return this.parentContactService.logContact(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.parentContactService.logContact(tenant.tenant_id, user.sub, dto);
   }
 
   // ─── 2. List Parent Contacts ──────────────────────────────────────────────
@@ -62,23 +54,14 @@ export class ParentContactsController {
     @Query(new ZodValidationPipe(parentContactFiltersSchema))
     query: z.infer<typeof parentContactFiltersSchema>,
   ) {
-    return this.parentContactService.listContacts(
-      tenant.tenant_id,
-      query,
-    );
+    return this.parentContactService.listContacts(tenant.tenant_id, query);
   }
 
   // ─── 3. Get Parent Contact by ID ──────────────────────────────────────────
 
   @Get('pastoral/parent-contacts/:id')
   @RequiresPermission('pastoral.view_tier1')
-  async getContact(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.parentContactService.getContact(
-      tenant.tenant_id,
-      id,
-    );
+  async getContact(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.parentContactService.getContact(tenant.tenant_id, id);
   }
 }

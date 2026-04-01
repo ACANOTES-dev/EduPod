@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -9,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { CheckCircle2, ChevronDown, ClipboardList, ShieldCheck } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
@@ -200,9 +201,21 @@ export default function SurveyPage() {
       setShowConfirm(false);
       const errorObj = err as { error?: { code?: string } } | undefined;
       const code = errorObj?.error?.code;
-      if (code === 'ALREADY_RESPONDED' || (typeof err === 'object' && err !== null && 'status' in err && (err as { status: number }).status === 409)) {
+      if (
+        code === 'ALREADY_RESPONDED' ||
+        (typeof err === 'object' &&
+          err !== null &&
+          'status' in err &&
+          (err as { status: number }).status === 409)
+      ) {
         setSubmitError('already_responded');
-      } else if (code === 'SURVEY_CLOSED' || (typeof err === 'object' && err !== null && 'status' in err && (err as { status: number }).status === 403)) {
+      } else if (
+        code === 'SURVEY_CLOSED' ||
+        (typeof err === 'object' &&
+          err !== null &&
+          'status' in err &&
+          (err as { status: number }).status === 403)
+      ) {
         setSubmitError('closed');
       } else {
         // For 409 / 403 caught by apiClient error shape
@@ -257,9 +270,7 @@ export default function SurveyPage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-secondary">
             <ClipboardList className="h-8 w-8 text-text-tertiary" />
           </div>
-          <p className="max-w-sm text-center text-sm text-text-secondary">
-            {t('noActiveSurvey')}
-          </p>
+          <p className="max-w-sm text-center text-sm text-text-secondary">{t('noActiveSurvey')}</p>
         </div>
       </div>
     );
@@ -312,9 +323,7 @@ export default function SurveyPage() {
   }
 
   // State 2: Active survey — not yet responded
-  const sortedQuestions = [...survey.questions].sort(
-    (a, b) => a.display_order - b.display_order,
-  );
+  const sortedQuestions = [...survey.questions].sort((a, b) => a.display_order - b.display_order);
 
   return (
     <div className="space-y-6">
@@ -327,9 +336,7 @@ export default function SurveyPage() {
             <ShieldCheck className="h-5 w-5 text-blue-700" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm leading-relaxed text-blue-900">
-              {t('anonymityExplanation')}
-            </p>
+            <p className="text-sm leading-relaxed text-blue-900">{t('anonymityExplanation')}</p>
 
             {/* Expandable detail */}
             <button
@@ -365,10 +372,7 @@ export default function SurveyPage() {
       {/* Questions */}
       <div className="space-y-6">
         {sortedQuestions.map((question, idx) => (
-          <div
-            key={question.id}
-            className="rounded-xl border border-border bg-surface p-4 sm:p-5"
-          >
+          <div key={question.id} className="rounded-xl border border-border bg-surface p-4 sm:p-5">
             <div className="mb-3 flex items-start gap-2">
               <span className="mt-0.5 text-xs font-medium text-text-tertiary" dir="ltr">
                 {idx + 1}.
@@ -376,9 +380,7 @@ export default function SurveyPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary">
                   {question.question_text}
-                  {question.is_required && (
-                    <span className="ms-1 text-red-500">*</span>
-                  )}
+                  {question.is_required && <span className="ms-1 text-red-500">*</span>}
                 </p>
               </div>
             </div>
@@ -450,17 +452,10 @@ export default function SurveyPage() {
             <DialogDescription>{t('confirmMessage')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowConfirm(false)}
-              disabled={isSubmitting}
-            >
+            <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button
-              onClick={() => void handleConfirmSubmit()}
-              disabled={isSubmitting}
-            >
+            <Button onClick={() => void handleConfirmSubmit()} disabled={isSubmitting}>
               {isSubmitting ? t('submitting') : t('submitAnonymous')}
             </Button>
           </DialogFooter>
@@ -518,7 +513,12 @@ interface SingleChoiceInputProps {
   onChange: (value: string) => void;
 }
 
-function SingleChoiceInput({ questionId: _questionId, options, value, onChange }: SingleChoiceInputProps) {
+function SingleChoiceInput({
+  questionId: _questionId,
+  options,
+  value,
+  onChange,
+}: SingleChoiceInputProps) {
   return (
     <div className="space-y-2" role="radiogroup">
       {options.map((option) => {
@@ -541,9 +541,7 @@ function SingleChoiceInput({ questionId: _questionId, options, value, onChange }
                 isSelected ? 'border-brand-600' : 'border-border'
               }`}
             >
-              {isSelected && (
-                <div className="h-2 w-2 rounded-full bg-brand-600" />
-              )}
+              {isSelected && <div className="h-2 w-2 rounded-full bg-brand-600" />}
             </div>
             <span>{option}</span>
           </button>
@@ -566,9 +564,7 @@ function FreeformInput({ questionId, value, onChange, t }: FreeformInputProps) {
   return (
     <div className="space-y-2">
       {/* Anonymity warning — NON-NEGOTIABLE */}
-      <p className="text-xs font-medium text-amber-700">
-        {t('freeformWarning')}
-      </p>
+      <p className="text-xs font-medium text-amber-700">{t('freeformWarning')}</p>
       <textarea
         id={`freeform-${questionId}`}
         value={value}

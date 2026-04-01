@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -17,10 +21,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Plus, Users } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
@@ -74,7 +74,10 @@ function EnrolDialog({ classId, open, onOpenChange, onSuccess }: EnrolDialogProp
   }, [open]);
 
   const handleSubmit = async () => {
-    if (!studentId || !startDate) { setError(t('enrolFieldsRequired')); return; }
+    if (!studentId || !startDate) {
+      setError(t('enrolFieldsRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -168,12 +171,13 @@ function BulkEnrolDialog({ classId, open, onOpenChange, onSuccess }: BulkEnrolDi
   }, [open]);
 
   const toggleStudent = (id: string) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
+    setSelected((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
 
   const handleSubmit = async () => {
-    if (selected.length === 0 || !startDate) { setError(t('bulkEnrolFieldsRequired')); return; }
+    if (selected.length === 0 || !startDate) {
+      setError(t('bulkEnrolFieldsRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -210,7 +214,9 @@ function BulkEnrolDialog({ classId, open, onOpenChange, onSuccess }: BulkEnrolDi
             />
           </div>
           <div className="space-y-1.5">
-            <Label>{t('selectStudents')} ({selected.length} {t('selected')})</Label>
+            <Label>
+              {t('selectStudents')} ({selected.length} {t('selected')})
+            </Label>
             <div className="max-h-52 overflow-y-auto rounded-lg border border-border">
               {students.map((s) => (
                 <label
@@ -260,21 +266,24 @@ export function EnrolmentManagement({ classId }: EnrolmentManagementProps) {
   const [enrolOpen, setEnrolOpen] = React.useState(false);
   const [bulkOpen, setBulkOpen] = React.useState(false);
 
-  const fetchEnrolments = React.useCallback(async (p: number) => {
-    setIsLoading(true);
-    try {
-      const res = await apiClient<{ data: Enrolment[]; meta?: { total: number } }>(
-        `/api/v1/classes/${classId}/enrolments?page=${p}&pageSize=${PAGE_SIZE}`,
-      );
-      const data = res.data ?? [];
-      setEnrolments(data);
-      setTotal(res.meta?.total ?? data.length);
-    } catch {
-      setEnrolments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [classId]);
+  const fetchEnrolments = React.useCallback(
+    async (p: number) => {
+      setIsLoading(true);
+      try {
+        const res = await apiClient<{ data: Enrolment[]; meta?: { total: number } }>(
+          `/api/v1/classes/${classId}/enrolments?page=${p}&pageSize=${PAGE_SIZE}`,
+        );
+        const data = res.data ?? [];
+        setEnrolments(data);
+        setTotal(res.meta?.total ?? data.length);
+      } catch {
+        setEnrolments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [classId],
+  );
 
   React.useEffect(() => {
     void fetchEnrolments(page);
@@ -287,15 +296,30 @@ export function EnrolmentManagement({ classId }: EnrolmentManagementProps) {
         body: JSON.stringify({ status }),
       });
       void fetchEnrolments(page);
-    } catch {
+    } catch (err) {
       // silently fail — user can retry
+      console.error('[fetchEnrolments]', err);
     }
   };
 
   const statusBadge = (status: string) => {
-    if (status === 'active') return <StatusBadge status="success" dot>{t('enrolActive')}</StatusBadge>;
-    if (status === 'dropped') return <StatusBadge status="danger" dot>{t('enrolDropped')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{t('enrolCompleted')}</StatusBadge>;
+    if (status === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('enrolActive')}
+        </StatusBadge>
+      );
+    if (status === 'dropped')
+      return (
+        <StatusBadge status="danger" dot>
+          {t('enrolDropped')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {t('enrolCompleted')}
+      </StatusBadge>
+    );
   };
 
   const columns = [
@@ -335,10 +359,7 @@ export function EnrolmentManagement({ classId }: EnrolmentManagementProps) {
       key: 'actions',
       header: tc('actions'),
       render: (row: Enrolment) => (
-        <Select
-          value={row.status}
-          onValueChange={(v) => handleStatusChange(row.id, v)}
-        >
+        <Select value={row.status} onValueChange={(v) => handleStatusChange(row.id, v)}>
           <SelectTrigger className="h-7 w-32 text-xs">
             <SelectValue />
           </SelectTrigger>

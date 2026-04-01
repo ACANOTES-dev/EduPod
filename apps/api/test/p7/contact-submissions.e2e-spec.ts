@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+
 import {
   createTestApp,
   closeTestApp,
@@ -10,7 +12,6 @@ import {
   AL_NOOR_TEACHER_EMAIL,
   AL_NOOR_DOMAIN,
 } from '../helpers';
-import request from 'supertest';
 
 jest.setTimeout(120_000);
 
@@ -69,12 +70,7 @@ describe('Contact Submissions (e2e)', () => {
     });
 
     it('permission failure — teacher token → 403', async () => {
-      await authGet(
-        app,
-        '/api/v1/contact-submissions',
-        teacherToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/contact-submissions', teacherToken, AL_NOOR_DOMAIN).expect(403);
     });
   });
 

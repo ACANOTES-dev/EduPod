@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Label,
-} from '@school/ui';
-import {
-  Download,
-  Loader2,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react';
+import { Download, Loader2, TrendingDown, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -23,6 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, Input, Label } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -55,7 +47,17 @@ interface CoverReportData {
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
-function KpiCard({ label, value, sub, trend }: { label: string; value: string | number; sub?: string; trend?: 'up' | 'down' | null }) {
+function KpiCard({
+  label,
+  value,
+  sub,
+  trend,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  trend?: 'up' | 'down' | null;
+}) {
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">{label}</p>
@@ -92,7 +94,7 @@ export default function CoverReportsPage() {
     setLoading(true);
     try {
       const res = await apiClient<CoverReportData>(
-        `/api/v1/scheduling/cover-reports?from=${fromDate}&to=${toDate}`
+        `/api/v1/scheduling/cover-reports?from=${fromDate}&to=${toDate}`,
       );
       setData(res);
     } catch {
@@ -102,14 +104,21 @@ export default function CoverReportsPage() {
     }
   }, [fromDate, toDate]);
 
-  React.useEffect(() => { void fetchReport(); }, [fetchReport]);
+  React.useEffect(() => {
+    void fetchReport();
+  }, [fetchReport]);
 
   const handleExportCsv = async () => {
     setExporting(true);
     try {
-      const res = await fetch(`/api/v1/scheduling/cover-reports/export?from=${fromDate}&to=${toDate}&format=csv`, {
-        headers: { Authorization: `Bearer ${(await import('@/lib/api-client')).getAccessToken() ?? ''}` },
-      });
+      const res = await fetch(
+        `/api/v1/scheduling/cover-reports/export?from=${fromDate}&to=${toDate}&format=csv`,
+        {
+          headers: {
+            Authorization: `Bearer ${(await import('@/lib/api-client')).getAccessToken() ?? ''}`,
+          },
+        },
+      );
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -118,8 +127,9 @@ export default function CoverReportsPage() {
       a.download = `cover-report-${fromDate}-${toDate}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[revokeObjectURL]', err);
     } finally {
       setExporting(false);
     }
@@ -142,8 +152,16 @@ export default function CoverReportsPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button variant="outline" onClick={() => void handleExportCsv()} disabled={exporting || !data}>
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin me-2" /> : <Download className="h-4 w-4 me-2" />}
+          <Button
+            variant="outline"
+            onClick={() => void handleExportCsv()}
+            disabled={exporting || !data}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin me-2" />
+            ) : (
+              <Download className="h-4 w-4 me-2" />
+            )}
             {t('exportCsv')}
           </Button>
         }
@@ -185,29 +203,22 @@ export default function CoverReportsPage() {
         <>
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <KpiCard
-              label={t('totalSubstitutions')}
-              value={data.total_substitutions}
-            />
-            <KpiCard
-              label={t('avgCoverPerTeacher')}
-              value={data.avg_cover_count.toFixed(1)}
-            />
+            <KpiCard label={t('totalSubstitutions')} value={data.total_substitutions} />
+            <KpiCard label={t('avgCoverPerTeacher')} value={data.avg_cover_count.toFixed(1)} />
             <KpiCard
               label={t('fairnessIndex')}
               value={`${(data.fairness_index * 100).toFixed(0)}%`}
               sub={t('fairnessHint')}
               trend={data.fairness_index < 0.3 ? 'down' : 'up'}
             />
-            <KpiCard
-              label={t('teachersCovered')}
-              value={data.teachers.length}
-            />
+            <KpiCard label={t('teachersCovered')} value={data.teachers.length} />
           </div>
 
           {/* Cover count bar chart */}
           <div className="rounded-2xl border border-border bg-surface p-5">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('coverByTeacher')}</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">
+              {t('coverByTeacher')}
+            </h2>
             {data.teachers.length === 0 ? (
               <p className="py-8 text-center text-sm text-text-secondary">{t('noData')}</p>
             ) : (
@@ -253,16 +264,31 @@ export default function CoverReportsPage() {
           {/* Department breakdown */}
           {data.by_department.length > 0 && (
             <div className="rounded-2xl border border-border bg-surface p-5">
-              <h2 className="mb-4 text-base font-semibold text-text-primary">{t('coverByDepartment')}</h2>
+              <h2 className="mb-4 text-base font-semibold text-text-primary">
+                {t('coverByDepartment')}
+              </h2>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart
                   data={[...data.by_department].sort((a, b) => b.cover_count - a.cover_count)}
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                   layout="vertical"
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }} allowDecimals={false} />
-                  <YAxis type="category" dataKey="department" tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }} width={100} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--color-border)"
+                    horizontal={false}
+                  />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="department"
+                    tick={{ fontSize: 11, fill: 'var(--color-text-tertiary)' }}
+                    width={100}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--color-surface)',
@@ -280,36 +306,62 @@ export default function CoverReportsPage() {
 
           {/* Teacher detail table */}
           <div className="rounded-2xl border border-border bg-surface p-5">
-            <h2 className="mb-4 text-base font-semibold text-text-primary">{t('teacherDetails')}</h2>
+            <h2 className="mb-4 text-base font-semibold text-text-primary">
+              {t('teacherDetails')}
+            </h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {[t('teacher'), t('department'), t('coverCount'), t('totalPeriods'), t('coverPct')].map((h) => (
-                      <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{h}</th>
+                    {[
+                      t('teacher'),
+                      t('department'),
+                      t('coverCount'),
+                      t('totalPeriods'),
+                      t('coverPct'),
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[...data.teachers].sort((a, b) => b.cover_count - a.cover_count).map((teacher) => (
-                    <tr key={teacher.staff_profile_id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50">
-                      <td className="px-4 py-3 font-medium text-text-primary">{teacher.teacher_name}</td>
-                      <td className="px-4 py-3 text-text-secondary">{teacher.department ?? '—'}</td>
-                      <td className="px-4 py-3 font-medium text-text-primary">{teacher.cover_count}</td>
-                      <td className="px-4 py-3 text-text-secondary">{teacher.total_periods}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-20 overflow-hidden rounded-full bg-surface-secondary">
-                            <div
-                              className="h-2 rounded-full bg-primary"
-                              style={{ width: `${Math.min(100, teacher.cover_pct)}%` }}
-                            />
+                  {[...data.teachers]
+                    .sort((a, b) => b.cover_count - a.cover_count)
+                    .map((teacher) => (
+                      <tr
+                        key={teacher.staff_profile_id}
+                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                      >
+                        <td className="px-4 py-3 font-medium text-text-primary">
+                          {teacher.teacher_name}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary">
+                          {teacher.department ?? '—'}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-text-primary">
+                          {teacher.cover_count}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary">{teacher.total_periods}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 overflow-hidden rounded-full bg-surface-secondary">
+                              <div
+                                className="h-2 rounded-full bg-primary"
+                                style={{ width: `${Math.min(100, teacher.cover_pct)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-text-secondary">
+                              {teacher.cover_pct.toFixed(1)}%
+                            </span>
                           </div>
-                          <span className="text-xs text-text-secondary">{teacher.cover_pct.toFixed(1)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

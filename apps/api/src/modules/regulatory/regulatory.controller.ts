@@ -14,6 +14,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PodDatabaseType } from '@prisma/client';
+import { z } from 'zod';
+
 import {
   cbaSyncSchema,
   createCalendarEventSchema,
@@ -63,7 +65,6 @@ import type {
   UpdateSubmissionDto,
   UpdateTransferDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

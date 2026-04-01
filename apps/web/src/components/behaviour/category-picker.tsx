@@ -1,8 +1,9 @@
 'use client';
 
-import { cn } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 export interface CategoryOption {
   id: string;
@@ -33,18 +34,19 @@ const POLARITY_BG_SELECTED: Record<string, string> = {
   neutral: 'bg-gray-50 ring-2 ring-gray-500',
 };
 
-export function CategoryPicker({ categories, selectedId, onSelect, polarityFilter }: CategoryPickerProps) {
+export function CategoryPicker({
+  categories,
+  selectedId,
+  onSelect,
+  polarityFilter,
+}: CategoryPickerProps) {
   const t = useTranslations('behaviour.components.categoryPicker');
   const filtered = polarityFilter
     ? categories.filter((c) => c.polarity === polarityFilter)
     : categories;
 
   if (filtered.length === 0) {
-    return (
-      <p className="py-4 text-center text-sm text-text-tertiary">
-        {t('noCategories')}
-      </p>
-    );
+    return <p className="py-4 text-center text-sm text-text-tertiary">{t('noCategories')}</p>;
   }
 
   return (
@@ -60,7 +62,8 @@ export function CategoryPicker({ categories, selectedId, onSelect, polarityFilte
               'flex min-h-[56px] flex-col items-center justify-center rounded-xl border px-3 py-3 text-center transition-all',
               POLARITY_BORDER[cat.polarity] ?? 'border-border',
               isSelected
-                ? POLARITY_BG_SELECTED[cat.polarity] ?? 'bg-surface-secondary ring-2 ring-primary-500'
+                ? (POLARITY_BG_SELECTED[cat.polarity] ??
+                    'bg-surface-secondary ring-2 ring-primary-500')
                 : 'bg-surface hover:bg-surface-secondary',
             )}
           >
@@ -72,11 +75,14 @@ export function CategoryPicker({ categories, selectedId, onSelect, polarityFilte
             )}
             <span className="text-xs font-medium text-text-primary">{cat.name}</span>
             {cat.point_value !== 0 && (
-              <span className={cn(
-                'mt-0.5 text-[10px] font-semibold',
-                cat.point_value > 0 ? 'text-green-600' : 'text-red-600',
-              )}>
-                {cat.point_value > 0 ? '+' : ''}{cat.point_value} pts
+              <span
+                className={cn(
+                  'mt-0.5 text-[10px] font-semibold',
+                  cat.point_value > 0 ? 'text-green-600' : 'text-red-600',
+                )}
+              >
+                {cat.point_value > 0 ? '+' : ''}
+                {cat.point_value} pts
               </span>
             )}
           </button>

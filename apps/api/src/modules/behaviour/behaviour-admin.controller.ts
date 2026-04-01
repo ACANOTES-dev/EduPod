@@ -9,6 +9,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   backfillTasksSchema,
   createLegalHoldSchema,
@@ -21,7 +23,6 @@ import {
   scopeAuditQuerySchema,
 } from '@school/shared';
 import type { JwtPayload, PolicyDryRunDto, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -154,7 +155,8 @@ export class BehaviourAdminController {
   @RequiresPermission('behaviour.admin')
   async resendNotification(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(resendNotificationSchema)) dto: z.infer<typeof resendNotificationSchema>,
+    @Body(new ZodValidationPipe(resendNotificationSchema))
+    dto: z.infer<typeof resendNotificationSchema>,
   ) {
     await this.adminService.resendNotification(tenant.tenant_id, dto);
     return { success: true, message: 'Notification re-queued' };
@@ -188,7 +190,8 @@ export class BehaviourAdminController {
   @RequiresPermission('behaviour.admin')
   async scopeAudit(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(scopeAuditQuerySchema)) query: z.infer<typeof scopeAuditQuerySchema>,
+    @Query(new ZodValidationPipe(scopeAuditQuerySchema))
+    query: z.infer<typeof scopeAuditQuerySchema>,
   ) {
     return this.adminService.scopeAudit(tenant.tenant_id, query.user_id);
   }
@@ -232,7 +235,8 @@ export class BehaviourAdminController {
   @RequiresPermission('behaviour.admin')
   async listLegalHolds(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(legalHoldListQuerySchema)) query: z.infer<typeof legalHoldListQuerySchema>,
+    @Query(new ZodValidationPipe(legalHoldListQuerySchema))
+    query: z.infer<typeof legalHoldListQuerySchema>,
   ) {
     return this.legalHoldService.listHolds(tenant.tenant_id, query);
   }
@@ -255,7 +259,8 @@ export class BehaviourAdminController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(releaseLegalHoldSchema)) dto: z.infer<typeof releaseLegalHoldSchema>,
+    @Body(new ZodValidationPipe(releaseLegalHoldSchema))
+    dto: z.infer<typeof releaseLegalHoldSchema>,
   ) {
     await this.legalHoldService.releaseHold(tenant.tenant_id, user.sub, id, dto);
     return { success: true };

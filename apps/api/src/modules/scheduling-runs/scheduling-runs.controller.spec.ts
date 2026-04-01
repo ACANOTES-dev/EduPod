@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -61,7 +62,10 @@ describe('SchedulingRunsController', () => {
         { provide: SchedulingRunsService, useValue: mockRunsService },
         { provide: SchedulingApplyService, useValue: mockApplyService },
         { provide: SchedulingPrerequisitesService, useValue: mockPrerequisitesService },
-        { provide: PermissionCacheService, useValue: { getPermissions: jest.fn().mockResolvedValue([]) } },
+        {
+          provide: PermissionCacheService,
+          useValue: { getPermissions: jest.fn().mockResolvedValue([]) },
+        },
       ],
     }).compile();
 
@@ -82,10 +86,7 @@ describe('SchedulingRunsController', () => {
       });
 
       expect(result).toEqual(prereqResult);
-      expect(mockPrerequisitesService.check).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockPrerequisitesService.check).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -100,11 +101,7 @@ describe('SchedulingRunsController', () => {
       const result = await controller.create(TENANT, USER, dto);
 
       expect(result).toEqual(created);
-      expect(mockRunsService.create).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        USER.sub,
-        dto,
-      );
+      expect(mockRunsService.create).toHaveBeenCalledWith(TENANT.tenant_id, USER.sub, dto);
     });
   });
 
@@ -119,11 +116,10 @@ describe('SchedulingRunsController', () => {
       const result = await controller.findAll(TENANT, query);
 
       expect(result).toEqual(paginated);
-      expect(mockRunsService.findAll).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-        { page: 1, pageSize: 20 },
-      );
+      expect(mockRunsService.findAll).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID, {
+        page: 1,
+        pageSize: 20,
+      });
     });
   });
 
@@ -180,12 +176,7 @@ describe('SchedulingRunsController', () => {
       const result = await controller.apply(TENANT, USER, RUN_ID, dto);
 
       expect(result).toEqual(applied);
-      expect(mockApplyService.apply).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        RUN_ID,
-        USER.sub,
-        dto,
-      );
+      expect(mockApplyService.apply).toHaveBeenCalledWith(TENANT.tenant_id, RUN_ID, USER.sub, dto);
     });
   });
 
@@ -200,11 +191,7 @@ describe('SchedulingRunsController', () => {
       const result = await controller.discard(TENANT, RUN_ID, dto);
 
       expect(result).toEqual(discarded);
-      expect(mockRunsService.discard).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        RUN_ID,
-        dto,
-      );
+      expect(mockRunsService.discard).toHaveBeenCalledWith(TENANT.tenant_id, RUN_ID, dto);
     });
   });
 });

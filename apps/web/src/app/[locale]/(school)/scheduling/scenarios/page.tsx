@@ -1,5 +1,9 @@
 'use client';
 
+import { BarChart3, ChevronRight, GitBranch, Loader2, Plus, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -17,16 +21,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import {
-  BarChart3,
-  ChevronRight,
-  GitBranch,
-  Loader2,
-  Plus,
-  Sparkles,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -96,12 +90,20 @@ function CreateScenarioModal({
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    if (open) { setName(''); setDescription(''); setBaseRunId(''); setError(''); }
+    if (open) {
+      setName('');
+      setDescription('');
+      setBaseRunId('');
+      setError('');
+    }
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) { setError(t('nameRequired')); return; }
+    if (!name) {
+      setError(t('nameRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -118,20 +120,33 @@ function CreateScenarioModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{t('createScenario')}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t('createScenario')}</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>{t('scenarioName')}</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('scenarioNamePlaceholder')} required />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('scenarioNamePlaceholder')}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t('scenarioDescription')}</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('descriptionPlaceholder')} />
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('descriptionPlaceholder')}
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t('baseRun')}</Label>
             <Select value={baseRunId} onValueChange={setBaseRunId}>
-              <SelectTrigger><SelectValue placeholder={t('baseRunPlaceholder')} /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={t('baseRunPlaceholder')} />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">{t('startFresh')}</SelectItem>
                 {runs.map((r) => (
@@ -144,7 +159,14 @@ function CreateScenarioModal({
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>{tc('cancel')}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              {tc('cancel')}
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('createScenario')}
@@ -175,31 +197,74 @@ function CompareModal({
   const aScenario = solvedScenarios.find((s) => s.id === aId);
   const bScenario = solvedScenarios.find((s) => s.id === bId);
 
-  const metricRows: Array<{ key: keyof NonNullable<Scenario['metrics']>; label: string; format: (v: number) => string; higherIsBetter: boolean }> = [
-    { key: 'room_utilisation', label: t('roomUtilisation'), format: (v) => `${Math.round(v)}%`, higherIsBetter: true },
-    { key: 'teacher_utilisation', label: t('teacherUtilisation'), format: (v) => `${Math.round(v)}%`, higherIsBetter: true },
+  const metricRows: Array<{
+    key: keyof NonNullable<Scenario['metrics']>;
+    label: string;
+    format: (v: number) => string;
+    higherIsBetter: boolean;
+  }> = [
+    {
+      key: 'room_utilisation',
+      label: t('roomUtilisation'),
+      format: (v) => `${Math.round(v)}%`,
+      higherIsBetter: true,
+    },
+    {
+      key: 'teacher_utilisation',
+      label: t('teacherUtilisation'),
+      format: (v) => `${Math.round(v)}%`,
+      higherIsBetter: true,
+    },
     { key: 'avg_gaps', label: t('avgGaps'), format: (v) => v.toFixed(1), higherIsBetter: false },
-    { key: 'preference_score', label: t('preferenceScore'), format: (v) => `${Math.round(v)}%`, higherIsBetter: true },
-    { key: 'unassigned_slots', label: t('unassignedSlots'), format: (v) => String(Math.round(v)), higherIsBetter: false },
+    {
+      key: 'preference_score',
+      label: t('preferenceScore'),
+      format: (v) => `${Math.round(v)}%`,
+      higherIsBetter: true,
+    },
+    {
+      key: 'unassigned_slots',
+      label: t('unassignedSlots'),
+      format: (v) => String(Math.round(v)),
+      higherIsBetter: false,
+    },
   ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>{t('compareScenarios')}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t('compareScenarios')}</DialogTitle>
+        </DialogHeader>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>{t('scenarioA')}</Label>
             <Select value={aId} onValueChange={setAId}>
-              <SelectTrigger><SelectValue placeholder={t('selectScenario')} /></SelectTrigger>
-              <SelectContent>{solvedScenarios.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger>
+                <SelectValue placeholder={t('selectScenario')} />
+              </SelectTrigger>
+              <SelectContent>
+                {solvedScenarios.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>{t('scenarioB')}</Label>
             <Select value={bId} onValueChange={setBId}>
-              <SelectTrigger><SelectValue placeholder={t('selectScenario')} /></SelectTrigger>
-              <SelectContent>{solvedScenarios.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger>
+                <SelectValue placeholder={t('selectScenario')} />
+              </SelectTrigger>
+              <SelectContent>
+                {solvedScenarios.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </div>
@@ -209,24 +274,36 @@ function CompareModal({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('metric')}</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-text-tertiary uppercase">{aScenario.name}</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-text-tertiary uppercase">{bScenario.name}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                    {t('metric')}
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-text-tertiary uppercase">
+                    {aScenario.name}
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-text-tertiary uppercase">
+                    {bScenario.name}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {metricRows.map(({ key, label, format, higherIsBetter }) => {
                   const aVal = aScenario.metrics?.[key] ?? null;
                   const bVal = bScenario.metrics?.[key] ?? null;
-                  const aWins = aVal !== null && bVal !== null && (higherIsBetter ? aVal > bVal : aVal < bVal);
-                  const bWins = aVal !== null && bVal !== null && (higherIsBetter ? bVal > aVal : bVal < aVal);
+                  const aWins =
+                    aVal !== null && bVal !== null && (higherIsBetter ? aVal > bVal : aVal < bVal);
+                  const bWins =
+                    aVal !== null && bVal !== null && (higherIsBetter ? bVal > aVal : bVal < aVal);
                   return (
                     <tr key={key} className="border-b border-border last:border-b-0">
                       <td className="px-4 py-3 text-text-secondary">{label}</td>
-                      <td className={`px-4 py-3 text-center font-medium ${aWins ? 'text-green-600' : ''}`}>
+                      <td
+                        className={`px-4 py-3 text-center font-medium ${aWins ? 'text-green-600' : ''}`}
+                      >
                         {aVal !== null ? format(aVal) : '—'}
                       </td>
-                      <td className={`px-4 py-3 text-center font-medium ${bWins ? 'text-green-600' : ''}`}>
+                      <td
+                        className={`px-4 py-3 text-center font-medium ${bWins ? 'text-green-600' : ''}`}
+                      >
                         {bVal !== null ? format(bVal) : '—'}
                       </td>
                     </tr>
@@ -237,7 +314,9 @@ function CompareModal({
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('close')}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('close')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -274,7 +353,11 @@ export default function ScenariosPage() {
       .catch(() => setRuns([]));
   }, [fetchScenarios]);
 
-  const handleCreate = async (values: { name: string; description: string; base_run_id: string }) => {
+  const handleCreate = async (values: {
+    name: string;
+    description: string;
+    base_run_id: string;
+  }) => {
     await apiClient('/api/v1/scheduling/scenarios', {
       method: 'POST',
       body: JSON.stringify({
@@ -325,7 +408,9 @@ export default function ScenariosPage() {
 
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
+          ))}
         </div>
       ) : scenarios.length === 0 ? (
         <div className="rounded-2xl border border-border bg-surface p-12 text-center">
@@ -353,26 +438,33 @@ export default function ScenariosPage() {
                     <p className="text-sm text-text-secondary">{scenario.description}</p>
                   )}
                   <p className="text-xs text-text-tertiary">
-                    {t('basedOn')}: {scenario.base_run_name ?? t('noBase')} &middot; {t('createdBy')}: {scenario.created_by_name}
+                    {t('basedOn')}: {scenario.base_run_name ?? t('noBase')} &middot;{' '}
+                    {t('createdBy')}: {scenario.created_by_name}
                   </p>
                   {scenario.metrics && (
                     <div className="flex flex-wrap gap-4 pt-1">
                       {scenario.metrics.room_utilisation !== null && (
                         <div className="text-xs">
                           <span className="text-text-tertiary">{t('roomUtil')}</span>{' '}
-                          <span className="font-medium text-text-primary">{Math.round(scenario.metrics.room_utilisation)}%</span>
+                          <span className="font-medium text-text-primary">
+                            {Math.round(scenario.metrics.room_utilisation)}%
+                          </span>
                         </div>
                       )}
                       {scenario.metrics.teacher_utilisation !== null && (
                         <div className="text-xs">
                           <span className="text-text-tertiary">{t('teacherUtil')}</span>{' '}
-                          <span className="font-medium text-text-primary">{Math.round(scenario.metrics.teacher_utilisation)}%</span>
+                          <span className="font-medium text-text-primary">
+                            {Math.round(scenario.metrics.teacher_utilisation)}%
+                          </span>
                         </div>
                       )}
                       {scenario.metrics.unassigned_slots !== null && (
                         <div className="text-xs">
                           <span className="text-text-tertiary">{t('unassigned')}</span>{' '}
-                          <span className={`font-medium ${scenario.metrics.unassigned_slots > 0 ? 'text-warning-600' : 'text-green-600'}`}>
+                          <span
+                            className={`font-medium ${scenario.metrics.unassigned_slots > 0 ? 'text-warning-600' : 'text-green-600'}`}
+                          >
                             {scenario.metrics.unassigned_slots}
                           </span>
                         </div>
@@ -411,11 +503,7 @@ export default function ScenariosPage() {
         onSubmit={handleCreate}
       />
 
-      <CompareModal
-        open={compareOpen}
-        onOpenChange={setCompareOpen}
-        scenarios={scenarios}
-      />
+      <CompareModal open={compareOpen} onOpenChange={setCompareOpen} scenarios={scenarios} />
     </div>
   );
 }

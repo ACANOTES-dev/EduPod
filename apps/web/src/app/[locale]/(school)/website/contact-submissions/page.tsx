@@ -1,10 +1,10 @@
 'use client';
 
-import { Badge, Button, EmptyState, TableWrapper, toast } from '@school/ui';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MessageSquare } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import { Badge, Button, EmptyState, TableWrapper, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -138,9 +138,7 @@ export default function ContactSubmissionsPage() {
 
   const pagination = (
     <div className="flex items-center justify-between text-sm text-text-secondary">
-      <span>
-        {total === 0 ? 'No results' : `Showing ${startItem}–${endItem} of ${total}`}
-      </span>
+      <span>{total === 0 ? 'No results' : `Showing ${startItem}–${endItem} of ${total}`}</span>
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
@@ -209,130 +207,123 @@ export default function ContactSubmissionsPage() {
               </tr>
             </thead>
             <tbody>
-              {isLoading
-                ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`skeleton-${i}`} className="border-b border-border last:border-b-0">
-                      {[1, 2, 3, 4, 5, 6].map((j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-4 w-3/4 animate-pulse rounded bg-surface-secondary" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                : submissions.length === 0
-                ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-12 text-center text-sm text-text-tertiary"
-                    >
-                      No results found
-                    </td>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="border-b border-border last:border-b-0">
+                    {[1, 2, 3, 4, 5, 6].map((j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 w-3/4 animate-pulse rounded bg-surface-secondary" />
+                      </td>
+                    ))}
                   </tr>
-                )
-                : submissions.map((row) => (
-                    <React.Fragment key={row.id}>
-                      {/* Main row */}
-                      <tr
-                        className="cursor-pointer border-b border-border transition-colors hover:bg-surface-secondary"
-                        onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
-                      >
-                        <td className="w-10 px-4 py-3 text-text-tertiary">
-                          {expandedId === row.id ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-text-primary">
-                          {row.name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary">
-                          <span dir="ltr">{row.email}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary">
-                          {row.phone ? (
-                            <span dir="ltr">{row.phone}</span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <SubmissionStatusBadge status={row.status} />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary">
-                          {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
+                ))
+              ) : submissions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">
+                    No results found
+                  </td>
+                </tr>
+              ) : (
+                submissions.map((row) => (
+                  <React.Fragment key={row.id}>
+                    {/* Main row */}
+                    <tr
+                      className="cursor-pointer border-b border-border transition-colors hover:bg-surface-secondary"
+                      onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
+                    >
+                      <td className="w-10 px-4 py-3 text-text-tertiary">
+                        {expandedId === row.id ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {row.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">
+                        <span dir="ltr">{row.email}</span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">
+                        {row.phone ? <span dir="ltr">{row.phone}</span> : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <SubmissionStatusBadge status={row.status} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">
+                        {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
+                      </td>
+                    </tr>
+
+                    {/* Expanded message row */}
+                    {expandedId === row.id && (
+                      <tr className="border-b border-border bg-surface-secondary">
+                        <td colSpan={6} className="px-4 pb-4 pt-2">
+                          <div className="rounded-lg border border-border bg-surface p-4">
+                            <p className="mb-4 whitespace-pre-wrap text-sm text-text-primary">
+                              {row.message}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {row.status !== 'reviewed' && row.status !== 'spam' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleStatusChange(row.id, 'reviewed');
+                                  }}
+                                  disabled={updatingId !== null}
+                                >
+                                  Mark Reviewed
+                                </Button>
+                              )}
+                              {row.status !== 'closed' && row.status !== 'spam' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleStatusChange(row.id, 'closed');
+                                  }}
+                                  disabled={updatingId !== null}
+                                >
+                                  Close
+                                </Button>
+                              )}
+                              {row.status !== 'spam' && (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleStatusChange(row.id, 'spam');
+                                  }}
+                                  disabled={updatingId !== null}
+                                >
+                                  Mark Spam
+                                </Button>
+                              )}
+                              {row.status === 'spam' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleStatusChange(row.id, 'new');
+                                  }}
+                                  disabled={updatingId !== null}
+                                >
+                                  Not Spam
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </td>
                       </tr>
-
-                      {/* Expanded message row */}
-                      {expandedId === row.id && (
-                        <tr className="border-b border-border bg-surface-secondary">
-                          <td colSpan={6} className="px-4 pb-4 pt-2">
-                            <div className="rounded-lg border border-border bg-surface p-4">
-                              <p className="mb-4 whitespace-pre-wrap text-sm text-text-primary">
-                                {row.message}
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {row.status !== 'reviewed' && row.status !== 'spam' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleStatusChange(row.id, 'reviewed');
-                                    }}
-                                    disabled={updatingId !== null}
-                                  >
-                                    Mark Reviewed
-                                  </Button>
-                                )}
-                                {row.status !== 'closed' && row.status !== 'spam' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleStatusChange(row.id, 'closed');
-                                    }}
-                                    disabled={updatingId !== null}
-                                  >
-                                    Close
-                                  </Button>
-                                )}
-                                {row.status !== 'spam' && (
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleStatusChange(row.id, 'spam');
-                                    }}
-                                    disabled={updatingId !== null}
-                                  >
-                                    Mark Spam
-                                  </Button>
-                                )}
-                                {row.status === 'spam' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void handleStatusChange(row.id, 'new');
-                                    }}
-                                    disabled={updatingId !== null}
-                                  >
-                                    Not Spam
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
+                    )}
+                  </React.Fragment>
+                ))
+              )}
             </tbody>
           </table>
         </TableWrapper>

@@ -9,9 +9,9 @@ import cookieParser from 'cookie-parser';
 import Redis from 'ioredis';
 import request from 'supertest';
 
+import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/all-exceptions.filter';
 import { ResponseTransformInterceptor } from '../src/common/interceptors/response-transform.interceptor';
-import { AppModule } from '../src/app.module';
 
 // ─── Known seed data ───────────────────────────────────────────────────────────
 
@@ -110,9 +110,7 @@ export async function login(
   password: string = DEV_PASSWORD,
   host?: string,
 ): Promise<LoginResult> {
-  const req = request(app.getHttpServer())
-    .post('/api/v1/auth/login')
-    .send({ email, password });
+  const req = request(app.getHttpServer()).post('/api/v1/auth/login').send({ email, password });
 
   if (host) {
     req.set('Host', host);
@@ -152,9 +150,7 @@ export function authGet(
   token: string,
   host?: string,
 ): request.Test {
-  const req = request(app.getHttpServer())
-    .get(url)
-    .set('Authorization', `Bearer ${token}`);
+  const req = request(app.getHttpServer()).get(url).set('Authorization', `Bearer ${token}`);
 
   if (host) req.set('Host', host);
   return req;
@@ -214,9 +210,7 @@ export function authDelete(
   token: string,
   host?: string,
 ): request.Test {
-  const req = request(app.getHttpServer())
-    .delete(url)
-    .set('Authorization', `Bearer ${token}`);
+  const req = request(app.getHttpServer()).delete(url).set('Authorization', `Bearer ${token}`);
 
   if (host) req.set('Host', host);
   return req;

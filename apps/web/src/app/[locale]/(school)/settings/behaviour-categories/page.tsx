@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -17,9 +21,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -164,7 +165,10 @@ export default function BehaviourCategoriesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { setSaveError('Name is required'); return; }
+    if (!form.name.trim()) {
+      setSaveError('Name is required');
+      return;
+    }
     setSaving(true);
     setSaveError('');
     try {
@@ -226,8 +230,9 @@ export default function BehaviourCategoriesPage() {
         body: JSON.stringify({ is_active: !cat.is_active }),
       });
       void fetchCategories();
-    } catch {
+    } catch (err) {
       // handled by global error handler
+      console.error('[fetchCategories]', err);
     }
   };
 
@@ -261,19 +266,38 @@ export default function BehaviourCategoriesPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Name</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Polarity</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Severity</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Points</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Color</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Benchmark</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Active</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Actions</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Polarity
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Severity
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Points
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Color
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Benchmark
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Active
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {categories.map((cat) => (
-                <tr key={cat.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
+                <tr
+                  key={cat.id}
+                  className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                >
                   <td className="px-4 py-3 text-sm font-medium text-text-primary">{cat.name}</td>
                   <td className="px-4 py-3">
                     <Badge variant="secondary" className={POLARITY_BADGE_CLASS[cat.polarity] ?? ''}>
@@ -282,10 +306,17 @@ export default function BehaviourCategoriesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{cat.severity}</td>
                   <td className="px-4 py-3">
-                    <span className={`text-sm font-semibold ${
-                      cat.point_value > 0 ? 'text-green-600' : cat.point_value < 0 ? 'text-red-600' : 'text-text-secondary'
-                    }`}>
-                      {cat.point_value > 0 ? '+' : ''}{cat.point_value}
+                    <span
+                      className={`text-sm font-semibold ${
+                        cat.point_value > 0
+                          ? 'text-green-600'
+                          : cat.point_value < 0
+                            ? 'text-red-600'
+                            : 'text-text-secondary'
+                      }`}
+                    >
+                      {cat.point_value > 0 ? '+' : ''}
+                      {cat.point_value}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -317,7 +348,10 @@ export default function BehaviourCategoriesPage() {
                         variant="ghost"
                         size="sm"
                         className="text-danger-text hover:text-danger-text"
-                        onClick={() => { setDeleteError(''); setDeleteTarget(cat); }}
+                        onClick={() => {
+                          setDeleteError('');
+                          setDeleteTarget(cat);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>
@@ -366,7 +400,9 @@ export default function BehaviourCategoriesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {POLARITY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -414,13 +450,18 @@ export default function BehaviourCategoriesPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Benchmark Category</Label>
-                <Select value={form.benchmark_category} onValueChange={(v) => updateForm('benchmark_category', v)}>
+                <Select
+                  value={form.benchmark_category}
+                  onValueChange={(v) => updateForm('benchmark_category', v)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {BENCHMARK_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -439,15 +480,24 @@ export default function BehaviourCategoriesPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Requires Follow-Up</Label>
-                <Switch checked={form.requires_follow_up} onCheckedChange={(v) => updateForm('requires_follow_up', v)} />
+                <Switch
+                  checked={form.requires_follow_up}
+                  onCheckedChange={(v) => updateForm('requires_follow_up', v)}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <Label>Requires Parent Notification</Label>
-                <Switch checked={form.requires_parent_notification} onCheckedChange={(v) => updateForm('requires_parent_notification', v)} />
+                <Switch
+                  checked={form.requires_parent_notification}
+                  onCheckedChange={(v) => updateForm('requires_parent_notification', v)}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <Label>Visible to Parents</Label>
-                <Switch checked={form.parent_visible} onCheckedChange={(v) => updateForm('parent_visible', v)} />
+                <Switch
+                  checked={form.parent_visible}
+                  onCheckedChange={(v) => updateForm('parent_visible', v)}
+                />
               </div>
             </div>
             {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
@@ -464,17 +514,27 @@ export default function BehaviourCategoriesPage() {
       </Dialog>
 
       {/* Delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Category</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-text-secondary">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This cannot be undone if there are no linked incidents.
+            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This cannot be
+            undone if there are no linked incidents.
           </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteLoading}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>

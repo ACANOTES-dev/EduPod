@@ -1,8 +1,9 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Job, Queue } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../base/tenant-aware-job';
@@ -77,9 +78,7 @@ export class AttendancePatternDetectionProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${ATTENDANCE_DETECT_PATTERNS_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${ATTENDANCE_DETECT_PATTERNS_JOB} — tenant ${tenant_id}`);
 
     const innerJob = new AttendancePatternDetectionJob(this.prisma);
     await innerJob.execute(job.data);
@@ -192,9 +191,7 @@ class AttendancePatternDetectionJob extends TenantAwareJob<AttendancePatternDete
 
     return {
       enabled:
-        typeof patternConfig.enabled === 'boolean'
-          ? patternConfig.enabled
-          : DEFAULT_CONFIG.enabled,
+        typeof patternConfig.enabled === 'boolean' ? patternConfig.enabled : DEFAULT_CONFIG.enabled,
       excessiveAbsenceThreshold:
         typeof patternConfig.excessiveAbsenceThreshold === 'number'
           ? patternConfig.excessiveAbsenceThreshold

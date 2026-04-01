@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Shield, Trash2, Users } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -18,9 +22,6 @@ import {
   SheetTitle,
   Switch,
 } from '@school/ui';
-import { Pencil, Plus, Shield, Trash2, Users } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -90,10 +91,7 @@ export default function BehaviourHousesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* Tabs */}
       <div className="overflow-x-auto">
@@ -324,7 +322,10 @@ function HousesTab() {
                     variant="ghost"
                     size="sm"
                     className="text-danger-text hover:text-danger-text"
-                    onClick={() => { setDeleteError(''); setDeleteTarget(house); }}
+                    onClick={() => {
+                      setDeleteError('');
+                      setDeleteTarget(house);
+                    }}
                   >
                     <Trash2 className="me-1 h-3.5 w-3.5" />
                     Delete
@@ -421,18 +422,27 @@ function HousesTab() {
       </Dialog>
 
       {/* Delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete House</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-text-secondary">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
-            All member assignments will be removed.
+            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? All member
+            assignments will be removed.
           </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteLoading}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
@@ -545,8 +555,9 @@ function MembershipTab() {
       });
       setAssignOpen(false);
       void fetchMembers(selectedHouse);
-    } catch {
+    } catch (err) {
       // handled by global error handler
+      console.error('[fetchMembers]', err);
     } finally {
       setAssignSaving(false);
     }
@@ -560,8 +571,9 @@ function MembershipTab() {
         method: 'DELETE',
       });
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    } catch {
+    } catch (err) {
       // handled by global error handler
+      console.error('[setMembers]', err);
     } finally {
       setRemovingId(null);
     }
@@ -570,10 +582,7 @@ function MembershipTab() {
   const filteredStudents = availableStudents.filter((s) => {
     if (!studentSearch) return true;
     const q = studentSearch.toLowerCase();
-    return (
-      s.first_name.toLowerCase().includes(q) ||
-      s.last_name.toLowerCase().includes(q)
-    );
+    return s.first_name.toLowerCase().includes(q) || s.last_name.toLowerCase().includes(q);
   });
 
   const activeHouse = houses.find((h) => h.id === selectedHouse);
@@ -602,7 +611,9 @@ function MembershipTab() {
                         ? 'text-white'
                         : 'bg-surface-secondary text-text-secondary hover:text-text-primary'
                     }`}
-                    style={selectedHouse === house.id ? { backgroundColor: house.color } : undefined}
+                    style={
+                      selectedHouse === house.id ? { backgroundColor: house.color } : undefined
+                    }
                   >
                     {house.icon && <span>{house.icon}</span>}
                     {house.name}
@@ -683,9 +694,7 @@ function MembershipTab() {
       <Sheet open={assignOpen} onOpenChange={setAssignOpen}>
         <SheetContent className="flex w-full flex-col sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>
-              Assign Students to {activeHouse?.name ?? 'House'}
-            </SheetTitle>
+            <SheetTitle>Assign Students to {activeHouse?.name ?? 'House'}</SheetTitle>
           </SheetHeader>
 
           <div className="flex-1 space-y-3 overflow-y-auto py-3">
@@ -728,7 +737,9 @@ function MembershipTab() {
               </div>
             ) : filteredStudents.length === 0 ? (
               <p className="py-6 text-center text-sm text-text-tertiary">
-                {studentSearch ? 'No students match your search.' : 'All students are already assigned to a house.'}
+                {studentSearch
+                  ? 'No students match your search.'
+                  : 'All students are already assigned to a house.'}
               </p>
             ) : (
               <div className="space-y-1">

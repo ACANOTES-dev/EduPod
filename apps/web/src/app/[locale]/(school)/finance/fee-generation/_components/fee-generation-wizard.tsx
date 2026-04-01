@@ -1,23 +1,18 @@
 'use client';
 
-import type { FeeGenerationPreview as PreviewData } from '@school/shared';
-import {
-  Button,
-  Checkbox,
-  Input,
-  Label,
-} from '@school/ui';
 import { Check, ChevronRight, Loader2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
-import { apiClient } from '@/lib/api-client';
+import type { FeeGenerationPreview as PreviewData } from '@school/shared';
+import { Button, Checkbox, Input, Label } from '@school/ui';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { FeeGenerationPreview } from './fee-generation-preview';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,9 +42,7 @@ function StepIndicator({ current }: { current: WizardStep }) {
     <div className="flex items-center gap-2">
       {steps.map(({ step, label }, idx) => (
         <React.Fragment key={step}>
-          {idx > 0 && (
-            <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />
-          )}
+          {idx > 0 && <ChevronRight className="h-4 w-4 text-text-tertiary rtl:rotate-180" />}
           <div
             className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               step === current
@@ -169,13 +162,10 @@ export function FeeGenerationWizard() {
         billing_period_end: billingPeriodEnd,
         due_date: dueDate,
       };
-      const res = await apiClient<{ data: PreviewData }>(
-        '/api/v1/finance/fee-generation/preview',
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        },
-      );
+      const res = await apiClient<{ data: PreviewData }>('/api/v1/finance/fee-generation/preview', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
       setPreview(res.data);
       setExcludedHouseholds(new Set());
       setStep(2);
@@ -337,10 +327,7 @@ export function FeeGenerationWizard() {
           {previewError && <p className="text-sm text-danger-text">{previewError}</p>}
 
           <div className="flex items-center justify-end gap-3">
-            <Button
-              onClick={handlePreview}
-              disabled={!canProceedStep1 || previewLoading}
-            >
+            <Button onClick={handlePreview} disabled={!canProceedStep1 || previewLoading}>
               {previewLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
               {t('feeGeneration.previewButton')}
               <ChevronRight className="ms-2 h-4 w-4 rtl:rotate-180" />
@@ -449,10 +436,7 @@ export function FeeGenerationWizard() {
           </div>
 
           <div className="flex items-center justify-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/${locale}/finance/invoices`)}
-            >
+            <Button variant="outline" onClick={() => router.push(`/${locale}/finance/invoices`)}>
               {t('feeGeneration.viewInvoices')}
             </Button>
             <Button

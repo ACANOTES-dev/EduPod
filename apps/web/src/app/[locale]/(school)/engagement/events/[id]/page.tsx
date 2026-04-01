@@ -1,11 +1,12 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { ClipboardCheck, Eye, Settings, Users, UsersRound, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, toast } from '@school/ui';
 
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {

@@ -1,5 +1,10 @@
 'use client';
 
+import { DollarSign, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { BillingFrequency } from '@school/shared';
 import {
   Button,
@@ -12,18 +17,13 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { DollarSign, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { CurrencyDisplay } from '../_components/currency-display';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
-
-import { CurrencyDisplay } from '../_components/currency-display';
 
 interface YearGroup {
   id: string;
@@ -90,8 +90,9 @@ export default function FeeStructuresPage() {
     try {
       const res = await apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100');
       setYearGroups(res.data);
-    } catch {
+    } catch (err) {
       // ignore
+      console.error('[setYearGroups]', err);
     }
   }, []);
 

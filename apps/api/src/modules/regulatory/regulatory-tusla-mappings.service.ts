@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AttendanceRecordStatus, TuslaAbsenceCategory } from '@prisma/client';
+
 import type { CreateTuslaAbsenceCodeMappingDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -33,7 +34,8 @@ export class RegulatoryTuslaMappingsService {
           tenant_id: tenantId,
           attendance_status: dto.attendance_status as AttendanceRecordStatus,
           reason_pattern: dto.reason_pattern ?? null,
-          tusla_category: API_CATEGORY_TO_PRISMA[dto.tusla_category] ?? TuslaAbsenceCategory.tusla_other,
+          tusla_category:
+            API_CATEGORY_TO_PRISMA[dto.tusla_category] ?? TuslaAbsenceCategory.tusla_other,
           display_label: dto.display_label,
           is_default: dto.is_default ?? false,
         },

@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
+
 import type { DesFileType } from '@school/shared';
 
-import type { DesColumnDef, DesFileExporter, DesFileExportResult, DesFileRow } from './des-file-exporter.interface';
+import type {
+  DesColumnDef,
+  DesFileExporter,
+  DesFileExportResult,
+  DesFileRow,
+} from './des-file-exporter.interface';
 
 // ─── UTF-8 BOM ────────────────────────────────────────────────────────────────
 
@@ -51,7 +57,12 @@ export class DesFileExporterCsv implements DesFileExporter {
     }
 
     // Wrap in quotes if the value contains a comma, double-quote, or newline
-    if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    if (
+      value.includes(',') ||
+      value.includes('"') ||
+      value.includes('\n') ||
+      value.includes('\r')
+    ) {
       const escaped = value.replace(/"/g, '""');
       return `"${escaped}"`;
     }

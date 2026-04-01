@@ -1,5 +1,10 @@
 'use client';
 
+import { BookOpen } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   EmptyState,
   Select,
@@ -9,10 +14,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { BookOpen } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -147,7 +148,9 @@ export default function GradebookPage() {
           <SelectContent>
             <SelectItem value="all">All Years</SelectItem>
             {academicYears.map((y) => (
-              <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+              <SelectItem key={y.id} value={y.id}>
+                {y.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -159,7 +162,9 @@ export default function GradebookPage() {
           <SelectContent>
             <SelectItem value="all">All Periods</SelectItem>
             {academicPeriods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -171,7 +176,9 @@ export default function GradebookPage() {
           <SelectContent>
             <SelectItem value="all">All Classes</SelectItem>
             {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -183,7 +190,9 @@ export default function GradebookPage() {
           <SelectContent>
             <SelectItem value="all">All Subjects</SelectItem>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -197,10 +206,7 @@ export default function GradebookPage() {
           ))}
         </div>
       ) : classGroups.length === 0 ? (
-        <EmptyState
-          icon={BookOpen}
-          title={t('noClasses')}
-        />
+        <EmptyState icon={BookOpen} title={t('noClasses')} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {classGroups.map((cg) => (
@@ -209,9 +215,7 @@ export default function GradebookPage() {
               onClick={() => router.push(`/${locale}/gradebook/${cg.class_id}`)}
               className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5 text-start transition-colors hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
-              <h3 className="text-sm font-semibold text-text-primary">
-                {cg.class_name}
-              </h3>
+              <h3 className="text-sm font-semibold text-text-primary">{cg.class_name}</h3>
               <StatusBadge status="info">
                 {cg.assessment_count} {t('assessments')}
               </StatusBadge>

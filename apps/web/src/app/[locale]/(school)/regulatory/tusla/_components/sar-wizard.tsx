@@ -1,15 +1,33 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { generateTuslaSarSchema, TUSLA_SAR_PERIODS } from '@school/shared';
-import type { GenerateTuslaSarDto } from '@school/shared';
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Loader2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+
+import type { GenerateTuslaSarDto } from '@school/shared';
+import { generateTuslaSarSchema, TUSLA_SAR_PERIODS } from '@school/shared';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -47,8 +65,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               i + 1 < currentStep
                 ? 'bg-success-text text-white'
                 : i + 1 === currentStep
-                ? 'bg-primary-700 text-white'
-                : 'bg-surface-secondary text-text-tertiary'
+                  ? 'bg-primary-700 text-white'
+                  : 'bg-surface-secondary text-text-tertiary'
             }`}
           >
             {i + 1 < currentStep ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
@@ -68,7 +86,10 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 
 // ─── Date Helpers ───────────────────────────────────────────────────────────
 
-function computeDatesFromAcademicYear(academicYear: string, period: number): { start_date: string; end_date: string } {
+function computeDatesFromAcademicYear(
+  academicYear: string,
+  period: number,
+): { start_date: string; end_date: string } {
   // Academic year format: "2025-2026"
   const parts = academicYear.split('-');
   const firstYear = parts[0] ?? '';
@@ -231,7 +252,8 @@ export function SarWizard() {
         <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3">
           <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarDateRange')}</p>
           <p className="mt-1 text-sm font-medium text-text-primary">
-            {formatDate(form.getValues('start_date'))} &mdash; {formatDate(form.getValues('end_date'))}
+            {formatDate(form.getValues('start_date'))} &mdash;{' '}
+            {formatDate(form.getValues('end_date'))}
           </p>
         </div>
       )}
@@ -251,11 +273,15 @@ export function SarWizard() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarAcademicYear')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{values.academic_year}</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {values.academic_year}
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarPeriod')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{getPeriodLabel(values.period)}</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {getPeriodLabel(values.period)}
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarDateRange')}</p>
@@ -269,9 +295,7 @@ export function SarWizard() {
         {/* Informational Text */}
         <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
           <FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <p className="text-sm text-primary-800">
-            {t('tusla.sarPreviewInfo')}
-          </p>
+          <p className="text-sm text-primary-800">{t('tusla.sarPreviewInfo')}</p>
         </div>
 
         {/* Error from a failed generation attempt */}
@@ -280,7 +304,12 @@ export function SarWizard() {
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
             <div>
               <p className="text-sm font-medium text-danger-text">{generateError}</p>
-              <Button variant="outline" size="sm" className="mt-2 min-h-[44px]" onClick={handleRetry}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 min-h-[44px]"
+                onClick={handleRetry}
+              >
                 {t('tusla.sarRetry')}
               </Button>
             </div>
@@ -313,11 +342,15 @@ export function SarWizard() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarAcademicYear')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{result.academic_year}</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {result.academic_year}
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarPeriod')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{getPeriodLabel(result.period)}</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {getPeriodLabel(result.period)}
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.sarDateRange')}</p>
@@ -365,11 +398,7 @@ export function SarWizard() {
           {t('tusla.sarBack')}
         </Button>
 
-        <Button
-          onClick={handleNext}
-          disabled={isGenerating}
-          className="min-h-[44px]"
-        >
+        <Button onClick={handleNext} disabled={isGenerating} className="min-h-[44px]">
           {isGenerating ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />

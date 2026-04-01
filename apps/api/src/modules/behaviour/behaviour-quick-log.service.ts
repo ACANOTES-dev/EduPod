@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  BulkPositiveDto,
-  CreateIncidentDto,
-  QuickLogDto,
-} from '@school/shared';
+
+import type { BulkPositiveDto, CreateIncidentDto, QuickLogDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -41,28 +38,27 @@ export class BehaviourQuickLogService {
     }
 
     // Recent students (last 20 distinct students from user's incidents)
-    const recentParticipants =
-      await this.prisma.behaviourIncidentParticipant.findMany({
-        where: {
-          tenant_id: tenantId,
-          participant_type: 'student',
-          student_id: { not: null },
-          incident: { reported_by_id: userId },
-        },
-        orderBy: { created_at: 'desc' },
-        take: 20,
-        distinct: ['student_id'],
-        include: {
-          student: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              year_group: { select: { name: true } },
-            },
+    const recentParticipants = await this.prisma.behaviourIncidentParticipant.findMany({
+      where: {
+        tenant_id: tenantId,
+        participant_type: 'student',
+        student_id: { not: null },
+        incident: { reported_by_id: userId },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 20,
+      distinct: ['student_id'],
+      include: {
+        student: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            year_group: { select: { name: true } },
           },
         },
-      });
+      },
+    });
 
     return {
       categories,
@@ -103,28 +99,20 @@ export class BehaviourQuickLogService {
   /**
    * Bulk positive: award the same category to multiple students.
    */
-  async bulkPositive(
-    tenantId: string,
-    userId: string,
-    dto: BulkPositiveDto,
-  ) {
+  async bulkPositive(tenantId: string, userId: string, dto: BulkPositiveDto) {
     const results = [];
     for (const studentId of dto.student_ids) {
-      const result = await this.behaviourService.createIncident(
-        tenantId,
-        userId,
-        {
-          category_id: dto.category_id,
-          student_ids: [studentId],
-          description: dto.description ?? '',
-          template_id: dto.template_id,
-          context_type: dto.context_type,
-          occurred_at: new Date().toISOString(),
-          academic_year_id: dto.academic_year_id,
-          schedule_entry_id: dto.schedule_entry_id,
-          auto_submit: true,
-        } as CreateIncidentDto,
-      );
+      const result = await this.behaviourService.createIncident(tenantId, userId, {
+        category_id: dto.category_id,
+        student_ids: [studentId],
+        description: dto.description ?? '',
+        template_id: dto.template_id,
+        context_type: dto.context_type,
+        occurred_at: new Date().toISOString(),
+        academic_year_id: dto.academic_year_id,
+        schedule_entry_id: dto.schedule_entry_id,
+        auto_submit: true,
+      } as CreateIncidentDto);
       results.push(result);
     }
     return { data: results, count: results.length };

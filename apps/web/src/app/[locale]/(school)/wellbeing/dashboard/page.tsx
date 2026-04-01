@@ -1,6 +1,5 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -16,6 +15,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -179,9 +180,7 @@ function computeTimetableLabel(score: number): QualityLabel {
   return 'needsAttention';
 }
 
-function pressureColor(
-  assessment: 'Low' | 'Moderate' | 'High' | 'Critical',
-): string {
+function pressureColor(assessment: 'Low' | 'Moderate' | 'High' | 'Critical'): string {
   switch (assessment) {
     case 'Low':
       return 'text-green-600 dark:text-green-400';
@@ -194,10 +193,7 @@ function pressureColor(
   }
 }
 
-function trendDirection(
-  current: number,
-  previous: number | null,
-): 'up' | 'down' | 'neutral' {
+function trendDirection(current: number, previous: number | null): 'up' | 'down' | 'neutral' {
   if (previous === null) return 'neutral';
   if (current > previous) return 'up';
   if (current < previous) return 'down';
@@ -207,11 +203,7 @@ function trendDirection(
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SkeletonPulse({ className }: { className?: string }) {
-  return (
-    <div
-      className={`animate-pulse rounded-lg bg-surface-secondary ${className ?? ''}`}
-    />
-  );
+  return <div className={`animate-pulse rounded-lg bg-surface-secondary ${className ?? ''}`} />;
 }
 
 function LoadingSkeleton() {
@@ -252,24 +244,12 @@ export default function WellbeingDashboardPage() {
     setError(false);
 
     Promise.all([
-      apiClient<AggregateWorkloadSummary>(
-        '/api/v1/staff-wellbeing/aggregate/workload-summary',
-      ),
-      apiClient<CoverFairnessResult>(
-        '/api/v1/staff-wellbeing/aggregate/cover-fairness',
-      ),
-      apiClient<AggregateTimetableQuality>(
-        '/api/v1/staff-wellbeing/aggregate/timetable-quality',
-      ),
-      apiClient<SubstitutionPressure>(
-        '/api/v1/staff-wellbeing/aggregate/substitution-pressure',
-      ),
-      apiClient<AbsenceTrends>(
-        '/api/v1/staff-wellbeing/aggregate/absence-trends',
-      ),
-      apiClient<CorrelationResult>(
-        '/api/v1/staff-wellbeing/aggregate/correlation',
-      ),
+      apiClient<AggregateWorkloadSummary>('/api/v1/staff-wellbeing/aggregate/workload-summary'),
+      apiClient<CoverFairnessResult>('/api/v1/staff-wellbeing/aggregate/cover-fairness'),
+      apiClient<AggregateTimetableQuality>('/api/v1/staff-wellbeing/aggregate/timetable-quality'),
+      apiClient<SubstitutionPressure>('/api/v1/staff-wellbeing/aggregate/substitution-pressure'),
+      apiClient<AbsenceTrends>('/api/v1/staff-wellbeing/aggregate/absence-trends'),
+      apiClient<CorrelationResult>('/api/v1/staff-wellbeing/aggregate/correlation'),
     ])
       .then(
         ([
@@ -326,8 +306,7 @@ export default function WellbeingDashboardPage() {
     );
   }
 
-  const { workload, coverFairness, timetableQuality, substitutionPressure, correlation } =
-    data;
+  const { workload, coverFairness, timetableQuality, substitutionPressure, correlation } = data;
 
   // ── Computed values ──────────────────────────────────────────────────────
 
@@ -344,9 +323,7 @@ export default function WellbeingDashboardPage() {
       ? `${t('lastTerm')}: ${String(workload.trend.previous_average_periods)}`
       : t('thisTerm');
 
-  const assessmentTranslationKey = (
-    assessment: CoverFairnessResult['assessment'],
-  ): string => {
+  const assessmentTranslationKey = (assessment: CoverFairnessResult['assessment']): string => {
     switch (assessment) {
       case 'Well distributed':
         return 'wellDistributed';
@@ -357,9 +334,7 @@ export default function WellbeingDashboardPage() {
     }
   };
 
-  const pressureTranslationKey = (
-    assessment: SubstitutionPressure['assessment'],
-  ): string => {
+  const pressureTranslationKey = (assessment: SubstitutionPressure['assessment']): string => {
     switch (assessment) {
       case 'Low':
         return 'low';
@@ -382,12 +357,8 @@ export default function WellbeingDashboardPage() {
   ];
 
   // Consecutive periods quality
-  const consecutiveLabel = assessConsecutive(
-    timetableQuality.consecutive_periods.mean,
-  );
-  const freeLabel = assessFreeClumping(
-    timetableQuality.free_period_clumping.mean,
-  );
+  const consecutiveLabel = assessConsecutive(timetableQuality.consecutive_periods.mean);
+  const freeLabel = assessFreeClumping(timetableQuality.free_period_clumping.mean);
   const splitLabel = assessSplitPct(timetableQuality.split_timetable_pct);
   const roomLabel = assessRoomChanges(timetableQuality.room_changes.mean);
 
@@ -418,7 +389,13 @@ export default function WellbeingDashboardPage() {
           value={timetableScore}
           trend={{
             direction: 'neutral',
-            label: t(timetableLabel === 'good' ? 'good' : timetableLabel === 'moderate' ? 'moderate' : 'needsAttention'),
+            label: t(
+              timetableLabel === 'good'
+                ? 'good'
+                : timetableLabel === 'moderate'
+                  ? 'moderate'
+                  : 'needsAttention',
+            ),
           }}
         />
         <StatCard
@@ -434,9 +411,7 @@ export default function WellbeingDashboardPage() {
       {/* ── Section 2: Workload Distribution ────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-sm font-semibold text-text-primary">
-            {t('workloadDistribution')}
-          </h2>
+          <h2 className="text-sm font-semibold text-text-primary">{t('workloadDistribution')}</h2>
           {workload.over_allocated_periods_count > 0 && (
             <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
               {t('overAllocated', {
@@ -448,26 +423,10 @@ export default function WellbeingDashboardPage() {
 
         <div className="mt-4 h-56 w-full sm:h-64" aria-label={t('workloadDistribution')}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={workloadRangeData}
-              margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                opacity={0.3}
-              />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 12 }}
-                tickLine={false}
-                width={32}
-              />
+            <BarChart data={workloadRangeData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} tickLine={false} width={32} />
               <Tooltip
                 contentStyle={{
                   fontSize: 12,
@@ -476,12 +435,7 @@ export default function WellbeingDashboardPage() {
                 }}
                 formatter={(v) => [String(v), t('periodsCount')]}
               />
-              <Bar
-                dataKey="value"
-                fill="#3b82f6"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={48}
-              />
+              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -508,9 +462,7 @@ export default function WellbeingDashboardPage() {
 
       {/* ── Section 3: Cover Fairness ───────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold text-text-primary">
-          {t('coverFairnessSection')}
-        </h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t('coverFairnessSection')}</h2>
 
         <div className="mt-4 h-56 w-full sm:h-64" aria-label={t('coverFairnessSection')}>
           <ResponsiveContainer width="100%" height="100%">
@@ -518,11 +470,7 @@ export default function WellbeingDashboardPage() {
               data={coverFairness.distribution}
               margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                opacity={0.3}
-              />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
               <XAxis
                 dataKey="cover_count"
                 tick={{ fontSize: 12 }}
@@ -555,12 +503,7 @@ export default function WellbeingDashboardPage() {
                 }}
                 formatter={(v) => [String(v), t('staffCount')]}
               />
-              <Bar
-                dataKey="staff_count"
-                fill="#6366f1"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={48}
-              />
+              <Bar dataKey="staff_count" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={48} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -592,11 +535,17 @@ export default function WellbeingDashboardPage() {
             </p>
             <div className="mt-1 flex items-baseline gap-2 text-sm">
               <span className="text-text-secondary">
-                {t('min')}: <span dir="ltr" className="font-medium text-text-primary">{coverFairness.range.min}</span>
+                {t('min')}:{' '}
+                <span dir="ltr" className="font-medium text-text-primary">
+                  {coverFairness.range.min}
+                </span>
               </span>
               <span className="text-text-tertiary">/</span>
               <span className="text-text-secondary">
-                {t('max')}: <span dir="ltr" className="font-medium text-text-primary">{coverFairness.range.max}</span>
+                {t('max')}:{' '}
+                <span dir="ltr" className="font-medium text-text-primary">
+                  {coverFairness.range.max}
+                </span>
               </span>
             </div>
           </div>
@@ -615,9 +564,7 @@ export default function WellbeingDashboardPage() {
 
       {/* ── Section 4: Timetable Quality ────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold text-text-primary">
-          {t('timetableQualitySection')}
-        </h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t('timetableQualitySection')}</h2>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Consecutive teaching */}
@@ -641,7 +588,8 @@ export default function WellbeingDashboardPage() {
             <p className="mt-1 text-xs text-text-tertiary">
               {t('range')}:{' '}
               <span dir="ltr">
-                {timetableQuality.consecutive_periods.range.min}&ndash;{timetableQuality.consecutive_periods.range.max}
+                {timetableQuality.consecutive_periods.range.min}&ndash;
+                {timetableQuality.consecutive_periods.range.max}
               </span>
             </p>
           </div>
@@ -652,10 +600,7 @@ export default function WellbeingDashboardPage() {
               {t('freeDistribution')}
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span
-                className={`text-2xl font-semibold ${qualityColor(freeLabel)}`}
-                dir="ltr"
-              >
+              <span className={`text-2xl font-semibold ${qualityColor(freeLabel)}`} dir="ltr">
                 {timetableQuality.free_period_clumping.mean.toFixed(2)}
               </span>
               <span
@@ -667,7 +612,8 @@ export default function WellbeingDashboardPage() {
             <p className="mt-1 text-xs text-text-tertiary">
               {t('range')}:{' '}
               <span dir="ltr">
-                {timetableQuality.free_period_clumping.range.min.toFixed(2)}&ndash;{timetableQuality.free_period_clumping.range.max.toFixed(2)}
+                {timetableQuality.free_period_clumping.range.min.toFixed(2)}&ndash;
+                {timetableQuality.free_period_clumping.range.max.toFixed(2)}
               </span>
             </p>
           </div>
@@ -678,10 +624,7 @@ export default function WellbeingDashboardPage() {
               {t('splitTimetable')}
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span
-                className={`text-2xl font-semibold ${qualityColor(splitLabel)}`}
-                dir="ltr"
-              >
+              <span className={`text-2xl font-semibold ${qualityColor(splitLabel)}`} dir="ltr">
                 {timetableQuality.split_timetable_pct.toFixed(0)}%
               </span>
               <span
@@ -698,10 +641,7 @@ export default function WellbeingDashboardPage() {
               {t('roomChanges')}
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span
-                className={`text-2xl font-semibold ${qualityColor(roomLabel)}`}
-                dir="ltr"
-              >
+              <span className={`text-2xl font-semibold ${qualityColor(roomLabel)}`} dir="ltr">
                 {timetableQuality.room_changes.mean.toFixed(1)}
               </span>
               <span
@@ -713,7 +653,8 @@ export default function WellbeingDashboardPage() {
             <p className="mt-1 text-xs text-text-tertiary">
               {t('range')}:{' '}
               <span dir="ltr">
-                {timetableQuality.room_changes.range.min.toFixed(1)}&ndash;{timetableQuality.room_changes.range.max.toFixed(1)}
+                {timetableQuality.room_changes.range.min.toFixed(1)}&ndash;
+                {timetableQuality.room_changes.range.max.toFixed(1)}
               </span>
             </p>
           </div>
@@ -743,23 +684,14 @@ export default function WellbeingDashboardPage() {
                 data={substitutionPressure.trend}
                 margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  opacity={0.3}
-                />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                 <XAxis
                   dataKey="month"
                   tick={{ fontSize: 11 }}
                   tickLine={false}
                   interval="preserveStartEnd"
                 />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  tickLine={false}
-                  width={32}
-                  domain={[0, 'auto']}
-                />
+                <YAxis tick={{ fontSize: 12 }} tickLine={false} width={32} domain={[0, 'auto']} />
                 <Tooltip
                   contentStyle={{
                     fontSize: 12,
@@ -808,27 +740,17 @@ export default function WellbeingDashboardPage() {
           </div>
         </div>
 
-        <p className="mt-3 text-xs text-text-tertiary">
-          {t('pressureCorrelation')}
-        </p>
+        <p className="mt-3 text-xs text-text-tertiary">{t('pressureCorrelation')}</p>
       </div>
 
       {/* ── Section 6: Correlation ──────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold text-text-primary">
-          {t('correlationSection')}
-        </h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t('correlationSection')}</h2>
 
         {correlation.status === 'accumulating' ? (
-          <CorrelationAccumulatingView
-            correlation={correlation}
-            t={t}
-          />
+          <CorrelationAccumulatingView correlation={correlation} t={t} />
         ) : (
-          <CorrelationAvailableView
-            correlation={correlation}
-            t={t}
-          />
+          <CorrelationAvailableView correlation={correlation} t={t} />
         )}
       </div>
     </div>
@@ -877,9 +799,7 @@ function CorrelationAccumulatingView({
         })}
       </p>
 
-      <p className="mt-2 text-xs text-text-tertiary">
-        {t('correlationExplanation')}
-      </p>
+      <p className="mt-2 text-xs text-text-tertiary">{t('correlationExplanation')}</p>
     </div>
   );
 }
@@ -896,15 +816,8 @@ function CorrelationAvailableView({
       {/* Dual-axis line chart */}
       <div className="h-56 w-full sm:h-72" aria-label={t('correlationSection')}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={correlation.series}
-            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              opacity={0.3}
-            />
+          <LineChart data={correlation.series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
             <XAxis
               dataKey="month"
               tick={{ fontSize: 11 }}
@@ -933,9 +846,7 @@ function CorrelationAvailableView({
                 border: '1px solid var(--border)',
               }}
             />
-            <Legend
-              wrapperStyle={{ fontSize: 12 }}
-            />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
             <Line
               yAxisId="left"
               type="monotone"
@@ -960,9 +871,7 @@ function CorrelationAvailableView({
         </ResponsiveContainer>
       </div>
 
-      <p className="mt-3 text-sm text-text-secondary">
-        {correlation.trendDescription}
-      </p>
+      <p className="mt-3 text-sm text-text-secondary">{correlation.trendDescription}</p>
 
       {/* Permanent non-dismissable disclaimer */}
       <div className="mt-4 rounded-lg border-2 border-amber-300 bg-amber-50 p-4 dark:border-amber-600 dark:bg-amber-900/10">

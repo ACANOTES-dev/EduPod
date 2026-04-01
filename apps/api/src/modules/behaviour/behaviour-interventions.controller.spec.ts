@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -139,7 +140,11 @@ describe('BehaviourInterventionsController', () => {
 
     const result = await controller.getDetail(TENANT, USER, INTERVENTION_ID);
 
-    expect(mockInterventionsService.getDetail).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, true);
+    expect(mockInterventionsService.getDetail).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      true,
+    );
     expect(result).toEqual({ id: INTERVENTION_ID });
   });
 
@@ -149,17 +154,30 @@ describe('BehaviourInterventionsController', () => {
 
     const result = await controller.update(TENANT, USER, INTERVENTION_ID, dto as never);
 
-    expect(mockInterventionsService.update).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, USER_ID, dto);
+    expect(mockInterventionsService.update).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INTERVENTION_ID });
   });
 
   it('should call interventionsService.transitionStatus with tenant_id, id, user_id, and dto', async () => {
     const dto = { status: 'in_progress' };
-    mockInterventionsService.transitionStatus.mockResolvedValue({ id: INTERVENTION_ID, status: 'in_progress' });
+    mockInterventionsService.transitionStatus.mockResolvedValue({
+      id: INTERVENTION_ID,
+      status: 'in_progress',
+    });
 
     const result = await controller.transitionStatus(TENANT, USER, INTERVENTION_ID, dto as never);
 
-    expect(mockInterventionsService.transitionStatus).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, USER_ID, dto);
+    expect(mockInterventionsService.transitionStatus).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INTERVENTION_ID, status: 'in_progress' });
   });
 
@@ -171,7 +189,12 @@ describe('BehaviourInterventionsController', () => {
 
     const result = await controller.createReview(TENANT, USER, INTERVENTION_ID, dto as never);
 
-    expect(mockInterventionsService.createReview).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, USER_ID, dto);
+    expect(mockInterventionsService.createReview).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: 'rev-1' });
   });
 
@@ -181,7 +204,12 @@ describe('BehaviourInterventionsController', () => {
 
     const result = await controller.listReviews(TENANT, INTERVENTION_ID, query);
 
-    expect(mockInterventionsService.listReviews).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, 1, 20);
+    expect(mockInterventionsService.listReviews).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      1,
+      20,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -192,7 +220,10 @@ describe('BehaviourInterventionsController', () => {
 
     const result = await controller.getAutoPopulateData(TENANT, INTERVENTION_ID);
 
-    expect(mockInterventionsService.getAutoPopulateData).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID);
+    expect(mockInterventionsService.getAutoPopulateData).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+    );
     expect(result).toEqual({ suggested: {} });
   });
 
@@ -200,11 +231,19 @@ describe('BehaviourInterventionsController', () => {
 
   it('should call interventionsService.complete with tenant_id, id, user_id, and dto', async () => {
     const dto = { outcome: 'resolved', notes: 'Student improved' };
-    mockInterventionsService.complete.mockResolvedValue({ id: INTERVENTION_ID, status: 'completed' });
+    mockInterventionsService.complete.mockResolvedValue({
+      id: INTERVENTION_ID,
+      status: 'completed',
+    });
 
     const result = await controller.complete(TENANT, USER, INTERVENTION_ID, dto as never);
 
-    expect(mockInterventionsService.complete).toHaveBeenCalledWith(TENANT_ID, INTERVENTION_ID, USER_ID, dto);
+    expect(mockInterventionsService.complete).toHaveBeenCalledWith(
+      TENANT_ID,
+      INTERVENTION_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INTERVENTION_ID, status: 'completed' });
   });
 });

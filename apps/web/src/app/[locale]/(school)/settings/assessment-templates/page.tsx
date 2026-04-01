@@ -1,5 +1,9 @@
 'use client';
 
+import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -17,9 +21,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -216,23 +217,25 @@ export default function AssessmentTemplatesPage() {
       key: 'max_score',
       header: t('maxScore'),
       render: (row: AssessmentTemplate) => (
-        <span className="font-mono text-sm text-text-secondary" dir="ltr">{row.max_score}</span>
+        <span className="font-mono text-sm text-text-secondary" dir="ltr">
+          {row.max_score}
+        </span>
       ),
     },
     {
       key: 'rubric',
       header: t('rubricTemplate'),
       render: (row: AssessmentTemplate) => (
-        <span className="text-sm text-text-secondary">
-          {row.rubric_template?.name ?? '—'}
-        </span>
+        <span className="text-sm text-text-secondary">{row.rubric_template?.name ?? '—'}</span>
       ),
     },
     {
       key: 'counts',
       header: t('countsTowardReportCard'),
       render: (row: AssessmentTemplate) => (
-        <span className={`text-sm ${row.counts_toward_report_card ? 'text-success-text' : 'text-text-tertiary'}`}>
+        <span
+          className={`text-sm ${row.counts_toward_report_card ? 'text-success-text' : 'text-text-tertiary'}`}
+        >
           {row.counts_toward_report_card ? tc('yes') : tc('no')}
         </span>
       ),
@@ -245,14 +248,20 @@ export default function AssessmentTemplatesPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); openEdit(row); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openEdit(row);
+            }}
           >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(row.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDeleteId(row.id);
+            }}
           >
             <Trash2 className="h-4 w-4 text-danger-text" />
           </Button>
@@ -277,7 +286,10 @@ export default function AssessmentTemplatesPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Select
           value={subjectFilter}
-          onValueChange={(v) => { setSubjectFilter(v); setPage(1); }}
+          onValueChange={(v) => {
+            setSubjectFilter(v);
+            setPage(1);
+          }}
         >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('subject')} />
@@ -285,7 +297,9 @@ export default function AssessmentTemplatesPage() {
           <SelectContent>
             <SelectItem value="all">All Subjects</SelectItem>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -327,7 +341,9 @@ export default function AssessmentTemplatesPage() {
             </div>
 
             <div>
-              <Label>{t('subject')} <span className="text-text-tertiary text-xs">(optional)</span></Label>
+              <Label>
+                {t('subject')} <span className="text-text-tertiary text-xs">(optional)</span>
+              </Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any subject" />
@@ -335,7 +351,9 @@ export default function AssessmentTemplatesPage() {
                 <SelectContent>
                   <SelectItem value="none">Any subject</SelectItem>
                   {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -349,7 +367,9 @@ export default function AssessmentTemplatesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,7 +388,9 @@ export default function AssessmentTemplatesPage() {
             </div>
 
             <div>
-              <Label>{t('rubricTemplate')} <span className="text-text-tertiary text-xs">(optional)</span></Label>
+              <Label>
+                {t('rubricTemplate')} <span className="text-text-tertiary text-xs">(optional)</span>
+              </Label>
               <Select value={rubricTemplateId} onValueChange={setRubricTemplateId}>
                 <SelectTrigger>
                   <SelectValue placeholder="No rubric" />
@@ -376,7 +398,9 @@ export default function AssessmentTemplatesPage() {
                 <SelectContent>
                   <SelectItem value="none">No rubric</SelectItem>
                   {rubricTemplates.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -1,19 +1,20 @@
 'use client';
 
-import { Button, Input, Label, cn } from '@school/ui';
 import { BookOpen, FileDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button, Input, Label, cn } from '@school/ui';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { ReadinessChecklist } from './_components/readiness-checklist';
 import type { ReadinessCategory } from './_components/readiness-checklist';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,10 +103,7 @@ export default function DESReturnsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('desReturns.pageTitle')}
-        description={t('desReturns.pageDescription')}
-      />
+      <PageHeader title={t('desReturns.pageTitle')} description={t('desReturns.pageDescription')} />
 
       <RegulatoryNav />
 
@@ -123,12 +121,7 @@ export default function DESReturnsPage() {
               className="w-40"
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleYearApply}
-            disabled={isLoading}
-          >
+          <Button variant="outline" size="sm" onClick={handleYearApply} disabled={isLoading}>
             {t('desReturns.applyYear')}
           </Button>
         </div>
@@ -139,10 +132,7 @@ export default function DESReturnsPage() {
         <h2 className="mb-3 text-base font-semibold text-text-primary">
           {t('desReturns.readinessTitle')}
         </h2>
-        <ReadinessChecklist
-          categories={readiness?.categories ?? []}
-          isLoading={isLoading}
-        />
+        <ReadinessChecklist categories={readiness?.categories ?? []} isLoading={isLoading} />
       </div>
 
       {/* ─── Action Cards ─────────────────────────────────────────────────── */}

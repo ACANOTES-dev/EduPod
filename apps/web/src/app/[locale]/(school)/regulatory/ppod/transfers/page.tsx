@@ -1,5 +1,11 @@
 'use client';
 
+import { Check, Minus, Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,18 +17,13 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Check, Minus, Plus } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { RegulatoryNav } from '../../_components/regulatory-nav';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { RegulatoryNav } from '../../_components/regulatory-nav';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -169,9 +170,7 @@ export default function TransfersListPage() {
       {
         key: 'student_name',
         header: t('transfers.colStudentName'),
-        render: (row: Transfer) => (
-          <span className="font-medium">{row.student_name}</span>
-        ),
+        render: (row: Transfer) => <span className="font-medium">{row.student_name}</span>,
       },
       {
         key: 'direction',
@@ -290,11 +289,7 @@ export default function TransfersListPage() {
                     void handleTogglePpod(row);
                   }}
                   className="min-h-[36px]"
-                  title={
-                    row.ppod_confirmed
-                      ? t('transfers.unmarkPpod')
-                      : t('transfers.markPpod')
-                  }
+                  title={row.ppod_confirmed ? t('transfers.unmarkPpod') : t('transfers.markPpod')}
                 >
                   {row.ppod_confirmed ? (
                     <Check className="h-3.5 w-3.5 text-success-text" />

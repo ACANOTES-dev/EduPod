@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Search, X } from 'lucide-react';
 import { startTransition, useDeferredValue } from 'react';
 import * as React from 'react';
+
+import { Button, Input, Label } from '@school/ui';
 
 import type { SearchOption } from '@/lib/pastoral';
 

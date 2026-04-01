@@ -1,5 +1,9 @@
 'use client';
 
+import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { useParams, useRouter, usePathname } from 'next/navigation';
+import * as React from 'react';
+
 import type { InvoiceStatus } from '@school/shared';
 import {
   Button,
@@ -19,20 +23,16 @@ import {
   DialogFooter,
   toast,
 } from '@school/ui';
-import { Edit, Plus, Pencil, Trash2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
-import { useParams, useRouter, usePathname } from 'next/navigation';
-import * as React from 'react';
-
-
-import { EntityLink } from '@/components/entity-link';
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
 
 import { CurrencyDisplay } from '../../finance/_components/currency-display';
 import { InvoiceStatusBadge } from '../../finance/_components/invoice-status-badge';
 import { MergeDialog } from '../_components/merge-dialog';
 import { SplitDialog } from '../_components/split-dialog';
+
+import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 interface Invoice {
   id: string;
@@ -133,7 +133,10 @@ export default function HouseholdHubPage() {
   const [isSavingContact, setIsSavingContact] = React.useState(false);
 
   // Add Student dialog
-  interface YearGroup { id: string; name: string }
+  interface YearGroup {
+    id: string;
+    name: string;
+  }
   const [addStudentOpen, setAddStudentOpen] = React.useState(false);
   const [yearGroups, setYearGroups] = React.useState<YearGroup[]>([]);
   const [studentForm, setStudentForm] = React.useState({
@@ -154,8 +157,9 @@ export default function HouseholdHubPage() {
     try {
       const res = await apiClient<{ data: Household }>(`/api/v1/households/${id}`);
       setHousehold(res.data);
-    } catch {
+    } catch (err) {
       // handled by empty state
+      console.error('[setHousehold]', err);
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +199,13 @@ export default function HouseholdHubPage() {
   };
 
   const handleSaveStudent = async () => {
-    if (!studentForm.first_name || !studentForm.date_of_birth || !studentForm.gender || !studentForm.year_group_id || !studentForm.national_id) {
+    if (
+      !studentForm.first_name ||
+      !studentForm.date_of_birth ||
+      !studentForm.gender ||
+      !studentForm.year_group_id ||
+      !studentForm.national_id
+    ) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -418,8 +428,8 @@ export default function HouseholdHubPage() {
                     student.status === 'active'
                       ? 'success'
                       : student.status === 'applicant'
-                      ? 'info'
-                      : 'neutral'
+                        ? 'info'
+                        : 'neutral'
                   }
                   dot
                 >
@@ -453,12 +463,8 @@ export default function HouseholdHubPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {parent.is_primary_contact && (
-                  <StatusBadge status="info">Primary</StatusBadge>
-                )}
-                {parent.is_billing_contact && (
-                  <StatusBadge status="neutral">Billing</StatusBadge>
-                )}
+                {parent.is_primary_contact && <StatusBadge status="info">Primary</StatusBadge>}
+                {parent.is_billing_contact && <StatusBadge status="neutral">Billing</StatusBadge>}
                 {parent.id !== household.primary_billing_parent_id && (
                   <Button
                     variant="ghost"
@@ -547,9 +553,13 @@ export default function HouseholdHubPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Invoice #</th>
+                <th className="px-4 py-2.5 text-start font-medium text-text-secondary">
+                  Invoice #
+                </th>
                 <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Status</th>
-                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">Total Amount</th>
+                <th className="px-4 py-2.5 text-end font-medium text-text-secondary">
+                  Total Amount
+                </th>
                 <th className="px-4 py-2.5 text-end font-medium text-text-secondary">Balance</th>
                 <th className="px-4 py-2.5 text-start font-medium text-text-secondary">Due Date</th>
               </tr>
@@ -581,13 +591,13 @@ export default function HouseholdHubPage() {
                       amount={invoice.balance_amount}
                       currency_code={invoice.currency_code}
                       className={
-                        invoice.balance_amount > 0 ? 'font-medium text-danger-text' : 'text-text-secondary'
+                        invoice.balance_amount > 0
+                          ? 'font-medium text-danger-text'
+                          : 'text-text-secondary'
                       }
                     />
                   </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {formatDate(invoice.due_date)}
-                  </td>
+                  <td className="px-4 py-3 text-text-secondary">{formatDate(invoice.due_date)}</td>
                 </tr>
               ))}
             </tbody>
@@ -663,9 +673,7 @@ export default function HouseholdHubPage() {
                 dir="ltr"
                 type="tel"
                 value={contactForm.phone}
-                onChange={(e) =>
-                  setContactForm((prev) => ({ ...prev, phone: e.target.value }))
-                }
+                onChange={(e) => setContactForm((prev) => ({ ...prev, phone: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -737,7 +745,9 @@ export default function HouseholdHubPage() {
               <Label htmlFor="stu_last">Last Name (defaults to family name)</Label>
               <Input
                 id="stu_last"
-                placeholder={household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '')}
+                placeholder={household.household_name
+                  .replace(/^The\s+/i, '')
+                  .replace(/\s+Family$/i, '')}
                 value={studentForm.last_name}
                 onChange={(e) => setStudentForm((p) => ({ ...p, last_name: e.target.value }))}
               />
@@ -758,7 +768,10 @@ export default function HouseholdHubPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Gender *</Label>
-                <Select value={studentForm.gender} onValueChange={(v) => setStudentForm((p) => ({ ...p, gender: v }))}>
+                <Select
+                  value={studentForm.gender}
+                  onValueChange={(v) => setStudentForm((p) => ({ ...p, gender: v }))}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
@@ -775,13 +788,18 @@ export default function HouseholdHubPage() {
             {/* Year Group */}
             <div className="space-y-1.5">
               <Label>Year Group *</Label>
-              <Select value={studentForm.year_group_id} onValueChange={(v) => setStudentForm((p) => ({ ...p, year_group_id: v }))}>
+              <Select
+                value={studentForm.year_group_id}
+                onValueChange={(v) => setStudentForm((p) => ({ ...p, year_group_id: v }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select year group" />
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
-                    <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                    <SelectItem key={yg.id} value={yg.id}>
+                      {yg.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -821,7 +839,11 @@ export default function HouseholdHubPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddStudentOpen(false)} disabled={isSavingStudent}>
+            <Button
+              variant="outline"
+              onClick={() => setAddStudentOpen(false)}
+              disabled={isSavingStudent}
+            >
               Cancel
             </Button>
             <Button onClick={() => void handleSaveStudent()} disabled={isSavingStudent}>

@@ -1,11 +1,8 @@
 import { createHash } from 'crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   CopyDayDto,
   CopyYearGroupDto,
@@ -191,7 +188,8 @@ export class PeriodGridService {
           const currStartStr = this.formatTime(curr.start_time);
 
           if (prevEndStr !== currStartStr) {
-            const currDuration = this.timeToMinutes(curr.end_time) - this.timeToMinutes(curr.start_time);
+            const currDuration =
+              this.timeToMinutes(curr.end_time) - this.timeToMinutes(curr.start_time);
             const newEnd = this.addMinutesToTime(prevEndStr, currDuration);
 
             await db.schedulePeriodTemplate.update({
@@ -218,7 +216,11 @@ export class PeriodGridService {
     return this.formatPeriod(result as Record<string, unknown>);
   }
 
-  async getTeachingCount(tenantId: string, academicYearId: string, yearGroupId?: string): Promise<number> {
+  async getTeachingCount(
+    tenantId: string,
+    academicYearId: string,
+    yearGroupId?: string,
+  ): Promise<number> {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
       academic_year_id: academicYearId,

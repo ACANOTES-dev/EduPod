@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, ChevronDown, ChevronRight, Download, FileText, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -10,10 +14,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { CheckCircle2, ChevronDown, ChevronRight, Download, FileText, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -154,7 +154,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
   const handleAcknowledge = async (reportCardId: string) => {
     setAcknowledging(reportCardId);
     try {
-      await apiClient(`/api/v1/parent/report-cards/${reportCardId}/acknowledge`, { method: 'POST' });
+      await apiClient(`/api/v1/parent/report-cards/${reportCardId}/acknowledge`, {
+        method: 'POST',
+      });
       toast.success(tr('acknowledged'));
       void fetchHistory(selectedChild);
     } catch {
@@ -212,7 +214,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
           </SelectTrigger>
           <SelectContent>
             {children.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -246,7 +250,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
             </SelectTrigger>
             <SelectContent>
               {periods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -309,7 +315,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                       className="flex items-center justify-between rounded-xl border border-border bg-surface p-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-text-primary">{rc.academic_period_name}</p>
+                        <p className="text-sm font-medium text-text-primary">
+                          {rc.academic_period_name}
+                        </p>
                         <p className="font-mono text-xs text-text-tertiary" dir="ltr">
                           {new Date(rc.published_at).toLocaleDateString()}
                         </p>
@@ -351,7 +359,10 @@ export function GradesTab({ students: children }: GradesTabProps) {
               <div key={year} className="space-y-2">
                 <h3 className="text-xs font-semibold uppercase text-text-tertiary">{year}</h3>
                 {rcs.map((rc) => (
-                  <div key={rc.id} className="rounded-xl border border-border bg-surface overflow-hidden">
+                  <div
+                    key={rc.id}
+                    className="rounded-xl border border-border bg-surface overflow-hidden"
+                  >
                     <div className="flex items-center gap-3 p-3">
                       <button
                         type="button"
@@ -369,7 +380,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                         {rc.acknowledged ? (
                           <CheckCircle2 className="h-4 w-4 shrink-0 text-success-600" />
                         ) : (
-                          <StatusBadge status="warning" dot>{tr('notAcknowledged')}</StatusBadge>
+                          <StatusBadge status="warning" dot>
+                            {tr('notAcknowledged')}
+                          </StatusBadge>
                         )}
                         {expandedRc === rc.id ? (
                           <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary" />
@@ -404,9 +417,17 @@ export function GradesTab({ students: children }: GradesTabProps) {
                               </thead>
                               <tbody>
                                 {rc.subject_grades.map((g) => (
-                                  <tr key={g.subject_name} className="border-b border-border last:border-b-0">
-                                    <td className="px-3 py-2 text-text-primary">{g.subject_name}</td>
-                                    <td className="px-3 py-2 font-mono text-text-secondary" dir="ltr">
+                                  <tr
+                                    key={g.subject_name}
+                                    className="border-b border-border last:border-b-0"
+                                  >
+                                    <td className="px-3 py-2 text-text-primary">
+                                      {g.subject_name}
+                                    </td>
+                                    <td
+                                      className="px-3 py-2 font-mono text-text-secondary"
+                                      dir="ltr"
+                                    >
                                       {g.final_score ?? '—'}
                                     </td>
                                     <td className="px-3 py-2">
@@ -458,7 +479,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -471,7 +494,9 @@ export function GradesTab({ students: children }: GradesTabProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {periods.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -549,8 +574,7 @@ function CompareTable({
             const b = mapB.get(subject);
             const scoreA = a?.final_score ?? null;
             const scoreB = b?.final_score ?? null;
-            const diff =
-              scoreA != null && scoreB != null ? scoreB - scoreA : null;
+            const diff = scoreA != null && scoreB != null ? scoreB - scoreA : null;
             return (
               <tr key={subject} className="border-b border-border last:border-b-0">
                 <td className="px-4 py-3 text-sm font-medium text-text-primary">{subject}</td>
@@ -567,11 +591,12 @@ function CompareTable({
                         diff > 0
                           ? 'text-success-600'
                           : diff < 0
-                          ? 'text-error-600'
-                          : 'text-text-tertiary'
+                            ? 'text-error-600'
+                            : 'text-text-tertiary'
                       }
                     >
-                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                      {diff > 0 ? '+' : ''}
+                      {diff.toFixed(1)}
                     </span>
                   ) : (
                     <span className="text-text-tertiary">—</span>

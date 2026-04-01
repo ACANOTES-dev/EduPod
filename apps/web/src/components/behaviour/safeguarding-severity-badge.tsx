@@ -1,7 +1,8 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { useTranslations } from 'next-intl';
+
+import { Badge } from '@school/ui';
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',

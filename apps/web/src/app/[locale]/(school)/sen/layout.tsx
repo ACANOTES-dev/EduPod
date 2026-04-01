@@ -1,6 +1,5 @@
 'use client';
 
-import { cn } from '@school/ui';
 import {
   BarChart3,
   Clock,
@@ -14,6 +13,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 

@@ -1,5 +1,11 @@
 'use client';
 
+import { ArrowLeft, Clock, MapPin, User } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -15,11 +21,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { ArrowLeft, Clock, MapPin, User } from 'lucide-react';
-import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { IncidentStatusBadge } from '@/components/behaviour/incident-status-badge';
 import { PageHeader } from '@/components/page-header';
@@ -74,7 +75,12 @@ interface IncidentDetail {
 }
 
 const TRANSITION_KEYS = [
-  'active', 'investigating', 'under_review', 'escalated', 'resolved', 'withdrawn',
+  'active',
+  'investigating',
+  'under_review',
+  'escalated',
+  'resolved',
+  'withdrawn',
 ] as const;
 
 const ROLE_COLORS: Record<string, string> = {
@@ -137,9 +143,13 @@ export default function IncidentDetailPage() {
         }),
       });
       // Refresh
-      const res = await apiClient<{ data: IncidentDetail }>(`/api/v1/behaviour/incidents/${incident.id}`);
+      const res = await apiClient<{ data: IncidentDetail }>(
+        `/api/v1/behaviour/incidents/${incident.id}`,
+      );
       setIncident(res.data);
-      const histRes = await apiClient<{ data: HistoryEntry[] }>(`/api/v1/behaviour/incidents/${incident.id}/history`);
+      const histRes = await apiClient<{ data: HistoryEntry[] }>(
+        `/api/v1/behaviour/incidents/${incident.id}/history`,
+      );
       setHistory(histRes.data ?? []);
       setTransitionOpen(false);
       setNewStatus('');
@@ -194,7 +204,11 @@ export default function IncidentDetailPage() {
         {incident.category && (
           <Badge
             variant="secondary"
-            style={incident.category.color ? { borderColor: incident.category.color, color: incident.category.color } : undefined}
+            style={
+              incident.category.color
+                ? { borderColor: incident.category.color, color: incident.category.color }
+                : undefined
+            }
           >
             {incident.category.name}
           </Badge>
@@ -205,13 +219,14 @@ export default function IncidentDetailPage() {
           </span>
         )}
         {incident.category && incident.category.point_value !== 0 && (
-          <span className={`text-xs font-semibold ${incident.category.point_value > 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {incident.category.point_value > 0 ? '+' : ''}{incident.category.point_value} pts
+          <span
+            className={`text-xs font-semibold ${incident.category.point_value > 0 ? 'text-green-600' : 'text-red-600'}`}
+          >
+            {incident.category.point_value > 0 ? '+' : ''}
+            {incident.category.point_value} pts
           </span>
         )}
-        {incident.follow_up_required && (
-          <Badge variant="danger">{t('followUpRequired')}</Badge>
-        )}
+        {incident.follow_up_required && <Badge variant="danger">{t('followUpRequired')}</Badge>}
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -219,17 +234,25 @@ export default function IncidentDetailPage() {
         <div className="space-y-6 md:col-span-2">
           {/* Description */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('sections.description')}</h3>
-            <p className="whitespace-pre-wrap text-sm text-text-secondary">{incident.description}</p>
+            <h3 className="mb-2 text-sm font-semibold text-text-primary">
+              {t('sections.description')}
+            </h3>
+            <p className="whitespace-pre-wrap text-sm text-text-secondary">
+              {incident.description}
+            </p>
             {incident.parent_description && (
               <div className="mt-4 border-t border-border pt-3">
-                <h4 className="mb-1 text-xs font-medium text-text-tertiary">{t('sections.parentDescription')}</h4>
+                <h4 className="mb-1 text-xs font-medium text-text-tertiary">
+                  {t('sections.parentDescription')}
+                </h4>
                 <p className="text-sm text-text-secondary">{incident.parent_description}</p>
               </div>
             )}
             {incident.context_notes && (
               <div className="mt-4 border-t border-border pt-3">
-                <h4 className="mb-1 text-xs font-medium text-text-tertiary">{t('sections.contextNotes')}</h4>
+                <h4 className="mb-1 text-xs font-medium text-text-tertiary">
+                  {t('sections.contextNotes')}
+                </h4>
                 <p className="text-sm text-text-secondary">{incident.context_notes}</p>
               </div>
             )}
@@ -237,26 +260,36 @@ export default function IncidentDetailPage() {
 
           {/* Participants */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.participants')}</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">
+              {t('sections.participants')}
+            </h3>
             {incident.participants.length === 0 ? (
               <p className="text-sm text-text-tertiary">{t('noParticipants')}</p>
             ) : (
               <ul className="space-y-2">
                 {incident.participants.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-secondary px-3 py-2">
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-secondary px-3 py-2"
+                  >
                     <User className="h-4 w-4 text-text-tertiary" />
                     <span className="text-sm font-medium text-text-primary">
                       {p.student ? `${p.student.first_name} ${p.student.last_name}` : 'Unknown'}
                     </span>
                     {p.student?.year_group && (
-                      <span className="text-xs text-text-tertiary">{p.student.year_group.name}</span>
+                      <span className="text-xs text-text-tertiary">
+                        {p.student.year_group.name}
+                      </span>
                     )}
                     <Badge variant="secondary" className={ROLE_COLORS[p.participant_role] ?? ''}>
                       {p.participant_role}
                     </Badge>
                     {p.point_delta !== 0 && (
-                      <span className={`text-xs font-semibold ${p.point_delta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {p.point_delta > 0 ? '+' : ''}{p.point_delta}
+                      <span
+                        className={`text-xs font-semibold ${p.point_delta > 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {p.point_delta > 0 ? '+' : ''}
+                        {p.point_delta}
                       </span>
                     )}
                   </li>
@@ -267,7 +300,9 @@ export default function IncidentDetailPage() {
 
           {/* History Timeline */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.history')}</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">
+              {t('sections.history')}
+            </h3>
             {historyLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -290,11 +325,14 @@ export default function IncidentDetailPage() {
                         </span>
                         {entry.performed_by_user && (
                           <span className="text-xs text-text-tertiary">
-                            by {entry.performed_by_user.first_name} {entry.performed_by_user.last_name}
+                            by {entry.performed_by_user.first_name}{' '}
+                            {entry.performed_by_user.last_name}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-text-tertiary">{formatDateTime(entry.created_at)}</p>
+                      <p className="text-xs text-text-tertiary">
+                        {formatDateTime(entry.created_at)}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -307,7 +345,9 @@ export default function IncidentDetailPage() {
         <div className="space-y-4">
           {/* Meta */}
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h3 className="mb-3 text-sm font-semibold text-text-primary">{t('sections.details')}</h3>
+            <h3 className="mb-3 text-sm font-semibold text-text-primary">
+              {t('sections.details')}
+            </h3>
             <dl className="space-y-3 text-sm">
               <div className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
@@ -354,19 +394,25 @@ export default function IncidentDetailPage() {
 
           {/* Placeholder: Sanctions */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.sanctions')}</h3>
+            <h3 className="text-sm font-semibold text-text-tertiary">
+              {t('placeholders.sanctions')}
+            </h3>
             <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
 
           {/* Placeholder: Attachments */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.attachments')}</h3>
+            <h3 className="text-sm font-semibold text-text-tertiary">
+              {t('placeholders.attachments')}
+            </h3>
             <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
 
           {/* Placeholder: Policy */}
           <div className="rounded-xl border border-dashed border-border bg-surface p-5">
-            <h3 className="text-sm font-semibold text-text-tertiary">{t('placeholders.policyEvaluation')}</h3>
+            <h3 className="text-sm font-semibold text-text-tertiary">
+              {t('placeholders.policyEvaluation')}
+            </h3>
             <p className="mt-1 text-xs text-text-tertiary">{t('placeholders.comingSoon')}</p>
           </div>
         </div>
@@ -385,19 +431,19 @@ export default function IncidentDetailPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-text-primary">{t('dialog.newStatus')}</label>
+              <label className="text-sm font-medium text-text-primary">
+                {t('dialog.newStatus')}
+              </label>
               <Select value={newStatus} onValueChange={setNewStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('dialog.selectStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRANSITION_KEYS
-                    .filter((key) => key !== incident.status)
-                    .map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {t(`statuses.${key}` as Parameters<typeof t>[0])}
-                      </SelectItem>
-                    ))}
+                  {TRANSITION_KEYS.filter((key) => key !== incident.status).map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {t(`statuses.${key}` as Parameters<typeof t>[0])}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -413,7 +459,11 @@ export default function IncidentDetailPage() {
             {transitionError && <p className="text-sm text-danger-text">{transitionError}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTransitionOpen(false)} disabled={transitioning}>
+            <Button
+              variant="outline"
+              onClick={() => setTransitionOpen(false)}
+              disabled={transitioning}
+            >
               {t('cancel')}
             </Button>
             <Button onClick={handleStatusTransition} disabled={transitioning || !newStatus}>

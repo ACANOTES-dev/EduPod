@@ -1,9 +1,10 @@
 'use client';
 
-import { Skeleton } from '@school/ui';
-import { StatusBadge } from '@school/ui';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import * as React from 'react';
+
+import { Skeleton } from '@school/ui';
+import { StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -40,8 +41,9 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
         `/api/v1/${entityType}s/${entityId}/preview`,
       );
       setData(res.data);
-    } catch {
+    } catch (err) {
       // silently fail — card just won't show rich data
+      console.error('[setData]', err);
     } finally {
       setLoading(false);
     }
@@ -61,9 +63,7 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
       const isRtl = document.documentElement.dir === 'rtl';
       setPosition({
         top: rect.bottom + window.scrollY + 4,
-        left: isRtl
-          ? window.innerWidth - rect.right + window.scrollX
-          : rect.left + window.scrollX,
+        left: isRtl ? window.innerWidth - rect.right + window.scrollX : rect.left + window.scrollX,
         isRtl,
       });
 
@@ -106,9 +106,10 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
       {visible && (
         <div
           className="fixed z-50 w-64 rounded-xl border border-border bg-surface p-4 shadow-lg"
-          style={position.isRtl
-            ? { top: position.top, right: position.left }
-            : { top: position.top, left: position.left }
+          style={
+            position.isRtl
+              ? { top: position.top, right: position.left }
+              : { top: position.top, left: position.left }
           }
           onMouseEnter={() => {
             if (hideTimerRef.current) {
@@ -127,7 +128,9 @@ export function HoverPreviewCard({ entityType, entityId, children }: HoverPrevie
           ) : data ? (
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold text-text-primary">{data.primary_label}</span>
+                <span className="text-sm font-semibold text-text-primary">
+                  {data.primary_label}
+                </span>
                 {data.status && (
                   <StatusBadge status={data.status.variant}>{data.status.label}</StatusBadge>
                 )}

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { UserListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type { AlertDetail, AlertListItem, AlertListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

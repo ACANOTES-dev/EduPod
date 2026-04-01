@@ -1,5 +1,6 @@
-import { gdprTokenUsageQuerySchema, gdprTokenUsageStatsQuerySchema } from '@school/shared';
 import { z } from 'zod';
+
+import { gdprTokenUsageQuerySchema, gdprTokenUsageStatsQuerySchema } from '@school/shared';
 
 export type GdprTokenUsageQueryDto = z.infer<typeof gdprTokenUsageQuerySchema>;
 export { gdprTokenUsageQuerySchema };

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
@@ -52,9 +53,7 @@ describe('HomeworkDiaryController', () => {
 
     module = await Test.createTestingModule({
       controllers: [HomeworkDiaryController],
-      providers: [
-        { provide: HomeworkDiaryService, useValue: mockService },
-      ],
+      providers: [{ provide: HomeworkDiaryService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -80,11 +79,7 @@ describe('HomeworkDiaryController', () => {
 
       const result = await controller.listNotes(tenantCtx, STUDENT_ID, query);
 
-      expect(mockService.listNotes).toHaveBeenCalledWith(
-        TENANT_ID,
-        STUDENT_ID,
-        query,
-      );
+      expect(mockService.listNotes).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, query);
       expect(result).toEqual(expected);
     });
   });
@@ -99,11 +94,7 @@ describe('HomeworkDiaryController', () => {
 
       const result = await controller.createNote(tenantCtx, STUDENT_ID, dto);
 
-      expect(mockService.createNote).toHaveBeenCalledWith(
-        TENANT_ID,
-        STUDENT_ID,
-        dto,
-      );
+      expect(mockService.createNote).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, dto);
       expect(result).toEqual(expected);
     });
   });
@@ -117,12 +108,7 @@ describe('HomeworkDiaryController', () => {
       const expected = { id: NOTE_ID, content: 'Updated content' };
       mockService.updateNote.mockResolvedValue(expected);
 
-      const result = await controller.updateNote(
-        tenantCtx,
-        STUDENT_ID,
-        noteDate,
-        dto,
-      );
+      const result = await controller.updateNote(tenantCtx, STUDENT_ID, noteDate, dto);
 
       expect(mockService.updateNote).toHaveBeenCalledWith(
         TENANT_ID,
@@ -142,17 +128,9 @@ describe('HomeworkDiaryController', () => {
       const expected = { data: [], meta: { page: 2, pageSize: 10, total: 0 } };
       mockService.listParentNotes.mockResolvedValue(expected);
 
-      const result = await controller.listParentNotes(
-        tenantCtx,
-        STUDENT_ID,
-        query,
-      );
+      const result = await controller.listParentNotes(tenantCtx, STUDENT_ID, query);
 
-      expect(mockService.listParentNotes).toHaveBeenCalledWith(
-        TENANT_ID,
-        STUDENT_ID,
-        query,
-      );
+      expect(mockService.listParentNotes).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, query);
       expect(result).toEqual(expected);
     });
   });
@@ -169,12 +147,7 @@ describe('HomeworkDiaryController', () => {
       const expected = { id: NOTE_ID, content: 'Parent note' };
       mockService.createParentNote.mockResolvedValue(expected);
 
-      const result = await controller.createParentNote(
-        tenantCtx,
-        userCtx,
-        STUDENT_ID,
-        dto,
-      );
+      const result = await controller.createParentNote(tenantCtx, userCtx, STUDENT_ID, dto);
 
       expect(mockService.createParentNote).toHaveBeenCalledWith(
         TENANT_ID,
@@ -197,17 +170,9 @@ describe('HomeworkDiaryController', () => {
       };
       mockService.acknowledgeNote.mockResolvedValue(expected);
 
-      const result = await controller.acknowledgeNote(
-        tenantCtx,
-        userCtx,
-        NOTE_ID,
-      );
+      const result = await controller.acknowledgeNote(tenantCtx, userCtx, NOTE_ID);
 
-      expect(mockService.acknowledgeNote).toHaveBeenCalledWith(
-        TENANT_ID,
-        NOTE_ID,
-        USER_ID,
-      );
+      expect(mockService.acknowledgeNote).toHaveBeenCalledWith(TENANT_ID, NOTE_ID, USER_ID);
       expect(result).toEqual(expected);
     });
   });
@@ -216,10 +181,7 @@ describe('HomeworkDiaryController', () => {
 
   describe('Permission guards', () => {
     it('should have AuthGuard and PermissionGuard applied at class level', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        HomeworkDiaryController,
-      );
+      const guards = Reflect.getMetadata('__guards__', HomeworkDiaryController);
       expect(guards).toBeDefined();
       expect(guards.length).toBeGreaterThanOrEqual(2);
     });

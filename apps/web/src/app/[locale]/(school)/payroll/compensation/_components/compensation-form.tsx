@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -17,8 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -57,7 +58,9 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
 
   const [staffOptions, setStaffOptions] = React.useState<StaffOption[]>([]);
   const [staffProfileId, setStaffProfileId] = React.useState('');
-  const [compensationType, setCompensationType] = React.useState<'salaried' | 'per_class'>('salaried');
+  const [compensationType, setCompensationType] = React.useState<'salaried' | 'per_class'>(
+    'salaried',
+  );
   const [baseSalary, setBaseSalary] = React.useState('');
   const [perClassRate, setPerClassRate] = React.useState('');
   const [bonusClassRate, setBonusClassRate] = React.useState('');
@@ -67,7 +70,9 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
 
   React.useEffect(() => {
     if (open) {
-      void apiClient<{ data: StaffOption[] }>('/api/v1/staff-profiles?pageSize=100&fields=id,full_name')
+      void apiClient<{ data: StaffOption[] }>(
+        '/api/v1/staff-profiles?pageSize=100&fields=id,full_name',
+      )
         .then((res) => setStaffOptions(res.data))
         .catch(() => {});
     }
@@ -80,7 +85,9 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
       setBaseSalary(record.base_salary != null ? String(record.base_salary) : '');
       setPerClassRate(record.per_class_rate != null ? String(record.per_class_rate) : '');
       setBonusClassRate(record.bonus_class_rate != null ? String(record.bonus_class_rate) : '');
-      setBonusDayMultiplier(record.bonus_day_multiplier != null ? String(record.bonus_day_multiplier) : '');
+      setBonusDayMultiplier(
+        record.bonus_day_multiplier != null ? String(record.bonus_day_multiplier) : '',
+      );
       // For revisions, default effective_from to today
       setEffectiveFrom(todayISO());
     } else {
@@ -118,8 +125,9 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
         body: JSON.stringify(body),
       });
       onSuccess();
-    } catch {
+    } catch (err) {
       // handled by apiClient
+      console.error('[onSuccess]', err);
     } finally {
       setIsSaving(false);
     }
@@ -131,11 +139,7 @@ export function CompensationForm({ open, onOpenChange, record, onSuccess }: Comp
         <DialogHeader>
           <DialogTitle>{isRevision ? t('reviseCompensation') : t('addCompensation')}</DialogTitle>
         </DialogHeader>
-        {isRevision && (
-          <p className="text-xs text-text-secondary">
-            {t('reviseCompensationNote')}
-          </p>
-        )}
+        {isRevision && <p className="text-xs text-text-secondary">{t('reviseCompensationNote')}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Staff selector */}
           <div className="space-y-2">

@@ -1,5 +1,6 @@
-import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+
+import { INestApplication } from '@nestjs/common';
 
 import {
   AL_NOOR_ADMIN_EMAIL,
@@ -55,23 +56,15 @@ describe('Notification Templates (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notification-templates',
-        '',
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/notification-templates', '', AL_NOOR_DOMAIN);
 
       expect([401, 403]).toContain(res.status);
     });
 
     it('should return 403 when teacher lacks communications.manage', async () => {
-      await authGet(
-        app,
-        '/api/v1/notification-templates',
-        teacherToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/notification-templates', teacherToken, AL_NOOR_DOMAIN).expect(
+        403,
+      );
     });
   });
 

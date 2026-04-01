@@ -10,6 +10,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import type { z } from 'zod';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 import {
   admissionsAnalyticsQuerySchema,
@@ -35,7 +37,6 @@ import {
   updateSavedReportSchema,
   updateScheduledReportSchema,
 } from '@school/shared';
-import type { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

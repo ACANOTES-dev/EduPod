@@ -1,18 +1,6 @@
 'use client';
 
 import {
-  Badge,
-  Button,
-  EmptyState,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  TableWrapper,
-  toast,
-} from '@school/ui';
-import {
   AlertTriangle,
   Bell,
   CheckCircle,
@@ -26,6 +14,19 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  TableWrapper,
+  toast,
+} from '@school/ui';
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { PageHeader } from '@/components/page-header';
@@ -76,10 +77,7 @@ type AlertTypeFilter = 'all' | 'excessive_absences' | 'recurring_day' | 'chronic
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatAlertDetails(
-  alertType: string,
-  details: Record<string, unknown>,
-): string {
+function formatAlertDetails(alertType: string, details: Record<string, unknown>): string {
   const count = String(details.count ?? 0);
   const windowDays = String(details.window_days ?? 0);
   const threshold = String(details.threshold ?? 0);
@@ -354,7 +352,9 @@ export default function ExceptionsPage() {
                       {row.student_name}
                     </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{row.class_name}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-red-600">{row.absence_count}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-red-600">
+                      {row.absence_count}
+                    </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{row.threshold}</td>
                     <td className="px-4 py-3">
                       <AttendanceStatusBadge status="absent" type="daily" />
@@ -467,112 +467,112 @@ export default function ExceptionsPage() {
               </tr>
             </thead>
             <tbody>
-              {alertsLoading
-                ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`skeleton-${i}`} className="border-b border-border last:border-b-0">
-                      {[1, 2, 3, 4, 5, 6].map((j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-4 w-3/4 animate-pulse rounded bg-surface-secondary" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                : alerts.length === 0
-                  ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">
-                          {t('noPatterns')}
-                        </td>
-                      </tr>
-                    )
-                  : alerts.map((alert) => (
-                      <tr
-                        key={alert.id}
-                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-text-primary">
-                              {alert.student_name}
-                            </p>
-                            {alert.student_number && (
-                              <p className="text-xs font-mono text-text-tertiary" dir="ltr">
-                                {alert.student_number}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <AlertTypeBadge type={alert.alert_type} t={t} />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary">
-                          {formatAlertDetails(alert.alert_type, alert.details_json)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-text-secondary">
-                          {alert.detected_at
-                            ? new Date(alert.detected_at).toLocaleDateString()
-                            : '\u2014'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <AlertStatusBadge status={alert.status} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {alert.status === 'active' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={actionLoading !== null}
-                                onClick={() => void handleAcknowledge(alert.id)}
-                              >
-                                {actionLoading === `ack:${alert.id}` ? (
-                                  <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Eye className="me-1 h-3.5 w-3.5" />
-                                )}
-                                {t('acknowledge')}
-                              </Button>
-                            )}
-                            {(alert.status === 'active' || alert.status === 'acknowledged') && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={actionLoading !== null}
-                                onClick={() => void handleResolve(alert.id)}
-                              >
-                                {actionLoading === `resolve:${alert.id}` ? (
-                                  <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="me-1 h-3.5 w-3.5" />
-                                )}
-                                {t('resolve')}
-                              </Button>
-                            )}
-                            {!alert.parent_notified && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={actionLoading !== null}
-                                onClick={() => void handleNotifyParent(alert.id)}
-                              >
-                                {actionLoading === `notify:${alert.id}` ? (
-                                  <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Bell className="me-1 h-3.5 w-3.5" />
-                                )}
-                                {t('notifyParent')}
-                              </Button>
-                            )}
-                            {alert.parent_notified && (
-                              <span className="inline-flex items-center text-xs text-success-text">
-                                <CheckCircle className="me-1 h-3.5 w-3.5" />
-                                {t('parentNotified')}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+              {alertsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="border-b border-border last:border-b-0">
+                    {[1, 2, 3, 4, 5, 6].map((j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-4 w-3/4 animate-pulse rounded bg-surface-secondary" />
+                      </td>
                     ))}
+                  </tr>
+                ))
+              ) : alerts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-text-tertiary">
+                    {t('noPatterns')}
+                  </td>
+                </tr>
+              ) : (
+                alerts.map((alert) => (
+                  <tr
+                    key={alert.id}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">
+                          {alert.student_name}
+                        </p>
+                        {alert.student_number && (
+                          <p className="text-xs font-mono text-text-tertiary" dir="ltr">
+                            {alert.student_number}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <AlertTypeBadge type={alert.alert_type} t={t} />
+                    </td>
+                    <td className="px-4 py-3 text-sm text-text-secondary">
+                      {formatAlertDetails(alert.alert_type, alert.details_json)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-text-secondary">
+                      {alert.detected_at
+                        ? new Date(alert.detected_at).toLocaleDateString()
+                        : '\u2014'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <AlertStatusBadge status={alert.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {alert.status === 'active' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={actionLoading !== null}
+                            onClick={() => void handleAcknowledge(alert.id)}
+                          >
+                            {actionLoading === `ack:${alert.id}` ? (
+                              <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Eye className="me-1 h-3.5 w-3.5" />
+                            )}
+                            {t('acknowledge')}
+                          </Button>
+                        )}
+                        {(alert.status === 'active' || alert.status === 'acknowledged') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={actionLoading !== null}
+                            onClick={() => void handleResolve(alert.id)}
+                          >
+                            {actionLoading === `resolve:${alert.id}` ? (
+                              <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle className="me-1 h-3.5 w-3.5" />
+                            )}
+                            {t('resolve')}
+                          </Button>
+                        )}
+                        {!alert.parent_notified && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={actionLoading !== null}
+                            onClick={() => void handleNotifyParent(alert.id)}
+                          >
+                            {actionLoading === `notify:${alert.id}` ? (
+                              <Loader2 className="me-1 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Bell className="me-1 h-3.5 w-3.5" />
+                            )}
+                            {t('notifyParent')}
+                          </Button>
+                        )}
+                        {alert.parent_notified && (
+                          <span className="inline-flex items-center text-xs text-success-text">
+                            <CheckCircle className="me-1 h-3.5 w-3.5" />
+                            {t('parentNotified')}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </TableWrapper>

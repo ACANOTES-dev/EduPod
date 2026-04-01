@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { Save, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { HomeroomClass } from './export-utils';
 

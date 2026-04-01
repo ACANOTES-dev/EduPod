@@ -1,16 +1,17 @@
 'use client';
 
-import { EmptyState, StatCard } from '@school/ui';
 import { BookOpen, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { EmptyState, StatCard } from '@school/ui';
 
 import { HomeworkCard } from './_components/homework-card';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,10 @@ export default function HomeworkDashboardPage() {
     try {
       const [todayRes, recentRes] = await Promise.all([
         apiClient<{ data: HomeworkItem[] }>('/api/v1/homework/today', { silent: true }),
-        apiClient<{ data: HomeworkItem[] }>('/api/v1/homework?status=published&sort=created_at&order=desc&pageSize=5', { silent: true }),
+        apiClient<{ data: HomeworkItem[] }>(
+          '/api/v1/homework?status=published&sort=created_at&order=desc&pageSize=5',
+          { silent: true },
+        ),
       ]);
       setTodayItems(todayRes.data ?? []);
       setRecentItems(recentRes.data ?? []);
@@ -96,12 +100,18 @@ export default function HomeworkDashboardPage() {
                 homework_type={item.homework_type}
                 due_date={item.due_date}
                 status={item.status}
-                onClick={() => { window.location.href = `/${locale}/homework/${item.id}`; }}
+                onClick={() => {
+                  window.location.href = `/${locale}/homework/${item.id}`;
+                }}
               />
             ))}
           </div>
         ) : (
-          <EmptyState icon={BookOpen} title={t('noHomeworkToday')} description={t('noHomeworkTodayDesc')} />
+          <EmptyState
+            icon={BookOpen}
+            title={t('noHomeworkToday')}
+            description={t('noHomeworkTodayDesc')}
+          />
         )}
       </section>
 
@@ -119,7 +129,9 @@ export default function HomeworkDashboardPage() {
                 homework_type={item.homework_type}
                 due_date={item.due_date}
                 status={item.status}
-                onClick={() => { window.location.href = `/${locale}/homework/${item.id}`; }}
+                onClick={() => {
+                  window.location.href = `/${locale}/homework/${item.id}`;
+                }}
               />
             ))}
           </div>

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -49,9 +50,7 @@ describe('PastoralAdminController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PastoralAdminController],
-      providers: [
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [{ provide: PrismaService, useValue: mockPrisma }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -206,16 +205,16 @@ describe('PastoralAdminController', () => {
 
       // Mock counts in the order the Promise.all calls them
       mockPrisma.pastoralConcern.count
-        .mockResolvedValueOnce(3)   // unacknowledged urgent
-        .mockResolvedValueOnce(1);  // unacknowledged critical
+        .mockResolvedValueOnce(3) // unacknowledged urgent
+        .mockResolvedValueOnce(1); // unacknowledged critical
 
       mockPrisma.pastoralConcern.findFirst
         .mockResolvedValueOnce({ id: CONCERN_URGENT_ID, created_at: urgentCreatedAt })
         .mockResolvedValueOnce({ id: CONCERN_CRITICAL_ID, created_at: criticalCreatedAt });
 
       mockPrisma.pastoralEvent.count
-        .mockResolvedValueOnce(2)   // 7d escalations
-        .mockResolvedValueOnce(5);  // 30d escalations
+        .mockResolvedValueOnce(2) // 7d escalations
+        .mockResolvedValueOnce(5); // 30d escalations
 
       const result = await controller.getEscalationDashboard(TENANT);
 
@@ -231,7 +230,9 @@ describe('PastoralAdminController', () => {
       // Oldest critical
       expect(result.data.oldest_unacknowledged_critical).not.toBeNull();
       expect(result.data.oldest_unacknowledged_critical!.concern_id).toBe(CONCERN_CRITICAL_ID);
-      expect(result.data.oldest_unacknowledged_critical!.minutes_elapsed).toBeGreaterThanOrEqual(19);
+      expect(result.data.oldest_unacknowledged_critical!.minutes_elapsed).toBeGreaterThanOrEqual(
+        19,
+      );
       expect(result.data.oldest_unacknowledged_critical!.minutes_elapsed).toBeLessThanOrEqual(21);
 
       // Escalation counts
@@ -240,17 +241,11 @@ describe('PastoralAdminController', () => {
     });
 
     it('should return null for oldest when no unacknowledged concerns exist', async () => {
-      mockPrisma.pastoralConcern.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockPrisma.pastoralConcern.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
-      mockPrisma.pastoralConcern.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
+      mockPrisma.pastoralConcern.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
-      mockPrisma.pastoralEvent.count
-        .mockResolvedValueOnce(0)
-        .mockResolvedValueOnce(0);
+      mockPrisma.pastoralEvent.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
 
       const result = await controller.getEscalationDashboard(TENANT);
 
@@ -263,12 +258,9 @@ describe('PastoralAdminController', () => {
     });
 
     it('should query concerns with correct severity and tenant filters', async () => {
-      mockPrisma.pastoralConcern.count
-        .mockResolvedValue(0);
-      mockPrisma.pastoralConcern.findFirst
-        .mockResolvedValue(null);
-      mockPrisma.pastoralEvent.count
-        .mockResolvedValue(0);
+      mockPrisma.pastoralConcern.count.mockResolvedValue(0);
+      mockPrisma.pastoralConcern.findFirst.mockResolvedValue(null);
+      mockPrisma.pastoralEvent.count.mockResolvedValue(0);
 
       await controller.getEscalationDashboard(TENANT);
 

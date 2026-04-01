@@ -14,6 +14,8 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
+
 import {
   loginSchema,
   mfaRecoverySchema,
@@ -23,7 +25,6 @@ import {
   switchTenantSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Request, Response } from 'express';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

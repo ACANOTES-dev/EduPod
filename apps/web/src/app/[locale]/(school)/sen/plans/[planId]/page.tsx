@@ -1,7 +1,12 @@
 'use client';
 
-import type { SenGoalStatus, SupportPlanStatus } from '@school/shared';
+import { ChevronDown, ChevronUp, ClipboardCopy, Loader2, Plus, Target } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import { getValidGoalStatusTransitions, getValidSupportPlanTransitions } from '@school/shared';
+import type { SenGoalStatus, SupportPlanStatus } from '@school/shared';
 import {
   Button,
   Dialog,
@@ -22,10 +27,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { ChevronDown, ChevronUp, ClipboardCopy, Loader2, Plus, Target } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

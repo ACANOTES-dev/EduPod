@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createTeacherCompetencySchema,
   bulkCreateTeacherCompetenciesSchema,
@@ -22,7 +24,6 @@ import type {
   BulkCreateTeacherCompetenciesDto,
   CopyCompetenciesToYearsDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -84,11 +85,7 @@ export class TeacherCompetenciesController {
     @Query(new ZodValidationPipe(listByTeacherQuerySchema))
     query: z.infer<typeof listByTeacherQuerySchema>,
   ) {
-    return this.service.listByTeacher(
-      tenant.tenant_id,
-      query.academic_year_id,
-      staffProfileId,
-    );
+    return this.service.listByTeacher(tenant.tenant_id, query.academic_year_id, staffProfileId);
   }
 
   @Get('by-subject')

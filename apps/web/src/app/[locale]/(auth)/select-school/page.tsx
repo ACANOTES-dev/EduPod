@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Badge } from '@school/ui';
 import { Building2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Badge } from '@school/ui';
 
 import { useAuth } from '@/providers/auth-provider';
 
@@ -30,10 +30,7 @@ export default function SelectSchoolPage() {
   }, [isLoading, user, router, locale]);
 
   const activeMemberships = React.useMemo(
-    () =>
-      (user?.memberships ?? []).filter(
-        (m) => m.membership_status === 'active',
-      ),
+    () => (user?.memberships ?? []).filter((m) => m.membership_status === 'active'),
     [user],
   );
 

@@ -1,5 +1,9 @@
 'use client';
 
+import { BookOpen, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -12,9 +16,6 @@ import {
   Label,
   toast,
 } from '@school/ui';
-import { BookOpen, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -76,12 +77,17 @@ interface CriterionEditorProps {
   onRemove: (index: number) => void;
 }
 
-function CriterionEditor({ criterion, index, total, onChange, onMove, onRemove }: CriterionEditorProps) {
+function CriterionEditor({
+  criterion,
+  index,
+  total,
+  onChange,
+  onMove,
+  onRemove,
+}: CriterionEditorProps) {
   const updateLevel = (li: number, field: keyof RubricLevel, value: string) => {
     const next = criterion.levels.map((lv, i) =>
-      i === li
-        ? { ...lv, [field]: field === 'points' ? Number(value) : value }
-        : lv,
+      i === li ? { ...lv, [field]: field === 'points' ? Number(value) : value } : lv,
     );
     onChange({ ...criterion, levels: next });
   };
@@ -293,7 +299,10 @@ export default function RubricTemplatesPage() {
       const next = [...prev];
       const target = dir === 'up' ? index - 1 : index + 1;
       if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target] as RubricCriterion, next[index] as RubricCriterion];
+      [next[index], next[target]] = [
+        next[target] as RubricCriterion,
+        next[index] as RubricCriterion,
+      ];
       return next;
     });
   };
@@ -364,11 +373,7 @@ export default function RubricTemplatesPage() {
                 <Button variant="ghost" size="sm" onClick={() => openEdit(tpl)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmDeleteId(tpl.id)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(tpl.id)}>
                   <Trash2 className="h-4 w-4 text-danger-text" />
                 </Button>
               </div>

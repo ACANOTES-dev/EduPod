@@ -1,5 +1,9 @@
 'use client';
 
+import { Loader2, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -18,9 +22,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Loader2, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -279,13 +280,14 @@ export default function AiInstructionsPage() {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors">
+                  <tr
+                    key={row.id}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
+                  >
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">
                       {row.class_name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">
-                      {row.subject_name}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-text-secondary">{row.subject_name}</td>
                     <td className="px-4 py-3 text-sm text-text-secondary max-w-xs">
                       <p className="line-clamp-2">{row.instruction_text}</p>
                       {row.status === 'rejected' && row.rejection_reason && (
@@ -301,11 +303,7 @@ export default function AiInstructionsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEdit(row)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(row)}>
                           {tc('edit')}
                         </Button>
                         {(row.status === 'draft' || row.status === 'rejected') && (
@@ -364,7 +362,9 @@ export default function AiInstructionsPage() {
             >
               {'‹'}
             </Button>
-            <span className="px-2">{page} / {totalPages}</span>
+            <span className="px-2">
+              {page} / {totalPages}
+            </span>
             <Button
               variant="ghost"
               size="icon"
@@ -397,7 +397,9 @@ export default function AiInstructionsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -410,7 +412,9 @@ export default function AiInstructionsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {subjects.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -434,7 +438,9 @@ export default function AiInstructionsPage() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saving || !modalText.trim() || (!editTarget && (!modalClass || !modalSubject))}
+              disabled={
+                saving || !modalText.trim() || (!editTarget && (!modalClass || !modalSubject))
+              }
             >
               {saving ? (
                 <>
@@ -469,14 +475,8 @@ export default function AiInstructionsPage() {
             <Button variant="outline" onClick={() => setRejectModalOpen(false)}>
               {tc('cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={rejecting}
-            >
-              {rejecting ? (
-                <Loader2 className="me-2 h-4 w-4 animate-spin" />
-              ) : null}
+            <Button variant="destructive" onClick={handleReject} disabled={rejecting}>
+              {rejecting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
               {t('aiInstructionsReject')}
             </Button>
           </DialogFooter>

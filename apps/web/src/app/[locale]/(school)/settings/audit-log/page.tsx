@@ -1,5 +1,9 @@
 'use client';
 
+import { Search, Filter } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,10 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Search, Filter } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -85,13 +85,12 @@ export default function AuditLogPage() {
         if (startDate) params.set('start_date', startDate);
         if (endDate) params.set('end_date', endDate);
 
-        const res = await apiClient<AuditLogResponse>(
-          `/api/v1/audit-logs?${params.toString()}`,
-        );
+        const res = await apiClient<AuditLogResponse>(`/api/v1/audit-logs?${params.toString()}`);
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
+      } catch (err) {
         // silently swallowed; table shows empty state
+        console.error('[setTotal]', err);
       } finally {
         setIsLoading(false);
       }
@@ -138,9 +137,7 @@ export default function AuditLogPage() {
     {
       key: 'action',
       header: t('action'),
-      render: (row: AuditLogEntry) => (
-        <span className="text-text-secondary">{row.action}</span>
-      ),
+      render: (row: AuditLogEntry) => <span className="text-text-secondary">{row.action}</span>,
     },
     {
       key: 'entity_type',

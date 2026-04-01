@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { UpdatePayrollEntryDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -51,14 +52,22 @@ export class PayrollEntriesService {
     }
 
     // Validate field matches compensation type
-    if (dto.days_worked !== undefined && dto.days_worked !== null && entry.compensation_type !== 'salaried') {
+    if (
+      dto.days_worked !== undefined &&
+      dto.days_worked !== null &&
+      entry.compensation_type !== 'salaried'
+    ) {
       throw new BadRequestException({
         code: 'INVALID_FIELD_FOR_TYPE',
         message: 'days_worked can only be set for salaried compensation type',
       });
     }
 
-    if (dto.classes_taught !== undefined && dto.classes_taught !== null && entry.compensation_type !== 'per_class') {
+    if (
+      dto.classes_taught !== undefined &&
+      dto.classes_taught !== null &&
+      entry.compensation_type !== 'per_class'
+    ) {
       throw new BadRequestException({
         code: 'INVALID_FIELD_FOR_TYPE',
         message: 'classes_taught can only be set for per_class compensation type',
@@ -66,18 +75,34 @@ export class PayrollEntriesService {
     }
 
     // Merge updates
-    const daysWorked = dto.days_worked !== undefined ? dto.days_worked : (entry.days_worked !== null ? Number(entry.days_worked) : null);
-    const classesTaught = dto.classes_taught !== undefined ? dto.classes_taught : (entry.classes_taught !== null ? Number(entry.classes_taught) : null);
+    const daysWorked =
+      dto.days_worked !== undefined
+        ? dto.days_worked
+        : entry.days_worked !== null
+          ? Number(entry.days_worked)
+          : null;
+    const classesTaught =
+      dto.classes_taught !== undefined
+        ? dto.classes_taught
+        : entry.classes_taught !== null
+          ? Number(entry.classes_taught)
+          : null;
     const notes = dto.notes !== undefined ? dto.notes : entry.notes;
 
     // Recalculate
     const calcInput: CalcInput = {
       compensation_type: entry.compensation_type as 'salaried' | 'per_class',
-      snapshot_base_salary: entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
-      snapshot_per_class_rate: entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
+      snapshot_base_salary:
+        entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
+      snapshot_per_class_rate:
+        entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
       snapshot_assigned_class_count: entry.snapshot_assigned_class_count,
-      snapshot_bonus_class_rate: entry.snapshot_bonus_class_rate !== null ? Number(entry.snapshot_bonus_class_rate) : null,
-      snapshot_bonus_day_multiplier: entry.snapshot_bonus_day_multiplier !== null ? Number(entry.snapshot_bonus_day_multiplier) : null,
+      snapshot_bonus_class_rate:
+        entry.snapshot_bonus_class_rate !== null ? Number(entry.snapshot_bonus_class_rate) : null,
+      snapshot_bonus_day_multiplier:
+        entry.snapshot_bonus_day_multiplier !== null
+          ? Number(entry.snapshot_bonus_day_multiplier)
+          : null,
       total_working_days: entry.payroll_run.total_working_days,
       days_worked: daysWorked,
       classes_taught: classesTaught,
@@ -96,7 +121,10 @@ export class PayrollEntriesService {
     };
 
     if (dto.override_total_pay !== undefined) {
-      if (dto.override_total_pay !== null && (!dto.override_note || dto.override_note.trim().length === 0)) {
+      if (
+        dto.override_total_pay !== null &&
+        (!dto.override_note || dto.override_note.trim().length === 0)
+      ) {
         throw new BadRequestException({
           code: 'OVERRIDE_NOTE_REQUIRED',
           message: 'A note explaining the override is required when overriding total pay',
@@ -153,14 +181,30 @@ export class PayrollEntriesService {
 
     const calcInput: CalcInput = {
       compensation_type: entry.compensation_type as 'salaried' | 'per_class',
-      snapshot_base_salary: entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
-      snapshot_per_class_rate: entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
+      snapshot_base_salary:
+        entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
+      snapshot_per_class_rate:
+        entry.snapshot_per_class_rate !== null ? Number(entry.snapshot_per_class_rate) : null,
       snapshot_assigned_class_count: entry.snapshot_assigned_class_count,
-      snapshot_bonus_class_rate: entry.snapshot_bonus_class_rate !== null ? Number(entry.snapshot_bonus_class_rate) : null,
-      snapshot_bonus_day_multiplier: entry.snapshot_bonus_day_multiplier !== null ? Number(entry.snapshot_bonus_day_multiplier) : null,
+      snapshot_bonus_class_rate:
+        entry.snapshot_bonus_class_rate !== null ? Number(entry.snapshot_bonus_class_rate) : null,
+      snapshot_bonus_day_multiplier:
+        entry.snapshot_bonus_day_multiplier !== null
+          ? Number(entry.snapshot_bonus_day_multiplier)
+          : null,
       total_working_days: entry.payroll_run.total_working_days,
-      days_worked: overrides.days_worked !== undefined ? overrides.days_worked : (entry.days_worked !== null ? Number(entry.days_worked) : null),
-      classes_taught: overrides.classes_taught !== undefined ? overrides.classes_taught : (entry.classes_taught !== null ? Number(entry.classes_taught) : null),
+      days_worked:
+        overrides.days_worked !== undefined
+          ? overrides.days_worked
+          : entry.days_worked !== null
+            ? Number(entry.days_worked)
+            : null,
+      classes_taught:
+        overrides.classes_taught !== undefined
+          ? overrides.classes_taught
+          : entry.classes_taught !== null
+            ? Number(entry.classes_taught)
+            : null,
     };
 
     return this.calculationService.calculate(calcInput);

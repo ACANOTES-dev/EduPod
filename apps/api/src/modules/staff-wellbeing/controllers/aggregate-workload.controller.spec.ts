@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -186,9 +187,7 @@ describe('AggregateWorkloadController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<AggregateWorkloadController>(
-      AggregateWorkloadController,
-    );
+    controller = module.get<AggregateWorkloadController>(AggregateWorkloadController);
   });
 
   afterEach(() => {
@@ -205,15 +204,10 @@ describe('AggregateWorkloadController', () => {
       it(`should return cached data when available`, async () => {
         mockCacheService.getCachedAggregate.mockResolvedValue(mockData);
 
-        const result = await (
-          controller[method] as (t: TenantContext) => Promise<unknown>
-        )(TENANT);
+        const result = await (controller[method] as (t: TenantContext) => Promise<unknown>)(TENANT);
 
         expect(result).toEqual(mockData);
-        expect(mockCacheService.getCachedAggregate).toHaveBeenCalledWith(
-          TENANT_ID,
-          metricType,
-        );
+        expect(mockCacheService.getCachedAggregate).toHaveBeenCalledWith(TENANT_ID, metricType);
       });
     },
   );
@@ -229,14 +223,10 @@ describe('AggregateWorkloadController', () => {
         mockCacheService.getCachedAggregate.mockResolvedValue(null);
         mockComputeService[computeMethod]!.mockResolvedValue(mockData);
 
-        const result = await (
-          controller[method] as (t: TenantContext) => Promise<unknown>
-        )(TENANT);
+        const result = await (controller[method] as (t: TenantContext) => Promise<unknown>)(TENANT);
 
         expect(result).toEqual(mockData);
-        expect(mockComputeService[computeMethod]!).toHaveBeenCalledWith(
-          TENANT_ID,
-        );
+        expect(mockComputeService[computeMethod]!).toHaveBeenCalledWith(TENANT_ID);
         expect(mockCacheService.setCachedAggregate).toHaveBeenCalledWith(
           TENANT_ID,
           metricType,
@@ -252,23 +242,17 @@ describe('AggregateWorkloadController', () => {
 
   describe('cache-or-compute behaviour', () => {
     it('should NOT call compute service when cache hits', async () => {
-      mockCacheService.getCachedAggregate.mockResolvedValue(
-        MOCK_WORKLOAD_SUMMARY,
-      );
+      mockCacheService.getCachedAggregate.mockResolvedValue(MOCK_WORKLOAD_SUMMARY);
 
       await controller.getWorkloadSummary(TENANT);
 
-      expect(
-        mockComputeService.getAggregateWorkloadSummary,
-      ).not.toHaveBeenCalled();
+      expect(mockComputeService.getAggregateWorkloadSummary).not.toHaveBeenCalled();
       expect(mockCacheService.setCachedAggregate).not.toHaveBeenCalled();
     });
 
     it('should call setCachedAggregate with correct metric type on cache miss', async () => {
       mockCacheService.getCachedAggregate.mockResolvedValue(null);
-      mockComputeService.getCoverFairness.mockResolvedValue(
-        MOCK_COVER_FAIRNESS,
-      );
+      mockComputeService.getCoverFairness.mockResolvedValue(MOCK_COVER_FAIRNESS);
 
       await controller.getCoverFairness(TENANT);
 

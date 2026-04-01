@@ -12,8 +12,9 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
-import type { RecordFollowUpDto } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import type { RecordFollowUpDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

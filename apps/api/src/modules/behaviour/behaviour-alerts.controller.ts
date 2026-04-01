@@ -10,13 +10,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  alertListQuerySchema,
-  dismissAlertSchema,
-  snoozeAlertSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
+
+import { alertListQuerySchema, dismissAlertSchema, snoozeAlertSchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -48,10 +45,7 @@ export class BehaviourAlertsController {
 
   @Get('behaviour/alerts/badge')
   @RequiresPermission('behaviour.view')
-  async getBadgeCount(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getBadgeCount(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     const count = await this.alertsService.getBadgeCount(tenant.tenant_id, user.sub);
     return { count };
   }

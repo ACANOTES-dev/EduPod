@@ -12,14 +12,11 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createSurveySchema,
-  submitSurveyResponseSchema,
-  updateSurveySchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import { createSurveySchema, submitSurveyResponseSchema, updateSurveySchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
@@ -85,10 +82,7 @@ export class SurveyController {
 
   @Get('staff-wellbeing/surveys/:id')
   @RequiresPermission('wellbeing.manage_surveys')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.surveyService.findOne(tenant.tenant_id, id);
   }
 
@@ -123,10 +117,7 @@ export class SurveyController {
   @Post('staff-wellbeing/surveys/:id/activate')
   @RequiresPermission('wellbeing.manage_surveys')
   @HttpCode(HttpStatus.OK)
-  async activate(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async activate(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.surveyService.activate(tenant.tenant_id, id);
   }
 
@@ -135,10 +126,7 @@ export class SurveyController {
   @Post('staff-wellbeing/surveys/:id/close')
   @RequiresPermission('wellbeing.manage_surveys')
   @HttpCode(HttpStatus.OK)
-  async close(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async close(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.surveyService.close(tenant.tenant_id, id);
   }
 
@@ -157,12 +145,7 @@ export class SurveyController {
     @Body(new ZodValidationPipe(submitSurveyResponseSchema))
     dto: z.infer<typeof submitSurveyResponseSchema>,
   ) {
-    return this.surveyService.submitResponse(
-      tenant.tenant_id,
-      surveyId,
-      user.sub,
-      dto,
-    );
+    return this.surveyService.submitResponse(tenant.tenant_id, surveyId, user.sub, dto);
   }
 
   // ─── 9. Get Active Survey ─────────────────────────────────────────────
@@ -173,10 +156,7 @@ export class SurveyController {
     @CurrentUser() user: JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.surveyService.getActiveSurvey(
-      tenant.tenant_id,
-      user.sub,
-    );
+    const result = await this.surveyService.getActiveSurvey(tenant.tenant_id, user.sub);
 
     if (!result) {
       res.status(HttpStatus.NO_CONTENT);

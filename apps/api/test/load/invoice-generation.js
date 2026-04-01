@@ -7,8 +7,9 @@
  * Run: k6 run apps/api/test/load/invoice-generation.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
+
 import { BASE_URL, TENANTS, login, authHeaders } from './k6-config.js';
 import { thresholds, readTag } from './k6-thresholds.js';
 
@@ -37,10 +38,10 @@ export default function (data) {
   const headers = authHeaders(token, tenant.domain);
 
   // List invoices
-  const invoicesRes = http.get(
-    `${BASE_URL}/api/v1/invoices?page=1&pageSize=20`,
-    { headers, tags: readTag },
-  );
+  const invoicesRes = http.get(`${BASE_URL}/api/v1/invoices?page=1&pageSize=20`, {
+    headers,
+    tags: readTag,
+  });
 
   check(invoicesRes, {
     'invoices: status 200': (r) => r.status === 200,
@@ -49,10 +50,10 @@ export default function (data) {
   sleep(0.3);
 
   // List payments
-  const paymentsRes = http.get(
-    `${BASE_URL}/api/v1/payments?page=1&pageSize=20`,
-    { headers, tags: readTag },
-  );
+  const paymentsRes = http.get(`${BASE_URL}/api/v1/payments?page=1&pageSize=20`, {
+    headers,
+    tags: readTag,
+  });
 
   check(paymentsRes, {
     'payments: status 200': (r) => r.status === 200,
@@ -61,10 +62,10 @@ export default function (data) {
   sleep(0.3);
 
   // List fee structures
-  const feeRes = http.get(
-    `${BASE_URL}/api/v1/fee-structures?page=1&pageSize=10`,
-    { headers, tags: readTag },
-  );
+  const feeRes = http.get(`${BASE_URL}/api/v1/fee-structures?page=1&pageSize=10`, {
+    headers,
+    tags: readTag,
+  });
 
   check(feeRes, {
     'fee-structures: status 200': (r) => r.status === 200,

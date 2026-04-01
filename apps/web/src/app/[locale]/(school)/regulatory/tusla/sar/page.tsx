@@ -3,10 +3,10 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { SarWizard } from '../_components/sar-wizard';
+
+import { PageHeader } from '@/components/page-header';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -15,10 +15,7 @@ export default function TuslaSarPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('tusla.sarTitle')}
-        description={t('tusla.sarDescription')}
-      />
+      <PageHeader title={t('tusla.sarTitle')} description={t('tusla.sarDescription')} />
 
       <RegulatoryNav />
 

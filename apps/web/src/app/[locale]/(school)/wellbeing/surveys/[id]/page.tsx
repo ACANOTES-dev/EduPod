@@ -1,5 +1,10 @@
 'use client';
 
+import { ClipboardList, Play, Square } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,11 +16,6 @@ import {
   DialogTitle,
   Skeleton,
 } from '@school/ui';
-import { ClipboardList, Play, Square } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { ModerationTab } from './_components/moderation-tab';
 import { OverviewTab } from './_components/overview-tab';
@@ -211,8 +211,9 @@ export default function SurveyDetailPage() {
       );
       setSurvey(updated);
       setActivateDialogOpen(false);
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[setActivateDialogOpen]', err);
     } finally {
       setActionLoading(false);
     }
@@ -226,8 +227,9 @@ export default function SurveyDetailPage() {
       });
       setSurvey(updated);
       setCloseDialogOpen(false);
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[setCloseDialogOpen]', err);
     } finally {
       setActionLoading(false);
     }
@@ -238,8 +240,9 @@ export default function SurveyDetailPage() {
       await apiClient<Survey>(`/api/v1/staff-wellbeing/surveys/${surveyId}/clone`, {
         method: 'POST',
       });
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[handleClone]', err);
     }
   }
 
@@ -258,8 +261,9 @@ export default function SurveyDetailPage() {
         body: JSON.stringify({ status }),
       });
       setModerationFetched(false);
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[setModerationFetched]', err);
     } finally {
       setModeratingId(null);
     }
@@ -274,8 +278,9 @@ export default function SurveyDetailPage() {
         body: JSON.stringify({ status: 'redacted' }),
       });
       setModerationFetched(false);
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[setModerationFetched]', err);
     } finally {
       setModeratingId(null);
       setRedactDialogOpen(false);
@@ -292,8 +297,9 @@ export default function SurveyDetailPage() {
       );
       setComments(data);
       setCommentsVisible(true);
-    } catch {
+    } catch (err) {
       // Error handled by global handler
+      console.error('[setCommentsVisible]', err);
     } finally {
       setCommentsLoading(false);
     }

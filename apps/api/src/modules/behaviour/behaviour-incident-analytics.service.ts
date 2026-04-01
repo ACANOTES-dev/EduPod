@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import type {
   BehaviourAnalyticsQuery,
   CategoryResult,
@@ -128,6 +129,7 @@ export class BehaviourIncidentAnalyticsService {
     const exposureMap = new Map<string, number>(); // key: "weekday:period_order"
 
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query on materialized view with tenant filter
       const exposureRows = await this.prisma.$queryRaw<
         Array<{ weekday: number; period_order: number; total_teaching_periods: bigint }>
       >`SELECT weekday, period_order, SUM(total_teaching_periods) as total_teaching_periods
@@ -305,6 +307,7 @@ export class BehaviourIncidentAnalyticsService {
 
     if (query.exposureNormalised) {
       try {
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query on materialized view with tenant filter
         const exposureRows = await this.prisma.$queryRaw<
           Array<{ subject_id: string; total_teaching_periods: bigint }>
         >`SELECT subject_id, SUM(total_teaching_periods) as total_teaching_periods
@@ -368,6 +371,7 @@ export class BehaviourIncidentAnalyticsService {
   /** Check whether the exposure MV has any data for this tenant. */
   private async checkExposureMvHasData(tenantId: string): Promise<boolean> {
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- count query on materialized view with tenant filter
       const rows = await this.prisma.$queryRaw<Array<{ cnt: bigint }>>`
         SELECT COUNT(*)::bigint AS cnt
         FROM mv_behaviour_exposure_rates

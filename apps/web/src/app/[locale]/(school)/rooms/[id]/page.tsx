@@ -1,11 +1,11 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
 import { TimetableGrid } from '@/components/timetable-grid';
@@ -58,7 +58,9 @@ function OverviewTab({ room }: { room: RoomDetail }) {
         </div>
         <div>
           <dt className="text-xs text-text-tertiary">{t('active')}</dt>
-          <dd className="mt-0.5 text-sm text-text-primary">{room.active ? 'Active' : 'Inactive'}</dd>
+          <dd className="mt-0.5 text-sm text-text-primary">
+            {room.active ? 'Active' : 'Inactive'}
+          </dd>
         </div>
       </dl>
     </div>

@@ -1,14 +1,8 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,7 +29,9 @@ export function PromotionPreview({ students, overrides, onOverride }: PromotionP
   const t = useTranslations('promotion');
 
   if (!students || students.length === 0) {
-    return <p className="py-8 text-center text-sm text-text-tertiary">{t('noStudentsToPreview')}</p>;
+    return (
+      <p className="py-8 text-center text-sm text-text-tertiary">{t('noStudentsToPreview')}</p>
+    );
   }
 
   // Group by year group

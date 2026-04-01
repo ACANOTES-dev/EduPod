@@ -1,5 +1,9 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,9 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { RefreshCw } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -53,10 +54,9 @@ interface StaffFormProps {
 
 function generateStaffNumber(): string {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const letterPart = Array.from(
-    { length: 3 },
-    () => letters[Math.floor(Math.random() * 26)],
-  ).join('');
+  const letterPart = Array.from({ length: 3 }, () => letters[Math.floor(Math.random() * 26)]).join(
+    '',
+  );
   const numberPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
   const lastDigit = Math.floor(Math.random() * 10);
   return `${letterPart}${numberPart}-${lastDigit}`;
@@ -109,9 +109,8 @@ export function StaffForm({
       .catch(() => setRoles([]));
   }, []);
 
-  const set = (field: keyof StaffFormValues) => (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
+  const set = (field: keyof StaffFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const regenerateStaffNumber = () => {
     setValues((prev) => ({ ...prev, staff_number: generateStaffNumber() }));
@@ -136,9 +135,7 @@ export function StaffForm({
       {/* Personal Information — only shown on create */}
       {!isEdit && (
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-text-primary">
-            {t('sectionPersonal')}
-          </h2>
+          <h2 className="mb-4 text-base font-semibold text-text-primary">{t('sectionPersonal')}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="first_name">{t('fieldFirstName')}</Label>
@@ -151,12 +148,7 @@ export function StaffForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="last_name">{t('fieldLastName')}</Label>
-              <Input
-                id="last_name"
-                value={values.last_name}
-                onChange={set('last_name')}
-                required
-              />
+              <Input id="last_name" value={values.last_name} onChange={set('last_name')} required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">{t('fieldEmail')}</Label>
@@ -220,9 +212,7 @@ export function StaffForm({
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-xs text-text-tertiary">
-                {t('staffNumberHint')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('staffNumberHint')}</p>
             </div>
           </div>
         </div>

@@ -7,16 +7,17 @@
  * Run: k6 run apps/api/test/load/login-flow.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
+
 import { BASE_URL, TENANTS, DEV_PASSWORD, authHeaders } from './k6-config.js';
 import { thresholds, readTag, writeTag } from './k6-thresholds.js';
 
 export const options = {
   stages: [
-    { duration: '30s', target: 50 },  // ramp up
-    { duration: '2m', target: 100 },   // sustain
-    { duration: '30s', target: 0 },    // ramp down
+    { duration: '30s', target: 50 }, // ramp up
+    { duration: '2m', target: 100 }, // sustain
+    { duration: '30s', target: 0 }, // ramp down
   ],
   thresholds,
 };

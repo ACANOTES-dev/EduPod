@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -37,9 +38,7 @@ describe('GdprTokenController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [GdprTokenController],
-      providers: [
-        { provide: GdprTokenService, useValue: mockGdprTokenService },
-      ],
+      providers: [{ provide: GdprTokenService, useValue: mockGdprTokenService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -110,10 +109,7 @@ describe('GdprTokenController', () => {
       const result = await controller.getUsageLog(TENANT, query);
 
       expect(mockGdprTokenService.getUsageLog).toHaveBeenCalledTimes(1);
-      expect(mockGdprTokenService.getUsageLog).toHaveBeenCalledWith(
-        TENANT_ID,
-        query,
-      );
+      expect(mockGdprTokenService.getUsageLog).toHaveBeenCalledWith(TENANT_ID, query);
       expect(result).toBe(expected);
     });
   });
@@ -145,10 +141,7 @@ describe('GdprTokenController', () => {
       const result = await controller.getUsageStats(TENANT, query);
 
       expect(mockGdprTokenService.getUsageStats).toHaveBeenCalledTimes(1);
-      expect(mockGdprTokenService.getUsageStats).toHaveBeenCalledWith(
-        TENANT_ID,
-        query,
-      );
+      expect(mockGdprTokenService.getUsageStats).toHaveBeenCalledWith(TENANT_ID, query);
       expect(result).toBe(expected);
     });
   });

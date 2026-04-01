@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,11 @@ function parseDate(iso: string): Date {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function DiaryDateNavigator({ selectedDate, onDateChange, locale }: DiaryDateNavigatorProps) {
+export function DiaryDateNavigator({
+  selectedDate,
+  onDateChange,
+  locale,
+}: DiaryDateNavigatorProps) {
   const t = useTranslations('diary');
 
   const current = parseDate(selectedDate);
@@ -55,20 +60,14 @@ export function DiaryDateNavigator({ selectedDate, onDateChange, locale }: Diary
         <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
       </Button>
 
-      <span className="min-w-0 px-2 text-center text-sm font-medium sm:text-base">
-        {formatted}
-      </span>
+      <span className="min-w-0 px-2 text-center text-sm font-medium sm:text-base">{formatted}</span>
 
       <Button variant="outline" size="icon" onClick={() => shiftDay(1)} aria-label="Next day">
         <ChevronRight className="h-4 w-4 rtl:rotate-180" />
       </Button>
 
       {!isToday && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDateChange(toISO(new Date()))}
-        >
+        <Button variant="ghost" size="sm" onClick={() => onDateChange(toISO(new Date()))}>
           {t('today')}
         </Button>
       )}

@@ -1,5 +1,11 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,11 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';
 import { IncidentStatusBadge } from '@/components/behaviour/incident-status-badge';

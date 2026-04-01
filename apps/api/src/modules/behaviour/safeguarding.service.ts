@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type {
   AssignSafeguardingConcernDto,
   GardaReferralDto,

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label, toast } from '@school/ui';
 import { Eye, EyeOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -190,12 +191,7 @@ export default function StripeConfigPage() {
           </div>
 
           <div className="flex justify-end border-t border-border pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(true)}>
               {t('stripeUpdate')}
             </Button>
           </div>
@@ -204,7 +200,10 @@ export default function StripeConfigPage() {
 
       {/* Edit form */}
       {isEditing && (
-        <form onSubmit={handleSave} className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <form
+          onSubmit={handleSave}
+          className="mt-6 rounded-2xl border border-border bg-surface p-6"
+        >
           {isConfigured && (
             <div className="mb-4 rounded-xl border border-warning-200 bg-warning-50 p-3">
               <p className="text-sm text-warning-800">{t('stripeUpdateWarning')}</p>
@@ -214,9 +213,7 @@ export default function StripeConfigPage() {
           <div className="space-y-4">
             {/* Secret Key */}
             <div className="space-y-2">
-              <Label htmlFor="stripe-secret-key">
-                {t('stripeSecretKey')}
-              </Label>
+              <Label htmlFor="stripe-secret-key">{t('stripeSecretKey')}</Label>
               <p className="text-xs text-text-tertiary">{t('stripeSecretKeyHint')}</p>
               <PasswordInput
                 id="stripe-secret-key"
@@ -228,9 +225,7 @@ export default function StripeConfigPage() {
 
             {/* Publishable Key */}
             <div className="space-y-2">
-              <Label htmlFor="stripe-publishable-key">
-                {t('stripePublishableKey')}
-              </Label>
+              <Label htmlFor="stripe-publishable-key">{t('stripePublishableKey')}</Label>
               <p className="text-xs text-text-tertiary">{t('stripePublishableKeyHint')}</p>
               <Input
                 id="stripe-publishable-key"
@@ -245,9 +240,7 @@ export default function StripeConfigPage() {
 
             {/* Webhook Secret */}
             <div className="space-y-2">
-              <Label htmlFor="stripe-webhook-secret">
-                {t('stripeWebhookSecret')}
-              </Label>
+              <Label htmlFor="stripe-webhook-secret">{t('stripeWebhookSecret')}</Label>
               <p className="text-xs text-text-tertiary">{t('stripeWebhookSecretHint')}</p>
               <PasswordInput
                 id="stripe-webhook-secret"

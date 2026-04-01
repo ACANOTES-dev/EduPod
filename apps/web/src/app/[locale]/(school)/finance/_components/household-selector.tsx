@@ -1,5 +1,9 @@
 'use client';
 
+import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Command,
   CommandEmpty,
@@ -12,10 +16,6 @@ import {
   PopoverTrigger,
   Button,
 } from '@school/ui';
-import { Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -48,9 +48,7 @@ export function HouseholdSelector({
     try {
       const params = new URLSearchParams({ pageSize: '50' });
       if (query) params.set('search', query);
-      const res = await apiClient<{ data: Household[] }>(
-        `/api/v1/households?${params.toString()}`,
-      );
+      const res = await apiClient<{ data: Household[] }>(`/api/v1/households?${params.toString()}`);
       setHouseholds(res.data);
     } catch {
       setHouseholds([]);

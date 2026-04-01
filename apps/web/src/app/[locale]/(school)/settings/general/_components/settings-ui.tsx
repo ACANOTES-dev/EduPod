@@ -1,5 +1,8 @@
 'use client';
 
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Input,
   Label,
@@ -11,8 +14,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import * as React from 'react';
 
 // ─── SectionCard ──────────────────────────────────────────────────────────────
 
@@ -37,9 +38,7 @@ export function SectionCard({
       >
         <div>
           <span className="text-sm font-semibold text-text-primary">{title}</span>
-          {description && (
-            <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>
-          )}
+          {description && <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>}
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-text-tertiary" />
@@ -48,9 +47,7 @@ export function SectionCard({
         )}
       </button>
 
-      {open && (
-        <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>
-      )}
+      {open && <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>}
     </div>
   );
 }
@@ -80,9 +77,7 @@ export function SubSectionCard({
       >
         <div>
           <span className="text-sm font-medium text-text-primary">{title}</span>
-          {description && (
-            <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>
-          )}
+          {description && <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>}
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-text-tertiary" />
@@ -91,9 +86,7 @@ export function SubSectionCard({
         )}
       </button>
 
-      {open && (
-        <div className="space-y-4 border-t border-border px-4 py-4">{children}</div>
-      )}
+      {open && <div className="space-y-4 border-t border-border px-4 py-4">{children}</div>}
     </div>
   );
 }
@@ -118,9 +111,7 @@ export function BooleanRow({
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
-        {description && (
-          <p className="text-xs text-text-tertiary">{description}</p>
-        )}
+        {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Switch id={id} checked={value} onCheckedChange={onChange} className="shrink-0" />
     </div>
@@ -153,9 +144,7 @@ export function NumberRow({
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
-        {description && (
-          <p className="text-xs text-text-tertiary">{description}</p>
-        )}
+        {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Input
         id={id}
@@ -201,9 +190,7 @@ export function SelectRow({
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
-        {description && (
-          <p className="text-xs text-text-tertiary">{description}</p>
-        )}
+        {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger id={id} className="w-full shrink-0 sm:w-40">
@@ -243,9 +230,7 @@ export function TextRow({
         <Label htmlFor={id} className="text-sm text-text-primary">
           {label}
         </Label>
-        {description && (
-          <p className="text-xs text-text-tertiary">{description}</p>
-        )}
+        {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Input
         id={id}
@@ -279,9 +264,7 @@ export function TextareaRow({
       <Label htmlFor={id} className="text-sm text-text-primary">
         {label}
       </Label>
-      {description && (
-        <p className="text-xs text-text-tertiary">{description}</p>
-      )}
+      {description && <p className="text-xs text-text-tertiary">{description}</p>}
       <Textarea
         id={id}
         value={value}

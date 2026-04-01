@@ -1,5 +1,8 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,12 +15,10 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
-import * as React from 'react';
-
-import { apiClient } from '@/lib/api-client';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
+
+import { apiClient } from '@/lib/api-client';
 
 interface InstallmentRow {
   due_date: string;
@@ -67,9 +68,7 @@ export function InstallmentForm({
   };
 
   const updateRow = (index: number, field: keyof InstallmentRow, value: string) => {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
-    );
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
 
   const handleSubmit = async () => {
@@ -88,7 +87,10 @@ export function InstallmentForm({
       });
 
       toast.success('Installment plan created');
-      setRows([{ due_date: '', amount: '' }, { due_date: '', amount: '' }]);
+      setRows([
+        { due_date: '', amount: '' },
+        { due_date: '', amount: '' },
+      ]);
       onSuccess();
     } catch {
       toast.error('Failed to create installment plan');
@@ -103,7 +105,8 @@ export function InstallmentForm({
         <DialogHeader>
           <DialogTitle>Create Installment Plan</DialogTitle>
           <DialogDescription>
-            Split the invoice total into installments. The sum of all installments must equal the invoice total.
+            Split the invoice total into installments. The sum of all installments must equal the
+            invoice total.
           </DialogDescription>
         </DialogHeader>
 
@@ -166,11 +169,16 @@ export function InstallmentForm({
               <CurrencyDisplay
                 amount={totalAllocated}
                 currency_code={currencyCode}
-                className={Math.abs(remaining) < 0.01 ? 'font-medium text-success-text' : 'font-medium text-danger-text'}
+                className={
+                  Math.abs(remaining) < 0.01
+                    ? 'font-medium text-success-text'
+                    : 'font-medium text-danger-text'
+                }
               />
               {Math.abs(remaining) >= 0.01 && (
                 <span className="text-xs text-danger-text">
-                  ({remaining > 0 ? 'Remaining' : 'Over'}: <CurrencyDisplay amount={Math.abs(remaining)} currency_code={currencyCode} />)
+                  ({remaining > 0 ? 'Remaining' : 'Over'}:{' '}
+                  <CurrencyDisplay amount={Math.abs(remaining)} currency_code={currencyCode} />)
                 </span>
               )}
             </div>
@@ -178,17 +186,10 @@ export function InstallmentForm({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={!isValid || isSubmitting}
-          >
+          <Button onClick={() => void handleSubmit()} disabled={!isValid || isSubmitting}>
             {isSubmitting ? 'Creating...' : 'Create Plan'}
           </Button>
         </DialogFooter>

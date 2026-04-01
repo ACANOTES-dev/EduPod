@@ -1,6 +1,22 @@
 'use client';
 
 import {
+  Activity,
+  AlertTriangle,
+  Database,
+  Eye,
+  Lock,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Shield,
+  Users,
+} from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Badge,
   Button,
   Dialog,
@@ -17,21 +33,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import {
-  Activity,
-  AlertTriangle,
-  Database,
-  Eye,
-  Lock,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Shield,
-  Users,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -102,10 +103,7 @@ export default function BehaviourAdminPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* Tab Navigation */}
       <div className="flex overflow-x-auto border-b">
@@ -153,14 +151,17 @@ function SystemHealthTab() {
     try {
       const res = await apiClient<HealthData>('/api/v1/behaviour/admin/health');
       setHealth(res);
-    } catch {
+    } catch (err) {
       // Failed to load health data
+      console.error('[setHealth]', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => { loadHealth(); }, [loadHealth]);
+  React.useEffect(() => {
+    loadHealth();
+  }, [loadHealth]);
 
   if (loading || !health) {
     return <div className="py-8 text-center text-muted-foreground">Loading health data...</div>;
@@ -197,7 +198,9 @@ function SystemHealthTab() {
         </div>
         <div className="p-4 pt-0">
           <div className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded-full ${health.dead_letter_depth > 0 ? 'bg-red-500' : 'bg-green-500'}`} />
+            <div
+              className={`h-3 w-3 rounded-full ${health.dead_letter_depth > 0 ? 'bg-red-500' : 'bg-green-500'}`}
+            />
             <span className="text-2xl font-bold">{health.dead_letter_depth}</span>
             <span className="text-sm text-muted-foreground">failed</span>
           </div>
@@ -278,21 +281,25 @@ function DeadLetterTab() {
     try {
       const res = await apiClient<DeadLetterItem[]>('/api/v1/behaviour/admin/dead-letter');
       setJobs(Array.isArray(res) ? res : []);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setJobs]', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => { loadJobs(); }, [loadJobs]);
+  React.useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   const retryJob = async (jobId: string) => {
     try {
       await apiClient(`/api/v1/behaviour/admin/dead-letter/${jobId}/retry`, { method: 'POST' });
       await loadJobs();
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[loadJobs]', err);
     }
   };
 
@@ -336,7 +343,10 @@ function DeadLetterTab() {
                 <td className="py-2 text-muted-foreground">
                   {new Date(job.failed_at).toLocaleString()}
                 </td>
-                <td className="max-w-[200px] truncate py-2 text-muted-foreground" title={job.failure_reason}>
+                <td
+                  className="max-w-[200px] truncate py-2 text-muted-foreground"
+                  title={job.failure_reason}
+                >
                   {job.failure_reason}
                 </td>
                 <td className="py-2">{job.retry_count}</td>
@@ -369,11 +379,15 @@ function OperationsTab() {
         : operation === 'backfill-tasks'
           ? { scope: 'tenant' }
           : {};
-      const res = await apiClient<PreviewResponse>(`/api/v1/behaviour/admin/${operation}/preview`, { method: 'POST', body: JSON.stringify(body) });
+      const res = await apiClient<PreviewResponse>(`/api/v1/behaviour/admin/${operation}/preview`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       setPreviewData(res);
       setPreviewOp(operation);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setPreviewOp]', err);
     }
   };
 
@@ -384,21 +398,63 @@ function OperationsTab() {
         : operation === 'backfill-tasks'
           ? { scope: 'tenant' }
           : {};
-      await apiClient(`/api/v1/behaviour/admin/${operation}`, { method: 'POST', body: JSON.stringify(body) });
+      await apiClient(`/api/v1/behaviour/admin/${operation}`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       setPreviewData(null);
       setPreviewOp(null);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setPreviewOp]', err);
     }
   };
 
   const operations = [
-    { key: 'recompute-points', title: 'Recompute Points', desc: 'Invalidate Redis cache and recompute all point totals from source records.', hasScope: true, icon: RefreshCw },
-    { key: 'rebuild-awards', title: 'Rebuild Awards', desc: 'Scan all students for missing threshold awards and create them.', hasScope: true, icon: Shield },
-    { key: 'recompute-pulse', title: 'Recompute Pulse', desc: 'Invalidate Behaviour Pulse cache. Next request will recompute.', hasScope: false, icon: Activity, noPreview: true },
-    { key: 'backfill-tasks', title: 'Backfill Tasks', desc: 'Scan entities for missing tasks and create them.', hasScope: false, icon: Search },
-    { key: 'refresh-views', title: 'Refresh Materialised Views', desc: 'Force refresh all 3 behaviour materialised views (CONCURRENTLY).', hasScope: false, icon: Database, noPreview: true },
-    { key: 'reindex-search', title: 'Reindex Search', desc: 'Rebuild the Meilisearch behaviour search index from DB.', hasScope: false, icon: Search },
+    {
+      key: 'recompute-points',
+      title: 'Recompute Points',
+      desc: 'Invalidate Redis cache and recompute all point totals from source records.',
+      hasScope: true,
+      icon: RefreshCw,
+    },
+    {
+      key: 'rebuild-awards',
+      title: 'Rebuild Awards',
+      desc: 'Scan all students for missing threshold awards and create them.',
+      hasScope: true,
+      icon: Shield,
+    },
+    {
+      key: 'recompute-pulse',
+      title: 'Recompute Pulse',
+      desc: 'Invalidate Behaviour Pulse cache. Next request will recompute.',
+      hasScope: false,
+      icon: Activity,
+      noPreview: true,
+    },
+    {
+      key: 'backfill-tasks',
+      title: 'Backfill Tasks',
+      desc: 'Scan entities for missing tasks and create them.',
+      hasScope: false,
+      icon: Search,
+    },
+    {
+      key: 'refresh-views',
+      title: 'Refresh Materialised Views',
+      desc: 'Force refresh all 3 behaviour materialised views (CONCURRENTLY).',
+      hasScope: false,
+      icon: Database,
+      noPreview: true,
+    },
+    {
+      key: 'reindex-search',
+      title: 'Reindex Search',
+      desc: 'Rebuild the Meilisearch behaviour search index from DB.',
+      hasScope: false,
+      icon: Search,
+    },
   ];
 
   return (
@@ -472,14 +528,18 @@ function OperationsTab() {
               {previewData.warnings.length > 0 && (
                 <div className="rounded-md bg-amber-50 p-3 dark:bg-amber-900/20">
                   {previewData.warnings.map((w, i) => (
-                    <p key={i} className="text-sm text-amber-800 dark:text-amber-200">{w}</p>
+                    <p key={i} className="text-sm text-amber-800 dark:text-amber-200">
+                      {w}
+                    </p>
                   ))}
                 </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setPreviewData(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setPreviewData(null)}>
+              Cancel
+            </Button>
             <Button onClick={() => previewOp && execute(previewOp)}>Confirm Execute</Button>
           </DialogFooter>
         </DialogContent>
@@ -499,10 +559,13 @@ function ScopeAuditTab() {
     if (!userId.trim()) return;
     setLoading(true);
     try {
-      const res = await apiClient<ScopeAuditResult>(`/api/v1/behaviour/admin/scope-audit?user_id=${userId}`);
+      const res = await apiClient<ScopeAuditResult>(
+        `/api/v1/behaviour/admin/scope-audit?user_id=${userId}`,
+      );
       setResult(res);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setResult]', err);
     } finally {
       setLoading(false);
     }
@@ -534,7 +597,9 @@ function ScopeAuditTab() {
           {result && (
             <div className="rounded-md border p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Badge variant="secondary" className="capitalize">{result.scope_level}</Badge>
+                <Badge variant="secondary" className="capitalize">
+                  {result.scope_level}
+                </Badge>
                 <span className="text-sm text-muted-foreground">
                   Can see {result.student_count} student{result.student_count !== 1 ? 's' : ''}
                 </span>
@@ -544,10 +609,14 @@ function ScopeAuditTab() {
                   <p className="mb-1 text-xs font-medium text-muted-foreground">Student IDs:</p>
                   <div className="space-y-1">
                     {result.student_ids.slice(0, 50).map((id) => (
-                      <code key={id} className="block text-xs">{id}</code>
+                      <code key={id} className="block text-xs">
+                        {id}
+                      </code>
                     ))}
                     {result.student_ids.length > 50 && (
-                      <p className="text-xs text-muted-foreground">...and {result.student_ids.length - 50} more</p>
+                      <p className="text-xs text-muted-foreground">
+                        ...and {result.student_ids.length - 50} more
+                      </p>
                     )}
                   </div>
                 </div>
@@ -579,31 +648,40 @@ function RetentionTab() {
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const holdsRes = await apiClient<{ data: LegalHold[]; meta: { total: number } }>('/api/v1/behaviour/admin/legal-holds?status=active&pageSize=100');
+      const holdsRes = await apiClient<{ data: LegalHold[]; meta: { total: number } }>(
+        '/api/v1/behaviour/admin/legal-holds?status=active&pageSize=100',
+      );
       setHolds(holdsRes?.data ?? []);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setHolds]', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  React.useEffect(() => { loadData(); }, [loadData]);
+  React.useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const previewRetention = async () => {
     try {
-      const res = await apiClient<RetentionPreview>('/api/v1/behaviour/admin/retention/preview', { method: 'POST' });
+      const res = await apiClient<RetentionPreview>('/api/v1/behaviour/admin/retention/preview', {
+        method: 'POST',
+      });
       setRetentionPreview(res);
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[setRetentionPreview]', err);
     }
   };
 
   const executeRetention = async () => {
     try {
       await apiClient('/api/v1/behaviour/admin/retention/execute', { method: 'POST' });
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[apiClient]', err);
     }
   };
 
@@ -617,8 +695,9 @@ function RetentionTab() {
       setReleaseDialog(null);
       setReleaseReason('');
       await loadData();
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[loadData]', err);
     }
   };
 
@@ -638,8 +717,9 @@ function RetentionTab() {
       setCreateDialog(false);
       setNewHold({ entity_type: 'incident', entity_id: '', hold_reason: '', legal_basis: '' });
       await loadData();
-    } catch {
+    } catch (err) {
       // Failed
+      console.error('[loadData]', err);
     }
   };
 
@@ -682,7 +762,9 @@ function RetentionTab() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Held (Skipped)</p>
-                  <p className="text-2xl font-bold text-amber-600">{retentionPreview.held_by_legal_hold}</p>
+                  <p className="text-2xl font-bold text-amber-600">
+                    {retentionPreview.held_by_legal_hold}
+                  </p>
                 </div>
               </div>
             </div>
@@ -726,14 +808,18 @@ function RetentionTab() {
                   {holds.map((hold) => (
                     <tr key={hold.id} className="border-b">
                       <td className="py-2">
-                        <Badge variant="secondary" className="capitalize">{hold.entity_type}</Badge>
+                        <Badge variant="secondary" className="capitalize">
+                          {hold.entity_type}
+                        </Badge>
                         <code className="ms-1 text-xs">{hold.entity_id.substring(0, 8)}...</code>
                       </td>
                       <td className="max-w-[200px] truncate py-2" title={hold.hold_reason}>
                         {hold.hold_reason}
                       </td>
                       <td className="py-2 text-muted-foreground">{hold.legal_basis ?? '—'}</td>
-                      <td className="py-2">{hold.set_by.first_name} {hold.set_by.last_name}</td>
+                      <td className="py-2">
+                        {hold.set_by.first_name} {hold.set_by.last_name}
+                      </td>
                       <td className="py-2 text-muted-foreground">
                         {new Date(hold.set_at).toLocaleDateString()}
                       </td>
@@ -770,8 +856,13 @@ function RetentionTab() {
             />
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>Cancel</Button>
-            <Button onClick={() => releaseDialog && releaseHold(releaseDialog)} disabled={!releaseReason.trim()}>
+            <Button variant="secondary" onClick={() => setReleaseDialog(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => releaseDialog && releaseHold(releaseDialog)}
+              disabled={!releaseReason.trim()}
+            >
               Release Hold
             </Button>
           </DialogFooter>
@@ -787,7 +878,10 @@ function RetentionTab() {
           <div className="space-y-3">
             <div>
               <Label>Entity Type</Label>
-              <Select value={newHold.entity_type} onValueChange={(v) => setNewHold((p) => ({ ...p, entity_type: v }))}>
+              <Select
+                value={newHold.entity_type}
+                onValueChange={(v) => setNewHold((p) => ({ ...p, entity_type: v }))}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -826,8 +920,13 @@ function RetentionTab() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setCreateDialog(false)}>Cancel</Button>
-            <Button onClick={createHold} disabled={!newHold.entity_id.trim() || !newHold.hold_reason.trim()}>
+            <Button variant="secondary" onClick={() => setCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={createHold}
+              disabled={!newHold.entity_id.trim() || !newHold.hold_reason.trim()}
+            >
               Create Hold
             </Button>
           </DialogFooter>

@@ -1,5 +1,6 @@
-import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+
+import { INestApplication } from '@nestjs/common';
 
 import {
   AL_NOOR_ADMIN_EMAIL,
@@ -67,16 +68,14 @@ describe('Announcements (e2e)', () => {
       ...overrides,
     };
 
-    const res = await authPost(app, '/api/v1/announcements', token, payload, AL_NOOR_DOMAIN)
-      .expect(201);
+    const res = await authPost(app, '/api/v1/announcements', token, payload, AL_NOOR_DOMAIN).expect(
+      201,
+    );
 
     return res.body.data;
   }
 
-  async function publishAnnouncement(
-    id: string,
-    token: string,
-  ): Promise<Record<string, unknown>> {
+  async function publishAnnouncement(id: string, token: string): Promise<Record<string, unknown>> {
     const res = await authPost(
       app,
       `/api/v1/announcements/${id}/publish`,
@@ -364,12 +363,7 @@ describe('Announcements (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/announcements/my',
-        '',
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/announcements/my', '', AL_NOOR_DOMAIN);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -395,12 +389,9 @@ describe('Announcements (e2e)', () => {
       const draft = await createDraftAnnouncement(adminToken);
 
       // Cedar admin tries to access Al Noor announcement
-      await authGet(
-        app,
-        `/api/v1/announcements/${draft.id}`,
-        cedarAdminToken,
-        CEDAR_DOMAIN,
-      ).expect(404);
+      await authGet(app, `/api/v1/announcements/${draft.id}`, cedarAdminToken, CEDAR_DOMAIN).expect(
+        404,
+      );
     });
 
     it('Cedar admin cannot publish Al Noor announcement', async () => {

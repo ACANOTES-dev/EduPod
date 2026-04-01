@@ -1,5 +1,10 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,17 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { BulkImportDialog } from './_components/bulk-import-dialog';
+import { CompensationForm } from './_components/compensation-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { BulkImportDialog } from './_components/bulk-import-dialog';
-import { CompensationForm } from './_components/compensation-form';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -146,8 +147,9 @@ export default function CompensationListPage() {
       }>(`/api/v1/payroll/compensation?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setTotal]', err);
     } finally {
       setIsLoading(false);
     }
@@ -163,8 +165,9 @@ export default function CompensationListPage() {
       setAllowances(aRes.data);
       setAllowanceTypes(atRes.data);
       setStaffOptions(staffRes.data);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setStaffOptions]', err);
     }
   }, []);
 
@@ -172,8 +175,9 @@ export default function CompensationListPage() {
     try {
       const res = await apiClient<{ data: StaffDeduction[] }>('/api/v1/payroll/staff-deductions');
       setDeductions(res.data);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setDeductions]', err);
     }
   }, []);
 
@@ -215,8 +219,9 @@ export default function CompensationListPage() {
         meta: { total: number };
       }>(`/api/v1/payroll/compensation?${params.toString()}`);
       setHistoryRecords(res.data);
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setHistoryRecords]', err);
     } finally {
       setHistoryLoading(false);
     }
@@ -238,8 +243,9 @@ export default function CompensationListPage() {
         effective_from: new Date().toISOString().split('T')[0] ?? '',
       });
       void fetchAllowances();
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[fetchAllowances]', err);
     }
   };
 
@@ -247,15 +253,22 @@ export default function CompensationListPage() {
     try {
       await apiClient(`/api/v1/payroll/staff-allowances/${id}`, { method: 'DELETE' });
       setAllowances((prev) => prev.filter((a) => a.id !== id));
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setAllowances]', err);
     }
   };
 
   const handleAddDeduction = async () => {
     const total = parseFloat(newDeduction.total_amount);
     const monthly = parseFloat(newDeduction.monthly_amount);
-    if (!newDeduction.staff_profile_id || !newDeduction.description || isNaN(total) || isNaN(monthly)) return;
+    if (
+      !newDeduction.staff_profile_id ||
+      !newDeduction.description ||
+      isNaN(total) ||
+      isNaN(monthly)
+    )
+      return;
     try {
       await apiClient('/api/v1/payroll/staff-deductions', {
         method: 'POST',
@@ -274,8 +287,9 @@ export default function CompensationListPage() {
         start_date: new Date().toISOString().split('T')[0] ?? '',
       });
       void fetchDeductions();
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[fetchDeductions]', err);
     }
   };
 
@@ -286,8 +300,9 @@ export default function CompensationListPage() {
         body: JSON.stringify({ active: false }),
       });
       setDeductions((prev) => prev.map((d) => (d.id === id ? { ...d, active: false } : d)));
-    } catch {
+    } catch (err) {
       // silent
+      console.error('[setDeductions]', err);
     }
   };
 
@@ -338,8 +353,7 @@ export default function CompensationListPage() {
     {
       key: 'effective_from',
       header: t('effectiveFrom'),
-      render: (row: CompensationRecord) =>
-        new Date(row.effective_from).toLocaleDateString(locale),
+      render: (row: CompensationRecord) => new Date(row.effective_from).toLocaleDateString(locale),
     },
     {
       key: 'actions',
@@ -349,11 +363,7 @@ export default function CompensationListPage() {
           <Button variant="ghost" size="sm" onClick={() => handleRevise(row)}>
             {t('revise')}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleViewHistory(row.staff_profile_id)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => handleViewHistory(row.staff_profile_id)}>
             {t('history')}
           </Button>
         </div>
@@ -505,11 +515,12 @@ export default function CompensationListPage() {
                               {t('bonusDayMultiplier')}: {rec.bonus_day_multiplier}x
                             </p>
                           )}
-                          {rec.bonus_class_rate != null && rec.compensation_type === 'per_class' && (
-                            <p className="mt-0.5 text-xs text-text-tertiary">
-                              {t('bonusClassRate')}: {formatCurrency(rec.bonus_class_rate)}
-                            </p>
-                          )}
+                          {rec.bonus_class_rate != null &&
+                            rec.compensation_type === 'per_class' && (
+                              <p className="mt-0.5 text-xs text-text-tertiary">
+                                {t('bonusClassRate')}: {formatCurrency(rec.bonus_class_rate)}
+                              </p>
+                            )}
                         </div>
                       </div>
                     );
@@ -529,11 +540,7 @@ export default function CompensationListPage() {
             onSuccess={handleSuccess}
           />
 
-          <BulkImportDialog
-            open={bulkOpen}
-            onOpenChange={setBulkOpen}
-            onSuccess={handleSuccess}
-          />
+          <BulkImportDialog open={bulkOpen} onOpenChange={setBulkOpen} onSuccess={handleSuccess} />
         </>
       )}
 

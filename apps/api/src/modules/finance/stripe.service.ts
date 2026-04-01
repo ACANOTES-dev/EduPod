@@ -6,8 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { CheckoutSessionDto } from '@school/shared';
 import Stripe from 'stripe';
+
+import type { CheckoutSessionDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -34,7 +35,9 @@ export class StripeService {
   ) {}
 
   private get webhookSecret(): string | undefined {
-    return this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || process.env.STRIPE_WEBHOOK_SECRET;
+    return (
+      this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || process.env.STRIPE_WEBHOOK_SECRET
+    );
   }
 
   /**
@@ -98,14 +101,16 @@ export class StripeService {
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: invoice.currency_code.toLowerCase(),
-          unit_amount: Math.round(balanceAmount * 100),
-          product_data: { name: `Invoice ${invoice.invoice_number ?? invoiceId}` },
+      line_items: [
+        {
+          price_data: {
+            currency: invoice.currency_code.toLowerCase(),
+            unit_amount: Math.round(balanceAmount * 100),
+            product_data: { name: `Invoice ${invoice.invoice_number ?? invoiceId}` },
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       mode: 'payment',
       success_url: dto.success_url,
       cancel_url: dto.cancel_url,
@@ -162,7 +167,9 @@ export class StripeService {
     // Verify signature (constructEvent only checks HMAC, doesn't need a real API key)
     let event: Stripe.Event;
     try {
-      const stripe = new Stripe('sk_stub_for_webhook_verification', { apiVersion: '2026-02-25.clover' });
+      const stripe = new Stripe('sk_stub_for_webhook_verification', {
+        apiVersion: '2026-02-25.clover',
+      });
       event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -207,14 +214,17 @@ export class StripeService {
     }
 
     // Store the payment_intent ID (not session ID) for refund compatibility
-    const paymentIntentId = typeof session.payment_intent === 'string'
-      ? session.payment_intent
-      : session.payment_intent?.id ?? session.id;
+    const paymentIntentId =
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : (session.payment_intent?.id ?? session.id);
 
     // Get tenant currency
     const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) {
-      this.logger.error(`checkout.session.completed: tenant ${tenantId} not found — payment will be lost`);
+      this.logger.error(
+        `checkout.session.completed: tenant ${tenantId} not found — payment will be lost`,
+      );
       throw new NotFoundException({
         code: 'TENANT_NOT_FOUND',
         message: `Tenant ${tenantId} not found during Stripe checkout processing`,

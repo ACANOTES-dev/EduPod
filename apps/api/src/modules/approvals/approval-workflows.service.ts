@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateApprovalWorkflowDto,
-  UpdateApprovalWorkflowDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import type { CreateApprovalWorkflowDto, UpdateApprovalWorkflowDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -96,11 +90,7 @@ export class ApprovalWorkflowsService {
   /**
    * Update an approval workflow.
    */
-  async updateWorkflow(
-    tenantId: string,
-    workflowId: string,
-    data: UpdateApprovalWorkflowDto,
-  ) {
+  async updateWorkflow(tenantId: string, workflowId: string, data: UpdateApprovalWorkflowDto) {
     const workflow = await this.prisma.approvalWorkflow.findFirst({
       where: {
         id: workflowId,
@@ -135,12 +125,8 @@ export class ApprovalWorkflowsService {
     const updated = await this.prisma.approvalWorkflow.update({
       where: { id: workflowId },
       data: {
-        ...(data.approver_role_id !== undefined
-          ? { approver_role_id: data.approver_role_id }
-          : {}),
-        ...(data.is_enabled !== undefined
-          ? { is_enabled: data.is_enabled }
-          : {}),
+        ...(data.approver_role_id !== undefined ? { approver_role_id: data.approver_role_id } : {}),
+        ...(data.is_enabled !== undefined ? { is_enabled: data.is_enabled } : {}),
       },
       include: {
         approver_role: {

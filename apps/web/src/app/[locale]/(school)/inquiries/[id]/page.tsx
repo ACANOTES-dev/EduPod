@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 import { ArrowLeft, Send } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -47,11 +47,13 @@ function MessageBubble({ message, adminLabel }: { message: Message; adminLabel: 
   const isParent = message.author_type === 'parent';
   return (
     <div className={`flex flex-col gap-1 ${isParent ? 'items-start' : 'items-end'}`}>
-      <div className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
-        isParent
-          ? 'rounded-ss-sm bg-surface-secondary text-text-primary'
-          : 'rounded-se-sm bg-primary-600 text-white'
-      }`}>
+      <div
+        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
+          isParent
+            ? 'rounded-ss-sm bg-surface-secondary text-text-primary'
+            : 'rounded-se-sm bg-primary-600 text-white'
+        }`}
+      >
         {message.message}
       </div>
       <div className="flex items-center gap-1.5 px-1 text-xs text-text-tertiary">
@@ -181,7 +183,9 @@ export default function ParentInquiryDetailPage() {
         {/* Reply area */}
         <div className="border-t border-border p-4">
           {isClosed ? (
-            <p className="text-sm text-text-tertiary text-center py-2">{t('inquiry.closedNotice')}</p>
+            <p className="text-sm text-text-tertiary text-center py-2">
+              {t('inquiry.closedNotice')}
+            </p>
           ) : (
             <div className="space-y-3">
               <Textarea
@@ -192,11 +196,7 @@ export default function ParentInquiryDetailPage() {
                 rows={3}
               />
               <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={handleSendReply}
-                  disabled={isSending || !reply.trim()}
-                >
+                <Button size="sm" onClick={handleSendReply} disabled={isSending || !reply.trim()}>
                   <Send className="me-2 h-3.5 w-3.5" />
                   {t('inquiry.sendReply')}
                 </Button>

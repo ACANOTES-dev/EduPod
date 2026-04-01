@@ -1,7 +1,8 @@
 import { CanActivate } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request } from 'express';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
 
@@ -28,7 +29,8 @@ describe('EngagementController', () => {
       controllers: [EngagementController],
       providers: [{ provide: AuditLogService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue(mockGuard)
+      .overrideGuard(AuthGuard)
+      .useValue(mockGuard)
       .compile();
 
     controller = module.get<EngagementController>(EngagementController);

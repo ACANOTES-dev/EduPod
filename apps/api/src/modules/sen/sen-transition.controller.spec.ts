@@ -1,8 +1,9 @@
 import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import request from 'supertest';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../common/decorators/module-enabled.decorator';
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';

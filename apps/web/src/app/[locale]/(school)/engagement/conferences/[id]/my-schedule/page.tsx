@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { Printer } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, toast } from '@school/ui';
 
 import {
   formatDisplayDate,
@@ -16,7 +17,6 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function TeacherConferenceSchedulePage() {
   const params = useParams<{ id: string }>();

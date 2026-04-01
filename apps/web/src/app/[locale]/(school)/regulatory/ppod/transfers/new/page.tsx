@@ -1,16 +1,17 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
+import { Button } from '@school/ui';
 
 import { RegulatoryNav } from '../../../_components/regulatory-nav';
 import { TransferForm } from '../../_components/transfer-form';
+
+import { PageHeader } from '@/components/page-header';
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 

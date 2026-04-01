@@ -11,12 +11,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  grantCpAccessSchema,
-  revokeCpAccessSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request } from 'express';
+
+import { grantCpAccessSchema, revokeCpAccessSchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -43,12 +41,7 @@ export class CpAccessController {
     dto: { user_id: string },
     @Req() req: Request,
   ) {
-    return this.cpAccessService.grant(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpAccessService.grant(tenant.tenant_id, user.sub, dto, req.ip ?? null);
   }
 
   // ─── 2. Revoke CP Access ──────────────────────────────────────────────────
@@ -64,23 +57,14 @@ export class CpAccessController {
     dto: { revocation_reason: string },
     @Req() req: Request,
   ) {
-    return this.cpAccessService.revoke(
-      tenant.tenant_id,
-      user.sub,
-      grantId,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpAccessService.revoke(tenant.tenant_id, user.sub, grantId, dto, req.ip ?? null);
   }
 
   // ─── 3. List Active Grants ────────────────────────────────────────────────
 
   @Get('student/:studentId')
   @RequiresPermission('pastoral.manage_cp_access')
-  async listActiveGrants(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async listActiveGrants(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.cpAccessService.listActive(tenant.tenant_id, user.sub);
   }
 
@@ -92,14 +76,8 @@ export class CpAccessController {
    * Returns { has_access: boolean }
    */
   @Get('check/:studentId')
-  async checkOwnAccess(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const hasAccess = await this.cpAccessService.hasAccess(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async checkOwnAccess(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    const hasAccess = await this.cpAccessService.hasAccess(tenant.tenant_id, user.sub);
     return { data: { has_access: hasAccess } };
   }
 }

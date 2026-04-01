@@ -11,17 +11,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createFeeAssignmentSchema,
   feeAssignmentQuerySchema,
   updateFeeAssignmentSchema,
 } from '@school/shared';
-import type {
-  CreateFeeAssignmentDto,
-  TenantContext,
-  UpdateFeeAssignmentDto,
-} from '@school/shared';
-import { z } from 'zod';
+import type { CreateFeeAssignmentDto, TenantContext, UpdateFeeAssignmentDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -48,10 +45,7 @@ export class FeeAssignmentsController {
 
   @Get(':id')
   @RequiresPermission('finance.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.feeAssignmentsService.findOne(tenant.tenant_id, id);
   }
 

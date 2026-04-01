@@ -1,5 +1,11 @@
 'use client';
 
+import { ArrowLeft, Search, X } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,11 +18,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import { ArrowLeft, Search, X } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { CategoryPicker, type CategoryOption } from '@/components/behaviour/category-picker';
 import { PageHeader } from '@/components/page-header';
@@ -38,8 +39,16 @@ interface TemplateOption {
 }
 
 const CONTEXT_TYPE_KEYS = [
-  'class', 'break', 'before_school', 'after_school', 'lunch',
-  'transport', 'extra_curricular', 'off_site', 'online', 'other',
+  'class',
+  'break',
+  'before_school',
+  'after_school',
+  'lunch',
+  'transport',
+  'extra_curricular',
+  'off_site',
+  'online',
+  'other',
 ] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -80,7 +89,9 @@ export default function CreateIncidentPage() {
 
   // Load categories + templates
   React.useEffect(() => {
-    apiClient<{ data: CategoryOption[] }>('/api/v1/behaviour/categories?pageSize=100&is_active=true')
+    apiClient<{ data: CategoryOption[] }>(
+      '/api/v1/behaviour/categories?pageSize=100&is_active=true',
+    )
       .then((res) => setCategories(res.data ?? []))
       .catch(() => undefined);
     apiClient<{ data: TemplateOption[] }>('/api/v1/behaviour/templates?pageSize=50')
@@ -96,7 +107,9 @@ export default function CreateIncidentPage() {
       return;
     }
     searchTimeoutRef.current = setTimeout(() => {
-      apiClient<{ data: StudentOption[] }>(`/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`)
+      apiClient<{ data: StudentOption[] }>(
+        `/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
+      )
         .then((res) => setStudentResults(res.data ?? []))
         .catch(() => undefined);
     }, 300);
@@ -118,14 +131,25 @@ export default function CreateIncidentPage() {
   };
 
   const applyTemplate = (template: TemplateOption) => {
-    setDescription((prev) => prev ? `${prev}\n${template.body_template}` : template.body_template);
+    setDescription((prev) =>
+      prev ? `${prev}\n${template.body_template}` : template.body_template,
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryId) { setError(t('errors.selectCategory')); return; }
-    if (selectedStudents.length === 0) { setError(t('errors.selectStudent')); return; }
-    if (!description.trim()) { setError(t('errors.enterDescription')); return; }
+    if (!categoryId) {
+      setError(t('errors.selectCategory'));
+      return;
+    }
+    if (selectedStudents.length === 0) {
+      setError(t('errors.selectStudent'));
+      return;
+    }
+    if (!description.trim()) {
+      setError(t('errors.enterDescription'));
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -193,7 +217,11 @@ export default function CreateIncidentPage() {
                   className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-xs font-medium text-primary-700"
                 >
                   {s.first_name} {s.last_name}
-                  <button type="button" onClick={() => removeStudent(s.id)} className="hover:text-primary-900">
+                  <button
+                    type="button"
+                    onClick={() => removeStudent(s.id)}
+                    className="hover:text-primary-900"
+                  >
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -301,7 +329,9 @@ export default function CreateIncidentPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {CONTEXT_TYPE_KEYS.map((key) => (
-                    <SelectItem key={key} value={key}>{t(`contextTypes.${key}` as Parameters<typeof t>[0])}</SelectItem>
+                    <SelectItem key={key} value={key}>
+                      {t(`contextTypes.${key}` as Parameters<typeof t>[0])}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

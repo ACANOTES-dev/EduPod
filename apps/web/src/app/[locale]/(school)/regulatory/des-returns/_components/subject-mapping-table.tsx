@@ -1,5 +1,9 @@
 'use client';
 
+import { Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -10,9 +14,6 @@ import {
   DialogTitle,
   StatusBadge,
 } from '@school/ui';
-import { Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,9 +74,7 @@ export function SubjectMappingTable({ data, onDelete, isLoading }: SubjectMappin
   if (data.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center">
-        <p className="text-sm text-text-tertiary">
-          {t('desReturns.noMappings')}
-        </p>
+        <p className="text-sm text-text-tertiary">{t('desReturns.noMappings')}</p>
       </div>
     );
   }
@@ -85,21 +84,13 @@ export function SubjectMappingTable({ data, onDelete, isLoading }: SubjectMappin
       {/* ─── Mobile cards ───────────────────────────────────────────────── */}
       <div className="space-y-3 md:hidden">
         {data.map((row) => (
-          <div
-            key={row.id}
-            className="rounded-2xl border border-border bg-surface px-4 py-4"
-          >
+          <div key={row.id} className="rounded-2xl border border-border bg-surface px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium text-text-primary">
                 {row.subject?.name ?? row.subject_id}
               </p>
-              <StatusBadge
-                status={row.is_verified ? 'success' : 'neutral'}
-                dot
-              >
-                {row.is_verified
-                  ? t('desReturns.verified')
-                  : t('desReturns.unverified')}
+              <StatusBadge status={row.is_verified ? 'success' : 'neutral'} dot>
+                {row.is_verified ? t('desReturns.verified') : t('desReturns.unverified')}
               </StatusBadge>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-secondary">
@@ -150,30 +141,16 @@ export function SubjectMappingTable({ data, onDelete, isLoading }: SubjectMappin
           </thead>
           <tbody className="divide-y divide-border">
             {data.map((row) => (
-              <tr
-                key={row.id}
-                className="transition-colors hover:bg-surface-secondary"
-              >
+              <tr key={row.id} className="transition-colors hover:bg-surface-secondary">
                 <td className="px-3 py-3 font-medium text-text-primary">
                   {row.subject?.name ?? row.subject_id}
                 </td>
-                <td className="px-3 py-3 tabular-nums text-text-secondary">
-                  {row.des_code}
-                </td>
-                <td className="px-3 py-3 text-text-secondary">
-                  {row.des_name}
-                </td>
-                <td className="px-3 py-3 text-text-secondary">
-                  {row.des_level ?? '—'}
-                </td>
+                <td className="px-3 py-3 tabular-nums text-text-secondary">{row.des_code}</td>
+                <td className="px-3 py-3 text-text-secondary">{row.des_name}</td>
+                <td className="px-3 py-3 text-text-secondary">{row.des_level ?? '—'}</td>
                 <td className="px-3 py-3">
-                  <StatusBadge
-                    status={row.is_verified ? 'success' : 'neutral'}
-                    dot
-                  >
-                    {row.is_verified
-                      ? t('desReturns.verified')
-                      : t('desReturns.unverified')}
+                  <StatusBadge status={row.is_verified ? 'success' : 'neutral'} dot>
+                    {row.is_verified ? t('desReturns.verified') : t('desReturns.unverified')}
                   </StatusBadge>
                 </td>
                 <td className="px-3 py-3 text-end">

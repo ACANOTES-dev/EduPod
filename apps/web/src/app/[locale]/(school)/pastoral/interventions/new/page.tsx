@@ -1,5 +1,10 @@
 'use client';
 
+import { Plus, Save, Trash2 } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,10 +16,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { Plus, Save, Trash2 } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralTierBadge } from '@/components/pastoral/pastoral-badges';

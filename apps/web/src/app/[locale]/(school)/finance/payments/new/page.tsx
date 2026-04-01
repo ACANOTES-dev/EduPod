@@ -3,9 +3,9 @@
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-
 import { PaymentForm } from '../_components/payment-form';
+
+import { PageHeader } from '@/components/page-header';
 
 export default function NewPaymentPage() {
   const router = useRouter();
@@ -16,10 +16,7 @@ export default function NewPaymentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Record Payment"
-        description="Record a manual payment from a household"
-      />
+      <PageHeader title="Record Payment" description="Record a manual payment from a household" />
 
       <div className="rounded-xl border border-border bg-surface p-6">
         <PaymentForm onSuccess={handleSuccess} />

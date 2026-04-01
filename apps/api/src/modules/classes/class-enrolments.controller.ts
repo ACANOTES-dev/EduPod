@@ -11,12 +11,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   bulkEnrolSchema,
   createEnrolmentSchema,
   updateEnrolmentStatusSchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -46,11 +47,7 @@ export class ClassEnrolmentsController {
     @Query(new ZodValidationPipe(enrolmentStatusQuerySchema))
     query: z.infer<typeof enrolmentStatusQuerySchema>,
   ) {
-    return this.classEnrolmentsService.findAllForClass(
-      tenant.tenant_id,
-      classId,
-      query.status,
-    );
+    return this.classEnrolmentsService.findAllForClass(tenant.tenant_id, classId, query.status);
   }
 
   @Post('classes/:classId/enrolments')
@@ -72,11 +69,7 @@ export class ClassEnrolmentsController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Body(new ZodValidationPipe(bulkEnrolSchema)) dto: BulkEnrolDto,
   ) {
-    return this.classEnrolmentsService.bulkEnrol(
-      tenant.tenant_id,
-      classId,
-      dto,
-    );
+    return this.classEnrolmentsService.bulkEnrol(tenant.tenant_id, classId, dto);
   }
 
   @Patch('class-enrolments/:id/status')
@@ -88,10 +81,6 @@ export class ClassEnrolmentsController {
     @Body(new ZodValidationPipe(updateEnrolmentStatusSchema))
     dto: UpdateEnrolmentStatusDto,
   ) {
-    return this.classEnrolmentsService.updateStatus(
-      tenant.tenant_id,
-      id,
-      dto,
-    );
+    return this.classEnrolmentsService.updateStatus(tenant.tenant_id, id, dto);
   }
 }

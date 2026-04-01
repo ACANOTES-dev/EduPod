@@ -11,10 +11,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createApprovalWorkflowSchema,
-  updateApprovalWorkflowSchema,
-} from '@school/shared';
+
+import { createApprovalWorkflowSchema, updateApprovalWorkflowSchema } from '@school/shared';
 import type {
   CreateApprovalWorkflowDto,
   TenantContext,
@@ -32,9 +30,7 @@ import { ApprovalWorkflowsService } from './approval-workflows.service';
 @Controller('v1/approval-workflows')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ApprovalWorkflowsController {
-  constructor(
-    private readonly workflowsService: ApprovalWorkflowsService,
-  ) {}
+  constructor(private readonly workflowsService: ApprovalWorkflowsService) {}
 
   @Get()
   @RequiresPermission('approvals.view')

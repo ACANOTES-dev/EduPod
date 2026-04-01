@@ -1,24 +1,22 @@
 'use client';
 
-import type { PaymentStatus, PaymentMethod, RefundStatus } from '@school/shared';
-import {
-  Button,
-  Skeleton,
-} from '@school/ui';
 import { FileText } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { EntityLink } from '@/components/entity-link';
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
-import { formatDate, formatDateTime } from '@/lib/format-date';
+import type { PaymentStatus, PaymentMethod, RefundStatus } from '@school/shared';
+import { Button, Skeleton } from '@school/ui';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 import { RefundStatusBadge } from '../../_components/refund-status-badge';
 import { AllocationPanel } from '../_components/allocation-panel';
+
+import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 
 interface Allocation {
   id: string;
@@ -108,18 +106,20 @@ export default function PaymentDetailPage() {
   const fetchPayment = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<{ data: PaymentDetail }>(
-        `/api/v1/finance/payments/${id}`,
-      );
+      const res = await apiClient<{ data: PaymentDetail }>(`/api/v1/finance/payments/${id}`);
       const p = res.data;
-      const allocatedAmt = (p.allocations ?? []).reduce((sum: number, a: Allocation) => sum + (a.allocated_amount ?? a.amount ?? 0), 0);
+      const allocatedAmt = (p.allocations ?? []).reduce(
+        (sum: number, a: Allocation) => sum + (a.allocated_amount ?? a.amount ?? 0),
+        0,
+      );
       setPayment({
         ...p,
         allocated_amount: allocatedAmt,
         unallocated_amount: (p.amount ?? 0) - allocatedAmt,
       });
-    } catch {
+    } catch (err) {
       // handled by empty state
+      console.error('[setPayment]', err);
     } finally {
       setIsLoading(false);
     }
@@ -151,8 +151,7 @@ export default function PaymentDetailPage() {
 
   const isAllocated = payment.allocations.length > 0;
   const canAllocate =
-    payment.unallocated_amount > 0 &&
-    ['pending', 'posted'].includes(payment.status);
+    payment.unallocated_amount > 0 && ['pending', 'posted'].includes(payment.status);
 
   const metrics = [
     {
@@ -337,14 +336,9 @@ export default function PaymentDetailPage() {
                   className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
                 >
                   <td className="px-4 py-3 text-end text-sm font-medium text-text-primary">
-                    <CurrencyDisplay
-                      amount={refund.amount}
-                      currency_code={payment.currency_code}
-                    />
+                    <CurrencyDisplay amount={refund.amount} currency_code={payment.currency_code} />
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {refund.reason}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{refund.reason}</td>
                   <td className="px-4 py-3">
                     <RefundStatusBadge status={refund.status} />
                   </td>

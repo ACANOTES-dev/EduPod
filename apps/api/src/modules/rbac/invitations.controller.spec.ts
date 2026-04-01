@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   AcceptInvitationDto,
   CreateInvitationDto,
@@ -55,9 +56,7 @@ describe('InvitationsController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(
-        require('../../common/guards/permission.guard').PermissionGuard,
-      )
+      .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -74,17 +73,9 @@ describe('InvitationsController', () => {
     const expected = { id: INVITATION_ID, email: dto.email, status: 'pending' };
     service.createInvitation.mockResolvedValue(expected);
 
-    const result = await controller.createInvitation(
-      mockTenant,
-      mockJwtPayload,
-      dto,
-    );
+    const result = await controller.createInvitation(mockTenant, mockJwtPayload, dto);
 
-    expect(service.createInvitation).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      dto,
-    );
+    expect(service.createInvitation).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
     expect(result).toBe(expected);
   });
 
@@ -106,15 +97,9 @@ describe('InvitationsController', () => {
     const expected = { id: INVITATION_ID, status: 'revoked' };
     service.revokeInvitation.mockResolvedValue(expected);
 
-    const result = await controller.revokeInvitation(
-      mockTenant,
-      INVITATION_ID,
-    );
+    const result = await controller.revokeInvitation(mockTenant, INVITATION_ID);
 
-    expect(service.revokeInvitation).toHaveBeenCalledWith(
-      TENANT_ID,
-      INVITATION_ID,
-    );
+    expect(service.revokeInvitation).toHaveBeenCalledWith(TENANT_ID, INVITATION_ID);
     expect(result).toBe(expected);
   });
 

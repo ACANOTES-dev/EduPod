@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Label, Textarea } from '@school/ui';
 import { Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Button, Label, Textarea } from '@school/ui';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

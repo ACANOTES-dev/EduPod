@@ -1,6 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import {
   type AdminHealthResponse,
   type AdminPreviewResponse,
@@ -11,7 +13,6 @@ import {
   type ResendNotificationDto,
   type RetentionPreviewResponse,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PolicyReplayService } from '../policy-engine/policy-replay.service';
@@ -72,8 +73,12 @@ export class BehaviourAdminService {
           const misses = parseInt(missesMatch[1], 10);
           cacheHitRate = hits + misses > 0 ? hits / (hits + misses) : 0;
         }
-      } catch {
+      } catch (err) {
         // Redis INFO not available in all environments
+        this.logger.error(
+          '[healthCheck] Redis INFO failed',
+          err instanceof Error ? err.stack : String(err),
+        );
       }
 
       // View freshness — check last refresh from pg_stat
@@ -279,10 +284,13 @@ export class BehaviourAdminService {
 
   async refreshViews(_tenantId: string): Promise<void> {
     // Materialised views are not tenant-scoped, but we can still refresh them
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- materialized view refresh, not tenant-scoped
     await this.prisma
       .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_student_behaviour_summary`;
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- materialized view refresh, not tenant-scoped
     await this.prisma
       .$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_exposure_rates`;
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- materialized view refresh, not tenant-scoped
     await this.prisma.$executeRaw`REFRESH MATERIALIZED VIEW CONCURRENTLY mv_behaviour_benchmarks`;
     this.logger.log(`All behaviour materialised views refreshed`);
   }

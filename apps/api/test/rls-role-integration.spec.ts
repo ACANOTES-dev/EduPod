@@ -18,6 +18,7 @@ import { resolve } from 'path';
 import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { RlsRoleCheckService } from '../src/common/guards/rls-role-check.service';

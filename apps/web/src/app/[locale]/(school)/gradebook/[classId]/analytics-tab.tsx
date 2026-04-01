@@ -1,12 +1,5 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -21,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -131,7 +126,9 @@ export function AnalyticsTab({ classId }: { classId: string }) {
           </SelectTrigger>
           <SelectContent>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -142,7 +139,9 @@ export function AnalyticsTab({ classId }: { classId: string }) {
           </SelectTrigger>
           <SelectContent>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -170,32 +169,32 @@ export function AnalyticsTab({ classId }: { classId: string }) {
             />
             <StatPill
               label={t('analyticsMedian')}
-              value={analytics.summary.median != null ? `${analytics.summary.median.toFixed(1)}` : null}
+              value={
+                analytics.summary.median != null ? `${analytics.summary.median.toFixed(1)}` : null
+              }
             />
             <StatPill
               label={t('analyticsStdDev')}
-              value={analytics.summary.std_dev != null ? `${analytics.summary.std_dev.toFixed(1)}` : null}
+              value={
+                analytics.summary.std_dev != null ? `${analytics.summary.std_dev.toFixed(1)}` : null
+              }
             />
             <StatPill
               label={t('analyticsPassRate')}
-              value={analytics.summary.pass_rate != null ? `${analytics.summary.pass_rate.toFixed(0)}%` : null}
+              value={
+                analytics.summary.pass_rate != null
+                  ? `${analytics.summary.pass_rate.toFixed(0)}%`
+                  : null
+              }
             />
-            <StatPill
-              label={t('analyticsMin')}
-              value={analytics.summary.min_score}
-            />
-            <StatPill
-              label={t('analyticsMax')}
-              value={analytics.summary.max_score}
-            />
+            <StatPill label={t('analyticsMin')} value={analytics.summary.min_score} />
+            <StatPill label={t('analyticsMax')} value={analytics.summary.max_score} />
           </div>
 
           {/* Grade trend chart */}
           {analytics.trend.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-5">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">
-                {t('gradeTrend')}
-              </h3>
+              <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('gradeTrend')}</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart
                   data={analytics.trend}
@@ -274,7 +273,10 @@ export function AnalyticsTab({ classId }: { classId: string }) {
                     formatter={(value, _name, props) => {
                       const n = typeof value === 'number' ? value : 0;
                       const payload = props.payload as DistributionBucket | undefined;
-                      return [`${n} students (${payload?.percentage.toFixed(0) ?? 0}%)`, t('students')];
+                      return [
+                        `${n} students (${payload?.percentage.toFixed(0) ?? 0}%)`,
+                        t('students'),
+                      ];
                     }}
                   />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]}>

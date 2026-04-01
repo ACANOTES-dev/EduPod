@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -46,10 +47,7 @@ function formatDate(date: Date): string {
  * Compute the Monday-to-Friday weekly attendance rates for the last N weeks.
  * Returns rates in chronological order (oldest week first).
  */
-function computeWeeklyRates(
-  summaries: AttendanceSummaryRow[],
-  weekCount: number,
-): number[] {
+function computeWeeklyRates(summaries: AttendanceSummaryRow[], weekCount: number): number[] {
   const now = new Date();
   const rates: number[] = [];
 
@@ -159,9 +157,7 @@ export class AttendanceSignalCollector {
   ): void {
     if (summaries.length === 0) return;
 
-    const schoolDays = summaries.filter(
-      (s) => !isWeekend(new Date(s.summary_date)),
-    );
+    const schoolDays = summaries.filter((s) => !isWeekend(new Date(s.summary_date)));
     if (schoolDays.length === 0) return;
 
     const attendedDays = schoolDays.filter(
@@ -182,9 +178,7 @@ export class AttendanceSignalCollector {
     }
 
     // Source entity: most recent absent day
-    const mostRecentAbsent = summaries.find(
-      (s) => s.derived_status === 'absent',
-    );
+    const mostRecentAbsent = summaries.find((s) => s.derived_status === 'absent');
     const firstSummary = summaries[0];
     if (!firstSummary) return;
     const sourceId = mostRecentAbsent?.id ?? firstSummary.id;
@@ -203,20 +197,13 @@ export class AttendanceSignalCollector {
 
   // ─── Signal 2: consecutive_absences ─────────────────────────────────────────
 
-  private checkConsecutiveAbsences(
-    summaries: AttendanceSummaryRow[],
-    result: SignalResult,
-  ): void {
+  private checkConsecutiveAbsences(summaries: AttendanceSummaryRow[], result: SignalResult): void {
     if (summaries.length === 0) return;
 
     // Summaries are ordered DESC by date — walk backward from most recent
     const schoolDaySummaries = summaries
       .filter((s) => !isWeekend(new Date(s.summary_date)))
-      .sort(
-        (a, b) =>
-          new Date(b.summary_date).getTime() -
-          new Date(a.summary_date).getTime(),
-      );
+      .sort((a, b) => new Date(b.summary_date).getTime() - new Date(a.summary_date).getTime());
 
     let consecutiveCount = 0;
     let streakEnd: Date | null = null;
@@ -268,10 +255,7 @@ export class AttendanceSignalCollector {
 
   // ─── Signal 3: recurring_day_pattern ────────────────────────────────────────
 
-  private checkRecurringDayPattern(
-    patternAlerts: PatternAlertRow[],
-    result: SignalResult,
-  ): void {
+  private checkRecurringDayPattern(patternAlerts: PatternAlertRow[], result: SignalResult): void {
     const recurringAlerts = patternAlerts.filter(
       (a) => a.alert_type === 'recurring_day' && a.status === 'active',
     );
@@ -311,15 +295,11 @@ export class AttendanceSignalCollector {
     result: SignalResult,
   ): void {
     // Rate-based tardiness score
-    const schoolDays = summaries.filter(
-      (s) => !isWeekend(new Date(s.summary_date)),
-    );
+    const schoolDays = summaries.filter((s) => !isWeekend(new Date(s.summary_date)));
     const attendedDays = schoolDays.filter(
       (s) => s.derived_status === 'present' || s.derived_status === 'late',
     );
-    const lateDays = schoolDays.filter(
-      (s) => s.derived_status === 'late',
-    );
+    const lateDays = schoolDays.filter((s) => s.derived_status === 'late');
 
     let rateScore = 0;
     let lateRate = 0;
@@ -386,10 +366,7 @@ export class AttendanceSignalCollector {
 
   // ─── Signal 5: attendance_trajectory ────────────────────────────────────────
 
-  private checkAttendanceTrajectory(
-    summaries: AttendanceSummaryRow[],
-    result: SignalResult,
-  ): void {
+  private checkAttendanceTrajectory(summaries: AttendanceSummaryRow[], result: SignalResult): void {
     if (summaries.length === 0) return;
 
     const weekRates = computeWeeklyRates(summaries, WEEKS_TO_TRACK);

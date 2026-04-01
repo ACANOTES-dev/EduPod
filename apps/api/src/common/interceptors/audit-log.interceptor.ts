@@ -1,9 +1,10 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { AuditLogSensitivity } from '@school/shared';
 import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+
+import type { AuditLogSensitivity } from '@school/shared';
 
 import { AuditLogService } from '../../modules/audit-log/audit-log.service';
 import {

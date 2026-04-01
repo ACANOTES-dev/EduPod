@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -118,7 +119,11 @@ describe('PeriodGridController', () => {
     const result = await controller.getTeachingCount(tenant, query);
 
     expect(result).toEqual({ total_teaching_periods: 25 });
-    expect(mockService.getTeachingCount).toHaveBeenCalledWith(TENANT_ID, ACADEMIC_YEAR_ID, undefined);
+    expect(mockService.getTeachingCount).toHaveBeenCalledWith(
+      TENANT_ID,
+      ACADEMIC_YEAR_ID,
+      undefined,
+    );
   });
 
   it('should call copyDay with tenant and dto', async () => {
@@ -142,7 +147,12 @@ describe('PeriodGridController', () => {
       year_group_id: YEAR_GROUP_ID,
       weekday: 1,
       periods: [
-        { period_name: 'Period 1', start_time: '08:00', end_time: '09:00', schedule_period_type: 'teaching' as const },
+        {
+          period_name: 'Period 1',
+          start_time: '08:00',
+          end_time: '09:00',
+          schedule_period_type: 'teaching' as const,
+        },
       ],
     };
 

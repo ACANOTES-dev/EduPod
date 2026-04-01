@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type {
   BehaviourAnalyticsQuery,
   BenchmarkQuery,
@@ -213,6 +214,7 @@ export class BehaviourSanctionAnalyticsService {
     }
 
     // Compute avg days to complete per task_type for completed tasks
+    // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query with tenant filter
     const avgDaysRows = await this.prisma.$queryRaw<
       Array<{ task_type: string; avg_days: number }>
     >`SELECT task_type::text AS task_type,
@@ -266,6 +268,7 @@ export class BehaviourSanctionAnalyticsService {
         ? Prisma.sql`AND benchmark_category = ${query.benchmarkCategory}`
         : Prisma.empty;
 
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- benchmark query on materialized view with tenant filter
       const rows = await this.prisma.$queryRaw<
         Array<{
           benchmark_category: string;

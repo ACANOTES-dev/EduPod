@@ -1,10 +1,9 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { Button, toast } from '@school/ui';
 
 import { AiSection } from './_components/ai-section';
 import { AttendanceSection } from './_components/attendance-section';
@@ -16,7 +15,16 @@ import {
   SettingsSectionKey,
   TenantSettings,
 } from './_components/settings-types';
-import { BooleanRow, NumberRow, SectionCard, SelectRow, SubSectionCard, TextRow } from './_components/settings-ui';
+import {
+  BooleanRow,
+  NumberRow,
+  SectionCard,
+  SelectRow,
+  SubSectionCard,
+  TextRow,
+} from './_components/settings-ui';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -33,8 +41,7 @@ export default function GeneralSettingsPage() {
       try {
         const data = await apiClient<TenantSettings | SettingsApiResponse>('/api/v1/settings');
         // Handle both wrapped and unwrapped response shapes
-        const settingsData =
-          'data' in data && data.data ? data.data : (data as TenantSettings);
+        const settingsData = 'data' in data && data.data ? data.data : (data as TenantSettings);
         // Deep merge: spread each section individually so nested defaults
         // (e.g. attendance.patternDetection) are preserved when the API
         // response doesn't include them yet.
@@ -79,8 +86,9 @@ export default function GeneralSettingsPage() {
         if ('warnings' in data && Array.isArray(data.warnings)) {
           setWarnings(data.warnings);
         }
-      } catch {
+      } catch (err) {
         // Use defaults
+        console.error('[setWarnings]', err);
       } finally {
         setLoading(false);
       }
@@ -332,10 +340,7 @@ export default function GeneralSettingsPage() {
           />
 
           {/* Payroll calendar sub-section */}
-          <SubSectionCard
-            title={t('payrollCalendarTitle')}
-            description={t('payrollCalendarDesc')}
-          >
+          <SubSectionCard title={t('payrollCalendarTitle')} description={t('payrollCalendarDesc')}>
             <NumberRow
               label={t('payDay')}
               description={t('payDayDesc')}
@@ -390,10 +395,7 @@ export default function GeneralSettingsPage() {
           </SubSectionCard>
 
           {/* Payslip delivery sub-section */}
-          <SubSectionCard
-            title={t('payslipDeliveryTitle')}
-            description={t('payslipDeliveryDesc')}
-          >
+          <SubSectionCard title={t('payslipDeliveryTitle')} description={t('payslipDeliveryDesc')}>
             <BooleanRow
               label={t('autoSendPayslips')}
               description={t('autoSendPayslipsDesc')}
@@ -429,9 +431,7 @@ export default function GeneralSettingsPage() {
           <BooleanRow
             label={t('schedulingRequireApproval')}
             value={settings.scheduling.requireApprovalForNonPrincipal}
-            onChange={(v) =>
-              updateSection('scheduling', { requireApprovalForNonPrincipal: v })
-            }
+            onChange={(v) => updateSection('scheduling', { requireApprovalForNonPrincipal: v })}
           />
           <NumberRow
             label={t('teacherWeeklyMaxPeriods')}
@@ -445,9 +445,7 @@ export default function GeneralSettingsPage() {
             label={t('maxSolverDurationSeconds')}
             description={t('maxSolverDurationSecondsDesc')}
             value={settings.scheduling.maxSolverDurationSeconds}
-            onChange={(v) =>
-              updateSection('scheduling', { maxSolverDurationSeconds: v ?? 120 })
-            }
+            onChange={(v) => updateSection('scheduling', { maxSolverDurationSeconds: v ?? 120 })}
             min={1}
           />
 
@@ -527,18 +525,13 @@ export default function GeneralSettingsPage() {
             label={t('auditLogRetentionMonths')}
             description={t('auditLogRetentionMonthsDesc')}
             value={settings.compliance.auditLogRetentionMonths}
-            onChange={(v) =>
-              updateSection('compliance', { auditLogRetentionMonths: v ?? 36 })
-            }
+            onChange={(v) => updateSection('compliance', { auditLogRetentionMonths: v ?? 36 })}
             min={1}
           />
         </SectionCard>
 
         {/* AI Functions */}
-        <AiSection
-          settings={settings.ai}
-          onChange={(updates) => updateSection('ai', updates)}
-        />
+        <AiSection settings={settings.ai} onChange={(updates) => updateSection('ai', updates)} />
 
         {/* Report Cards */}
         <ReportCardsSection

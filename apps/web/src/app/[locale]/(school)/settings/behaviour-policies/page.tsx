@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { Download, FlaskConical, Plus, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 import { DryRunDialog } from './_components/dry-run-dialog';
 import type {
@@ -85,8 +85,9 @@ export default function BehaviourPoliciesPage() {
       ]);
       setCategories(catsRes.data ?? []);
       setYearGroups(ygRes.data ?? []);
-    } catch {
+    } catch (err) {
       // Context fetch is best-effort
+      console.error('[setYearGroups]', err);
     }
   }, []);
 
@@ -180,7 +181,8 @@ export default function BehaviourPoliciesPage() {
     try {
       await apiClient(`/api/v1/behaviour/policies/${rule.id}`, { method: 'DELETE' });
       void fetchRules();
-    } catch {
+    } catch (err) {
+      console.error('[fetchRules]', err);
       /* handled */
     }
   };
@@ -192,7 +194,8 @@ export default function BehaviourPoliciesPage() {
         body: JSON.stringify({ is_active: !rule.is_active }),
       });
       void fetchRules();
-    } catch {
+    } catch (err) {
+      console.error('[fetchRules]', err);
       /* handled */
     }
   };
@@ -213,7 +216,8 @@ export default function BehaviourPoliciesPage() {
         }),
       ]);
       void fetchRules();
-    } catch {
+    } catch (err) {
+      console.error('[fetchRules]', err);
       /* handled */
     }
   };
@@ -234,7 +238,8 @@ export default function BehaviourPoliciesPage() {
         }),
       });
       setReplayResult(res);
-    } catch {
+    } catch (err) {
+      console.error('[setReplayResult]', err);
       /* handled */
     } finally {
       setReplayLoading(false);
@@ -257,7 +262,8 @@ export default function BehaviourPoliciesPage() {
         body: JSON.stringify(body),
       });
       setDryRunResult(res);
-    } catch {
+    } catch (err) {
+      console.error('[setDryRunResult]', err);
       /* handled */
     } finally {
       setDryRunLoading(false);
@@ -275,7 +281,8 @@ export default function BehaviourPoliciesPage() {
         `/api/v1/behaviour/policies/${ruleId}/versions`,
       );
       setVersionHistory(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[setVersionHistory]', err);
       /* handled */
     } finally {
       setVersionLoading(false);
@@ -294,7 +301,8 @@ export default function BehaviourPoliciesPage() {
       a.download = 'behaviour-policies.json';
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      console.error('[revokeObjectURL]', err);
       /* handled */
     }
   };
@@ -311,7 +319,8 @@ export default function BehaviourPoliciesPage() {
         body: JSON.stringify({ rules: rulesArray }),
       });
       void fetchRules();
-    } catch {
+    } catch (err) {
+      console.error('[fetchRules]', err);
       /* handled */
     }
     event.target.value = '';

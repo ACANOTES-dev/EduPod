@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import type { BehaviourAnalyticsQuery, StaffResult, TeacherAnalyticsResult } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -159,6 +160,7 @@ export class BehaviourStaffAnalyticsService {
     const exposureTeacherMap = new Map<string, number>();
 
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query on materialized view with tenant filter
       const exposureRows = await this.prisma.$queryRaw<
         Array<{ teacher_id: string; total_teaching_periods: bigint }>
       >`SELECT teacher_id, SUM(total_teaching_periods) as total_teaching_periods

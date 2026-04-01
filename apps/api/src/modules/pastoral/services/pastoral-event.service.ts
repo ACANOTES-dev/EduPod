@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import { pastoralEventPayloadMap } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -41,14 +42,10 @@ export class PastoralEventService {
     try {
       // 1. Validate payload against the Zod schema for this event_type
       const schema =
-        pastoralEventPayloadMap[
-          event.event_type as keyof typeof pastoralEventPayloadMap
-        ];
+        pastoralEventPayloadMap[event.event_type as keyof typeof pastoralEventPayloadMap];
 
       if (!schema) {
-        this.logger.error(
-          `Unknown pastoral event type: ${event.event_type} — discarding event`,
-        );
+        this.logger.error(`Unknown pastoral event type: ${event.event_type} — discarding event`);
         return;
       }
 
@@ -103,7 +100,18 @@ export class PastoralEventService {
     page: number,
     pageSize: number,
   ): Promise<{
-    data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+    data: {
+      id: string;
+      event_type: string;
+      entity_type: string;
+      entity_id: string;
+      student_id: string | null;
+      actor_user_id: string;
+      tier: number;
+      payload: Prisma.JsonValue;
+      ip_address: string | null;
+      created_at: Date;
+    }[];
     meta: PaginationMeta;
   }> {
     const rlsClient = createRlsClient(this.prisma, {
@@ -130,7 +138,18 @@ export class PastoralEventService {
 
       return { data, meta: { page, pageSize, total } };
     }) as Promise<{
-      data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+      data: {
+        id: string;
+        event_type: string;
+        entity_type: string;
+        entity_id: string;
+        student_id: string | null;
+        actor_user_id: string;
+        tier: number;
+        payload: Prisma.JsonValue;
+        ip_address: string | null;
+        created_at: Date;
+      }[];
       meta: PaginationMeta;
     }>;
   }
@@ -146,7 +165,18 @@ export class PastoralEventService {
     page: number,
     pageSize: number,
   ): Promise<{
-    data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+    data: {
+      id: string;
+      event_type: string;
+      entity_type: string;
+      entity_id: string;
+      student_id: string | null;
+      actor_user_id: string;
+      tier: number;
+      payload: Prisma.JsonValue;
+      ip_address: string | null;
+      created_at: Date;
+    }[];
     meta: PaginationMeta;
   }> {
     const rlsClient = createRlsClient(this.prisma, {
@@ -181,7 +211,18 @@ export class PastoralEventService {
 
       return { data, meta: { page, pageSize, total } };
     }) as Promise<{
-      data: { id: string; event_type: string; entity_type: string; entity_id: string; student_id: string | null; actor_user_id: string; tier: number; payload: Prisma.JsonValue; ip_address: string | null; created_at: Date }[];
+      data: {
+        id: string;
+        event_type: string;
+        entity_type: string;
+        entity_id: string;
+        student_id: string | null;
+        actor_user_id: string;
+        tier: number;
+        payload: Prisma.JsonValue;
+        ip_address: string | null;
+        created_at: Date;
+      }[];
       meta: PaginationMeta;
     }>;
   }

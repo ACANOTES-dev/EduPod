@@ -1,5 +1,10 @@
 'use client';
 
+import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,11 +16,6 @@ import {
   DialogTitle,
   StatusBadge,
 } from '@school/ui';
-import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -55,11 +55,7 @@ function TierBadge({ tier }: { tier: string }) {
     staff: 'secondary',
     parent: 'secondary',
   };
-  return (
-    <Badge variant={variants[tier] ?? 'secondary'}>
-      {labels[tier] ?? tier}
-    </Badge>
-  );
+  return <Badge variant={variants[tier] ?? 'secondary'}>{labels[tier] ?? tier}</Badge>;
 }
 
 // ─── Delete confirm dialog ────────────────────────────────────────────────────
@@ -75,14 +71,21 @@ function DeleteDialog({ open, loading, onConfirm, onCancel }: DeleteDialogProps)
   const t = useTranslations('roles');
   const tc = useTranslations('common');
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onCancel();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('deleteConfirmTitle')}</DialogTitle>
           <DialogDescription>{t('deleteConfirmDescription')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>{tc('cancel')}</Button>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
+            {tc('cancel')}
+          </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={loading}>
             {loading ? tc('loading') : tc('delete')}
           </Button>
@@ -118,8 +121,9 @@ export default function RolesPage() {
       const res = await apiClient<RolesResponse>('/api/v1/roles');
       setData(res.data);
       setTotal(res.data.length);
-    } catch {
+    } catch (err) {
       // silently swallowed
+      console.error('[setTotal]', err);
     } finally {
       setIsLoading(false);
     }
@@ -143,8 +147,9 @@ export default function RolesPage() {
       setDeleteTarget(null);
       setSuccessMsg(t('deleteSuccess'));
       void fetchRoles();
-    } catch {
+    } catch (err) {
       // keep dialog open on error
+      console.error('[fetchRoles]', err);
     } finally {
       setDeleteLoading(false);
     }
@@ -167,9 +172,7 @@ export default function RolesPage() {
     {
       key: 'key',
       header: t('key'),
-      render: (row: RoleRow) => (
-        <code className="text-xs text-text-secondary">{row.role_key}</code>
-      ),
+      render: (row: RoleRow) => <code className="text-xs text-text-secondary">{row.role_key}</code>,
     },
     {
       key: 'tier',
@@ -190,9 +193,7 @@ export default function RolesPage() {
       key: 'permissions',
       header: t('permissions'),
       render: (row: RoleRow) => (
-        <span className="text-sm text-text-secondary">
-          {row._count?.role_permissions ?? 0}
-        </span>
+        <span className="text-sm text-text-secondary">{row._count?.role_permissions ?? 0}</span>
       ),
     },
     {

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
@@ -13,7 +14,6 @@ import { ScheduleSwapService } from './schedule-swap.service';
 import { SchedulingAnalyticsService } from './scheduling-analytics.service';
 import { SchedulingEnhancedController } from './scheduling-enhanced.controller';
 import { SubstitutionService } from './substitution.service';
-
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -134,9 +134,7 @@ describe('SchedulingEnhancedController', () => {
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<SchedulingEnhancedController>(
-      SchedulingEnhancedController,
-    );
+    controller = module.get<SchedulingEnhancedController>(SchedulingEnhancedController);
     jest.clearAllMocks();
   });
 
@@ -167,9 +165,7 @@ describe('SchedulingEnhancedController', () => {
 
     const result = await controller.getTodayBoard(TENANT);
 
-    expect(mockSubstitutionService.getTodayBoard).toHaveBeenCalledWith(
-      'tenant-uuid',
-    );
+    expect(mockSubstitutionService.getTodayBoard).toHaveBeenCalledWith('tenant-uuid');
     expect(result).toEqual(board);
   });
 
@@ -182,10 +178,7 @@ describe('SchedulingEnhancedController', () => {
 
     const result = await controller.getCoverReport(TENANT, query);
 
-    expect(mockCoverTrackingService.getCoverReport).toHaveBeenCalledWith(
-      'tenant-uuid',
-      query,
-    );
+    expect(mockCoverTrackingService.getCoverReport).toHaveBeenCalledWith('tenant-uuid', query);
     expect(result).toEqual(report);
   });
 
@@ -197,15 +190,16 @@ describe('SchedulingEnhancedController', () => {
       schedule_id_b: 'sched-b',
       date: '2025-03-10',
     };
-    const validation = { valid: true, violations: [], impact: { teachers_affected: [], rooms_changed: false, description: 'OK' } };
+    const validation = {
+      valid: true,
+      violations: [],
+      impact: { teachers_affected: [], rooms_changed: false, description: 'OK' },
+    };
     mockScheduleSwapService.validateSwap.mockResolvedValue(validation);
 
     const result = await controller.validateSwap(TENANT, dto);
 
-    expect(mockScheduleSwapService.validateSwap).toHaveBeenCalledWith(
-      'tenant-uuid',
-      dto,
-    );
+    expect(mockScheduleSwapService.validateSwap).toHaveBeenCalledWith('tenant-uuid', dto);
     expect(result).toEqual(validation);
   });
 
@@ -215,19 +209,15 @@ describe('SchedulingEnhancedController', () => {
     const staffId = 'staff-uuid';
     const query = { rotation_week: 1 };
     const timetable = { entries: [], teacher_name: 'Teacher A' };
-    mockPersonalTimetableService.getTeacherTimetable.mockResolvedValue(
-      timetable,
-    );
+    mockPersonalTimetableService.getTeacherTimetable.mockResolvedValue(timetable);
 
-    const result = await controller.getTeacherTimetable(
-      TENANT,
+    const result = await controller.getTeacherTimetable(TENANT, staffId, query);
+
+    expect(mockPersonalTimetableService.getTeacherTimetable).toHaveBeenCalledWith(
+      'tenant-uuid',
       staffId,
       query,
     );
-
-    expect(
-      mockPersonalTimetableService.getTeacherTimetable,
-    ).toHaveBeenCalledWith('tenant-uuid', staffId, query);
     expect(result).toEqual(timetable);
   });
 
@@ -245,10 +235,7 @@ describe('SchedulingEnhancedController', () => {
 
     const result = await controller.createExamSession(TENANT, dto);
 
-    expect(mockExamSchedulingService.createExamSession).toHaveBeenCalledWith(
-      'tenant-uuid',
-      dto,
-    );
+    expect(mockExamSchedulingService.createExamSession).toHaveBeenCalledWith('tenant-uuid', dto);
     expect(result).toEqual(created);
   });
 
@@ -282,26 +269,18 @@ describe('SchedulingEnhancedController', () => {
 
     const result = await controller.getEfficiencyDashboard(TENANT, query);
 
-    expect(mockAnalyticsService.getEfficiencyDashboard).toHaveBeenCalledWith(
-      'tenant-uuid',
-      query,
-    );
+    expect(mockAnalyticsService.getEfficiencyDashboard).toHaveBeenCalledWith('tenant-uuid', query);
     expect(result).toEqual(dashboard);
   });
 
   it('should call analyticsService.getRoomUtilization with correct params', async () => {
     const query = { academic_year_id: AY_ID };
-    const rooms = [
-      { room_id: 'r1', room_name: 'Lab', utilization_rate: 0.9 },
-    ];
+    const rooms = [{ room_id: 'r1', room_name: 'Lab', utilization_rate: 0.9 }];
     mockAnalyticsService.getRoomUtilization.mockResolvedValue(rooms);
 
     const result = await controller.getRoomUtilization(TENANT, query);
 
-    expect(mockAnalyticsService.getRoomUtilization).toHaveBeenCalledWith(
-      'tenant-uuid',
-      query,
-    );
+    expect(mockAnalyticsService.getRoomUtilization).toHaveBeenCalledWith('tenant-uuid', query);
     expect(result).toEqual(rooms);
   });
 });

@@ -1,6 +1,19 @@
 'use client';
 
 import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
+  Search,
+  UserCheck,
+  UserX,
+} from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Badge,
   Button,
   Dialog,
@@ -18,18 +31,6 @@ import {
   Switch,
   toast,
 } from '@school/ui';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Plus,
-  Search,
-  UserCheck,
-  UserX,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -86,7 +87,11 @@ interface SubstitutionRecord {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: AbsenceSlot['substitute_status'] | SubstitutionRecord['status'] }) {
+function StatusBadge({
+  status,
+}: {
+  status: AbsenceSlot['substitute_status'] | SubstitutionRecord['status'];
+}) {
   const variants: Record<string, string> = {
     unassigned: 'bg-warning-100 text-warning-700 border-warning-200',
     assigned: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -95,7 +100,9 @@ function StatusBadge({ status }: { status: AbsenceSlot['substitute_status'] | Su
     completed: 'bg-surface-secondary text-text-tertiary border-border',
   };
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${variants[status] ?? variants.unassigned}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${variants[status] ?? variants.unassigned}`}
+    >
       {status}
     </span>
   );
@@ -154,13 +161,16 @@ function SuggestionsModal({
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium text-text-primary">{s.full_name}</span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${s.qualification_match === 'primary' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${s.qualification_match === 'primary' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
+                    >
                       {s.qualification_match === 'primary' ? t('primaryMatch') : t('eligibleMatch')}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-text-tertiary">{s.reason}</p>
                   <p className="text-xs text-text-tertiary">
-                    {t('coverCount', { count: s.cover_count })} &middot; {t('confidence', { pct: Math.round(s.confidence * 100) })}%
+                    {t('coverCount', { count: s.cover_count })} &middot;{' '}
+                    {t('confidence', { pct: Math.round(s.confidence * 100) })}%
                   </p>
                 </div>
                 <Button
@@ -198,7 +208,14 @@ function ReportAbsenceModal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   staff: StaffProfile[];
-  onSubmit: (values: { staff_profile_id: string; absence_date: string; full_day: boolean; period_from: number | null; period_to: number | null; reason: string }) => Promise<void>;
+  onSubmit: (values: {
+    staff_profile_id: string;
+    absence_date: string;
+    full_day: boolean;
+    period_from: number | null;
+    period_to: number | null;
+    reason: string;
+  }) => Promise<void>;
 }) {
   const t = useTranslations('scheduling.substitutions');
   const tc = useTranslations('common');
@@ -228,7 +245,14 @@ function ReportAbsenceModal({
     setLoading(true);
     setError('');
     try {
-      await onSubmit({ staff_profile_id: staffId, absence_date: date, full_day: fullDay, period_from: null, period_to: null, reason });
+      await onSubmit({
+        staff_profile_id: staffId,
+        absence_date: date,
+        full_day: fullDay,
+        period_from: null,
+        period_to: null,
+        reason,
+      });
       onOpenChange(false);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -253,14 +277,22 @@ function ReportAbsenceModal({
               </SelectTrigger>
               <SelectContent>
                 {staff.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.full_name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>{t('absenceDate')}</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} dir="ltr" required />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              dir="ltr"
+              required
+            />
           </div>
           <div className="flex items-center justify-between gap-4">
             <Label>{t('fullDay')}</Label>
@@ -268,11 +300,20 @@ function ReportAbsenceModal({
           </div>
           <div className="space-y-1.5">
             <Label>{t('reason')}</Label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t('reasonPlaceholder')} />
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t('reasonPlaceholder')}
+            />
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               {tc('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>
@@ -295,7 +336,10 @@ function TodayTab() {
   const [loading, setLoading] = React.useState(true);
   const [reportOpen, setReportOpen] = React.useState(false);
   const [suggestOpen, setSuggestOpen] = React.useState(false);
-  const [activeSlot, setActiveSlot] = React.useState<{ absenceId: string; slot: AbsenceSlot } | null>(null);
+  const [activeSlot, setActiveSlot] = React.useState<{
+    absenceId: string;
+    slot: AbsenceSlot;
+  } | null>(null);
   const [suggestions, setSuggestions] = React.useState<SubstituteSuggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = React.useState(false);
 
@@ -304,7 +348,9 @@ function TodayTab() {
   const fetchAbsences = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<{ data: TeacherAbsence[] }>(`/api/v1/scheduling/absences?date=${today ?? ''}`);
+      const res = await apiClient<{ data: TeacherAbsence[] }>(
+        `/api/v1/scheduling/absences?date=${today ?? ''}`,
+      );
       setAbsences(res.data ?? []);
     } catch {
       setAbsences([]);
@@ -327,7 +373,7 @@ function TodayTab() {
     setSuggestions([]);
     try {
       const res = await apiClient<{ data: SubstituteSuggestion[] }>(
-        `/api/v1/scheduling/absences/${absenceId}/suggestions?schedule_id=${slot.schedule_id}`
+        `/api/v1/scheduling/absences/${absenceId}/suggestions?schedule_id=${slot.schedule_id}`,
       );
       setSuggestions(res.data ?? []);
     } catch {
@@ -351,7 +397,11 @@ function TodayTab() {
     void fetchAbsences();
   };
 
-  const handleReportAbsence = async (values: Parameters<typeof ReportAbsenceModal>[0]['onSubmit'] extends (v: infer V) => unknown ? V : never) => {
+  const handleReportAbsence = async (
+    values: Parameters<typeof ReportAbsenceModal>[0]['onSubmit'] extends (v: infer V) => unknown
+      ? V
+      : never,
+  ) => {
     await apiClient('/api/v1/scheduling/absences', {
       method: 'POST',
       body: JSON.stringify(values),
@@ -403,14 +453,19 @@ function TodayTab() {
                 {absence.reason ? ` · ${absence.reason}` : ''}
               </p>
             </div>
-            <Badge variant="secondary">{absence.slots.filter((s) => s.substitute_status === 'unassigned').length} {t('unassigned')}</Badge>
+            <Badge variant="secondary">
+              {absence.slots.filter((s) => s.substitute_status === 'unassigned').length}{' '}
+              {t('unassigned')}
+            </Badge>
           </div>
 
           <div className="divide-y divide-border">
             {absence.slots.map((slot) => (
               <div key={slot.schedule_id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <div className="flex-1 min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium text-text-primary">{slot.period_name} &middot; {slot.subject_name}</p>
+                  <p className="text-sm font-medium text-text-primary">
+                    {slot.period_name} &middot; {slot.subject_name}
+                  </p>
                   <p className="text-xs text-text-secondary">{slot.class_name}</p>
                 </div>
                 <StatusBadge status={slot.substitute_status} />
@@ -469,7 +524,7 @@ function HistoryTab() {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search) params.set('search', search);
       const res = await apiClient<{ data: SubstitutionRecord[]; meta: { total: number } }>(
-        `/api/v1/scheduling/substitutions?${params.toString()}`
+        `/api/v1/scheduling/substitutions?${params.toString()}`,
       );
       setRecords(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
@@ -480,7 +535,9 @@ function HistoryTab() {
     }
   }, [page, search]);
 
-  React.useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+  React.useEffect(() => {
+    void fetchHistory();
+  }, [fetchHistory]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -491,7 +548,10 @@ function HistoryTab() {
           <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
           <Input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             placeholder={t('searchHistory')}
             className="ps-9"
           />
@@ -510,23 +570,44 @@ function HistoryTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('date')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('absentTeacher')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('substitute')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('period')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('subject')}</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{t('status')}</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('date')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('absentTeacher')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('substitute')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('period')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('subject')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">
+                  {t('status')}
+                </th>
               </tr>
             </thead>
             <tbody>
               {records.map((rec) => (
-                <tr key={rec.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50">
-                  <td className="px-4 py-3 text-text-secondary">{new Date(rec.absence_date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 font-medium text-text-primary">{rec.absent_teacher_name}</td>
+                <tr
+                  key={rec.id}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                >
+                  <td className="px-4 py-3 text-text-secondary">
+                    {new Date(rec.absence_date).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-text-primary">
+                    {rec.absent_teacher_name}
+                  </td>
                   <td className="px-4 py-3 text-text-secondary">{rec.substitute_name}</td>
                   <td className="px-4 py-3 text-text-secondary">{rec.period_name}</td>
                   <td className="px-4 py-3 text-text-secondary">{rec.subject_name}</td>
-                  <td className="px-4 py-3"><StatusBadge status={rec.status} /></td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={rec.status} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -538,10 +619,20 @@ function HistoryTab() {
         <div className="flex items-center justify-between text-sm text-text-secondary">
           <span>{t('pageOf', { page, total: totalPages })}</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
               {t('prev')}
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
               {t('next')}
             </Button>
           </div>
@@ -559,10 +650,7 @@ export default function SubstitutionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">

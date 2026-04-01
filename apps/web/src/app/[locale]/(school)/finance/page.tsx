@@ -1,19 +1,18 @@
 'use client';
 
-import type { FinanceDashboardData } from '@school/shared';
-import { StatCard } from '@school/ui';
-import {
-  RotateCcw,
-} from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import type { FinanceDashboardData } from '@school/shared';
+import { StatCard } from '@school/ui';
 
 import { PaymentStatusBadge } from './_components/payment-status-badge';
 import { PdfPreviewModal } from './_components/pdf-preview-modal';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,13 +31,29 @@ function HouseholdDebtBreakdown({
   breakdown: FinanceDashboardData['household_debt_breakdown'];
 }) {
   const t = useTranslations('finance');
-  const total = breakdown.pct_0_10 + breakdown.pct_10_30 + breakdown.pct_30_50 + breakdown.pct_50_plus;
+  const total =
+    breakdown.pct_0_10 + breakdown.pct_10_30 + breakdown.pct_30_50 + breakdown.pct_50_plus;
 
   const buckets = [
     { key: 'pct_0_10', label: t('debt0to10'), count: breakdown.pct_0_10, color: 'bg-success-400' },
-    { key: 'pct_10_30', label: t('debt10to30'), count: breakdown.pct_10_30, color: 'bg-warning-400' },
-    { key: 'pct_30_50', label: t('debt30to50'), count: breakdown.pct_30_50, color: 'bg-warning-600' },
-    { key: 'pct_50_plus', label: t('debt50plus'), count: breakdown.pct_50_plus, color: 'bg-danger-500' },
+    {
+      key: 'pct_10_30',
+      label: t('debt10to30'),
+      count: breakdown.pct_10_30,
+      color: 'bg-warning-400',
+    },
+    {
+      key: 'pct_30_50',
+      label: t('debt30to50'),
+      count: breakdown.pct_30_50,
+      color: 'bg-warning-600',
+    },
+    {
+      key: 'pct_50_plus',
+      label: t('debt50plus'),
+      count: breakdown.pct_50_plus,
+      color: 'bg-danger-500',
+    },
   ];
 
   return (
@@ -88,11 +103,7 @@ function HouseholdDebtBreakdown({
 
 // ─── Recent Payments ──────────────────────────────────────────────────────────
 
-function RecentPaymentsTable({
-  payments,
-}: {
-  payments: FinanceDashboardData['recent_payments'];
-}) {
+function RecentPaymentsTable({ payments }: { payments: FinanceDashboardData['recent_payments'] }) {
   const t = useTranslations('finance');
   const router = useRouter();
   const pathname = usePathname();
@@ -225,8 +236,9 @@ export default function FinanceDashboardPage() {
     try {
       const res = await apiClient<{ data: FinanceDashboardData }>('/api/v1/finance/dashboard');
       setData(res.data);
-    } catch {
+    } catch (err) {
       // Silently fall back to null
+      console.error('[setData]', err);
     } finally {
       setIsLoading(false);
     }
@@ -268,22 +280,10 @@ export default function FinanceDashboardPage() {
 
       {/* Top summary cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t('expectedRevenue')}
-          value={formatCurrency(data.expected_revenue)}
-        />
-        <StatCard
-          label={t('receivedPayments')}
-          value={formatCurrency(data.received_payments)}
-        />
-        <StatCard
-          label={t('outstandingAmount')}
-          value={formatCurrency(data.outstanding)}
-        />
-        <StatCard
-          label={t('collectionRate')}
-          value={`${data.collection_rate.toFixed(1)}%`}
-        />
+        <StatCard label={t('expectedRevenue')} value={formatCurrency(data.expected_revenue)} />
+        <StatCard label={t('receivedPayments')} value={formatCurrency(data.received_payments)} />
+        <StatCard label={t('outstandingAmount')} value={formatCurrency(data.outstanding)} />
+        <StatCard label={t('collectionRate')} value={`${data.collection_rate.toFixed(1)}%`} />
       </div>
 
       {/* Household Debt Breakdown */}

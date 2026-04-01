@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
 import type { JwtPayload } from '@school/shared';
 
 import { SecurityAuditService } from '../../modules/audit-log/security-audit.service';

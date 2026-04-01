@@ -1,6 +1,5 @@
 'use client';
 
-import { Skeleton, StatCard } from '@school/ui';
 import {
   Activity,
   Database,
@@ -12,6 +11,8 @@ import {
   Workflow,
 } from 'lucide-react';
 import * as React from 'react';
+
+import { Skeleton, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

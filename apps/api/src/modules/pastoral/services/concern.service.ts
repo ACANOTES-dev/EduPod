@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import {
   notifyConcernJobPayloadSchema,
   pastoralEscalationTimeoutJobPayloadSchema,
@@ -17,7 +19,6 @@ import type {
   ShareConcernWithParentDto,
   UpdateConcernMetadataDto,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PermissionCacheService } from '../../../common/services/permission-cache.service';

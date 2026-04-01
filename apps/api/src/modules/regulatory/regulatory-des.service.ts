@@ -1,13 +1,18 @@
 import { createHash } from 'crypto';
 
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+
 import type { DesFileType } from '@school/shared';
 import { DES_FILE_TYPES } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
 
-import type { DesColumnDef, DesFileExporter, DesFileRow } from './adapters/des-file-exporter.interface';
+import type {
+  DesColumnDef,
+  DesFileExporter,
+  DesFileRow,
+} from './adapters/des-file-exporter.interface';
 import { DES_FILE_EXPORTER } from './adapters/des-file-exporter.interface';
 import { RegulatorySubmissionService } from './regulatory-submission.service';
 
@@ -243,7 +248,12 @@ export class RegulatoryDesService {
 
   // ─── Generate File ───────────────────────────────────────────────────────────
 
-  async generateFile(tenantId: string, userId: string, fileType: DesFileType, academicYear: string) {
+  async generateFile(
+    tenantId: string,
+    userId: string,
+    fileType: DesFileType,
+    academicYear: string,
+  ) {
     this.validateFileType(fileType);
 
     const rawRows = await this.collectRows(tenantId, fileType, academicYear);
@@ -429,12 +439,15 @@ export class RegulatoryDesService {
     });
 
     // Group by teacher + subject to calculate weekly hours
-    const loadMap = new Map<string, {
-      teacher_name: string;
-      subject_name: string;
-      des_code: string | null;
-      total_minutes: number;
-    }>();
+    const loadMap = new Map<
+      string,
+      {
+        teacher_name: string;
+        subject_name: string;
+        des_code: string | null;
+        total_minutes: number;
+      }
+    >();
 
     for (const schedule of schedules) {
       const teacher = schedule.teacher;
@@ -492,87 +505,132 @@ export class RegulatoryDesService {
     return errors;
   }
 
-  private validateFileARows(
-    rows: unknown[],
-    errors: ValidationError[],
-  ): void {
+  private validateFileARows(rows: unknown[], errors: ValidationError[]): void {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       const user = row.user as Record<string, string> | null;
       if (!user?.first_name) {
-        errors.push({ row_index: i, field: 'first_name', message: 'Staff member missing first name', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'first_name',
+          message: 'Staff member missing first name',
+          severity: 'error',
+        });
       }
       if (!user?.last_name) {
-        errors.push({ row_index: i, field: 'last_name', message: 'Staff member missing last name', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'last_name',
+          message: 'Staff member missing last name',
+          severity: 'error',
+        });
       }
     }
   }
 
-  private validateFileCRows(
-    rows: unknown[],
-    errors: ValidationError[],
-  ): void {
+  private validateFileCRows(rows: unknown[], errors: ValidationError[]): void {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       if (!row.name) {
-        errors.push({ row_index: i, field: 'name', message: 'Class missing name', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'name',
+          message: 'Class missing name',
+          severity: 'error',
+        });
       }
       if (!row.year_group) {
-        errors.push({ row_index: i, field: 'year_group', message: 'Class missing year group', severity: 'warning' });
+        errors.push({
+          row_index: i,
+          field: 'year_group',
+          message: 'Class missing year group',
+          severity: 'warning',
+        });
       }
     }
   }
 
-  private validateFileDRows(
-    rows: unknown[],
-    errors: ValidationError[],
-  ): void {
+  private validateFileDRows(rows: unknown[], errors: ValidationError[]): void {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       const mappings = row.reg_des_code_mappings as Array<Record<string, string>> | undefined;
       const firstMapping = mappings?.[0];
       if (!firstMapping?.des_code) {
-        errors.push({ row_index: i, field: 'des_code', message: 'Subject missing DES code', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'des_code',
+          message: 'Subject missing DES code',
+          severity: 'error',
+        });
       }
     }
   }
 
-  private validateFileERows(
-    rows: unknown[],
-    errors: ValidationError[],
-  ): void {
+  private validateFileERows(rows: unknown[], errors: ValidationError[]): void {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       const ppsn = row.national_id as string | null;
       if (!ppsn) {
-        errors.push({ row_index: i, field: 'ppsn', message: 'Student missing PPSN', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'ppsn',
+          message: 'Student missing PPSN',
+          severity: 'error',
+        });
       } else if (!PPSN_REGEX.test(ppsn)) {
-        errors.push({ row_index: i, field: 'ppsn', message: `Invalid PPSN format: "${ppsn}"`, severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'ppsn',
+          message: `Invalid PPSN format: "${ppsn}"`,
+          severity: 'error',
+        });
       }
       if (!row.date_of_birth) {
-        errors.push({ row_index: i, field: 'date_of_birth', message: 'Student missing date of birth', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'date_of_birth',
+          message: 'Student missing date of birth',
+          severity: 'error',
+        });
       }
       if (!row.gender) {
-        errors.push({ row_index: i, field: 'gender', message: 'Student missing gender', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'gender',
+          message: 'Student missing gender',
+          severity: 'error',
+        });
       }
     }
   }
 
-  private validateFormTlRows(
-    rows: unknown[],
-    errors: ValidationError[],
-  ): void {
+  private validateFormTlRows(rows: unknown[], errors: ValidationError[]): void {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i] as Record<string, unknown>;
       if (!row.teacher_name) {
-        errors.push({ row_index: i, field: 'teacher_name', message: 'Teaching load missing teacher name', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'teacher_name',
+          message: 'Teaching load missing teacher name',
+          severity: 'error',
+        });
       }
       if (!row.des_code) {
-        errors.push({ row_index: i, field: 'des_code', message: 'Teaching load missing DES code for subject', severity: 'warning' });
+        errors.push({
+          row_index: i,
+          field: 'des_code',
+          message: 'Teaching load missing DES code for subject',
+          severity: 'warning',
+        });
       }
       const totalMinutes = row.total_minutes as number | undefined;
       if (!totalMinutes || totalMinutes <= 0) {
-        errors.push({ row_index: i, field: 'weekly_hours', message: 'Teaching load has zero or negative hours', severity: 'error' });
+        errors.push({
+          row_index: i,
+          field: 'weekly_hours',
+          message: 'Teaching load has zero or negative hours',
+          severity: 'error',
+        });
       }
     }
   }
@@ -630,7 +688,9 @@ export class RegulatoryDesService {
   private formatFileDRows(rawRows: unknown[]): DesFileRow[] {
     return rawRows.map((raw) => {
       const row = raw as Record<string, unknown>;
-      const mappings = row.reg_des_code_mappings as Array<Record<string, string | null>> | undefined;
+      const mappings = row.reg_des_code_mappings as
+        | Array<Record<string, string | null>>
+        | undefined;
       const mapping = mappings?.[0];
       return {
         subject_name: (row.name as string | null) ?? null,

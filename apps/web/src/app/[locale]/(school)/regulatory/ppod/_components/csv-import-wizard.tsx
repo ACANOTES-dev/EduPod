@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, cn, toast } from '@school/ui';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, cn, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -90,9 +91,9 @@ function parseCsv(content: string): ParsedCsv {
   }
 
   const headers = (lines[0] ?? '').split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-  const rows = lines.slice(1).map((line) =>
-    line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, '')),
-  );
+  const rows = lines
+    .slice(1)
+    .map((line) => line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, '')));
 
   return { headers, rows, totalRows: rows.length };
 }
@@ -121,29 +122,32 @@ export function CsvImportWizard({ databaseType, onComplete, onCancel }: CsvImpor
 
   // ─── File Upload Handler ───────────────────────────────────────────────
 
-  const handleFileSelect = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileSelect = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
-      toast.error(t('ppod.errorInvalidFileType'));
-      return;
-    }
+      if (!file.name.endsWith('.csv')) {
+        toast.error(t('ppod.errorInvalidFileType'));
+        return;
+      }
 
-    setFileName(file.name);
-    setFileSize(file.size);
+      setFileName(file.name);
+      setFileSize(file.size);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setFileContent(content);
-      setParsedCsv(parseCsv(content));
-    };
-    reader.onerror = () => {
-      toast.error(t('ppod.errorFileRead'));
-    };
-    reader.readAsText(file);
-  }, [t]);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        setFileContent(content);
+        setParsedCsv(parseCsv(content));
+      };
+      reader.onerror = () => {
+        toast.error(t('ppod.errorFileRead'));
+      };
+      reader.readAsText(file);
+    },
+    [t],
+  );
 
   const handleRemoveFile = React.useCallback(() => {
     setFileContent('');
@@ -298,15 +302,9 @@ export function CsvImportWizard({ databaseType, onComplete, onCancel }: CsvImpor
             </thead>
             <tbody>
               {previewRows.map((row, rowIdx) => (
-                <tr
-                  key={rowIdx}
-                  className="border-b border-border last:border-b-0"
-                >
+                <tr key={rowIdx} className="border-b border-border last:border-b-0">
                   {row.map((cell, cellIdx) => (
-                    <td
-                      key={cellIdx}
-                      className="whitespace-nowrap px-3 py-2 text-text-primary"
-                    >
+                    <td key={cellIdx} className="whitespace-nowrap px-3 py-2 text-text-primary">
                       {cell}
                     </td>
                   ))}
@@ -394,20 +392,12 @@ export function CsvImportWizard({ databaseType, onComplete, onCancel }: CsvImpor
           )}
           <div>
             <p
-              className={cn(
-                'font-semibold',
-                hasErrors ? 'text-warning-text' : 'text-success-text',
-              )}
+              className={cn('font-semibold', hasErrors ? 'text-warning-text' : 'text-success-text')}
             >
-              {hasErrors
-                ? t('ppod.importCompleteWithErrors')
-                : t('ppod.importCompleteSuccess')}
+              {hasErrors ? t('ppod.importCompleteWithErrors') : t('ppod.importCompleteSuccess')}
             </p>
             <p
-              className={cn(
-                'text-sm',
-                hasErrors ? 'text-warning-text/80' : 'text-success-text/80',
-              )}
+              className={cn('text-sm', hasErrors ? 'text-warning-text/80' : 'text-success-text/80')}
             >
               {t('ppod.importProcessedCount', { count: totalProcessed })}
             </p>
@@ -417,27 +407,19 @@ export function CsvImportWizard({ databaseType, onComplete, onCancel }: CsvImpor
         {/* Result Counts */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 text-center">
-            <p className="text-2xl font-bold text-success-text">
-              {importResult.records_created}
-            </p>
+            <p className="text-2xl font-bold text-success-text">{importResult.records_created}</p>
             <p className="text-xs text-text-tertiary">{t('ppod.importCreated')}</p>
           </div>
           <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 text-center">
-            <p className="text-2xl font-bold text-primary-600">
-              {importResult.records_updated}
-            </p>
+            <p className="text-2xl font-bold text-primary-600">{importResult.records_updated}</p>
             <p className="text-xs text-text-tertiary">{t('ppod.importUpdated')}</p>
           </div>
           <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 text-center">
-            <p className="text-2xl font-bold text-text-tertiary">
-              {importResult.records_skipped}
-            </p>
+            <p className="text-2xl font-bold text-text-tertiary">{importResult.records_skipped}</p>
             <p className="text-xs text-text-tertiary">{t('ppod.importSkipped')}</p>
           </div>
           <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 text-center">
-            <p className="text-2xl font-bold text-danger-text">
-              {importResult.records_failed}
-            </p>
+            <p className="text-2xl font-bold text-danger-text">{importResult.records_failed}</p>
             <p className="text-xs text-text-tertiary">{t('ppod.importFailed')}</p>
           </div>
         </div>
@@ -465,10 +447,7 @@ export function CsvImportWizard({ databaseType, onComplete, onCancel }: CsvImpor
                 </thead>
                 <tbody>
                   {importResult.errors.map((error, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-b border-danger-text/10 last:border-b-0"
-                    >
+                    <tr key={idx} className="border-b border-danger-text/10 last:border-b-0">
                       <td className="whitespace-nowrap px-3 py-2 font-mono text-text-primary">
                         {error.row}
                       </td>

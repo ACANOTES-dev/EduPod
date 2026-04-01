@@ -3,10 +3,10 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { RiskTierBadge } from './risk-tier-badge';
+
 import { TIER_COLORS, type TierTransition } from '@/lib/early-warning';
 import { formatDateTime } from '@/lib/format-date';
-
-import { RiskTierBadge } from './risk-tier-badge';
 
 interface TierTransitionTimelineProps {
   transitions: TierTransition[];
@@ -16,9 +16,7 @@ export function TierTransitionTimeline({ transitions }: TierTransitionTimelinePr
   const t = useTranslations('early_warning');
 
   if (transitions.length === 0) {
-    return (
-      <p className="text-sm text-text-tertiary">{t('detail.no_transitions')}</p>
-    );
+    return <p className="text-sm text-text-tertiary">{t('detail.no_transitions')}</p>;
   }
 
   // Most recent first

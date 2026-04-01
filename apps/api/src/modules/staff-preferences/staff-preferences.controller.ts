@@ -12,16 +12,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createStaffPreferenceSchema,
-  updateStaffPreferenceSchema,
-} from '@school/shared';
+import { z } from 'zod';
+
+import { createStaffPreferenceSchema, updateStaffPreferenceSchema } from '@school/shared';
 import type {
   CreateStaffPreferenceDto,
   JwtPayload,
   UpdateStaffPreferenceDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

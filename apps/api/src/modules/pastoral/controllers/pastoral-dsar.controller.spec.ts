@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
@@ -55,9 +56,7 @@ describe('PastoralDsarController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PastoralDsarController],
-      providers: [
-        { provide: PastoralDsarService, useValue: mockDsarService },
-      ],
+      providers: [{ provide: PastoralDsarService, useValue: mockDsarService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -135,7 +134,12 @@ describe('PastoralDsarController', () => {
 
   describe('list', () => {
     it('should delegate to dsarService.listReviews', async () => {
-      const filters = { page: 1, pageSize: 20, sort: 'created_at' as const, order: 'desc' as const };
+      const filters = {
+        page: 1,
+        pageSize: 20,
+        sort: 'created_at' as const,
+        order: 'desc' as const,
+      };
       const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockDsarService.listReviews.mockResolvedValue(expected);
 

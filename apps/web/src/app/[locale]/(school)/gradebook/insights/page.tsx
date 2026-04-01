@@ -1,16 +1,5 @@
 'use client';
 
-import {
-  Badge,
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StatusBadge,
-  toast,
-} from '@school/ui';
 import { AlertTriangle, BarChart2, CheckCircle, TrendingDown } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -25,6 +14,18 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import {
+  Badge,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -103,13 +104,25 @@ const RISK_VARIANT: Record<string, 'warning' | 'neutral' | 'info'> = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const CHART_COLORS = [
-  '#4f46e5', '#7c3aed', '#0891b2', '#0d9488', '#059669',
-  '#d97706', '#dc2626', '#db2777',
+  '#4f46e5',
+  '#7c3aed',
+  '#0891b2',
+  '#0d9488',
+  '#059669',
+  '#d97706',
+  '#dc2626',
+  '#db2777',
 ];
 
 // ─── Teacher Consistency Tab ─────────────────────────────────────────────────
 
-function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]; periods: SelectOption[] }) {
+function TeacherConsistencyTab({
+  subjects,
+  periods,
+}: {
+  subjects: SelectOption[];
+  periods: SelectOption[];
+}) {
   const t = useTranslations('gradebook');
 
   const [subjectId, setSubjectId] = React.useState('');
@@ -121,7 +134,9 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
     if (!subjectId || !periodId) return;
     setIsLoading(true);
     const params = new URLSearchParams({ subject_id: subjectId, academic_period_id: periodId });
-    apiClient<ConsistencyResponse>(`/api/v1/gradebook/insights/teacher-consistency?${params.toString()}`)
+    apiClient<ConsistencyResponse>(
+      `/api/v1/gradebook/insights/teacher-consistency?${params.toString()}`,
+    )
       .then((res) => setData(res.data))
       .catch(() => setData([]))
       .finally(() => setIsLoading(false));
@@ -136,7 +151,9 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
           </SelectTrigger>
           <SelectContent>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -146,14 +163,18 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
           </SelectTrigger>
           <SelectContent>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       {!subjectId || !periodId ? (
-        <p className="py-12 text-center text-sm text-text-tertiary">{t('selectFiltersForInsights')}</p>
+        <p className="py-12 text-center text-sm text-text-tertiary">
+          {t('selectFiltersForInsights')}
+        </p>
       ) : isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -168,13 +189,27 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('teacher')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('class')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('analyticsMean')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('analyticsPassRate')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('analyticsStdDev')}</th>
-                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('grades')}</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">{t('flag')}</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('teacher')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('class')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('analyticsMean')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('analyticsPassRate')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('analyticsStdDev')}
+                  </th>
+                  <th className="px-4 py-3 text-end text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('grades')}
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    {t('flag')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -183,18 +218,32 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
                     key={`${row.teacher_id}-${row.class_id}`}
                     className={`border-b border-border ${i % 2 === 1 ? 'bg-surface-secondary/40' : ''} ${row.deviation_flag ? 'bg-warning-50' : ''}`}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.teacher_name}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                      {row.teacher_name}
+                    </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{row.class_name}</td>
-                    <td className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-primary" dir="ltr">
+                    <td
+                      className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-primary"
+                      dir="ltr"
+                    >
                       {row.mean_score.toFixed(1)}
                     </td>
-                    <td className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-primary" dir="ltr">
+                    <td
+                      className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-primary"
+                      dir="ltr"
+                    >
                       {row.pass_rate.toFixed(0)}%
                     </td>
-                    <td className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-secondary" dir="ltr">
+                    <td
+                      className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-secondary"
+                      dir="ltr"
+                    >
                       {row.std_dev.toFixed(1)}
                     </td>
-                    <td className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-secondary" dir="ltr">
+                    <td
+                      className="px-4 py-3 text-end text-sm font-mono tabular-nums text-text-secondary"
+                      dir="ltr"
+                    >
                       {row.grade_count}
                     </td>
                     <td className="px-4 py-3">
@@ -218,7 +267,11 @@ function TeacherConsistencyTab({ subjects, periods }: { subjects: SelectOption[]
 
 // ─── Benchmarking Tab ─────────────────────────────────────────────────────────
 
-function BenchmarkingTab({ subjects, yearGroups, periods }: {
+function BenchmarkingTab({
+  subjects,
+  yearGroups,
+  periods,
+}: {
   subjects: SelectOption[];
   yearGroups: SelectOption[];
   periods: SelectOption[];
@@ -258,7 +311,9 @@ function BenchmarkingTab({ subjects, yearGroups, periods }: {
           </SelectTrigger>
           <SelectContent>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -268,7 +323,9 @@ function BenchmarkingTab({ subjects, yearGroups, periods }: {
           </SelectTrigger>
           <SelectContent>
             {yearGroups.map((yg) => (
-              <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+              <SelectItem key={yg.id} value={yg.id}>
+                {yg.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -278,14 +335,18 @@ function BenchmarkingTab({ subjects, yearGroups, periods }: {
           </SelectTrigger>
           <SelectContent>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       {!subjectId || !yearGroupId || !periodId ? (
-        <p className="py-12 text-center text-sm text-text-tertiary">{t('selectFiltersForInsights')}</p>
+        <p className="py-12 text-center text-sm text-text-tertiary">
+          {t('selectFiltersForInsights')}
+        </p>
       ) : isLoading ? (
         <div className="h-64 animate-pulse rounded-xl bg-surface-secondary" />
       ) : data.length === 0 ? (
@@ -328,10 +389,7 @@ function BenchmarkingTab({ subjects, yearGroups, periods }: {
                 />
                 <Bar dataKey="mean_score" radius={[4, 4, 0, 0]}>
                   {data.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    />
+                    <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -411,23 +469,32 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
   const PAGE_SIZE = 20;
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchAlerts = React.useCallback(async (p: number, subject: string, period: string, level: string) => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), status: 'active' });
-      if (subject !== 'all') params.set('subject_id', subject);
-      if (period !== 'all') params.set('academic_period_id', period);
-      if (level !== 'all') params.set('risk_level', level);
-      const res = await apiClient<RiskAlertsResponse>(`/api/v1/gradebook/risk-alerts?${params.toString()}`);
-      setData(res.data);
-      setTotal(res.meta.total);
-    } catch {
-      setData([]);
-      setTotal(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchAlerts = React.useCallback(
+    async (p: number, subject: string, period: string, level: string) => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(p),
+          pageSize: String(PAGE_SIZE),
+          status: 'active',
+        });
+        if (subject !== 'all') params.set('subject_id', subject);
+        if (period !== 'all') params.set('academic_period_id', period);
+        if (level !== 'all') params.set('risk_level', level);
+        const res = await apiClient<RiskAlertsResponse>(
+          `/api/v1/gradebook/risk-alerts?${params.toString()}`,
+        );
+        setData(res.data);
+        setTotal(res.meta.total);
+      } catch {
+        setData([]);
+        setTotal(0);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   React.useEffect(() => {
     void fetchAlerts(page, subjectId, periodId, riskLevel);
@@ -451,7 +518,13 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
     <div className="space-y-5">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={riskLevel} onValueChange={(v) => { setRiskLevel(v); setPage(1); }}>
+        <Select
+          value={riskLevel}
+          onValueChange={(v) => {
+            setRiskLevel(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder={t('riskLevel')} />
           </SelectTrigger>
@@ -462,25 +535,41 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
             <SelectItem value="low">{t('riskLow')}</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setPage(1); }}>
+        <Select
+          value={subjectId}
+          onValueChange={(v) => {
+            setSubjectId(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('subject')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All subjects</SelectItem>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={periodId} onValueChange={(v) => { setPeriodId(v); setPage(1); }}>
+        <Select
+          value={periodId}
+          onValueChange={(v) => {
+            setPeriodId(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('period')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All periods</SelectItem>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -520,15 +609,25 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <TrendingDown className={`h-4 w-4 ${
-                      alert.risk_level === 'high' ? 'text-danger-text' :
-                      alert.risk_level === 'medium' ? 'text-warning-text' : 'text-info-text'
-                    }`} />
+                    <TrendingDown
+                      className={`h-4 w-4 ${
+                        alert.risk_level === 'high'
+                          ? 'text-danger-text'
+                          : alert.risk_level === 'medium'
+                            ? 'text-warning-text'
+                            : 'text-info-text'
+                      }`}
+                    />
                     <span className="font-semibold text-text-primary text-sm">
                       {alert.student_name}
                     </span>
                     <StatusBadge status={RISK_VARIANT[alert.risk_level] ?? 'neutral'}>
-                      {t(`risk${alert.risk_level.charAt(0).toUpperCase()}${alert.risk_level.slice(1)}` as 'riskHigh' | 'riskMedium' | 'riskLow')}
+                      {t(
+                        `risk${alert.risk_level.charAt(0).toUpperCase()}${alert.risk_level.slice(1)}` as
+                          | 'riskHigh'
+                          | 'riskMedium'
+                          | 'riskLow',
+                      )}
                     </StatusBadge>
                     {alert.subject_name && (
                       <Badge variant="secondary" className="text-xs">
@@ -537,7 +636,9 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
                     )}
                   </div>
                   <p className="text-xs text-text-secondary">{alert.trigger_reason}</p>
-                  <p className="text-xs text-text-tertiary" dir="ltr">{alert.detected_date}</p>
+                  <p className="text-xs text-text-tertiary" dir="ltr">
+                    {alert.detected_date}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Button
@@ -572,7 +673,9 @@ function AtRiskTab({ subjects, periods }: { subjects: SelectOption[]; periods: S
           >
             {tc('previous')}
           </Button>
-          <span className="text-sm text-text-secondary">{page} / {totalPages}</span>
+          <span className="text-sm text-text-secondary">
+            {page} / {totalPages}
+          </span>
           <Button
             variant="outline"
             size="sm"
@@ -652,9 +755,7 @@ export default function GradingInsightsPage() {
       {activeTab === 'benchmarking' && (
         <BenchmarkingTab subjects={subjects} yearGroups={yearGroups} periods={periods} />
       )}
-      {activeTab === 'at-risk' && (
-        <AtRiskTab subjects={subjects} periods={periods} />
-      )}
+      {activeTab === 'at-risk' && <AtRiskTab subjects={subjects} periods={periods} />}
     </div>
   );
 }

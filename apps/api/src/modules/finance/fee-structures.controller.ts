@@ -12,17 +12,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createFeeStructureSchema,
   feeStructureQuerySchema,
   updateFeeStructureSchema,
 } from '@school/shared';
-import type {
-  CreateFeeStructureDto,
-  TenantContext,
-  UpdateFeeStructureDto,
-} from '@school/shared';
-import { z } from 'zod';
+import type { CreateFeeStructureDto, TenantContext, UpdateFeeStructureDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -49,10 +46,7 @@ export class FeeStructuresController {
 
   @Get(':id')
   @RequiresPermission('finance.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.feeStructuresService.findOne(tenant.tenant_id, id);
   }
 
@@ -79,10 +73,7 @@ export class FeeStructuresController {
   @Delete(':id')
   @RequiresPermission('finance.manage')
   @HttpCode(HttpStatus.OK)
-  async deactivate(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async deactivate(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.feeStructuresService.deactivate(tenant.tenant_id, id);
   }
 }

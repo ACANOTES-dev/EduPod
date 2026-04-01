@@ -1,18 +1,10 @@
 'use client';
 
-import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  toast,
-} from '@school/ui';
 import { CheckCircle2, Loader2, Star, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -143,9 +135,7 @@ export function CoverTeacherDialog({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-tertiary">{t('runs.coverSubject')}</span>
-              <span className="font-medium text-text-primary">
-                {slotDetails.subjectName}
-              </span>
+              <span className="font-medium text-text-primary">{slotDetails.subjectName}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-tertiary">{t('runs.coverYearGroup')}</span>
@@ -190,10 +180,7 @@ export function CoverTeacherDialog({
                       week: candidate.current_week_load,
                     })}
                     {candidate.max_periods_per_week != null && (
-                      <span className="opacity-60">
-                        {' '}
-                        (max {candidate.max_periods_per_week}/w)
-                      </span>
+                      <span className="opacity-60"> (max {candidate.max_periods_per_week}/w)</span>
                     )}
                   </div>
                 </div>

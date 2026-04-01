@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { Conflict } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -103,20 +104,17 @@ export class SchedulesService {
     }
 
     // Detect conflicts
-    const { hard, soft } = await this.conflictDetection.detectConflicts(
-      tenantId,
-      {
-        class_id: dto.class_id,
-        academic_year_id: academicYearId,
-        room_id: dto.room_id ?? null,
-        teacher_staff_id: dto.teacher_staff_id ?? null,
-        weekday: dto.weekday,
-        start_time: dto.start_time,
-        end_time: dto.end_time,
-        effective_start_date: dto.effective_start_date,
-        effective_end_date: dto.effective_end_date ?? null,
-      },
-    );
+    const { hard, soft } = await this.conflictDetection.detectConflicts(tenantId, {
+      class_id: dto.class_id,
+      academic_year_id: academicYearId,
+      room_id: dto.room_id ?? null,
+      teacher_staff_id: dto.teacher_staff_id ?? null,
+      weekday: dto.weekday,
+      start_time: dto.start_time,
+      end_time: dto.end_time,
+      effective_start_date: dto.effective_start_date,
+      effective_end_date: dto.effective_end_date ?? null,
+    });
 
     // If hard conflicts exist and override is not requested, reject
     if (hard.length > 0 && !dto.override_conflicts) {
@@ -152,9 +150,7 @@ export class SchedulesService {
           start_time: this.timeToDate(dto.start_time),
           end_time: this.timeToDate(dto.end_time),
           effective_start_date: new Date(dto.effective_start_date),
-          effective_end_date: dto.effective_end_date
-            ? new Date(dto.effective_end_date)
-            : null,
+          effective_end_date: dto.effective_end_date ? new Date(dto.effective_end_date) : null,
           source: 'manual',
           is_pinned: false,
         },
@@ -168,12 +164,9 @@ export class SchedulesService {
     };
   }
 
-  async findAll(
-    tenantId: string,
-    params: ListSchedulesParams,
-    userStaffProfileId?: string,
-  ) {
-    const { page, pageSize, academic_year_id, class_id, teacher_staff_id, room_id, weekday } = params;
+  async findAll(tenantId: string, params: ListSchedulesParams, userStaffProfileId?: string) {
+    const { page, pageSize, academic_year_id, class_id, teacher_staff_id, room_id, weekday } =
+      params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ScheduleWhereInput = { tenant_id: tenantId };
@@ -287,15 +280,12 @@ export class SchedulesService {
       academic_year_id: existing.academic_year_id,
       room_id: dto.room_id !== undefined ? dto.room_id : existing.room_id,
       teacher_staff_id:
-        dto.teacher_staff_id !== undefined
-          ? dto.teacher_staff_id
-          : existing.teacher_staff_id,
+        dto.teacher_staff_id !== undefined ? dto.teacher_staff_id : existing.teacher_staff_id,
       weekday: dto.weekday ?? existing.weekday,
       start_time: dto.start_time ?? this.formatTime(existing.start_time),
       end_time: dto.end_time ?? this.formatTime(existing.end_time),
       effective_start_date:
-        dto.effective_start_date ??
-        existing.effective_start_date.toISOString().slice(0, 10),
+        dto.effective_start_date ?? existing.effective_start_date.toISOString().slice(0, 10),
       effective_end_date:
         dto.effective_end_date !== undefined
           ? dto.effective_end_date
@@ -305,11 +295,7 @@ export class SchedulesService {
     };
 
     // Detect conflicts excluding self
-    const { hard, soft } = await this.conflictDetection.detectConflicts(
-      tenantId,
-      mergedEntry,
-      id,
-    );
+    const { hard, soft } = await this.conflictDetection.detectConflicts(tenantId, mergedEntry, id);
 
     // If hard conflicts exist and override is not requested, reject
     if (hard.length > 0 && !dto.override_conflicts) {
@@ -335,9 +321,7 @@ export class SchedulesService {
     const updateData: Prisma.ScheduleUpdateInput = {};
 
     if (dto.room_id !== undefined) {
-      updateData.room = dto.room_id
-        ? { connect: { id: dto.room_id } }
-        : { disconnect: true };
+      updateData.room = dto.room_id ? { connect: { id: dto.room_id } } : { disconnect: true };
     }
     if (dto.teacher_staff_id !== undefined) {
       updateData.teacher = dto.teacher_staff_id
@@ -345,10 +329,8 @@ export class SchedulesService {
         : { disconnect: true };
     }
     if (dto.weekday !== undefined) updateData.weekday = dto.weekday;
-    if (dto.start_time !== undefined)
-      updateData.start_time = this.timeToDate(dto.start_time);
-    if (dto.end_time !== undefined)
-      updateData.end_time = this.timeToDate(dto.end_time);
+    if (dto.start_time !== undefined) updateData.start_time = this.timeToDate(dto.start_time);
+    if (dto.end_time !== undefined) updateData.end_time = this.timeToDate(dto.end_time);
     if (dto.effective_start_date !== undefined)
       updateData.effective_start_date = new Date(dto.effective_start_date);
     if (dto.effective_end_date !== undefined)
@@ -396,14 +378,14 @@ export class SchedulesService {
     if (attendanceCount > 0) {
       // End-date the schedule instead of hard delete
       const today = new Date().toISOString().slice(0, 10);
-      const updated = await prismaWithRls.$transaction(async (tx) => {
+      const updated = (await prismaWithRls.$transaction(async (tx) => {
         const db = tx as unknown as PrismaService;
         return db.schedule.update({
           where: { id },
           data: { effective_end_date: new Date(today) },
           include: SCHEDULE_INCLUDE,
         });
-      }) as Record<string, unknown>;
+      })) as Record<string, unknown>;
       return {
         action: 'end_dated' as const,
         schedule: this.formatSchedule(updated),
@@ -420,7 +402,11 @@ export class SchedulesService {
     return { action: 'deleted' as const, message: 'Schedule deleted.' };
   }
 
-  async pin(tenantId: string, id: string, dto: { pin_reason?: string }): Promise<Record<string, unknown>> {
+  async pin(
+    tenantId: string,
+    id: string,
+    dto: { pin_reason?: string },
+  ): Promise<Record<string, unknown>> {
     const existing = await this.prisma.schedule.findFirst({
       where: { id, tenant_id: tenantId },
       include: SCHEDULE_INCLUDE,
@@ -482,7 +468,10 @@ export class SchedulesService {
     return this.formatSchedule(schedule as unknown as Record<string, unknown>);
   }
 
-  async bulkPin(tenantId: string, dto: { schedule_ids: string[]; pin_reason?: string }): Promise<{ data: Record<string, unknown>[]; meta: { pinned: number } }> {
+  async bulkPin(
+    tenantId: string,
+    dto: { schedule_ids: string[]; pin_reason?: string },
+  ): Promise<{ data: Record<string, unknown>[]; meta: { pinned: number } }> {
     // Verify all schedules exist and belong to tenant
     const schedules = await this.prisma.schedule.findMany({
       where: { id: { in: dto.schedule_ids }, tenant_id: tenantId },
@@ -490,8 +479,8 @@ export class SchedulesService {
     });
 
     if (schedules.length !== dto.schedule_ids.length) {
-      const found = new Set(schedules.map(s => s.id));
-      const missing = dto.schedule_ids.filter(id => !found.has(id));
+      const found = new Set(schedules.map((s) => s.id));
+      const missing = dto.schedule_ids.filter((id) => !found.has(id));
       throw new NotFoundException({
         code: 'SCHEDULE_NOT_FOUND',
         message: `Schedules not found: ${missing.join(', ')}`,
@@ -519,7 +508,7 @@ export class SchedulesService {
 
     const updatedArr = updated as unknown as Record<string, unknown>[];
     return {
-      data: updatedArr.map(s => this.formatSchedule(s)),
+      data: updatedArr.map((s) => this.formatSchedule(s)),
       meta: { pinned: updatedArr.length },
     };
   }
@@ -531,7 +520,7 @@ export class SchedulesService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Find schedules that are still effective (no end date or end date > today)
@@ -539,10 +528,7 @@ export class SchedulesService {
         where: {
           class_id: classId,
           tenant_id: tenantId,
-          OR: [
-            { effective_end_date: null },
-            { effective_end_date: { gt: new Date(todayStr) } },
-          ],
+          OR: [{ effective_end_date: null }, { effective_end_date: { gt: new Date(todayStr) } }],
         },
         select: { id: true },
       });
@@ -557,7 +543,7 @@ export class SchedulesService {
       });
 
       return schedulesToUpdate.length;
-    }) as number;
+    })) as number;
 
     return result;
   }

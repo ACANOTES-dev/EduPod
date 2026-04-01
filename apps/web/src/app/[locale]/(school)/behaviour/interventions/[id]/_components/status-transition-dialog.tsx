@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -15,13 +18,10 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { STATUS_COLORS, STATUS_TRANSITIONS } from './intervention-types';
 
 import { apiClient } from '@/lib/api-client';
-
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

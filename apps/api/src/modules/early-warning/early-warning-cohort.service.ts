@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type { CohortQuery } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,7 +38,12 @@ interface ProfileRow {
     year_group_id: string | null;
     year_group?: { id: string; name: string } | null;
     class_enrolments?: Array<{
-      class_entity: { id: string; name: string; subject_id: string | null; subject?: { id: string; name: string } | null };
+      class_entity: {
+        id: string;
+        name: string;
+        subject_id: string | null;
+        subject?: { id: string; name: string } | null;
+      };
     }>;
   };
 }
@@ -80,8 +86,8 @@ export class EarlyWarningCohortService {
       return { unrestricted: false, studentIds: [] };
     }
 
-    const permissions = membership.membership_roles.flatMap(
-      (mr) => mr.role.role_permissions.map((rp) => rp.permission.permission_key),
+    const permissions = membership.membership_roles.flatMap((mr) =>
+      mr.role.role_permissions.map((rp) => rp.permission.permission_key),
     );
 
     if (permissions.includes('early_warning.manage')) {
@@ -110,9 +116,7 @@ export class EarlyWarningCohortService {
           },
           select: { student_id: true },
         });
-        const uniqueStudentIds = [
-          ...new Set(enrolments.map((e) => e.student_id)),
-        ];
+        const uniqueStudentIds = [...new Set(enrolments.map((e) => e.student_id))];
         return { unrestricted: false, studentIds: uniqueStudentIds };
       }
     }
@@ -166,7 +170,7 @@ export class EarlyWarningCohortService {
       };
     }
 
-    const profiles = await this.prisma.studentRiskProfile.findMany({
+    const profiles = (await this.prisma.studentRiskProfile.findMany({
       where: whereClause,
       include: {
         student: {
@@ -190,7 +194,7 @@ export class EarlyWarningCohortService {
           },
         },
       },
-    }) as unknown as ProfileRow[];
+    })) as unknown as ProfileRow[];
 
     // Group profiles by the requested dimension
     const groups = new Map<string, { groupId: string; groupKey: string; profiles: ProfileRow[] }>();
@@ -240,7 +244,11 @@ export class EarlyWarningCohortService {
       // When pivoting by domain, use the domain-specific score as the composite
       // so each row's "avg score" reflects that domain, not the overall composite.
       const domainAvg = isDomainPivot
-        ? this.getDomainAvg(group.groupId, { sumAttendance, sumGrades, sumBehaviour, sumWellbeing, sumEngagement }, n)
+        ? this.getDomainAvg(
+            group.groupId,
+            { sumAttendance, sumGrades, sumBehaviour, sumWellbeing, sumEngagement },
+            n,
+          )
         : Math.round((sumComposite / n) * 100) / 100;
 
       data.push({
@@ -288,7 +296,10 @@ export class EarlyWarningCohortService {
         for (const e of enrolments) {
           if (e.class_entity.subject && !seen.has(e.class_entity.subject.id)) {
             seen.add(e.class_entity.subject.id);
-            entries.push({ groupId: e.class_entity.subject.id, groupKey: e.class_entity.subject.name });
+            entries.push({
+              groupId: e.class_entity.subject.id,
+              groupKey: e.class_entity.subject.name,
+            });
           }
         }
         return entries;
@@ -309,7 +320,13 @@ export class EarlyWarningCohortService {
 
   private getDomainAvg(
     domainId: string,
-    sums: { sumAttendance: number; sumGrades: number; sumBehaviour: number; sumWellbeing: number; sumEngagement: number },
+    sums: {
+      sumAttendance: number;
+      sumGrades: number;
+      sumBehaviour: number;
+      sumWellbeing: number;
+      sumEngagement: number;
+    },
     n: number,
   ): number {
     const map: Record<string, number> = {

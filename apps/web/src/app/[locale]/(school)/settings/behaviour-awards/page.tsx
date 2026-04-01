@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -17,9 +21,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { useIsMobile } from '@/hooks/use-is-mobile';
@@ -218,8 +219,9 @@ export default function BehaviourAwardsPage() {
         body: JSON.stringify({ is_active: !award.is_active }),
       });
       void fetchAwards();
-    } catch {
+    } catch (err) {
       // handled by global error handler
+      console.error('[fetchAwards]', err);
     }
   };
 

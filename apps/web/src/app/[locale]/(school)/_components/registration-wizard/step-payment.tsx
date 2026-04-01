@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, Info, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,13 +15,10 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { CheckCircle2, Info, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-import { apiClient } from '@/lib/api-client';
 
 import type { WizardAction, WizardState } from './types';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -45,16 +46,10 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
 
   const reg = state.registrationResult;
 
-  const [amount, setAmount] = React.useState(
-    String(reg?.invoice.total_amount ?? 0),
-  );
+  const [amount, setAmount] = React.useState(String(reg?.invoice.total_amount ?? 0));
   const [method, setMethod] = React.useState('cash');
-  const [reference, setReference] = React.useState(
-    `REG-${reg?.household.household_number ?? ''}`,
-  );
-  const [receivedAt, setReceivedAt] = React.useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [reference, setReference] = React.useState(`REG-${reg?.household.household_number ?? ''}`);
+  const [receivedAt, setReceivedAt] = React.useState(new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   if (!reg) return null;
@@ -127,9 +122,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
         <div className="flex items-start gap-3">
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-success-text" />
           <div>
-            <h3 className="text-base font-semibold text-success-text">
-              {t('familyRegistered')}
-            </h3>
+            <h3 className="text-base font-semibold text-success-text">{t('familyRegistered')}</h3>
             <p className="mt-1 text-sm text-success-text">
               {t('registeredSummary', {
                 count: reg.students.length,
@@ -154,9 +147,7 @@ export function StepPayment({ state, dispatch }: StepPaymentProps) {
       {!isPendingApproval && (
         <>
           <div className="rounded-lg border border-border-primary bg-surface-primary p-4">
-            <h3 className="mb-4 text-sm font-semibold text-text-primary">
-              {t('recordPayment')}
-            </h3>
+            <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('recordPayment')}</h3>
 
             {/* Row 1: Amount + Method */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

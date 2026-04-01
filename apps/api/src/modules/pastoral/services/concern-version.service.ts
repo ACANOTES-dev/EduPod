@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PastoralConcernVersion } from '@prisma/client';
+
 import { type AmendNarrativeDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -58,6 +59,7 @@ export class ConcernVersionService {
       const db = tx as unknown as PrismaService;
 
       // Lock the concern row to prevent concurrent amendments
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- SELECT FOR UPDATE within RLS transaction
       const concerns = await db.$queryRaw<Array<{ id: string; student_id: string; tier: number }>>`
         SELECT id, student_id, tier FROM pastoral_concerns
         WHERE id = ${concernId}::uuid AND tenant_id = ${tenantId}::uuid

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { CreateRoleDto, UpdateRoleDto } from '@school/shared';
 import type { RoleTier } from '@school/shared';
 

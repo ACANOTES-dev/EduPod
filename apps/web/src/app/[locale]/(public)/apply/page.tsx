@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { apiClient } from '@/lib/api-client';
@@ -90,25 +90,19 @@ export default function PublicAdmissionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const toggleConsent = React.useCallback(
-    (field: 'health_data' | 'whatsapp_channel') => {
-      setConsents((prev) => ({ ...prev, [field]: !prev[field] }));
-    },
-    [],
-  );
+  const toggleConsent = React.useCallback((field: 'health_data' | 'whatsapp_channel') => {
+    setConsents((prev) => ({ ...prev, [field]: !prev[field] }));
+  }, []);
 
-  const toggleAiConsent = React.useCallback(
-    (field: keyof ConsentCaptureState['ai_features']) => {
-      setConsents((prev) => ({
-        ...prev,
-        ai_features: {
-          ...prev.ai_features,
-          [field]: !prev.ai_features[field],
-        },
-      }));
-    },
-    [],
-  );
+  const toggleAiConsent = React.useCallback((field: keyof ConsentCaptureState['ai_features']) => {
+    setConsents((prev) => ({
+      ...prev,
+      ai_features: {
+        ...prev.ai_features,
+        [field]: !prev.ai_features[field],
+      },
+    }));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +190,12 @@ export default function PublicAdmissionsPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success-surface">
-          <svg className="h-8 w-8 text-success-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            className="h-8 w-8 text-success-text"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
@@ -212,7 +211,9 @@ export default function PublicAdmissionsPage() {
     <div className="mx-auto max-w-2xl px-4 py-16">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-text-primary">{t('publicFormTitle')}</h1>
-        <p className="mt-1 text-sm text-text-secondary">{form.tenant_name} &middot; {form.name}</p>
+        <p className="mt-1 text-sm text-text-secondary">
+          {form.tenant_name} &middot; {form.name}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -265,12 +266,8 @@ export default function PublicAdmissionsPage() {
 
         <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <div className="space-y-1">
-            <h2 className="text-base font-semibold text-text-primary">
-              {t('consentTitle')}
-            </h2>
-            <p className="text-sm text-text-secondary">
-              {t('consentDescription')}
-            </p>
+            <h2 className="text-base font-semibold text-text-primary">{t('consentTitle')}</h2>
+            <p className="text-sm text-text-secondary">{t('consentDescription')}</p>
           </div>
 
           <div className="mt-5 space-y-4">
@@ -307,20 +304,24 @@ export default function PublicAdmissionsPage() {
             </label>
 
             <div className="rounded-xl bg-surface-secondary p-4">
-              <p className="text-sm font-medium text-text-primary">
-                {t('consentAiTitle')}
-              </p>
-              <p className="mt-1 text-xs text-text-tertiary">
-                {t('consentAiDescription')}
-              </p>
+              <p className="text-sm font-medium text-text-primary">{t('consentAiTitle')}</p>
+              <p className="mt-1 text-xs text-text-tertiary">{t('consentAiDescription')}</p>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {(
                   [
                     ['ai_grading', 'consentAiGrading', 'consentAiGradingDescription'],
                     ['ai_comments', 'consentAiComments', 'consentAiCommentsDescription'],
-                    ['ai_risk_detection', 'consentAiRiskDetection', 'consentAiRiskDetectionDescription'],
-                    ['ai_progress_summary', 'consentAiProgressSummary', 'consentAiProgressSummaryDescription'],
+                    [
+                      'ai_risk_detection',
+                      'consentAiRiskDetection',
+                      'consentAiRiskDetectionDescription',
+                    ],
+                    [
+                      'ai_progress_summary',
+                      'consentAiProgressSummary',
+                      'consentAiProgressSummaryDescription',
+                    ],
                   ] as const
                 ).map(([key, labelKey, descriptionKey]) => (
                   <label
@@ -336,9 +337,7 @@ export default function PublicAdmissionsPage() {
                       <span className="block text-sm font-medium text-text-primary">
                         {t(labelKey)}
                       </span>
-                      <span className="block text-xs text-text-tertiary">
-                        {t(descriptionKey)}
-                      </span>
+                      <span className="block text-xs text-text-tertiary">{t(descriptionKey)}</span>
                     </span>
                   </label>
                 ))}

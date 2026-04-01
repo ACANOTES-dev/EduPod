@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SchedulingResultJson } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,76 +12,71 @@ export class SchedulingDashboardService {
   // Summary stats for the scheduling dashboard tile
 
   async overview(tenantId: string, academicYearId: string) {
-    const [
-      totalClasses,
-      configuredClasses,
-      scheduledClasses,
-      latestRun,
-      activeRunCount,
-    ] = await Promise.all([
-      // Total active academic classes
-      this.prisma.class.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          status: 'active',
-          subject: { subject_type: 'academic' },
-        },
-      }),
+    const [totalClasses, configuredClasses, scheduledClasses, latestRun, activeRunCount] =
+      await Promise.all([
+        // Total active academic classes
+        this.prisma.class.count({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            status: 'active',
+            subject: { subject_type: 'academic' },
+          },
+        }),
 
-      // Classes with scheduling requirements
-      this.prisma.classSchedulingRequirement.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          class_entity: { status: 'active', subject: { subject_type: 'academic' } },
-        },
-      }),
+        // Classes with scheduling requirements
+        this.prisma.classSchedulingRequirement.count({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            class_entity: { status: 'active', subject: { subject_type: 'academic' } },
+          },
+        }),
 
-      // Classes that have at least one auto_generated schedule entry
-      this.prisma.schedule.groupBy({
-        by: ['class_id'],
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          source: 'auto_generated',
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-      }),
+        // Classes that have at least one auto_generated schedule entry
+        this.prisma.schedule.groupBy({
+          by: ['class_id'],
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            source: 'auto_generated',
+            OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
+          },
+        }),
 
-      // Most recent completed / applied run
-      this.prisma.schedulingRun.findFirst({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          status: { in: ['completed', 'applied'] },
-        },
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          status: true,
-          mode: true,
-          entries_generated: true,
-          entries_pinned: true,
-          entries_unassigned: true,
-          hard_constraint_violations: true,
-          soft_preference_score: true,
-          soft_preference_max: true,
-          solver_duration_ms: true,
-          created_at: true,
-          applied_at: true,
-        },
-      }),
+        // Most recent completed / applied run
+        this.prisma.schedulingRun.findFirst({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            status: { in: ['completed', 'applied'] },
+          },
+          orderBy: { created_at: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            mode: true,
+            entries_generated: true,
+            entries_pinned: true,
+            entries_unassigned: true,
+            hard_constraint_violations: true,
+            soft_preference_score: true,
+            soft_preference_max: true,
+            solver_duration_ms: true,
+            created_at: true,
+            applied_at: true,
+          },
+        }),
 
-      // Active (queued/running) run count
-      this.prisma.schedulingRun.count({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: academicYearId,
-          status: { in: ['queued', 'running'] },
-        },
-      }),
-    ]);
+        // Active (queued/running) run count
+        this.prisma.schedulingRun.count({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: academicYearId,
+            status: { in: ['queued', 'running'] },
+          },
+        }),
+      ]);
 
     const effectiveFilter = {
       OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
@@ -137,14 +133,10 @@ export class SchedulingDashboardService {
     // Room utilisation: used room-slots / total room-slots
     const totalRoomSlots = totalActiveRooms * totalTeachingSlots;
     const roomUtilisationPct =
-      totalRoomSlots > 0
-        ? Math.round((usedRoomSlots / totalRoomSlots) * 100)
-        : null;
+      totalRoomSlots > 0 ? Math.round((usedRoomSlots / totalRoomSlots) * 100) : null;
 
     // Teacher utilisation: teacher-assigned slots / (unique teachers × teaching slots)
-    const uniqueTeachers = new Set(
-      teacherScheduleEntries.map((e) => e.teacher_staff_id),
-    );
+    const uniqueTeachers = new Set(teacherScheduleEntries.map((e) => e.teacher_staff_id));
     const totalTeacherSlots = uniqueTeachers.size * totalTeachingSlots;
     const teacherUtilisationPct =
       totalTeacherSlots > 0
@@ -160,9 +152,7 @@ export class SchedulingDashboardService {
       latestRun?.soft_preference_max != null &&
       Number(latestRun.soft_preference_max) > 0
         ? Math.round(
-            (Number(latestRun.soft_preference_score) /
-              Number(latestRun.soft_preference_max)) *
-              100,
+            (Number(latestRun.soft_preference_score) / Number(latestRun.soft_preference_max)) * 100,
           )
         : null;
 
@@ -179,12 +169,12 @@ export class SchedulingDashboardService {
       latest_run: latestRun
         ? {
             ...latestRun,
-            soft_preference_score: latestRun.soft_preference_score !== null
-              ? Number(latestRun.soft_preference_score)
-              : null,
-            soft_preference_max: latestRun.soft_preference_max !== null
-              ? Number(latestRun.soft_preference_max)
-              : null,
+            soft_preference_score:
+              latestRun.soft_preference_score !== null
+                ? Number(latestRun.soft_preference_score)
+                : null,
+            soft_preference_max:
+              latestRun.soft_preference_max !== null ? Number(latestRun.soft_preference_max) : null,
             created_at: latestRun.created_at.toISOString(),
             applied_at: latestRun.applied_at?.toISOString() ?? null,
           }
@@ -193,7 +183,11 @@ export class SchedulingDashboardService {
   }
 
   private computeAvgGaps(
-    entries: Array<{ teacher_staff_id: string | null; weekday: number; period_order: number | null }>,
+    entries: Array<{
+      teacher_staff_id: string | null;
+      weekday: number;
+      period_order: number | null;
+    }>,
   ): number | null {
     if (entries.length === 0) return null;
 
@@ -245,10 +239,7 @@ export class SchedulingDashboardService {
     });
 
     // Aggregate by teacher
-    const teacherPeriodMap = new Map<
-      string,
-      { name: string; total_periods: number }
-    >();
+    const teacherPeriodMap = new Map<string, { name: string; total_periods: number }>();
 
     for (const s of allSchedules) {
       if (!s.teacher_staff_id || !s.teacher) continue;
@@ -380,8 +371,7 @@ export class SchedulingDashboardService {
         year_group_name: c.class_entity.year_group?.name ?? null,
         periods_required: c.periods_per_week,
         periods_scheduled: scheduledMap.get(c.class_id) ?? 0,
-        periods_missing:
-          c.periods_per_week - (scheduledMap.get(c.class_id) ?? 0),
+        periods_missing: c.periods_per_week - (scheduledMap.get(c.class_id) ?? 0),
         reason: unassignedFromRun.get(c.class_id) ?? null,
       }));
 
@@ -405,11 +395,7 @@ export class SchedulingDashboardService {
   // ─── Preferences ──────────────────────────────────────────────────────────
   // Staff preference satisfaction from the latest run
 
-  async preferences(
-    tenantId: string,
-    academicYearId: string,
-    staffProfileId?: string,
-  ) {
+  async preferences(tenantId: string, academicYearId: string, staffProfileId?: string) {
     const latestRun = await this.prisma.schedulingRun.findFirst({
       where: {
         tenant_id: tenantId,
@@ -489,28 +475,20 @@ export class SchedulingDashboardService {
         : [];
 
     const staffNameMap = new Map(
-      staffProfiles.map((sp) => [
-        sp.id,
-        `${sp.user.first_name} ${sp.user.last_name}`.trim(),
-      ]),
+      staffProfiles.map((sp) => [sp.id, `${sp.user.first_name} ${sp.user.last_name}`.trim()]),
     );
 
-    const staffSatisfactionList = [...staffSatisfaction.entries()].map(
-      ([staffId, stats]) => ({
-        staff_id: staffId,
-        name: staffNameMap.get(staffId) ?? staffId,
-        preferences_total: stats.total,
-        preferences_satisfied: stats.satisfied,
-        satisfaction_pct:
-          stats.total > 0
-            ? Math.round((stats.satisfied / stats.total) * 100)
-            : null,
-        weighted_satisfaction_pct:
-          stats.total_weight > 0
-            ? Math.round((stats.satisfied_weight / stats.total_weight) * 100)
-            : null,
-      }),
-    );
+    const staffSatisfactionList = [...staffSatisfaction.entries()].map(([staffId, stats]) => ({
+      staff_id: staffId,
+      name: staffNameMap.get(staffId) ?? staffId,
+      preferences_total: stats.total,
+      preferences_satisfied: stats.satisfied,
+      satisfaction_pct: stats.total > 0 ? Math.round((stats.satisfied / stats.total) * 100) : null,
+      weighted_satisfaction_pct:
+        stats.total_weight > 0
+          ? Math.round((stats.satisfied_weight / stats.total_weight) * 100)
+          : null,
+    }));
 
     // Sort by weighted satisfaction ascending (worst first)
     staffSatisfactionList.sort(
@@ -521,8 +499,7 @@ export class SchedulingDashboardService {
       latestRun.soft_preference_score !== null && latestRun.soft_preference_max !== null
         ? Number(latestRun.soft_preference_max) > 0
           ? Math.round(
-              (Number(latestRun.soft_preference_score) /
-                Number(latestRun.soft_preference_max)) *
+              (Number(latestRun.soft_preference_score) / Number(latestRun.soft_preference_max)) *
                 100,
             )
           : null
@@ -576,10 +553,7 @@ export class SchedulingDashboardService {
     ]);
 
     // Count usage per room and find peak period
-    const roomUsage = new Map<
-      string,
-      { count: number; periodCounts: Map<string, number> }
-    >();
+    const roomUsage = new Map<string, { count: number; periodCounts: Map<string, number> }>();
     for (const s of roomSchedules) {
       if (!s.room_id) continue;
       const existing = roomUsage.get(s.room_id) ?? {
@@ -588,10 +562,7 @@ export class SchedulingDashboardService {
       };
       existing.count++;
       const periodLabel = s.schedule_period_template?.period_name ?? `P${s.period_order ?? 0}`;
-      existing.periodCounts.set(
-        periodLabel,
-        (existing.periodCounts.get(periodLabel) ?? 0) + 1,
-      );
+      existing.periodCounts.set(periodLabel, (existing.periodCounts.get(periodLabel) ?? 0) + 1);
       roomUsage.set(s.room_id, existing);
     }
 
@@ -599,9 +570,7 @@ export class SchedulingDashboardService {
       const usage = roomUsage.get(room.id);
       const count = usage?.count ?? 0;
       const utilisationPct =
-        totalTeachingSlots > 0
-          ? Math.round((count / totalTeachingSlots) * 100)
-          : 0;
+        totalTeachingSlots > 0 ? Math.round((count / totalTeachingSlots) * 100) : 0;
 
       let peakPeriod: string | null = null;
       if (usage?.periodCounts.size) {
@@ -671,10 +640,7 @@ export class SchedulingDashboardService {
       // Room utilisation from run entries
       const totalRoomSlots = totalActiveRooms * totalTeachingSlots;
       const roomEntries = entries.filter((e) => e.room_id).length;
-      const roomUtil =
-        totalRoomSlots > 0
-          ? Math.round((roomEntries / totalRoomSlots) * 100)
-          : 0;
+      const roomUtil = totalRoomSlots > 0 ? Math.round((roomEntries / totalRoomSlots) * 100) : 0;
 
       // Teacher utilisation from run entries
       const uniqueTeachers = new Set(
@@ -683,9 +649,7 @@ export class SchedulingDashboardService {
       const teacherEntries = entries.filter((e) => e.teacher_staff_id).length;
       const totalTeacherSlots = uniqueTeachers.size * totalTeachingSlots;
       const teacherUtil =
-        totalTeacherSlots > 0
-          ? Math.round((teacherEntries / totalTeacherSlots) * 100)
-          : 0;
+        totalTeacherSlots > 0 ? Math.round((teacherEntries / totalTeacherSlots) * 100) : 0;
 
       // Avg gaps from run entries
       const gapEntries = entries
@@ -702,11 +666,7 @@ export class SchedulingDashboardService {
         run.soft_preference_score != null &&
         run.soft_preference_max != null &&
         Number(run.soft_preference_max) > 0
-          ? Math.round(
-              (Number(run.soft_preference_score) /
-                Number(run.soft_preference_max)) *
-                100,
-            )
+          ? Math.round((Number(run.soft_preference_score) / Number(run.soft_preference_max)) * 100)
           : 0;
 
       return {

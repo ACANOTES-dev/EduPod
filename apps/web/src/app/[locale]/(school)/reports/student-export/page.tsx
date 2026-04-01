@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, EmptyState, Input, Label } from '@school/ui';
 import { Download, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, EmptyState, Input, Label } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -114,7 +114,8 @@ export default function StudentExportPage() {
                   <div>
                     <p className="text-sm font-medium text-text-primary">{s.name}</p>
                     <p className="text-xs text-text-tertiary">
-                      <span dir="ltr">{s.enrolment_id}</span> &middot; {s.grade} &middot; {s.section}
+                      <span dir="ltr">{s.enrolment_id}</span> &middot; {s.grade} &middot;{' '}
+                      {s.section}
                     </p>
                   </div>
                 </button>
@@ -134,27 +135,41 @@ export default function StudentExportPage() {
         <div className="rounded-xl border border-border bg-surface p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('studentName')}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('studentName')}
+              </p>
               <p className="mt-1 text-sm font-medium text-text-primary">{preview.student.name}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('enrolmentId')}</p>
-              <p className="mt-1 text-sm text-text-primary" dir="ltr">{preview.student.enrolment_id}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('enrolmentId')}
+              </p>
+              <p className="mt-1 text-sm text-text-primary" dir="ltr">
+                {preview.student.enrolment_id}
+              </p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('grade')}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('grade')}
+              </p>
               <p className="mt-1 text-sm text-text-primary">{preview.student.grade}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('section')}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('section')}
+              </p>
               <p className="mt-1 text-sm text-text-primary">{preview.student.section}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('dateOfBirth')}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('dateOfBirth')}
+              </p>
               <p className="mt-1 text-sm text-text-primary">{preview.student.date_of_birth}</p>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">{t('nationality')}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
+                {t('nationality')}
+              </p>
               <p className="mt-1 text-sm text-text-primary">{preview.student.nationality}</p>
             </div>
           </div>

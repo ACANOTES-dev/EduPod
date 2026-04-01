@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, Input, StatusBadge } from '@school/ui';
 import { Building2, Plus, Search } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import * as React from 'react';
 
+import { Button, Input, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -88,7 +88,10 @@ export default function TenantListPage() {
         if (!cancelled) {
           const message =
             err && typeof err === 'object' && 'error' in err
-              ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to load tenants')
+              ? String(
+                  (err as { error: { message?: string } }).error?.message ??
+                    'Failed to load tenants',
+                )
               : 'Failed to load tenants';
           setError(message);
         }
@@ -145,9 +148,7 @@ export default function TenantListPage() {
       key: 'created_at',
       header: 'Created',
       render: (tenant: Tenant) => (
-        <span className="text-text-secondary">
-          {formatDate(tenant.created_at)}
-        </span>
+        <span className="text-text-secondary">{formatDate(tenant.created_at)}</span>
       ),
     },
   ];

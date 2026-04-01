@@ -1,14 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type { ImportFilterDto, ImportType } from '@school/shared';
 import type { Queue } from 'bullmq';
 import * as XLSX from 'xlsx';
+
+import type { ImportFilterDto, ImportType } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -18,14 +14,19 @@ import { ImportProcessingService } from './import-processing.service';
 // ─── File parsing helpers ───────────────────────────────────────────────────
 
 function normaliseHeader(raw: string): string {
-  return raw.toLowerCase().trim().replace(/\s*\*+$/, '').replace(/\s+/g, '_');
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/\s*\*+$/, '')
+    .replace(/\s+/g, '_');
 }
 
 function parseFileBuffer(
   buffer: Buffer,
   fileName: string,
 ): { headers: string[]; rows: string[][] } {
-  const isXlsx = fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
+  const isXlsx =
+    fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
 
   if (isXlsx) {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
@@ -50,10 +51,12 @@ function parseFileBuffer(
       const rawRow = rawData[i] as unknown[];
       const hasData = rawRow.some((cell) => String(cell ?? '').trim().length > 0);
       if (!hasData) continue;
-      rows.push(rawRow.map((cell) => {
-        if (cell instanceof Date) return cell.toISOString().split('T')[0] ?? '';
-        return String(cell ?? '').trim();
-      }));
+      rows.push(
+        rawRow.map((cell) => {
+          if (cell instanceof Date) return cell.toISOString().split('T')[0] ?? '';
+          return String(cell ?? '').trim();
+        }),
+      );
     }
 
     return { headers, rows };
@@ -114,9 +117,10 @@ export class ImportService {
     importType: ImportType,
   ) {
     const ext = fileName.toLowerCase().endsWith('.xlsx') ? 'xlsx' : 'csv';
-    const mimeType = ext === 'xlsx'
-      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      : 'text/csv';
+    const mimeType =
+      ext === 'xlsx'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv';
 
     // Create the job record
     const job = await this.prisma.importJob.create({
@@ -147,7 +151,12 @@ export class ImportService {
           where: { id: job.id },
           data: {
             status: 'failed',
-            summary_json: { total_rows: 0, valid_rows: 0, invalid_rows: 0, error: 'File is empty or has no recognisable headers.' },
+            summary_json: {
+              total_rows: 0,
+              valid_rows: 0,
+              invalid_rows: 0,
+              error: 'File is empty or has no recognisable headers.',
+            },
           },
         });
       } else {
@@ -163,7 +172,8 @@ export class ImportService {
                 total_rows: 0,
                 valid_rows: 0,
                 invalid_rows: 0,
-                error: allRows.length > 0 ? 'File contains only example rows.' : 'No data rows found.',
+                error:
+                  allRows.length > 0 ? 'File contains only example rows.' : 'No data rows found.',
               },
             },
           });
@@ -215,7 +225,8 @@ export class ImportService {
                 total_rows: rows.length,
                 valid_rows: validCount,
                 invalid_rows: rowErrors.length,
-                header_errors: missingHeaders.length > 0 ? [`Missing: ${missingHeaders.join(', ')}`] : [],
+                header_errors:
+                  missingHeaders.length > 0 ? [`Missing: ${missingHeaders.join(', ')}`] : [],
                 row_errors: rowErrors.slice(0, 50),
               },
               preview_json: previewJson as unknown as Prisma.InputJsonValue,
@@ -224,14 +235,22 @@ export class ImportService {
         }
       }
     } catch (err) {
-      this.logger.error(`Validation failed for job ${job.id}: ${err instanceof Error ? err.message : String(err)}`);
-      await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'failed',
-          summary_json: { error: `Validation error: ${err instanceof Error ? err.message : String(err)}` },
-        },
-      }).catch(() => { /* best effort */ });
+      this.logger.error(
+        `Validation failed for job ${job.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await this.prisma.importJob
+        .update({
+          where: { id: job.id },
+          data: {
+            status: 'failed',
+            summary_json: {
+              error: `Validation error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          },
+        })
+        .catch(() => {
+          /* best effort */
+        });
     }
 
     // Return the final job state
@@ -338,11 +357,22 @@ export class ImportService {
     try {
       await this.importProcessingService.process(tenantId, jobId);
     } catch (err) {
-      this.logger.error(`Processing failed for job ${jobId}: ${err instanceof Error ? err.message : String(err)}`);
-      await this.prisma.importJob.update({
-        where: { id: jobId },
-        data: { status: 'failed', summary_json: { error: `Processing error: ${err instanceof Error ? err.message : String(err)}` } },
-      }).catch(() => { /* best effort */ });
+      this.logger.error(
+        `Processing failed for job ${jobId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await this.prisma.importJob
+        .update({
+          where: { id: jobId },
+          data: {
+            status: 'failed',
+            summary_json: {
+              error: `Processing error: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          },
+        })
+        .catch(() => {
+          /* best effort */
+        });
     }
 
     // Re-fetch final state
@@ -386,7 +416,8 @@ export class ImportService {
     if (trackedRecords.length === 0) {
       throw new BadRequestException({
         code: 'NO_TRACKED_RECORDS',
-        message: 'No tracked records found for this import. Rollback is only available for imports processed after the tracking feature was added.',
+        message:
+          'No tracked records found for this import. Rollback is only available for imports processed after the tracking feature was added.',
       });
     }
 
@@ -415,17 +446,27 @@ export class ImportService {
         },
       });
 
-      if (!deps) { deletedCount++; continue; } // already deleted
+      if (!deps) {
+        deletedCount++;
+        continue;
+      } // already deleted
 
-      const totalDeps = deps._count.attendance_records + deps._count.grades +
-        deps._count.class_enrolments + deps._count.invoice_lines + deps._count.report_cards;
+      const totalDeps =
+        deps._count.attendance_records +
+        deps._count.grades +
+        deps._count.class_enrolments +
+        deps._count.invoice_lines +
+        deps._count.report_cards;
 
       if (totalDeps > 0) {
         const reasons: string[] = [];
-        if (deps._count.attendance_records > 0) reasons.push(`${deps._count.attendance_records} attendance records`);
+        if (deps._count.attendance_records > 0)
+          reasons.push(`${deps._count.attendance_records} attendance records`);
         if (deps._count.grades > 0) reasons.push(`${deps._count.grades} grades`);
-        if (deps._count.class_enrolments > 0) reasons.push(`${deps._count.class_enrolments} class enrolments`);
-        if (deps._count.invoice_lines > 0) reasons.push(`${deps._count.invoice_lines} invoice lines`);
+        if (deps._count.class_enrolments > 0)
+          reasons.push(`${deps._count.class_enrolments} class enrolments`);
+        if (deps._count.invoice_lines > 0)
+          reasons.push(`${deps._count.invoice_lines} invoice lines`);
         if (deps._count.report_cards > 0) reasons.push(`${deps._count.report_cards} report cards`);
         skippedDetails.push({
           record_type: 'student',
@@ -449,7 +490,10 @@ export class ImportService {
         select: { id: true, user_id: true },
       });
 
-      if (!parent) { deletedCount++; continue; }
+      if (!parent) {
+        deletedCount++;
+        continue;
+      }
 
       if (parent.user_id) {
         skippedDetails.push({
@@ -486,10 +530,18 @@ export class ImportService {
       }
 
       // Check if household still exists (might have been cascade-deleted)
-      const hh = await this.prisma.household.findUnique({ where: { id: rec.record_id }, select: { id: true } });
-      if (!hh) { deletedCount++; continue; }
+      const hh = await this.prisma.household.findUnique({
+        where: { id: rec.record_id },
+        select: { id: true },
+      });
+      if (!hh) {
+        deletedCount++;
+        continue;
+      }
 
-      await this.prisma.householdEmergencyContact.deleteMany({ where: { household_id: rec.record_id } });
+      await this.prisma.householdEmergencyContact.deleteMany({
+        where: { household_id: rec.record_id },
+      });
       await this.prisma.householdParent.deleteMany({ where: { household_id: rec.record_id } });
       await this.prisma.household.delete({ where: { id: rec.record_id } });
       deletedCount++;
@@ -593,10 +645,14 @@ export class ImportService {
       valid_rows: summary.valid_rows ?? null,
       invalid_rows: summary.invalid_rows ?? null,
       errors: [
-        ...(Array.isArray(summary.header_errors) ? summary.header_errors.map((e: unknown) => ({ row: 0, field: '', message: String(e) })) : []),
-        ...(Array.isArray(summary.row_errors) ? (summary.row_errors as Array<{ row: number; errors: string[] }>).flatMap((re) =>
-          re.errors.map((msg) => ({ row: re.row, field: '', message: msg })),
-        ) : []),
+        ...(Array.isArray(summary.header_errors)
+          ? summary.header_errors.map((e: unknown) => ({ row: 0, field: '', message: String(e) }))
+          : []),
+        ...(Array.isArray(summary.row_errors)
+          ? (summary.row_errors as Array<{ row: number; errors: string[] }>).flatMap((re) =>
+              re.errors.map((msg) => ({ row: re.row, field: '', message: msg })),
+            )
+          : []),
       ],
     };
   }

@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   copyDaySchema,
   copyYearGroupSchema,
@@ -26,7 +28,6 @@ import type {
   ReplaceDayDto,
   UpdatePeriodTemplateDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -53,7 +54,11 @@ export class PeriodGridController {
     @Query(new ZodValidationPipe(listPeriodGridQuerySchema))
     query: z.infer<typeof listPeriodGridQuerySchema>,
   ) {
-    return this.periodGridService.findAll(tenant.tenant_id, query.academic_year_id, query.year_group_id);
+    return this.periodGridService.findAll(
+      tenant.tenant_id,
+      query.academic_year_id,
+      query.year_group_id,
+    );
   }
 
   @Post()

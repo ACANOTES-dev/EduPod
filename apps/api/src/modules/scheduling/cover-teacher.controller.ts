@@ -1,9 +1,5 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+
 import { findCoverTeacherQuerySchema } from '@school/shared';
 import type { FindCoverTeacherQuery } from '@school/shared';
 

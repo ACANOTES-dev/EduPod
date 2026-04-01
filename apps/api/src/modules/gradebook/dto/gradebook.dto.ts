@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+
 import type {
   acknowledgeRiskAlertSchema,
   applyCurveSchema,
@@ -41,7 +43,6 @@ import type {
   upsertGradeConfigSchema,
   upsertYearGroupGradeWeightSchema,
 } from '@school/shared';
-import type { z } from 'zod';
 
 export type CreateGradingScaleDto = z.infer<typeof createGradingScaleSchema>;
 export type UpdateGradingScaleDto = z.infer<typeof updateGradingScaleSchema>;

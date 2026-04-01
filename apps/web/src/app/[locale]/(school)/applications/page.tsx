@@ -1,10 +1,11 @@
 'use client';
 
-import { EmptyState } from '@school/ui';
 import { ClipboardList } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { EmptyState } from '@school/ui';
 
 import { ApplicationStatusBadge } from '@/components/admissions/application-status-badge';
 import { DataTable } from '@/components/data-table';
@@ -101,17 +102,10 @@ export default function ParentApplicationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('applications')}
-        description="Track the status of your applications"
-      />
+      <PageHeader title={t('applications')} description="Track the status of your applications" />
 
       {!isLoading && applications.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title={t('noApplicationsYet')}
-          description=""
-        />
+        <EmptyState icon={ClipboardList} title={t('noApplicationsYet')} description="" />
       ) : (
         <DataTable
           columns={columns}

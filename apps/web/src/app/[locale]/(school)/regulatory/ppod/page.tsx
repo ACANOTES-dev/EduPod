@@ -13,13 +13,13 @@ import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { SyncDiffPreview } from './_components/sync-diff-preview';
 import { SyncStatusOverview } from './_components/sync-status-overview';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -129,10 +129,7 @@ export default function PpodDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('ppod.title')}
-        description={t('ppod.description')}
-      />
+      <PageHeader title={t('ppod.title')} description={t('ppod.description')} />
 
       <RegulatoryNav />
 
@@ -167,9 +164,7 @@ export default function PpodDashboardPage() {
 
       {/* ─── Quick Actions ─────────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('ppod.quickActions')}
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('ppod.quickActions')}</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
@@ -198,9 +193,7 @@ export default function PpodDashboardPage() {
 
       {/* ─── Navigation Links ──────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('ppod.relatedPages')}
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('ppod.relatedPages')}</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {NAV_LINKS.map((link) => {
             const Icon = link.icon;
@@ -231,9 +224,7 @@ export default function PpodDashboardPage() {
 
       {/* ─── Diff Preview ──────────────────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('ppod.diffPreview')}
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('ppod.diffPreview')}</h2>
         <div className="mt-3">
           <SyncDiffPreview databaseType={databaseType} />
         </div>

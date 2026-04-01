@@ -1,6 +1,22 @@
 'use client';
 
 import {
+  ShieldCheck,
+  Monitor,
+  Sun,
+  Moon,
+  RefreshCw,
+  Trash2,
+  Bell,
+  ChevronRight,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useTheme } from 'next-themes';
+import * as React from 'react';
+
+import {
   Button,
   Input,
   Label,
@@ -12,12 +28,6 @@ import {
   Badge,
   Separator,
 } from '@school/ui';
-import { ShieldCheck, Monitor, Sun, Moon, RefreshCw, Trash2, Bell, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
@@ -62,9 +72,7 @@ export default function ProfilePage() {
   /* ---- Profile form state ---- */
   const [firstName, setFirstName] = React.useState(user?.first_name ?? '');
   const [lastName, setLastName] = React.useState(user?.last_name ?? '');
-  const [preferredLocale, setPreferredLocale] = React.useState(
-    user?.preferred_locale ?? 'en',
-  );
+  const [preferredLocale, setPreferredLocale] = React.useState(user?.preferred_locale ?? 'en');
   const [savingProfile, setSavingProfile] = React.useState(false);
   const [profileMessage, setProfileMessage] = React.useState<{
     type: 'success' | 'error';
@@ -106,8 +114,9 @@ export default function ProfilePage() {
       try {
         const data = await apiClient<{ data: SessionData[] }>('/api/v1/auth/sessions');
         if (!cancelled) setSessions(data.data ?? []);
-      } catch {
+      } catch (err) {
         // Silently fail — non-critical
+        console.error('[data]', err);
       } finally {
         if (!cancelled) setSessionsLoading(false);
       }
@@ -338,10 +347,7 @@ export default function ProfilePage() {
                 className="font-mono tracking-widest"
               />
             </div>
-            <Button
-              onClick={handleMfaVerify}
-              disabled={mfaVerifyLoading || mfaCode.length !== 6}
-            >
+            <Button onClick={handleMfaVerify} disabled={mfaVerifyLoading || mfaCode.length !== 6}>
               {mfaVerifyLoading ? t('profile.verifying') : t('profile.verifyAndEnable')}
             </Button>
           </div>
@@ -364,7 +370,9 @@ export default function ProfilePage() {
       {/* Active Sessions                                                     */}
       {/* ------------------------------------------------------------------ */}
       <section className="rounded-2xl border border-border bg-surface p-6 space-y-4">
-        <h2 className="text-base font-semibold text-text-primary">{t('profile.sessionsSection')}</h2>
+        <h2 className="text-base font-semibold text-text-primary">
+          {t('profile.sessionsSection')}
+        </h2>
         <p className="text-sm text-text-secondary">{t('profile.sessionsDescription')}</p>
 
         {sessionsLoading ? (
@@ -384,9 +392,7 @@ export default function ProfilePage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-tertiary flex-wrap">
-                      {session.ip_address && (
-                        <span dir="ltr">{session.ip_address}</span>
-                      )}
+                      {session.ip_address && <span dir="ltr">{session.ip_address}</span>}
                       <span>
                         {t('profile.lastActive')}: {formatLastActive(session.last_active_at)}
                       </span>

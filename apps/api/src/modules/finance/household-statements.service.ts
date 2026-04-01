@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type { HouseholdStatementData, StatementEntry } from '@school/shared';
 
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
@@ -153,7 +151,7 @@ export class HouseholdStatementsService {
       // Write-off entry (credit)
       if (inv.write_off_amount && Number(inv.write_off_amount) > 0) {
         entries.push({
-          date: inv.issue_date?.toISOString().split('T')[0] as string ?? '',
+          date: (inv.issue_date?.toISOString().split('T')[0] as string) ?? '',
           type: 'write_off',
           reference: inv.invoice_number,
           description: `Write-off: ${inv.write_off_reason ?? inv.invoice_number}`,

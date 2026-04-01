@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { BehaviourAdminController } from './behaviour-admin.controller';
@@ -302,7 +303,12 @@ describe('BehaviourAdminController', () => {
 
     const result = await controller.releaseLegalHold(TENANT, USER, 'hold-1', dto as never);
 
-    expect(mockLegalHoldService.releaseHold).toHaveBeenCalledWith(TENANT_ID, USER_ID, 'hold-1', dto);
+    expect(mockLegalHoldService.releaseHold).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      'hold-1',
+      dto,
+    );
     expect(result).toEqual({ success: true });
   });
 });

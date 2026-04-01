@@ -1,8 +1,9 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { behaviourSettingsSchema } from '@school/shared';
 import { Job, Queue } from 'bullmq';
+
+import { behaviourSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { HOMEWORK_COMPLETION_REMINDER_JOB } from '../homework/completion-reminder.processor';
@@ -181,9 +182,7 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
           }
         }
       } catch (err: unknown) {
-        this.logger.error(
-          `Daily dispatch failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Daily dispatch failed for tenant ${tenant.id}: ${String(err)}`);
         // Continue processing other tenants
       }
     }
@@ -207,15 +206,10 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
 
     for (const tenant of tenants) {
       try {
-        await this.behaviourQueue.add(
-          SLA_CHECK_JOB,
-          { tenant_id: tenant.id },
-        );
+        await this.behaviourQueue.add(SLA_CHECK_JOB, { tenant_id: tenant.id });
         enqueued++;
       } catch (err: unknown) {
-        this.logger.error(
-          `SLA dispatch failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`SLA dispatch failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -238,15 +232,10 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
 
     for (const tenant of tenants) {
       try {
-        await this.behaviourQueue.add(
-          BEHAVIOUR_RETENTION_CHECK_JOB,
-          { tenant_id: tenant.id },
-        );
+        await this.behaviourQueue.add(BEHAVIOUR_RETENTION_CHECK_JOB, { tenant_id: tenant.id });
         enqueued++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Monthly dispatch failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Monthly dispatch failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -296,9 +285,7 @@ export class BehaviourCronDispatchProcessor extends WorkerHost {
       const hourPart = parts.find((p) => p.type === 'hour');
       return hourPart ? parseInt(hourPart.value, 10) : now.getUTCHours();
     } catch {
-      this.logger.warn(
-        `Invalid timezone "${timezone}" — falling back to UTC`,
-      );
+      this.logger.warn(`Invalid timezone "${timezone}" — falling back to UTC`);
       return now.getUTCHours();
     }
   }

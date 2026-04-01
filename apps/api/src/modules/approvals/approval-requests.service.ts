@@ -7,8 +7,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 import type { Queue } from 'bullmq';
+
+import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 

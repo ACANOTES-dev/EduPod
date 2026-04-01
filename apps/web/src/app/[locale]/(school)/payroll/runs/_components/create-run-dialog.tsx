@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,8 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -41,8 +42,18 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
   React.useEffect(() => {
     if (open) {
       const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December',
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
       ];
       const m = Number(periodMonth);
       const y = periodYear;
@@ -64,8 +75,9 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
         }),
       });
       onSuccess(res.data.id);
-    } catch {
+    } catch (err) {
       // handled by apiClient
+      console.error('[onSuccess]', err);
     } finally {
       setIsSaving(false);
     }
@@ -80,11 +92,7 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>{t('periodLabel')}</Label>
-            <Input
-              value={periodLabel}
-              onChange={(e) => setPeriodLabel(e.target.value)}
-              required
-            />
+            <Input value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} required />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -96,7 +104,9 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
                 </SelectTrigger>
                 <SelectContent>
                   {months.map((m) => (
-                    <SelectItem key={m} value={String(m)}>{m}</SelectItem>
+                    <SelectItem key={m} value={String(m)}>
+                      {m}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -109,7 +119,9 @@ export function CreateRunDialog({ open, onOpenChange, onSuccess }: CreateRunDial
                 </SelectTrigger>
                 <SelectContent>
                   {years.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

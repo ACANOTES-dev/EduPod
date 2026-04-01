@@ -1,18 +1,18 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button } from '@school/ui';
 
 import {
   FeeAssignmentForm,
   type FeeAssignmentFormValues,
 } from '../_components/fee-assignment-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 export default function NewFeeAssignmentPage() {
   const t = useTranslations('finance');

@@ -1,16 +1,9 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import { payslipQuerySchema } from '@school/shared';
-import type { TenantContext } from '@school/shared';
+import { Controller, Get, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import { payslipQuerySchema } from '@school/shared';
+import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -41,10 +34,7 @@ export class PayslipsController {
 
   @Get(':id')
   @RequiresPermission('payroll.view')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.payslipsService.getPayslip(tenant.tenant_id, id);
   }
 

@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Eye, Lock, Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -16,9 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ChevronDown, ChevronRight, Eye, Lock, Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { useIsMobile } from '@/hooks/use-is-mobile';

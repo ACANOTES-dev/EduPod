@@ -5,6 +5,7 @@ import {
   SanctionType,
   TuslaAbsenceCategory,
 } from '@prisma/client';
+
 import type { GenerateTuslaAarDto, GenerateTuslaSarDto } from '@school/shared';
 import { TUSLA_DEFAULT_THRESHOLD_DAYS } from '@school/shared';
 
@@ -87,29 +88,30 @@ export class RegulatoryTuslaService {
     });
 
     // Filter students approaching or exceeding threshold
-    const filtered = groups.filter(g => g._count.student_id >= approachingThreshold);
+    const filtered = groups.filter((g) => g._count.student_id >= approachingThreshold);
 
     if (filtered.length === 0) {
       return { threshold, data: [] };
     }
 
     // Get student details
-    const studentIds = filtered.map(g => g.student_id);
+    const studentIds = filtered.map((g) => g.student_id);
     const students = await this.prisma.student.findMany({
       where: { id: { in: studentIds }, tenant_id: tenantId },
       select: STUDENT_SELECT,
     });
 
-    const studentMap = new Map(students.map(s => [s.id, s]));
+    const studentMap = new Map(students.map((s) => [s.id, s]));
 
     const data = filtered
-      .map(g => ({
+      .map((g) => ({
         student: studentMap.get(g.student_id) ?? null,
         absent_days: g._count.student_id,
         threshold,
-        status: g._count.student_id >= threshold ? 'exceeding' as const : 'approaching' as const,
+        status:
+          g._count.student_id >= threshold ? ('exceeding' as const) : ('approaching' as const),
       }))
-      .filter(d => d.student !== null)
+      .filter((d) => d.student !== null)
       .sort((a, b) => b.absent_days - a.absent_days);
 
     return { threshold, data };
@@ -170,17 +172,18 @@ export class RegulatoryTuslaService {
 
     // Get student details for those with absences
     const studentIds = [...studentData.keys()];
-    const students = studentIds.length > 0
-      ? await this.prisma.student.findMany({
-          where: { id: { in: studentIds }, tenant_id: tenantId },
-          select: STUDENT_SELECT,
-        })
-      : [];
+    const students =
+      studentIds.length > 0
+        ? await this.prisma.student.findMany({
+            where: { id: { in: studentIds }, tenant_id: tenantId },
+            select: STUDENT_SELECT,
+          })
+        : [];
 
-    const studentMap = new Map(students.map(s => [s.id, s]));
+    const studentMap = new Map(students.map((s) => [s.id, s]));
 
     const rows = studentIds
-      .map(id => {
+      .map((id) => {
         const categories = studentData.get(id)!;
         const totalDays = Object.values(categories).reduce((sum, n) => sum + n, 0);
         return {
@@ -189,7 +192,7 @@ export class RegulatoryTuslaService {
           categories,
         };
       })
-      .filter(r => r.student !== null)
+      .filter((r) => r.student !== null)
       .sort((a, b) => b.total_absent_days - a.total_absent_days);
 
     return {
@@ -233,7 +236,7 @@ export class RegulatoryTuslaService {
     });
 
     const studentsOver20 = groups.filter(
-      g => g._count.student_id >= TUSLA_DEFAULT_THRESHOLD_DAYS,
+      (g) => g._count.student_id >= TUSLA_DEFAULT_THRESHOLD_DAYS,
     ).length;
 
     return {

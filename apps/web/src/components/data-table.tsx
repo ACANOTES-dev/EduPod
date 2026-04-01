@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, TableWrapper } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
 
+import { Button, TableWrapper } from '@school/ui';
 
 interface Column<T> {
   key: string;
@@ -46,11 +46,7 @@ export function DataTable<T>({
       toolbar={toolbar}
       pagination={
         <div className="flex items-center justify-between text-sm text-text-secondary">
-          <span>
-            {total === 0
-              ? 'No results'
-              : `Showing ${startItem}–${endItem} of ${total}`}
-          </span>
+          <span>{total === 0 ? 'No results' : `Showing ${startItem}–${endItem} of ${total}`}</span>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"

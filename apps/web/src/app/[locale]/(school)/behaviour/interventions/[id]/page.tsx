@@ -1,12 +1,12 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { AlertTriangle, ArrowLeft, User } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Badge, Button } from '@school/ui';
 
 import { AddReviewDialog } from './_components/add-review-dialog';
 import { HistoryTab } from './_components/history-tab';

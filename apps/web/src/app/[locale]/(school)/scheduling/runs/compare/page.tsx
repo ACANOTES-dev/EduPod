@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,16 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ArrowLeft, GitCompare, Loader2 } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import {
+  ScheduleGrid,
+  type PeriodSlot,
+  type ScheduleEntry,
+} from '../[id]/_components/schedule-grid';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from '../[id]/_components/schedule-grid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,9 +193,13 @@ export default function ComparePage() {
           </Select>
           {summaryA && (
             <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
-              <Badge variant="secondary">{summaryA.assigned_count} {t('runs.assignedCol')}</Badge>
+              <Badge variant="secondary">
+                {summaryA.assigned_count} {t('runs.assignedCol')}
+              </Badge>
               {summaryA.score != null && (
-                <Badge variant="default">{t('runs.scoreCol')}: {summaryA.score}</Badge>
+                <Badge variant="default">
+                  {t('runs.scoreCol')}: {summaryA.score}
+                </Badge>
               )}
             </div>
           )}
@@ -215,9 +223,13 @@ export default function ComparePage() {
           </Select>
           {summaryB && (
             <div className="mt-2 flex items-center gap-2 text-xs text-text-secondary">
-              <Badge variant="secondary">{summaryB.assigned_count} {t('runs.assignedCol')}</Badge>
+              <Badge variant="secondary">
+                {summaryB.assigned_count} {t('runs.assignedCol')}
+              </Badge>
               {summaryB.score != null && (
-                <Badge variant="default">{t('runs.scoreCol')}: {summaryB.score}</Badge>
+                <Badge variant="default">
+                  {t('runs.scoreCol')}: {summaryB.score}
+                </Badge>
               )}
             </div>
           )}
@@ -232,8 +244,8 @@ export default function ComparePage() {
             <strong>{diffCells.size}</strong> {t('runs.cellsDiffer')}
           </span>
           <span className="text-sm text-text-secondary">
-            {t('runs.runA')}: {entriesACount} {t('runs.entries')} |{' '}
-            {t('runs.runB')}: {entriesBCount} {t('runs.entries')}
+            {t('runs.runA')}: {entriesACount} {t('runs.entries')} | {t('runs.runB')}:{' '}
+            {entriesBCount} {t('runs.entries')}
           </span>
         </div>
       )}

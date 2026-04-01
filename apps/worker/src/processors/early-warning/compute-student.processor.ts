@@ -1,9 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { Job } from 'bullmq';
+
 import type { RiskTier, SignalResult, TrendJson } from '@school/shared';
 import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
-import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -64,10 +65,7 @@ export class ComputeStudentProcessor extends WorkerHost {
 class ComputeStudentJob extends TenantAwareJob<ComputeStudentPayload> {
   private readonly logger = new Logger(ComputeStudentJob.name);
 
-  protected async processJob(
-    data: ComputeStudentPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ComputeStudentPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, student_id, trigger_event } = data;
 
     // 1. Load tenant config — skip if early warning is disabled
@@ -147,13 +145,7 @@ class ComputeStudentJob extends TenantAwareJob<ComputeStudentPayload> {
     );
 
     // 8. Write signal audit trail
-    await writeSignalAuditTrail(
-      tx,
-      tenant_id,
-      student_id,
-      academicYear.id,
-      assessment.signals,
-    );
+    await writeSignalAuditTrail(tx, tenant_id, student_id, academicYear.id, assessment.signals);
 
     // 9. Log tier transition if changed
     if (assessment.tierChanged) {

@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type {
   BehaviourTaskStatus,
   CancelTaskDto,
@@ -32,18 +29,12 @@ export class BehaviourTasksService {
     const where: Prisma.BehaviourTaskWhereInput = {
       tenant_id: tenantId,
     };
-    if (query.status)
-      where.status = query.status as $Enums.BehaviourTaskStatus;
-    if (query.priority)
-      where.priority = query.priority as $Enums.TaskPriority;
-    if (query.assigned_to_id)
-      where.assigned_to_id = query.assigned_to_id;
-    if (query.entity_type)
-      where.entity_type =
-        query.entity_type as $Enums.BehaviourTaskEntityType;
+    if (query.status) where.status = query.status as $Enums.BehaviourTaskStatus;
+    if (query.priority) where.priority = query.priority as $Enums.TaskPriority;
+    if (query.assigned_to_id) where.assigned_to_id = query.assigned_to_id;
+    if (query.entity_type) where.entity_type = query.entity_type as $Enums.BehaviourTaskEntityType;
     if (query.entity_id) where.entity_id = query.entity_id;
-    if (query.overdue_only)
-      where.status = 'overdue' as $Enums.BehaviourTaskStatus;
+    if (query.overdue_only) where.status = 'overdue' as $Enums.BehaviourTaskStatus;
 
     const [data, total] = await Promise.all([
       this.prisma.behaviourTask.findMany({
@@ -72,21 +63,12 @@ export class BehaviourTasksService {
   /**
    * Get tasks assigned to the current user.
    */
-  async getMyTasks(
-    tenantId: string,
-    userId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getMyTasks(tenantId: string, userId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourTaskWhereInput = {
       tenant_id: tenantId,
       assigned_to_id: userId,
       status: {
-        in: [
-          'pending',
-          'in_progress',
-          'overdue',
-        ] as $Enums.BehaviourTaskStatus[],
+        in: ['pending', 'in_progress', 'overdue'] as $Enums.BehaviourTaskStatus[],
       },
     };
 
@@ -130,12 +112,7 @@ export class BehaviourTasksService {
   /**
    * Update task fields.
    */
-  async updateTask(
-    tenantId: string,
-    id: string,
-    _userId: string,
-    dto: UpdateTaskDto,
-  ) {
+  async updateTask(tenantId: string, id: string, _userId: string, dto: UpdateTaskDto) {
     const task = await this.prisma.behaviourTask.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -149,18 +126,10 @@ export class BehaviourTasksService {
     return this.prisma.behaviourTask.update({
       where: { id },
       data: {
-        ...(dto.assigned_to_id !== undefined
-          ? { assigned_to_id: dto.assigned_to_id }
-          : {}),
-        ...(dto.priority !== undefined
-          ? { priority: dto.priority as $Enums.TaskPriority }
-          : {}),
-        ...(dto.due_date !== undefined
-          ? { due_date: new Date(dto.due_date) }
-          : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description }
-          : {}),
+        ...(dto.assigned_to_id !== undefined ? { assigned_to_id: dto.assigned_to_id } : {}),
+        ...(dto.priority !== undefined ? { priority: dto.priority as $Enums.TaskPriority } : {}),
+        ...(dto.due_date !== undefined ? { due_date: new Date(dto.due_date) } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
       },
     });
   }
@@ -168,12 +137,7 @@ export class BehaviourTasksService {
   /**
    * Mark a task as completed.
    */
-  async completeTask(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: CompleteTaskDto,
-  ) {
+  async completeTask(tenantId: string, id: string, userId: string, dto: CompleteTaskDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -225,12 +189,7 @@ export class BehaviourTasksService {
   /**
    * Cancel a task with a reason.
    */
-  async cancelTask(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: CancelTaskDto,
-  ) {
+  async cancelTask(tenantId: string, id: string, userId: string, dto: CancelTaskDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -278,11 +237,7 @@ export class BehaviourTasksService {
   /**
    * Get overdue tasks.
    */
-  async getOverdueTasks(
-    tenantId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getOverdueTasks(tenantId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourTaskWhereInput = {
       tenant_id: tenantId,
       status: 'overdue' as $Enums.BehaviourTaskStatus,
@@ -318,10 +273,7 @@ export class BehaviourTasksService {
         where: {
           tenant_id: tenantId,
           status: {
-            in: [
-              'pending',
-              'in_progress',
-            ] as $Enums.BehaviourTaskStatus[],
+            in: ['pending', 'in_progress'] as $Enums.BehaviourTaskStatus[],
           },
         },
       }),

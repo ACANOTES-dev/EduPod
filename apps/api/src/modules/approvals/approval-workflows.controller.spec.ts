@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -39,9 +40,7 @@ describe('ApprovalWorkflowsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ApprovalWorkflowsController],
-      providers: [
-        { provide: ApprovalWorkflowsService, useValue: mockService },
-      ],
+      providers: [{ provide: ApprovalWorkflowsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -49,9 +48,7 @@ describe('ApprovalWorkflowsController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<ApprovalWorkflowsController>(
-      ApprovalWorkflowsController,
-    );
+    controller = module.get<ApprovalWorkflowsController>(ApprovalWorkflowsController);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -86,18 +83,10 @@ describe('ApprovalWorkflowsController', () => {
     const expected = { id: WORKFLOW_ID, is_enabled: false };
     mockService.updateWorkflow.mockResolvedValue(expected);
 
-    const result = await controller.updateWorkflow(
-      mockTenant,
-      WORKFLOW_ID,
-      dto,
-    );
+    const result = await controller.updateWorkflow(mockTenant, WORKFLOW_ID, dto);
 
     expect(result).toEqual(expected);
-    expect(mockService.updateWorkflow).toHaveBeenCalledWith(
-      TENANT_ID,
-      WORKFLOW_ID,
-      dto,
-    );
+    expect(mockService.updateWorkflow).toHaveBeenCalledWith(TENANT_ID, WORKFLOW_ID, dto);
   });
 
   it('should delete a workflow', async () => {
@@ -107,9 +96,6 @@ describe('ApprovalWorkflowsController', () => {
     const result = await controller.deleteWorkflow(mockTenant, WORKFLOW_ID);
 
     expect(result).toEqual(expected);
-    expect(mockService.deleteWorkflow).toHaveBeenCalledWith(
-      TENANT_ID,
-      WORKFLOW_ID,
-    );
+    expect(mockService.deleteWorkflow).toHaveBeenCalledWith(TENANT_ID, WORKFLOW_ID);
   });
 });

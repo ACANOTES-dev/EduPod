@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
+
 import type { JwtPayload } from '@school/shared';
 
 import { CpAccessService } from '../services/cp-access.service';
@@ -46,16 +47,11 @@ export class CpAccessGuard implements CanActivate {
     }
 
     // Check if user has active CP access
-    const hasAccess = await this.cpAccessService.hasAccess(
-      user.tenant_id,
-      user.sub,
-    );
+    const hasAccess = await this.cpAccessService.hasAccess(user.tenant_id, user.sub);
 
     if (!hasAccess) {
       // Log the rejected access attempt for security monitoring
-      this.logger.warn(
-        `CP access denied: user=${user.sub} tenant=${user.tenant_id}`,
-      );
+      this.logger.warn(`CP access denied: user=${user.sub} tenant=${user.tenant_id}`);
 
       // CRITICAL: Identical error shape to PermissionGuard failures.
       // Zero-discoverability: no CP-specific terminology in response.

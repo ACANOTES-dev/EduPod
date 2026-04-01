@@ -8,8 +8,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -109,10 +110,6 @@ export class CurriculumMatrixController {
     @Body(new ZodValidationPipe(bulkAssessmentSchema))
     body: z.infer<typeof bulkAssessmentSchema>,
   ) {
-    return this.matrixService.bulkCreateAssessments(
-      tenant.tenant_id,
-      user.sub,
-      body,
-    );
+    return this.matrixService.bulkCreateAssessments(tenant.tenant_id, user.sub, body);
   }
 }

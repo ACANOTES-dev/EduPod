@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,11 +16,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { ArrowLeft } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -75,7 +75,9 @@ export default function NewAssessmentPage() {
     apiClient<ListResponse<AcademicPeriod>>('/api/v1/academic-periods?pageSize=50')
       .then((res) => setPeriods(res.data))
       .catch(() => undefined);
-    apiClient<ListResponse<AssessmentCategory>>('/api/v1/gradebook/assessment-categories?pageSize=50')
+    apiClient<ListResponse<AssessmentCategory>>(
+      '/api/v1/gradebook/assessment-categories?pageSize=50',
+    )
       .then((res) => setCategories(res.data))
       .catch(() => undefined);
   }, []);
@@ -110,7 +112,11 @@ export default function NewAssessmentPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/gradebook/${classId}`)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/${locale}/gradebook/${classId}`)}
+        >
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <PageHeader title={t('newAssessment')} />
@@ -136,7 +142,9 @@ export default function NewAssessmentPage() {
             </SelectTrigger>
             <SelectContent>
               {subjects.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -150,7 +158,9 @@ export default function NewAssessmentPage() {
             </SelectTrigger>
             <SelectContent>
               {periods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -164,7 +174,9 @@ export default function NewAssessmentPage() {
             </SelectTrigger>
             <SelectContent>
               {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

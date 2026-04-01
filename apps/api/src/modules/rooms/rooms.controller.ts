@@ -12,8 +12,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { createRoomSchema, updateRoomSchema } from '@school/shared';
 import { z } from 'zod';
+
+import { createRoomSchema, updateRoomSchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

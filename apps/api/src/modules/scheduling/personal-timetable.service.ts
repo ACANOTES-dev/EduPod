@@ -1,14 +1,8 @@
 import { randomBytes } from 'crypto';
 
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateSubscriptionTokenDto,
-  TimetableQuery,
-} from '@school/shared';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+
+import type { CreateSubscriptionTokenDto, TimetableQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -99,7 +93,10 @@ export class PersonalTimetableService {
 
     if (!staffProfile) {
       throw new NotFoundException({
-        error: { code: 'STAFF_PROFILE_NOT_FOUND', message: 'Staff profile not found for this user' },
+        error: {
+          code: 'STAFF_PROFILE_NOT_FOUND',
+          message: 'Staff profile not found for this user',
+        },
       });
     }
 
@@ -199,7 +196,7 @@ export class PersonalTimetableService {
     }> = [];
 
     if (subscriptionToken.entity_type === 'teacher') {
-      schedules = await this.prisma.schedule.findMany({
+      schedules = (await this.prisma.schedule.findMany({
         where: {
           tenant_id: tenantId,
           teacher_staff_id: subscriptionToken.entity_id,
@@ -214,9 +211,9 @@ export class PersonalTimetableService {
           room: { select: { name: true } },
           teacher: { select: { user: { select: { first_name: true, last_name: true } } } },
         },
-      }) as typeof schedules;
+      })) as typeof schedules;
     } else {
-      schedules = await this.prisma.schedule.findMany({
+      schedules = (await this.prisma.schedule.findMany({
         where: {
           tenant_id: tenantId,
           class_id: subscriptionToken.entity_id,
@@ -231,7 +228,7 @@ export class PersonalTimetableService {
           room: { select: { name: true } },
           teacher: { select: { user: { select: { first_name: true, last_name: true } } } },
         },
-      }) as typeof schedules;
+      })) as typeof schedules;
     }
 
     // Generate ICS content
@@ -302,16 +299,12 @@ export class PersonalTimetableService {
 
   // ─── Create Subscription Token ────────────────────────────────────────────
 
-  async createSubscriptionToken(
-    tenantId: string,
-    userId: string,
-    dto: CreateSubscriptionTokenDto,
-  ) {
+  async createSubscriptionToken(tenantId: string, userId: string, dto: CreateSubscriptionTokenDto) {
     const token = randomBytes(32).toString('hex'); // 64-char hex
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = await prismaWithRls.$transaction(async (tx) => {
+    const record = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.calendarSubscriptionToken.create({
         data: {
@@ -322,7 +315,7 @@ export class PersonalTimetableService {
           entity_id: dto.entity_id,
         },
       });
-    }) as unknown as { id: string; token: string; created_at: Date };
+    })) as unknown as { id: string; token: string; created_at: Date };
 
     return {
       id: (record as { id: string }).id,
@@ -335,11 +328,7 @@ export class PersonalTimetableService {
 
   // ─── Revoke Subscription Token ────────────────────────────────────────────
 
-  async revokeSubscriptionToken(
-    tenantId: string,
-    userId: string,
-    tokenId: string,
-  ) {
+  async revokeSubscriptionToken(tenantId: string, userId: string, tokenId: string) {
     const existing = await this.prisma.calendarSubscriptionToken.findFirst({
       where: { id: tokenId, tenant_id: tenantId },
       select: { id: true, user_id: true },

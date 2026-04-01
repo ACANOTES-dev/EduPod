@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -135,7 +136,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getOverview(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getOverview).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getOverview).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ total: 100 });
   });
 
@@ -146,7 +152,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getHeatmap(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getHeatmap).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getHeatmap).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ cells: [] });
   });
 
@@ -155,7 +166,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getHistoricalHeatmap(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getHistoricalHeatmap).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getHistoricalHeatmap).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ periods: [] });
   });
 
@@ -166,7 +182,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getTrends(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getTrends).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getTrends).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ series: [] });
   });
 
@@ -177,7 +198,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getCategories(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getCategories).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getCategories).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ categories: [] });
   });
 
@@ -188,7 +214,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getSubjects(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getSubjects).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getSubjects).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ subjects: [] });
   });
 
@@ -210,7 +241,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getSanctions(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getSanctions).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getSanctions).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ sanctions: [] });
   });
 
@@ -232,7 +268,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getRatio(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getRatio).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getRatio).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ positive: 60, negative: 40 });
   });
 
@@ -243,7 +284,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getComparisons(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getComparisons).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getComparisons).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ comparisons: [] });
   });
 
@@ -299,7 +345,12 @@ describe('BehaviourAnalyticsController', () => {
 
     const result = await controller.getClassComparisons(TENANT, USER, QUERY as never);
 
-    expect(mockAnalyticsService.getClassComparisons).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, QUERY);
+    expect(mockAnalyticsService.getClassComparisons).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      QUERY,
+    );
     expect(result).toEqual({ classes: [] });
   });
 
@@ -319,7 +370,12 @@ describe('BehaviourAnalyticsController', () => {
 
     await controller.exportCsv(TENANT, USER, csvQuery as never, mockRes as never);
 
-    expect(mockAnalyticsService.exportCsv).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, csvQuery);
+    expect(mockAnalyticsService.exportCsv).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      csvQuery,
+    );
     expect(mockRes.set).toHaveBeenCalledWith({
       'Content-Type': 'text/csv',
       'Content-Disposition': 'attachment; filename="export.csv"',

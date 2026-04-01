@@ -1,6 +1,5 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -14,6 +13,7 @@ import {
   Legend,
 } from 'recharts';
 
+import { Button } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -79,11 +79,7 @@ export function CostTrendChart({ data, onPointClick }: CostTrendChartProps) {
     <div className="rounded-2xl border border-border bg-surface p-5">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{t('costTrend')}</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setStacked(!stacked)}
-        >
+        <Button variant="ghost" size="sm" onClick={() => setStacked(!stacked)}>
           {stacked ? 'Unstacked' : 'Stacked'}
         </Button>
       </div>

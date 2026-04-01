@@ -1,15 +1,8 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import type { TenantContext } from '@school/shared';
-import {
-  auditLogFilterSchema,
-  platformAuditLogFilterSchema,
-} from '@school/shared';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import type { z } from 'zod';
+
+import type { TenantContext } from '@school/shared';
+import { auditLogFilterSchema, platformAuditLogFilterSchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

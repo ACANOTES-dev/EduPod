@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -25,14 +26,8 @@ export class ParentApplicationsController {
   ) {}
 
   @Get()
-  async findOwn(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.applicationsService.findByParent(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async findOwn(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.applicationsService.findByParent(tenant.tenant_id, user.sub);
   }
 
   @Get(':id')
@@ -42,10 +37,7 @@ export class ParentApplicationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     // Fetch the application, then verify ownership
-    const application = await this.applicationsService.findOne(
-      tenant.tenant_id,
-      id,
-    );
+    const application = await this.applicationsService.findOne(tenant.tenant_id, id);
 
     // Parent can only view their own applications — findByParent check
     const parentApps = (await this.applicationsService.findByParent(
@@ -76,11 +68,7 @@ export class ParentApplicationsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.applicationsService.submit(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.applicationsService.submit(tenant.tenant_id, id, user.sub);
   }
 
   @Post(':id/withdraw')

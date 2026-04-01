@@ -13,6 +13,7 @@ jest.mock('qrcode', () => ({
 
 import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { MODULE_KEYS, NOTIFICATION_TYPES, SEQUENCE_TYPES } from '@school/shared';
 
 import { SecurityAuditService } from '../audit-log/security-audit.service';

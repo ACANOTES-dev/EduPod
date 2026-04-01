@@ -1,5 +1,9 @@
 'use client';
 
+import { Globe, SendHorizonal } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -11,9 +15,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Globe, SendHorizonal } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -98,27 +99,24 @@ export default function GradePublishingPage() {
       .catch(() => undefined);
   }, []);
 
-  const fetchRows = React.useCallback(
-    async (p: number, periodId: string, classId: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (periodId !== 'all') params.set('academic_period_id', periodId);
-        if (classId !== 'all') params.set('class_id', classId);
-        const res = await apiClient<PublishingResponse>(
-          `/api/v1/gradebook/publishing/readiness?${params.toString()}`,
-        );
-        setRows(res.data);
-        setTotal(res.meta.total);
-      } catch {
-        setRows([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchRows = React.useCallback(async (p: number, periodId: string, classId: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (periodId !== 'all') params.set('academic_period_id', periodId);
+      if (classId !== 'all') params.set('class_id', classId);
+      const res = await apiClient<PublishingResponse>(
+        `/api/v1/gradebook/publishing/readiness?${params.toString()}`,
+      );
+      setRows(res.data);
+      setTotal(res.meta.total);
+    } catch {
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchRows(page, periodFilter, classFilter);
@@ -192,33 +190,46 @@ export default function GradePublishingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('publishingTitle')}
-        description={t('publishingDescription')}
-      />
+      <PageHeader title={t('publishingTitle')} description={t('publishingDescription')} />
 
       {/* Filters + actions */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v); setPage(1); }}>
+        <Select
+          value={periodFilter}
+          onValueChange={(v) => {
+            setPeriodFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectPeriod')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allPeriods')}</SelectItem>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+        <Select
+          value={classFilter}
+          onValueChange={(v) => {
+            setClassFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectClass')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allClasses')}</SelectItem>
             {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -295,7 +306,10 @@ export default function GradePublishingPage() {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors">
+                  <tr
+                    key={row.id}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
+                  >
                     <td className="px-4 py-3">
                       {!row.is_published && (
                         <Checkbox
@@ -342,11 +356,7 @@ export default function GradePublishingPage() {
 
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm text-text-secondary">
-          <span>
-            {total === 0
-              ? t('publishingNoData')
-              : `${startItem}–${endItem} / ${total}`}
-          </span>
+          <span>{total === 0 ? t('publishingNoData') : `${startItem}–${endItem} / ${total}`}</span>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"

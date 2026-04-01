@@ -3,11 +3,11 @@
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { formatDate } from '@/lib/format-date';
-
 import { SafeguardingSeverityBadge } from './safeguarding-severity-badge';
 import { SafeguardingStatusBadge } from './safeguarding-status-badge';
 import { SlaIndicator } from './sla-indicator';
+
+import { formatDate } from '@/lib/format-date';
 
 export interface ConcernCardData {
   id: string;
@@ -36,9 +36,7 @@ export function ConcernCard({ concern, onClick }: ConcernCardProps) {
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-text-tertiary">
-            {concern.concern_number}
-          </span>
+          <span className="font-mono text-xs text-text-tertiary">{concern.concern_number}</span>
           <SafeguardingSeverityBadge severity={concern.severity} />
           <SafeguardingStatusBadge status={concern.status} />
           <SlaIndicator status={concern.sla_status} />
@@ -48,9 +46,7 @@ export function ConcernCard({ concern, onClick }: ConcernCardProps) {
           {concern.student_name}
         </p>
 
-        <p className="mt-0.5 text-xs text-text-secondary">
-          {concern.concern_type}
-        </p>
+        <p className="mt-0.5 text-xs text-text-secondary">{concern.concern_type}</p>
 
         <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-text-tertiary">
           <span>{formatDate(concern.reported_at)}</span>

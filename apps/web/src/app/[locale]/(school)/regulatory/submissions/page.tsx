@@ -1,15 +1,16 @@
 'use client';
 
-import { REGULATORY_DOMAINS } from '@school/shared';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { REGULATORY_DOMAINS } from '@school/shared';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 import { SubmissionHistoryTable } from '../_components/submission-history-table';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,10 +135,7 @@ export default function RegulatorySubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('submissions.title')}
-        description={t('submissions.description')}
-      />
+      <PageHeader title={t('submissions.title')} description={t('submissions.description')} />
 
       <RegulatoryNav />
 

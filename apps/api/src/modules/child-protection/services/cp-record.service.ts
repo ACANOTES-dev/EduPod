@@ -1,14 +1,7 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type {
-  CreateCpRecordDto,
-  ListCpRecordsQuery,
-  UpdateCpRecordDto,
-} from '@school/shared';
+
+import type { CreateCpRecordDto, ListCpRecordsQuery, UpdateCpRecordDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';
@@ -408,9 +401,7 @@ export class CpRecordService {
 
     // Truncate narrative for summary (first 200 chars)
     const narrativePreview =
-      record.narrative.length > 200
-        ? `${record.narrative.slice(0, 200)}...`
-        : record.narrative;
+      record.narrative.length > 200 ? `${record.narrative.slice(0, 200)}...` : record.narrative;
 
     return {
       id: record.id,

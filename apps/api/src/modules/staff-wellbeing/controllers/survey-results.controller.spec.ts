@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
@@ -53,9 +54,7 @@ describe('SurveyResultsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SurveyResultsController],
-      providers: [
-        { provide: SurveyResultsService, useValue: mockSurveyResultsService },
-      ],
+      providers: [{ provide: SurveyResultsService, useValue: mockSurveyResultsService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -91,10 +90,7 @@ describe('SurveyResultsController', () => {
 
   describe('permission metadata', () => {
     it('should have @RequiresPermission("wellbeing.view_survey_results") on getResults', () => {
-      const permission = Reflect.getMetadata(
-        REQUIRES_PERMISSION_KEY,
-        controller.getResults,
-      );
+      const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getResults);
       expect(permission).toBe('wellbeing.view_survey_results');
     });
 
@@ -115,10 +111,7 @@ describe('SurveyResultsController', () => {
     });
 
     it('should have @RequiresPermission("wellbeing.moderate_surveys") on moderateResponse', () => {
-      const permission = Reflect.getMetadata(
-        REQUIRES_PERMISSION_KEY,
-        controller.moderateResponse,
-      );
+      const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.moderateResponse);
       expect(permission).toBe('wellbeing.moderate_surveys');
     });
   });
@@ -148,11 +141,9 @@ describe('SurveyResultsController', () => {
 
       const result = await controller.getResults(TENANT, SURVEY_ID, { department: 'Mathematics' });
 
-      expect(mockSurveyResultsService.getResults).toHaveBeenCalledWith(
-        TENANT_ID,
-        SURVEY_ID,
-        { department: 'Mathematics' },
-      );
+      expect(mockSurveyResultsService.getResults).toHaveBeenCalledWith(TENANT_ID, SURVEY_ID, {
+        department: 'Mathematics',
+      });
       expect(result).toBe(expected);
     });
   });

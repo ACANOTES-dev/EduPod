@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
@@ -275,11 +276,7 @@ describe('PastoralReportsController', () => {
       const query = { from_date: '2026-01-01' };
       const result = await controller.getSstActivity(TENANT, USER, query);
 
-      expect(mockReportService.getSstActivity).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        query,
-      );
+      expect(mockReportService.getSstActivity).toHaveBeenCalledWith(TENANT_ID, USER_ID, query);
       expect(result).toBe(mockResult);
     });
   });
@@ -495,11 +492,7 @@ describe('PastoralReportsController', () => {
       const body = { purpose: 'tusla_request' as const };
       const result = await controller.initTier3Export(TENANT, USER, body);
 
-      expect(mockExportService.initTier3Export).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        body,
-      );
+      expect(mockExportService.initTier3Export).toHaveBeenCalledWith(TENANT_ID, USER_ID, body);
       expect(result).toBe(mockResult);
     });
   });

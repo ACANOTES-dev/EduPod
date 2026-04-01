@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertTriangle, ArrowLeft, Bell, CheckCircle, Clock, FileText, User } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   SECURITY_INCIDENT_EVENT_TYPES,
   SECURITY_INCIDENT_STATUS_TRANSITIONS,
@@ -24,17 +28,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Bell,
-  CheckCircle,
-  Clock,
-  FileText,
-  User,
-} from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
@@ -91,8 +84,7 @@ function toTitleCase(str: string): string {
 }
 
 function getHoursRemaining(detectedAt: string): number {
-  const hoursElapsed =
-    (Date.now() - new Date(detectedAt).getTime()) / (1000 * 60 * 60);
+  const hoursElapsed = (Date.now() - new Date(detectedAt).getTime()) / (1000 * 60 * 60);
   return Math.max(0, 72 - hoursElapsed);
 }
 
@@ -132,20 +124,14 @@ function StatusBadgeLocal({ status }: { status: string }) {
     closed: 'bg-gray-100 text-gray-600 border-gray-200',
   };
   const cls = map[status] ?? 'bg-gray-100 text-gray-600 border-gray-200';
-  return (
-    <Badge className={`border text-sm font-medium ${cls}`}>
-      {toTitleCase(status)}
-    </Badge>
-  );
+  return <Badge className={`border text-sm font-medium ${cls}`}>{toTitleCase(status)}</Badge>;
 }
 
 // ─── 72-hour countdown ────────────────────────────────────────────────────────
 
 function CountdownBanner({ incident }: { incident: SecurityIncident }) {
-  const isOpen =
-    incident.status !== 'resolved' && incident.status !== 'closed';
-  const isHighRisk =
-    incident.severity === 'critical' || incident.severity === 'high';
+  const isOpen = incident.status !== 'resolved' && incident.status !== 'closed';
+  const isHighRisk = incident.severity === 'critical' || incident.severity === 'high';
 
   if (!isOpen || !isHighRisk) return null;
 
@@ -177,13 +163,7 @@ function CountdownBanner({ incident }: { incident: SecurityIncident }) {
 
 // ─── Info row helper ──────────────────────────────────────────────────────────
 
-function InfoRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr]">
       <span className="text-xs font-semibold uppercase tracking-wider text-text-tertiary">
@@ -252,7 +232,12 @@ function NotifyControllersDialog({
         <DialogHeader>
           <DialogTitle>Notify Data Controllers</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="notify-message">Notification Message *</Label>
             <Textarea
@@ -336,7 +321,12 @@ function RecordDpcDialog({
         <DialogHeader>
           <DialogTitle>Record DPC Notification</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          className="space-y-4"
+        >
           <p className="text-sm text-text-secondary">
             Record that this breach has been reported to the Data Protection Commission.
           </p>
@@ -370,13 +360,7 @@ function RecordDpcDialog({
 
 // ─── Add Event Form ───────────────────────────────────────────────────────────
 
-function AddEventForm({
-  incidentId,
-  onAdded,
-}: {
-  incidentId: string;
-  onAdded: () => void;
-}) {
+function AddEventForm({ incidentId, onAdded }: { incidentId: string; onAdded: () => void }) {
   const [eventType, setEventType] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -418,7 +402,12 @@ function AddEventForm({
   );
 
   return (
-    <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-3 rounded-lg border border-border bg-surface p-4">
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(e);
+      }}
+      className="space-y-3 rounded-lg border border-border bg-surface p-4"
+    >
       <p className="text-sm font-medium text-text-primary">Add Timeline Event</p>
       <div className="space-y-1.5">
         <Label htmlFor="event-type">Event Type *</Label>
@@ -522,8 +511,8 @@ export default function SecurityIncidentDetailPage() {
   }, [incidentId, newStatus, incident, fetchIncident]);
 
   const validTransitions = incident
-    ? ([...(STATUS_TRANSITIONS[incident.status as keyof typeof STATUS_TRANSITIONS] ?? [])])
-    : [] as string[];
+    ? [...(STATUS_TRANSITIONS[incident.status as keyof typeof STATUS_TRANSITIONS] ?? [])]
+    : ([] as string[]);
 
   // ─── Loading skeleton ──────────────────────────────────────────────────────
 
@@ -588,8 +577,10 @@ export default function SecurityIncidentDetailPage() {
             </span>
           </div>
           <p className="text-xs text-text-tertiary">
-            Detected {formatDateTime(incident.detected_at)} ·{' '}
-            Incident ID: <span dir="ltr" className="font-mono">{incident.id}</span>
+            Detected {formatDateTime(incident.detected_at)} · Incident ID:{' '}
+            <span dir="ltr" className="font-mono">
+              {incident.id}
+            </span>
           </p>
         </div>
 
@@ -603,10 +594,7 @@ export default function SecurityIncidentDetailPage() {
             />
           )}
           {incident.reported_to_controllers_at && !incident.reported_to_dpc_at && (
-            <RecordDpcDialog
-              incidentId={incident.id}
-              onRecorded={() => void fetchIncident()}
-            />
+            <RecordDpcDialog incidentId={incident.id} onRecorded={() => void fetchIncident()} />
           )}
           {incident.reported_to_controllers_at && incident.reported_to_dpc_at && (
             <div className="flex items-center gap-1.5 text-xs text-green-700">
@@ -651,9 +639,7 @@ export default function SecurityIncidentDetailPage() {
               '—'
             )}
           </InfoRow>
-          <InfoRow label="Containment Actions">
-            {incident.containment_actions ?? '—'}
-          </InfoRow>
+          <InfoRow label="Containment Actions">{incident.containment_actions ?? '—'}</InfoRow>
           <InfoRow label="Root Cause">{incident.root_cause ?? '—'}</InfoRow>
           <InfoRow label="Remediation">{incident.remediation ?? '—'}</InfoRow>
           <InfoRow label="Controllers Notified">
@@ -706,7 +692,9 @@ export default function SecurityIncidentDetailPage() {
               </Select>
             </div>
             <Button
-              onClick={() => { void handleStatusUpdate(); }}
+              onClick={() => {
+                void handleStatusUpdate();
+              }}
               disabled={!newStatus || isUpdatingStatus}
               size="sm"
             >
@@ -720,15 +708,12 @@ export default function SecurityIncidentDetailPage() {
       <div className="space-y-4">
         <p className="text-sm font-semibold text-text-primary">Timeline</p>
 
-        {(!incident.events || incident.events.length === 0) ? (
+        {!incident.events || incident.events.length === 0 ? (
           <p className="text-sm text-text-tertiary">No events recorded yet.</p>
         ) : (
           <div className="space-y-3">
             {[...incident.events]
-              .sort(
-                (a, b) =>
-                  new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-              )
+              .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
               .map((event) => (
                 <div
                   key={event.id}
@@ -755,10 +740,7 @@ export default function SecurityIncidentDetailPage() {
         )}
 
         {/* Add event form */}
-        <AddEventForm
-          incidentId={incident.id}
-          onAdded={() => void fetchIncident()}
-        />
+        <AddEventForm incidentId={incident.id} onAdded={() => void fetchIncident()} />
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type { UpsertStripeConfigDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';

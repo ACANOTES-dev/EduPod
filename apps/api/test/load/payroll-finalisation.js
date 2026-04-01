@@ -7,8 +7,9 @@
  * Run: k6 run apps/api/test/load/payroll-finalisation.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
+
 import { BASE_URL, TENANTS, login, authHeaders } from './k6-config.js';
 import { thresholds, readTag } from './k6-thresholds.js';
 
@@ -37,10 +38,10 @@ export default function (data) {
   const headers = authHeaders(token, tenant.domain);
 
   // List payroll runs
-  const runsRes = http.get(
-    `${BASE_URL}/api/v1/payroll/runs?page=1&pageSize=10`,
-    { headers, tags: readTag },
-  );
+  const runsRes = http.get(`${BASE_URL}/api/v1/payroll/runs?page=1&pageSize=10`, {
+    headers,
+    tags: readTag,
+  });
 
   check(runsRes, {
     'payroll runs: status 200': (r) => r.status === 200,
@@ -49,10 +50,10 @@ export default function (data) {
   sleep(0.5);
 
   // List compensation records
-  const compRes = http.get(
-    `${BASE_URL}/api/v1/payroll/compensation?page=1&pageSize=20`,
-    { headers, tags: readTag },
-  );
+  const compRes = http.get(`${BASE_URL}/api/v1/payroll/compensation?page=1&pageSize=20`, {
+    headers,
+    tags: readTag,
+  });
 
   check(compRes, {
     'compensation: status 200': (r) => r.status === 200,

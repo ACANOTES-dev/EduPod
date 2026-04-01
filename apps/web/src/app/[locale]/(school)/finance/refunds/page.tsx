@@ -1,5 +1,9 @@
 'use client';
 
+import { RotateCcw, Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { RefundStatus } from '@school/shared';
 import {
   Button,
@@ -11,16 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { RotateCcw, Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { RefundStatusBadge } from '../_components/refund-status-badge';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { RefundStatusBadge } from '../_components/refund-status-badge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,8 +97,9 @@ export default function RefundsPage() {
     try {
       await apiClient(`/api/v1/finance/refunds/${refundId}/approve`, { method: 'POST' });
       void fetchRefunds();
-    } catch {
+    } catch (err) {
       // error handled by apiClient
+      console.error('[fetchRefunds]', err);
     } finally {
       setActionLoading(null);
     }
@@ -109,8 +110,9 @@ export default function RefundsPage() {
     try {
       await apiClient(`/api/v1/finance/refunds/${refundId}/reject`, { method: 'POST' });
       void fetchRefunds();
-    } catch {
+    } catch (err) {
       // error handled by apiClient
+      console.error('[fetchRefunds]', err);
     } finally {
       setActionLoading(null);
     }
@@ -121,8 +123,9 @@ export default function RefundsPage() {
     try {
       await apiClient(`/api/v1/finance/refunds/${refundId}/execute`, { method: 'POST' });
       void fetchRefunds();
-    } catch {
+    } catch (err) {
       // error handled by apiClient
+      console.error('[fetchRefunds]', err);
     } finally {
       setActionLoading(null);
     }
@@ -142,14 +145,18 @@ export default function RefundsPage() {
       key: 'payment_reference',
       header: t('paymentReference'),
       render: (row: Refund) => (
-        <span className="font-mono text-xs text-text-secondary">{row.payment_reference ?? row.payment?.payment_reference ?? '—'}</span>
+        <span className="font-mono text-xs text-text-secondary">
+          {row.payment_reference ?? row.payment?.payment_reference ?? '—'}
+        </span>
       ),
     },
     {
       key: 'household_name',
       header: t('household'),
       render: (row: Refund) => (
-        <span className="font-medium text-text-primary">{row.household_name ?? row.payment?.household?.household_name ?? '—'}</span>
+        <span className="font-medium text-text-primary">
+          {row.household_name ?? row.payment?.household?.household_name ?? '—'}
+        </span>
       ),
     },
     {
@@ -157,7 +164,11 @@ export default function RefundsPage() {
       header: t('totalAmount'),
       render: (row: Refund) => (
         <span className="font-mono text-sm text-text-primary">
-          {row.currency_code} {Number(row.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {row.currency_code}{' '}
+          {Number(row.amount).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </span>
       ),
     },
@@ -170,7 +181,12 @@ export default function RefundsPage() {
       key: 'requested_by_name',
       header: t('requestedBy'),
       render: (row: Refund) => (
-        <span className="text-sm text-text-secondary">{row.requested_by_name ?? (row.requested_by ? `${row.requested_by.first_name} ${row.requested_by.last_name}` : '—')}</span>
+        <span className="text-sm text-text-secondary">
+          {row.requested_by_name ??
+            (row.requested_by
+              ? `${row.requested_by.first_name} ${row.requested_by.last_name}`
+              : '—')}
+        </span>
       ),
     },
     {
@@ -193,7 +209,10 @@ export default function RefundsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={(e) => { e.stopPropagation(); void handleApprove(row.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleApprove(row.id);
+                }}
                 disabled={loading}
               >
                 {t('approve')}
@@ -202,7 +221,10 @@ export default function RefundsPage() {
                 size="sm"
                 variant="outline"
                 className="text-danger-text border-danger-border hover:bg-danger-50"
-                onClick={(e) => { e.stopPropagation(); void handleReject(row.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleReject(row.id);
+                }}
                 disabled={loading}
               >
                 {t('reject')}
@@ -214,7 +236,10 @@ export default function RefundsPage() {
           return (
             <Button
               size="sm"
-              onClick={(e) => { e.stopPropagation(); void handleExecute(row.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleExecute(row.id);
+              }}
               disabled={loading}
             >
               {t('execute')}
@@ -262,11 +287,7 @@ export default function RefundsPage() {
       <PageHeader title={t('refunds')} description={t('refundsDescription')} />
 
       {!isLoading && refunds.length === 0 && !search && statusFilter === 'all' ? (
-        <EmptyState
-          icon={RotateCcw}
-          title={t('noRefunds')}
-          description={t('noRefundsDesc')}
-        />
+        <EmptyState icon={RotateCcw} title={t('noRefunds')} description={t('noRefundsDesc')} />
       ) : (
         <DataTable
           columns={columns}

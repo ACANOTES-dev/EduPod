@@ -5,10 +5,10 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 
+import type { JwtPayload } from '@school/shared';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -37,7 +37,8 @@ export class AuthGuard implements CanActivate {
       // Cross-tenant check: if a tenant context was resolved from the hostname,
       // the JWT's tenant_id must match. This prevents using a token issued for
       // Tenant A to access Tenant B's domain.
-      const tenantContext = (request as unknown as { tenantContext?: { tenant_id: string } | null }).tenantContext;
+      const tenantContext = (request as unknown as { tenantContext?: { tenant_id: string } | null })
+        .tenantContext;
       if (tenantContext && tenantContext.tenant_id !== payload.tenant_id) {
         throw new UnauthorizedException('Token does not match the current tenant');
       }

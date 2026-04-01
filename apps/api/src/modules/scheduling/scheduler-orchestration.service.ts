@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import type {
   TriggerSolverRunDto,
   SolverInputV2,
@@ -23,7 +25,6 @@ import type {
   SolverAssignmentV2,
 } from '@school/shared';
 import { validateSchedule } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,10 +45,7 @@ export class SchedulerOrchestrationService {
 
   // ─── Check Prerequisites ───────────────────────────────────────────────────
 
-  async checkPrerequisites(
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<PrerequisiteResult> {
+  async checkPrerequisites(tenantId: string, academicYearId: string): Promise<PrerequisiteResult> {
     const missing: string[] = [];
 
     // 1. Year groups with active classes
@@ -140,16 +138,12 @@ export class SchedulerOrchestrationService {
         select: { subject_id: true, year_group_id: true },
       });
 
-      const competencyKeys = new Set(
-        competencies.map((c) => `${c.subject_id}:${c.year_group_id}`),
-      );
+      const competencyKeys = new Set(competencies.map((c) => `${c.subject_id}:${c.year_group_id}`));
 
       for (const entry of curriculumEntries) {
         const key = `${entry.subject_id}:${entry.year_group_id}`;
         if (!competencyKeys.has(key)) {
-          missing.push(
-            `No eligible teacher for ${entry.subject.name} in ${entry.year_group.name}`,
-          );
+          missing.push(`No eligible teacher for ${entry.subject.name} in ${entry.year_group.name}`);
         }
       }
     }
@@ -196,10 +190,7 @@ export class SchedulerOrchestrationService {
 
   // ─── Assemble Solver Input ─────────────────────────────────────────────────
 
-  async assembleSolverInput(
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<SolverInputV2> {
+  async assembleSolverInput(tenantId: string, academicYearId: string): Promise<SolverInputV2> {
     // Query all data in parallel
     const [
       yearGroups,
@@ -367,26 +358,22 @@ export class SchedulerOrchestrationService {
     const teacherIds = [...new Set(teacherCompetencies.map((tc) => tc.staff_profile_id))];
 
     // Get teacher names
-    const staffProfiles = teacherIds.length > 0
-      ? await this.prisma.staffProfile.findMany({
-          where: { id: { in: teacherIds }, tenant_id: tenantId },
-          select: {
-            id: true,
-            user: { select: { first_name: true, last_name: true } },
-          },
-        })
-      : [];
+    const staffProfiles =
+      teacherIds.length > 0
+        ? await this.prisma.staffProfile.findMany({
+            where: { id: { in: teacherIds }, tenant_id: tenantId },
+            select: {
+              id: true,
+              user: { select: { first_name: true, last_name: true } },
+            },
+          })
+        : [];
 
     const staffNameMap = new Map(
-      staffProfiles.map((sp) => [
-        sp.id,
-        `${sp.user.first_name} ${sp.user.last_name}`.trim(),
-      ]),
+      staffProfiles.map((sp) => [sp.id, `${sp.user.first_name} ${sp.user.last_name}`.trim()]),
     );
 
-    const configMap = new Map(
-      teacherConfigs.map((tc) => [tc.staff_profile_id, tc]),
-    );
+    const configMap = new Map(teacherConfigs.map((tc) => [tc.staff_profile_id, tc]));
 
     const teachers: TeacherInputV2[] = teacherIds.map((teacherId) => {
       const config = configMap.get(teacherId);
@@ -412,7 +399,8 @@ export class SchedulerOrchestrationService {
           .filter((sp) => sp.staff_profile_id === teacherId)
           .map((sp) => ({
             id: sp.id,
-            preference_type: sp.preference_type as TeacherInputV2['preferences'][0]['preference_type'],
+            preference_type:
+              sp.preference_type as TeacherInputV2['preferences'][0]['preference_type'],
             preference_payload: sp.preference_payload,
             priority: sp.priority as TeacherInputV2['preferences'][0]['priority'],
           })),
@@ -488,7 +476,11 @@ export class SchedulerOrchestrationService {
 
     // ─── Build settings ──────────────────────────────────────────────────────
 
-    const settingsObj = (tenantSettings?.settings as Record<string, unknown>)?.scheduling as Record<string, unknown> ?? {};
+    const settingsObj =
+      ((tenantSettings?.settings as Record<string, unknown>)?.scheduling as Record<
+        string,
+        unknown
+      >) ?? {};
     const prefWeights = (settingsObj.preferenceWeights as Record<string, number>) ?? {};
     const globalWeights = (settingsObj.globalSoftWeights as Record<string, number>) ?? {};
 
@@ -587,7 +579,7 @@ export class SchedulerOrchestrationService {
     // Create the run record
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const run = await prismaWithRls.$transaction(async (tx) => {
+    const run = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.schedulingRun.create({
         data: {
@@ -596,13 +588,14 @@ export class SchedulerOrchestrationService {
           mode,
           status: 'queued',
           config_snapshot: JSON.parse(JSON.stringify(solverInput)) as Prisma.InputJsonValue,
-          solver_seed: solverInput.settings.solver_seed !== null
-            ? BigInt(solverInput.settings.solver_seed)
-            : null,
+          solver_seed:
+            solverInput.settings.solver_seed !== null
+              ? BigInt(solverInput.settings.solver_seed)
+              : null,
           created_by_user_id: userId,
         },
       });
-    }) as unknown as { id: string; status: string; created_at: Date };
+    })) as unknown as { id: string; status: string; created_at: Date };
 
     // Enqueue the solver job
     await this.schedulingQueue.add('scheduling:solve-v2', {
@@ -688,14 +681,20 @@ export class SchedulerOrchestrationService {
     // Apply the entries atomically
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const academicYearId = run.academic_year_id;
 
       // Load period templates for time resolution
       const periodTemplates = await db.schedulePeriodTemplate.findMany({
         where: { tenant_id: tenantId, academic_year_id: academicYearId },
-        select: { weekday: true, period_order: true, start_time: true, end_time: true, year_group_id: true },
+        select: {
+          weekday: true,
+          period_order: true,
+          start_time: true,
+          end_time: true,
+          year_group_id: true,
+        },
       });
 
       const periodMap = new Map<string, { start_time: Date; end_time: Date }>();
@@ -791,7 +790,7 @@ export class SchedulerOrchestrationService {
       });
 
       return applied;
-    }) as unknown as { id: string; status: string; applied_at: Date | null };
+    })) as unknown as { id: string; status: string; applied_at: Date | null };
 
     return {
       id: result.id,
@@ -825,13 +824,13 @@ export class SchedulerOrchestrationService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const updated = await prismaWithRls.$transaction(async (tx) => {
+    const updated = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.schedulingRun.update({
         where: { id: runId },
         data: { status: 'discarded' },
       });
-    }) as unknown as { id: string; status: string };
+    })) as unknown as { id: string; status: string };
 
     return {
       id: updated.id,
@@ -841,12 +840,7 @@ export class SchedulerOrchestrationService {
 
   // ─── List Runs ─────────────────────────────────────────────────────────────
 
-  async listRuns(
-    tenantId: string,
-    academicYearId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async listRuns(tenantId: string, academicYearId: string, page: number, pageSize: number) {
     const skip = (page - 1) * pageSize;
     const where = { tenant_id: tenantId, academic_year_id: academicYearId };
 
@@ -941,24 +935,26 @@ export class SchedulerOrchestrationService {
   private formatRunPartial(run: Record<string, unknown>): Record<string, unknown> {
     return {
       ...run,
-      solver_seed: run['solver_seed'] !== null && run['solver_seed'] !== undefined
-        ? Number(run['solver_seed'])
-        : null,
-      soft_preference_score: run['soft_preference_score'] !== null
-        ? Number(run['soft_preference_score'])
-        : null,
-      soft_preference_max: run['soft_preference_max'] !== null
-        ? Number(run['soft_preference_max'])
-        : null,
-      created_at: run['created_at'] instanceof Date
-        ? (run['created_at'] as Date).toISOString()
-        : run['created_at'],
-      updated_at: run['updated_at'] instanceof Date
-        ? (run['updated_at'] as Date).toISOString()
-        : run['updated_at'],
-      applied_at: run['applied_at'] instanceof Date
-        ? (run['applied_at'] as Date).toISOString()
-        : run['applied_at'],
+      solver_seed:
+        run['solver_seed'] !== null && run['solver_seed'] !== undefined
+          ? Number(run['solver_seed'])
+          : null,
+      soft_preference_score:
+        run['soft_preference_score'] !== null ? Number(run['soft_preference_score']) : null,
+      soft_preference_max:
+        run['soft_preference_max'] !== null ? Number(run['soft_preference_max']) : null,
+      created_at:
+        run['created_at'] instanceof Date
+          ? (run['created_at'] as Date).toISOString()
+          : run['created_at'],
+      updated_at:
+        run['updated_at'] instanceof Date
+          ? (run['updated_at'] as Date).toISOString()
+          : run['updated_at'],
+      applied_at:
+        run['applied_at'] instanceof Date
+          ? (run['applied_at'] as Date).toISOString()
+          : run['applied_at'],
     };
   }
 

@@ -1,14 +1,23 @@
 'use client';
 
-import { Button, EmptyState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { Copy, FileText, Filter } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import {
+  Button,
+  EmptyState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
 
 import { HomeworkCard } from '../_components/homework-card';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -148,8 +157,13 @@ export default function HomeworkTemplatesPage() {
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-text-tertiary" />
-          <Select value={selectedClass || 'all'} onValueChange={(v) => setSelectedClass(v === 'all' ? '' : v)}>
-            <SelectTrigger className="w-40"><SelectValue placeholder={t('filterAll')} /></SelectTrigger>
+          <Select
+            value={selectedClass || 'all'}
+            onValueChange={(v) => setSelectedClass(v === 'all' ? '' : v)}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder={t('filterAll')} />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('filterAll')}</SelectItem>
               {classes.map((cls) => (
@@ -160,8 +174,13 @@ export default function HomeworkTemplatesPage() {
             </SelectContent>
           </Select>
         </div>
-        <Select value={selectedSubject || 'all'} onValueChange={(v) => setSelectedSubject(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-40"><SelectValue placeholder={t('templates.filterBySubject')} /></SelectTrigger>
+        <Select
+          value={selectedSubject || 'all'}
+          onValueChange={(v) => setSelectedSubject(v === 'all' ? '' : v)}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder={t('templates.filterBySubject')} />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('templates.filterBySubject')}</SelectItem>
             {subjects.map((subj) => (

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { DetectedSignal, SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';

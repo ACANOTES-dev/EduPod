@@ -1,11 +1,12 @@
 'use client';
 
-import type { PrivacyNoticeCurrent } from '@school/shared';
-import { Button, toast } from '@school/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import type { PrivacyNoticeCurrent } from '@school/shared';
+import { Button, toast } from '@school/ui';
 
 import { useApiQuery } from '@/hooks/use-api-query';
 import { apiClient } from '@/lib/api-client';

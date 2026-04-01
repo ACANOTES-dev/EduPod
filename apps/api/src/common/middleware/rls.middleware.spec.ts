@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { createRlsClient } from './rls.middleware';
@@ -46,7 +47,9 @@ describe('RLS Middleware', () => {
     expect(capturedExtension).toHaveProperty('client');
 
     // Call the custom $transaction method to verify SET LOCAL is issued
-    const client = capturedExtension!['client'] as { $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown> };
+    const client = capturedExtension!['client'] as {
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+    };
     await client.$transaction(async (_tx: unknown) => {
       // Just verify the transaction runs
     });
@@ -80,7 +83,9 @@ describe('RLS Middleware', () => {
 
     createRlsClient(mockPrisma, context);
 
-    const client = capturedExtension!['client'] as { $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown> };
+    const client = capturedExtension!['client'] as {
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+    };
     await client.$transaction(async (_tx: unknown) => {
       // transaction body
     });
@@ -121,7 +126,9 @@ describe('RLS Middleware', () => {
 
     createRlsClient(mockPrisma, context);
 
-    const client = capturedExtension!['client'] as { $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown> };
+    const client = capturedExtension!['client'] as {
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+    };
     await client.$transaction(async (_tx: unknown) => {
       // transaction body
     });
@@ -140,9 +147,9 @@ describe('RLS Middleware', () => {
       $extends: jest.fn(),
     } as unknown as PrismaClient;
 
-    expect(() =>
-      createRlsClient(mockPrisma, { tenant_id: 'not-a-uuid' }),
-    ).toThrow('Invalid tenant_id format: not-a-uuid');
+    expect(() => createRlsClient(mockPrisma, { tenant_id: 'not-a-uuid' })).toThrow(
+      'Invalid tenant_id format: not-a-uuid',
+    );
   });
 
   it('should reject invalid user_id format', () => {

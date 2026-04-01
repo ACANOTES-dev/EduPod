@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -92,7 +93,13 @@ describe('BehaviourStudentsController', () => {
     const result = await controller.listStudents(TENANT, USER, query);
 
     expect(mockPermissionCacheService.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
-    expect(mockStudentsService.listStudents).toHaveBeenCalledWith(TENANT_ID, USER_ID, PERMISSIONS, 1, 20);
+    expect(mockStudentsService.listStudents).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      PERMISSIONS,
+      1,
+      20,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -115,7 +122,12 @@ describe('BehaviourStudentsController', () => {
 
     const result = await controller.getStudentTimeline(TENANT, STUDENT_ID, query);
 
-    expect(mockStudentsService.getStudentTimeline).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, 1, 20);
+    expect(mockStudentsService.getStudentTimeline).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      1,
+      20,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -149,7 +161,12 @@ describe('BehaviourStudentsController', () => {
 
     const result = await controller.getStudentSanctions(TENANT, STUDENT_ID, query);
 
-    expect(mockStudentsService.getStudentSanctions).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, 1, 10);
+    expect(mockStudentsService.getStudentSanctions).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      1,
+      10,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -161,7 +178,12 @@ describe('BehaviourStudentsController', () => {
 
     const result = await controller.getStudentInterventions(TENANT, STUDENT_ID, query);
 
-    expect(mockStudentsService.getStudentInterventions).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, 1, 20);
+    expect(mockStudentsService.getStudentInterventions).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      1,
+      20,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -212,7 +234,12 @@ describe('BehaviourStudentsController', () => {
 
     await controller.exportStudentPdf(TENANT, USER, STUDENT_ID, mockRes as never);
 
-    expect(mockExportService.generateStudentPackPdf).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID, USER_ID, 'en');
+    expect(mockExportService.generateStudentPackPdf).toHaveBeenCalledWith(
+      TENANT_ID,
+      STUDENT_ID,
+      USER_ID,
+      'en',
+    );
     expect(mockRes.set).toHaveBeenCalledWith({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="student-pack-${STUDENT_ID.slice(0, 8)}.pdf"`,

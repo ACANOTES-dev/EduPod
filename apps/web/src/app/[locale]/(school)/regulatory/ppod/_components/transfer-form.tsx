@@ -1,8 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createTransferSchema, PPOD_EARLY_LEAVING_REASONS } from '@school/shared';
+import { Loader2, Search, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+
 import type { CreateTransferDto } from '@school/shared';
+import { createTransferSchema, PPOD_EARLY_LEAVING_REASONS } from '@school/shared';
 import {
   Button,
   Input,
@@ -15,10 +20,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Loader2, Search, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-import { useForm } from 'react-hook-form';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -205,11 +206,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
             <SelectItem value="outbound">{t('transfers.outbound')}</SelectItem>
           </SelectContent>
         </Select>
-        {errors.direction && (
-          <p className="text-xs text-danger-text">
-            {errors.direction.message}
-          </p>
-        )}
+        {errors.direction && <p className="text-xs text-danger-text">{errors.direction.message}</p>}
       </div>
 
       {/* ─── Student Search ─────────────────────────────────────────────── */}
@@ -267,9 +264,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
           )}
         </div>
         {errors.student_id && (
-          <p className="text-xs text-danger-text">
-            {errors.student_id.message}
-          </p>
+          <p className="text-xs text-danger-text">{errors.student_id.message}</p>
         )}
       </div>
 
@@ -284,9 +279,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
             {...form.register('other_school_roll_no')}
           />
           {errors.other_school_roll_no && (
-            <p className="text-xs text-danger-text">
-              {errors.other_school_roll_no.message}
-            </p>
+            <p className="text-xs text-danger-text">{errors.other_school_roll_no.message}</p>
           )}
         </div>
 
@@ -312,9 +305,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
             {...form.register('transfer_date')}
           />
           {errors.transfer_date && (
-            <p className="text-xs text-danger-text">
-              {errors.transfer_date.message}
-            </p>
+            <p className="text-xs text-danger-text">{errors.transfer_date.message}</p>
           )}
         </div>
 
@@ -355,9 +346,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
       </div>
 
       {/* ─── Error ──────────────────────────────────────────────────────── */}
-      {submitError && (
-        <p className="text-sm text-danger-text">{submitError}</p>
-      )}
+      {submitError && <p className="text-sm text-danger-text">{submitError}</p>}
 
       {/* ─── Actions ────────────────────────────────────────────────────── */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -369,11 +358,7 @@ export function TransferForm({ onSuccess, onCancel }: TransferFormProps) {
         >
           {t('transfers.cancel')}
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="min-h-[44px]"
-        >
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="min-h-[44px]">
           {isSubmitting ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />

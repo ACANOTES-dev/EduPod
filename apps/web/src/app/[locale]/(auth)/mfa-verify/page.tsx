@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, Label } from '@school/ui';
 
 import { apiClient, setAccessToken } from '@/lib/api-client';
 import { useAuth, type AuthUser } from '@/providers/auth-provider';

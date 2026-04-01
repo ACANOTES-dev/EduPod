@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -10,9 +14,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { CheckCircle2, Circle, Loader2, Send } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -124,9 +125,10 @@ export default function BulkOperationsPage() {
   };
 
   const handleSubmitForApproval = async () => {
-    const ids = selectedRows.size > 0
-      ? Array.from(selectedRows)
-      : statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? [];
+    const ids =
+      selectedRows.size > 0
+        ? Array.from(selectedRows)
+        : (statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? []);
 
     if (ids.length === 0) return;
     setActioning(true);
@@ -146,9 +148,10 @@ export default function BulkOperationsPage() {
   };
 
   const handlePublishAll = async () => {
-    const ids = selectedRows.size > 0
-      ? Array.from(selectedRows)
-      : statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? [];
+    const ids =
+      selectedRows.size > 0
+        ? Array.from(selectedRows)
+        : (statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? []);
 
     if (ids.length === 0) return;
     setActioning(true);
@@ -168,9 +171,11 @@ export default function BulkOperationsPage() {
   };
 
   const handleNotifyAll = async () => {
-    const ids = selectedRows.size > 0
-      ? Array.from(selectedRows)
-      : statusData?.data.filter((r) => r.status === 'published').map((r) => r.report_card_id!) ?? [];
+    const ids =
+      selectedRows.size > 0
+        ? Array.from(selectedRows)
+        : (statusData?.data.filter((r) => r.status === 'published').map((r) => r.report_card_id!) ??
+          []);
 
     if (ids.length === 0) return;
     setActioning(true);
@@ -197,7 +202,8 @@ export default function BulkOperationsPage() {
   };
 
   const toggleAll = () => {
-    const ids = statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? [];
+    const ids =
+      statusData?.data.filter((r) => r.report_card_id).map((r) => r.report_card_id!) ?? [];
     if (selectedRows.size === ids.length) {
       setSelectedRows(new Set());
     } else {
@@ -224,8 +230,8 @@ export default function BulkOperationsPage() {
                     done
                       ? 'bg-success-100 text-success-700'
                       : active
-                      ? 'bg-primary-700 text-white'
-                      : 'bg-surface-secondary text-text-tertiary'
+                        ? 'bg-primary-700 text-white'
+                        : 'bg-surface-secondary text-text-tertiary'
                   }`}
                 >
                   {done ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
@@ -325,7 +331,9 @@ function GenerateStep({
             </SelectTrigger>
             <SelectContent>
               {classes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -339,7 +347,9 @@ function GenerateStep({
             </SelectTrigger>
             <SelectContent>
               {periods.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -410,7 +420,11 @@ function ReviewStep({
           <MetricCard label={t('total')} value={meta.total} />
           <MetricCard label={t('generated')} value={meta.generated} />
           <MetricCard label={t('published')} value={meta.published} variant="success" />
-          <MetricCard label={t('pendingApproval')} value={meta.pending_approval} variant="warning" />
+          <MetricCard
+            label={t('pendingApproval')}
+            value={meta.pending_approval}
+            variant="warning"
+          />
         </div>
       )}
 
@@ -502,7 +516,9 @@ function ReviewStep({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-sm font-medium text-text-primary">{row.student_name}</span>
+                    <span className="text-sm font-medium text-text-primary">
+                      {row.student_name}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     {row.status ? (
@@ -511,12 +527,17 @@ function ReviewStep({
                           row.status === 'published'
                             ? 'success'
                             : row.status === 'draft'
-                            ? 'warning'
-                            : 'neutral'
+                              ? 'warning'
+                              : 'neutral'
                         }
                         dot
                       >
-                        {t(`status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as 'statusDraft' | 'statusPublished' | 'statusRevised')}
+                        {t(
+                          `status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as
+                            | 'statusDraft'
+                            | 'statusPublished'
+                            | 'statusRevised',
+                        )}
                       </StatusBadge>
                     ) : (
                       <span className="text-xs text-text-tertiary">{t('notGenerated')}</span>
@@ -529,7 +550,10 @@ function ReviewStep({
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
-                    <FillIndicator filled={row.custom_fields_filled} label={row.custom_fields_filled ? '✓' : '○'} />
+                    <FillIndicator
+                      filled={row.custom_fields_filled}
+                      label={row.custom_fields_filled ? '✓' : '○'}
+                    />
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
                     {row.acknowledged ? (

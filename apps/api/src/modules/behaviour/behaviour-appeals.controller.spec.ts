@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -45,9 +46,7 @@ describe('BehaviourAppealsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourAppealsController],
-      providers: [
-        { provide: BehaviourAppealsService, useValue: mockService },
-      ],
+      providers: [{ provide: BehaviourAppealsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

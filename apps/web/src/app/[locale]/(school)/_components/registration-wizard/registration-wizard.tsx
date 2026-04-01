@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Dialog, DialogContent } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import { useCallback, useReducer } from 'react';
+
+import { Button, Dialog, DialogContent } from '@school/ui';
 
 import { StepComplete } from './step-complete';
 import { StepFeeSummary } from './step-fee-summary';
@@ -69,9 +70,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         showSecondaryParent: !state.showSecondaryParent,
-        secondaryParent: state.showSecondaryParent
-          ? null
-          : { ...EMPTY_PARENT },
+        secondaryParent: state.showSecondaryParent ? null : { ...EMPTY_PARENT },
       };
 
     case 'SET_HOUSEHOLD':
@@ -99,19 +98,14 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         students: filtered,
-        expandedStudentIndex: Math.min(
-          state.expandedStudentIndex,
-          filtered.length - 1,
-        ),
+        expandedStudentIndex: Math.min(state.expandedStudentIndex, filtered.length - 1),
       };
     }
 
     case 'UPDATE_STUDENT':
       return {
         ...state,
-        students: state.students.map((s, i) =>
-          i === action.index ? { ...s, ...action.data } : s,
-        ),
+        students: state.students.map((s, i) => (i === action.index ? { ...s, ...action.data } : s)),
       };
 
     case 'SET_EXPANDED_STUDENT':
@@ -135,9 +129,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     case 'RESTORE_FEE':
       return {
         ...state,
-        removedFees: state.removedFees.filter(
-          (id) => id !== action.feeStructureId,
-        ),
+        removedFees: state.removedFees.filter((id) => id !== action.feeStructureId),
       };
 
     case 'ADD_DISCOUNT':
@@ -155,9 +147,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     case 'REMOVE_DISCOUNT':
       return {
         ...state,
-        appliedDiscounts: state.appliedDiscounts.filter(
-          (_, i) => i !== action.index,
-        ),
+        appliedDiscounts: state.appliedDiscounts.filter((_, i) => i !== action.index),
       };
 
     case 'ADD_ADHOC_ADJUSTMENT':
@@ -172,9 +162,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     case 'REMOVE_ADHOC_ADJUSTMENT':
       return {
         ...state,
-        adhocAdjustments: state.adhocAdjustments.filter(
-          (_, i) => i !== action.index,
-        ),
+        adhocAdjustments: state.adhocAdjustments.filter((_, i) => i !== action.index),
       };
 
     case 'SET_REGISTRATION_RESULT':
@@ -215,8 +203,7 @@ export function RegistrationWizard({ open, onClose }: RegistrationWizardProps) {
   const [state, dispatch] = useReducer(wizardReducer, initialState);
 
   const handleClose = useCallback(() => {
-    const hasData =
-      state.primaryParent.first_name || state.students[0]?.first_name;
+    const hasData = state.primaryParent.first_name || state.students[0]?.first_name;
     if (hasData && state.step < 5) {
       if (!window.confirm(t('confirmClose'))) return;
     }
@@ -242,9 +229,7 @@ export function RegistrationWizard({ open, onClose }: RegistrationWizardProps) {
       <DialogContent className="max-w-[90vw] w-[90vw] max-h-[90vh] h-[90vh] flex flex-col overflow-hidden p-0">
         {/* Header with progress */}
         <div className="shrink-0 border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t('title')}
-          </h2>
+          <h2 className="text-lg font-semibold text-text-primary">{t('title')}</h2>
           <div className="mt-3 flex gap-1">
             {([1, 2, 3, 4, 5] as const).map((s) => (
               <div
@@ -270,7 +255,9 @@ export function RegistrationWizard({ open, onClose }: RegistrationWizardProps) {
           {state.step === 2 && <StepStudents state={state} dispatch={dispatch} />}
           {state.step === 3 && <StepFeeSummary state={state} dispatch={dispatch} />}
           {state.step === 4 && <StepPayment state={state} dispatch={dispatch} />}
-          {state.step === 5 && <StepComplete state={state} dispatch={dispatch} onClose={handleClose} />}
+          {state.step === 5 && (
+            <StepComplete state={state} dispatch={dispatch} onClose={handleClose} />
+          )}
         </div>
 
         {/* Footer with navigation — only on steps 1 and 2 (steps 3-5 have their own buttons) */}

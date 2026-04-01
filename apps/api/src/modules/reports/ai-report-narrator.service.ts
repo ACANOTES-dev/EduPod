@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
 
@@ -12,7 +13,13 @@ export class AiReportNarratorService {
   private readonly logger = new Logger(AiReportNarratorService.name);
   private readonly CACHE_TTL = 3600; // 1 hour
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
+  private anthropic: {
+    messages: {
+      create: (
+        params: Record<string, unknown>,
+      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
+    };
+  } | null = null;
 
   constructor(
     private readonly settingsService: SettingsService,
@@ -32,9 +39,7 @@ export class AiReportNarratorService {
         );
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI report narration will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI report narration will be unavailable');
     }
   }
 

@@ -1,14 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
-import type {
-  CreateRecommendationDto,
-  UpdateRecommendationDto,
-} from '@school/shared';
+
+import type { CreateRecommendationDto, UpdateRecommendationDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,10 +26,7 @@ export interface RecommendationRow {
 
 // ─── Status mapping (shared ↔ Prisma) ──────────────────────────────────────
 
-const STATUS_TO_PRISMA: Record<
-  string,
-  $Enums.PastoralReferralRecommendationStatus
-> = {
+const STATUS_TO_PRISMA: Record<string, $Enums.PastoralReferralRecommendationStatus> = {
   pending: $Enums.PastoralReferralRecommendationStatus.rec_pending,
   in_progress: $Enums.PastoralReferralRecommendationStatus.rec_in_progress,
   implemented: $Enums.PastoralReferralRecommendationStatus.implemented,
@@ -50,15 +40,11 @@ const PRISMA_TO_DISPLAY: Record<string, string> = {
   not_applicable: 'not_applicable',
 };
 
-function toDisplayStatus(
-  prismaStatus: $Enums.PastoralReferralRecommendationStatus,
-): string {
+function toDisplayStatus(prismaStatus: $Enums.PastoralReferralRecommendationStatus): string {
   return PRISMA_TO_DISPLAY[prismaStatus as string] ?? (prismaStatus as string);
 }
 
-function toPrismaStatus(
-  status: string,
-): $Enums.PastoralReferralRecommendationStatus {
+function toPrismaStatus(status: string): $Enums.PastoralReferralRecommendationStatus {
   const mapped = STATUS_TO_PRISMA[status];
   if (!mapped) {
     throw new BadRequestException({
@@ -125,8 +111,7 @@ export class ReferralRecommendationService {
           recommendation: dto.recommendation,
           assigned_to_user_id: dto.assigned_to_user_id ?? null,
           review_date: dto.review_date ? new Date(dto.review_date) : null,
-          status:
-            $Enums.PastoralReferralRecommendationStatus.rec_pending,
+          status: $Enums.PastoralReferralRecommendationStatus.rec_pending,
         },
       });
     })) as RecommendationRow;
@@ -153,10 +138,7 @@ export class ReferralRecommendationService {
 
   // ─── LIST ───────────────────────────────────────────────────────────────────
 
-  async list(
-    tenantId: string,
-    referralId: string,
-  ): Promise<RecommendationRow[]> {
+  async list(tenantId: string, referralId: string): Promise<RecommendationRow[]> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return (await rlsClient.$transaction(async (tx) => {
@@ -218,8 +200,7 @@ export class ReferralRecommendationService {
         if (dto.status === 'not_applicable' && !dto.status_note) {
           throw new BadRequestException({
             code: 'STATUS_NOTE_REQUIRED',
-            message:
-              'status_note is required when setting status to "not_applicable"',
+            message: 'status_note is required when setting status to "not_applicable"',
           });
         }
 
@@ -237,8 +218,7 @@ export class ReferralRecommendationService {
       }
 
       if (dto.review_date !== undefined) {
-        updateData.review_date =
-          dto.review_date !== null ? new Date(dto.review_date) : null;
+        updateData.review_date = dto.review_date !== null ? new Date(dto.review_date) : null;
       }
 
       return db.pastoralReferralRecommendation.update({
@@ -270,10 +250,7 @@ export class ReferralRecommendationService {
 
   // ─── ALL COMPLETE ───────────────────────────────────────────────────────────
 
-  async allComplete(
-    tenantId: string,
-    referralId: string,
-  ): Promise<boolean> {
+  async allComplete(tenantId: string, referralId: string): Promise<boolean> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return (await rlsClient.$transaction(async (tx) => {

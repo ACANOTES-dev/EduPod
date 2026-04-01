@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateRecurringDeductionDto,
-  UpdateRecurringDeductionDto,
-} from '@school/shared';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+
+import type { CreateRecurringDeductionDto, UpdateRecurringDeductionDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,11 +11,7 @@ export class PayrollDeductionsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createDeduction(
-    tenantId: string,
-    userId: string,
-    dto: CreateRecurringDeductionDto,
-  ) {
+  async createDeduction(tenantId: string, userId: string, dto: CreateRecurringDeductionDto) {
     const monthsRequired = Math.ceil(dto.total_amount / dto.monthly_amount);
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -48,11 +38,7 @@ export class PayrollDeductionsService {
     });
   }
 
-  async listDeductions(
-    tenantId: string,
-    staffProfileId: string,
-    activeOnly = true,
-  ) {
+  async listDeductions(tenantId: string, staffProfileId: string, activeOnly = true) {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
       staff_profile_id: staffProfileId,
@@ -85,11 +71,7 @@ export class PayrollDeductionsService {
     return this.serializeDeduction(deduction);
   }
 
-  async updateDeduction(
-    tenantId: string,
-    deductionId: string,
-    dto: UpdateRecurringDeductionDto,
-  ) {
+  async updateDeduction(tenantId: string, deductionId: string, dto: UpdateRecurringDeductionDto) {
     await this.getDeduction(tenantId, deductionId);
 
     const updated = await this.prisma.staffRecurringDeduction.update({
@@ -116,10 +98,7 @@ export class PayrollDeductionsService {
    * and mark completed deductions inactive.
    * Returns total deduction amount for each staff member.
    */
-  async autoApplyForRun(
-    tenantId: string,
-    runId: string,
-  ): Promise<Map<string, number>> {
+  async autoApplyForRun(tenantId: string, runId: string): Promise<Map<string, number>> {
     const entries = await this.prisma.payrollEntry.findMany({
       where: { payroll_run_id: runId, tenant_id: tenantId },
       select: { id: true, staff_profile_id: true },
@@ -170,10 +149,7 @@ export class PayrollDeductionsService {
         }
 
         if (totalDeductionForStaff > 0) {
-          staffDeductionMap.set(
-            entry.staff_profile_id,
-            Number(totalDeductionForStaff.toFixed(2)),
-          );
+          staffDeductionMap.set(entry.staff_profile_id, Number(totalDeductionForStaff.toFixed(2)));
         }
       }
     });

@@ -1,7 +1,21 @@
 'use client';
 
-import { detectSpecialCategoryFields } from '@school/shared';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Plus,
+  ShieldAlert,
+  Trash2,
+} from 'lucide-react';
+import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { DataMinimisationWarning } from '@school/shared';
+import { detectSpecialCategoryFields } from '@school/shared';
 import {
   Button,
   Checkbox,
@@ -21,19 +35,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  GripVertical,
-  Plus,
-  ShieldAlert,
-  Trash2,
-} from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -167,7 +168,11 @@ function FieldCard({
             size="icon"
             onClick={() => onUpdate({ ...field, expanded: !field.expanded })}
           >
-            {field.expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {field.expanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
           </Button>
           <Button variant="ghost" size="icon" onClick={onRemove}>
             <Trash2 className="h-3.5 w-3.5 text-danger-text" />
@@ -184,8 +189,9 @@ function FieldCard({
                 <div className="flex-1">
                   <p className="text-sm font-medium text-warning-text">Data Minimisation Warning</p>
                   <p className="mt-1 text-xs text-warning-text/80">
-                    The DPC advises against collecting {warning.category.replace('_', ' ')} data at the pre-enrolment stage.
-                    This type of information should only be collected post-enrolment with explicit consent.
+                    The DPC advises against collecting {warning.category.replace('_', ' ')} data at
+                    the pre-enrolment stage. This type of information should only be collected
+                    post-enrolment with explicit consent.
                   </p>
                   <p className="mt-1 text-xs text-text-tertiary">
                     Matched keyword: &quot;{warning.matched_keyword}&quot;
@@ -254,7 +260,9 @@ function FieldCard({
               checked={field.required}
               onCheckedChange={(checked) => onUpdate({ ...field, required: Boolean(checked) })}
             />
-            <Label htmlFor={`required-${field.id}`} className="text-sm">Required</Label>
+            <Label htmlFor={`required-${field.id}`} className="text-sm">
+              Required
+            </Label>
           </div>
 
           {showOptions && (
@@ -395,7 +403,8 @@ export default function EditAdmissionFormPage() {
   // ─── Data Minimisation Warning State ──────────────────────────────────────
   const [dataMinWarnings, setDataMinWarnings] = React.useState<DataMinimisationWarning[]>([]);
   const [justifications, setJustifications] = React.useState<Record<string, string>>({});
-  const [justificationDialogField, setJustificationDialogField] = React.useState<DataMinimisationWarning | null>(null);
+  const [justificationDialogField, setJustificationDialogField] =
+    React.useState<DataMinimisationWarning | null>(null);
   const [justificationText, setJustificationText] = React.useState('');
 
   React.useEffect(() => {
@@ -625,17 +634,22 @@ export default function EditAdmissionFormPage() {
             <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning-text" />
             <div>
               <p className="text-sm font-medium text-warning-text">
-                This form contains {dataMinWarnings.length} field{dataMinWarnings.length !== 1 ? 's' : ''} flagged for data minimisation review:
+                This form contains {dataMinWarnings.length} field
+                {dataMinWarnings.length !== 1 ? 's' : ''} flagged for data minimisation review:
               </p>
               <ul className="mt-2 space-y-1">
                 {dataMinWarnings.map((w) => (
-                  <li key={w.field_key} className="flex items-center gap-2 text-xs text-warning-text/80">
+                  <li
+                    key={w.field_key}
+                    className="flex items-center gap-2 text-xs text-warning-text/80"
+                  >
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-text" />
                     &quot;{w.field_label}&quot; ({w.category.replace('_', ' ')} data)
-                    {justifications[w.field_key]
-                      ? <span className="text-success-text">— justified</span>
-                      : <span className="text-danger-text">— needs justification</span>
-                    }
+                    {justifications[w.field_key] ? (
+                      <span className="text-success-text">— justified</span>
+                    ) : (
+                      <span className="text-danger-text">— needs justification</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -647,14 +661,17 @@ export default function EditAdmissionFormPage() {
       {/* Justification Dialog */}
       <Dialog
         open={!!justificationDialogField}
-        onOpenChange={(open) => { if (!open) setJustificationDialogField(null); }}
+        onOpenChange={(open) => {
+          if (!open) setJustificationDialogField(null);
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Justify Special Category Field</DialogTitle>
             <DialogDescription>
-              Field &quot;{justificationDialogField?.field_label}&quot; contains a {justificationDialogField?.category.replace('_', ' ')} keyword.
-              Please provide a justification for including this field in the pre-enrolment form.
+              Field &quot;{justificationDialogField?.field_label}&quot; contains a{' '}
+              {justificationDialogField?.category.replace('_', ' ')} keyword. Please provide a
+              justification for including this field in the pre-enrolment form.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

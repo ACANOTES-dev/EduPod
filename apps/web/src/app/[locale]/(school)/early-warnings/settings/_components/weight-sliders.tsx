@@ -1,8 +1,9 @@
 'use client';
 
-import { Input, Label } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Input, Label } from '@school/ui';
 
 import type { SignalDomain } from '@/lib/early-warning';
 
@@ -29,12 +30,8 @@ export function WeightSliders({ weights, onChange }: WeightSlidersProps) {
       {DOMAINS.map((domain) => (
         <div key={domain} className="space-y-1">
           <div className="flex items-center justify-between">
-            <Label className="text-sm text-text-secondary">
-              {t(`domains.${domain}` as never)}
-            </Label>
-            <span className="font-mono text-sm text-text-primary">
-              {weights[domain]}%
-            </span>
+            <Label className="text-sm text-text-secondary">{t(`domains.${domain}` as never)}</Label>
+            <span className="font-mono text-sm text-text-primary">{weights[domain]}%</span>
           </div>
           <div className="flex items-center gap-3">
             <input
@@ -62,19 +59,15 @@ export function WeightSliders({ weights, onChange }: WeightSlidersProps) {
         </div>
       ))}
 
-      <div className={`flex items-center justify-between rounded-xl px-4 py-2 text-sm font-medium ${
-        isValid
-          ? 'bg-emerald-50 text-emerald-700'
-          : 'bg-danger-fill text-danger-text'
-      }`}>
+      <div
+        className={`flex items-center justify-between rounded-xl px-4 py-2 text-sm font-medium ${
+          isValid ? 'bg-emerald-50 text-emerald-700' : 'bg-danger-fill text-danger-text'
+        }`}
+      >
         <span>{t('settings.total')}</span>
         <span className="font-mono">{total}%</span>
       </div>
-      {!isValid && (
-        <p className="text-xs text-danger-text">
-          {t('settings.weights_must_sum')}
-        </p>
-      )}
+      {!isValid && <p className="text-xs text-danger-text">{t('settings.weights_must_sum')}</p>}
     </div>
   );
 }

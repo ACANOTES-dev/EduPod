@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import type {
   AssignSafeguardingConcernDto,
   BehaviourSettings,
@@ -21,7 +23,6 @@ import type {
   UpdateSafeguardingConcernDto,
 } from '@school/shared';
 import { behaviourSettingsSchema, isValidSafeguardingTransition } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';

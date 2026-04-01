@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+
 import type { DetectedSignal, SignalResult, SignalSeverity } from '@school/shared';
 
 /**
@@ -134,7 +135,12 @@ async function collectAttendanceSignals(
     }) as Promise<PatternAlertRow[]>,
   ]);
 
-  const result: SignalResult = { domain: 'attendance', rawScore: 0, signals: [], summaryFragments: [] };
+  const result: SignalResult = {
+    domain: 'attendance',
+    rawScore: 0,
+    signals: [],
+    summaryFragments: [],
+  };
   if (summaries.length === 0 && patternAlerts.length === 0) return result;
 
   // Signal 1: attendance_rate_decline
@@ -148,7 +154,10 @@ async function collectAttendanceSignals(
   // Signal 5: attendance_trajectory
   checkAttendanceTrajectory(summaries, result);
 
-  result.rawScore = Math.min(100, result.signals.reduce((sum, s) => sum + s.scoreContribution, 0));
+  result.rawScore = Math.min(
+    100,
+    result.signals.reduce((sum, s) => sum + s.scoreContribution, 0),
+  );
   result.summaryFragments = result.signals.map((s) => s.summaryFragment);
   return result;
 }
@@ -212,7 +221,11 @@ function checkConsecutiveAbsences(summaries: AttendanceSummaryRow[], result: Sig
     buildSignal({
       signalType: 'consecutive_absences',
       scoreContribution,
-      details: { consecutiveCount, startDate: formatDate(streakStart!), endDate: formatDate(streakEnd!) },
+      details: {
+        consecutiveCount,
+        startDate: formatDate(streakStart!),
+        endDate: formatDate(streakEnd!),
+      },
       sourceEntityType: 'DailyAttendanceSummary',
       sourceEntityId: firstAbsentId!,
       summaryFragment: `Absent ${consecutiveCount} consecutive school days (${formatDate(streakStart!)}\u2013${formatDate(streakEnd!)})`,
@@ -295,7 +308,12 @@ function checkChronicTardiness(
     buildSignal({
       signalType: 'chronic_tardiness',
       scoreContribution,
-      details: { lateDays: lateDays.length, attendedDays: attendedDays.length, lateRate, hasPatternAlert: tardinessAlerts.length > 0 },
+      details: {
+        lateDays: lateDays.length,
+        attendedDays: attendedDays.length,
+        lateRate,
+        hasPatternAlert: tardinessAlerts.length > 0,
+      },
       sourceEntityType,
       sourceEntityId,
       summaryFragment: `Late ${lateDays.length} of ${attendedDays.length} attended days (${lateRate}%)`,
@@ -337,7 +355,10 @@ function checkAttendanceTrajectory(summaries: AttendanceSummaryRow[], result: Si
   );
 }
 
-function computeWeeklyAttendanceRates(summaries: AttendanceSummaryRow[], weekCount: number): number[] {
+function computeWeeklyAttendanceRates(
+  summaries: AttendanceSummaryRow[],
+  weekCount: number,
+): number[] {
   const now = new Date();
   const rates: number[] = [];
 
@@ -352,7 +373,10 @@ function computeWeeklyAttendanceRates(summaries: AttendanceSummaryRow[], weekCou
       return d >= weekStart && d <= weekEnd && !isWeekend(d);
     });
 
-    if (weekSummaries.length === 0) { rates.push(100); continue; }
+    if (weekSummaries.length === 0) {
+      rates.push(100);
+      continue;
+    }
     const attended = weekSummaries.filter(
       (s) => s.derived_status === 'present' || s.derived_status === 'late',
     ).length;
@@ -434,7 +458,10 @@ async function collectGradesSignals(
       const alert = atRiskAlerts[i];
       if (!alert) continue;
       const entryScore = ALERT_TYPE_SCORES[alert.alert_type] ?? 0;
-      if (entryScore > bestScore) { best = alert; bestScore = entryScore; }
+      if (entryScore > bestScore) {
+        best = alert;
+        bestScore = entryScore;
+      }
     }
     signals.push(
       buildSignal({
@@ -449,10 +476,17 @@ async function collectGradesSignals(
   }
 
   // Signals 2 & 5: grade trajectory + multi-subject decline
-  const bySubject = new Map<string, Array<{ id: string; computed_value: unknown; start_date: Date }>>();
+  const bySubject = new Map<
+    string,
+    Array<{ id: string; computed_value: unknown; start_date: Date }>
+  >();
   for (const s of snapshots) {
     const existing = bySubject.get(s.subject_id) ?? [];
-    existing.push({ id: s.id, computed_value: s.computed_value, start_date: s.academic_period.start_date });
+    existing.push({
+      id: s.id,
+      computed_value: s.computed_value,
+      start_date: s.academic_period.start_date,
+    });
     bySubject.set(s.subject_id, existing);
   }
 
@@ -470,16 +504,22 @@ async function collectGradesSignals(
     if (currVal < prevVal) {
       snapshotDeclining.add(subjectId);
       const decline = prevVal - currVal;
-      if (decline > biggestDecline) { biggestDecline = decline; biggestDeclineSnapshotId = curr.id; }
+      if (decline > biggestDecline) {
+        biggestDecline = decline;
+        biggestDeclineSnapshotId = curr.id;
+      }
     }
   }
 
   const progressDeclining = new Set<string>();
-  for (const entry of progressEntries) { progressDeclining.add(entry.subject_id); }
+  for (const entry of progressEntries) {
+    progressDeclining.add(entry.subject_id);
+  }
 
-  const decliningSet = progressDeclining.size > snapshotDeclining.size ? progressDeclining : snapshotDeclining;
+  const decliningSet =
+    progressDeclining.size > snapshotDeclining.size ? progressDeclining : snapshotDeclining;
   const decliningCount = decliningSet.size;
-  const sourceSnapId = biggestDeclineSnapshotId ?? (snapshots[0]?.id ?? '');
+  const sourceSnapId = biggestDeclineSnapshotId ?? snapshots[0]?.id ?? '';
 
   // Signal 2: grade_trajectory_decline
   if (decliningCount >= 1) {
@@ -544,8 +584,16 @@ async function collectGradesSignals(
     );
   }
 
-  const rawScore = Math.min(100, signals.reduce((sum, s) => sum + s.scoreContribution, 0));
-  return { domain: 'grades', rawScore, signals, summaryFragments: signals.map((s) => s.summaryFragment) };
+  const rawScore = Math.min(
+    100,
+    signals.reduce((sum, s) => sum + s.scoreContribution, 0),
+  );
+  return {
+    domain: 'grades',
+    rawScore,
+    signals,
+    summaryFragments: signals.map((s) => s.summaryFragment),
+  };
 }
 
 // ─── Behaviour Signals ──────────────────────────────────────────────────────
@@ -562,49 +610,73 @@ async function collectBehaviourSignals(
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - BEHAVIOUR_SEVERITY_LOOKBACK_DAYS);
 
-  const [incidentParticipants14d, incidentParticipants30d, sanctions, exclusionCases, interventions] =
-    await Promise.all([
-      tx.behaviourIncidentParticipant.findMany({
-        where: {
-          tenant_id: tenantId, student_id: studentId, role: 'subject',
-          incident: { polarity: 'negative', occurred_at: { gte: fourteenDaysAgo } },
-        },
-        include: { incident: { select: { id: true, polarity: true, severity: true, occurred_at: true } } },
-        orderBy: { incident: { occurred_at: 'desc' } },
-      }),
-      tx.behaviourIncidentParticipant.findMany({
-        where: {
-          tenant_id: tenantId, student_id: studentId, role: 'subject',
-          incident: { polarity: 'negative', occurred_at: { gte: thirtyDaysAgo } },
-        },
-        include: { incident: { select: { id: true, polarity: true, severity: true, occurred_at: true } } },
-        orderBy: { incident: { occurred_at: 'desc' } },
-      }),
-      tx.behaviourSanction.findMany({
-        where: { tenant_id: tenantId, student_id: studentId, status: { in: ['scheduled', 'partially_served'] } },
-        select: { id: true, type: true, status: true, suspension_start_date: true },
-      }),
-      tx.behaviourExclusionCase.findMany({
-        where: {
-          tenant_id: tenantId, student_id: studentId,
-          incident: { academic_year_id: academicYearId },
-        },
-        select: { id: true },
-      }),
-      tx.behaviourIntervention.findMany({
-        where: {
-          tenant_id: tenantId, student_id: studentId,
-          OR: [
-            { status: 'completed_intervention', outcome: { in: ['deteriorated', 'no_change'] } },
-            { status: 'abandoned' },
-            { status: 'active_intervention', target_end_date: { lt: now } },
-          ],
-        },
-        select: { id: true, status: true, outcome: true },
-      }),
-    ]);
+  const [
+    incidentParticipants14d,
+    incidentParticipants30d,
+    sanctions,
+    exclusionCases,
+    interventions,
+  ] = await Promise.all([
+    tx.behaviourIncidentParticipant.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        role: 'subject',
+        incident: { polarity: 'negative', occurred_at: { gte: fourteenDaysAgo } },
+      },
+      include: {
+        incident: { select: { id: true, polarity: true, severity: true, occurred_at: true } },
+      },
+      orderBy: { incident: { occurred_at: 'desc' } },
+    }),
+    tx.behaviourIncidentParticipant.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        role: 'subject',
+        incident: { polarity: 'negative', occurred_at: { gte: thirtyDaysAgo } },
+      },
+      include: {
+        incident: { select: { id: true, polarity: true, severity: true, occurred_at: true } },
+      },
+      orderBy: { incident: { occurred_at: 'desc' } },
+    }),
+    tx.behaviourSanction.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        status: { in: ['scheduled', 'partially_served'] },
+      },
+      select: { id: true, type: true, status: true, suspension_start_date: true },
+    }),
+    tx.behaviourExclusionCase.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        incident: { academic_year_id: academicYearId },
+      },
+      select: { id: true },
+    }),
+    tx.behaviourIntervention.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        OR: [
+          { status: 'completed_intervention', outcome: { in: ['deteriorated', 'no_change'] } },
+          { status: 'abandoned' },
+          { status: 'active_intervention', target_end_date: { lt: now } },
+        ],
+      },
+      select: { id: true, status: true, outcome: true },
+    }),
+  ]);
 
-  const result: SignalResult = { domain: 'behaviour', rawScore: 0, signals: [], summaryFragments: [] };
+  const result: SignalResult = {
+    domain: 'behaviour',
+    rawScore: 0,
+    signals: [],
+    summaryFragments: [],
+  };
 
   // Signal 1: incident_frequency
   const count14d = incidentParticipants14d.length;
@@ -612,12 +684,16 @@ async function collectBehaviourSignals(
     const score = count14d <= 4 ? 10 : count14d <= 6 ? 15 : count14d <= 9 ? 20 : 25;
     const source = incidentParticipants14d[0];
     if (source) {
-      result.signals.push(buildSignal({
-        signalType: 'incident_frequency', scoreContribution: score,
-        details: { count: count14d },
-        sourceEntityType: 'BehaviourIncidentParticipant', sourceEntityId: source.id,
-        summaryFragment: `${count14d} negative behaviour incidents in the last 14 days`,
-      }));
+      result.signals.push(
+        buildSignal({
+          signalType: 'incident_frequency',
+          scoreContribution: score,
+          details: { count: count14d },
+          sourceEntityType: 'BehaviourIncidentParticipant',
+          sourceEntityId: source.id,
+          summaryFragment: `${count14d} negative behaviour incidents in the last 14 days`,
+        }),
+      );
     }
   }
 
@@ -625,12 +701,18 @@ async function collectBehaviourSignals(
   if (incidentParticipants30d.length > 0) {
     const fifteenDaysAgo = new Date(now);
     fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
-    const firstHalf = incidentParticipants30d.filter((p) => new Date(p.incident.occurred_at) < fifteenDaysAgo);
-    const secondHalf = incidentParticipants30d.filter((p) => new Date(p.incident.occurred_at) >= fifteenDaysAgo);
+    const firstHalf = incidentParticipants30d.filter(
+      (p) => new Date(p.incident.occurred_at) < fifteenDaysAgo,
+    );
+    const secondHalf = incidentParticipants30d.filter(
+      (p) => new Date(p.incident.occurred_at) >= fifteenDaysAgo,
+    );
 
     if (firstHalf.length > 0 && secondHalf.length > 0) {
-      const avgFirst = firstHalf.reduce((sum, p) => sum + p.incident.severity, 0) / firstHalf.length;
-      const avgSecond = secondHalf.reduce((sum, p) => sum + p.incident.severity, 0) / secondHalf.length;
+      const avgFirst =
+        firstHalf.reduce((sum, p) => sum + p.incident.severity, 0) / firstHalf.length;
+      const avgSecond =
+        secondHalf.reduce((sum, p) => sum + p.incident.severity, 0) / secondHalf.length;
       const increase = avgSecond - avgFirst;
 
       if (increase >= 1) {
@@ -638,12 +720,22 @@ async function collectBehaviourSignals(
         const sorted = [...secondHalf].sort((a, b) => b.incident.severity - a.incident.severity);
         const source = sorted[0];
         if (source) {
-          result.signals.push(buildSignal({
-            signalType: 'escalating_severity', scoreContribution: score,
-            details: { avgFirst, avgSecond, increase, firstHalfCount: firstHalf.length, secondHalfCount: secondHalf.length },
-            sourceEntityType: 'BehaviourIncidentParticipant', sourceEntityId: source.id,
-            summaryFragment: `Incident severity escalating: average ${avgFirst.toFixed(1)} \u2192 ${avgSecond.toFixed(1)} over 30 days`,
-          }));
+          result.signals.push(
+            buildSignal({
+              signalType: 'escalating_severity',
+              scoreContribution: score,
+              details: {
+                avgFirst,
+                avgSecond,
+                increase,
+                firstHalfCount: firstHalf.length,
+                secondHalfCount: secondHalf.length,
+              },
+              sourceEntityType: 'BehaviourIncidentParticipant',
+              sourceEntityId: source.id,
+              summaryFragment: `Incident severity escalating: average ${avgFirst.toFixed(1)} \u2192 ${avgSecond.toFixed(1)} over 30 days`,
+            }),
+          );
         }
       }
     }
@@ -655,14 +747,25 @@ async function collectBehaviourSignals(
     let highestSanction = sanctions[0]!;
     for (const sanction of sanctions) {
       const score = sanction.suspension_start_date !== null ? 30 : 15;
-      if (score > highestScore) { highestScore = score; highestSanction = sanction; }
+      if (score > highestScore) {
+        highestScore = score;
+        highestSanction = sanction;
+      }
     }
-    result.signals.push(buildSignal({
-      signalType: 'active_sanction', scoreContribution: highestScore,
-      details: { type: highestSanction.type, status: highestSanction.status, isSuspension: highestSanction.suspension_start_date !== null },
-      sourceEntityType: 'BehaviourSanction', sourceEntityId: highestSanction.id,
-      summaryFragment: `Active sanction: ${highestSanction.type} (${highestSanction.status})`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'active_sanction',
+        scoreContribution: highestScore,
+        details: {
+          type: highestSanction.type,
+          status: highestSanction.status,
+          isSuspension: highestSanction.suspension_start_date !== null,
+        },
+        sourceEntityType: 'BehaviourSanction',
+        sourceEntityId: highestSanction.id,
+        summaryFragment: `Active sanction: ${highestSanction.type} (${highestSanction.status})`,
+      }),
+    );
   }
 
   // Signal 4: exclusion_history
@@ -670,12 +773,16 @@ async function collectBehaviourSignals(
   if (exclusionCount > 0) {
     const score = exclusionCount >= 2 ? 35 : 20;
     const source = exclusionCases[0]!;
-    result.signals.push(buildSignal({
-      signalType: 'exclusion_history', scoreContribution: score,
-      details: { count: exclusionCount },
-      sourceEntityType: 'BehaviourExclusionCase', sourceEntityId: source.id,
-      summaryFragment: `${exclusionCount} exclusion case(s) this academic year`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'exclusion_history',
+        scoreContribution: score,
+        details: { count: exclusionCount },
+        sourceEntityType: 'BehaviourExclusionCase',
+        sourceEntityId: source.id,
+        summaryFragment: `${exclusionCount} exclusion case(s) this academic year`,
+      }),
+    );
   }
 
   // Signal 5: failed_intervention
@@ -683,15 +790,26 @@ async function collectBehaviourSignals(
   if (interventionCount > 0) {
     const score = interventionCount >= 2 ? 20 : 10;
     const source = interventions[0]!;
-    result.signals.push(buildSignal({
-      signalType: 'failed_intervention', scoreContribution: score,
-      details: { count: interventionCount, statuses: interventions.map((i) => i.status), outcomes: interventions.map((i) => i.outcome) },
-      sourceEntityType: 'BehaviourIntervention', sourceEntityId: source.id,
-      summaryFragment: `${interventionCount} failed or overdue behaviour intervention(s)`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'failed_intervention',
+        scoreContribution: score,
+        details: {
+          count: interventionCount,
+          statuses: interventions.map((i) => i.status),
+          outcomes: interventions.map((i) => i.outcome),
+        },
+        sourceEntityType: 'BehaviourIntervention',
+        sourceEntityId: source.id,
+        summaryFragment: `${interventionCount} failed or overdue behaviour intervention(s)`,
+      }),
+    );
   }
 
-  result.rawScore = Math.min(100, result.signals.reduce((sum, s) => sum + s.scoreContribution, 0));
+  result.rawScore = Math.min(
+    100,
+    result.signals.reduce((sum, s) => sum + s.scoreContribution, 0),
+  );
   result.summaryFragments = result.signals.map((s) => s.summaryFragment);
   return result;
 }
@@ -716,18 +834,28 @@ async function collectWellbeingSignals(
     }),
     tx.pastoralConcern.findMany({
       where: {
-        tenant_id: tenantId, student_id: studentId, created_at: { gte: ninetyDaysAgo },
+        tenant_id: tenantId,
+        student_id: studentId,
+        created_at: { gte: ninetyDaysAgo },
         OR: [{ follow_up_needed: true }, { severity: { in: ['urgent', 'critical'] } }],
       },
       orderBy: { created_at: 'desc' },
       select: { id: true, category: true, severity: true, follow_up_needed: true },
     }),
     tx.pastoralCase.findMany({
-      where: { tenant_id: tenantId, student_id: studentId, status: { in: ['open', 'active', 'monitoring'] } },
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        status: { in: ['open', 'active', 'monitoring'] },
+      },
       select: { id: true, status: true },
     }),
     tx.pastoralReferral.findMany({
-      where: { tenant_id: tenantId, student_id: studentId, status: { in: ['submitted', 'acknowledged', 'assessment_scheduled'] } },
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+        status: { in: ['submitted', 'acknowledged', 'assessment_scheduled'] },
+      },
       select: { id: true, referral_type: true, referral_body_name: true, status: true },
     }),
     tx.criticalIncidentAffected.findMany({
@@ -736,8 +864,18 @@ async function collectWellbeingSignals(
     }),
   ]);
 
-  const result: SignalResult = { domain: 'wellbeing', rawScore: 0, signals: [], summaryFragments: [] };
-  const hasData = checkins.length > 0 || concerns.length > 0 || cases.length > 0 || referrals.length > 0 || incidentAffected.length > 0;
+  const result: SignalResult = {
+    domain: 'wellbeing',
+    rawScore: 0,
+    signals: [],
+    summaryFragments: [],
+  };
+  const hasData =
+    checkins.length > 0 ||
+    concerns.length > 0 ||
+    cases.length > 0 ||
+    referrals.length > 0 ||
+    incidentAffected.length > 0;
   if (!hasData) return result;
 
   // Signal 1: declining_wellbeing_score
@@ -752,12 +890,21 @@ async function collectWellbeingSignals(
 
     if (decline > 0) {
       const score = decline > 2.0 ? 25 : decline >= 1.0 ? 15 : 10;
-      result.signals.push(buildSignal({
-        signalType: 'declining_wellbeing_score', scoreContribution: score,
-        details: { olderAvg: Number(olderAvg.toFixed(1)), newerAvg: Number(newerAvg.toFixed(1)), decline: Number(decline.toFixed(1)), checkinCount: recent.length },
-        sourceEntityType: 'StudentCheckin', sourceEntityId: recent[0]?.id ?? '',
-        summaryFragment: `Wellbeing score declining: average ${olderAvg.toFixed(1)} \u2192 ${newerAvg.toFixed(1)} over last ${recent.length} check-ins`,
-      }));
+      result.signals.push(
+        buildSignal({
+          signalType: 'declining_wellbeing_score',
+          scoreContribution: score,
+          details: {
+            olderAvg: Number(olderAvg.toFixed(1)),
+            newerAvg: Number(newerAvg.toFixed(1)),
+            decline: Number(decline.toFixed(1)),
+            checkinCount: recent.length,
+          },
+          sourceEntityType: 'StudentCheckin',
+          sourceEntityId: recent[0]?.id ?? '',
+          summaryFragment: `Wellbeing score declining: average ${olderAvg.toFixed(1)} \u2192 ${newerAvg.toFixed(1)} over last ${recent.length} check-ins`,
+        }),
+      );
     }
   }
 
@@ -770,12 +917,16 @@ async function collectWellbeingSignals(
       const allOnes = scores.every((s) => s === 1);
       const allTwos = scores.every((s) => s === 2);
       const score = allOnes ? 20 : allTwos ? 10 : 15;
-      result.signals.push(buildSignal({
-        signalType: 'low_mood_pattern', scoreContribution: score,
-        details: { scores, checkinCount: lastThree.length },
-        sourceEntityType: 'StudentCheckin', sourceEntityId: lastThree[0]?.id ?? '',
-        summaryFragment: `Low mood in last ${lastThree.length} check-ins (scores: ${scores.join(', ')})`,
-      }));
+      result.signals.push(
+        buildSignal({
+          signalType: 'low_mood_pattern',
+          scoreContribution: score,
+          details: { scores, checkinCount: lastThree.length },
+          sourceEntityType: 'StudentCheckin',
+          sourceEntityId: lastThree[0]?.id ?? '',
+          summaryFragment: `Low mood in last ${lastThree.length} check-ins (scores: ${scores.join(', ')})`,
+        }),
+      );
     }
   }
 
@@ -789,35 +940,57 @@ async function collectWellbeingSignals(
       : hasUrgent
         ? (concerns.find((c) => c.severity === 'urgent') ?? concerns[0]!)
         : concerns[0]!;
-    result.signals.push(buildSignal({
-      signalType: 'active_pastoral_concern', scoreContribution: score,
-      details: { category: primary.category, severity: primary.severity, follow_up_needed: primary.follow_up_needed, concernCount: concerns.length },
-      sourceEntityType: 'PastoralConcern', sourceEntityId: primary.id,
-      summaryFragment: `Active pastoral concern: ${primary.category} (severity: ${primary.severity})`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'active_pastoral_concern',
+        scoreContribution: score,
+        details: {
+          category: primary.category,
+          severity: primary.severity,
+          follow_up_needed: primary.follow_up_needed,
+          concernCount: concerns.length,
+        },
+        sourceEntityType: 'PastoralConcern',
+        sourceEntityId: primary.id,
+        summaryFragment: `Active pastoral concern: ${primary.category} (severity: ${primary.severity})`,
+      }),
+    );
   }
 
   // Signal 4: active_pastoral_case
   if (cases.length > 0) {
     const score = cases.length >= 2 ? 20 : 10;
-    result.signals.push(buildSignal({
-      signalType: 'active_pastoral_case', scoreContribution: score,
-      details: { caseCount: cases.length, statuses: cases.map((c) => c.status) },
-      sourceEntityType: 'PastoralCase', sourceEntityId: cases[0]!.id,
-      summaryFragment: `${cases.length} active pastoral case(s)`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'active_pastoral_case',
+        scoreContribution: score,
+        details: { caseCount: cases.length, statuses: cases.map((c) => c.status) },
+        sourceEntityType: 'PastoralCase',
+        sourceEntityId: cases[0]!.id,
+        summaryFragment: `${cases.length} active pastoral case(s)`,
+      }),
+    );
   }
 
   // Signal 5: external_referral
   if (referrals.length > 0) {
     const score = referrals.length >= 2 ? 25 : 15;
     const primary = referrals[0]!;
-    result.signals.push(buildSignal({
-      signalType: 'external_referral', scoreContribution: score,
-      details: { referralCount: referrals.length, referralType: primary.referral_type, referralBodyName: primary.referral_body_name, status: primary.status },
-      sourceEntityType: 'PastoralReferral', sourceEntityId: primary.id,
-      summaryFragment: `External referral active: ${primary.referral_type} to ${primary.referral_body_name ?? 'N/A'} (${primary.status})`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'external_referral',
+        scoreContribution: score,
+        details: {
+          referralCount: referrals.length,
+          referralType: primary.referral_type,
+          referralBodyName: primary.referral_body_name,
+          status: primary.status,
+        },
+        sourceEntityType: 'PastoralReferral',
+        sourceEntityId: primary.id,
+        summaryFragment: `External referral active: ${primary.referral_type} to ${primary.referral_body_name ?? 'N/A'} (${primary.status})`,
+      }),
+    );
   }
 
   // Signal 6: critical_incident_affected
@@ -827,15 +1000,22 @@ async function collectWellbeingSignals(
     const primary = hasDirect
       ? (incidentAffected.find((i) => i.impact_level === 'direct') ?? incidentAffected[0]!)
       : incidentAffected[0]!;
-    result.signals.push(buildSignal({
-      signalType: 'critical_incident_affected', scoreContribution: score,
-      details: { impactLevel: primary.impact_level, incidentCount: incidentAffected.length },
-      sourceEntityType: 'CriticalIncidentAffected', sourceEntityId: primary.id,
-      summaryFragment: `Affected by critical incident (impact: ${primary.impact_level})`,
-    }));
+    result.signals.push(
+      buildSignal({
+        signalType: 'critical_incident_affected',
+        scoreContribution: score,
+        details: { impactLevel: primary.impact_level, incidentCount: incidentAffected.length },
+        sourceEntityType: 'CriticalIncidentAffected',
+        sourceEntityId: primary.id,
+        summaryFragment: `Affected by critical incident (impact: ${primary.impact_level})`,
+      }),
+    );
   }
 
-  result.rawScore = Math.min(100, result.signals.reduce((sum, s) => sum + s.scoreContribution, 0));
+  result.rawScore = Math.min(
+    100,
+    result.signals.reduce((sum, s) => sum + s.scoreContribution, 0),
+  );
   result.summaryFragments = result.signals.map((s) => s.summaryFragment);
   return result;
 }
@@ -881,8 +1061,10 @@ async function collectEngagementSignals(
   const [notifications, users, academicYear, acknowledgements] = await Promise.all([
     tx.notification.findMany({
       where: {
-        tenant_id: tenantId, recipient_user_id: { in: userIds },
-        channel: 'in_app', created_at: { gte: thirtyDaysAgo },
+        tenant_id: tenantId,
+        recipient_user_id: { in: userIds },
+        channel: 'in_app',
+        created_at: { gte: thirtyDaysAgo },
       },
       select: { id: true, recipient_user_id: true, read_at: true, created_at: true },
       orderBy: { created_at: 'desc' },
@@ -906,7 +1088,8 @@ async function collectEngagementSignals(
   if (academicYear) {
     const inquiries = await tx.parentInquiry.findMany({
       where: {
-        tenant_id: tenantId, parent_id: { in: parentIds },
+        tenant_id: tenantId,
+        parent_id: { in: parentIds },
         created_at: { gte: academicYear.start_date, lte: academicYear.end_date },
       },
       select: { id: true },
@@ -925,18 +1108,29 @@ async function collectEngagementSignals(
       if (parentNotifs.length === 0) continue;
       const readCount = parentNotifs.filter((n) => n.read_at !== null).length;
       const rate = Math.round((readCount / parentNotifs.length) * 100);
-      if (rate > bestRate) { bestRate = rate; bestRead = readCount; bestTotal = parentNotifs.length; bestUserId = pu.userId; }
+      if (rate > bestRate) {
+        bestRate = rate;
+        bestRead = readCount;
+        bestTotal = parentNotifs.length;
+        bestUserId = pu.userId;
+      }
     }
     if (bestRate >= 0 && bestRate < 30) {
       const score = bestRate >= 15 ? 10 : bestRate >= 1 ? 15 : 20;
-      const unread = notifications.find((n) => n.recipient_user_id === bestUserId && n.read_at === null);
+      const unread = notifications.find(
+        (n) => n.recipient_user_id === bestUserId && n.read_at === null,
+      );
       const sourceId = unread?.id ?? notifications[0]?.id ?? '';
-      signals.push(buildSignal({
-        signalType: 'low_notification_read_rate', scoreContribution: score,
-        details: { bestRate, read: bestRead, total: bestTotal },
-        sourceEntityType: 'Notification', sourceEntityId: sourceId,
-        summaryFragment: `Parent notification read rate: ${bestRate}% (${bestRead}/${bestTotal} in 30 days)`,
-      }));
+      signals.push(
+        buildSignal({
+          signalType: 'low_notification_read_rate',
+          scoreContribution: score,
+          details: { bestRate, read: bestRead, total: bestTotal },
+          sourceEntityType: 'Notification',
+          sourceEntityId: sourceId,
+          summaryFragment: `Parent notification read rate: ${bestRate}% (${bestRead}/${bestTotal} in 30 days)`,
+        }),
+      );
     }
   }
 
@@ -963,15 +1157,20 @@ async function collectEngagementSignals(
 
     if (daysSince >= 21) {
       const score = daysSince <= 30 ? 15 : daysSince <= 60 ? 20 : 25;
-      const summaryText = daysSince === Infinity
-        ? 'No parent portal login ever recorded'
-        : `No parent portal login in ${daysSince} days`;
-      signals.push(buildSignal({
-        signalType: 'no_portal_login', scoreContribution: score,
-        details: { daysSince: daysSince === Infinity ? 'never' : `${daysSince}` },
-        sourceEntityType: 'User', sourceEntityId: bestUserId,
-        summaryFragment: summaryText,
-      }));
+      const summaryText =
+        daysSince === Infinity
+          ? 'No parent portal login ever recorded'
+          : `No parent portal login in ${daysSince} days`;
+      signals.push(
+        buildSignal({
+          signalType: 'no_portal_login',
+          scoreContribution: score,
+          details: { daysSince: daysSince === Infinity ? 'never' : `${daysSince}` },
+          sourceEntityType: 'User',
+          sourceEntityId: bestUserId,
+          summaryFragment: summaryText,
+        }),
+      );
     }
   }
 
@@ -980,12 +1179,16 @@ async function collectEngagementSignals(
     const yearStartMs = new Date(academicYear.start_date).getTime();
     const monthsElapsed = Math.floor((now.getTime() - yearStartMs) / (MS_PER_DAY * 30));
     const score = monthsElapsed > 6 ? 15 : monthsElapsed >= 3 ? 10 : 5;
-    signals.push(buildSignal({
-      signalType: 'no_parent_inquiry', scoreContribution: score,
-      details: { monthsElapsed },
-      sourceEntityType: 'Student', sourceEntityId: studentId,
-      summaryFragment: 'No parent-initiated inquiries this academic year',
-    }));
+    signals.push(
+      buildSignal({
+        signalType: 'no_parent_inquiry',
+        scoreContribution: score,
+        details: { monthsElapsed },
+        sourceEntityType: 'Student',
+        sourceEntityId: studentId,
+        summaryFragment: 'No parent-initiated inquiries this academic year',
+      }),
+    );
   }
 
   // Signal 4: slow_acknowledgement
@@ -999,7 +1202,9 @@ async function collectEngagementSignals(
       let hasUnacknowledged = false;
       for (const ack of parentAcks) {
         if (ack.acknowledged_at) {
-          totalHours += (new Date(ack.acknowledged_at).getTime() - new Date(ack.sent_at).getTime()) / MS_PER_HOUR;
+          totalHours +=
+            (new Date(ack.acknowledged_at).getTime() - new Date(ack.sent_at).getTime()) /
+            MS_PER_HOUR;
           countWithResponse++;
         } else {
           hasUnacknowledged = true;
@@ -1013,26 +1218,36 @@ async function collectEngagementSignals(
     }
 
     if (bestAvgHours >= 72) {
-      const score = bestAvgHours === Infinity || bestAvgHours > 168 ? 20 : bestAvgHours > 120 ? 15 : 10;
+      const score =
+        bestAvgHours === Infinity || bestAvgHours > 168 ? 20 : bestAvgHours > 120 ? 15 : 10;
       let slowestAckId = acknowledgements[0]?.id ?? '';
       let slowestTime = -1;
       for (const ack of acknowledgements) {
         if (ack.acknowledged_at) {
           const time = new Date(ack.acknowledged_at).getTime() - new Date(ack.sent_at).getTime();
-          if (time > slowestTime) { slowestTime = time; slowestAckId = ack.id; }
+          if (time > slowestTime) {
+            slowestTime = time;
+            slowestAckId = ack.id;
+          }
         } else {
-          slowestAckId = ack.id; slowestTime = Infinity;
+          slowestAckId = ack.id;
+          slowestTime = Infinity;
         }
       }
       const displayHours = bestAvgHours === Infinity ? 'never' : `${Math.round(bestAvgHours)}`;
-      signals.push(buildSignal({
-        signalType: 'slow_acknowledgement', scoreContribution: score,
-        details: { avgHours: displayHours },
-        sourceEntityType: 'BehaviourParentAcknowledgement', sourceEntityId: slowestAckId,
-        summaryFragment: bestAvgHours === Infinity
-          ? 'Behaviour acknowledgements never acknowledged'
-          : `Average behaviour acknowledgement time: ${Math.round(bestAvgHours)} hours`,
-      }));
+      signals.push(
+        buildSignal({
+          signalType: 'slow_acknowledgement',
+          scoreContribution: score,
+          details: { avgHours: displayHours },
+          sourceEntityType: 'BehaviourParentAcknowledgement',
+          sourceEntityId: slowestAckId,
+          summaryFragment:
+            bestAvgHours === Infinity
+              ? 'Behaviour acknowledgements never acknowledged'
+              : `Average behaviour acknowledgement time: ${Math.round(bestAvgHours)} hours`,
+        }),
+      );
     }
   }
 
@@ -1044,9 +1259,10 @@ async function collectEngagementSignals(
       if (parentNotifs.length === 0) continue;
       const weeklyRates = computeWeeklyReadRates(parentNotifs, now, ENGAGEMENT_WEEKS_TO_TRACK);
       const avg = weeklyRates.reduce((sum, r) => sum + r, 0) / weeklyRates.length;
-      const bestAvg = bestWeeklyRates.length > 0
-        ? bestWeeklyRates.reduce((sum, r) => sum + r, 0) / bestWeeklyRates.length
-        : -1;
+      const bestAvg =
+        bestWeeklyRates.length > 0
+          ? bestWeeklyRates.reduce((sum, r) => sum + r, 0) / bestWeeklyRates.length
+          : -1;
       if (avg > bestAvg) bestWeeklyRates = weeklyRates;
     }
 
@@ -1055,7 +1271,8 @@ async function collectEngagementSignals(
       for (let i = 1; i < bestWeeklyRates.length; i++) {
         const current = bestWeeklyRates[i];
         const previous = bestWeeklyRates[i - 1];
-        if (current !== undefined && previous !== undefined && current < previous) consecutiveDeclines++;
+        if (current !== undefined && previous !== undefined && current < previous)
+          consecutiveDeclines++;
         else consecutiveDeclines = 0;
       }
 
@@ -1063,19 +1280,31 @@ async function collectEngagementSignals(
         const score = consecutiveDeclines >= 4 ? 20 : 10;
         const mostRecent = notifications[0];
         if (mostRecent) {
-          signals.push(buildSignal({
-            signalType: 'disengagement_trajectory', scoreContribution: score,
-            details: { consecutiveDeclines, weeklyRates: bestWeeklyRates },
-            sourceEntityType: 'Notification', sourceEntityId: mostRecent.id,
-            summaryFragment: `Parent engagement declining over ${consecutiveDeclines} consecutive weeks`,
-          }));
+          signals.push(
+            buildSignal({
+              signalType: 'disengagement_trajectory',
+              scoreContribution: score,
+              details: { consecutiveDeclines, weeklyRates: bestWeeklyRates },
+              sourceEntityType: 'Notification',
+              sourceEntityId: mostRecent.id,
+              summaryFragment: `Parent engagement declining over ${consecutiveDeclines} consecutive weeks`,
+            }),
+          );
         }
       }
     }
   }
 
-  const rawScore = Math.min(100, signals.reduce((sum, s) => sum + s.scoreContribution, 0));
-  return { domain: 'engagement', rawScore, signals, summaryFragments: signals.map((s) => s.summaryFragment) };
+  const rawScore = Math.min(
+    100,
+    signals.reduce((sum, s) => sum + s.scoreContribution, 0),
+  );
+  return {
+    domain: 'engagement',
+    rawScore,
+    signals,
+    summaryFragments: signals.map((s) => s.summaryFragment),
+  };
 }
 
 function computeWeeklyReadRates(
@@ -1091,7 +1320,10 @@ function computeWeeklyReadRates(
       const d = new Date(n.created_at);
       return d >= weekStart && d <= weekEnd;
     });
-    if (weekNotifs.length === 0) { rates.push(100); continue; }
+    if (weekNotifs.length === 0) {
+      rates.push(100);
+      continue;
+    }
     const readCount = weekNotifs.filter((n) => n.read_at !== null).length;
     rates.push(Math.round((readCount / weekNotifs.length) * 100));
   }

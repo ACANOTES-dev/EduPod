@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+
 import type { GdprOutboundData } from '@school/shared';
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
@@ -33,7 +34,13 @@ interface ValidatedAiCandidate {
 export class AiSubstitutionService {
   private readonly logger = new Logger(AiSubstitutionService.name);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
+  private anthropic: {
+    messages: {
+      create: (
+        params: Record<string, unknown>,
+      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
+    };
+  } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -149,17 +156,18 @@ export class AiSubstitutionService {
     }
 
     // Load competencies
-    const competencies = (subjectId || yearGroupId)
-      ? await this.prisma.teacherCompetency.findMany({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            ...(subjectId ? { subject_id: subjectId } : {}),
-            ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
-          },
-          select: { staff_profile_id: true, is_primary: true },
-        })
-      : [];
+    const competencies =
+      subjectId || yearGroupId
+        ? await this.prisma.teacherCompetency.findMany({
+            where: {
+              tenant_id: tenantId,
+              academic_year_id: academicYearId,
+              ...(subjectId ? { subject_id: subjectId } : {}),
+              ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
+            },
+            select: { staff_profile_id: true, is_primary: true },
+          })
+        : [];
 
     const competencyMap = new Map<string, { is_primary: boolean }>();
     for (const comp of competencies) {
@@ -180,10 +188,7 @@ export class AiSubstitutionService {
 
     const coverCountMap = new Map<string, number>();
     for (const r of coverRecords) {
-      coverCountMap.set(
-        r.substitute_staff_id,
-        (coverCountMap.get(r.substitute_staff_id) ?? 0) + 1,
-      );
+      coverCountMap.set(r.substitute_staff_id, (coverCountMap.get(r.substitute_staff_id) ?? 0) + 1);
     }
 
     // GDPR tokenisation — protect staff PII before sending to AI
@@ -195,8 +200,12 @@ export class AiSubstitutionService {
       })),
       entityCount: availableStaff.length,
     };
-    const { processedData, tokenMap } =
-      await this.gdprTokenService.processOutbound(tenantId, 'ai_substitution', outbound, SYSTEM_USER_SENTINEL);
+    const { processedData, tokenMap } = await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_substitution',
+      outbound,
+      SYSTEM_USER_SENTINEL,
+    );
 
     // Build a lookup from staff ID to tokenised name
     const tokenisedNameMap = new Map<string, string>();
@@ -269,20 +278,27 @@ Return ONLY the JSON array. No markdown, no explanation.`;
         processingTimeMs: elapsed,
       });
       if (content?.type === 'text' && content.text) {
-        const detokenisedText = await this.gdprTokenService.processInbound(tenantId, content.text, tokenMap);
+        const detokenisedText = await this.gdprTokenService.processInbound(
+          tenantId,
+          content.text,
+          tokenMap,
+        );
         const parsed = JSON.parse(detokenisedText) as RawAiCandidate[];
         if (Array.isArray(parsed)) {
-          const validated = parsed.filter((item): item is ValidatedAiCandidate =>
-            typeof item.staff_profile_id === 'string' &&
-            typeof item.confidence === 'string' &&
-            typeof item.score === 'number' &&
-            typeof item.reasoning === 'string',
+          const validated = parsed.filter(
+            (item): item is ValidatedAiCandidate =>
+              typeof item.staff_profile_id === 'string' &&
+              typeof item.confidence === 'string' &&
+              typeof item.score === 'number' &&
+              typeof item.reasoning === 'string',
           );
           rankings = validated
             .map((item) => {
               const staffMember = availableStaff.find((s) => s.id === item.staff_profile_id);
               const confidenceValue: 'high' | 'medium' | 'low' =
-                item.confidence === 'high' || item.confidence === 'medium' || item.confidence === 'low'
+                item.confidence === 'high' ||
+                item.confidence === 'medium' ||
+                item.confidence === 'low'
                   ? item.confidence
                   : 'low';
               return {

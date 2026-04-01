@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { CreateParentContactDto, ParentContactFilters } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -167,9 +168,7 @@ export class ParentContactService {
         db.pastoralParentContact.count({ where }),
       ]);
 
-      const data = (contacts as ParentContactRow[]).map((c) =>
-        this.toContactDto(c),
-      );
+      const data = (contacts as ParentContactRow[]).map((c) => this.toContactDto(c));
 
       return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
     }) as Promise<{ data: ParentContactDto[]; meta: PaginationMeta }>;
@@ -177,10 +176,7 @@ export class ParentContactService {
 
   // ─── GET SINGLE CONTACT ───────────────────────────────────────────────────
 
-  async getContact(
-    tenantId: string,
-    contactId: string,
-  ): Promise<{ data: ParentContactDto }> {
+  async getContact(tenantId: string, contactId: string): Promise<{ data: ParentContactDto }> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: tenantId,

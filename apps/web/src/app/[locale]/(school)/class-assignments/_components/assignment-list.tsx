@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronUp, Shuffle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,9 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ChevronDown, ChevronUp, Shuffle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { Student, YearGroup } from './export-utils';
 
@@ -110,7 +111,8 @@ export function AssignmentList({
                         <div key={cls.id} className="flex items-center gap-2 text-xs">
                           <span className="font-medium text-text-primary">{cls.name}</span>
                           <span className="text-text-tertiary">
-                            {count}{cap ? `/${cap}` : ''}
+                            {count}
+                            {cap ? `/${cap}` : ''}
                           </span>
                           {pct !== null && (
                             <div className="h-1.5 w-16 overflow-hidden rounded-full bg-border">
@@ -191,9 +193,7 @@ export function AssignmentList({
                             <Checkbox
                               id={`select-${student.id}`}
                               checked={isSelected}
-                              onCheckedChange={() =>
-                                onToggleStudentSelection(student.id, group.id)
-                              }
+                              onCheckedChange={() => onToggleStudentSelection(student.id, group.id)}
                             />
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-text-primary">
@@ -243,8 +243,7 @@ export function AssignmentList({
                                   )}
                                   {group.homeroom_classes.map((cls) => (
                                     <SelectItem key={cls.id} value={cls.id}>
-                                      {cls.name} (
-                                      {cls.enrolled_count}
+                                      {cls.name} ({cls.enrolled_count}
                                       {cls.max_capacity ? `/${cls.max_capacity}` : ''})
                                     </SelectItem>
                                   ))}

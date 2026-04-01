@@ -1,13 +1,14 @@
 'use client';
 
-import { toast } from '@school/ui';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { toast } from '@school/ui';
 
 import { StudentForm, type StudentFormData } from '../_components/student-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 export default function NewStudentPage() {
   const router = useRouter();
@@ -23,10 +24,7 @@ export default function NewStudentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="New Student"
-        description="Add a new student record"
-      />
+      <PageHeader title="New Student" description="Add a new student record" />
       <StudentForm onSubmit={handleSubmit} />
     </div>
   );

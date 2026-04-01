@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SearchResponse, SearchResult } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

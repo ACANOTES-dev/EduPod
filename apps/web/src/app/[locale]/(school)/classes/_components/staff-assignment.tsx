@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Trash2, UserCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,10 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus, Trash2, UserCheck } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -60,13 +60,18 @@ function AssignDialog({ classId, open, onOpenChange, onSuccess }: AssignDialogPr
 
   React.useEffect(() => {
     if (!open) return;
-    apiClient<{ data: StaffProfile[] }>('/api/v1/staff-profiles?pageSize=100&employment_status=active')
+    apiClient<{ data: StaffProfile[] }>(
+      '/api/v1/staff-profiles?pageSize=100&employment_status=active',
+    )
       .then((res) => setStaffProfiles(res.data))
       .catch(() => setStaffProfiles([]));
   }, [open]);
 
   const handleSubmit = async () => {
-    if (!staffId) { setError(t('selectStaffRequired')); return; }
+    if (!staffId) {
+      setError(t('selectStaffRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -150,9 +155,7 @@ export function StaffAssignment({ classId }: StaffAssignmentProps) {
   const fetchAssignments = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<{ data: ClassStaff[] }>(
-        `/api/v1/classes/${classId}/staff`,
-      );
+      const res = await apiClient<{ data: ClassStaff[] }>(`/api/v1/classes/${classId}/staff`);
       setAssignments(res.data);
     } catch {
       setAssignments([]);
@@ -171,8 +174,9 @@ export function StaffAssignment({ classId }: StaffAssignmentProps) {
         method: 'DELETE',
       });
       void fetchAssignments();
-    } catch {
+    } catch (err) {
       // silently fail
+      console.error('[fetchAssignments]', err);
     }
   };
 

@@ -1,11 +1,12 @@
 'use client';
 
-import { ANTI_BULLYING_CATEGORIES } from '@school/shared';
-import { cn } from '@school/ui';
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { ANTI_BULLYING_CATEGORIES } from '@school/shared';
+import { cn } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,11 +64,7 @@ function TrendIcon({ trend }: { trend: 'up' | 'down' | 'stable' }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function BullyingIncidentSummary({
-  data,
-  isLoading,
-  locale,
-}: BullyingIncidentSummaryProps) {
+export function BullyingIncidentSummary({ data, isLoading, locale }: BullyingIncidentSummaryProps) {
   const t = useTranslations('regulatory');
 
   // ── Loading state ──
@@ -90,12 +87,8 @@ export function BullyingIncidentSummary({
   if (!data) {
     return (
       <div className="rounded-2xl border border-border bg-surface p-6 text-center">
-        <p className="text-sm font-medium text-text-primary">
-          {t('antiBullying.noDataTitle')}
-        </p>
-        <p className="mt-1 text-sm text-text-secondary">
-          {t('antiBullying.noDataDescription')}
-        </p>
+        <p className="text-sm font-medium text-text-primary">{t('antiBullying.noDataTitle')}</p>
+        <p className="mt-1 text-sm text-text-secondary">{t('antiBullying.noDataDescription')}</p>
         <div className="mt-4">
           <Link
             href={`/${locale}/behaviour`}
@@ -132,9 +125,7 @@ export function BullyingIncidentSummary({
               key={category}
               className={cn(
                 'flex flex-col gap-2 rounded-2xl border p-4 transition-colors',
-                hasIncidents
-                  ? 'border-border bg-surface'
-                  : 'border-border/50 bg-surface/50',
+                hasIncidents ? 'border-border bg-surface' : 'border-border/50 bg-surface/50',
               )}
             >
               <p

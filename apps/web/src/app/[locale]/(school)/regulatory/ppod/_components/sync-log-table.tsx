@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge, StatusBadge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
@@ -38,7 +39,10 @@ interface SyncLogTableProps {
 
 const PAGE_SIZE = 20;
 
-const STATUS_VARIANT: Record<SyncLogEntry['status'], 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+const STATUS_VARIANT: Record<
+  SyncLogEntry['status'],
+  'success' | 'warning' | 'danger' | 'info' | 'neutral'
+> = {
   in_progress: 'info',
   completed: 'success',
   completed_with_errors: 'warning',
@@ -138,96 +142,98 @@ export function SyncLogTable({ databaseType }: SyncLogTableProps) {
 
   // ─── Columns ────────────────────────────────────────────────────────────────
 
-  const columns = React.useMemo(() => [
-    {
-      key: 'database_type',
-      header: t('ppod.columnDatabase'),
-      render: (row: SyncLogEntry) => (
-        <Badge variant="secondary">
-          {row.database_type.toUpperCase()}
-        </Badge>
-      ),
-      className: 'w-24',
-    },
-    {
-      key: 'sync_type',
-      header: t('ppod.columnSyncType'),
-      render: (row: SyncLogEntry) => (
-        <span className="text-sm">{SYNC_TYPE_LABEL[row.sync_type]}</span>
-      ),
-    },
-    {
-      key: 'triggered_by_name',
-      header: t('ppod.columnTriggeredBy'),
-      render: (row: SyncLogEntry) => (
-        <span className="text-sm text-text-secondary">
-          {row.triggered_by_name ?? t('ppod.system')}
-        </span>
-      ),
-    },
-    {
-      key: 'started_at',
-      header: t('ppod.columnStartedAt'),
-      render: (row: SyncLogEntry) => (
-        <span className="text-xs text-text-secondary">
-          {formatDateTime(row.started_at)}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: t('ppod.columnStatus'),
-      render: (row: SyncLogEntry) => (
-        <StatusBadge status={STATUS_VARIANT[row.status]} dot>
-          {STATUS_LABEL[row.status]}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'records',
-      header: t('ppod.columnRecords'),
-      render: (row: SyncLogEntry) => (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-          <span title="Pushed">
-            <span className="text-text-tertiary">{t('ppod.pushed')}: </span>
-            <span className="font-medium">{row.records_pushed}</span>
+  const columns = React.useMemo(
+    () => [
+      {
+        key: 'database_type',
+        header: t('ppod.columnDatabase'),
+        render: (row: SyncLogEntry) => (
+          <Badge variant="secondary">{row.database_type.toUpperCase()}</Badge>
+        ),
+        className: 'w-24',
+      },
+      {
+        key: 'sync_type',
+        header: t('ppod.columnSyncType'),
+        render: (row: SyncLogEntry) => (
+          <span className="text-sm">{SYNC_TYPE_LABEL[row.sync_type]}</span>
+        ),
+      },
+      {
+        key: 'triggered_by_name',
+        header: t('ppod.columnTriggeredBy'),
+        render: (row: SyncLogEntry) => (
+          <span className="text-sm text-text-secondary">
+            {row.triggered_by_name ?? t('ppod.system')}
           </span>
-          <span title="Created">
-            <span className="text-text-tertiary">{t('ppod.created')}: </span>
-            <span className="font-medium text-success-text">{row.records_created}</span>
-          </span>
-          <span title="Updated">
-            <span className="text-text-tertiary">{t('ppod.updated')}: </span>
-            <span className="font-medium text-info-text">{row.records_updated}</span>
-          </span>
-          {row.records_failed > 0 && (
-            <span title="Failed">
-              <span className="text-text-tertiary">{t('ppod.failed')}: </span>
-              <span className="font-medium text-danger-text">{row.records_failed}</span>
+        ),
+      },
+      {
+        key: 'started_at',
+        header: t('ppod.columnStartedAt'),
+        render: (row: SyncLogEntry) => (
+          <span className="text-xs text-text-secondary">{formatDateTime(row.started_at)}</span>
+        ),
+      },
+      {
+        key: 'status',
+        header: t('ppod.columnStatus'),
+        render: (row: SyncLogEntry) => (
+          <StatusBadge status={STATUS_VARIANT[row.status]} dot>
+            {STATUS_LABEL[row.status]}
+          </StatusBadge>
+        ),
+      },
+      {
+        key: 'records',
+        header: t('ppod.columnRecords'),
+        render: (row: SyncLogEntry) => (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+            <span title="Pushed">
+              <span className="text-text-tertiary">{t('ppod.pushed')}: </span>
+              <span className="font-medium">{row.records_pushed}</span>
             </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'duration',
-      header: t('ppod.columnDuration'),
-      render: (row: SyncLogEntry) => (
-        <span className="text-xs font-mono text-text-secondary">
-          {computeDuration(row.started_at, row.completed_at)}
-        </span>
-      ),
-      className: 'w-24',
-    },
-  ], [t]);
+            <span title="Created">
+              <span className="text-text-tertiary">{t('ppod.created')}: </span>
+              <span className="font-medium text-success-text">{row.records_created}</span>
+            </span>
+            <span title="Updated">
+              <span className="text-text-tertiary">{t('ppod.updated')}: </span>
+              <span className="font-medium text-info-text">{row.records_updated}</span>
+            </span>
+            {row.records_failed > 0 && (
+              <span title="Failed">
+                <span className="text-text-tertiary">{t('ppod.failed')}: </span>
+                <span className="font-medium text-danger-text">{row.records_failed}</span>
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'duration',
+        header: t('ppod.columnDuration'),
+        render: (row: SyncLogEntry) => (
+          <span className="text-xs font-mono text-text-secondary">
+            {computeDuration(row.started_at, row.completed_at)}
+          </span>
+        ),
+        className: 'w-24',
+      },
+    ],
+    [t],
+  );
 
   // ─── Row Click for Error Expand ─────────────────────────────────────────────
 
-  const handleRowClick = React.useCallback((row: SyncLogEntry) => {
-    if (row.error_details || row.status === 'failed' || row.status === 'completed_with_errors') {
-      toggleExpanded(row.id);
-    }
-  }, [toggleExpanded]);
+  const handleRowClick = React.useCallback(
+    (row: SyncLogEntry) => {
+      if (row.error_details || row.status === 'failed' || row.status === 'completed_with_errors') {
+        toggleExpanded(row.id);
+      }
+    },
+    [toggleExpanded],
+  );
 
   // ─── Enriched Data with Expand Row ──────────────────────────────────────────
 
@@ -283,17 +289,16 @@ function ExpandedErrorDetails({ entry, onClose }: ExpandedErrorDetailsProps) {
 
   if (!entry?.error_details) return null;
 
-  const errorText = typeof entry.error_details === 'string'
-    ? entry.error_details
-    : JSON.stringify(entry.error_details, null, 2);
+  const errorText =
+    typeof entry.error_details === 'string'
+      ? entry.error_details
+      : JSON.stringify(entry.error_details, null, 2);
 
   return (
     <div className="rounded-b-lg border border-t-0 border-border bg-danger-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="mb-1 text-xs font-semibold text-danger-text">
-            {t('ppod.errorDetails')}
-          </p>
+          <p className="mb-1 text-xs font-semibold text-danger-text">{t('ppod.errorDetails')}</p>
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-surface-primary p-2 font-mono text-xs text-text-secondary">
             {errorText}
           </pre>

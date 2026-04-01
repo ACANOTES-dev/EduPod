@@ -1,7 +1,8 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 

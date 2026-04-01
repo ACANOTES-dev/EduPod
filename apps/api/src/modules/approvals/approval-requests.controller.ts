@@ -10,17 +10,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   approvalCommentSchema,
   approvalRequestFilterSchema,
   paginationQuerySchema,
 } from '@school/shared';
-import type {
-  ApprovalCommentDto,
-  JwtPayload,
-  TenantContext,
-} from '@school/shared';
-import { z } from 'zod';
+import type { ApprovalCommentDto, JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -31,18 +28,14 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
 import { ApprovalRequestsService } from './approval-requests.service';
 
-const listRequestsQuerySchema = paginationQuerySchema.merge(
-  approvalRequestFilterSchema,
-);
+const listRequestsQuerySchema = paginationQuerySchema.merge(approvalRequestFilterSchema);
 
 type ListRequestsQuery = z.infer<typeof listRequestsQuerySchema>;
 
 @Controller('v1/approval-requests')
 @UseGuards(AuthGuard, PermissionGuard)
 export class ApprovalRequestsController {
-  constructor(
-    private readonly requestsService: ApprovalRequestsService,
-  ) {}
+  constructor(private readonly requestsService: ApprovalRequestsService) {}
 
   @Get()
   @RequiresPermission('approvals.view')
@@ -60,10 +53,7 @@ export class ApprovalRequestsController {
 
   @Get(':id')
   @RequiresPermission('approvals.view')
-  async getRequest(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getRequest(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.requestsService.getRequest(tenant.tenant_id, id);
   }
 
@@ -77,12 +67,7 @@ export class ApprovalRequestsController {
     @Body(new ZodValidationPipe(approvalCommentSchema))
     dto: ApprovalCommentDto,
   ) {
-    return this.requestsService.approve(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto.comment,
-    );
+    return this.requestsService.approve(tenant.tenant_id, id, user.sub, dto.comment);
   }
 
   @Post(':id/reject')
@@ -95,12 +80,7 @@ export class ApprovalRequestsController {
     @Body(new ZodValidationPipe(approvalCommentSchema))
     dto: ApprovalCommentDto,
   ) {
-    return this.requestsService.reject(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto.comment,
-    );
+    return this.requestsService.reject(tenant.tenant_id, id, user.sub, dto.comment);
   }
 
   @Post(':id/cancel')
@@ -113,11 +93,6 @@ export class ApprovalRequestsController {
     @Body(new ZodValidationPipe(approvalCommentSchema))
     dto: ApprovalCommentDto,
   ) {
-    return this.requestsService.cancel(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto.comment,
-    );
+    return this.requestsService.cancel(tenant.tenant_id, id, user.sub, dto.comment);
   }
 }

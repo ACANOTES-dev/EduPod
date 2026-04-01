@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { BulkPositiveDto, QuickLogDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -141,7 +142,7 @@ describe('BehaviourQuickLogService', () => {
       expect(result.templates[catB]).toHaveLength(1);
     });
 
-    it('should return recent 20 distinct students from user\'s incidents', async () => {
+    it("should return recent 20 distinct students from user's incidents", async () => {
       mockPrisma.behaviourIncidentParticipant.findMany.mockResolvedValue([
         makeParticipant(STUDENT_ID_1),
         makeParticipant(STUDENT_ID_2),
@@ -234,7 +235,10 @@ describe('BehaviourQuickLogService', () => {
       await service.quickLog(TENANT_ID, USER_ID, baseDto);
       const after = new Date();
 
-      const callArgs = mockBehaviourService.createIncident.mock.calls[0]?.[2] as Record<string, unknown>;
+      const callArgs = mockBehaviourService.createIncident.mock.calls[0]?.[2] as Record<
+        string,
+        unknown
+      >;
       const occurredAt = new Date(callArgs.occurred_at as string);
       expect(occurredAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
       expect(occurredAt.getTime()).toBeLessThanOrEqual(after.getTime());
@@ -287,9 +291,18 @@ describe('BehaviourQuickLogService', () => {
       expect(mockBehaviourService.createIncident).toHaveBeenCalledTimes(3);
 
       // Each call should have a single student
-      const firstCall = mockBehaviourService.createIncident.mock.calls[0]?.[2] as Record<string, unknown>;
-      const secondCall = mockBehaviourService.createIncident.mock.calls[1]?.[2] as Record<string, unknown>;
-      const thirdCall = mockBehaviourService.createIncident.mock.calls[2]?.[2] as Record<string, unknown>;
+      const firstCall = mockBehaviourService.createIncident.mock.calls[0]?.[2] as Record<
+        string,
+        unknown
+      >;
+      const secondCall = mockBehaviourService.createIncident.mock.calls[1]?.[2] as Record<
+        string,
+        unknown
+      >;
+      const thirdCall = mockBehaviourService.createIncident.mock.calls[2]?.[2] as Record<
+        string,
+        unknown
+      >;
 
       expect(firstCall.student_ids).toEqual([STUDENT_ID_1]);
       expect(secondCall.student_ids).toEqual([STUDENT_ID_2]);

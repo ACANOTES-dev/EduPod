@@ -1,5 +1,9 @@
 'use client';
 
+import { BookOpen, ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -12,9 +16,6 @@ import {
   Label,
   toast,
 } from '@school/ui';
-import { BookOpen, ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -163,9 +164,7 @@ export default function CompetencyScalesPage() {
   const updateLevel = (idx: number, field: keyof CompetencyLevel, value: string) => {
     setLevels((prev) =>
       prev.map((lv, i) =>
-        i === idx
-          ? { ...lv, [field]: field === 'threshold_min' ? Number(value) : value }
-          : lv,
+        i === idx ? { ...lv, [field]: field === 'threshold_min' ? Number(value) : value } : lv,
       ),
     );
   };
@@ -229,11 +228,7 @@ export default function CompetencyScalesPage() {
                     <Button variant="ghost" size="sm" onClick={() => openEdit(scale)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setConfirmDeleteId(scale.id)}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(scale.id)}>
                       <Trash2 className="h-4 w-4 text-danger-text" />
                     </Button>
                   </div>

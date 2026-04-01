@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, cn, Input } from '@school/ui';
 import { Check, Circle, ShieldCheck, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, cn, Input } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,11 @@ export interface StudentCompletion {
 interface CompletionGridProps {
   students: StudentCompletion[];
   maxPoints: number | null;
-  onUpdate: (studentId: string, field: 'status' | 'notes' | 'points_awarded' | 'verified', value: string | number | boolean | null) => void;
+  onUpdate: (
+    studentId: string,
+    field: 'status' | 'notes' | 'points_awarded' | 'verified',
+    value: string | number | boolean | null,
+  ) => void;
   onBulkComplete: () => void;
   disabled?: boolean;
 }
@@ -28,7 +33,13 @@ type FilterStatus = 'all' | 'not_started' | 'in_progress' | 'completed';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, disabled }: CompletionGridProps) {
+export function CompletionGrid({
+  students,
+  maxPoints,
+  onUpdate,
+  onBulkComplete,
+  disabled,
+}: CompletionGridProps) {
   const t = useTranslations('homework');
   const [filter, setFilter] = React.useState<FilterStatus>('all');
 
@@ -67,27 +78,42 @@ export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, 
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-surface-secondary">
-              <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('studentName')}</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('status')}</th>
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('notes')}</th>
-              {maxPoints != null && <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">{t('points')}</th>}
-              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Verified</th>
+              <th className="sticky start-0 z-10 bg-surface-secondary px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                {t('studentName')}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                {t('status')}
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                {t('notes')}
+              </th>
+              {maxPoints != null && (
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                  {t('points')}
+                </th>
+              )}
+              <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                Verified
+              </th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((s) => (
               <tr key={s.student_id} className="border-b border-border last:border-b-0">
-                <td className="sticky start-0 z-10 bg-surface px-4 py-2.5 text-sm font-medium text-text-primary whitespace-nowrap">{s.student_name}</td>
+                <td className="sticky start-0 z-10 bg-surface px-4 py-2.5 text-sm font-medium text-text-primary whitespace-nowrap">
+                  {s.student_name}
+                </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1">
                     {(['not_started', 'in_progress', 'completed'] as const).map((st) => {
                       const active = s.status === st;
                       const Icon = st === 'not_started' ? X : st === 'in_progress' ? Circle : Check;
-                      const colors = st === 'not_started'
-                        ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                        : st === 'in_progress'
-                          ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200'
-                          : 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200';
+                      const colors =
+                        st === 'not_started'
+                          ? 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          : st === 'in_progress'
+                            ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200'
+                            : 'bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200';
                       return (
                         <button
                           key={st}
@@ -96,7 +122,9 @@ export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, 
                           onClick={() => onUpdate(s.student_id, 'status', st)}
                           className={cn(
                             'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
-                            active ? colors : 'bg-surface-secondary text-text-tertiary hover:bg-surface',
+                            active
+                              ? colors
+                              : 'bg-surface-secondary text-text-tertiary hover:bg-surface',
                           )}
                         >
                           <Icon className="h-4 w-4" />
@@ -118,7 +146,13 @@ export function CompletionGrid({ students, maxPoints, onUpdate, onBulkComplete, 
                     <Input
                       type="number"
                       value={s.points_awarded ?? ''}
-                      onChange={(e) => onUpdate(s.student_id, 'points_awarded', e.target.value ? Number(e.target.value) : null)}
+                      onChange={(e) =>
+                        onUpdate(
+                          s.student_id,
+                          'points_awarded',
+                          e.target.value ? Number(e.target.value) : null,
+                        )
+                      }
                       disabled={disabled}
                       min={0}
                       max={maxPoints}

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CpAccessService } from '../services/cp-access.service';
@@ -59,9 +60,7 @@ describe('CpAccessController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CpAccessController],
-      providers: [
-        { provide: CpAccessService, useValue: mockCpAccessService },
-      ],
+      providers: [{ provide: CpAccessService, useValue: mockCpAccessService }],
     })
       .overrideGuard(require('../../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
@@ -168,16 +167,10 @@ describe('CpAccessController', () => {
       };
       mockCpAccessService.listActive.mockResolvedValue(listResult);
 
-      const result = await controller.listActiveGrants(
-        TENANT as never,
-        makeUserPayload() as never,
-      );
+      const result = await controller.listActiveGrants(TENANT as never, makeUserPayload() as never);
 
       expect(result).toEqual(listResult);
-      expect(mockCpAccessService.listActive).toHaveBeenCalledWith(
-        TENANT_ID,
-        DLP_USER_ID,
-      );
+      expect(mockCpAccessService.listActive).toHaveBeenCalledWith(TENANT_ID, DLP_USER_ID);
     });
   });
 
@@ -187,16 +180,10 @@ describe('CpAccessController', () => {
     it('should return has_access: true when user has CP access', async () => {
       mockCpAccessService.hasAccess.mockResolvedValue(true);
 
-      const result = await controller.checkOwnAccess(
-        TENANT as never,
-        makeUserPayload() as never,
-      );
+      const result = await controller.checkOwnAccess(TENANT as never, makeUserPayload() as never);
 
       expect(result).toEqual({ data: { has_access: true } });
-      expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(
-        TENANT_ID,
-        DLP_USER_ID,
-      );
+      expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(TENANT_ID, DLP_USER_ID);
     });
 
     it('should return has_access: false when user does not have CP access', async () => {
@@ -204,16 +191,10 @@ describe('CpAccessController', () => {
 
       const regularUser = makeUserPayload(TARGET_USER_ID);
 
-      const result = await controller.checkOwnAccess(
-        TENANT as never,
-        regularUser as never,
-      );
+      const result = await controller.checkOwnAccess(TENANT as never, regularUser as never);
 
       expect(result).toEqual({ data: { has_access: false } });
-      expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(
-        TENANT_ID,
-        TARGET_USER_ID,
-      );
+      expect(mockCpAccessService.hasAccess).toHaveBeenCalledWith(TENANT_ID, TARGET_USER_ID);
     });
   });
 
@@ -258,10 +239,7 @@ describe('CpAccessController', () => {
 
       // The controller method receives the studentId param but delegates to hasAccess
       // which checks the current user's access, not student-specific access
-      const result = await controller.checkOwnAccess(
-        TENANT as never,
-        makeUserPayload() as never,
-      );
+      const result = await controller.checkOwnAccess(TENANT as never, makeUserPayload() as never);
 
       expect(result.data.has_access).toBe(true);
     });

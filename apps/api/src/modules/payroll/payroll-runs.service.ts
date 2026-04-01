@@ -6,6 +6,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import type { Queue } from 'bullmq';
+
 import {
   isValidPayrollRunTransition,
   payrollSessionGenerationJobPayloadSchema,
@@ -16,7 +18,6 @@ import type {
   PayrollRunStatus,
   UpdatePayrollRunDto,
 } from '@school/shared';
-import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { addValidatedJob } from '../../common/utils/validated-job.util';

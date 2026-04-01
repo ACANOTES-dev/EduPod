@@ -1,5 +1,9 @@
 'use client';
 
+import { Save, Settings } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,9 +16,6 @@ import {
   Switch,
   toast,
 } from '@school/ui';
-import { Save, Settings } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

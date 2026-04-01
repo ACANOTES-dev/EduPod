@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { homeworkSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { homeworkSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -24,9 +25,7 @@ export class HomeworkGenerateRecurringProcessor extends WorkerHost {
   async process(job: Job): Promise<void> {
     if (job.name !== HOMEWORK_GENERATE_RECURRING_JOB) return;
 
-    this.logger.log(
-      `Processing ${HOMEWORK_GENERATE_RECURRING_JOB} — cross-tenant cron run`,
-    );
+    this.logger.log(`Processing ${HOMEWORK_GENERATE_RECURRING_JOB} — cross-tenant cron run`);
 
     const tenants = await this.prisma.tenant.findMany({
       where: {
@@ -60,10 +59,7 @@ export class HomeworkGenerateRecurringProcessor extends WorkerHost {
 class HomeworkGenerateRecurringJob extends TenantAwareJob<TenantJobPayload> {
   private readonly logger = new Logger(HomeworkGenerateRecurringJob.name);
 
-  protected async processJob(
-    data: TenantJobPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: TenantJobPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // ─── 1. Check homework settings ─────────────────────────────────────────
@@ -78,9 +74,7 @@ class HomeworkGenerateRecurringJob extends TenantAwareJob<TenantJobPayload> {
     const hwSettings = homeworkSettingsSchema.parse(hwRaw);
 
     if (!hwSettings.enabled) {
-      this.logger.log(
-        `Tenant ${tenant_id}: homework disabled in settings, skipping.`,
-      );
+      this.logger.log(`Tenant ${tenant_id}: homework disabled in settings, skipping.`);
       return;
     }
 
@@ -114,17 +108,12 @@ class HomeworkGenerateRecurringJob extends TenantAwareJob<TenantJobPayload> {
         tenant_id,
         active: true,
         start_date: { lte: today },
-        OR: [
-          { end_date: null },
-          { end_date: { gte: today } },
-        ],
+        OR: [{ end_date: null }, { end_date: { gte: today } }],
       },
     });
 
     if (rules.length === 0) {
-      this.logger.log(
-        `Tenant ${tenant_id}: no active recurrence rules found.`,
-      );
+      this.logger.log(`Tenant ${tenant_id}: no active recurrence rules found.`);
       return;
     }
 

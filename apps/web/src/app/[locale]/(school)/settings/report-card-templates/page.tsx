@@ -1,19 +1,6 @@
 'use client';
 
 import {
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StatusBadge,
-  Switch,
-  toast,
-} from '@school/ui';
-import {
   ArrowDown,
   ArrowUp,
   ChevronDown,
@@ -26,6 +13,20 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  Switch,
+  toast,
+} from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -122,14 +123,70 @@ const DEFAULT_BRANDING: BrandingOverrides = {
 
 function buildDefaultSections(): TemplateSection[] {
   return [
-    { id: 'header', type: 'header', order: 1, style_variant: 'standard', enabled: true, config: {} },
-    { id: 'student_info', type: 'student_info', order: 2, style_variant: 'compact', enabled: true, config: {} },
-    { id: 'grades_table', type: 'grades_table', order: 3, style_variant: 'bordered', enabled: true, config: { show_percentage: true, show_assessment_detail: false } },
-    { id: 'attendance_summary', type: 'attendance_summary', order: 4, style_variant: 'compact', enabled: true, config: {} },
-    { id: 'teacher_comment', type: 'teacher_comment', order: 5, style_variant: 'standard', enabled: true, config: {} },
-    { id: 'principal_comment', type: 'principal_comment', order: 6, style_variant: 'standard', enabled: true, config: {} },
-    { id: 'signature_area', type: 'signature_area', order: 7, style_variant: 'single', enabled: true, config: {} },
-    { id: 'qr_code', type: 'qr_code', order: 8, style_variant: 'small', enabled: false, config: {} },
+    {
+      id: 'header',
+      type: 'header',
+      order: 1,
+      style_variant: 'standard',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'student_info',
+      type: 'student_info',
+      order: 2,
+      style_variant: 'compact',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'grades_table',
+      type: 'grades_table',
+      order: 3,
+      style_variant: 'bordered',
+      enabled: true,
+      config: { show_percentage: true, show_assessment_detail: false },
+    },
+    {
+      id: 'attendance_summary',
+      type: 'attendance_summary',
+      order: 4,
+      style_variant: 'compact',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'teacher_comment',
+      type: 'teacher_comment',
+      order: 5,
+      style_variant: 'standard',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'principal_comment',
+      type: 'principal_comment',
+      order: 6,
+      style_variant: 'standard',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'signature_area',
+      type: 'signature_area',
+      order: 7,
+      style_variant: 'single',
+      enabled: true,
+      config: {},
+    },
+    {
+      id: 'qr_code',
+      type: 'qr_code',
+      order: 8,
+      style_variant: 'small',
+      enabled: false,
+      config: {},
+    },
   ];
 }
 
@@ -148,7 +205,9 @@ export default function ReportCardTemplatesPage() {
   const fetchTemplates = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<ListResponse<ReportCardTemplate>>('/api/v1/report-card-templates');
+      const res = await apiClient<ListResponse<ReportCardTemplate>>(
+        '/api/v1/report-card-templates',
+      );
       setTemplates(res.data);
     } catch {
       setTemplates([]);
@@ -276,7 +335,9 @@ export default function ReportCardTemplatesPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-medium text-text-primary truncate">{tmpl.name}</p>
-                  <p className="text-xs text-text-tertiary mt-0.5 uppercase" dir="ltr">{tmpl.locale}</p>
+                  <p className="text-xs text-text-tertiary mt-0.5 uppercase" dir="ltr">
+                    {tmpl.locale}
+                  </p>
                 </div>
                 {tmpl.is_default && (
                   <StatusBadge status="success">
@@ -346,9 +407,7 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleToggleSection = (id: string) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    );
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)));
   };
 
   const handleMoveUp = (idx: number) => {
@@ -374,16 +433,12 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
   };
 
   const handleStyleChange = (id: string, variant: string) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, style_variant: variant } : s)),
-    );
+    setSections((prev) => prev.map((s) => (s.id === id ? { ...s, style_variant: variant } : s)));
   };
 
   const handleConfigChange = (id: string, key: string, value: unknown) => {
     setSections((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, config: { ...s.config, [key]: value } } : s,
-      ),
+      prev.map((s) => (s.id === id ? { ...s, config: { ...s.config, [key]: value } } : s)),
     );
   };
 
@@ -480,7 +535,11 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
             <h3 className="text-sm font-semibold text-text-primary">{tc('details')}</h3>
             <div className="space-y-1.5">
               <Label>{tr('templateName')}</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('templateNamePlaceholder')} />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={tr('templateNamePlaceholder')}
+              />
             </div>
             {isNew && (
               <div className="space-y-1.5">
@@ -559,7 +618,9 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
                   </SelectTrigger>
                   <SelectContent>
                     {SECTION_TYPES.map((st) => (
-                      <SelectItem key={st} value={st}>{tr(`sectionType_${st}`)}</SelectItem>
+                      <SelectItem key={st} value={st}>
+                        {tr(`sectionType_${st}`)}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -607,7 +668,9 @@ function TemplateEditor({ template, isNew, onSave, onCancel }: TemplateEditorPro
                 </SelectTrigger>
                 <SelectContent>
                   {FONTS.map((f) => (
-                    <SelectItem key={f} value={f}>{f}</SelectItem>
+                    <SelectItem key={f} value={f}>
+                      {f}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -743,7 +806,9 @@ function SectionRow({
               </SelectTrigger>
               <SelectContent>
                 {variants.map((v) => (
-                  <SelectItem key={v} value={v}>{v}</SelectItem>
+                  <SelectItem key={v} value={v}>
+                    {v}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -754,12 +819,12 @@ function SectionRow({
             <>
               <ConfigBoolRow
                 label={tr('showPercentage')}
-                value={section.config['show_percentage'] as boolean ?? true}
+                value={(section.config['show_percentage'] as boolean) ?? true}
                 onChange={(v) => onConfigChange('show_percentage', v)}
               />
               <ConfigBoolRow
                 label={tr('showAssessmentDetail')}
-                value={section.config['show_assessment_detail'] as boolean ?? false}
+                value={(section.config['show_assessment_detail'] as boolean) ?? false}
                 onChange={(v) => onConfigChange('show_assessment_detail', v)}
               />
             </>
@@ -767,7 +832,7 @@ function SectionRow({
           {section.type === 'attendance_summary' && (
             <ConfigBoolRow
               label={tr('showPatternAlerts')}
-              value={section.config['show_pattern_alerts'] as boolean ?? true}
+              value={(section.config['show_pattern_alerts'] as boolean) ?? true}
               onChange={(v) => onConfigChange('show_pattern_alerts', v)}
             />
           )}
@@ -775,17 +840,17 @@ function SectionRow({
             <>
               <ConfigBoolRow
                 label={tr('showComparativeLabel')}
-                value={section.config['show_label'] as boolean ?? true}
+                value={(section.config['show_label'] as boolean) ?? true}
                 onChange={(v) => onConfigChange('show_label', v)}
               />
               <ConfigBoolRow
                 label={tr('showPercentile')}
-                value={section.config['show_percentile'] as boolean ?? false}
+                value={(section.config['show_percentile'] as boolean) ?? false}
                 onChange={(v) => onConfigChange('show_percentile', v)}
               />
               <ConfigBoolRow
                 label={tr('showTopThreeRank')}
-                value={section.config['show_top_three'] as boolean ?? false}
+                value={(section.config['show_top_three'] as boolean) ?? false}
                 onChange={(v) => onConfigChange('show_top_three', v)}
               />
             </>

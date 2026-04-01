@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import type {
   ApplyCreditNoteDto,
   ApprovePaymentPlanDto,
@@ -54,7 +56,6 @@ import {
   updateLateFeeConfigSchema,
   updateRecurringInvoiceConfigSchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -81,8 +82,14 @@ import { RecurringInvoicesService } from './recurring-invoices.service';
 import { ScholarshipsService } from './scholarships.service';
 
 const reportQuerySchema = z.object({
-  date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 @Controller('v1/finance')
@@ -106,7 +113,8 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view')
   async getCreditNotes(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(creditNoteQuerySchema)) query: z.infer<typeof creditNoteQuerySchema>,
+    @Query(new ZodValidationPipe(creditNoteQuerySchema))
+    query: z.infer<typeof creditNoteQuerySchema>,
   ) {
     return this.creditNotesService.findAll(tenant.tenant_id, query);
   }
@@ -267,7 +275,8 @@ export class FinanceEnhancedController {
   @RequiresPermission('finance.view')
   async getRecurringConfigs(
     @CurrentTenant() tenant: TenantContext,
-    @Query(new ZodValidationPipe(recurringInvoiceConfigQuerySchema)) query: RecurringInvoiceConfigQueryDto,
+    @Query(new ZodValidationPipe(recurringInvoiceConfigQuerySchema))
+    query: RecurringInvoiceConfigQueryDto,
   ) {
     return this.recurringInvoicesService.findAllConfigs(tenant.tenant_id, query);
   }
@@ -286,7 +295,8 @@ export class FinanceEnhancedController {
   @HttpCode(HttpStatus.CREATED)
   async createRecurringConfig(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createRecurringInvoiceConfigSchema)) dto: CreateRecurringInvoiceConfigDto,
+    @Body(new ZodValidationPipe(createRecurringInvoiceConfigSchema))
+    dto: CreateRecurringInvoiceConfigDto,
   ) {
     return this.recurringInvoicesService.createConfig(tenant.tenant_id, dto);
   }
@@ -296,7 +306,8 @@ export class FinanceEnhancedController {
   async updateRecurringConfig(
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(updateRecurringInvoiceConfigSchema)) dto: UpdateRecurringInvoiceConfigDto,
+    @Body(new ZodValidationPipe(updateRecurringInvoiceConfigSchema))
+    dto: UpdateRecurringInvoiceConfigDto,
   ) {
     return this.recurringInvoicesService.updateConfig(tenant.tenant_id, id, dto);
   }

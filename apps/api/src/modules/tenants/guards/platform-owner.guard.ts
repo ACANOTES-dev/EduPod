@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import type { JwtPayload } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';

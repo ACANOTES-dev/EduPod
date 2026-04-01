@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, Skeleton } from '@school/ui';
 import {
   AlertTriangle,
   BarChart3,
@@ -22,6 +21,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, Skeleton } from '@school/ui';
 
 import type {
   FreeformResult,

@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
-import { parentDigestSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { parentDigestSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';

@@ -11,11 +11,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createAssessmentCategorySchema,
-  updateAssessmentCategorySchema,
-} from '@school/shared';
 import { z } from 'zod';
+
+import { createAssessmentCategorySchema, updateAssessmentCategorySchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -28,9 +26,7 @@ import { AssessmentCategoriesService } from './assessment-categories.service';
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class AssessmentCategoriesController {
-  constructor(
-    private readonly assessmentCategoriesService: AssessmentCategoriesService,
-  ) {}
+  constructor(private readonly assessmentCategoriesService: AssessmentCategoriesService) {}
 
   @Post('gradebook/assessment-categories')
   @RequiresPermission('gradebook.manage')
@@ -45,9 +41,7 @@ export class AssessmentCategoriesController {
 
   @Get('gradebook/assessment-categories')
   @RequiresPermission('gradebook.view')
-  async findAll(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async findAll(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.assessmentCategoriesService.findAll(tenant.tenant_id);
   }
 

@@ -1,5 +1,10 @@
 'use client';
 
+import { List, Plus, Search, Shapes } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,10 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { List, Plus, Search, Shapes } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   EVENT_TYPE_OPTIONS,
@@ -26,7 +27,6 @@ import { EventStatusBadge } from '../_components/event-status-badge';
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 export default function EngagementEventsPage() {
   const locale = useLocale();

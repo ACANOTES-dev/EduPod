@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,9 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 export interface AcademicYearFormValues {
   name: string;
@@ -53,7 +53,10 @@ export function AcademicYearForm({
   const tc = useTranslations('common');
   const t = useTranslations('academicYears');
 
-  const [values, setValues] = React.useState<AcademicYearFormValues>({ ...DEFAULT, ...initialValues });
+  const [values, setValues] = React.useState<AcademicYearFormValues>({
+    ...DEFAULT,
+    ...initialValues,
+  });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -121,7 +124,10 @@ export function AcademicYearForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="ay-status">{t('fieldStatus')}</Label>
-            <Select value={values.status} onValueChange={(v) => setValues((p) => ({ ...p, status: v }))}>
+            <Select
+              value={values.status}
+              onValueChange={(v) => setValues((p) => ({ ...p, status: v }))}
+            >
               <SelectTrigger id="ay-status">
                 <SelectValue />
               </SelectTrigger>
@@ -133,7 +139,12 @@ export function AcademicYearForm({
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               {tc('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>

@@ -1,17 +1,6 @@
 'use client';
 
 import {
-  AppShell,
-  Button,
-  Sidebar,
-  TopBar,
-  SidebarItem,
-  SidebarSection,
-  MobileSidebar,
-  ToastProvider,
-} from '@school/ui';
-import { toast } from '@school/ui';
-import {
   Activity,
   ArrowLeft,
   Ban,
@@ -52,6 +41,18 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { toast } from '@school/ui';
+import {
+  AppShell,
+  Button,
+  Sidebar,
+  TopBar,
+  SidebarItem,
+  SidebarSection,
+  MobileSidebar,
+  ToastProvider,
+} from '@school/ui';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 

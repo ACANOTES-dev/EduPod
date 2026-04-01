@@ -7,8 +7,9 @@
  * Run: k6 run apps/api/test/load/search-load.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
+
 import { BASE_URL, TENANTS, login, authHeaders } from './k6-config.js';
 import { thresholds, readTag } from './k6-thresholds.js';
 

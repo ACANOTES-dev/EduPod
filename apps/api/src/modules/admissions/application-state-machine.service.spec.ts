@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { CONSENT_TYPES } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

@@ -1,9 +1,10 @@
 'use client';
 
-import { StatusBadge, cn } from '@school/ui';
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatusBadge, cn } from '@school/ui';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -105,11 +106,7 @@ export function ReadinessOverview({ data, isLoading }: ReadinessOverviewProps) {
   }
 
   if (!data) {
-    return (
-      <p className="text-sm text-text-secondary">
-        {t('octoberReturns.noData')}
-      </p>
-    );
+    return <p className="text-sm text-text-secondary">{t('octoberReturns.noData')}</p>;
   }
 
   return (
@@ -118,9 +115,7 @@ export function ReadinessOverview({ data, isLoading }: ReadinessOverviewProps) {
       <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm font-medium text-text-secondary">
           {t('octoberReturns.totalStudents')}:{' '}
-          <span className="text-lg font-semibold text-text-primary">
-            {data.total_students}
-          </span>
+          <span className="text-lg font-semibold text-text-primary">{data.total_students}</span>
         </span>
         <StatusBadge status={STATUS_BADGE_VARIANT[data.status]} dot>
           {statusLabel(data.status)}
@@ -143,17 +138,10 @@ export function ReadinessOverview({ data, isLoading }: ReadinessOverviewProps) {
               className="rounded-2xl border border-border bg-surface-primary p-5"
             >
               <div className="flex items-start gap-3">
-                <Icon
-                  className={cn('mt-0.5 h-5 w-5 shrink-0', iconColor)}
-                  aria-hidden="true"
-                />
+                <Icon className={cn('mt-0.5 h-5 w-5 shrink-0', iconColor)} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-text-primary">
-                    {category.name}
-                  </p>
-                  <p className="mt-0.5 text-sm text-text-secondary">
-                    {category.message}
-                  </p>
+                  <p className="text-sm font-semibold text-text-primary">{category.name}</p>
+                  <p className="mt-0.5 text-sm text-text-secondary">{category.message}</p>
 
                   {category.details && (
                     <div className="mt-3">
@@ -164,8 +152,7 @@ export function ReadinessOverview({ data, isLoading }: ReadinessOverviewProps) {
                         </span>
                         {category.details.issues > 0 && (
                           <span className="text-danger-text">
-                            {category.details.issues}{' '}
-                            {t('octoberReturns.issues')}
+                            {category.details.issues} {t('octoberReturns.issues')}
                           </span>
                         )}
                       </div>

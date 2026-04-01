@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+
 import {
   createTestApp,
   closeTestApp,
@@ -9,7 +11,6 @@ import {
   AL_NOOR_TEACHER_EMAIL,
   AL_NOOR_DOMAIN,
 } from '../helpers';
-import request from 'supertest';
 
 jest.setTimeout(120_000);
 
@@ -149,12 +150,7 @@ describe('Website Pages (e2e)', () => {
       }).expect(201);
       const id = createRes.body.data.id;
 
-      const res = await authDelete(
-        app,
-        `/api/v1/website/pages/${id}`,
-        adminToken,
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authDelete(app, `/api/v1/website/pages/${id}`, adminToken, AL_NOOR_DOMAIN);
 
       expect([200, 204]).toContain(res.status);
     });
@@ -175,12 +171,7 @@ describe('Website Pages (e2e)', () => {
       ).expect(200);
 
       // Try to delete
-      await authDelete(
-        app,
-        `/api/v1/website/pages/${id}`,
-        adminToken,
-        AL_NOOR_DOMAIN,
-      ).expect(400);
+      await authDelete(app, `/api/v1/website/pages/${id}`, adminToken, AL_NOOR_DOMAIN).expect(400);
     });
 
     it('auth failure → 401', async () => {
@@ -195,12 +186,9 @@ describe('Website Pages (e2e)', () => {
 
     it('not found → 404', async () => {
       const fakeId = '00000000-0000-0000-0000-000000000000';
-      await authDelete(
-        app,
-        `/api/v1/website/pages/${fakeId}`,
-        adminToken,
-        AL_NOOR_DOMAIN,
-      ).expect(404);
+      await authDelete(app, `/api/v1/website/pages/${fakeId}`, adminToken, AL_NOOR_DOMAIN).expect(
+        404,
+      );
     });
   });
 });

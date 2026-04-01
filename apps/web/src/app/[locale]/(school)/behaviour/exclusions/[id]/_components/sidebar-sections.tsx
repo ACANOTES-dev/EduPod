@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { Calendar, Clock, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { Button } from '@school/ui';
 
 import type { ExclusionDetail } from './exclusion-types';
 import { APPEAL_STATUS_COLORS, formatLabel, getDaysRemaining } from './exclusion-types';

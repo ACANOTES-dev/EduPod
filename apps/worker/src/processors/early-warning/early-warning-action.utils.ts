@@ -1,4 +1,5 @@
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
+
 import type {
   DetectedSignal,
   EarlyWarningRoutingRules,
@@ -317,7 +318,9 @@ export async function upsertRiskProfile(
       .slice(0, MAX_TOP_SIGNALS)
       .map((s) => ({
         signalType: s.signalType,
-        domain: inferDomainFromSignalType(s.signalType) as SignalSummaryJson['topSignals'][0]['domain'],
+        domain: inferDomainFromSignalType(
+          s.signalType,
+        ) as SignalSummaryJson['topSignals'][0]['domain'],
         severity: s.severity,
         scoreContribution: s.scoreContribution,
         summaryFragment: s.summaryFragment,
@@ -418,14 +421,22 @@ export async function logTierTransition(
       .slice(0, MAX_TOP_SIGNALS)
       .map((s) => ({
         signalType: s.signalType,
-        domain: inferDomainFromSignalType(s.signalType) as TriggerSignalsJson['signals'][0]['domain'],
+        domain: inferDomainFromSignalType(
+          s.signalType,
+        ) as TriggerSignalsJson['signals'][0]['domain'],
         severity: s.severity,
         scoreContribution: s.scoreContribution,
       })),
   };
 
   // Route notification based on tier
-  const routedUserId = await resolveRoutedUser(tx, tenantId, studentId, assessment.riskTier, routingRules);
+  const routedUserId = await resolveRoutedUser(
+    tx,
+    tenantId,
+    studentId,
+    assessment.riskTier,
+    routingRules,
+  );
 
   // Create notification if we have a user to route to and the tier worsened
   let notificationId: string | undefined;

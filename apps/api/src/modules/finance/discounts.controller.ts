@@ -12,17 +12,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createDiscountSchema,
-  discountQuerySchema,
-  updateDiscountSchema,
-} from '@school/shared';
-import type {
-  CreateDiscountDto,
-  TenantContext,
-  UpdateDiscountDto,
-} from '@school/shared';
 import { z } from 'zod';
+
+import { createDiscountSchema, discountQuerySchema, updateDiscountSchema } from '@school/shared';
+import type { CreateDiscountDto, TenantContext, UpdateDiscountDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -49,10 +42,7 @@ export class DiscountsController {
 
   @Get(':id')
   @RequiresPermission('finance.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.discountsService.findOne(tenant.tenant_id, id);
   }
 
@@ -79,10 +69,7 @@ export class DiscountsController {
   @Delete(':id')
   @RequiresPermission('finance.manage')
   @HttpCode(HttpStatus.OK)
-  async deactivate(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async deactivate(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.discountsService.deactivate(tenant.tenant_id, id);
   }
 }

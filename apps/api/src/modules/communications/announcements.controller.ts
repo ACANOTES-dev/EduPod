@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   createAnnouncementSchema,
   listAnnouncementsSchema,
@@ -66,10 +67,7 @@ export class AnnouncementsController {
 
   @Get(':id')
   @RequiresPermission('communications.view')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getById(tenant.tenant_id, id);
   }
 
@@ -120,10 +118,7 @@ export class AnnouncementsController {
   @Post(':id/archive')
   @HttpCode(HttpStatus.OK)
   @RequiresPermission('communications.manage')
-  async archive(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async archive(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.archive(tenant.tenant_id, id);
   }
 }

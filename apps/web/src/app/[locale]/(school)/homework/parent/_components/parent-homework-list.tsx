@@ -1,13 +1,14 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { CheckCircle, Circle, Clock } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { formatDate } from '@/lib/format-date';
+import { Badge } from '@school/ui';
 
 import { ParentCompletionToggle } from './parent-completion-toggle';
+
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,10 +72,7 @@ export function ParentHomeworkList({
         const typeColour = TYPE_COLOURS[assignment.homework_type] ?? 'bg-gray-100 text-gray-700';
 
         return (
-          <div
-            key={assignment.id}
-            className="rounded-xl border border-border bg-surface p-4"
-          >
+          <div key={assignment.id} className="rounded-xl border border-border bg-surface p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 {/* Status icon */}

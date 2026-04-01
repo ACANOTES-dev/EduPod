@@ -1,9 +1,10 @@
 'use client';
 
-import { Skeleton, StatCard } from '@school/ui';
 import { Activity, AlertTriangle, Building2, Users } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
+
+import { Skeleton, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

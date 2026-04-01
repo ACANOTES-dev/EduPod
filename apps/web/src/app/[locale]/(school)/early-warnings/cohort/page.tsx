@@ -1,15 +1,16 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
+import { Button } from '@school/ui';
 
 import { CohortHeatmap } from './_components/cohort-heatmap';
+
+import { PageHeader } from '@/components/page-header';
 
 export default function CohortPage() {
   const t = useTranslations('early_warning');

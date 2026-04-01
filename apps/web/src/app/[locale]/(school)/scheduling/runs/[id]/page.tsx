@@ -1,20 +1,6 @@
 'use client';
 
 import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  toast,
-} from '@school/ui';
-import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
@@ -30,15 +16,29 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  toast,
+} from '@school/ui';
 
 import { CoverTeacherDialog } from './_components/cover-teacher-dialog';
 import { HealthScore, type ValidationResult } from './_components/health-score';
 import { ScheduleGrid, type PeriodSlot, type ScheduleEntry } from './_components/schedule-grid';
 import { ValidateResults } from './_components/validate-results';
 import { WorkloadSidebar } from './_components/workload-sidebar';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -92,7 +92,8 @@ export default function RunDetailPage() {
 
   // Cover teacher dialog
   const [coverDialogOpen, setCoverDialogOpen] = React.useState(false);
-  const [coverSlotDetails, setCoverSlotDetails] = React.useState<Parameters<typeof CoverTeacherDialog>[0]['slotDetails']>(null);
+  const [coverSlotDetails, setCoverSlotDetails] =
+    React.useState<Parameters<typeof CoverTeacherDialog>[0]['slotDetails']>(null);
 
   // ─── Data Loading ─────────────────────────────────────────────────────────
 
@@ -132,10 +133,9 @@ export default function RunDetailPage() {
   async function handleValidate() {
     setValidating(true);
     try {
-      const result = await apiClient<ValidationResult>(
-        `/api/v1/scheduling-runs/${id}/validate`,
-        { method: 'POST' },
-      );
+      const result = await apiClient<ValidationResult>(`/api/v1/scheduling-runs/${id}/validate`, {
+        method: 'POST',
+      });
       setValidationResult(result);
     } catch {
       toast.error(t('runs.validateFailed'));
@@ -287,7 +287,9 @@ export default function RunDetailPage() {
           <span className="text-sm font-medium text-green-800 dark:text-green-300">
             {t('runs.appliedBanner')}
           </span>
-          <Badge variant="success" className="ms-auto">{t('auto.applied')}</Badge>
+          <Badge variant="success" className="ms-auto">
+            {t('auto.applied')}
+          </Badge>
         </div>
       )}
 
@@ -307,11 +309,7 @@ export default function RunDetailPage() {
             </Button>
 
             {/* Validate */}
-            <Button
-              size="sm"
-              onClick={handleValidate}
-              disabled={validating}
-            >
+            <Button size="sm" onClick={handleValidate} disabled={validating}>
               {validating ? (
                 <Loader2 className="h-4 w-4 animate-spin me-1.5" />
               ) : (
@@ -376,9 +374,7 @@ export default function RunDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() =>
-                router.push(`/${locale}/scheduling/runs/compare?run_a=${id}`)
-              }
+              onClick={() => router.push(`/${locale}/scheduling/runs/compare?run_a=${id}`)}
             >
               <GitCompare className="h-4 w-4 me-1.5" />
               {t('runs.compare')}
@@ -476,9 +472,7 @@ export default function RunDetailPage() {
           <DialogHeader>
             <DialogTitle>{t('runs.applySchedule')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            {t('runs.confirmApply')}
-          </p>
+          <p className="text-sm text-text-secondary">{t('runs.confirmApply')}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApplyOpen(false)}>
               {tc('cancel')}
@@ -497,9 +491,7 @@ export default function RunDetailPage() {
           <DialogHeader>
             <DialogTitle>{t('runs.discard')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            {t('runs.confirmDiscard')}
-          </p>
+          <p className="text-sm text-text-secondary">{t('runs.confirmDiscard')}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDiscardOpen(false)}>
               {tc('cancel')}

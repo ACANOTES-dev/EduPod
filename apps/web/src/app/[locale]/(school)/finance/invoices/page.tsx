@@ -1,5 +1,10 @@
 'use client';
 
+import { Bell, Download, FileText, Search, Send, XCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { InvoiceStatus } from '@school/shared';
 import {
   Button,
@@ -13,10 +18,9 @@ import {
   Input,
   toast,
 } from '@school/ui';
-import { Bell, Download, FileText, Search, Send, XCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CurrencyDisplay } from '../_components/currency-display';
+import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
 
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
@@ -24,9 +28,6 @@ import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../_components/currency-display';
-import { InvoiceStatusBadge } from '../_components/invoice-status-badge';
 
 interface InvoiceHousehold {
   id: string;
@@ -116,8 +117,7 @@ export default function InvoicesPage() {
     setSelectedIds(new Set());
   }, [search, statusFilter, householdFilter, dateFrom, dateTo]);
 
-  const allPageSelected =
-    invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
+  const allPageSelected = invoices.length > 0 && invoices.every((inv) => selectedIds.has(inv.id));
 
   function toggleSelectAll() {
     if (allPageSelected) {
@@ -280,22 +280,24 @@ export default function InvoicesPage() {
             {t('bulkOps.selected', { count: selectedIds.size })}
           </span>
           <div className="ms-auto flex flex-wrap gap-2">
-            {(Object.entries(bulkActionConfig) as Array<[BulkAction, typeof bulkActionConfig[BulkAction]]>).map(
-              ([key, cfg]) => {
-                const Icon = cfg.icon;
-                return (
-                  <Button
-                    key={key}
-                    size="sm"
-                    variant={cfg.variant}
-                    onClick={() => setBulkAction(key)}
-                  >
-                    <Icon className="me-1.5 h-3.5 w-3.5" />
-                    {cfg.label}
-                  </Button>
-                );
-              },
-            )}
+            {(
+              Object.entries(bulkActionConfig) as Array<
+                [BulkAction, (typeof bulkActionConfig)[BulkAction]]
+              >
+            ).map(([key, cfg]) => {
+              const Icon = cfg.icon;
+              return (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={cfg.variant}
+                  onClick={() => setBulkAction(key)}
+                >
+                  <Icon className="me-1.5 h-3.5 w-3.5" />
+                  {cfg.label}
+                </Button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -364,10 +366,7 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Invoices"
-        description="View and manage invoices for all households"
-      />
+      <PageHeader title="Invoices" description="View and manage invoices for all households" />
 
       {!isLoading && invoices.length === 0 && !hasActiveFilters ? (
         <EmptyState
@@ -394,9 +393,7 @@ export default function InvoicesPage() {
       <Dialog open={bulkAction !== null} onOpenChange={() => setBulkAction(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {bulkAction ? bulkActionConfig[bulkAction].label : ''}
-            </DialogTitle>
+            <DialogTitle>{bulkAction ? bulkActionConfig[bulkAction].label : ''}</DialogTitle>
           </DialogHeader>
           {bulkAction && (
             <p className="text-sm text-text-secondary">
@@ -407,11 +404,7 @@ export default function InvoicesPage() {
             </p>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setBulkAction(null)}
-              disabled={bulkProcessing}
-            >
+            <Button variant="outline" onClick={() => setBulkAction(null)} disabled={bulkProcessing}>
               {t('cancel')}
             </Button>
             <Button

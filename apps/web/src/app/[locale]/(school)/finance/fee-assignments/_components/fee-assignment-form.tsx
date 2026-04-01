@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,13 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-
-import { apiClient } from '@/lib/api-client';
 
 import { HouseholdSelector } from '../../_components/household-selector';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,9 +137,7 @@ export function FeeAssignmentForm({
             <Label htmlFor="student_id">{t('feeAssignments.fieldStudent')}</Label>
             <Select
               value={values.student_id || 'none'}
-              onValueChange={(v) =>
-                setValues((p) => ({ ...p, student_id: v === 'none' ? '' : v }))
-              }
+              onValueChange={(v) => setValues((p) => ({ ...p, student_id: v === 'none' ? '' : v }))}
               disabled={!values.household_id}
             >
               <SelectTrigger id="student_id">
@@ -203,9 +201,7 @@ export function FeeAssignmentForm({
               id="effective_from"
               type="date"
               value={values.effective_from}
-              onChange={(e) =>
-                setValues((p) => ({ ...p, effective_from: e.target.value }))
-              }
+              onChange={(e) => setValues((p) => ({ ...p, effective_from: e.target.value }))}
               required
               dir="ltr"
             />
@@ -221,7 +217,10 @@ export function FeeAssignmentForm({
             {tc('cancel')}
           </Button>
         )}
-        <Button type="submit" disabled={loading || !values.household_id || !values.fee_structure_id}>
+        <Button
+          type="submit"
+          disabled={loading || !values.household_id || !values.fee_structure_id}
+        >
           {loading ? tc('loading') : (submitLabel ?? tc('save'))}
         </Button>
       </div>

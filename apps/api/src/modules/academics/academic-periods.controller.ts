@@ -11,13 +11,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createAcademicPeriodSchema,
   paginationQuerySchema,
   updateAcademicPeriodSchema,
   updateAcademicPeriodStatusSchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

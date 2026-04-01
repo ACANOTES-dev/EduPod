@@ -12,18 +12,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createHomeworkSchema,
-  listHomeworkSchema,
-  updateHomeworkSchema,
-} from '@school/shared';
+import { z } from 'zod';
+
+import { createHomeworkSchema, listHomeworkSchema, updateHomeworkSchema } from '@school/shared';
 import type {
   CreateHomeworkDto,
   JwtPayload,
   ListHomeworkQuery,
   UpdateHomeworkDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -73,7 +70,14 @@ const bulkCreateSchema = z.object({
   academic_year_id: z.string().uuid(),
   academic_period_id: z.string().uuid().optional(),
   title: z.string().min(1).max(255),
-  homework_type: z.enum(['written', 'reading', 'research', 'revision', 'project_work', 'online_activity']),
+  homework_type: z.enum([
+    'written',
+    'reading',
+    'research',
+    'revision',
+    'project_work',
+    'online_activity',
+  ]),
   description: z.string().optional(),
   max_points: z.number().int().min(0).max(100).optional(),
   start_date: z.string().min(1),
@@ -150,11 +154,7 @@ export class HomeworkController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query(new ZodValidationPipe(listHomeworkSchema)) query: ListHomeworkQuery,
   ) {
-    return this.homeworkService.findByClass(
-      tenantContext.tenant_id,
-      classId,
-      query,
-    );
+    return this.homeworkService.findByClass(tenantContext.tenant_id, classId, query);
   }
 
   // GET /v1/homework/by-class/:classId/week
@@ -166,11 +166,7 @@ export class HomeworkController {
     @Query(new ZodValidationPipe(classWeekQuerySchema))
     query: z.infer<typeof classWeekQuerySchema>,
   ) {
-    return this.homeworkService.findByClassWeek(
-      tenantContext.tenant_id,
-      classId,
-      query.week_start,
-    );
+    return this.homeworkService.findByClassWeek(tenantContext.tenant_id, classId, query.week_start);
   }
 
   // POST /v1/homework/recurrence-rules
@@ -182,10 +178,7 @@ export class HomeworkController {
     @Body(new ZodValidationPipe(createRecurrenceRuleSchema))
     dto: z.infer<typeof createRecurrenceRuleSchema>,
   ) {
-    return this.homeworkService.createRecurrenceRule(
-      tenantContext.tenant_id,
-      dto,
-    );
+    return this.homeworkService.createRecurrenceRule(tenantContext.tenant_id, dto);
   }
 
   // PATCH /v1/homework/recurrence-rules/:id
@@ -197,11 +190,7 @@ export class HomeworkController {
     @Body(new ZodValidationPipe(updateRecurrenceRuleSchema))
     dto: z.infer<typeof updateRecurrenceRuleSchema>,
   ) {
-    return this.homeworkService.updateRecurrenceRule(
-      tenantContext.tenant_id,
-      id,
-      dto,
-    );
+    return this.homeworkService.updateRecurrenceRule(tenantContext.tenant_id, id, dto);
   }
 
   // DELETE /v1/homework/recurrence-rules/:id
@@ -212,10 +201,7 @@ export class HomeworkController {
     @CurrentTenant() tenantContext: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.homeworkService.deleteRecurrenceRule(
-      tenantContext.tenant_id,
-      id,
-    );
+    await this.homeworkService.deleteRecurrenceRule(tenantContext.tenant_id, id);
   }
 
   // POST /v1/homework/bulk-create
@@ -228,11 +214,7 @@ export class HomeworkController {
     @Body(new ZodValidationPipe(bulkCreateSchema))
     dto: z.infer<typeof bulkCreateSchema>,
   ) {
-    return this.homeworkService.bulkCreate(
-      tenantContext.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.homeworkService.bulkCreate(tenantContext.tenant_id, user.sub, dto);
   }
 
   // GET /v1/homework/:id
@@ -254,12 +236,7 @@ export class HomeworkController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateHomeworkSchema)) dto: UpdateHomeworkDto,
   ) {
-    return this.homeworkService.update(
-      tenantContext.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.homeworkService.update(tenantContext.tenant_id, id, user.sub, dto);
   }
 
   // PATCH /v1/homework/:id/status
@@ -285,12 +262,7 @@ export class HomeworkController {
     @Body(new ZodValidationPipe(copyHomeworkSchema))
     dto: z.infer<typeof copyHomeworkSchema>,
   ) {
-    return this.homeworkService.copy(
-      tenantContext.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.homeworkService.copy(tenantContext.tenant_id, id, user.sub, dto);
   }
 
   // DELETE /v1/homework/:id
@@ -314,11 +286,7 @@ export class HomeworkController {
     @Body(new ZodValidationPipe(addAttachmentSchema))
     dto: z.infer<typeof addAttachmentSchema>,
   ) {
-    return this.homeworkService.addAttachment(
-      tenantContext.tenant_id,
-      id,
-      dto,
-    );
+    return this.homeworkService.addAttachment(tenantContext.tenant_id, id, dto);
   }
 
   // DELETE /v1/homework/:id/attachments/:attachmentId
@@ -330,10 +298,6 @@ export class HomeworkController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('attachmentId', ParseUUIDPipe) attachmentId: string,
   ) {
-    await this.homeworkService.removeAttachment(
-      tenantContext.tenant_id,
-      id,
-      attachmentId,
-    );
+    await this.homeworkService.removeAttachment(tenantContext.tenant_id, id, attachmentId);
   }
 }

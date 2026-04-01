@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   CreateExportTemplateDto,
   EmailToAccountantDto,
@@ -45,11 +41,7 @@ export class PayrollExportsService {
 
   // ─── Template CRUD ───────────────────────────────────────────────────────────
 
-  async createTemplate(
-    tenantId: string,
-    userId: string,
-    dto: CreateExportTemplateDto,
-  ) {
+  async createTemplate(tenantId: string, userId: string, dto: CreateExportTemplateDto) {
     // Validate fields
     for (const col of dto.columns_json) {
       if (!AVAILABLE_FIELDS.has(col.field)) {
@@ -103,11 +95,7 @@ export class PayrollExportsService {
     return template;
   }
 
-  async updateTemplate(
-    tenantId: string,
-    templateId: string,
-    dto: UpdateExportTemplateDto,
-  ) {
+  async updateTemplate(tenantId: string, templateId: string, dto: UpdateExportTemplateDto) {
     const template = await this.getTemplate(tenantId, templateId);
 
     if (dto.columns_json) {
@@ -140,12 +128,7 @@ export class PayrollExportsService {
 
   // ─── Export Generation ───────────────────────────────────────────────────────
 
-  async generateExport(
-    tenantId: string,
-    runId: string,
-    userId: string,
-    dto: GenerateExportDto,
-  ) {
+  async generateExport(tenantId: string, runId: string, userId: string, dto: GenerateExportDto) {
     const run = await this.prisma.payrollRun.findFirst({
       where: { id: runId, tenant_id: tenantId },
       include: {
@@ -210,12 +193,7 @@ export class PayrollExportsService {
     };
   }
 
-  async getExportHistory(
-    tenantId: string,
-    runId: string,
-    page = 1,
-    pageSize = 20,
-  ) {
+  async getExportHistory(tenantId: string, runId: string, page = 1, pageSize = 20) {
     const run = await this.prisma.payrollRun.findFirst({
       where: { id: runId, tenant_id: tenantId },
     });
@@ -319,7 +297,9 @@ export class PayrollExportsService {
     for (const col of columns) {
       switch (col.field) {
         case 'staff_name':
-          row[col.field] = staffUser ? `${String(staffUser['first_name'])} ${String(staffUser['last_name'])}` : '';
+          row[col.field] = staffUser
+            ? `${String(staffUser['first_name'])} ${String(staffUser['last_name'])}`
+            : '';
           break;
         case 'staff_number':
           row[col.field] = staffProfile?.['staff_number'] ?? '';
@@ -343,9 +323,10 @@ export class PayrollExportsService {
           row[col.field] = Number(entry['bonus_pay'] ?? 0);
           break;
         case 'gross_total':
-          row[col.field] = entry['override_total_pay'] != null
-            ? Number(entry['override_total_pay'])
-            : Number(entry['total_pay'] ?? 0);
+          row[col.field] =
+            entry['override_total_pay'] != null
+              ? Number(entry['override_total_pay'])
+              : Number(entry['total_pay'] ?? 0);
           break;
         case 'period':
           row[col.field] = run['period_label'] ?? '';
@@ -367,10 +348,12 @@ export class PayrollExportsService {
   ): string {
     const header = columns.map((c) => `"${c.header}"`).join(',');
     const dataRows = rows.map((row) =>
-      columns.map((c) => {
-        const val = row[c.field] ?? '';
-        return `"${String(val).replace(/"/g, '""')}"`;
-      }).join(','),
+      columns
+        .map((c) => {
+          const val = row[c.field] ?? '';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        })
+        .join(','),
     );
 
     return [header, ...dataRows].join('\n');

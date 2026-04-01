@@ -1,19 +1,15 @@
 'use client';
 
-import type { InvoiceStatus } from '@school/shared';
-import {
-  Button,
-  Modal,
-  Textarea,
-  toast,
-} from '@school/ui';
 import { Send, XCircle, Ban, FileX, FileText } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import type { InvoiceStatus } from '@school/shared';
+import { Button, Modal, Textarea, toast } from '@school/ui';
 
 import { PdfPreviewModal } from '../../../_components/pdf-preview-modal';
+
+import { apiClient } from '@/lib/api-client';
 
 interface InvoiceForActions {
   id: string;
@@ -124,14 +120,22 @@ export function InvoiceActions({ invoice, onActionComplete }: InvoiceActionsProp
         )}
 
         {canVoid && (
-          <Button variant="outline" onClick={() => setShowVoidConfirm(true)} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={() => setShowVoidConfirm(true)}
+            disabled={isSubmitting}
+          >
             <Ban className="me-2 h-4 w-4" />
             Void
           </Button>
         )}
 
         {canCancel && (
-          <Button variant="outline" onClick={() => setShowCancelConfirm(true)} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={() => setShowCancelConfirm(true)}
+            disabled={isSubmitting}
+          >
             <XCircle className="me-2 h-4 w-4" />
             Cancel
           </Button>

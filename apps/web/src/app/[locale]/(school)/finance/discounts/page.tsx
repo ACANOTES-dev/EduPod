@@ -1,5 +1,10 @@
 'use client';
 
+import { Percent, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { DiscountType } from '@school/shared';
 import {
   Button,
@@ -12,11 +17,6 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { Percent, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -81,9 +81,7 @@ export default function DiscountsPage() {
     {
       key: 'name',
       header: t('discounts.colName'),
-      render: (row: Discount) => (
-        <span className="font-medium text-text-primary">{row.name}</span>
-      ),
+      render: (row: Discount) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: 'discount_type',
@@ -157,10 +155,14 @@ export default function DiscountsPage() {
           icon={Percent}
           title={t('discounts.emptyTitle')}
           description={t('discounts.emptyDescription')}
-          action={canManage ? {
-            label: t('discounts.newButton'),
-            onClick: () => router.push('discounts/new'),
-          } : undefined}
+          action={
+            canManage
+              ? {
+                  label: t('discounts.newButton'),
+                  onClick: () => router.push('discounts/new'),
+                }
+              : undefined
+          }
         />
       ) : (
         <DataTable

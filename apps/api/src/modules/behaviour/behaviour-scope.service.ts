@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import {
-  type BehaviourScope,
-  type IncidentScopeFilter,
-  buildScopeFilter,
-} from '@school/shared';
+
+import { type BehaviourScope, type IncidentScopeFilter, buildScopeFilter } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -32,10 +29,7 @@ export class BehaviourScopeService {
     permissions: string[] = [],
   ): Promise<ScopeResult> {
     // Admin or manager sees everything
-    if (
-      permissions.includes('behaviour.admin') ||
-      permissions.includes('behaviour.manage')
-    ) {
+    if (permissions.includes('behaviour.admin') || permissions.includes('behaviour.manage')) {
       return { scope: 'all' };
     }
 
@@ -68,9 +62,7 @@ export class BehaviourScopeService {
 
           return {
             scope: 'class',
-            classStudentIds: [
-              ...new Set(enrolments.map((e) => e.student_id)),
-            ],
+            classStudentIds: [...new Set(enrolments.map((e) => e.student_id))],
           };
         }
       }

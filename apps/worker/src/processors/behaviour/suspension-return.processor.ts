@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { addSchoolDays, type ClosureChecker } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { addSchoolDays, type ClosureChecker } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -36,9 +37,7 @@ export class BehaviourSuspensionReturnProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${BEHAVIOUR_SUSPENSION_RETURN_JOB} — tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${BEHAVIOUR_SUSPENSION_RETURN_JOB} — tenant ${tenant_id}`);
 
     const suspensionReturnJob = new SuspensionReturnJob(this.prisma);
     await suspensionReturnJob.execute(job.data);
@@ -50,10 +49,7 @@ export class BehaviourSuspensionReturnProcessor extends WorkerHost {
 class SuspensionReturnJob extends TenantAwareJob<SuspensionReturnPayload> {
   private readonly logger = new Logger(SuspensionReturnJob.name);
 
-  protected async processJob(
-    data: SuspensionReturnPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: SuspensionReturnPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
     const now = new Date();
 
@@ -112,9 +108,7 @@ class SuspensionReturnJob extends TenantAwareJob<SuspensionReturnPayload> {
       });
 
       if (existingTask) {
-        this.logger.debug(
-          `Skipping sanction ${sanction.id} — return_check_in task already exists`,
-        );
+        this.logger.debug(`Skipping sanction ${sanction.id} — return_check_in task already exists`);
         continue;
       }
 
@@ -138,8 +132,7 @@ class SuspensionReturnJob extends TenantAwareJob<SuspensionReturnPayload> {
           entity_type: 'sanction',
           entity_id: sanction.id,
           title: `Return check-in: ${studentName} returns on ${endDate}`,
-          description:
-            'Student is returning from suspension. Verify return conditions are met.',
+          description: 'Student is returning from suspension. Verify return conditions are met.',
           assigned_to_id: assigneeId,
           priority: 'high',
           due_date: sanction.suspension_end_date ?? new Date(),

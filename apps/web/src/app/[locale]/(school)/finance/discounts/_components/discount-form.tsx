@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { DiscountType } from '@school/shared';
 import {
   Button,
@@ -12,9 +15,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,10 +59,8 @@ export function DiscountForm({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  const set =
-    (field: keyof DiscountFormValues) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+  const set = (field: keyof DiscountFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,22 +95,14 @@ export function DiscountForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="name">{t('discounts.fieldName')}</Label>
-            <Input
-              id="name"
-              value={values.name}
-              onChange={set('name')}
-              required
-              maxLength={150}
-            />
+            <Input id="name" value={values.name} onChange={set('name')} required maxLength={150} />
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="discount_type">{t('discounts.fieldType')}</Label>
             <Select
               value={values.discount_type}
-              onValueChange={(v) =>
-                setValues((p) => ({ ...p, discount_type: v as DiscountType }))
-              }
+              onValueChange={(v) => setValues((p) => ({ ...p, discount_type: v as DiscountType }))}
             >
               <SelectTrigger id="discount_type">
                 <SelectValue />
@@ -152,9 +142,7 @@ export function DiscountForm({
               <Switch
                 id="active"
                 checked={values.active}
-                onCheckedChange={(checked) =>
-                  setValues((p) => ({ ...p, active: checked }))
-                }
+                onCheckedChange={(checked) => setValues((p) => ({ ...p, active: checked }))}
               />
               <Label htmlFor="active">{t('discounts.fieldActive')}</Label>
             </div>

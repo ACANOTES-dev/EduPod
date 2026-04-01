@@ -1,17 +1,17 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft, Edit } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
+import { Button } from '@school/ui';
 
 import { EnrolmentManagement } from '../_components/enrolment-management';
 import { StaffAssignment } from '../_components/staff-assignment';
+
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

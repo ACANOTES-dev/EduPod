@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { ListConcernsQuery } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
 

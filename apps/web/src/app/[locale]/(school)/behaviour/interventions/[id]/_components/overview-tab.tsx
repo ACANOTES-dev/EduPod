@@ -1,9 +1,9 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { CalendarClock, Clock, ListChecks, Shield, Target, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
+import { Badge, Button } from '@school/ui';
 
 import type { InterventionDetail } from './intervention-types';
 import { daysUntil, STATUS_TRANSITIONS } from './intervention-types';

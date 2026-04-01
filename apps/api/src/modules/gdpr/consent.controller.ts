@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   bulkGrantConsentsSchema,
   getConsentsByTypeQuerySchema,
@@ -87,11 +88,7 @@ export class ConsentController {
     @Query(new ZodValidationPipe(getConsentsByTypeQuerySchema))
     query: GetConsentsByTypeQueryDto,
   ) {
-    return this.consentService.getConsentsByType(
-      tenant.tenant_id,
-      consentType,
-      query,
-    );
+    return this.consentService.getConsentsByType(tenant.tenant_id, consentType, query);
   }
 
   @Post('bulk')

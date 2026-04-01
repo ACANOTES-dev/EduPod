@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   JwtPayload,
   PersonalTimetableQuality,
@@ -148,9 +149,7 @@ describe('PersonalWorkloadController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<PersonalWorkloadController>(
-      PersonalWorkloadController,
-    );
+    controller = module.get<PersonalWorkloadController>(PersonalWorkloadController);
   });
 
   afterEach(() => {
@@ -163,18 +162,12 @@ describe('PersonalWorkloadController', () => {
 
   describe('class-level decorators', () => {
     it('should have @ModuleEnabled("staff_wellbeing") on the controller class', () => {
-      const moduleKey = Reflect.getMetadata(
-        MODULE_ENABLED_KEY,
-        PersonalWorkloadController,
-      );
+      const moduleKey = Reflect.getMetadata(MODULE_ENABLED_KEY, PersonalWorkloadController);
       expect(moduleKey).toBe('staff_wellbeing');
     });
 
     it('should have AuthGuard and ModuleEnabledGuard on the class (no PermissionGuard)', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        PersonalWorkloadController,
-      );
+      const guards = Reflect.getMetadata('__guards__', PersonalWorkloadController);
       expect(guards).toBeDefined();
       expect(guards).toContain(AuthGuard);
       expect(guards).toContain(ModuleEnabledGuard);
@@ -183,18 +176,12 @@ describe('PersonalWorkloadController', () => {
 
   describe('endpoint decorators', () => {
     it('should have @BlockImpersonation on the controller class', () => {
-      const blocked = Reflect.getMetadata(
-        BLOCK_IMPERSONATION_KEY,
-        PersonalWorkloadController,
-      );
+      const blocked = Reflect.getMetadata(BLOCK_IMPERSONATION_KEY, PersonalWorkloadController);
       expect(blocked).toBe(true);
     });
 
     it('should include BlockImpersonationGuard in class-level guards', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        PersonalWorkloadController,
-      );
+      const guards = Reflect.getMetadata('__guards__', PersonalWorkloadController);
       expect(guards).toContain(BlockImpersonationGuard);
     });
   });
@@ -219,16 +206,15 @@ describe('PersonalWorkloadController', () => {
 
     it('should compute and cache when cache miss', async () => {
       mockCacheService.getCachedPersonal.mockResolvedValue(null);
-      mockComputeService.getPersonalWorkloadSummary.mockResolvedValue(
-        MOCK_SUMMARY,
-      );
+      mockComputeService.getPersonalWorkloadSummary.mockResolvedValue(MOCK_SUMMARY);
 
       const result = await controller.getSummary(TENANT, USER);
 
       expect(result).toEqual(MOCK_SUMMARY);
-      expect(
-        mockComputeService.getPersonalWorkloadSummary,
-      ).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
+      expect(mockComputeService.getPersonalWorkloadSummary).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_PROFILE_ID,
+      );
       expect(mockCacheService.setCachedPersonal).toHaveBeenCalledWith(
         TENANT_ID,
         STAFF_PROFILE_ID,
@@ -239,9 +225,7 @@ describe('PersonalWorkloadController', () => {
 
     it('should call service with correct staffProfileId', async () => {
       mockCacheService.getCachedPersonal.mockResolvedValue(null);
-      mockComputeService.getPersonalWorkloadSummary.mockResolvedValue(
-        MOCK_SUMMARY,
-      );
+      mockComputeService.getPersonalWorkloadSummary.mockResolvedValue(MOCK_SUMMARY);
 
       await controller.getSummary(TENANT, USER);
 
@@ -254,9 +238,10 @@ describe('PersonalWorkloadController', () => {
         },
         select: { id: true },
       });
-      expect(
-        mockComputeService.getPersonalWorkloadSummary,
-      ).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
+      expect(mockComputeService.getPersonalWorkloadSummary).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_PROFILE_ID,
+      );
     });
 
     it('should NOT call compute service when cache hits', async () => {
@@ -264,17 +249,13 @@ describe('PersonalWorkloadController', () => {
 
       await controller.getSummary(TENANT, USER);
 
-      expect(
-        mockComputeService.getPersonalWorkloadSummary,
-      ).not.toHaveBeenCalled();
+      expect(mockComputeService.getPersonalWorkloadSummary).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user has no staff profile', async () => {
       mockPrisma.staffProfile.findUnique.mockResolvedValue(null);
 
-      await expect(controller.getSummary(TENANT, USER)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(controller.getSummary(TENANT, USER)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -284,9 +265,7 @@ describe('PersonalWorkloadController', () => {
 
   describe('getCoverHistory', () => {
     it('should return paginated data with default page/pageSize', async () => {
-      mockComputeService.getPersonalCoverHistory.mockResolvedValue(
-        MOCK_COVER_HISTORY,
-      );
+      mockComputeService.getPersonalCoverHistory.mockResolvedValue(MOCK_COVER_HISTORY);
 
       const result = await controller.getCoverHistory(TENANT, USER, {
         page: 1,
@@ -294,9 +273,12 @@ describe('PersonalWorkloadController', () => {
       });
 
       expect(result).toEqual(MOCK_COVER_HISTORY);
-      expect(
-        mockComputeService.getPersonalCoverHistory,
-      ).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID, 1, 20);
+      expect(mockComputeService.getPersonalCoverHistory).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_PROFILE_ID,
+        1,
+        20,
+      );
     });
 
     it('should pass custom page/pageSize to service', async () => {
@@ -310,9 +292,12 @@ describe('PersonalWorkloadController', () => {
         pageSize: 50,
       });
 
-      expect(
-        mockComputeService.getPersonalCoverHistory,
-      ).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID, 3, 50);
+      expect(mockComputeService.getPersonalCoverHistory).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_PROFILE_ID,
+        3,
+        50,
+      );
     });
 
     it('should throw NotFoundException when user has no staff profile', async () => {
@@ -330,9 +315,7 @@ describe('PersonalWorkloadController', () => {
 
   describe('getTimetableQuality', () => {
     it('should return cached data when cache hit', async () => {
-      mockCacheService.getCachedPersonal.mockResolvedValue(
-        MOCK_TIMETABLE_QUALITY,
-      );
+      mockCacheService.getCachedPersonal.mockResolvedValue(MOCK_TIMETABLE_QUALITY);
 
       const result = await controller.getTimetableQuality(TENANT, USER);
 
@@ -346,16 +329,15 @@ describe('PersonalWorkloadController', () => {
 
     it('should compute and cache when cache miss', async () => {
       mockCacheService.getCachedPersonal.mockResolvedValue(null);
-      mockComputeService.getPersonalTimetableQuality.mockResolvedValue(
-        MOCK_TIMETABLE_QUALITY,
-      );
+      mockComputeService.getPersonalTimetableQuality.mockResolvedValue(MOCK_TIMETABLE_QUALITY);
 
       const result = await controller.getTimetableQuality(TENANT, USER);
 
       expect(result).toEqual(MOCK_TIMETABLE_QUALITY);
-      expect(
-        mockComputeService.getPersonalTimetableQuality,
-      ).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID);
+      expect(mockComputeService.getPersonalTimetableQuality).toHaveBeenCalledWith(
+        TENANT_ID,
+        STAFF_PROFILE_ID,
+      );
       expect(mockCacheService.setCachedPersonal).toHaveBeenCalledWith(
         TENANT_ID,
         STAFF_PROFILE_ID,
@@ -365,23 +347,17 @@ describe('PersonalWorkloadController', () => {
     });
 
     it('should NOT call compute service when cache hits', async () => {
-      mockCacheService.getCachedPersonal.mockResolvedValue(
-        MOCK_TIMETABLE_QUALITY,
-      );
+      mockCacheService.getCachedPersonal.mockResolvedValue(MOCK_TIMETABLE_QUALITY);
 
       await controller.getTimetableQuality(TENANT, USER);
 
-      expect(
-        mockComputeService.getPersonalTimetableQuality,
-      ).not.toHaveBeenCalled();
+      expect(mockComputeService.getPersonalTimetableQuality).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user has no staff profile', async () => {
       mockPrisma.staffProfile.findUnique.mockResolvedValue(null);
 
-      await expect(
-        controller.getTimetableQuality(TENANT, USER),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.getTimetableQuality(TENANT, USER)).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 
 import { SecurityIncidentsController } from './security-incidents.controller';
@@ -50,9 +51,7 @@ describe('SecurityIncidentsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SecurityIncidentsController],
-      providers: [
-        { provide: SecurityIncidentsService, useValue: mockService },
-      ],
+      providers: [{ provide: SecurityIncidentsService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })

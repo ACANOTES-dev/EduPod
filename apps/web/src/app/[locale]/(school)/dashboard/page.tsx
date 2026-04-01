@@ -1,16 +1,17 @@
 'use client';
 
-import { EmptyState, StatCard } from '@school/ui';
 import { GraduationCap, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
-import { apiClient } from '@/lib/api-client';
-import { useAuth } from '@/providers/auth-provider';
+import { EmptyState, StatCard } from '@school/ui';
 
 import { EarlyWarningCard } from './_components/early-warning-card';
+
+import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-provider';
 
 interface HouseholdNeedingCompletion {
   id: string;
@@ -69,8 +70,9 @@ export default function DashboardPage() {
     try {
       const result = await apiClient<{ data: DashboardData }>('/api/v1/dashboard/school-admin');
       setData(result.data);
-    } catch {
+    } catch (err) {
       // Silently fall back to zero state — data remains null
+      console.error('[setData]', err);
     } finally {
       setLoading(false);
     }
@@ -149,7 +151,9 @@ export default function DashboardPage() {
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-warning-text">
                     {household.completion_issues.length > 0
-                      ? household.completion_issues.map((issue) => issueLabels[issue] ?? issue).join(' · ')
+                      ? household.completion_issues
+                          .map((issue) => issueLabels[issue] ?? issue)
+                          .join(' · ')
                       : t('incomplete')}
                   </span>
                 </Link>
@@ -196,11 +200,15 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-surface-secondary p-4">
               <p className="text-xs text-text-tertiary">{t('recentSubmissions')}</p>
-              <p className="text-lg font-semibold text-text-primary">{data.admissions.recent_submissions}</p>
+              <p className="text-lg font-semibold text-text-primary">
+                {data.admissions.recent_submissions}
+              </p>
             </div>
             <div className="rounded-xl bg-surface-secondary p-4">
               <p className="text-xs text-text-tertiary">{t('pendingReview')}</p>
-              <p className="text-lg font-semibold text-warning-text">{data.admissions.pending_review}</p>
+              <p className="text-lg font-semibold text-warning-text">
+                {data.admissions.pending_review}
+              </p>
             </div>
             <div className="rounded-xl bg-surface-secondary p-4">
               <p className="text-xs text-text-tertiary">{t('accepted')}</p>

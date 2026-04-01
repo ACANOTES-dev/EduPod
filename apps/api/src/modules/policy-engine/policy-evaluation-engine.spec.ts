@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+
 import { EvaluatedInput, PolicyCondition } from '@school/shared';
 
 import { BehaviourHistoryService } from '../behaviour/behaviour-history.service';

@@ -1,5 +1,9 @@
 'use client';
 
+import { Copy, Save } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,9 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Copy, Save } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -65,9 +66,7 @@ export default function GradingWeightsPage() {
   const [isSaving, setIsSaving] = React.useState(false);
 
   // Editing state — one set of weights per period
-  const [editWeights, setEditWeights] = React.useState<
-    Record<string, CategoryWeight[]>
-  >({});
+  const [editWeights, setEditWeights] = React.useState<Record<string, CategoryWeight[]>>({});
 
   // Copy dialog
   const [copyDialogOpen, setCopyDialogOpen] = React.useState(false);
@@ -181,13 +180,9 @@ export default function GradingWeightsPage() {
     }
   };
 
-
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('gradingWeights')}
-        description={t('gradingWeightsDescription')}
-      />
+      <PageHeader title={t('gradingWeights')} description={t('gradingWeightsDescription')} />
 
       {/* Year group selector + copy button */}
       <div className="flex flex-wrap items-center gap-3">
@@ -197,17 +192,15 @@ export default function GradingWeightsPage() {
           </SelectTrigger>
           <SelectContent>
             {yearGroups.map((yg) => (
-              <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+              <SelectItem key={yg.id} value={yg.id}>
+                {yg.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         {selectedYearGroup && configs.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCopyDialogOpen(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setCopyDialogOpen(true)}>
             <Copy className="me-2 h-3.5 w-3.5" />
             {t('copyTo')}
           </Button>
@@ -216,9 +209,7 @@ export default function GradingWeightsPage() {
 
       {/* No year group selected */}
       {!selectedYearGroup && (
-        <p className="py-12 text-center text-sm text-text-tertiary">
-          {t('selectYearGroupPrompt')}
-        </p>
+        <p className="py-12 text-center text-sm text-text-tertiary">{t('selectYearGroupPrompt')}</p>
       )}
 
       {/* Loading */}
@@ -244,9 +235,7 @@ export default function GradingWeightsPage() {
                 className="rounded-xl border border-border bg-surface p-5 space-y-4"
               >
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    {period.name}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-text-primary">{period.name}</h3>
                   <span
                     className={`text-xs font-medium ${
                       isValid ? 'text-success-text' : 'text-danger-text'
@@ -261,9 +250,7 @@ export default function GradingWeightsPage() {
                     const w = weights.find((w) => w.category_id === cat.id);
                     return (
                       <div key={cat.id} className="space-y-1">
-                        <Label className="text-xs text-text-secondary">
-                          {cat.name}
-                        </Label>
+                        <Label className="text-xs text-text-secondary">{cat.name}</Label>
                         <div className="flex items-center gap-1">
                           <Input
                             type="number"
@@ -305,9 +292,7 @@ export default function GradingWeightsPage() {
             <DialogTitle>{t('copyWeightsTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">
-              {t('copyWeightsDescription')}
-            </p>
+            <p className="text-sm text-text-secondary">{t('copyWeightsDescription')}</p>
             <div>
               <Label>{t('targetYearGroup')}</Label>
               <Select value={copyTarget} onValueChange={setCopyTarget}>
@@ -318,7 +303,9 @@ export default function GradingWeightsPage() {
                   {yearGroups
                     .filter((yg) => yg.id !== selectedYearGroup)
                     .map((yg) => (
-                      <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                      <SelectItem key={yg.id} value={yg.id}>
+                        {yg.name}
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>

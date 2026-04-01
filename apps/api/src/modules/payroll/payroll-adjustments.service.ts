@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateAdjustmentDto,
-  UpdateAdjustmentDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import type { CreateAdjustmentDto, UpdateAdjustmentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -102,11 +96,7 @@ export class PayrollAdjustmentsService {
     return this.serializeAdjustment(adjustment);
   }
 
-  async updateAdjustment(
-    tenantId: string,
-    adjustmentId: string,
-    dto: UpdateAdjustmentDto,
-  ) {
+  async updateAdjustment(tenantId: string, adjustmentId: string, dto: UpdateAdjustmentDto) {
     const adjustment = await this.prisma.payrollAdjustment.findFirst({
       where: { id: adjustmentId, tenant_id: tenantId },
       include: {

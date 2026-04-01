@@ -1,13 +1,14 @@
 'use client';
 
-import { Skeleton, toast } from '@school/ui';
 import { useParams, useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Skeleton, toast } from '@school/ui';
 
 import { StudentForm, type StudentFormData } from '../../_components/student-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 interface StudentDetail {
   id: string;
@@ -94,7 +95,10 @@ export default function EditStudentPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Edit Student" description={`Editing record for ${student.first_name} ${student.last_name}`} />
+      <PageHeader
+        title="Edit Student"
+        description={`Editing record for ${student.first_name} ${student.last_name}`}
+      />
       <StudentForm initialData={initialData} onSubmit={handleSubmit} isEditMode />
     </div>
   );

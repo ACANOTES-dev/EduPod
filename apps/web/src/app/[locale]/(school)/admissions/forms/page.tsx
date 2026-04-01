@@ -1,16 +1,12 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  StatusBadge,
-  EmptyState,
-} from '@school/ui';
-import { toast } from '@school/ui';
 import { ClipboardList, Plus, Search, Wand2 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { toast } from '@school/ui';
+import { Button, Input, StatusBadge, EmptyState } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

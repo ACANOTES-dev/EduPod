@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Separator } from '@school/ui';
 import { Calendar, Copy, Play, Square } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Button, Separator } from '@school/ui';
 
 import type { Survey } from './survey-types';
 

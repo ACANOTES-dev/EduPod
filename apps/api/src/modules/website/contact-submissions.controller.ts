@@ -8,10 +8,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  listContactSubmissionsSchema,
-  updateContactStatusSchema,
-} from '@school/shared';
+
+import { listContactSubmissionsSchema, updateContactStatusSchema } from '@school/shared';
 import type {
   ListContactSubmissionsDto,
   TenantContext,

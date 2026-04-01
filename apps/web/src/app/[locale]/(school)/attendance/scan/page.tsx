@@ -1,5 +1,11 @@
 'use client';
 
+import { AlertTriangle, ArrowLeft, Camera, CheckCircle, Loader2, Plus, X } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -12,19 +18,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Camera,
-  CheckCircle,
-  Loader2,
-  Plus,
-  X,
-} from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
@@ -184,9 +177,7 @@ export default function AttendanceScanPage() {
   // ─── Entry Editing ─────────────────────────────────────────────────────
 
   const updateEntry = (key: string, field: keyof EditableEntry, value: string) => {
-    setEntries((prev) =>
-      prev.map((e) => (e._key === key ? { ...e, [field]: value } : e)),
-    );
+    setEntries((prev) => prev.map((e) => (e._key === key ? { ...e, [field]: value } : e)));
   };
 
   const removeEntry = (key: string) => {
@@ -219,21 +210,18 @@ export default function AttendanceScanPage() {
     setStep('processing');
 
     try {
-      const response = await apiClient<{ data: ConfirmResult }>(
-        '/api/v1/attendance/scan/confirm',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            session_date: sessionDate,
-            entries: validEntries.map((e) => ({
-              student_number: e.student_number,
-              status: e.status,
-              reason: e.reason || undefined,
-            })),
-          }),
-          silent: true,
-        },
-      );
+      const response = await apiClient<{ data: ConfirmResult }>('/api/v1/attendance/scan/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          session_date: sessionDate,
+          entries: validEntries.map((e) => ({
+            student_number: e.student_number,
+            status: e.status,
+            reason: e.reason || undefined,
+          })),
+        }),
+        silent: true,
+      });
 
       setConfirmResult(response.data);
       setStep('done');
@@ -331,9 +319,7 @@ export default function AttendanceScanPage() {
                   2
                 </span>
                 <div className="flex-1 space-y-3">
-                  <Label className="text-base font-medium">
-                    {t('scan.dropzone')}
-                  </Label>
+                  <Label className="text-base font-medium">{t('scan.dropzone')}</Label>
 
                   {/* Hidden file input */}
                   <input
@@ -369,29 +355,20 @@ export default function AttendanceScanPage() {
                           className="mx-auto max-h-48 rounded-lg object-contain"
                         />
                         <p className="text-sm text-text-secondary">{file?.name}</p>
-                        <p className="text-xs text-text-tertiary">
-                          {t('scan.dropzone')}
-                        </p>
+                        <p className="text-xs text-text-tertiary">{t('scan.dropzone')}</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Camera className="mx-auto h-12 w-12 text-text-tertiary" />
-                        <p className="text-sm text-text-secondary">
-                          {t('scan.dropzone')}
-                        </p>
-                        <p className="text-xs text-text-tertiary">
-                          {t('scan.dropzoneHint')}
-                        </p>
+                        <p className="text-sm text-text-secondary">{t('scan.dropzone')}</p>
+                        <p className="text-xs text-text-tertiary">{t('scan.dropzoneHint')}</p>
                       </div>
                     )}
                   </button>
 
                   {/* Scan Button */}
                   <div>
-                    <Button
-                      onClick={handleScan}
-                      disabled={!file || !sessionDate}
-                    >
+                    <Button onClick={handleScan} disabled={!file || !sessionDate}>
                       <Camera className="me-2 h-4 w-4" />
                       {t('scan.scanButton')}
                     </Button>
@@ -406,12 +383,8 @@ export default function AttendanceScanPage() {
         {step === 'processing' && (
           <div className="flex flex-col items-center gap-4 py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-            <p className="text-lg font-medium text-text-primary">
-              {t('scan.processing')}
-            </p>
-            <p className="text-sm text-text-secondary">
-              {t('scan.processingDescription')}
-            </p>
+            <p className="text-lg font-medium text-text-primary">{t('scan.processing')}</p>
+            <p className="text-sm text-text-secondary">{t('scan.processingDescription')}</p>
           </div>
         )}
 
@@ -424,9 +397,7 @@ export default function AttendanceScanPage() {
                   <h3 className="text-lg font-semibold text-text-primary">
                     {t('scan.resultsTitle')}
                   </h3>
-                  <p className="text-sm text-text-secondary">
-                    {t('scan.resultsDescription')}
-                  </p>
+                  <p className="text-sm text-text-secondary">{t('scan.resultsDescription')}</p>
                 </div>
 
                 {/* Scrollable table for mobile */}
@@ -456,7 +427,8 @@ export default function AttendanceScanPage() {
                     </thead>
                     <tbody>
                       {entries.map((entry) => {
-                        const isUnresolved = !entry.resolved_student_id && entry.student_number.trim().length > 0;
+                        const isUnresolved =
+                          !entry.resolved_student_id && entry.student_number.trim().length > 0;
                         const isLowConfidence = entry.confidence === 'low';
 
                         return (
@@ -487,9 +459,7 @@ export default function AttendanceScanPage() {
                                   {entry.resolved_student_name}
                                 </span>
                               ) : entry.student_number.trim().length > 0 ? (
-                                <span className="text-danger-text">
-                                  {t('scan.notFound')}
-                                </span>
+                                <span className="text-danger-text">{t('scan.notFound')}</span>
                               ) : (
                                 <span className="text-text-tertiary">&mdash;</span>
                               )}
@@ -499,9 +469,7 @@ export default function AttendanceScanPage() {
                             <td className="py-2 pe-2">
                               <Select
                                 value={entry.status}
-                                onValueChange={(value) =>
-                                  updateEntry(entry._key, 'status', value)
-                                }
+                                onValueChange={(value) => updateEntry(entry._key, 'status', value)}
                               >
                                 <SelectTrigger className="w-[160px]">
                                   <SelectValue />
@@ -513,9 +481,7 @@ export default function AttendanceScanPage() {
                                   <SelectItem value="absent_excused">
                                     {statusLabel('absent_excused')}
                                   </SelectItem>
-                                  <SelectItem value="late">
-                                    {statusLabel('late')}
-                                  </SelectItem>
+                                  <SelectItem value="late">{statusLabel('late')}</SelectItem>
                                   <SelectItem value="left_early">
                                     {statusLabel('left_early')}
                                   </SelectItem>
@@ -527,9 +493,7 @@ export default function AttendanceScanPage() {
                             <td className="py-2 pe-2">
                               <Input
                                 value={entry.reason ?? ''}
-                                onChange={(e) =>
-                                  updateEntry(entry._key, 'reason', e.target.value)
-                                }
+                                onChange={(e) => updateEntry(entry._key, 'reason', e.target.value)}
                                 placeholder={t('scan.reason')}
                                 className="max-w-[160px] text-sm"
                               />
@@ -537,11 +501,7 @@ export default function AttendanceScanPage() {
 
                             {/* Confidence */}
                             <td className="py-2 pe-2">
-                              <Badge
-                                variant={
-                                  entry.confidence === 'high' ? 'success' : 'warning'
-                                }
-                              >
+                              <Badge variant={entry.confidence === 'high' ? 'success' : 'warning'}>
                                 {entry.confidence === 'high'
                                   ? t('scan.confidenceHigh')
                                   : t('scan.confidenceLow')}
@@ -573,7 +533,9 @@ export default function AttendanceScanPage() {
                 </Button>
 
                 {/* Unresolved warning */}
-                {entries.some((e) => !e.resolved_student_id && e.student_number.trim().length > 0) && (
+                {entries.some(
+                  (e) => !e.resolved_student_id && e.student_number.trim().length > 0,
+                ) && (
                   <div className="flex items-start gap-2 rounded-lg border border-warning-border bg-warning-fill/20 p-3">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
                     <p className="text-sm text-warning-text">
@@ -601,9 +563,7 @@ export default function AttendanceScanPage() {
         {step === 'done' && confirmResult && (
           <div className="rounded-lg border border-success-border bg-success-surface p-8 text-center">
             <CheckCircle className="mx-auto h-12 w-12 text-success-text" />
-            <h3 className="mt-4 text-lg font-semibold text-success-text">
-              {t('scan.success')}
-            </h3>
+            <h3 className="mt-4 text-lg font-semibold text-success-text">{t('scan.success')}</h3>
             <p className="mt-2 text-sm text-text-secondary">
               {t('scan.successDescription', { count: confirmResult.updated })}
             </p>
@@ -622,13 +582,9 @@ export default function AttendanceScanPage() {
               </div>
             )}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button onClick={resetToUpload}>
-                {t('scan.scanAnother')}
-              </Button>
+              <Button onClick={resetToUpload}>{t('scan.scanAnother')}</Button>
               <Link href={`/${locale}/attendance`}>
-                <Button variant="outline">
-                  {t('backToAttendance')}
-                </Button>
+                <Button variant="outline">{t('backToAttendance')}</Button>
               </Link>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Notification, NotificationChannel } from '@prisma/client';
+
 import { CONSENT_TYPES } from '@school/shared';
 
 import { ConsentService } from '../gdpr/consent.service';
@@ -374,10 +375,7 @@ export class NotificationDispatchService {
     return parent.phone ?? null;
   }
 
-  private async hasRecipientWhatsAppConsent(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  private async hasRecipientWhatsAppConsent(tenantId: string, userId: string): Promise<boolean> {
     const parent = await this.prisma.parent.findFirst({
       where: { tenant_id: tenantId, user_id: userId },
       select: { id: true },
@@ -449,10 +447,7 @@ export class NotificationDispatchService {
     });
   }
 
-  private async markFailed(
-    notification: NotificationWithRecipient,
-    reason: string,
-  ): Promise<void> {
+  private async markFailed(notification: NotificationWithRecipient, reason: string): Promise<void> {
     await this.prisma.notification.update({
       where: { id: notification.id },
       data: {

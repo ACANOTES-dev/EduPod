@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import {
   isValidTransition,
   type CreateIncidentDto,

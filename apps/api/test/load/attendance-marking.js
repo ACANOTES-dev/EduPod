@@ -7,8 +7,9 @@
  * Run: k6 run apps/api/test/load/attendance-marking.js
  */
 
-import http from 'k6/http';
 import { check, sleep } from 'k6';
+import http from 'k6/http';
+
 import { BASE_URL, TENANTS, login, authHeaders } from './k6-config.js';
 import { thresholds, readTag, writeTag } from './k6-thresholds.js';
 
@@ -37,10 +38,10 @@ export default function (data) {
   const headers = authHeaders(token, tenant.domain);
 
   // List attendance sessions
-  const listRes = http.get(
-    `${BASE_URL}/api/v1/attendance/sessions?page=1&pageSize=10`,
-    { headers, tags: readTag },
-  );
+  const listRes = http.get(`${BASE_URL}/api/v1/attendance/sessions?page=1&pageSize=10`, {
+    headers,
+    tags: readTag,
+  });
 
   check(listRes, {
     'attendance list: status 200': (r) => r.status === 200,
@@ -49,10 +50,10 @@ export default function (data) {
   sleep(0.5);
 
   // List classes (for context)
-  const classRes = http.get(
-    `${BASE_URL}/api/v1/classes?page=1&pageSize=5`,
-    { headers, tags: readTag },
-  );
+  const classRes = http.get(`${BASE_URL}/api/v1/classes?page=1&pageSize=5`, {
+    headers,
+    tags: readTag,
+  });
 
   check(classRes, {
     'classes: status 200': (r) => r.status === 200,

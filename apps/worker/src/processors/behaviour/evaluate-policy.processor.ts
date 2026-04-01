@@ -1,13 +1,14 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
+import { Job, Queue } from 'bullmq';
+
 import {
   EARLY_WARNING_COMPUTE_STUDENT_JOB,
   EvaluatedInputSchema,
   PolicyCondition,
   PolicyConditionSchema,
 } from '@school/shared';
-import { Job, Queue } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -91,10 +92,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
   /** Student IDs that received exclusion/suspension-related actions. Read after execute(). */
   public exclusionAffectedStudentIds: string[] = [];
 
-  protected async processJob(
-    data: EvaluatePolicyPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: EvaluatePolicyPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, incident_id } = data;
 
     const incident = await (tx as unknown as PrismaClientExt).behaviourIncident.findFirst({
@@ -108,17 +106,13 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
     });
 
     if (!incident) {
-      this.logger.warn(
-        `Incident ${incident_id} not found for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.warn(`Incident ${incident_id} not found for tenant ${tenant_id} — skipping`);
       return;
     }
 
     // Skip withdrawn or draft incidents
     if (['withdrawn', 'draft'].includes(incident.status)) {
-      this.logger.log(
-        `Incident ${incident_id} is ${incident.status} — skipping evaluation`,
-      );
+      this.logger.log(`Incident ${incident_id} is ${incident.status} — skipping evaluation`);
       return;
     }
 
@@ -132,9 +126,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
         where: { incident_id, student_id: participant.student_id, tenant_id },
         select: { stage: true },
       });
-      const evaluatedStages = new Set(
-        existingEvaluations.map((e: { stage: string }) => e.stage),
-      );
+      const evaluatedStages = new Set(existingEvaluations.map((e: { stage: string }) => e.stage));
 
       await this.evaluateForStudent(
         incident,
@@ -187,21 +179,13 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
         const conditions = PolicyConditionSchema.safeParse(rule.conditions);
         if (!conditions.success) continue;
 
-        const input = await this.buildEvaluatedInput(
-          incident,
-          participant,
-          conditions.data,
-          tx,
-        );
+        const input = await this.buildEvaluatedInput(incident, participant, conditions.data, tx);
         const matches = this.evaluateConditions(conditions.data, input);
 
         if (matches) {
           matchedRules.push(rule);
 
-          if (
-            rule.stop_processing_stage ||
-            rule.match_strategy === 'first_match'
-          ) {
+          if (rule.stop_processing_stage || rule.match_strategy === 'first_match') {
             break;
           }
         }
@@ -210,24 +194,18 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
       const evaluationResult: $Enums.PolicyEvaluationResult =
         matchedRules.length > 0 ? 'matched' : 'no_match';
 
-      const evaluatedInput = await this.buildEvaluatedInput(
-        incident,
-        participant,
-        {},
-        tx,
-      );
+      const evaluatedInput = await this.buildEvaluatedInput(incident, participant, {}, tx);
 
       let ruleVersionId: string | null = null;
       const firstMatch = matchedRules[0] ?? null;
       if (firstMatch) {
-        const versionRecord =
-          await tx.behaviourPolicyRuleVersion.findFirst({
-            where: {
-              rule_id: firstMatch.id,
-              version: firstMatch.current_version,
-            },
-            select: { id: true },
-          });
+        const versionRecord = await tx.behaviourPolicyRuleVersion.findFirst({
+          where: {
+            rule_id: firstMatch.id,
+            version: firstMatch.current_version,
+          },
+          select: { id: true },
+        });
         ruleVersionId = versionRecord?.id ?? null;
       }
 
@@ -259,25 +237,22 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
           // SP3-2: Inter-escalation cooldown — skip if same rule+student+action was recently executed
           // TODO: use rule.cooldown_hours once the field is added to BehaviourPolicyRule schema
           const cooldownHours = 24; // default 24h until cooldown_hours field exists on the model
-          const cooldownStart = new Date(
-            Date.now() - cooldownHours * 3600 * 1000,
-          );
+          const cooldownStart = new Date(Date.now() - cooldownHours * 3600 * 1000);
 
-          const recentExecution =
-            await tx.behaviourPolicyActionExecution.findFirst({
-              where: {
-                tenant_id: incident.tenant_id,
-                action_type: action.action_type,
-                execution_status: 'success',
-                created_at: { gte: cooldownStart },
-                evaluation: {
-                  student_id: participant.student_id!,
-                  rule_version: {
-                    rule_id: rule.id,
-                  },
+          const recentExecution = await tx.behaviourPolicyActionExecution.findFirst({
+            where: {
+              tenant_id: incident.tenant_id,
+              action_type: action.action_type,
+              execution_status: 'success',
+              created_at: { gte: cooldownStart },
+              evaluation: {
+                student_id: participant.student_id!,
+                rule_version: {
+                  rule_id: rule.id,
                 },
               },
-            });
+            },
+          });
 
           if (recentExecution) {
             this.logger.log(
@@ -286,13 +261,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
             continue;
           }
 
-          await this.executeAction(
-            action,
-            incident,
-            participant,
-            evaluation.id,
-            tx,
-          );
+          await this.executeAction(action, incident, participant, evaluation.id, tx);
         }
       }
     }
@@ -323,20 +292,14 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
       if (input.severity > conditions.severity_max) return false;
     }
     if (conditions.year_group_ids?.length) {
-      if (
-        !input.year_group_id ||
-        !conditions.year_group_ids.includes(input.year_group_id)
-      )
+      if (!input.year_group_id || !conditions.year_group_ids.includes(input.year_group_id))
         return false;
     }
     if (conditions.student_has_send !== undefined) {
       if (input.has_send !== conditions.student_has_send) return false;
     }
     if (conditions.student_has_active_intervention !== undefined) {
-      if (
-        input.had_active_intervention !==
-        conditions.student_has_active_intervention
-      )
+      if (input.had_active_intervention !== conditions.student_has_active_intervention)
         return false;
     }
     if (conditions.context_types?.length) {
@@ -354,17 +317,10 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
       if (input.repeat_count < conditions.repeat_count_min) return false;
     }
     if (conditions.weekdays?.length) {
-      if (
-        input.weekday === null ||
-        !conditions.weekdays.includes(input.weekday)
-      )
-        return false;
+      if (input.weekday === null || !conditions.weekdays.includes(input.weekday)) return false;
     }
     if (conditions.period_orders?.length) {
-      if (
-        input.period_order === null ||
-        !conditions.period_orders.includes(input.period_order)
-      )
+      if (input.period_order === null || !conditions.period_orders.includes(input.period_order))
         return false;
     }
     return true;
@@ -376,18 +332,13 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
     conditions: Partial<PolicyCondition>,
     tx: PrismaClientExt,
   ) {
-    const snapshot = (participant.student_snapshot ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const snapshot = (participant.student_snapshot ?? {}) as Record<string, unknown>;
     const categoryName = incident.category?.name ?? '';
 
     let repeatCount = 0;
     if (conditions.repeat_count_min && conditions.repeat_window_days && participant.student_id) {
       const windowStart = new Date(incident.occurred_at);
-      windowStart.setDate(
-        windowStart.getDate() - conditions.repeat_window_days,
-      );
+      windowStart.setDate(windowStart.getDate() - conditions.repeat_window_days);
 
       const categoryFilter = conditions.repeat_category_ids?.length
         ? conditions.repeat_category_ids
@@ -403,9 +354,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
             status: {
               notIn: ['withdrawn', 'draft'] as $Enums.IncidentStatus[],
             },
-            ...(categoryFilter
-              ? { category_id: { in: categoryFilter } }
-              : {}),
+            ...(categoryFilter ? { category_id: { in: categoryFilter } } : {}),
           },
         },
       });
@@ -425,8 +374,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
       year_group_id: (snapshot.year_group_id as string) ?? null,
       year_group_name: (snapshot.year_group_name as string) ?? null,
       has_send: (snapshot.has_send as boolean) ?? false,
-      had_active_intervention:
-        (snapshot.had_active_intervention as boolean) ?? false,
+      had_active_intervention: (snapshot.had_active_intervention as boolean) ?? false,
       repeat_count: repeatCount,
       repeat_window_days_used: conditions.repeat_window_days ?? null,
       repeat_category_ids_used: conditions.repeat_category_ids ?? [],
@@ -535,15 +483,10 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
                   task_type: taskType as $Enums.BehaviourTaskType,
                   entity_type: 'incident',
                   entity_id: incident.id,
-                  title:
-                    (config.title as string) ??
-                    `Policy task for ${incident.incident_number}`,
-                  assigned_to_id:
-                    (config.assigned_to_user_id as string) ??
-                    incident.reported_by_id,
+                  title: (config.title as string) ?? `Policy task for ${incident.incident_number}`,
+                  assigned_to_id: (config.assigned_to_user_id as string) ?? incident.reported_by_id,
                   created_by_id: incident.reported_by_id,
-                  priority: ((config.priority as string) ??
-                    'medium') as $Enums.TaskPriority,
+                  priority: ((config.priority as string) ?? 'medium') as $Enums.TaskPriority,
                   status: 'pending',
                   due_date: dueDate,
                 },
@@ -566,8 +509,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
               },
             });
             if (!existingTask) {
-              const dueInDays =
-                (config.due_within_school_days as number) ?? 5;
+              const dueInDays = (config.due_within_school_days as number) ?? 5;
               const dueDate = new Date();
               dueDate.setDate(dueDate.getDate() + dueInDays);
               const task = await tx.behaviourTask.create({
@@ -627,8 +569,7 @@ class EvaluatePolicyJob extends TenantAwareJob<EvaluatePolicyPayload> {
           action_type: action.action_type,
           action_config: action.action_config as Prisma.InputJsonValue,
           execution_status: 'failed',
-          failure_reason:
-            err instanceof Error ? err.message : String(err),
+          failure_reason: err instanceof Error ? err.message : String(err),
           executed_at: new Date(),
         },
       });

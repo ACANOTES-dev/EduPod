@@ -1,5 +1,10 @@
 'use client';
 
+import { Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Input,
   Select,
@@ -9,10 +14,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

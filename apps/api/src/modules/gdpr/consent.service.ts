@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type {
   BulkGrantConsentsDto,
   ConsentEvidenceType,
@@ -100,11 +101,7 @@ export class ConsentService {
     });
   }
 
-  async withdrawConsent(
-    tenantId: string,
-    consentId: string,
-    _withdrawnByUserId: string,
-  ) {
+  async withdrawConsent(tenantId: string, consentId: string, _withdrawnByUserId: string) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx) => {
@@ -247,8 +244,7 @@ export class ConsentService {
               status: 'granted',
               granted_by_user_id: grantedByUserId,
               evidence_type: consent.evidence_type,
-              privacy_notice_version_id:
-                consent.privacy_notice_version_id ?? null,
+              privacy_notice_version_id: consent.privacy_notice_version_id ?? null,
               notes: consent.notes ?? null,
             },
           }),
@@ -312,10 +308,7 @@ export class ConsentService {
         subject_type: 'parent',
         subject_id: parent.id,
         consent_type: {
-          in: [
-            CONSENT_TYPES.WHATSAPP_CHANNEL,
-            CONSENT_TYPES.EMAIL_MARKETING,
-          ],
+          in: [CONSENT_TYPES.WHATSAPP_CHANNEL, CONSENT_TYPES.EMAIL_MARKETING],
         },
       },
       orderBy: [{ created_at: 'desc' }],
@@ -325,12 +318,7 @@ export class ConsentService {
 
     for (const student of students) {
       for (const consentType of STUDENT_PARENT_PORTAL_CONSENT_TYPES) {
-        const latest = this.findLatestConsent(
-          studentConsents,
-          'student',
-          student.id,
-          consentType,
-        );
+        const latest = this.findLatestConsent(studentConsents, 'student', student.id, consentType);
 
         items.push(
           this.mapPortalConsentItem(
@@ -348,12 +336,7 @@ export class ConsentService {
       CONSENT_TYPES.WHATSAPP_CHANNEL,
       CONSENT_TYPES.EMAIL_MARKETING,
     ] as const) {
-      const latest = this.findLatestConsent(
-        parentConsents,
-        'parent',
-        parent.id,
-        consentType,
-      );
+      const latest = this.findLatestConsent(parentConsents, 'parent', parent.id, consentType);
 
       items.push(
         this.mapPortalConsentItem(
@@ -386,11 +369,7 @@ export class ConsentService {
     return { data: items };
   }
 
-  async withdrawParentPortalConsent(
-    tenantId: string,
-    userId: string,
-    consentId: string,
-  ) {
+  async withdrawParentPortalConsent(tenantId: string, userId: string, consentId: string) {
     const parent = await this.prisma.parent.findFirst({
       where: { tenant_id: tenantId, user_id: userId, status: 'active' },
       select: { id: true },
@@ -532,9 +511,7 @@ export class ConsentService {
       status: (record?.status ?? 'withdrawn') as ParentPortalConsentItemDto['status'],
       granted_at: record?.granted_at?.toISOString() ?? null,
       withdrawn_at: record?.withdrawn_at?.toISOString() ?? null,
-      evidence_type:
-        (record?.evidence_type as ParentPortalConsentItemDto['evidence_type']) ??
-        null,
+      evidence_type: (record?.evidence_type as ParentPortalConsentItemDto['evidence_type']) ?? null,
       notes: record?.notes ?? null,
     };
   }

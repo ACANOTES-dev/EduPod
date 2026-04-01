@@ -1,11 +1,12 @@
 'use client';
 
-import { StatusBadge } from '@school/ui';
 import { Calendar } from 'lucide-react';
 
-import { formatDate } from '@/lib/format-date';
+import { StatusBadge } from '@school/ui';
 
 import { HomeworkTypeBadge } from './homework-type-badge';
+
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

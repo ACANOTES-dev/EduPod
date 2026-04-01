@@ -1,5 +1,8 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Select,
   SelectContent,
@@ -8,9 +11,6 @@ import {
   SelectValue,
   EmptyState,
 } from '@school/ui';
-import { AlertTriangle } from 'lucide-react';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
@@ -77,8 +77,9 @@ export default function AllergyReportPage() {
         ]);
         setYearGroups(ygRes.data);
         setClasses(clRes.data);
-      } catch {
+      } catch (err) {
         // ignore
+        console.error('[setClasses]', err);
       }
     };
     void fetchOptions();

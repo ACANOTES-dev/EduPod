@@ -1,5 +1,6 @@
-import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+
+import { INestApplication } from '@nestjs/common';
 
 import {
   AL_NOOR_ADMIN_EMAIL,
@@ -24,7 +25,7 @@ describe('Notifications (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;
   let parentToken: string;
-  let teacherToken: string;
+  let _teacherToken: string;
   let cedarAdminToken: string;
 
   beforeAll(async () => {
@@ -37,7 +38,7 @@ describe('Notifications (e2e)', () => {
     parentToken = parentLogin.accessToken;
 
     const teacherLogin = await login(app, AL_NOOR_TEACHER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
-    teacherToken = teacherLogin.accessToken;
+    _teacherToken = teacherLogin.accessToken;
 
     const cedarLogin = await login(app, CEDAR_ADMIN_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarAdminToken = cedarLogin.accessToken;
@@ -85,24 +86,16 @@ describe('Notifications (e2e)', () => {
 
   describe('GET /api/v1/notifications', () => {
     it('happy path — returns current user notifications', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/notifications', parentToken, AL_NOOR_DOMAIN).expect(
+        200,
+      );
 
       expect(res.body.data).toBeDefined();
       expect(Array.isArray(res.body.data)).toBe(true);
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications',
-        '',
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/notifications', '', AL_NOOR_DOMAIN);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -125,12 +118,7 @@ describe('Notifications (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications/unread-count',
-        '',
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/notifications/unread-count', '', AL_NOOR_DOMAIN);
 
       expect([401, 403]).toContain(res.status);
     });
@@ -236,23 +224,15 @@ describe('Notifications (e2e)', () => {
     });
 
     it('should return 401 when no token provided', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications/admin/failed',
-        '',
-        AL_NOOR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/notifications/admin/failed', '', AL_NOOR_DOMAIN);
 
       expect([401, 403]).toContain(res.status);
     });
 
     it('should return 403 when parent tries to access', async () => {
-      await authGet(
-        app,
-        '/api/v1/notifications/admin/failed',
-        parentToken,
-        AL_NOOR_DOMAIN,
-      ).expect(403);
+      await authGet(app, '/api/v1/notifications/admin/failed', parentToken, AL_NOOR_DOMAIN).expect(
+        403,
+      );
     });
   });
 
@@ -260,12 +240,9 @@ describe('Notifications (e2e)', () => {
 
   describe('RLS — cross-tenant notification isolation', () => {
     it('Cedar admin cannot see Al Noor notifications', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/notifications',
-        cedarAdminToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/notifications', cedarAdminToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
       // Cedar admin should not have Al Noor's announcement notifications
       const notifications = res.body.data;

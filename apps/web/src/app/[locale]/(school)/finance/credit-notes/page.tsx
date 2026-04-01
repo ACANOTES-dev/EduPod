@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Plus, Receipt } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -19,17 +23,14 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { ChevronDown, ChevronRight, Plus, Receipt } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CurrencyDisplay } from '../_components/currency-display';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../_components/currency-display';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -231,7 +232,9 @@ export default function CreditNotesPage() {
         <CurrencyDisplay
           amount={row.remaining_balance}
           currency_code={row.currency_code}
-          className={row.remaining_balance > 0 ? 'font-semibold text-success-700' : 'text-text-tertiary'}
+          className={
+            row.remaining_balance > 0 ? 'font-semibold text-success-700' : 'text-text-tertiary'
+          }
         />
       ),
     },
@@ -240,7 +243,9 @@ export default function CreditNotesPage() {
       header: t('status'),
       render: (row: CreditNote) => (
         <StatusBadge status={row.remaining_balance > 0 ? 'success' : 'neutral'} dot>
-          {row.remaining_balance > 0 ? t('creditNotes.statusOpen') : t('creditNotes.statusFullyUsed')}
+          {row.remaining_balance > 0
+            ? t('creditNotes.statusOpen')
+            : t('creditNotes.statusFullyUsed')}
         </StatusBadge>
       ),
     },
@@ -337,7 +342,10 @@ export default function CreditNotesPage() {
           {creditNotes
             .filter((cn) => cn.id === expandedRow)
             .map((cn) => (
-              <div key={`exp-${cn.id}`} className="rounded-xl border border-border bg-surface-secondary p-4">
+              <div
+                key={`exp-${cn.id}`}
+                className="rounded-xl border border-border bg-surface-secondary p-4"
+              >
                 <h4 className="mb-3 text-xs font-semibold uppercase text-text-tertiary">
                   {t('creditNotes.applicationHistory')}
                 </h4>

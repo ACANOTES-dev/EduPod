@@ -1,9 +1,10 @@
 'use client';
 
-import { cn } from '@school/ui';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 interface StudentBehaviourHeaderProps {
   studentName: string;
@@ -27,9 +28,7 @@ export function StudentBehaviourHeader({
         {/* Student info */}
         <div>
           <h2 className="text-xl font-semibold text-text-primary">{studentName}</h2>
-          {yearGroup && (
-            <p className="mt-0.5 text-sm text-text-secondary">{yearGroup}</p>
-          )}
+          {yearGroup && <p className="mt-0.5 text-sm text-text-secondary">{yearGroup}</p>}
         </div>
 
         {/* Stats */}
@@ -38,11 +37,18 @@ export function StudentBehaviourHeader({
             <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
               {t('points')}
             </p>
-            <p className={cn(
-              'text-2xl font-bold',
-              totalPoints > 0 ? 'text-green-600' : totalPoints < 0 ? 'text-red-600' : 'text-text-primary',
-            )}>
-              {totalPoints > 0 ? '+' : ''}{totalPoints}
+            <p
+              className={cn(
+                'text-2xl font-bold',
+                totalPoints > 0
+                  ? 'text-green-600'
+                  : totalPoints < 0
+                    ? 'text-red-600'
+                    : 'text-text-primary',
+              )}
+            >
+              {totalPoints > 0 ? '+' : ''}
+              {totalPoints}
             </p>
           </div>
 

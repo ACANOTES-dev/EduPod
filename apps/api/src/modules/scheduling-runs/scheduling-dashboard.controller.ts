@@ -1,11 +1,7 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
+
+import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -137,10 +133,6 @@ export class SchedulingDashboardController {
       staffId = staffProfile ?? undefined;
     }
 
-    return this.dashboardService.preferences(
-      tenant.tenant_id,
-      query.academic_year_id,
-      staffId,
-    );
+    return this.dashboardService.preferences(tenant.tenant_id, query.academic_year_id, staffId);
   }
 }

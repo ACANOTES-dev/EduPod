@@ -6,6 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import {
   type BulkMarkServedDto,
   type CreateSanctionDto,
@@ -177,8 +178,12 @@ export class BehaviourSanctionsService {
               'en',
             );
           }
-        } catch {
+        } catch (err) {
           // Don't fail sanction creation if document generation fails
+          this.logger.error(
+            '[create] Document generation failed',
+            err instanceof Error ? err.stack : String(err),
+          );
         }
 
         // Enqueue parent notification (best-effort)

@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,16 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ArrowLeft } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,8 +74,9 @@ export default function NewRolePage() {
           description: p.description,
         }));
         setAvailablePermissions(perms);
-      } catch {
+      } catch (err) {
         // non-fatal; picker will be empty
+        console.error('[setAvailablePermissions]', err);
       } finally {
         setPermLoading(false);
       }
@@ -212,9 +213,7 @@ export default function NewRolePage() {
           )}
         </div>
 
-        {serverError && (
-          <p className="text-sm text-danger-text">{serverError}</p>
-        )}
+        {serverError && <p className="text-sm text-danger-text">{serverError}</p>}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">

@@ -1,15 +1,16 @@
 'use client';
 
-import type { CreateHomeworkDto } from '@school/shared';
-import { toast } from '@school/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import type { CreateHomeworkDto } from '@school/shared';
+import { toast } from '@school/ui';
 
 import { HomeworkQuickForm } from '../_components/homework-quick-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 interface SelectOption {
   id: string;
@@ -40,7 +41,9 @@ export default function NewHomeworkPage() {
     Promise.all([
       apiClient<{ data: ClassOption[] }>('/api/v1/classes?pageSize=200', { silent: true }),
       apiClient<{ data: SelectOption[] }>('/api/v1/academic-years', { silent: true }),
-      apiClient<{ data: SelectOption[] }>('/api/v1/academic-periods?pageSize=100', { silent: true }),
+      apiClient<{ data: SelectOption[] }>('/api/v1/academic-periods?pageSize=100', {
+        silent: true,
+      }),
     ])
       .then(([c, y, p]) => {
         setClasses(c.data ?? []);

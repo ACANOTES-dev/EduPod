@@ -6,6 +6,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import type { GdprOutboundData, ScanResultEntry } from '@school/shared';
 
 import { SettingsService } from '../configuration/settings.service';
@@ -27,12 +28,7 @@ const AI_STATUS_MAP: Record<string, ScanResultEntry['status']> = {
 };
 
 /** Mime types accepted by the Claude Vision API */
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-] as const;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 
 type AllowedMediaType = (typeof ALLOWED_MIME_TYPES)[number];
 
@@ -72,7 +68,13 @@ If the image does not appear to be an attendance/absence sheet, return an empty 
 export class AttendanceScanService {
   private readonly logger = new Logger(AttendanceScanService.name);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
+  private anthropic: {
+    messages: {
+      create: (
+        params: Record<string, unknown>,
+      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
+    };
+  } | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -94,9 +96,7 @@ export class AttendanceScanService {
         );
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI scan functionality will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI scan functionality will be unavailable');
     }
   }
 
@@ -139,12 +139,13 @@ export class AttendanceScanService {
 
     // GDPR audit — log AI data processing (no personal data in prompt)
     await this.gdprTokenService.processOutbound(
-      tenantId, 'ai_attendance_scan', { entities: [], entityCount: 0 } as GdprOutboundData, userId,
+      tenantId,
+      'ai_attendance_scan',
+      { entities: [], entityCount: 0 } as GdprOutboundData,
+      userId,
     );
 
-    this.logger.log(
-      `Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`,
-    );
+    this.logger.log(`Scanning attendance image for tenant ${tenantId}, date ${sessionDate}`);
 
     const startTime = Date.now();
     const response = await this.anthropic.messages.create({
@@ -172,7 +173,9 @@ export class AttendanceScanService {
     });
     const elapsed = Date.now() - startTime;
 
-    const textBlock = response.content.find((b: { type: string; text?: string }) => b.type === 'text');
+    const textBlock = response.content.find(
+      (b: { type: string; text?: string }) => b.type === 'text',
+    );
     const aiText = textBlock?.text ?? '';
 
     await this.aiAuditService.log({
@@ -193,10 +196,7 @@ export class AttendanceScanService {
     const entries = this.parseScanResponse(aiText);
 
     // 5. Resolve student names from the database
-    const resolvedEntries = await this.resolveStudentNames(
-      tenantId,
-      entries,
-    );
+    const resolvedEntries = await this.resolveStudentNames(tenantId, entries);
 
     // 6. Store scan result in Redis with 30-minute TTL for confirmation
     const scanId = randomUUID();
@@ -260,8 +260,7 @@ export class AttendanceScanService {
         student_number: String(item.student_number),
         status: mappedStatus,
         reason: item.reason ? String(item.reason) : undefined,
-        confidence:
-          item.confidence === 'low' ? 'low' : 'high',
+        confidence: item.confidence === 'low' ? 'low' : 'high',
       });
     }
 
@@ -293,10 +292,7 @@ export class AttendanceScanService {
       },
     });
 
-    const studentByNumber = new Map<
-      string,
-      { id: string; name: string }
-    >();
+    const studentByNumber = new Map<string, { id: string; name: string }>();
     for (const s of students) {
       if (s.student_number) {
         studentByNumber.set(s.student_number, {
@@ -340,8 +336,7 @@ export class AttendanceScanService {
       throw new BadRequestException({
         error: {
           code: 'SCAN_RATE_LIMIT_EXCEEDED',
-          message:
-            'Daily scan limit reached (50 scans per day). Please try again tomorrow.',
+          message: 'Daily scan limit reached (50 scans per day). Please try again tomorrow.',
         },
       });
     }

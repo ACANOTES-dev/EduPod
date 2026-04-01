@@ -1,7 +1,8 @@
 'use client';
 
-import { StatusBadge } from '@school/ui';
 import * as React from 'react';
+
+import { StatusBadge } from '@school/ui';
 
 type StatusVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
@@ -51,13 +52,9 @@ export function RecordHub({
             <StatusBadge status={status.variant}>{status.label}</StatusBadge>
           </div>
           {subtitle && <p className="text-sm text-text-secondary">{subtitle}</p>}
-          {reference && (
-            <p className="text-xs font-mono text-text-tertiary">{reference}</p>
-          )}
+          {reference && <p className="text-xs font-mono text-text-tertiary">{reference}</p>}
         </div>
-        {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
-        )}
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
       {/* Metrics strip */}

@@ -1,8 +1,9 @@
 'use client';
 
-import { cn } from '@school/ui';
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,7 +51,10 @@ function ChecklistSkeleton() {
         <div className="h-4 w-40 rounded bg-border" />
       </div>
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="animate-pulse rounded-xl border border-border bg-surface-primary p-4">
+        <div
+          key={i}
+          className="animate-pulse rounded-xl border border-border bg-surface-primary p-4"
+        >
           <div className="flex items-start gap-3">
             <div className="h-5 w-5 shrink-0 rounded-full bg-border" />
             <div className="flex-1 space-y-2">
@@ -111,15 +115,13 @@ export function ReadinessChecklist({ categories, isLoading }: ReadinessChecklist
         <StatusIcon status={overallStatus} />
         <span>{summaryLabel}</span>
         <span className="ms-auto flex gap-3 text-xs font-normal">
-          {passCount > 0 && (
-            <span className="text-success-700">{passCount} passed</span>
-          )}
+          {passCount > 0 && <span className="text-success-700">{passCount} passed</span>}
           {warnCount > 0 && (
-            <span className="text-warning-700">{warnCount} warning{warnCount !== 1 ? 's' : ''}</span>
+            <span className="text-warning-700">
+              {warnCount} warning{warnCount !== 1 ? 's' : ''}
+            </span>
           )}
-          {failCount > 0 && (
-            <span className="text-danger-700">{failCount} failed</span>
-          )}
+          {failCount > 0 && <span className="text-danger-700">{failCount} failed</span>}
         </span>
       </div>
 

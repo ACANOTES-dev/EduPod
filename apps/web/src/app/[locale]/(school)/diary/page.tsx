@@ -1,15 +1,16 @@
 'use client';
 
-import { Input } from '@school/ui';
 import { Search } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { Input } from '@school/ui';
 
 import { DiaryDateNavigator } from './_components/diary-date-navigator';
 import { DiaryDayView } from './_components/diary-day-view';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,9 +56,7 @@ export default function DiaryPage() {
     try {
       const params = new URLSearchParams({ page: '1', pageSize: '30' });
       if (term.trim()) params.set('search', term.trim());
-      const res = await apiClient<StudentListResponse>(
-        `/api/v1/students?${params.toString()}`,
-      );
+      const res = await apiClient<StudentListResponse>(`/api/v1/students?${params.toString()}`);
       setStudents(res.data);
     } catch (err) {
       console.error('[DiaryPage.fetchStudents]', err);
@@ -134,9 +133,7 @@ export default function DiaryPage() {
                       {s.first_name} {s.last_name}
                     </span>
                     {s.class_entity && (
-                      <span className="text-muted-foreground text-xs">
-                        {s.class_entity.name}
-                      </span>
+                      <span className="text-muted-foreground text-xs">{s.class_entity.name}</span>
                     )}
                     {s.student_code && (
                       <span className="text-muted-foreground ms-auto text-xs">
@@ -166,9 +163,7 @@ export default function DiaryPage() {
           />
         </>
       ) : (
-        <p className="text-muted-foreground py-12 text-center text-sm">
-          {t('noStudentSelected')}
-        </p>
+        <p className="text-muted-foreground py-12 text-center text-sm">{t('noStudentSelected')}</p>
       )}
     </div>
   );

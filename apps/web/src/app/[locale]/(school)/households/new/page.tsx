@@ -1,13 +1,14 @@
 'use client';
 
-import { toast } from '@school/ui';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { toast } from '@school/ui';
 
 import { HouseholdForm, type HouseholdFormData } from '../_components/household-form';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 export default function NewHouseholdPage() {
   const router = useRouter();
@@ -23,10 +24,7 @@ export default function NewHouseholdPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="New Household"
-        description="Create a new family household record"
-      />
+      <PageHeader title="New Household" description="Create a new family household record" />
       <HouseholdForm onSubmit={handleSubmit} />
     </div>
   );

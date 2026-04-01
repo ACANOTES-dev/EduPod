@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 interface DigestConfigProps {
   digestDay: number;
@@ -55,10 +49,7 @@ export function DigestConfig({
     <div className="space-y-4">
       <div>
         <Label className="text-sm text-text-secondary">{t('digest_day')}</Label>
-        <Select
-          value={String(digestDay)}
-          onValueChange={(v) => onDayChange(Number(v))}
-        >
+        <Select value={String(digestDay)} onValueChange={(v) => onDayChange(Number(v))}>
           <SelectTrigger className="mt-1 w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>

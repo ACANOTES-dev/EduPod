@@ -1,9 +1,18 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
-import { AlertCircle, Bell, CheckCircle, Minus, Plus, TrendingDown, TrendingUp } from 'lucide-react';
+import {
+  AlertCircle,
+  Bell,
+  CheckCircle,
+  Minus,
+  Plus,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -91,10 +100,7 @@ export default function ParentBehaviourPortalPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title={t('title')}
-          description={t('description')}
-        />
+        <PageHeader title={t('title')} description={t('description')} />
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
@@ -107,16 +113,11 @@ export default function ParentBehaviourPortalPage() {
   if (summary.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title={t('title')}
-          description={t('description')}
-        />
+        <PageHeader title={t('title')} description={t('description')} />
         <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <AlertCircle className="mx-auto h-10 w-10 text-text-tertiary/30" />
           <p className="mt-3 text-sm text-text-primary">{t('noChildren')}</p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {t('contactSchool')}
-          </p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('contactSchool')}</p>
         </div>
       </div>
     );
@@ -212,8 +213,9 @@ function ChildPanel({ child }: { child: ChildSummary }) {
             : inc,
         ),
       );
-    } catch {
+    } catch (err) {
       // handled globally
+      console.error('[Date]', err);
     } finally {
       setAcknowledging(null);
     }
@@ -231,9 +233,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-text-primary">{child.student_name}</p>
-            {child.year_group && (
-              <p className="text-xs text-text-tertiary">{child.year_group}</p>
-            )}
+            {child.year_group && <p className="text-xs text-text-tertiary">{child.year_group}</p>}
           </div>
           {child.pending_acknowledgements > 0 && (
             <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 dark:bg-amber-900/20">
@@ -439,9 +439,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                       <p className="mt-1 text-xs text-text-tertiary">
                         {formatDate(s.scheduled_date)}
                       </p>
-                      {s.notes && (
-                        <p className="mt-2 text-xs text-text-secondary">{s.notes}</p>
-                      )}
+                      {s.notes && <p className="mt-2 text-xs text-text-secondary">{s.notes}</p>}
                     </div>
                   ))}
                 </div>
@@ -455,10 +453,7 @@ function ChildPanel({ child }: { child: ChildSummary }) {
                 </p>
                 <div className="space-y-2">
                   {recentSanctions.map((s) => (
-                    <div
-                      key={s.id}
-                      className="rounded-xl border border-border bg-surface p-4"
-                    >
+                    <div key={s.id} className="rounded-xl border border-border bg-surface p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm text-text-primary">
                           {SANCTION_TYPE_LABELS[s.type] ?? s.type}

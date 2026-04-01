@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -41,9 +42,7 @@ describe('BehaviourDocumentsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourDocumentsController],
-      providers: [
-        { provide: BehaviourDocumentService, useValue: mockDocumentService },
-      ],
+      providers: [{ provide: BehaviourDocumentService, useValue: mockDocumentService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -62,7 +61,11 @@ describe('BehaviourDocumentsController', () => {
 
     const result = await controller.generateDocument(TENANT, USER, dto as never);
 
-    expect(mockDocumentService.generateDocument).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', dto);
+    expect(mockDocumentService.generateDocument).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      dto,
+    );
     expect(result).toEqual({ id: 'doc-1' });
   });
 
@@ -92,7 +95,10 @@ describe('BehaviourDocumentsController', () => {
     const result = await controller.finaliseDocument(TENANT, USER, 'doc-1', dto as never);
 
     expect(mockDocumentService.finaliseDocument).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'doc-1', 'Approved by principal',
+      'tenant-uuid',
+      'user-uuid',
+      'doc-1',
+      'Approved by principal',
     );
     expect(result).toEqual({ id: 'doc-1', status: 'finalised' });
   });
@@ -103,7 +109,12 @@ describe('BehaviourDocumentsController', () => {
 
     const result = await controller.sendDocument(TENANT, USER, 'doc-1', dto as never);
 
-    expect(mockDocumentService.sendDocument).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', 'doc-1', dto);
+    expect(mockDocumentService.sendDocument).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      'doc-1',
+      dto,
+    );
     expect(result).toEqual({ id: 'doc-1', sent: true });
   });
 

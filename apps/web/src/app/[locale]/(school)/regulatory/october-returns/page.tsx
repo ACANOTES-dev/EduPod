@@ -1,17 +1,18 @@
 'use client';
 
-import { Button, Input, Label, StatusBadge, cn } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button, Input, Label, StatusBadge, cn } from '@school/ui';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { ReadinessOverview } from './_components/readiness-overview';
 import { ReturnsPreview } from './_components/returns-preview';
 import { StudentIssuesTable } from './_components/student-issues-table';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -186,9 +187,7 @@ export default function OctoberReturnsPage() {
       <div className="rounded-2xl border border-border bg-surface-primary p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="academic-year">
-              {t('octoberReturns.academicYear')}
-            </Label>
+            <Label htmlFor="academic-year">{t('octoberReturns.academicYear')}</Label>
             <Input
               id="academic-year"
               value={draftYear}
@@ -198,12 +197,7 @@ export default function OctoberReturnsPage() {
               className="w-40"
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleYearApply}
-            disabled={isLoading}
-          >
+          <Button variant="outline" size="sm" onClick={handleYearApply} disabled={isLoading}>
             {t('octoberReturns.applyYear')}
           </Button>
         </div>
@@ -220,9 +214,7 @@ export default function OctoberReturnsPage() {
           <StatusBadge status={BANNER_BADGE[readiness.status]} dot>
             {bannerLabel(readiness.status, t)}
           </StatusBadge>
-          <span className="text-sm font-medium">
-            {bannerMessage(readiness.status, t)}
-          </span>
+          <span className="text-sm font-medium">{bannerMessage(readiness.status, t)}</span>
         </div>
       )}
 
@@ -247,15 +239,9 @@ export default function OctoberReturnsPage() {
       </div>
 
       {/* ─── Active View ────────────────────────────────────────────────── */}
-      {activeTab === 'readiness' && (
-        <ReadinessOverview data={readiness} isLoading={isLoading} />
-      )}
-      {activeTab === 'preview' && (
-        <ReturnsPreview data={preview} isLoading={isLoading} />
-      )}
-      {activeTab === 'issues' && (
-        <StudentIssuesTable data={issues} isLoading={isLoading} />
-      )}
+      {activeTab === 'readiness' && <ReadinessOverview data={readiness} isLoading={isLoading} />}
+      {activeTab === 'preview' && <ReturnsPreview data={preview} isLoading={isLoading} />}
+      {activeTab === 'issues' && <StudentIssuesTable data={issues} isLoading={isLoading} />}
     </div>
   );
 }

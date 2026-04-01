@@ -1,7 +1,8 @@
 'use client';
 
-import { cn } from '@school/ui';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 interface LegalDocumentProps {
   html: string;

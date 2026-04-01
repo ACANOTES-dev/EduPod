@@ -1,5 +1,9 @@
 'use client';
 
+import { CalendarClock, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -14,17 +18,14 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { CalendarClock, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CurrencyDisplay } from '../_components/currency-display';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../_components/currency-display';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,9 +78,7 @@ export default function PaymentPlansPage() {
   const [showCounter, setShowCounter] = React.useState(false);
   const [counterTarget, setCounterTarget] = React.useState<PaymentPlanRequest | null>(null);
   const [counterNote, setCounterNote] = React.useState('');
-  const [counterInstallments, setCounterInstallments] = React.useState<
-    ProposedInstallment[]
-  >([]);
+  const [counterInstallments, setCounterInstallments] = React.useState<ProposedInstallment[]>([]);
   const [countering, setCountering] = React.useState(false);
   const [approving, setApproving] = React.useState<string | null>(null);
 
@@ -151,16 +150,13 @@ export default function PaymentPlansPage() {
     if (!counterTarget || counterInstallments.length === 0) return;
     setCountering(true);
     try {
-      await apiClient(
-        `/api/v1/finance/payment-plan-requests/${counterTarget.id}/counter-offer`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            proposed_installments: counterInstallments,
-            admin_notes: counterNote,
-          }),
-        },
-      );
+      await apiClient(`/api/v1/finance/payment-plan-requests/${counterTarget.id}/counter-offer`, {
+        method: 'POST',
+        body: JSON.stringify({
+          proposed_installments: counterInstallments,
+          admin_notes: counterNote,
+        }),
+      });
       toast.success(t('paymentPlans.counterOffered'));
       setShowCounter(false);
       setCounterTarget(null);
@@ -174,9 +170,7 @@ export default function PaymentPlansPage() {
 
   function openCounterModal(req: PaymentPlanRequest) {
     setCounterTarget(req);
-    setCounterInstallments(
-      req.proposed_installments.map((i) => ({ ...i })),
-    );
+    setCounterInstallments(req.proposed_installments.map((i) => ({ ...i })));
     setCounterNote('');
     setShowCounter(true);
   }
@@ -189,11 +183,7 @@ export default function PaymentPlansPage() {
     setCounterInstallments((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function updateCounterInstallment(
-    idx: number,
-    field: keyof ProposedInstallment,
-    value: string,
-  ) {
+  function updateCounterInstallment(idx: number, field: keyof ProposedInstallment, value: string) {
     setCounterInstallments((prev) =>
       prev.map((inst, i) =>
         i === idx
@@ -227,9 +217,7 @@ export default function PaymentPlansPage() {
       render: (row: PaymentPlanRequest) => (
         <div>
           <p className="text-sm font-medium text-text-primary">{row.household_name}</p>
-          {row.student_name && (
-            <p className="text-xs text-text-tertiary">{row.student_name}</p>
-          )}
+          {row.student_name && <p className="text-xs text-text-tertiary">{row.student_name}</p>}
         </div>
       ),
     },
@@ -278,11 +266,7 @@ export default function PaymentPlansPage() {
             >
               {t('approve')}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openCounterModal(row)}
-            >
+            <Button size="sm" variant="outline" onClick={() => openCounterModal(row)}>
               {t('paymentPlans.counterOffer')}
             </Button>
             <Button
@@ -346,10 +330,7 @@ export default function PaymentPlansPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('paymentPlans.title')}
-        description={t('paymentPlans.description')}
-      />
+      <PageHeader title={t('paymentPlans.title')} description={t('paymentPlans.description')} />
 
       {!isLoading && requests.length === 0 ? (
         <EmptyState
@@ -388,7 +369,9 @@ export default function PaymentPlansPage() {
                       key={idx}
                       className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-2"
                     >
-                      <span className="text-sm text-text-secondary">{formatDate(inst.due_date)}</span>
+                      <span className="text-sm text-text-secondary">
+                        {formatDate(inst.due_date)}
+                      </span>
                       <CurrencyDisplay
                         amount={inst.amount}
                         currency_code={req.currency_code}
@@ -440,11 +423,7 @@ export default function PaymentPlansPage() {
             <Button variant="outline" onClick={() => setShowReject(false)} disabled={rejecting}>
               {t('cancel')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void handleReject()}
-              disabled={rejecting}
-            >
+            <Button variant="destructive" onClick={() => void handleReject()} disabled={rejecting}>
               {rejecting ? t('saving') : t('reject')}
             </Button>
           </DialogFooter>
@@ -458,17 +437,14 @@ export default function PaymentPlansPage() {
             <DialogTitle>{t('paymentPlans.counterOfferTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">{t('paymentPlans.counterOfferDescription')}</p>
+            <p className="text-sm text-text-secondary">
+              {t('paymentPlans.counterOfferDescription')}
+            </p>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>{t('paymentPlans.proposedInstallments')}</Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={addCounterInstallment}
-                  type="button"
-                >
+                <Button size="sm" variant="outline" onClick={addCounterInstallment} type="button">
                   <Plus className="me-1 h-3 w-3" />
                   {t('paymentPlans.addInstallment')}
                 </Button>

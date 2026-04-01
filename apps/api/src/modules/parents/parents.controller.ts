@@ -12,9 +12,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import { createParentSchema, updateParentSchema } from '@school/shared';
 import type { CreateParentDto, TenantContext, UpdateParentDto } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -63,10 +64,7 @@ export class ParentsController {
 
   @Get(':id')
   @RequiresPermission('students.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.parentsService.findOne(tenant.tenant_id, id);
   }
 

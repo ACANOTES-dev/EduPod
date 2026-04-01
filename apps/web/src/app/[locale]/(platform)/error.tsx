@@ -1,8 +1,9 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 // Platform admin is English-only — no useTranslations needed.
 

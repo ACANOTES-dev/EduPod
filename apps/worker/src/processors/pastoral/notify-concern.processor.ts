@@ -1,17 +1,15 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Job, Queue } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 import { DISPATCH_NOTIFICATIONS_JOB } from '../communications/dispatch-notifications.processor';
 
-import {
-  buildEscalationJobId,
-  ESCALATION_TIMEOUT_JOB,
-} from './escalation-timeout.processor';
+import { buildEscalationJobId, ESCALATION_TIMEOUT_JOB } from './escalation-timeout.processor';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
@@ -106,11 +104,7 @@ export class NotifyConcernProcessor extends WorkerHost {
     // Enqueue delayed escalation timeout job for urgent/critical concerns
     const escalationJob = tenantJob.escalationJobToEnqueue;
     if (escalationJob) {
-      const jobId = buildEscalationJobId(
-        tenant_id,
-        concern_id,
-        escalationJob.escalation_type,
-      );
+      const jobId = buildEscalationJobId(tenant_id, concern_id, escalationJob.escalation_type);
 
       await this.pastoralQueue.add(
         ESCALATION_TIMEOUT_JOB,
@@ -134,10 +128,7 @@ export class NotifyConcernProcessor extends WorkerHost {
     }
 
     // ── Early warning intraday trigger for critical concerns ──────────────
-    if (
-      job.data.severity === 'critical' &&
-      job.data.student_id
-    ) {
+    if (job.data.severity === 'critical' && job.data.student_id) {
       await this.earlyWarningQueue.add(
         EARLY_WARNING_COMPUTE_STUDENT_JOB,
         {
@@ -185,17 +176,8 @@ class NotifyConcernTenantJob extends TenantAwareJob<NotifyConcernPayload> {
    */
   public escalationJobToEnqueue: EscalationJobConfig | null = null;
 
-  protected async processJob(
-    data: NotifyConcernPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
-    const {
-      tenant_id,
-      concern_id,
-      student_name,
-      category,
-      logged_by_user_id,
-    } = data;
+  protected async processJob(data: NotifyConcernPayload, tx: PrismaClient): Promise<void> {
+    const { tenant_id, concern_id, student_name, category, logged_by_user_id } = data;
 
     // 1. Verify concern still exists and severity has not changed
     const concern = await tx.pastoralConcern.findFirst({
@@ -380,21 +362,14 @@ class NotifyConcernTenantJob extends TenantAwareJob<NotifyConcernPayload> {
   /**
    * Extract recipient config for a given severity from tenant settings.
    */
-  private extractRecipientConfig(
-    rawSettings: unknown,
-    severity: string,
-  ): SeverityRecipientConfig {
+  private extractRecipientConfig(rawSettings: unknown, severity: string): SeverityRecipientConfig {
     const settings = (rawSettings as Record<string, unknown>) ?? {};
     const pastoral = (settings?.pastoral as Record<string, unknown>) ?? {};
-    const notifRecipients =
-      (pastoral?.notification_recipients as Record<string, unknown>) ?? {};
-    const severityConfig =
-      (notifRecipients?.[severity] as Record<string, unknown>) ?? {};
+    const notifRecipients = (pastoral?.notification_recipients as Record<string, unknown>) ?? {};
+    const severityConfig = (notifRecipients?.[severity] as Record<string, unknown>) ?? {};
 
     const userIds = Array.isArray(severityConfig?.user_ids)
-      ? (severityConfig.user_ids as string[]).filter(
-          (id): id is string => typeof id === 'string',
-        )
+      ? (severityConfig.user_ids as string[]).filter((id): id is string => typeof id === 'string')
       : [];
 
     const fallbackRoles = Array.isArray(severityConfig?.fallback_roles)
@@ -444,11 +419,7 @@ class NotifyConcernTenantJob extends TenantAwareJob<NotifyConcernPayload> {
       } else if (roleKey === 'year_head') {
         // Resolve year head: verify student has a year group, then resolve
         // users with year_head role in this tenant (same as API service pattern)
-        const yearHeadIds = await this.resolveYearHeadForStudent(
-          tx,
-          tenantId,
-          studentId,
-        );
+        const yearHeadIds = await this.resolveYearHeadForStudent(tx, tenantId, studentId);
         for (const id of yearHeadIds) {
           userIds.push(id);
         }

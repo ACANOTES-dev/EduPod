@@ -1,6 +1,6 @@
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request } from 'express';
 
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 export interface AuthenticatedRequest extends Request {
   currentUser: JwtPayload;

@@ -1,5 +1,11 @@
 'use client';
 
+import { User, MessageSquare, LogOut, Sun, Moon, Monitor, ChevronDown, Globe } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useTheme } from 'next-themes';
+import * as React from 'react';
+
 import {
   Avatar,
   AvatarFallback,
@@ -9,20 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@school/ui';
-import {
-  User,
-  MessageSquare,
-  LogOut,
-  Sun,
-  Moon,
-  Monitor,
-  ChevronDown,
-  Globe,
-} from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import { useTheme } from 'next-themes';
-import * as React from 'react';
 
 import { useAuth } from '@/providers/auth-provider';
 
@@ -81,7 +73,9 @@ export function UserMenu() {
     student: t('roles.student'),
   };
   const primaryRole = primaryRoleKey
-    ? (roleTranslationMap[primaryRoleKey] ?? user.memberships?.[0]?.roles?.[0]?.display_name ?? null)
+    ? (roleTranslationMap[primaryRoleKey] ??
+      user.memberships?.[0]?.roles?.[0]?.display_name ??
+      null)
     : null;
 
   /* ---- Handlers ---- */
@@ -130,7 +124,9 @@ export function UserMenu() {
         {/* User info header */}
         <div className="px-2 py-2">
           <p className="truncate text-sm font-medium text-text-primary">{displayName}</p>
-          <p className="truncate text-xs text-text-tertiary" dir="ltr">{user.email}</p>
+          <p className="truncate text-xs text-text-tertiary" dir="ltr">
+            {user.email}
+          </p>
         </div>
 
         <DropdownMenuSeparator />
@@ -156,14 +152,9 @@ export function UserMenu() {
         <DropdownMenuSeparator />
 
         {/* Locale switcher */}
-        <DropdownMenuItem
-          className="cursor-pointer gap-2"
-          onClick={handleSwitchLocale}
-        >
+        <DropdownMenuItem className="cursor-pointer gap-2" onClick={handleSwitchLocale}>
           <Globe className="h-4 w-4 text-text-secondary" />
-          <span>
-            {locale === 'en' ? 'العربية' : 'English'}
-          </span>
+          <span>{locale === 'en' ? 'العربية' : 'English'}</span>
         </DropdownMenuItem>
 
         {/* Theme submenu — three inline buttons */}

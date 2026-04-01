@@ -1,14 +1,6 @@
 'use client';
 
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
-import {
-  Activity,
-  ArrowDown,
-  ArrowUp,
-  Minus,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react';
+import { Activity, ArrowDown, ArrowUp, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -24,6 +16,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -149,8 +143,9 @@ export default function BehaviourAnalyticsPage() {
       if (subjectsRes?.subjects) setSubjects(subjectsRes.subjects);
       if (heatmapRes?.cells) setHeatmap(heatmapRes.cells);
       if (compRes?.entries) setComparisons(compRes.entries);
-    } catch {
+    } catch (err) {
       // Error handling
+      console.error('[all]', err);
     }
 
     // Staff analytics — separate try/catch; 403 means no permission, silently skip
@@ -287,8 +282,20 @@ export default function BehaviourAnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="positive" stroke="#22c55e" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="negative" stroke="#ef4444" strokeWidth={2} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="positive"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="negative"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -303,7 +310,9 @@ export default function BehaviourAnalyticsPage() {
             <div className="grid gap-1" style={{ gridTemplateColumns: 'auto repeat(5, 1fr)' }}>
               <div />
               {['mon', 'tue', 'wed', 'thu', 'fri'].map((day) => (
-                <div key={day} className="text-center text-xs font-medium text-muted-foreground">{t(`days.${day}` as Parameters<typeof t>[0])}</div>
+                <div key={day} className="text-center text-xs font-medium text-muted-foreground">
+                  {t(`days.${day}` as Parameters<typeof t>[0])}
+                </div>
               ))}
               {Array.from({ length: 8 }, (_, period) => (
                 <React.Fragment key={period}>
@@ -346,13 +355,24 @@ export default function BehaviourAnalyticsPage() {
               <BarChart data={categories.slice(0, 10)} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis dataKey="category_name" type="category" width={120} tick={{ fontSize: 11 }} />
+                <YAxis
+                  dataKey="category_name"
+                  type="category"
+                  width={120}
+                  tick={{ fontSize: 11 }}
+                />
                 <Tooltip />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                   {categories.slice(0, 10).map((entry) => (
                     <Cell
                       key={entry.category_id}
-                      fill={entry.polarity === 'positive' ? '#22c55e' : entry.polarity === 'negative' ? '#ef4444' : '#94a3b8'}
+                      fill={
+                        entry.polarity === 'positive'
+                          ? '#22c55e'
+                          : entry.polarity === 'negative'
+                            ? '#ef4444'
+                            : '#94a3b8'
+                      }
                     />
                   ))}
                 </Bar>
@@ -367,9 +387,7 @@ export default function BehaviourAnalyticsPage() {
         <div className="rounded-lg border bg-card p-4 md:p-6">
           <h3 className="mb-4 text-lg font-semibold">{t('sections.subjects')}</h3>
           {!overview?.data_quality.exposure_normalised && (
-            <p className="mb-2 text-xs text-amber-600">
-              {t('rateNormalisationUnavailable')}
-            </p>
+            <p className="mb-2 text-xs text-amber-600">{t('rateNormalisationUnavailable')}</p>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -407,8 +425,18 @@ export default function BehaviourAnalyticsPage() {
                 <XAxis dataKey="year_group_name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="positive_rate" fill="#22c55e" name={t('positive')} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="negative_rate" fill="#ef4444" name={t('negative')} radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="positive_rate"
+                  fill="#22c55e"
+                  name={t('positive')}
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="negative_rate"
+                  fill="#ef4444"
+                  name={t('negative')}
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -435,9 +463,7 @@ export default function BehaviourAnalyticsPage() {
                   <tr
                     key={entry.staff_id}
                     className={`border-b last:border-0 ${
-                      entry.inactive_flag
-                        ? 'bg-danger-fill/20'
-                        : ''
+                      entry.inactive_flag ? 'bg-danger-fill/20' : ''
                     }`}
                   >
                     <td className="py-2 text-start">
@@ -484,8 +510,14 @@ function OverviewCard({
       <div className="text-sm text-muted-foreground">{title}</div>
       <div className="mt-1 text-2xl font-bold">{value}</div>
       {delta !== undefined && delta !== null && (
-        <div className={`mt-1 flex items-center text-xs ${delta > 0 ? 'text-red-500' : 'text-green-500'}`}>
-          {delta > 0 ? <TrendingUp className="me-1 h-3 w-3" /> : <TrendingDown className="me-1 h-3 w-3" />}
+        <div
+          className={`mt-1 flex items-center text-xs ${delta > 0 ? 'text-red-500' : 'text-green-500'}`}
+        >
+          {delta > 0 ? (
+            <TrendingUp className="me-1 h-3 w-3" />
+          ) : (
+            <TrendingDown className="me-1 h-3 w-3" />
+          )}
           {t('deltaVsPrior', { delta: Math.abs(delta) })}
         </div>
       )}

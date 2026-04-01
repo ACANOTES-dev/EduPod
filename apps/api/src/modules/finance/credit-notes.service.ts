@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+
 import type { ApplyCreditNoteDto, CreateCreditNoteDto, CreditNoteQueryDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

@@ -1,15 +1,5 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StatCard,
-} from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -27,6 +17,17 @@ import {
 } from 'recharts';
 
 import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatCard,
+} from '@school/ui';
+
+import {
   EVENT_TYPE_OPTIONS,
   formatDisplayDate,
   pickLocalizedValue,
@@ -36,7 +37,6 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

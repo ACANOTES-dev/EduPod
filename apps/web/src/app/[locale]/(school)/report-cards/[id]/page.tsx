@@ -1,6 +1,20 @@
 'use client';
 
 import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  FileText,
+  Loader2,
+  QrCode,
+  Send,
+  Sparkles,
+} from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Button,
   Input,
   Label,
@@ -13,15 +27,11 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { ArrowLeft, CheckCircle2, Download, FileText, Loader2, QrCode, Send, Sparkles } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { PdfPreviewModal } from '../_components/pdf-preview-modal';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { PdfPreviewModal } from '../_components/pdf-preview-modal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +132,9 @@ export default function ReportCardDetailPage() {
     try {
       const [rcRes, defsRes] = await Promise.all([
         apiClient<{ data: ReportCardDetail }>(`/api/v1/report-cards/${id}`),
-        apiClient<{ data: CustomFieldDef[] }>('/api/v1/report-card-custom-field-defs').catch(() => ({ data: [] })),
+        apiClient<{ data: CustomFieldDef[] }>('/api/v1/report-card-custom-field-defs').catch(
+          () => ({ data: [] }),
+        ),
       ]);
       setReportCard(rcRes.data);
       setTeacherComment(rcRes.data.teacher_comment ?? '');
@@ -251,9 +263,7 @@ export default function ReportCardDetailPage() {
   }
 
   if (!reportCard) {
-    return (
-      <div className="py-12 text-center text-text-tertiary">{t('notFound')}</div>
-    );
+    return <div className="py-12 text-center text-text-tertiary">{t('notFound')}</div>;
   }
 
   const isDraft = reportCard.status === 'draft';
@@ -300,7 +310,9 @@ export default function ReportCardDetailPage() {
                     )}
                     {t('deliverToParents')}
                   </Button>
-                  <Button variant="outline" onClick={() => void handleRevise()}>{t('revise')}</Button>
+                  <Button variant="outline" onClick={() => void handleRevise()}>
+                    {t('revise')}
+                  </Button>
                 </>
               )}
             </div>
@@ -323,13 +335,20 @@ export default function ReportCardDetailPage() {
             <p className="text-xs font-medium uppercase text-text-tertiary">{t('status')}</p>
             <div className="mt-1">
               <StatusBadge status={STATUS_VARIANT[reportCard.status] ?? 'neutral'} dot>
-                {t(`status${reportCard.status.charAt(0).toUpperCase() + reportCard.status.slice(1)}` as 'statusDraft' | 'statusPublished' | 'statusRevised')}
+                {t(
+                  `status${reportCard.status.charAt(0).toUpperCase() + reportCard.status.slice(1)}` as
+                    | 'statusDraft'
+                    | 'statusPublished'
+                    | 'statusRevised',
+                )}
               </StatusBadge>
             </div>
           </div>
           <div>
             <p className="text-xs font-medium uppercase text-text-tertiary">{t('locale')}</p>
-            <p className="mt-1 font-mono text-sm uppercase text-text-primary" dir="ltr">{reportCard.locale}</p>
+            <p className="mt-1 font-mono text-sm uppercase text-text-primary" dir="ltr">
+              {reportCard.locale}
+            </p>
           </div>
         </div>
       </div>
@@ -348,8 +367,8 @@ export default function ReportCardDetailPage() {
                       step.status === 'approved'
                         ? 'border-success-500 bg-success-50'
                         : step.status === 'rejected'
-                        ? 'border-error-500 bg-error-50'
-                        : 'border-border bg-surface-secondary'
+                          ? 'border-error-500 bg-error-50'
+                          : 'border-border bg-surface-secondary'
                     }`}
                   >
                     {step.status === 'approved' && (
@@ -514,7 +533,9 @@ export default function ReportCardDetailPage() {
                     </span>
                   </div>
                 ) : (
-                  <StatusBadge status="warning" dot>{t('notAcknowledged')}</StatusBadge>
+                  <StatusBadge status="warning" dot>
+                    {t('notAcknowledged')}
+                  </StatusBadge>
                 )}
               </div>
             ))}
@@ -593,7 +614,9 @@ function CustomFieldInput({
           </SelectTrigger>
           <SelectContent>
             {def.options_json.map((opt) => (
-              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              <SelectItem key={opt} value={opt}>
+                {opt}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

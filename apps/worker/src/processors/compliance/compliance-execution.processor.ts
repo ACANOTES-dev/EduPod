@@ -1,9 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { Job } from 'bullmq';
+
 import { ComplianceAnonymisationCore } from '@school/prisma';
 import type { AnonymisationCleanupPlan } from '@school/prisma';
-import { Job } from 'bullmq';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { getRedisClient } from '../../base/redis.helpers';

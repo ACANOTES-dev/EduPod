@@ -1,15 +1,10 @@
 'use client';
 
-import type { InvoiceStatus } from '@school/shared';
-import { Skeleton } from '@school/ui';
 import { useParams, usePathname } from 'next/navigation';
 import * as React from 'react';
 
-
-import { EntityLink } from '@/components/entity-link';
-import { RecordHub } from '@/components/record-hub';
-import { apiClient } from '@/lib/api-client';
-import { formatDate } from '@/lib/format-date';
+import type { InvoiceStatus } from '@school/shared';
+import { Skeleton } from '@school/ui';
 
 import { CurrencyDisplay } from '../../_components/currency-display';
 
@@ -17,6 +12,11 @@ import { InvoiceActions } from './_components/invoice-actions';
 import { InvoiceInstallmentsTab } from './_components/invoice-installments-tab';
 import { InvoiceLinesTab } from './_components/invoice-lines-tab';
 import { InvoicePaymentsTab } from './_components/invoice-payments-tab';
+
+import { EntityLink } from '@/components/entity-link';
+import { RecordHub } from '@/components/record-hub';
+import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/format-date';
 
 interface InvoiceLine {
   id: string;
@@ -116,12 +116,11 @@ export default function InvoiceDetailPage() {
   const fetchInvoice = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiClient<{ data: InvoiceDetail }>(
-        `/api/v1/finance/invoices/${id}`,
-      );
+      const res = await apiClient<{ data: InvoiceDetail }>(`/api/v1/finance/invoices/${id}`);
       setInvoice(res.data);
-    } catch {
+    } catch (err) {
       // handled by empty state
+      console.error('[setInvoice]', err);
     } finally {
       setIsLoading(false);
     }
@@ -153,10 +152,7 @@ export default function InvoiceDetailPage() {
     {
       label: 'Subtotal',
       value: (
-        <CurrencyDisplay
-          amount={invoice.subtotal_amount}
-          currency_code={invoice.currency_code}
-        />
+        <CurrencyDisplay amount={invoice.subtotal_amount} currency_code={invoice.currency_code} />
       ),
     },
     {
@@ -195,7 +191,9 @@ export default function InvoiceDetailPage() {
         <CurrencyDisplay
           amount={invoice.balance_amount}
           currency_code={invoice.currency_code}
-          className={invoice.balance_amount > 0 ? 'font-bold text-danger-text' : 'text-success-text'}
+          className={
+            invoice.balance_amount > 0 ? 'font-bold text-danger-text' : 'text-success-text'
+          }
         />
       ),
     },
@@ -224,12 +222,7 @@ export default function InvoiceDetailPage() {
     ...metrics,
   ];
 
-  const actions = (
-    <InvoiceActions
-      invoice={invoice}
-      onActionComplete={fetchInvoice}
-    />
-  );
+  const actions = <InvoiceActions invoice={invoice} onActionComplete={fetchInvoice} />;
 
   return (
     <RecordHub
@@ -246,12 +239,7 @@ export default function InvoiceDetailPage() {
         {
           key: 'lines',
           label: 'Lines',
-          content: (
-            <InvoiceLinesTab
-              lines={invoice.lines}
-              currencyCode={invoice.currency_code}
-            />
-          ),
+          content: <InvoiceLinesTab lines={invoice.lines} currencyCode={invoice.currency_code} />,
         },
         {
           key: 'payments',
@@ -285,9 +273,7 @@ export default function InvoiceDetailPage() {
           <p className="text-sm font-semibold text-warning-text">Pending Approval</p>
           <p className="mt-1 text-sm text-text-secondary">
             Requested by {invoice.approval.requested_by_name ?? 'Unknown'}{' '}
-            {invoice.approval.requested_at
-              ? `on ${formatDate(invoice.approval.requested_at)}`
-              : ''}
+            {invoice.approval.requested_at ? `on ${formatDate(invoice.approval.requested_at)}` : ''}
           </p>
         </div>
       )}

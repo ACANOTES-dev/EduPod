@@ -2,10 +2,10 @@
 
 import * as React from 'react';
 
+import { CurrencyDisplay } from '../../../_components/currency-display';
+
 import { EntityLink } from '@/components/entity-link';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../../../_components/currency-display';
 
 interface PaymentAllocation {
   id: string;
@@ -33,9 +33,7 @@ interface InvoicePaymentsTabProps {
 
 export function InvoicePaymentsTab({ allocations, currencyCode }: InvoicePaymentsTabProps) {
   if (allocations.length === 0) {
-    return (
-      <p className="text-sm text-text-tertiary">No payments allocated to this invoice.</p>
-    );
+    return <p className="text-sm text-text-tertiary">No payments allocated to this invoice.</p>;
   }
 
   return (

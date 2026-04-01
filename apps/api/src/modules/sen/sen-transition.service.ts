@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { ListTransitionNotesQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

@@ -1,10 +1,11 @@
 'use client';
 
-import { REGULATORY_DOMAINS } from '@school/shared';
-import { StatusBadge } from '@school/ui';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { REGULATORY_DOMAINS } from '@school/shared';
+import { StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 
@@ -111,18 +112,14 @@ export function SubmissionHistoryTable({
         key: 'type',
         header: t('submissions.type'),
         render: (row: Submission) => (
-          <span className="text-sm text-text-secondary">
-            {row.submission_type}
-          </span>
+          <span className="text-sm text-text-secondary">{row.submission_type}</span>
         ),
       },
       {
         key: 'academic_year',
         header: t('submissions.academicYear'),
         render: (row: Submission) => (
-          <span className="text-sm text-text-secondary">
-            {row.academic_year}
-          </span>
+          <span className="text-sm text-text-secondary">{row.academic_year}</span>
         ),
       },
       {

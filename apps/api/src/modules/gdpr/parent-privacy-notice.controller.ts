@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -13,10 +14,7 @@ export class ParentPrivacyNoticeController {
   constructor(private readonly privacyNoticesService: PrivacyNoticesService) {}
 
   @Get()
-  async getCurrent(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getCurrent(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.privacyNoticesService.getParentPortalCurrent(tenant.tenant_id, user.sub);
   }
 }

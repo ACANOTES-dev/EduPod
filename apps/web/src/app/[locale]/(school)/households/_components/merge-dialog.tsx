@@ -1,5 +1,7 @@
 'use client';
 
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,7 +17,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -54,8 +55,9 @@ export function MergeDialog({
           '/api/v1/households?pageSize=100&status=active',
         );
         setHouseholds(res.data.filter((h) => h.id !== currentHouseholdId));
-      } catch {
+      } catch (err) {
         // ignore
+        console.error('[setHouseholds]', err);
       }
     };
     void fetch();

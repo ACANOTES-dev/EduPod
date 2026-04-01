@@ -1,18 +1,19 @@
 'use client';
 
-import { EmptyState, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatCard } from '@school/ui';
 import { AlertTriangle, Calendar, Filter } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+  EmptyState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatCard,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -129,7 +130,9 @@ export default function HomeworkLoadHeatmapPage() {
         <div className="flex items-center gap-3">
           <Filter className="h-4 w-4 text-text-tertiary" />
           <Select value={viewMode} onValueChange={(v) => setViewMode(v as 'daily' | 'weekly')}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="daily">{t('analytics.daily')}</SelectItem>
               <SelectItem value="weekly">{t('analytics.weekly')}</SelectItem>
@@ -140,14 +143,15 @@ export default function HomeworkLoadHeatmapPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          label={t('analytics.averageLoad')}
-          value={averageLoad.toString()}
-        />
+        <StatCard label={t('analytics.averageLoad')} value={averageLoad.toString()} />
         <StatCard
           label={t('analytics.overloadedDays')}
           value={overloadedDays.toString()}
-          trend={overloadedDays > 3 ? { direction: 'down', label: `${overloadedDays} overloaded` } : undefined}
+          trend={
+            overloadedDays > 3
+              ? { direction: 'down', label: `${overloadedDays} overloaded` }
+              : undefined
+          }
         />
         <StatCard
           label={t('analytics.totalAssignments')}
@@ -165,7 +169,9 @@ export default function HomeworkLoadHeatmapPage() {
       {/* Heatmap Grid */}
       <div className="rounded-2xl bg-surface p-6">
         <h3 className="mb-4 text-base font-semibold text-text-primary">
-          {viewMode === 'daily' ? t('analytics.dailyLoadByYearGroup') : t('analytics.weeklyLoadOverview')}
+          {viewMode === 'daily'
+            ? t('analytics.dailyLoadByYearGroup')
+            : t('analytics.weeklyLoadOverview')}
         </h3>
 
         {loading ? (

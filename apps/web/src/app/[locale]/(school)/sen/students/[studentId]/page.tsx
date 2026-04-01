@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge, EmptyState, Skeleton, StatusBadge } from '@school/ui';
 import {
   Calendar,
   ClipboardList,
@@ -14,6 +13,8 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, EmptyState, Skeleton, StatusBadge } from '@school/ui';
 
 import { RecordHub } from '@/components/record-hub';
 import { apiClient } from '@/lib/api-client';

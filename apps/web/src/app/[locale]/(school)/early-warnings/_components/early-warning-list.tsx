@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -9,17 +12,15 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { RiskTierBadge } from './risk-tier-badge';
+import { StudentDetailPanel } from './student-detail-panel';
+import { TrendSparkline } from './trend-sparkline';
 
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
 import type { RiskProfileListItem, RiskProfileListResponse } from '@/lib/early-warning';
 import { TIER_ORDER } from '@/lib/early-warning';
-
-import { RiskTierBadge } from './risk-tier-badge';
-import { StudentDetailPanel } from './student-detail-panel';
-import { TrendSparkline } from './trend-sparkline';
 
 const PAGE_SIZE = 20;
 
@@ -112,7 +113,10 @@ export function EarlyWarningList() {
     <div className="grid gap-3 sm:grid-cols-3">
       <Select
         value={tierFilter}
-        onValueChange={(v) => { setTierFilter(v); setPage(1); }}
+        onValueChange={(v) => {
+          setTierFilter(v);
+          setPage(1);
+        }}
       >
         <SelectTrigger>
           <SelectValue placeholder={t('list.filter_tier')} />
@@ -129,7 +133,10 @@ export function EarlyWarningList() {
 
       <Select
         value={yearGroupFilter}
-        onValueChange={(v) => { setYearGroupFilter(v); setPage(1); }}
+        onValueChange={(v) => {
+          setYearGroupFilter(v);
+          setPage(1);
+        }}
       >
         <SelectTrigger>
           <SelectValue placeholder={t('cohort.year_group')} />
@@ -137,14 +144,19 @@ export function EarlyWarningList() {
         <SelectContent>
           <SelectItem value="all">{t('list.all_year_groups')}</SelectItem>
           {yearGroups.map((yg) => (
-            <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+            <SelectItem key={yg.id} value={yg.id}>
+              {yg.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       <Select
         value={classFilter}
-        onValueChange={(v) => { setClassFilter(v); setPage(1); }}
+        onValueChange={(v) => {
+          setClassFilter(v);
+          setPage(1);
+        }}
       >
         <SelectTrigger>
           <SelectValue placeholder={t('cohort.class')} />
@@ -152,7 +164,9 @@ export function EarlyWarningList() {
         <SelectContent>
           <SelectItem value="all">{t('list.all_classes')}</SelectItem>
           {classes.map((cls) => (
-            <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+            <SelectItem key={cls.id} value={cls.id}>
+              {cls.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -204,9 +218,7 @@ export function EarlyWarningList() {
     {
       key: 'trend',
       header: t('list.trend'),
-      render: (row: RiskProfileListItem) => (
-        <TrendSparkline data={row.trend_data} />
-      ),
+      render: (row: RiskProfileListItem) => <TrendSparkline data={row.trend_data} />,
       className: 'w-24',
     },
     {
@@ -249,13 +261,9 @@ export function EarlyWarningList() {
                       {item.composite_score.toFixed(0)}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-medium text-text-primary">
-                    {item.student_name}
-                  </p>
+                  <p className="mt-2 text-sm font-medium text-text-primary">{item.student_name}</p>
                   {item.top_signal && (
-                    <p className="mt-1 truncate text-xs text-text-secondary">
-                      {item.top_signal}
-                    </p>
+                    <p className="mt-1 truncate text-xs text-text-secondary">{item.top_signal}</p>
                   )}
                 </div>
                 <TrendSparkline data={item.trend_data} width={60} height={20} />

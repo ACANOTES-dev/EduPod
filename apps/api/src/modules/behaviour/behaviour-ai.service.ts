@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
 import { AI_BEHAVIOUR_SYSTEM_PROMPT, anonymiseForAI } from '@school/shared';
 import type {
   AIQueryHistoryResult,

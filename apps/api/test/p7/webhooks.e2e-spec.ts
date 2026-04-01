@@ -1,10 +1,7 @@
 import { INestApplication } from '@nestjs/common';
-import {
-  createTestApp,
-  closeTestApp,
-  AL_NOOR_DOMAIN,
-} from '../helpers';
 import request from 'supertest';
+
+import { createTestApp, closeTestApp, AL_NOOR_DOMAIN } from '../helpers';
 
 jest.setTimeout(120_000);
 

@@ -1,16 +1,16 @@
 'use client';
 
-import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
-import { Button, StatusBadge } from '@school/ui';
 import { Plus } from 'lucide-react';
 import * as React from 'react';
 
-
-import { formatDate } from '@/lib/format-date';
+import type { InvoiceStatus, InstallmentStatus } from '@school/shared';
+import { Button, StatusBadge } from '@school/ui';
 
 import { CurrencyDisplay } from '../../../_components/currency-display';
 
 import { InstallmentForm } from './installment-form';
+
+import { formatDate } from '@/lib/format-date';
 
 interface Installment {
   id: string;
@@ -54,8 +54,7 @@ export function InvoiceInstallmentsTab({
   const [showForm, setShowForm] = React.useState(false);
 
   const canCreateInstallments =
-    installments.length === 0 &&
-    ['draft', 'issued', 'partially_paid'].includes(invoiceStatus);
+    installments.length === 0 && ['draft', 'issued', 'partially_paid'].includes(invoiceStatus);
 
   return (
     <div className="space-y-4">
@@ -69,9 +68,7 @@ export function InvoiceInstallmentsTab({
       )}
 
       {installments.length === 0 ? (
-        <p className="text-sm text-text-tertiary">
-          No installment plan for this invoice.
-        </p>
+        <p className="text-sm text-text-tertiary">No installment plan for this invoice.</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full">

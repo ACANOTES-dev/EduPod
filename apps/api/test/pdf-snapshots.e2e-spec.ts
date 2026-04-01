@@ -11,18 +11,18 @@
  *   3. No Puppeteer/Chromium required for snapshot comparison
  */
 
-import { renderInvoiceEn } from '../src/modules/pdf-rendering/templates/invoice-en.template';
-import { renderInvoiceAr } from '../src/modules/pdf-rendering/templates/invoice-ar.template';
-import { renderReceiptEn } from '../src/modules/pdf-rendering/templates/receipt-en.template';
-import { renderReceiptAr } from '../src/modules/pdf-rendering/templates/receipt-ar.template';
-import { renderPayslipEn } from '../src/modules/pdf-rendering/templates/payslip-en.template';
-import { renderPayslipAr } from '../src/modules/pdf-rendering/templates/payslip-ar.template';
-import { renderReportCardEn } from '../src/modules/pdf-rendering/templates/report-card-en.template';
-import { renderReportCardAr } from '../src/modules/pdf-rendering/templates/report-card-ar.template';
-import { renderTranscriptEn } from '../src/modules/pdf-rendering/templates/transcript-en.template';
-import { renderTranscriptAr } from '../src/modules/pdf-rendering/templates/transcript-ar.template';
-import { renderHouseholdStatementEn } from '../src/modules/pdf-rendering/templates/household-statement-en.template';
 import { renderHouseholdStatementAr } from '../src/modules/pdf-rendering/templates/household-statement-ar.template';
+import { renderHouseholdStatementEn } from '../src/modules/pdf-rendering/templates/household-statement-en.template';
+import { renderInvoiceAr } from '../src/modules/pdf-rendering/templates/invoice-ar.template';
+import { renderInvoiceEn } from '../src/modules/pdf-rendering/templates/invoice-en.template';
+import { renderPayslipAr } from '../src/modules/pdf-rendering/templates/payslip-ar.template';
+import { renderPayslipEn } from '../src/modules/pdf-rendering/templates/payslip-en.template';
+import { renderReceiptAr } from '../src/modules/pdf-rendering/templates/receipt-ar.template';
+import { renderReceiptEn } from '../src/modules/pdf-rendering/templates/receipt-en.template';
+import { renderReportCardAr } from '../src/modules/pdf-rendering/templates/report-card-ar.template';
+import { renderReportCardEn } from '../src/modules/pdf-rendering/templates/report-card-en.template';
+import { renderTranscriptAr } from '../src/modules/pdf-rendering/templates/transcript-ar.template';
+import { renderTranscriptEn } from '../src/modules/pdf-rendering/templates/transcript-en.template';
 
 // ─── Deterministic test data ────────────────────────────────────────────────
 

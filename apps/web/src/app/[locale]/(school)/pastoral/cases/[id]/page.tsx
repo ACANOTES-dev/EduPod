@@ -1,5 +1,11 @@
 'use client';
 
+import { ArrowUpRight, Link2, ListChecks, Send, Shuffle, UserRoundPlus } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,11 +17,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { ArrowUpRight, Link2, ListChecks, Send, Shuffle, UserRoundPlus } from 'lucide-react';
-import Link from 'next/link';
-import { useParams, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import {

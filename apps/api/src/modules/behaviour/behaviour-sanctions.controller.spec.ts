@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { BehaviourSanctionsController } from './behaviour-sanctions.controller';
@@ -49,9 +50,7 @@ describe('BehaviourSanctionsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourSanctionsController],
-      providers: [
-        { provide: BehaviourSanctionsService, useValue: mockSanctionsService },
-      ],
+      providers: [{ provide: BehaviourSanctionsService, useValue: mockSanctionsService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
@@ -176,7 +175,11 @@ describe('BehaviourSanctionsController', () => {
     const result = await controller.transitionStatus(TENANT, USER, SANCTION_ID, dto as never);
 
     expect(mockSanctionsService.transitionStatus).toHaveBeenCalledWith(
-      TENANT_ID, SANCTION_ID, 'served', 'Completed', USER_ID,
+      TENANT_ID,
+      SANCTION_ID,
+      'served',
+      'Completed',
+      USER_ID,
     );
     expect(result).toEqual({ id: SANCTION_ID, status: 'served' });
   });
@@ -187,7 +190,11 @@ describe('BehaviourSanctionsController', () => {
 
     const result = await controller.recordParentMeeting(TENANT, SANCTION_ID, dto as never);
 
-    expect(mockSanctionsService.recordParentMeeting).toHaveBeenCalledWith(TENANT_ID, SANCTION_ID, dto);
+    expect(mockSanctionsService.recordParentMeeting).toHaveBeenCalledWith(
+      TENANT_ID,
+      SANCTION_ID,
+      dto,
+    );
     expect(result).toEqual({ recorded: true });
   });
 
@@ -200,6 +207,8 @@ describe('BehaviourSanctionsController', () => {
   it('should return redirect message for appealOutcome', async () => {
     const result = await controller.appealOutcome(SANCTION_ID);
 
-    expect(result).toEqual({ message: 'Handled by appeals service — use PATCH /appeals/:id/outcome' });
+    expect(result).toEqual({
+      message: 'Handled by appeals service — use PATCH /appeals/:id/outcome',
+    });
   });
 });

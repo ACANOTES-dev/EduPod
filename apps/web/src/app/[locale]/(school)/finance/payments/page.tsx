@@ -1,5 +1,10 @@
 'use client';
 
+import { Banknote, Plus, Search } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { PaymentStatus, PaymentMethod } from '@school/shared';
 import {
   Button,
@@ -11,10 +16,9 @@ import {
   SelectValue,
   EmptyState,
 } from '@school/ui';
-import { Banknote, Plus, Search } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CurrencyDisplay } from '../_components/currency-display';
+import { PaymentStatusBadge } from '../_components/payment-status-badge';
 
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
@@ -22,9 +26,6 @@ import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../_components/currency-display';
-import { PaymentStatusBadge } from '../_components/payment-status-badge';
 
 interface PaymentHousehold {
   id: string;
@@ -160,9 +161,7 @@ export default function PaymentsPage() {
       key: 'payment_method',
       header: 'Method',
       render: (row: Payment) => (
-        <span className="text-sm text-text-secondary">
-          {methodLabelMap[row.payment_method]}
-        </span>
+        <span className="text-sm text-text-secondary">{methodLabelMap[row.payment_method]}</span>
       ),
     },
     {
@@ -182,9 +181,7 @@ export default function PaymentsPage() {
       header: t('acceptedBy'),
       render: (row: Payment) => (
         <span className="text-sm text-text-secondary">
-          {row.posted_by
-            ? `${row.posted_by.first_name} ${row.posted_by.last_name}`
-            : '—'}
+          {row.posted_by ? `${row.posted_by.first_name} ${row.posted_by.last_name}` : '—'}
         </span>
       ),
     },
@@ -262,7 +259,13 @@ export default function PaymentsPage() {
     </div>
   );
 
-  const hasActiveFilters = search || statusFilter !== 'all' || methodFilter !== 'all' || dateFrom || dateTo || staffFilter !== 'all';
+  const hasActiveFilters =
+    search ||
+    statusFilter !== 'all' ||
+    methodFilter !== 'all' ||
+    dateFrom ||
+    dateTo ||
+    staffFilter !== 'all';
 
   return (
     <div className="space-y-6">
@@ -284,7 +287,11 @@ export default function PaymentsPage() {
           icon={Banknote}
           title="No payments yet"
           description="Record your first payment to get started."
-          action={canManage ? { label: 'Record Payment', onClick: () => router.push('/finance/payments/new') } : undefined}
+          action={
+            canManage
+              ? { label: 'Record Payment', onClick: () => router.push('/finance/payments/new') }
+              : undefined
+          }
         />
       ) : (
         <DataTable

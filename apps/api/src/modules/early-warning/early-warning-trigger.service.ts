@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { computeStudentJobPayloadSchema, EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import { computeStudentJobPayloadSchema, EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { PrismaService } from '../prisma/prisma.service';

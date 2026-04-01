@@ -1,8 +1,9 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatCard } from '@school/ui';
 
 import { formatDateTime } from '@/lib/format-date';
 
@@ -100,17 +101,11 @@ export function ReturnsPreview({ data, isLoading }: ReturnsPreviewProps) {
   }
 
   if (!data) {
-    return (
-      <p className="text-sm text-text-secondary">
-        {t('octoberReturns.noData')}
-      </p>
-    );
+    return <p className="text-sm text-text-secondary">{t('octoberReturns.noData')}</p>;
   }
 
   const { summary } = data;
-  const sortedNationalities = [...summary.nationalities].sort(
-    (a, b) => b.count - a.count,
-  );
+  const sortedNationalities = [...summary.nationalities].sort((a, b) => b.count - a.count);
   const sortedYearGroups = [...summary.year_groups].sort((a, b) =>
     a.year_group.localeCompare(b.year_group),
   );
@@ -119,32 +114,16 @@ export function ReturnsPreview({ data, isLoading }: ReturnsPreviewProps) {
     <div className="space-y-6">
       {/* ─── Generated Timestamp ─────────────────────────────────────── */}
       <p className="text-xs text-text-tertiary">
-        {t('octoberReturns.generatedAt')}:{' '}
-        {formatDateTime(data.generated_at)}
+        {t('octoberReturns.generatedAt')}: {formatDateTime(data.generated_at)}
       </p>
 
       {/* ─── Summary Stat Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard
-          label={t('octoberReturns.totalStudents')}
-          value={summary.total_students}
-        />
-        <StatCard
-          label={t('octoberReturns.genderMale')}
-          value={summary.gender.male}
-        />
-        <StatCard
-          label={t('octoberReturns.genderFemale')}
-          value={summary.gender.female}
-        />
-        <StatCard
-          label={t('octoberReturns.genderOther')}
-          value={summary.gender.other}
-        />
-        <StatCard
-          label={t('octoberReturns.newEntrants')}
-          value={summary.new_entrants}
-        />
+        <StatCard label={t('octoberReturns.totalStudents')} value={summary.total_students} />
+        <StatCard label={t('octoberReturns.genderMale')} value={summary.gender.male} />
+        <StatCard label={t('octoberReturns.genderFemale')} value={summary.gender.female} />
+        <StatCard label={t('octoberReturns.genderOther')} value={summary.gender.other} />
+        <StatCard label={t('octoberReturns.newEntrants')} value={summary.new_entrants} />
       </div>
 
       {/* ─── Nationality Breakdown ───────────────────────────────────── */}
@@ -167,22 +146,14 @@ export function ReturnsPreview({ data, isLoading }: ReturnsPreviewProps) {
             <tbody>
               {sortedNationalities.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={2}
-                    className="px-4 py-8 text-center text-sm text-text-tertiary"
-                  >
+                  <td colSpan={2} className="px-4 py-8 text-center text-sm text-text-tertiary">
                     {t('octoberReturns.noData')}
                   </td>
                 </tr>
               ) : (
                 sortedNationalities.map((entry) => (
-                  <tr
-                    key={entry.nationality}
-                    className="border-b border-border last:border-b-0"
-                  >
-                    <td className="px-4 py-3 text-sm text-text-primary">
-                      {entry.nationality}
-                    </td>
+                  <tr key={entry.nationality} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-3 text-sm text-text-primary">{entry.nationality}</td>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">
                       {entry.count}
                     </td>
@@ -214,22 +185,14 @@ export function ReturnsPreview({ data, isLoading }: ReturnsPreviewProps) {
             <tbody>
               {sortedYearGroups.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={2}
-                    className="px-4 py-8 text-center text-sm text-text-tertiary"
-                  >
+                  <td colSpan={2} className="px-4 py-8 text-center text-sm text-text-tertiary">
                     {t('octoberReturns.noData')}
                   </td>
                 </tr>
               ) : (
                 sortedYearGroups.map((entry) => (
-                  <tr
-                    key={entry.year_group}
-                    className="border-b border-border last:border-b-0"
-                  >
-                    <td className="px-4 py-3 text-sm text-text-primary">
-                      {entry.year_group}
-                    </td>
+                  <tr key={entry.year_group} className="border-b border-border last:border-b-0">
+                    <td className="px-4 py-3 text-sm text-text-primary">{entry.year_group}</td>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">
                       {entry.count}
                     </td>

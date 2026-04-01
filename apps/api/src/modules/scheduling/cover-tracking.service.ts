@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { CoverReportQuery } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -70,10 +71,7 @@ export class CoverTrackingService {
 
   // ─── Get Cover Fairness ───────────────────────────────────────────────────
 
-  async getCoverFairness(
-    tenantId: string,
-    query: CoverReportQuery,
-  ): Promise<CoverFairnessResult> {
+  async getCoverFairness(tenantId: string, query: CoverReportQuery): Promise<CoverFairnessResult> {
     const { data: stats } = await this.getCoverReport(tenantId, query);
 
     if (stats.length === 0) {
@@ -88,8 +86,7 @@ export class CoverTrackingService {
 
     const counts = stats.map((s) => s.cover_count);
     const mean = counts.reduce((acc, c) => acc + c, 0) / counts.length;
-    const variance =
-      counts.reduce((acc, c) => acc + Math.pow(c - mean, 2), 0) / counts.length;
+    const variance = counts.reduce((acc, c) => acc + Math.pow(c - mean, 2), 0) / counts.length;
     const stdDev = Math.sqrt(variance);
     const cv = mean > 0 ? stdDev / mean : 0;
 

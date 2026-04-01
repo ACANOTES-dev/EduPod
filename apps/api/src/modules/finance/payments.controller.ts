@@ -11,19 +11,16 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import {
-  confirmAllocationsSchema,
-  createPaymentSchema,
-  paymentQuerySchema,
-} from '@school/shared';
+import type { Response } from 'express';
+import { z } from 'zod';
+
+import { confirmAllocationsSchema, createPaymentSchema, paymentQuerySchema } from '@school/shared';
 import type {
   ConfirmAllocationsDto,
   CreatePaymentDto,
   JwtPayload,
   TenantContext,
 } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -55,18 +52,13 @@ export class PaymentsController {
 
   @Get('staff')
   @RequiresPermission('finance.view')
-  async getAcceptingStaff(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getAcceptingStaff(@CurrentTenant() tenant: TenantContext) {
     return this.paymentsService.getAcceptingStaff(tenant.tenant_id);
   }
 
   @Get(':id')
   @RequiresPermission('finance.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.paymentsService.findOne(tenant.tenant_id, id);
   }
 
@@ -105,10 +97,7 @@ export class PaymentsController {
 
   @Get(':id/receipt')
   @RequiresPermission('finance.view')
-  async getReceipt(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getReceipt(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.receiptsService.findByPayment(tenant.tenant_id, id);
   }
 

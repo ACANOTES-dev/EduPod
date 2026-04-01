@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
+
 import type { GenerateDocumentDto, ListDocumentsQuery, SendDocumentDto } from '@school/shared';
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Handlebars requires CommonJS import
 const Handlebars = require('handlebars') as {

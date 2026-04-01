@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+
 import type {
   BulkClassRequirementsDto,
   CreateClassRequirementDto,
@@ -34,7 +35,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -59,7 +62,9 @@ function buildRequirement(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function buildCreateDto(overrides: Partial<CreateClassRequirementDto> = {}): CreateClassRequirementDto {
+function buildCreateDto(
+  overrides: Partial<CreateClassRequirementDto> = {},
+): CreateClassRequirementDto {
   return {
     class_id: CLASS_ID,
     academic_year_id: YEAR_ID,
@@ -107,10 +112,7 @@ describe('ClassRequirementsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ClassRequirementsService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [ClassRequirementsService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<ClassRequirementsService>(ClassRequirementsService);
@@ -260,7 +262,9 @@ describe('ClassRequirementsService', () => {
     it('should throw NotFoundException if requirement not found on update', async () => {
       mockPrisma.classSchedulingRequirement.findFirst.mockResolvedValue(null);
 
-      await expect(service.update(TENANT_ID, REQUIREMENT_ID, {})).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, REQUIREMENT_ID, {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException if preferred_room_id room not found on update', async () => {
@@ -269,7 +273,9 @@ describe('ClassRequirementsService', () => {
 
       const dto: UpdateClassRequirementDto = { preferred_room_id: ROOM_ID };
 
-      await expect(service.update(TENANT_ID, REQUIREMENT_ID, dto)).rejects.toThrow(NotFoundException);
+      await expect(service.update(TENANT_ID, REQUIREMENT_ID, dto)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockRlsTx.classSchedulingRequirement.update).not.toHaveBeenCalled();
     });
   });
@@ -307,13 +313,29 @@ describe('ClassRequirementsService', () => {
       const dto: BulkClassRequirementsDto = {
         academic_year_id: YEAR_ID,
         requirements: [
-          { class_id: CLASS_ID, periods_per_week: 4, max_consecutive_periods: 2, min_consecutive_periods: 1, spread_preference: 'spread_evenly' },
-          { class_id: CLASS_ID_2, periods_per_week: 3, max_consecutive_periods: 2, min_consecutive_periods: 1, spread_preference: 'cluster' },
+          {
+            class_id: CLASS_ID,
+            periods_per_week: 4,
+            max_consecutive_periods: 2,
+            min_consecutive_periods: 1,
+            spread_preference: 'spread_evenly',
+          },
+          {
+            class_id: CLASS_ID_2,
+            periods_per_week: 3,
+            max_consecutive_periods: 2,
+            min_consecutive_periods: 1,
+            spread_preference: 'cluster',
+          },
         ],
       };
 
       const upserted1 = buildRequirement({ class_id: CLASS_ID, periods_per_week: 4 });
-      const upserted2 = buildRequirement({ id: '22222222-2222-2222-2222-222222222222', class_id: CLASS_ID_2, periods_per_week: 3 });
+      const upserted2 = buildRequirement({
+        id: '22222222-2222-2222-2222-222222222222',
+        class_id: CLASS_ID_2,
+        periods_per_week: 3,
+      });
 
       mockRlsTx.classSchedulingRequirement.upsert
         .mockResolvedValueOnce(upserted1)
@@ -324,7 +346,8 @@ describe('ClassRequirementsService', () => {
       expect(result.count).toBe(2);
       expect(result.data).toHaveLength(2);
       expect(mockRlsTx.classSchedulingRequirement.upsert).toHaveBeenCalledTimes(2);
-      expect(mockRlsTx.classSchedulingRequirement.upsert).toHaveBeenNthCalledWith(1,
+      expect(mockRlsTx.classSchedulingRequirement.upsert).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
           where: {
             idx_class_sched_req_unique: {
@@ -340,7 +363,10 @@ describe('ClassRequirementsService', () => {
     it('should return empty data when no requirements provided — minimum 1 enforced by Zod upstream', async () => {
       // The service itself does not validate the length; Zod does. Here we verify
       // that if an empty array somehow arrives, we get count 0 with no DB calls.
-      const dto = { academic_year_id: YEAR_ID, requirements: [] } as unknown as BulkClassRequirementsDto;
+      const dto = {
+        academic_year_id: YEAR_ID,
+        requirements: [],
+      } as unknown as BulkClassRequirementsDto;
 
       // $transaction fn is called but the for-loop body never executes
       const result = await service.bulkUpsert(TENANT_ID, dto);

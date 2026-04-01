@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { PublicWebsiteController } from './public-website.controller';
@@ -67,8 +68,6 @@ describe('PublicWebsiteController', () => {
   it('should propagate service errors to the caller', async () => {
     mockService.getPageBySlug.mockRejectedValueOnce(new Error('Not Found'));
 
-    await expect(
-      controller.getBySlug(tenant, 'missing', 'en'),
-    ).rejects.toThrow('Not Found');
+    await expect(controller.getBySlug(tenant, 'missing', 'en')).rejects.toThrow('Not Found');
   });
 });

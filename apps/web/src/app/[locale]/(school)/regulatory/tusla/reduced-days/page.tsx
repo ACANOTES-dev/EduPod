@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,17 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { RegulatoryNav } from '../../_components/regulatory-nav';
+import { ReducedDayForm } from '../_components/reduced-day-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { RegulatoryNav } from '../../_components/regulatory-nav';
-import { ReducedDayForm } from '../_components/reduced-day-form';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,9 @@ export default function ReducedSchoolDaysPage() {
   // Dialog state
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogMode, setDialogMode] = React.useState<'create' | 'edit'>('create');
-  const [selectedRecord, setSelectedRecord] = React.useState<ReducedSchoolDayRecord | undefined>(undefined);
+  const [selectedRecord, setSelectedRecord] = React.useState<ReducedSchoolDayRecord | undefined>(
+    undefined,
+  );
 
   // ─── Fetch Data ────────────────────────────────────────────────────────
 

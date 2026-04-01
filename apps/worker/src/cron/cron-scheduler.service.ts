@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_DAILY_JOB, EARLY_WARNING_WEEKLY_DIGEST_JOB } from '@school/shared';
 
 import { QUEUE_NAMES } from '../base/queue.constants';
 import { APPROVAL_CALLBACK_RECONCILIATION_JOB } from '../processors/approvals/callback-reconciliation.processor';

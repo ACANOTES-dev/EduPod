@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, TableWrapper } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -26,7 +26,9 @@ interface YtdSummaryTableProps {
 }
 
 function exportCsv(data: YtdSummaryRow[], headers: string[]) {
-  const rows = data.map((r) => [r.staff_name, r.ytd_basic, r.ytd_bonus, r.ytd_total, r.months_paid].join(','));
+  const rows = data.map((r) =>
+    [r.staff_name, r.ytd_basic, r.ytd_bonus, r.ytd_total, r.months_paid].join(','),
+  );
   const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -47,7 +49,7 @@ export function YtdSummaryTable({ data }: YtdSummaryTableProps) {
         ytd_bonus: acc.ytd_bonus + r.ytd_bonus,
         ytd_total: acc.ytd_total + r.ytd_total,
       }),
-      { ytd_basic: 0, ytd_bonus: 0, ytd_total: 0 }
+      { ytd_basic: 0, ytd_bonus: 0, ytd_total: 0 },
     );
   }, [data]);
 
@@ -91,12 +93,25 @@ export function YtdSummaryTable({ data }: YtdSummaryTableProps) {
               </tr>
             ) : (
               data.map((row) => (
-                <tr key={row.staff_profile_id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary">
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.staff_name}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(row.ytd_basic)}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(row.ytd_bonus)}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">{formatCurrency(row.ytd_total)}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{row.months_paid}</td>
+                <tr
+                  key={row.staff_profile_id}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                >
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {row.staff_name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {formatCurrency(row.ytd_basic)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {formatCurrency(row.ytd_bonus)}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">
+                    {formatCurrency(row.ytd_total)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {row.months_paid}
+                  </td>
                 </tr>
               ))
             )}
@@ -104,10 +119,18 @@ export function YtdSummaryTable({ data }: YtdSummaryTableProps) {
           {data.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-border bg-surface-secondary">
-                <td className="px-4 py-3 text-sm font-semibold text-text-primary">{t('grandTotal')}</td>
-                <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">{formatCurrency(grandTotals.ytd_basic)}</td>
-                <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">{formatCurrency(grandTotals.ytd_bonus)}</td>
-                <td className="px-4 py-3 text-sm font-bold text-text-primary text-end">{formatCurrency(grandTotals.ytd_total)}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                  {t('grandTotal')}
+                </td>
+                <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">
+                  {formatCurrency(grandTotals.ytd_basic)}
+                </td>
+                <td className="px-4 py-3 text-sm font-semibold text-text-primary text-end">
+                  {formatCurrency(grandTotals.ytd_bonus)}
+                </td>
+                <td className="px-4 py-3 text-sm font-bold text-text-primary text-end">
+                  {formatCurrency(grandTotals.ytd_total)}
+                </td>
                 <td />
               </tr>
             </tfoot>

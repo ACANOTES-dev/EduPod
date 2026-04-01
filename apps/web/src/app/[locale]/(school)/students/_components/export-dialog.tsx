@@ -1,5 +1,8 @@
 'use client';
 
+import { Download, Loader2 } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -10,8 +13,6 @@ import {
   DialogTitle,
   Input,
 } from '@school/ui';
-import { Download, Loader2 } from 'lucide-react';
-import * as React from 'react';
 
 import {
   ALL_EXPORT_COLUMNS,
@@ -44,8 +45,24 @@ const PREVIEW_ROWS = [
     household: { id: '1', household_name: 'Al-Farsi Family' },
     homeroom_class: { id: '1', name: '1A' },
     student_parents: [
-      { relationship_label: 'Father', parent: { first_name: 'Omar', last_name: 'Al-Farsi', email: 'omar@example.com', phone: '+971501234567' } },
-      { relationship_label: 'Mother', parent: { first_name: 'Sara', last_name: 'Al-Farsi', email: 'sara@example.com', phone: '+971507654321' } },
+      {
+        relationship_label: 'Father',
+        parent: {
+          first_name: 'Omar',
+          last_name: 'Al-Farsi',
+          email: 'omar@example.com',
+          phone: '+971501234567',
+        },
+      },
+      {
+        relationship_label: 'Mother',
+        parent: {
+          first_name: 'Sara',
+          last_name: 'Al-Farsi',
+          email: 'sara@example.com',
+          phone: '+971507654321',
+        },
+      },
     ],
   },
   {
@@ -67,7 +84,15 @@ const PREVIEW_ROWS = [
     household: { id: '2', household_name: 'Murphy Family' },
     homeroom_class: { id: '2', name: '2B' },
     student_parents: [
-      { relationship_label: 'Father', parent: { first_name: 'Sean', last_name: 'Murphy', email: 'sean@example.com', phone: '+353871234567' } },
+      {
+        relationship_label: 'Father',
+        parent: {
+          first_name: 'Sean',
+          last_name: 'Murphy',
+          email: 'sean@example.com',
+          phone: '+353871234567',
+        },
+      },
     ],
   },
 ] as const;
@@ -141,9 +166,7 @@ export function StudentExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-auto max-w-[calc(100vw-2rem)] min-w-[min(672px,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {exportFormat === 'xlsx' ? 'Export to Excel' : 'Export to PDF'}
-          </DialogTitle>
+          <DialogTitle>{exportFormat === 'xlsx' ? 'Export to Excel' : 'Export to PDF'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -255,10 +278,7 @@ export function StudentExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            disabled={activeColumns.length === 0 || exporting}
-            onClick={onExport}
-          >
+          <Button disabled={activeColumns.length === 0 || exporting} onClick={onExport}>
             {exporting ? (
               <Loader2 className="me-2 h-4 w-4 animate-spin" />
             ) : (

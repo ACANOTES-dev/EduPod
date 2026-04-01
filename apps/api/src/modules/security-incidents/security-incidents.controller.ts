@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+
 import { notifyControllersSchema, notifyDpcSchema } from '@school/shared';
 import type { JwtPayload, NotifyControllersDto, NotifyDpcDto } from '@school/shared';
 

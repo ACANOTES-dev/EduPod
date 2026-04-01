@@ -1,10 +1,11 @@
 'use client';
 
-import { EmptyState, StatCard, StatusBadge } from '@school/ui';
 import { BookOpen, CalendarDays, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
+
+import { EmptyState, StatCard, StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -60,8 +61,9 @@ export default function TeacherDashboardPage() {
         silent: true,
       });
       setData(result.data);
-    } catch {
+    } catch (err) {
       // Fall back to empty state
+      console.error('[setData]', err);
     } finally {
       setLoading(false);
     }
@@ -100,12 +102,20 @@ export default function TeacherDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label={t('dashboard.todaysLessons')} value={data?.todays_schedule?.length ?? 0} />
-        <StatCard label={t('dashboard.attendanceSessions')} value={data?.todays_sessions?.length ?? 0} />
-        <StatCard label={t('dashboard.pendingSubmissions')} value={data?.pending_submissions ?? 0} />
+        <StatCard
+          label={t('dashboard.attendanceSessions')}
+          value={data?.todays_sessions?.length ?? 0}
+        />
+        <StatCard
+          label={t('dashboard.pendingSubmissions')}
+          value={data?.pending_submissions ?? 0}
+        />
       </div>
 
       <section>
-        <h2 className="mb-3 text-base font-semibold text-text-primary">{t('dashboard.todaysSchedule')}</h2>
+        <h2 className="mb-3 text-base font-semibold text-text-primary">
+          {t('dashboard.todaysSchedule')}
+        </h2>
         {loading ? (
           <div className="rounded-2xl bg-surface-secondary p-4 space-y-2">
             {[1, 2, 3].map((i) => (
@@ -183,7 +193,9 @@ export default function TeacherDashboardPage() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text-primary">{t('homework.dashboardCard.title')}</h2>
+          <h2 className="text-base font-semibold text-text-primary">
+            {t('homework.dashboardCard.title')}
+          </h2>
           {homeworkData.unverified > 0 && (
             <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
               {homeworkData.unverified} {t('homework.dashboardCard.unverified')}

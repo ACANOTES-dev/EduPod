@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 
-import { formatDateTime } from '@/lib/format-date';
-
 import { IncidentStatusBadge } from './incident-status-badge';
+
+import { formatDateTime } from '@/lib/format-date';
 
 export interface IncidentCardData {
   id: string;
@@ -35,15 +35,13 @@ const POLARITY_ACCENT: Record<string, string> = {
 
 export function IncidentCard({ incident, onClick }: IncidentCardProps) {
   const studentNames = incident.participants
-    .map((p) => p.student ? `${p.student.first_name} ${p.student.last_name}` : null)
+    .map((p) => (p.student ? `${p.student.first_name} ${p.student.last_name}` : null))
     .filter(Boolean)
     .join(', ');
 
-  const accentColor = incident.category?.color
-    ? incident.category.color
-    : undefined;
+  const accentColor = incident.category?.color ? incident.category.color : undefined;
   const accentClass = !accentColor
-    ? POLARITY_ACCENT[incident.category?.polarity ?? 'neutral'] ?? 'bg-gray-400'
+    ? (POLARITY_ACCENT[incident.category?.polarity ?? 'neutral'] ?? 'bg-gray-400')
     : undefined;
 
   return (
@@ -60,9 +58,7 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-mono text-text-tertiary">
-            {incident.incident_number}
-          </span>
+          <span className="text-xs font-mono text-text-tertiary">{incident.incident_number}</span>
           {incident.category && (
             <span className="text-xs font-medium text-text-secondary">
               {incident.category.name}
@@ -72,14 +68,10 @@ export function IncidentCard({ incident, onClick }: IncidentCardProps) {
         </div>
 
         {studentNames && (
-          <p className="mt-1 text-sm font-medium text-text-primary truncate">
-            {studentNames}
-          </p>
+          <p className="mt-1 text-sm font-medium text-text-primary truncate">{studentNames}</p>
         )}
 
-        <p className="mt-0.5 text-xs text-text-secondary line-clamp-2">
-          {incident.description}
-        </p>
+        <p className="mt-0.5 text-xs text-text-secondary line-clamp-2">{incident.description}</p>
 
         <p className="mt-1 text-[11px] text-text-tertiary">
           {formatDateTime(incident.occurred_at)}

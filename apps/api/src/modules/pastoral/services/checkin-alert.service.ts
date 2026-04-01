@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { pastoralTenantSettingsSchema, SYSTEM_USER_SENTINEL } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import { pastoralTenantSettingsSchema, SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -85,7 +86,7 @@ export class CheckinAlertService {
     // 5. Flag triggered — generate concern, update checkin, audit, notify
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const concernId = await rlsClient.$transaction(async (tx) => {
+    const concernId = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // 5a. Create Tier 2 concern
@@ -119,7 +120,7 @@ export class CheckinAlertService {
       });
 
       return concern.id;
-    }) as string;
+    })) as string;
 
     // 5c. Record audit event (fire-and-forget)
     void this.eventService.write({
@@ -165,10 +166,7 @@ export class CheckinAlertService {
       );
     }
 
-    await this.notificationsQueue.add(
-      'pastoral:checkin-alert-notification',
-      jobPayload,
-    );
+    await this.notificationsQueue.add('pastoral:checkin-alert-notification', jobPayload);
 
     return {
       was_flagged: true,
@@ -209,7 +207,7 @@ export class CheckinAlertService {
   ): Promise<boolean> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const checkins = await rlsClient.$transaction(async (tx) => {
+    const checkins = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.studentCheckin.findMany({
         where: { tenant_id: tenantId, student_id: studentId },
@@ -217,7 +215,7 @@ export class CheckinAlertService {
         take: threshold,
         select: { mood_score: true },
       });
-    }) as Array<{ mood_score: number }>;
+    })) as Array<{ mood_score: number }>;
 
     // Fewer than threshold check-ins exist
     if (checkins.length < threshold) {

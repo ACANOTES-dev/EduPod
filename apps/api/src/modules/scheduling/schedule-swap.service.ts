@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { EmergencyChangeDto, ExecuteSwapDto, ValidateSwapDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -24,16 +21,15 @@ export class ScheduleSwapService {
 
   // ─── Validate Swap ────────────────────────────────────────────────────────
 
-  async validateSwap(
-    tenantId: string,
-    dto: ValidateSwapDto,
-  ): Promise<SwapValidationResult> {
+  async validateSwap(tenantId: string, dto: ValidateSwapDto): Promise<SwapValidationResult> {
     const [scheduleA, scheduleB] = await Promise.all([
       this.prisma.schedule.findFirst({
         where: { id: dto.schedule_id_a, tenant_id: tenantId },
         include: {
           class_entity: { select: { name: true, year_group_id: true, subject_id: true } },
-          teacher: { select: { id: true, user: { select: { first_name: true, last_name: true } } } },
+          teacher: {
+            select: { id: true, user: { select: { first_name: true, last_name: true } } },
+          },
           room: { select: { id: true, name: true } },
         },
       }),
@@ -41,7 +37,9 @@ export class ScheduleSwapService {
         where: { id: dto.schedule_id_b, tenant_id: tenantId },
         include: {
           class_entity: { select: { name: true, year_group_id: true, subject_id: true } },
-          teacher: { select: { id: true, user: { select: { first_name: true, last_name: true } } } },
+          teacher: {
+            select: { id: true, user: { select: { first_name: true, last_name: true } } },
+          },
           room: { select: { id: true, name: true } },
         },
       }),
@@ -119,7 +117,9 @@ export class ScheduleSwapService {
         select: { id: true },
       });
       if (roomConflict) {
-        violations.push(`Room ${scheduleA.room?.name ?? scheduleA.room_id} has a conflict at the target slot`);
+        violations.push(
+          `Room ${scheduleA.room?.name ?? scheduleA.room_id} has a conflict at the target slot`,
+        );
       }
     }
 
@@ -137,16 +137,22 @@ export class ScheduleSwapService {
         select: { id: true },
       });
       if (roomConflict) {
-        violations.push(`Room ${scheduleB.room?.name ?? scheduleB.room_id} has a conflict at the target slot`);
+        violations.push(
+          `Room ${scheduleB.room?.name ?? scheduleB.room_id} has a conflict at the target slot`,
+        );
       }
     }
 
     const teachersAffected: string[] = [];
     if (scheduleA.teacher) {
-      teachersAffected.push(`${scheduleA.teacher.user.first_name} ${scheduleA.teacher.user.last_name}`.trim());
+      teachersAffected.push(
+        `${scheduleA.teacher.user.first_name} ${scheduleA.teacher.user.last_name}`.trim(),
+      );
     }
     if (scheduleB.teacher && scheduleB.teacher_staff_id !== scheduleA.teacher_staff_id) {
-      teachersAffected.push(`${scheduleB.teacher.user.first_name} ${scheduleB.teacher.user.last_name}`.trim());
+      teachersAffected.push(
+        `${scheduleB.teacher.user.first_name} ${scheduleB.teacher.user.last_name}`.trim(),
+      );
     }
 
     const classAName = scheduleA.class_entity?.name ?? 'Class A';
@@ -165,11 +171,7 @@ export class ScheduleSwapService {
 
   // ─── Execute Swap ─────────────────────────────────────────────────────────
 
-  async executeSwap(
-    tenantId: string,
-    userId: string,
-    dto: ExecuteSwapDto,
-  ) {
+  async executeSwap(tenantId: string, userId: string, dto: ExecuteSwapDto) {
     // Validate first
     const validation = await this.validateSwap(tenantId, dto);
     if (!validation.valid) {
@@ -252,11 +254,7 @@ export class ScheduleSwapService {
 
   // ─── Emergency Change ─────────────────────────────────────────────────────
 
-  async emergencyChange(
-    tenantId: string,
-    userId: string,
-    dto: EmergencyChangeDto,
-  ) {
+  async emergencyChange(tenantId: string, userId: string, dto: EmergencyChangeDto) {
     const schedule = await this.prisma.schedule.findFirst({
       where: { id: dto.schedule_id, tenant_id: tenantId },
       select: {
@@ -280,14 +278,15 @@ export class ScheduleSwapService {
       throw new BadRequestException({
         error: {
           code: 'NO_CHANGES',
-          message: 'At least one change must be specified: new_room_id, new_teacher_staff_id, or cancel_period',
+          message:
+            'At least one change must be specified: new_room_id, new_teacher_staff_id, or cancel_period',
         },
       });
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const updated = await prismaWithRls.$transaction(async (tx) => {
+    const updated = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       if (dto.cancel_period) {
@@ -312,7 +311,7 @@ export class ScheduleSwapService {
         where: { id: dto.schedule_id },
         data: updateData,
       });
-    }) as unknown as { id: string; updated_at: Date };
+    })) as unknown as { id: string; updated_at: Date };
 
     return {
       id: (updated as { id: string }).id,

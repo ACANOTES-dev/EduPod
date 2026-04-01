@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import type { BoardReportSummary, TenantContext } from '@school/shared';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';

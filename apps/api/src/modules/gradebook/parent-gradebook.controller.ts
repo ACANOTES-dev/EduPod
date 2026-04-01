@@ -9,9 +9,10 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -9,15 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { YearGroupForm, type YearGroupFormValues } from './_components/year-group-form';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
-
-import { YearGroupForm, type YearGroupFormValues } from './_components/year-group-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +150,10 @@ export default function YearGroupsPage() {
                   variant="ghost"
                   size="sm"
                   className="text-danger-text hover:text-danger-text"
-                  onClick={() => { setDeleteError(''); setDeleteTarget(group); }}
+                  onClick={() => {
+                    setDeleteError('');
+                    setDeleteTarget(group);
+                  }}
                 >
                   <Trash2 className="h-4 w-4" />
                   <span className="sr-only">{tc('delete')}</span>
@@ -173,7 +176,9 @@ export default function YearGroupsPage() {
       {editTarget && (
         <YearGroupForm
           open={!!editTarget}
-          onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+          onOpenChange={(v) => {
+            if (!v) setEditTarget(null);
+          }}
           initialValues={{
             name: editTarget.name,
             display_order: editTarget.display_order,
@@ -188,7 +193,12 @@ export default function YearGroupsPage() {
       )}
 
       {/* Delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteConfirmTitle')}</DialogTitle>
@@ -196,7 +206,11 @@ export default function YearGroupsPage() {
           </DialogHeader>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteLoading}
+            >
               {tc('cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>

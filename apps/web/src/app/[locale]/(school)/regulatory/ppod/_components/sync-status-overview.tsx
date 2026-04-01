@@ -1,8 +1,9 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatCard } from '@school/ui';
 
 import { formatDate } from '@/lib/format-date';
 
@@ -62,45 +63,26 @@ export function SyncStatusOverview({
   return (
     <div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard
-          label={t('ppod.totalStudents')}
-          value={total}
-        />
+        <StatCard label={t('ppod.totalStudents')} value={total} />
         <StatCard
           label={t('ppod.synced')}
           value={synced}
-          trend={
-            synced > 0
-              ? { direction: 'up', label: t('ppod.upToDate') }
-              : undefined
-          }
+          trend={synced > 0 ? { direction: 'up', label: t('ppod.upToDate') } : undefined}
         />
         <StatCard
           label={t('ppod.pending')}
           value={pending}
-          trend={
-            pending > 0
-              ? { direction: 'neutral', label: t('ppod.awaitingSync') }
-              : undefined
-          }
+          trend={pending > 0 ? { direction: 'neutral', label: t('ppod.awaitingSync') } : undefined}
         />
         <StatCard
           label={t('ppod.changed')}
           value={changed}
-          trend={
-            changed > 0
-              ? { direction: 'neutral', label: t('ppod.needsReview') }
-              : undefined
-          }
+          trend={changed > 0 ? { direction: 'neutral', label: t('ppod.needsReview') } : undefined}
         />
         <StatCard
           label={t('ppod.errors')}
           value={errors}
-          trend={
-            errors > 0
-              ? { direction: 'down', label: t('ppod.requiresAttention') }
-              : undefined
-          }
+          trend={errors > 0 ? { direction: 'down', label: t('ppod.requiresAttention') } : undefined}
         />
       </div>
       <p className="mt-3 text-xs text-text-tertiary">

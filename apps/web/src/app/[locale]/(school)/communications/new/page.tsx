@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -14,10 +19,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -55,16 +56,17 @@ export default function NewAnnouncementPage() {
 
   const toggleChannel = (ch: DeliveryChannel) => {
     if (ch === 'in_app') return; // Always on
-    setChannels((prev) =>
-      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
-    );
+    setChannels((prev) => (prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]));
   };
 
   const needsTarget = scope !== 'school';
 
   const buildTargetPayload = (): Record<string, unknown> => {
     if (scope === 'school') return {};
-    const ids = targetIds.split(',').map((s) => s.trim()).filter(Boolean);
+    const ids = targetIds
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (scope === 'year_group') return { year_group_ids: ids };
     if (scope === 'class') return { class_ids: ids };
     if (scope === 'household') return { household_ids: ids };
@@ -231,11 +233,7 @@ export default function NewAnnouncementPage() {
 
         {/* Schedule toggle */}
         <div className="flex items-center gap-3">
-          <Switch
-            id="schedule"
-            checked={scheduleEnabled}
-            onCheckedChange={setScheduleEnabled}
-          />
+          <Switch id="schedule" checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
           <Label htmlFor="schedule" className="cursor-pointer">
             {t('form.scheduleLabel')}
           </Label>

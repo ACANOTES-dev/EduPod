@@ -1,8 +1,9 @@
 'use client';
 
-import { Checkbox, Label, Switch, toast } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Checkbox, Label, Switch, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -75,9 +76,7 @@ function NotificationRow({
       {/* Notification type */}
       <td className="py-3 pe-4 ps-6">
         <span className="text-sm text-text-primary">{displayLabel}</span>
-        <p className="mt-0.5 font-mono text-xs text-text-tertiary">
-          {setting.notification_type}
-        </p>
+        <p className="mt-0.5 font-mono text-xs text-text-tertiary">{setting.notification_type}</p>
       </td>
 
       {/* Enabled toggle */}
@@ -92,7 +91,8 @@ function NotificationRow({
 
       {/* Channel checkboxes */}
       {AVAILABLE_CHANNELS.map((channel) => {
-        const channelLabelKey = `channel${channel.charAt(0).toUpperCase() + channel.slice(1)}` as Parameters<typeof t>[0];
+        const channelLabelKey =
+          `channel${channel.charAt(0).toUpperCase() + channel.slice(1)}` as Parameters<typeof t>[0];
         return (
           <td key={channel} className="py-3 pe-4 text-center">
             <div className="flex items-center justify-center">
@@ -216,7 +216,10 @@ export default function NotificationsPage() {
                 {t('enable')}
               </th>
               {AVAILABLE_CHANNELS.map((channel) => {
-                const channelLabelKey = `channel${channel.charAt(0).toUpperCase() + channel.slice(1)}` as Parameters<typeof t>[0];
+                const channelLabelKey =
+                  `channel${channel.charAt(0).toUpperCase() + channel.slice(1)}` as Parameters<
+                    typeof t
+                  >[0];
                 return (
                   <th
                     key={channel}

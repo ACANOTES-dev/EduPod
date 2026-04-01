@@ -12,13 +12,14 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   assignClassStaffSchema,
   createClassSchema,
   updateClassSchema,
   updateClassStatusSchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -131,12 +132,7 @@ export class ClassesController {
     @Param('staffProfileId', ParseUUIDPipe) staffProfileId: string,
     @Param('role') role: string,
   ) {
-    return this.classesService.removeStaff(
-      tenant.tenant_id,
-      classId,
-      staffProfileId,
-      role,
-    );
+    return this.classesService.removeStaff(tenant.tenant_id, classId, staffProfileId, role);
   }
 
   @Get(':id/preview')

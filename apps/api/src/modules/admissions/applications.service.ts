@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   AdmissionsAnalyticsQuery,
   ConvertApplicationDto,
@@ -435,6 +436,7 @@ export class ApplicationsService {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
       };
 
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- aggregate query within RLS transaction
       const avgDaysResult = (await rawTx.$queryRaw(
         Prisma.sql`
           SELECT AVG(EXTRACT(EPOCH FROM (reviewed_at - submitted_at)) / 86400) as avg_days

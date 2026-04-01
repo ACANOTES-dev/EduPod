@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Label,
-  StatusBadge,
-  toast,
-} from '@school/ui';
 import { Loader2, Plus, Star, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label, StatusBadge, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -217,10 +212,7 @@ function ThresholdConfigCard({
   const handleAddThreshold = () => {
     onUpdate({
       ...config,
-      thresholds_json: [
-        ...config.thresholds_json,
-        { min_score: 0, label: '', label_ar: '' },
-      ],
+      thresholds_json: [...config.thresholds_json, { min_score: 0, label: '', label_ar: '' }],
     });
   };
 
@@ -271,11 +263,7 @@ function ThresholdConfigCard({
               {tr('setAsDefault')}
             </Button>
           )}
-          <Button
-            size="sm"
-            onClick={() => void handleSave()}
-            disabled={saving}
-          >
+          <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
             {saving ? <Loader2 className="me-2 h-3.5 w-3.5 animate-spin" /> : null}
             {tc('save')}
           </Button>
@@ -352,8 +340,7 @@ function ThresholdConfigCard({
         {preview && (
           <div className="mt-3 rounded-xl bg-surface-secondary px-4 py-2.5">
             <p className="text-xs text-text-tertiary">
-              <span className="font-medium">{tr('preview')}:</span>{' '}
-              <span dir="ltr">{preview}</span>
+              <span className="font-medium">{tr('preview')}:</span> <span dir="ltr">{preview}</span>
             </p>
           </div>
         )}

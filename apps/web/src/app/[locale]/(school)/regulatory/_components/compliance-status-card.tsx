@@ -1,7 +1,8 @@
 'use client';
 
-import { cn } from '@school/ui';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,9 +51,7 @@ export function ComplianceStatusCard({ title, items, footer }: ComplianceStatusC
       </div>
 
       {footer && (
-        <div className="mt-3 border-t border-border pt-3 text-xs text-text-tertiary">
-          {footer}
-        </div>
+        <div className="mt-3 border-t border-border pt-3 text-xs text-text-tertiary">{footer}</div>
       )}
     </div>
   );

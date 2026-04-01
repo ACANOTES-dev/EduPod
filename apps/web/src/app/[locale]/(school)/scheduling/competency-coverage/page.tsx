@@ -1,5 +1,10 @@
 'use client';
 
+import { ExternalLink, Users } from 'lucide-react';
+import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Popover,
   PopoverContent,
@@ -11,10 +16,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { ExternalLink, Users } from 'lucide-react';
-import Link from 'next/link';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -91,9 +92,8 @@ export default function CompetencyCoveragePage() {
   }, [selectedYear]);
 
   const summary = coverage?.summary ?? { gaps: 0, at_risk: 0, covered: 0, total: 0 };
-  const coverageRate = summary.total > 0
-    ? Math.round(((summary.covered + summary.at_risk) / summary.total) * 100)
-    : 0;
+  const coverageRate =
+    summary.total > 0 ? Math.round(((summary.covered + summary.at_risk) / summary.total) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -107,7 +107,9 @@ export default function CompetencyCoveragePage() {
             </SelectTrigger>
             <SelectContent>
               {academicYears.map((y) => (
-                <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                <SelectItem key={y.id} value={y.id}>
+                  {y.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -198,16 +200,20 @@ export default function CompetencyCoveragePage() {
           {/* Legend */}
           <div className="flex flex-wrap items-center gap-4 border-t border-border bg-surface-secondary/50 px-4 py-2 text-xs text-text-tertiary">
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-100" /> {tv('coverageLegendGap')}
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-100" />{' '}
+              {tv('coverageLegendGap')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-100" /> {tv('coverageLegendAtRisk')}
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-100" />{' '}
+              {tv('coverageLegendAtRisk')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-100" /> {tv('coverageLegendCovered')}
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-100" />{' '}
+              {tv('coverageLegendCovered')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-surface-secondary" /> {tv('coverageLegendNotInCurriculum')}
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-surface-secondary" />{' '}
+              {tv('coverageLegendNotInCurriculum')}
             </span>
           </div>
         </div>

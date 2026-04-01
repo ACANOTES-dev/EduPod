@@ -1,8 +1,9 @@
 'use client';
 
-import { StatusBadge, cn } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatusBadge, cn } from '@school/ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,12 +69,8 @@ export function ThresholdMonitorTable({ data, threshold, isLoading }: ThresholdM
   if (isLoading) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('tusla.thresholdMonitor')}
-        </h2>
-        <p className="mt-1 text-sm text-text-tertiary">
-          {t('tusla.thresholdMonitorDescription')}
-        </p>
+        <h2 className="text-lg font-semibold text-text-primary">{t('tusla.thresholdMonitor')}</h2>
+        <p className="mt-1 text-sm text-text-tertiary">{t('tusla.thresholdMonitorDescription')}</p>
         <div className="mt-4">
           <TableSkeleton />
         </div>
@@ -85,9 +82,7 @@ export function ThresholdMonitorTable({ data, threshold, isLoading }: ThresholdM
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-text-primary">
-            {t('tusla.thresholdMonitor')}
-          </h2>
+          <h2 className="text-lg font-semibold text-text-primary">{t('tusla.thresholdMonitor')}</h2>
           <p className="mt-1 text-sm text-text-tertiary">
             {t('tusla.thresholdMonitorDescription')}
           </p>
@@ -99,9 +94,7 @@ export function ThresholdMonitorTable({ data, threshold, isLoading }: ThresholdM
 
       {data.length === 0 ? (
         <div className="mt-4 rounded-2xl border border-dashed border-border px-4 py-10 text-center">
-          <p className="text-sm text-text-tertiary">
-            {t('tusla.noStudentsNearThreshold')}
-          </p>
+          <p className="text-sm text-text-tertiary">{t('tusla.noStudentsNearThreshold')}</p>
         </div>
       ) : (
         <>
@@ -121,14 +114,10 @@ export function ThresholdMonitorTable({ data, threshold, isLoading }: ThresholdM
                   </StatusBadge>
                 </div>
                 {row.student.student_number && (
-                  <p className="mt-1 text-xs text-text-tertiary">
-                    {row.student.student_number}
-                  </p>
+                  <p className="mt-1 text-xs text-text-tertiary">{row.student.student_number}</p>
                 )}
                 <div className="mt-3 flex items-center gap-4">
-                  <span className="text-xs text-text-tertiary">
-                    {t('tusla.absentDays')}:
-                  </span>
+                  <span className="text-xs text-text-tertiary">{t('tusla.absentDays')}:</span>
                   <span className={cn('text-sm tabular-nums', absentDaysClass(row.absent_days))}>
                     {row.absent_days}
                   </span>
@@ -170,13 +159,9 @@ export function ThresholdMonitorTable({ data, threshold, isLoading }: ThresholdM
                       {row.student.student_number ?? '—'}
                     </td>
                     <td className="px-3 py-3 tabular-nums">
-                      <span className={absentDaysClass(row.absent_days)}>
-                        {row.absent_days}
-                      </span>
+                      <span className={absentDaysClass(row.absent_days)}>{row.absent_days}</span>
                     </td>
-                    <td className="px-3 py-3 text-text-secondary tabular-nums">
-                      {row.threshold}
-                    </td>
+                    <td className="px-3 py-3 text-text-secondary tabular-nums">{row.threshold}</td>
                     <td className="px-3 py-3">
                       <StatusBadge status={statusVariant[row.status] ?? 'neutral'} dot>
                         {t(`tusla.status.${row.status}` as never)}

@@ -1,8 +1,5 @@
-import {
-  Controller,
-  Get,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -19,9 +16,7 @@ export class FinanceDashboardController {
 
   @Get()
   @RequiresPermission('finance.view')
-  async getDashboard(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getDashboard(@CurrentTenant() tenant: TenantContext) {
     return this.dashboardService.getDashboardData(tenant.tenant_id);
   }
 }

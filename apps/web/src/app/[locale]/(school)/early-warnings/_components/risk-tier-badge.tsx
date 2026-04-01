@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge } from '@school/ui';
 
 import { TIER_COLORS, type RiskTier } from '@/lib/early-warning';
 
@@ -17,9 +18,5 @@ export function RiskTierBadge({ tier, className }: RiskTierBadgeProps) {
 
   const label = t(tier);
 
-  return (
-    <Badge className={`${colors.bg} ${colors.text} ${className ?? ''}`}>
-      {label}
-    </Badge>
-  );
+  return <Badge className={`${colors.bg} ${colors.text} ${className ?? ''}`}>{label}</Badge>;
 }

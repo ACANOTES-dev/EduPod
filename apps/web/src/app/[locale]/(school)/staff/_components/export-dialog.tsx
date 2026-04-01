@@ -1,5 +1,9 @@
 'use client';
 
+import { Download } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -9,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { Download } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   ALL_EXPORT_COLUMNS,
@@ -40,7 +41,7 @@ const PREVIEW_ROWS = [
   {
     staff_number: 'RVX0917-6',
     first_name: 'James',
-    last_name: 'O\'Brien',
+    last_name: "O'Brien",
     email: 'james.obrien@school.com',
     phone: '+353879876543',
     job_title: 'School Administrator',
@@ -107,16 +108,16 @@ export function ExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-auto max-w-[calc(100vw-2rem)] min-w-[min(672px,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}
-          </DialogTitle>
+          <DialogTitle>{exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Column checkboxes — Personal Information */}
           <div className="space-y-4">
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('personalFields')}</h3>
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                {t('personalFields')}
+              </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {ALL_EXPORT_COLUMNS.filter((c) => c.group === 'personal').map((col) => (
                   <label
@@ -135,7 +136,9 @@ export function ExportDialog({
 
             {/* Employment Information */}
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-text-primary">{t('employmentFields')}</h3>
+              <h3 className="mb-2 text-sm font-semibold text-text-primary">
+                {t('employmentFields')}
+              </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {ALL_EXPORT_COLUMNS.filter((c) => c.group === 'employment').map((col) => (
                   <label
@@ -243,10 +246,7 @@ export function ExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button
-            disabled={activeColumns.length === 0 || exporting}
-            onClick={onExport}
-          >
+          <Button disabled={activeColumns.length === 0 || exporting} onClick={onExport}>
             <Download className="me-2 h-4 w-4" />
             {exporting ? t('exporting') : t('exportNow')}
           </Button>

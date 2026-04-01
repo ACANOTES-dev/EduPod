@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { HomeworkCompletion } from '@prisma/client';
+
 import type { CompletionStatus } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -71,7 +72,9 @@ export class HomeworkCompletionsService {
       where: { id: tenantId },
       select: { settings: true },
     });
-    const hwSettings = (tenant?.settings as Record<string, unknown>)?.homework as Record<string, unknown> | undefined;
+    const hwSettings = (tenant?.settings as Record<string, unknown>)?.homework as
+      | Record<string, unknown>
+      | undefined;
     if (hwSettings?.allow_student_self_report === false) {
       throw new ForbiddenException({
         code: 'SELF_REPORT_DISABLED',
@@ -114,8 +117,7 @@ export class HomeworkCompletionsService {
     if (!enrolledStudentLink) {
       throw new NotFoundException({
         code: 'STUDENT_NOT_FOUND',
-        message:
-          'No student linked to this user is enrolled in the assignment class',
+        message: 'No student linked to this user is enrolled in the assignment class',
       });
     }
 
@@ -218,12 +220,7 @@ export class HomeworkCompletionsService {
 
   // ─── Bulk mark completions ──────────────────────────────────────────────────
 
-  async bulkMark(
-    tenantId: string,
-    homeworkId: string,
-    userId: string,
-    dto: BulkMarkCompletionDto,
-  ) {
+  async bulkMark(tenantId: string, homeworkId: string, userId: string, dto: BulkMarkCompletionDto) {
     const assignment = await this.findPublishedAssignment(tenantId, homeworkId);
     const now = new Date();
 
@@ -338,9 +335,7 @@ export class HomeworkCompletionsService {
     statusCounts.not_started += implicitNotStarted;
 
     const completionRate =
-      totalStudents > 0
-        ? Math.round((statusCounts.completed / totalStudents) * 10000) / 100
-        : 0;
+      totalStudents > 0 ? Math.round((statusCounts.completed / totalStudents) * 10000) / 100 : 0;
 
     return {
       homework_assignment_id: assignment.id,

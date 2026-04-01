@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -80,44 +81,33 @@ describe('TimetablesController', () => {
       const expected = [{ schedule_id: 's1', weekday: 1 }];
       mockService.getTeacherTimetable.mockResolvedValue(expected);
 
-      const result = await controller.getTeacherTimetable(
-        mockTenant,
-        mockUser,
-        STAFF_PROFILE_ID,
-        { academic_year_id: AY_ID },
-      );
+      const result = await controller.getTeacherTimetable(mockTenant, mockUser, STAFF_PROFILE_ID, {
+        academic_year_id: AY_ID,
+      });
 
       expect(result).toEqual(expected);
-      expect(mockService.getTeacherTimetable).toHaveBeenCalledWith(
-        TENANT_ID,
-        STAFF_PROFILE_ID,
-        { academic_year_id: AY_ID, week_start: undefined },
-      );
+      expect(mockService.getTeacherTimetable).toHaveBeenCalledWith(TENANT_ID, STAFF_PROFILE_ID, {
+        academic_year_id: AY_ID,
+        week_start: undefined,
+      });
     });
 
     it('should allow view_own when viewing own profile', async () => {
-      mockPermissionCache.getPermissions.mockResolvedValue([
-        'schedule.view_own',
-      ]);
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_own']);
       mockPrisma.staffProfile.findFirst.mockResolvedValue({
         id: STAFF_PROFILE_ID,
       });
       mockService.getTeacherTimetable.mockResolvedValue([]);
 
-      const result = await controller.getTeacherTimetable(
-        mockTenant,
-        mockUser,
-        STAFF_PROFILE_ID,
-        { academic_year_id: AY_ID },
-      );
+      const result = await controller.getTeacherTimetable(mockTenant, mockUser, STAFF_PROFILE_ID, {
+        academic_year_id: AY_ID,
+      });
 
       expect(result).toEqual([]);
     });
 
     it('should throw ForbiddenException when view_own but viewing someone else', async () => {
-      mockPermissionCache.getPermissions.mockResolvedValue([
-        'schedule.view_own',
-      ]);
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_own']);
       mockPrisma.staffProfile.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -131,12 +121,9 @@ describe('TimetablesController', () => {
       mockPermissionCache.getPermissions.mockResolvedValue([]);
 
       await expect(
-        controller.getTeacherTimetable(
-          mockTenant,
-          mockUser,
-          STAFF_PROFILE_ID,
-          { academic_year_id: AY_ID },
-        ),
+        controller.getTeacherTimetable(mockTenant, mockUser, STAFF_PROFILE_ID, {
+          academic_year_id: AY_ID,
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -159,11 +146,9 @@ describe('TimetablesController', () => {
       const expected = [{ schedule_id: 's1' }];
       mockService.getStudentTimetable.mockResolvedValue(expected);
 
-      const result = await controller.getStudentTimetable(
-        mockTenant,
-        STUDENT_ID,
-        { academic_year_id: AY_ID },
-      );
+      const result = await controller.getStudentTimetable(mockTenant, STUDENT_ID, {
+        academic_year_id: AY_ID,
+      });
 
       expect(result).toEqual(expected);
     });
@@ -171,9 +156,7 @@ describe('TimetablesController', () => {
 
   describe('getWorkloadReport', () => {
     it('should return workload report', async () => {
-      const expected = [
-        { staff_profile_id: STAFF_PROFILE_ID, total_periods: 10 },
-      ];
+      const expected = [{ staff_profile_id: STAFF_PROFILE_ID, total_periods: 10 }];
       mockService.getWorkloadReport.mockResolvedValue(expected);
 
       const result = await controller.getWorkloadReport(mockTenant, {

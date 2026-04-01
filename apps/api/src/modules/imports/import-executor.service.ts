@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+
 import type { ImportType } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

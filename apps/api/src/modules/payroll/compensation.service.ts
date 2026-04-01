@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { CreateCompensationDto, UpdateCompensationDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -151,7 +152,8 @@ export class CompensationService {
         if (closingDate < new Date(existingActive.effective_from)) {
           throw new BadRequestException({
             code: 'EFFECTIVE_DATE_CONFLICT',
-            message: 'New effective date cannot be before or on the same day as the existing active compensation start date',
+            message:
+              'New effective date cannot be before or on the same day as the existing active compensation start date',
           });
         }
 
@@ -359,9 +361,13 @@ export class CompensationService {
 
         const baseSalary = row.base_salary ? parseFloat(row.base_salary) : null;
         const perClassRate = row.per_class_rate ? parseFloat(row.per_class_rate) : null;
-        const assignedClassCount = row.assigned_class_count ? parseInt(row.assigned_class_count, 10) : null;
+        const assignedClassCount = row.assigned_class_count
+          ? parseInt(row.assigned_class_count, 10)
+          : null;
         const bonusClassRate = row.bonus_class_rate ? parseFloat(row.bonus_class_rate) : null;
-        const bonusDayMultiplier = row.bonus_day_multiplier ? parseFloat(row.bonus_day_multiplier) : 1.0;
+        const bonusDayMultiplier = row.bonus_day_multiplier
+          ? parseFloat(row.bonus_day_multiplier)
+          : 1.0;
 
         const record = await db.staffCompensation.create({
           data: {

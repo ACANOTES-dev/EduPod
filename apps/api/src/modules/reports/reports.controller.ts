@@ -1,4 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import type { z } from 'zod';
+
 import {
   promotionRolloverQuerySchema,
   feeGenerationRunsQuerySchema,
@@ -6,7 +8,6 @@ import {
   notificationDeliveryQuerySchema,
 } from '@school/shared';
 import type { TenantContext } from '@school/shared';
-import type { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

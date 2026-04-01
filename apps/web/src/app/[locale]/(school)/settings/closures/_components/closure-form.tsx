@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -18,9 +21,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -126,11 +126,7 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
             </div>
             <div className="space-y-2">
               <Label>{t('effectiveTo')}</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
 
@@ -146,7 +142,13 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
 
           <div className="space-y-2">
             <Label>{t('scope')}</Label>
-            <Select value={scope} onValueChange={(v) => { setScope(v); setEntityId(''); }}>
+            <Select
+              value={scope}
+              onValueChange={(v) => {
+                setScope(v);
+                setEntityId('');
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -167,7 +169,9 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
                 </SelectTrigger>
                 <SelectContent>
                   {entityOptions.map((opt) => (
-                    <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
+                    <SelectItem key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -176,11 +180,7 @@ export function ClosureForm({ open, onOpenChange, onSuccess }: ClosureFormProps)
 
           <div className="flex items-center justify-between">
             <Label htmlFor="skip-weekends">{t('skipWeekends')}</Label>
-            <Switch
-              id="skip-weekends"
-              checked={skipWeekends}
-              onCheckedChange={setSkipWeekends}
-            />
+            <Switch id="skip-weekends" checked={skipWeekends} onCheckedChange={setSkipWeekends} />
           </div>
 
           <DialogFooter>

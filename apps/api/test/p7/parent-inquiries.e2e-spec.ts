@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+
 import {
   createTestApp,
   closeTestApp,
@@ -12,7 +14,6 @@ import {
   AL_NOOR_DOMAIN,
   CEDAR_DOMAIN,
 } from '../helpers';
-import request from 'supertest';
 
 jest.setTimeout(120_000);
 
@@ -25,13 +26,12 @@ describe('Parent Inquiries (e2e)', () => {
 
   beforeAll(async () => {
     app = await createTestApp();
-    [adminToken, parentToken, teacherToken, cedarParentToken] =
-      await Promise.all([
-        getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN),
-        getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN),
-        getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN),
-        getAuthToken(app, CEDAR_PARENT_EMAIL, CEDAR_DOMAIN),
-      ]);
+    [adminToken, parentToken, teacherToken, cedarParentToken] = await Promise.all([
+      getAuthToken(app, AL_NOOR_ADMIN_EMAIL, AL_NOOR_DOMAIN),
+      getAuthToken(app, AL_NOOR_PARENT_EMAIL, AL_NOOR_DOMAIN),
+      getAuthToken(app, AL_NOOR_TEACHER_EMAIL, AL_NOOR_DOMAIN),
+      getAuthToken(app, CEDAR_PARENT_EMAIL, CEDAR_DOMAIN),
+    ]);
   }, 60_000);
 
   afterAll(async () => {
@@ -40,10 +40,7 @@ describe('Parent Inquiries (e2e)', () => {
 
   // ─── Helper ───────────────────────────────────────────────────────────────────
 
-  function createInquiry(
-    token: string,
-    overrides: Record<string, unknown> = {},
-  ) {
+  function createInquiry(token: string, overrides: Record<string, unknown> = {}) {
     const body = {
       subject: `Test inquiry ${Date.now()}`,
       message: 'I have a question about my child.',
@@ -147,13 +144,9 @@ describe('Parent Inquiries (e2e)', () => {
       const createRes = await createInquiry(parentToken).expect(201);
       const id = createRes.body.data.id;
 
-      await authPost(
-        app,
-        `/api/v1/inquiries/${id}/close`,
-        adminToken,
-        {},
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
+        200,
+      );
 
       // Try to add message to closed inquiry
       const res = await authPost(
@@ -272,22 +265,14 @@ describe('Parent Inquiries (e2e)', () => {
       const id = createRes.body.data.id;
 
       // Close it
-      await authPost(
-        app,
-        `/api/v1/inquiries/${id}/close`,
-        adminToken,
-        {},
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
+        200,
+      );
 
       // Try to close again
-      await authPost(
-        app,
-        `/api/v1/inquiries/${id}/close`,
-        adminToken,
-        {},
-        AL_NOOR_DOMAIN,
-      ).expect(400);
+      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
+        400,
+      );
     });
   });
 
@@ -318,13 +303,9 @@ describe('Parent Inquiries (e2e)', () => {
       const id = createRes.body.data.id;
 
       // Close it
-      await authPost(
-        app,
-        `/api/v1/inquiries/${id}/close`,
-        adminToken,
-        {},
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      await authPost(app, `/api/v1/inquiries/${id}/close`, adminToken, {}, AL_NOOR_DOMAIN).expect(
+        200,
+      );
 
       // Parent tries to message
       const res = await authPost(

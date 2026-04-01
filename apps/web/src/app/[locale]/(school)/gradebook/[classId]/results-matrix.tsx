@@ -1,5 +1,9 @@
 'use client';
 
+import { Save, Target } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -13,9 +17,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Save, Target } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -81,11 +82,16 @@ export function ResultsMatrix({ classId }: { classId: string }) {
 
   // Dirty grades tracking: { `${studentId}:${assessmentId}`: GradeEntry }
   const [dirtyGrades, setDirtyGrades] = React.useState<
-    Map<string, { student_id: string; assessment_id: string; raw_score: number | null; is_missing: boolean }>
+    Map<
+      string,
+      { student_id: string; assessment_id: string; raw_score: number | null; is_missing: boolean }
+    >
   >(new Map());
 
   // Local grade overrides for UI (merged with server data)
-  const [localGrades, setLocalGrades] = React.useState<Record<string, Record<string, GradeEntry>>>({});
+  const [localGrades, setLocalGrades] = React.useState<Record<string, Record<string, GradeEntry>>>(
+    {},
+  );
 
   // Default score popover
   const [defaultPopoverOpen, setDefaultPopoverOpen] = React.useState(false);
@@ -123,7 +129,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   };
 
   // Update a grade cell
-  const updateGrade = (studentId: string, assessmentId: string, value: string, maxScore: number) => {
+  const updateGrade = (
+    studentId: string,
+    assessmentId: string,
+    value: string,
+    maxScore: number,
+  ) => {
     const numValue = value === '' ? null : Math.min(Math.max(0, Number(value)), maxScore);
     const key = `${studentId}:${assessmentId}`;
 
@@ -137,7 +148,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
 
     setDirtyGrades((prev) => {
       const next = new Map(prev);
-      next.set(key, { student_id: studentId, assessment_id: assessmentId, raw_score: numValue, is_missing: false });
+      next.set(key, {
+        student_id: studentId,
+        assessment_id: assessmentId,
+        raw_score: numValue,
+        is_missing: false,
+      });
       return next;
     });
   };
@@ -210,12 +226,18 @@ export function ResultsMatrix({ classId }: { classId: string }) {
   const totalCells = (matrix?.students.length ?? 0) * totalAssessments;
   const filledCells = matrix
     ? matrix.students.reduce((acc, student) => {
-        return acc + displaySubjects.reduce((sacc, subject) => {
-          return sacc + subject.assessments.reduce((aacc, assessment) => {
-            const grade = getGrade(student.id, assessment.id);
-            return aacc + (grade.raw_score != null || grade.is_missing ? 1 : 0);
-          }, 0);
-        }, 0);
+        return (
+          acc +
+          displaySubjects.reduce((sacc, subject) => {
+            return (
+              sacc +
+              subject.assessments.reduce((aacc, assessment) => {
+                const grade = getGrade(student.id, assessment.id);
+                return aacc + (grade.raw_score != null || grade.is_missing ? 1 : 0);
+              }, 0)
+            );
+          }, 0)
+        );
       }, 0)
     : 0;
 
@@ -229,7 +251,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
           </SelectTrigger>
           <SelectContent>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -242,7 +266,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
             <SelectContent>
               <SelectItem value="all">All Subjects</SelectItem>
               {matrix.subjects.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -352,7 +378,8 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                           subject.assessments.map((assessment, ai) => {
                             const isLastInSubject = ai === subject.assessments.length - 1;
                             const grade = getGrade(student.id, assessment.id);
-                            const isLocked = assessment.status === 'closed' || assessment.status === 'locked';
+                            const isLocked =
+                              assessment.status === 'closed' || assessment.status === 'locked';
 
                             return (
                               <td
@@ -378,7 +405,12 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                                     max={assessment.max_score}
                                     value={grade.raw_score != null ? grade.raw_score : ''}
                                     onChange={(e) =>
-                                      updateGrade(student.id, assessment.id, e.target.value, assessment.max_score)
+                                      updateGrade(
+                                        student.id,
+                                        assessment.id,
+                                        e.target.value,
+                                        assessment.max_score,
+                                      )
                                     }
                                     placeholder="—"
                                     dir="ltr"
@@ -404,16 +436,14 @@ export function ResultsMatrix({ classId }: { classId: string }) {
               {/* Save bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-secondary/50 px-4 py-3">
                 <p className="text-xs text-text-secondary">
-                  <strong className="text-text-primary">{matrix.students.length}</strong> {tc('student').toLowerCase()}s
-                  {' · '}
-                  <strong className="text-text-primary">{displaySubjects.length}</strong> {t('subject').toLowerCase()}s
-                  {' · '}
+                  <strong className="text-text-primary">{matrix.students.length}</strong>{' '}
+                  {tc('student').toLowerCase()}s{' · '}
+                  <strong className="text-text-primary">{displaySubjects.length}</strong>{' '}
+                  {t('subject').toLowerCase()}s{' · '}
                   <strong className="text-text-primary">{filledCells}</strong> of{' '}
                   <strong className="text-text-primary">{totalCells}</strong> grades entered
                   {dirtyGrades.size > 0 && (
-                    <span className="ms-2 text-warning-text">
-                      ({dirtyGrades.size} unsaved)
-                    </span>
+                    <span className="ms-2 text-warning-text">({dirtyGrades.size} unsaved)</span>
                   )}
                 </p>
                 <div className="flex items-center gap-2">
@@ -426,7 +456,9 @@ export function ResultsMatrix({ classId }: { classId: string }) {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-56 p-3">
-                      <p className="mb-2 text-xs font-medium text-text-primary">{t('setDefaultScore')}</p>
+                      <p className="mb-2 text-xs font-medium text-text-primary">
+                        {t('setDefaultScore')}
+                      </p>
                       <p className="mb-3 text-xs text-text-secondary">{t('setDefaultScoreHint')}</p>
                       <div className="flex items-center gap-2">
                         <Input

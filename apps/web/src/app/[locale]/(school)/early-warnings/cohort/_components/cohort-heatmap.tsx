@@ -1,16 +1,23 @@
 'use client';
 
-import { toast } from '@school/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
-import { getHeatmapColor, type CohortResponse, type CohortRow } from '@/lib/early-warning';
+import { toast } from '@school/ui';
 
 import { CohortFilters, type CohortGroupBy } from './cohort-filters';
 
-const DOMAIN_KEYS = ['avg_attendance', 'avg_grades', 'avg_behaviour', 'avg_wellbeing', 'avg_engagement'] as const;
+import { apiClient } from '@/lib/api-client';
+import { getHeatmapColor, type CohortResponse, type CohortRow } from '@/lib/early-warning';
+
+const DOMAIN_KEYS = [
+  'avg_attendance',
+  'avg_grades',
+  'avg_behaviour',
+  'avg_wellbeing',
+  'avg_engagement',
+] as const;
 
 export function CohortHeatmap() {
   const t = useTranslations('early_warning');
@@ -26,9 +33,7 @@ export function CohortHeatmap() {
     let cancelled = false;
     setLoading(true);
 
-    apiClient<CohortResponse>(
-      `/api/v1/early-warnings/cohort?group_by=${groupBy}`,
-    )
+    apiClient<CohortResponse>(`/api/v1/early-warnings/cohort?group_by=${groupBy}`)
       .then((res) => {
         if (!cancelled) setRows(res.data ?? []);
       })
@@ -102,10 +107,7 @@ export function CohortHeatmap() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.group_id}
-                  className="border-b border-border last:border-b-0"
-                >
+                <tr key={row.group_id} className="border-b border-border last:border-b-0">
                   <td className="px-4 py-3 text-sm font-medium text-text-primary">
                     {row.group_name}
                   </td>

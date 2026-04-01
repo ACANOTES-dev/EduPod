@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,12 +15,10 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-import { apiClient } from '@/lib/api-client';
 
 import { HouseholdSelector } from '../../_components/household-selector';
+
+import { apiClient } from '@/lib/api-client';
 
 interface PaymentFormProps {
   onSuccess: (paymentId: string) => void;
@@ -63,13 +64,10 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
         ...(reason.trim() ? { reason: reason.trim() } : {}),
       };
 
-      const res = await apiClient<{ data: { id: string } }>(
-        '/api/v1/finance/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        },
-      );
+      const res = await apiClient<{ data: { id: string } }>('/api/v1/finance/payments', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       toast.success(t('paymentRecorded'));
       onSuccess(res.data.id);
@@ -93,9 +91,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
             onValueChange={setHouseholdId}
             placeholder="Search and select household..."
           />
-          {errors.householdId && (
-            <p className="text-xs text-danger-text">{errors.householdId}</p>
-          )}
+          {errors.householdId && <p className="text-xs text-danger-text">{errors.householdId}</p>}
         </div>
 
         {/* Payment Method */}
@@ -127,9 +123,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
-          {errors.amount && (
-            <p className="text-xs text-danger-text">{errors.amount}</p>
-          )}
+          {errors.amount && <p className="text-xs text-danger-text">{errors.amount}</p>}
         </div>
 
         {/* Received At */}
@@ -140,9 +134,7 @@ export function PaymentForm({ onSuccess }: PaymentFormProps) {
             value={receivedAt}
             onChange={(e) => setReceivedAt(e.target.value)}
           />
-          {errors.receivedAt && (
-            <p className="text-xs text-danger-text">{errors.receivedAt}</p>
-          )}
+          {errors.receivedAt && <p className="text-xs text-danger-text">{errors.receivedAt}</p>}
         </div>
 
         {/* Reason */}

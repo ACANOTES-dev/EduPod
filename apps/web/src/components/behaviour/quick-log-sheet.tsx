@@ -1,5 +1,9 @@
 'use client';
 
+import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,13 +14,10 @@ import {
   SheetTitle,
   Textarea,
 } from '@school/ui';
-import { Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
-import { apiClient } from '@/lib/api-client';
 
 import { CategoryPicker, type CategoryOption } from './category-picker';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,9 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
   // Fetch categories on open
   React.useEffect(() => {
     if (!open) return;
-    apiClient<{ data: CategoryOption[] }>('/api/v1/behaviour/categories?pageSize=100&is_active=true')
+    apiClient<{ data: CategoryOption[] }>(
+      '/api/v1/behaviour/categories?pageSize=100&is_active=true',
+    )
       .then((res) => setCategories(res.data ?? []))
       .catch(() => undefined);
     apiClient<{ data: TemplateOption[] }>('/api/v1/behaviour/templates?pageSize=50')
@@ -73,7 +76,9 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
       return;
     }
     searchTimeoutRef.current = setTimeout(() => {
-      apiClient<{ data: StudentOption[] }>(`/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`)
+      apiClient<{ data: StudentOption[] }>(
+        `/api/v1/students?search=${encodeURIComponent(studentSearch)}&pageSize=10`,
+      )
         .then((res) => setStudentResults(res.data ?? []))
         .catch(() => undefined);
     }, 300);
@@ -91,8 +96,14 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
   };
 
   const handleSubmit = async () => {
-    if (!selectedCategoryId) { setError(t('errors.selectCategory')); return; }
-    if (!selectedStudent) { setError(t('errors.selectStudent')); return; }
+    if (!selectedCategoryId) {
+      setError(t('errors.selectCategory'));
+      return;
+    }
+    if (!selectedStudent) {
+      setError(t('errors.selectStudent'));
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -119,7 +130,7 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
   };
 
   const handleTemplateChip = (template: TemplateOption) => {
-    setDescription((prev) => prev ? `${prev} ${template.body_template}` : template.body_template);
+    setDescription((prev) => (prev ? `${prev} ${template.body_template}` : template.body_template));
   };
 
   return (
@@ -156,7 +167,10 @@ export function QuickLogSheet({ open, onOpenChange }: QuickLogSheetProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setSelectedStudent(null); setStudentSearch(''); }}
+                  onClick={() => {
+                    setSelectedStudent(null);
+                    setStudentSearch('');
+                  }}
                 >
                   {t('change')}
                 </Button>

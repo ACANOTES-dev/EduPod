@@ -15,6 +15,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Queue } from 'bullmq';
+import type { Request } from 'express';
+import { z } from 'zod';
+
+import type { JwtPayload } from '@school/shared';
 import {
   acknowledgeReportCardSchema,
   analyticsQuerySchema,
@@ -36,10 +41,6 @@ import {
   updateGradeThresholdConfigSchema,
   updateReportCardTemplateSchema,
 } from '@school/shared';
-import type { JwtPayload } from '@school/shared';
-import type { Queue } from 'bullmq';
-import type { Request } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

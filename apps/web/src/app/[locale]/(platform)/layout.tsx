@@ -1,6 +1,5 @@
 'use client';
 
-import { cn } from '@school/ui';
 import {
   Activity,
   Building2,
@@ -15,6 +14,8 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 import { ErrorBoundary } from '@/components/error-boundary';
 import { apiClient } from '@/lib/api-client';

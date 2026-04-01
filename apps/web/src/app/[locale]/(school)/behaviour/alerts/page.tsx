@@ -1,17 +1,10 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
-import {
-  AlertTriangle,
-  Check,
-  CheckCircle,
-  Clock,
-  Eye,
-  Info,
-  Shield,
-} from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle, Clock, Eye, Info, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -55,13 +48,16 @@ export default function BehaviourAlertsPage() {
       params.set('page', String(page));
       params.set('pageSize', '20');
 
-      const res = await apiClient<{ data: AlertItem[]; meta: { total: number } }>(`/behaviour/alerts?${params}`);
+      const res = await apiClient<{ data: AlertItem[]; meta: { total: number } }>(
+        `/behaviour/alerts?${params}`,
+      );
       if (res) {
         setAlerts(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
       }
-    } catch {
+    } catch (err) {
       // Error handling
+      console.error('[setTotal]', err);
     } finally {
       setLoading(false);
     }
@@ -79,8 +75,9 @@ export default function BehaviourAlertsPage() {
         body: JSON.stringify(body ?? {}),
       });
       loadAlerts();
-    } catch {
+    } catch (err) {
       // Error handling
+      console.error('[loadAlerts]', err);
     } finally {
       setActionLoading(null);
     }
@@ -102,7 +99,10 @@ export default function BehaviourAlertsPage() {
         {TAB_KEYS.map((tabKey) => (
           <button
             key={tabKey}
-            onClick={() => { setActiveTab(tabKey); setPage(1); }}
+            onClick={() => {
+              setActiveTab(tabKey);
+              setPage(1);
+            }}
             className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               activeTab === tabKey
                 ? 'bg-background shadow-sm'
@@ -175,13 +175,19 @@ export default function BehaviourAlertsPage() {
                   {/* Entity tags */}
                   <div className="mt-2 flex flex-wrap gap-1">
                     {alert.student_name && (
-                      <Badge variant="secondary" className="text-xs">{t('studentLabel')}: {alert.student_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {t('studentLabel')}: {alert.student_name}
+                      </Badge>
                     )}
                     {alert.subject_name && (
-                      <Badge variant="secondary" className="text-xs">{t('subjectLabel')}: {alert.subject_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {t('subjectLabel')}: {alert.subject_name}
+                      </Badge>
                     )}
                     {alert.staff_name && (
-                      <Badge variant="secondary" className="text-xs">{t('staffLabel')}: {alert.staff_name}</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {t('staffLabel')}: {alert.staff_name}
+                      </Badge>
                     )}
                   </div>
 

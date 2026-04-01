@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { homeworkSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { homeworkSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -24,9 +25,7 @@ export class HomeworkOverdueDetectionProcessor extends WorkerHost {
   async process(job: Job): Promise<void> {
     if (job.name !== HOMEWORK_OVERDUE_DETECTION_JOB) return;
 
-    this.logger.log(
-      `Processing ${HOMEWORK_OVERDUE_DETECTION_JOB} — cross-tenant cron run`,
-    );
+    this.logger.log(`Processing ${HOMEWORK_OVERDUE_DETECTION_JOB} — cross-tenant cron run`);
 
     const tenants = await this.prisma.tenant.findMany({
       where: {
@@ -43,9 +42,7 @@ export class HomeworkOverdueDetectionProcessor extends WorkerHost {
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Overdue detection failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Overdue detection failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -60,10 +57,7 @@ export class HomeworkOverdueDetectionProcessor extends WorkerHost {
 class HomeworkOverdueDetectionJob extends TenantAwareJob<TenantJobPayload> {
   private readonly logger = new Logger(HomeworkOverdueDetectionJob.name);
 
-  protected async processJob(
-    data: TenantJobPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: TenantJobPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // ─── 1. Read homework settings ──────────────────────────────────────────
@@ -78,9 +72,7 @@ class HomeworkOverdueDetectionJob extends TenantAwareJob<TenantJobPayload> {
     const hwSettings = homeworkSettingsSchema.parse(hwRaw);
 
     if (!hwSettings.overdue_notification_enabled) {
-      this.logger.log(
-        `Tenant ${tenant_id}: overdue notifications disabled, skipping.`,
-      );
+      this.logger.log(`Tenant ${tenant_id}: overdue notifications disabled, skipping.`);
       return;
     }
 
@@ -104,9 +96,7 @@ class HomeworkOverdueDetectionJob extends TenantAwareJob<TenantJobPayload> {
     });
 
     if (overdueAssignments.length === 0) {
-      this.logger.log(
-        `Tenant ${tenant_id}: no overdue assignments found.`,
-      );
+      this.logger.log(`Tenant ${tenant_id}: no overdue assignments found.`);
       return;
     }
 

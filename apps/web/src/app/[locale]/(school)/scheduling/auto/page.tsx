@@ -1,6 +1,20 @@
 'use client';
 
 import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Loader2,
+  Pin,
+  Sparkles,
+  XCircle,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Badge,
   Button,
   Dialog,
@@ -15,20 +29,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  Loader2,
-  Pin,
-  Sparkles,
-  XCircle,
-} from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -108,7 +108,7 @@ export default function AutoSchedulerPage() {
     }
     setPrereqLoading(true);
     apiClient<PrerequisitesResponse>(
-      `/api/v1/scheduling-runs/prerequisites?academic_year_id=${selectedYear}`
+      `/api/v1/scheduling-runs/prerequisites?academic_year_id=${selectedYear}`,
     )
       .then((res) => setPrerequisites(res))
       .catch(() => setPrerequisites(null))
@@ -117,7 +117,10 @@ export default function AutoSchedulerPage() {
 
   // Load run history
   React.useEffect(() => {
-    if (!selectedYear) { setRuns([]); return; }
+    if (!selectedYear) {
+      setRuns([]);
+      return;
+    }
     setRunsLoading(true);
     apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
@@ -131,7 +134,7 @@ export default function AutoSchedulerPage() {
     pollRef.current = setInterval(async () => {
       try {
         const prog = await apiClient<RunProgress>(
-          `/api/v1/scheduling-runs/${activeRunId}/progress`
+          `/api/v1/scheduling-runs/${activeRunId}/progress`,
         );
         setProgress(prog);
         if (prog.status === 'completed') {
@@ -179,7 +182,7 @@ export default function AutoSchedulerPage() {
     if (!activeRunId) return;
     clearInterval(pollRef.current!);
     await apiClient(`/api/v1/scheduling-runs/${activeRunId}/cancel`, { method: 'POST' }).catch(
-      () => {}
+      () => {},
     );
     setProgressOpen(false);
     setActiveRunId(null);
@@ -191,8 +194,7 @@ export default function AutoSchedulerPage() {
 
   function formatDuration(run: SchedulingRun): string {
     if (!run.completed_at) return '—';
-    const ms =
-      new Date(run.completed_at).getTime() - new Date(run.created_at).getTime();
+    const ms = new Date(run.completed_at).getTime() - new Date(run.created_at).getTime();
     const secs = Math.round(ms / 1000);
     return secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`;
   }
@@ -336,9 +338,7 @@ export default function AutoSchedulerPage() {
                 {runs.map((run) => (
                   <tr key={run.id} className="border-b border-border last:border-b-0">
                     <td className="px-3 py-2">
-                      <Badge variant={statusBadgeVariant(run.status)}>
-                        {run.status}
-                      </Badge>
+                      <Badge variant={statusBadgeVariant(run.status)}>{run.status}</Badge>
                     </td>
                     <td className="px-3 py-2 text-text-secondary capitalize">{run.mode}</td>
                     <td className="px-3 py-2 text-text-secondary">
@@ -391,9 +391,12 @@ export default function AutoSchedulerPage() {
       </Dialog>
 
       {/* Progress Modal */}
-      <Dialog open={progressOpen} onOpenChange={(open) => {
+      <Dialog
+        open={progressOpen}
+        onOpenChange={(open) => {
           if (!open) void handleCancelSolve();
-        }}>
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

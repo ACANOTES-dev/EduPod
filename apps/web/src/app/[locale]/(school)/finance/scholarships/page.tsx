@@ -1,5 +1,9 @@
 'use client';
 
+import { Award, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -19,17 +23,14 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Award, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CurrencyDisplay } from '../_components/currency-display';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { useRoleCheck } from '@/hooks/use-role-check';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
-
-import { CurrencyDisplay } from '../_components/currency-display';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -206,10 +207,7 @@ export default function ScholarshipsPage() {
     }
   }
 
-  const statusVariant: Record<
-    Scholarship['status'],
-    'success' | 'neutral' | 'danger'
-  > = {
+  const statusVariant: Record<Scholarship['status'], 'success' | 'neutral' | 'danger'> = {
     active: 'success',
     expired: 'neutral',
     revoked: 'danger',
@@ -521,11 +519,7 @@ export default function ScholarshipsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowRevoke(false)}
-              disabled={revoking}
-            >
+            <Button variant="outline" onClick={() => setShowRevoke(false)} disabled={revoking}>
               {t('cancel')}
             </Button>
             <Button

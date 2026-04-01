@@ -1,5 +1,11 @@
 'use client';
 
+import { ClipboardCheck, Plus, Upload } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,11 +22,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { ClipboardCheck, Plus, Upload } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { DataTable } from '@/components/data-table';
@@ -79,11 +80,12 @@ export default function AttendancePage() {
     apiClient<ListResponse<SelectOption>>('/api/v1/classes?pageSize=100')
       .then((res) => setClasses(res.data))
       .catch(() => undefined);
-    apiClient<{ data?: { attendance?: { defaultPresentEnabled?: boolean } }; attendance?: { defaultPresentEnabled?: boolean } }>(
-      '/api/v1/settings',
-    )
+    apiClient<{
+      data?: { attendance?: { defaultPresentEnabled?: boolean } };
+      attendance?: { defaultPresentEnabled?: boolean };
+    }>('/api/v1/settings')
       .then((res) => {
-        const settings = ('data' in res && res.data) ? res.data : res;
+        const settings = 'data' in res && res.data ? res.data : res;
         if (settings?.attendance?.defaultPresentEnabled) {
           setDefaultPresentEnabled(true);
         }
@@ -100,7 +102,9 @@ export default function AttendancePage() {
         if (status !== 'all') params.set('status', status);
         if (from) params.set('start_date', from);
         if (to) params.set('end_date', to);
-        const res = await apiClient<SessionsResponse>(`/api/v1/attendance-sessions?${params.toString()}`);
+        const res = await apiClient<SessionsResponse>(
+          `/api/v1/attendance-sessions?${params.toString()}`,
+        );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
       } catch {
@@ -126,8 +130,14 @@ export default function AttendancePage() {
 
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createClassId) { setCreateError(t('selectClassRequired')); return; }
-    if (!createDate) { setCreateError(t('selectDateRequired')); return; }
+    if (!createClassId) {
+      setCreateError(t('selectClassRequired'));
+      return;
+    }
+    if (!createDate) {
+      setCreateError(t('selectDateRequired'));
+      return;
+    }
     setCreateLoading(true);
     setCreateError('');
     try {
@@ -154,7 +164,9 @@ export default function AttendancePage() {
       key: 'session_date',
       header: t('sessionDate'),
       render: (row: SessionRow) => (
-        <span className="font-medium font-mono text-text-primary text-xs">{formatDate(row.session_date)}</span>
+        <span className="font-medium font-mono text-text-primary text-xs">
+          {formatDate(row.session_date)}
+        </span>
       ),
     },
     {
@@ -173,9 +185,7 @@ export default function AttendancePage() {
       key: 'count',
       header: t('markedCount'),
       render: (row: SessionRow) => (
-        <span className="text-text-secondary">
-          {row._count?.records ?? 0}
-        </span>
+        <span className="text-text-secondary">{row._count?.records ?? 0}</span>
       ),
     },
     {
@@ -203,29 +213,49 @@ export default function AttendancePage() {
       <input
         type="date"
         value={dateFrom}
-        onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateFrom(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label="Date from"
       />
       <input
         type="date"
         value={dateTo}
-        onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateTo(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label="Date to"
       />
-      <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+      <Select
+        value={classFilter}
+        onValueChange={(v) => {
+          setClassFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="Class" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Classes</SelectItem>
           {classes.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
@@ -252,7 +282,13 @@ export default function AttendancePage() {
                 {t('uploadAttendance')}
               </Button>
             </Link>
-            <Button onClick={() => { setCreateOpen(true); setCreateError(''); setCreateClassId(''); }}>
+            <Button
+              onClick={() => {
+                setCreateOpen(true);
+                setCreateError('');
+                setCreateClassId('');
+              }}
+            >
               <Plus className="me-2 h-4 w-4" />
               {t('createSession')}
             </Button>
@@ -285,7 +321,9 @@ export default function AttendancePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -306,14 +344,17 @@ export default function AttendancePage() {
                   checked={defaultPresent}
                   onCheckedChange={setDefaultPresent}
                 />
-                <Label htmlFor="default-present">
-                  {t('defaultPresent')}
-                </Label>
+                <Label htmlFor="default-present">{t('defaultPresent')}</Label>
               </div>
             )}
             {createError && <p className="text-sm text-danger-text">{createError}</p>}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createLoading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+                disabled={createLoading}
+              >
                 {tc('cancel')}
               </Button>
               <Button type="submit" disabled={createLoading}>

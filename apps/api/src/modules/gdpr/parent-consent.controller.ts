@@ -1,11 +1,5 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Patch, UseGuards } from '@nestjs/common';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -23,14 +17,8 @@ export class ParentConsentController {
 
   @Get()
   @RequiresPermission('parent.view_own_students')
-  async getOwnConsents(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.consentService.getParentPortalConsents(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async getOwnConsents(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.consentService.getParentPortalConsents(tenant.tenant_id, user.sub);
   }
 
   @Patch(':id/withdraw')
@@ -40,10 +28,6 @@ export class ParentConsentController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.consentService.withdrawParentPortalConsent(
-      tenant.tenant_id,
-      user.sub,
-      id,
-    );
+    return this.consentService.withdrawParentPortalConsent(tenant.tenant_id, user.sub, id);
   }
 }

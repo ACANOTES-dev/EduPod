@@ -18,6 +18,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { z } from 'zod';
+
 import {
   upsertGradeConfigSchema,
   upsertYearGroupGradeWeightSchema,
@@ -32,7 +34,6 @@ import {
   importProcessSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

@@ -1,8 +1,6 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   CreateDocumentTemplateDto,
   ListDocumentTemplatesQuery,
@@ -28,9 +26,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -86,7 +84,7 @@ describe('BehaviourDocumentTemplateService', () => {
       mockRlsTx.behaviourDocumentTemplate.findMany.mockResolvedValue(templates);
 
       const query: ListDocumentTemplatesQuery = {};
-      const result = await service.listTemplates(TENANT_ID, query) as { data: unknown[] };
+      const result = (await service.listTemplates(TENANT_ID, query)) as { data: unknown[] };
 
       expect(result.data).toHaveLength(2);
       expect(mockRlsTx.behaviourDocumentTemplate.findMany).toHaveBeenCalledWith(
@@ -150,7 +148,7 @@ describe('BehaviourDocumentTemplateService', () => {
       const created = makeTemplate({ name: baseDto.name });
       mockRlsTx.behaviourDocumentTemplate.create.mockResolvedValue(created);
 
-      const result = await service.createTemplate(TENANT_ID, baseDto) as { data: unknown };
+      const result = (await service.createTemplate(TENANT_ID, baseDto)) as { data: unknown };
 
       expect(result.data).toEqual(created);
       expect(mockRlsTx.behaviourDocumentTemplate.create).toHaveBeenCalledWith({
@@ -204,9 +202,7 @@ describe('BehaviourDocumentTemplateService', () => {
 
       // suspension_letter includes COMMON + INCIDENT + SANCTION fields
       expect(callData.merge_fields.length).toBeGreaterThan(12);
-      const fieldNames = callData.merge_fields.map(
-        (f: { field_name: string }) => f.field_name,
-      );
+      const fieldNames = callData.merge_fields.map((f: { field_name: string }) => f.field_name);
       expect(fieldNames).toContain('student_name');
       expect(fieldNames).toContain('incident_date');
       expect(fieldNames).toContain('sanction_type');
@@ -242,7 +238,9 @@ describe('BehaviourDocumentTemplateService', () => {
       mockRlsTx.behaviourDocumentTemplate.update.mockResolvedValue(updated);
 
       const dto: UpdateDocumentTemplateDto = { name: 'Updated Name' };
-      const result = await service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto) as { data: { name: string } };
+      const result = (await service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto)) as {
+        data: { name: string };
+      };
 
       expect(result.data.name).toBe('Updated Name');
       expect(mockRlsTx.behaviourDocumentTemplate.update).toHaveBeenCalledWith({
@@ -278,9 +276,9 @@ describe('BehaviourDocumentTemplateService', () => {
 
       const dto: UpdateDocumentTemplateDto = { name: 'Renamed System Template' };
 
-      await expect(
-        service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.updateTemplate(TENANT_ID, TEMPLATE_ID, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw NotFoundException for non-existent template', async () => {
@@ -288,9 +286,9 @@ describe('BehaviourDocumentTemplateService', () => {
 
       const dto: UpdateDocumentTemplateDto = { name: 'Anything' };
 
-      await expect(
-        service.updateTemplate(TENANT_ID, 'nonexistent-id', dto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateTemplate(TENANT_ID, 'nonexistent-id', dto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

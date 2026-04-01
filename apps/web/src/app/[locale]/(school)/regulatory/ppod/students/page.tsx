@@ -1,13 +1,14 @@
 'use client';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { StudentMappingTable } from '../_components/student-mapping-table';
+
+import { PageHeader } from '@/components/page-header';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

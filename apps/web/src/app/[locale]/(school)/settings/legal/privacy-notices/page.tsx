@@ -1,16 +1,17 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
+
 import {
   createPrivacyNoticeSchema,
   type CreatePrivacyNoticeDto,
   type PrivacyNoticeVersion,
 } from '@school/shared';
 import { Button, Input, Label, TipTapEditor, toast } from '@school/ui';
-import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
-import { Controller, useForm } from 'react-hook-form';
 
 import { LegalDocument } from '@/components/legal/legal-document';
 import { PageHeader } from '@/components/page-header';
@@ -210,7 +211,9 @@ export default function PrivacyNoticeSettingsPage() {
         <div className="rounded-3xl border border-border bg-surface p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-text-primary">{t('privacyHistoryTitle')}</h2>
+              <h2 className="text-lg font-semibold text-text-primary">
+                {t('privacyHistoryTitle')}
+              </h2>
               <p className="mt-1 text-sm text-text-secondary">{t('privacyHistoryDescription')}</p>
             </div>
             <Button variant="outline" onClick={() => setPreviewVersion(selectedVersion)}>
@@ -306,12 +309,7 @@ export default function PrivacyNoticeSettingsPage() {
                   control={form.control}
                   name="effective_date"
                   render={({ field }) => (
-                    <Input
-                      {...field}
-                      id="effective_date"
-                      type="date"
-                      disabled={!isDraft}
-                    />
+                    <Input {...field} id="effective_date" type="date" disabled={!isDraft} />
                   )}
                 />
               </div>

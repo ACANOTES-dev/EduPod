@@ -1,12 +1,12 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 import { DecisionDialog } from './_components/decision-dialog';
 import type {
@@ -169,8 +169,9 @@ export default function ExclusionDetailPage() {
         `/api/v1/behaviour/exclusion-cases/${exclusion.id}/timeline`,
       );
       setTimeline(res.data ?? []);
-    } catch {
+    } catch (err) {
       // silently handled
+      console.error('[setTimeline]', err);
     } finally {
       setMarkingComplete(null);
     }

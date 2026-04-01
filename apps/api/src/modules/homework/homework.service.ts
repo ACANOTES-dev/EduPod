@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type { HomeworkStatus, HomeworkType } from '@school/shared';
 import { VALID_HOMEWORK_TRANSITIONS } from '@school/shared';
 
@@ -227,12 +223,7 @@ export class HomeworkService {
 
   // ─── Update ───────────────────────────────────────────────────────────────────
 
-  async update(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: UpdateHomeworkDto,
-  ) {
+  async update(tenantId: string, id: string, userId: string, dto: UpdateHomeworkDto) {
     const existing = await this.prisma.homeworkAssignment.findFirst({
       where: { id, tenant_id: tenantId },
       select: { id: true, status: true },
@@ -265,12 +256,15 @@ export class HomeworkService {
       if (dto.class_id !== undefined) data.class_id = dto.class_id;
       if (dto.subject_id !== undefined) data.subject_id = dto.subject_id ?? null;
       if (dto.academic_year_id !== undefined) data.academic_year_id = dto.academic_year_id;
-      if (dto.academic_period_id !== undefined) data.academic_period_id = dto.academic_period_id ?? null;
+      if (dto.academic_period_id !== undefined)
+        data.academic_period_id = dto.academic_period_id ?? null;
       if (dto.homework_type !== undefined) data.homework_type = dto.homework_type;
       if (dto.due_date !== undefined) data.due_date = new Date(dto.due_date);
-      if (dto.due_time !== undefined) data.due_time = dto.due_time ? new Date(`1970-01-01T${dto.due_time}`) : null;
+      if (dto.due_time !== undefined)
+        data.due_time = dto.due_time ? new Date(`1970-01-01T${dto.due_time}`) : null;
       if (dto.max_points !== undefined) data.max_points = dto.max_points ?? null;
-      if (dto.recurrence_rule_id !== undefined) data.recurrence_rule_id = dto.recurrence_rule_id ?? null;
+      if (dto.recurrence_rule_id !== undefined)
+        data.recurrence_rule_id = dto.recurrence_rule_id ?? null;
 
       return db.homeworkAssignment.update({
         where: { id },
@@ -339,12 +333,7 @@ export class HomeworkService {
 
   // ─── Copy ─────────────────────────────────────────────────────────────────────
 
-  async copy(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: CopyHomeworkDto,
-  ) {
+  async copy(tenantId: string, id: string, userId: string, dto: CopyHomeworkDto) {
     const source = await this.prisma.homeworkAssignment.findFirst({
       where: { id, tenant_id: tenantId },
       include: { attachments: true },
@@ -553,11 +542,7 @@ export class HomeworkService {
 
   // ─── Remove Attachment ────────────────────────────────────────────────────────
 
-  async removeAttachment(
-    tenantId: string,
-    homeworkId: string,
-    attachmentId: string,
-  ) {
+  async removeAttachment(tenantId: string, homeworkId: string, attachmentId: string) {
     const attachment = await this.prisma.homeworkAttachment.findFirst({
       where: {
         id: attachmentId,
@@ -643,11 +628,7 @@ export class HomeworkService {
 
   // ─── Find By Class Week ───────────────────────────────────────────────────────
 
-  async findByClassWeek(
-    tenantId: string,
-    classId: string,
-    weekStart?: string,
-  ) {
+  async findByClassWeek(tenantId: string, classId: string, weekStart?: string) {
     // Calculate Monday of the target week
     const startDate = weekStart ? new Date(weekStart) : new Date();
 
@@ -790,11 +771,7 @@ export class HomeworkService {
     });
   }
 
-  async updateRecurrenceRule(
-    tenantId: string,
-    id: string,
-    dto: UpdateRecurrenceRuleDto,
-  ) {
+  async updateRecurrenceRule(tenantId: string, id: string, dto: UpdateRecurrenceRuleDto) {
     const existing = await this.prisma.homeworkRecurrenceRule.findFirst({
       where: { id, tenant_id: tenantId },
       select: { id: true },

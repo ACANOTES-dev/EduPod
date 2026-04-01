@@ -1,17 +1,14 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import type {
   CompareScenarioDto,
   CreateScenarioDto,
   ScenarioQuery,
   UpdateScenarioDto,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,7 +47,7 @@ export class ScenarioService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const scenario = await prismaWithRls.$transaction(async (tx) => {
+    const scenario = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.schedulingScenario.create({
         data: {
@@ -64,7 +61,7 @@ export class ScenarioService {
           created_by_user_id: userId,
         },
       });
-    }) as unknown as { id: string; status: string; created_at: Date };
+    })) as unknown as { id: string; status: string; created_at: Date };
 
     return {
       id: (scenario as { id: string }).id,
@@ -146,11 +143,7 @@ export class ScenarioService {
 
   // ─── Update Scenario ──────────────────────────────────────────────────────
 
-  async updateScenario(
-    tenantId: string,
-    scenarioId: string,
-    dto: UpdateScenarioDto,
-  ) {
+  async updateScenario(tenantId: string, scenarioId: string, dto: UpdateScenarioDto) {
     const scenario = await this.prisma.schedulingScenario.findFirst({
       where: { id: scenarioId, tenant_id: tenantId },
       select: { id: true, status: true },
@@ -169,19 +162,21 @@ export class ScenarioService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const updated = await prismaWithRls.$transaction(async (tx) => {
+    const updated = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.schedulingScenario.update({
         where: { id: scenarioId },
         data: {
           ...(dto.name ? { name: dto.name } : {}),
           ...(dto.description !== undefined ? { description: dto.description } : {}),
-          ...(dto.adjustments ? { adjustments_json: dto.adjustments as Prisma.InputJsonValue } : {}),
+          ...(dto.adjustments
+            ? { adjustments_json: dto.adjustments as Prisma.InputJsonValue }
+            : {}),
           // Reset to draft when adjustments are changed
           ...(dto.adjustments ? { status: 'draft', solver_result_json: Prisma.JsonNull } : {}),
         },
       });
-    }) as unknown as { id: string; name: string; status: string; updated_at: Date };
+    })) as unknown as { id: string; name: string; status: string; updated_at: Date };
 
     return {
       id: (updated as { id: string }).id,

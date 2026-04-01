@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+
 import type { FeeGenerationPreview, FeeGenerationPreviewLine } from '@school/shared';
 import type { FeeGenerationConfirmDto, FeeGenerationPreviewDto } from '@school/shared';
 

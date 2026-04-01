@@ -1,5 +1,9 @@
 'use client';
 
+import { UserPlus, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -17,10 +21,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { UserPlus, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -60,11 +60,32 @@ interface RolesResponse {
 
 function invitationStatusBadge(status: InvitationStatus, t: ReturnType<typeof useTranslations>) {
   switch (status) {
-    case 'pending':  return <StatusBadge status="warning" dot>{t('pending')}</StatusBadge>;
-    case 'accepted': return <StatusBadge status="success" dot>{t('accepted')}</StatusBadge>;
-    case 'expired':  return <StatusBadge status="neutral" dot>{t('expired')}</StatusBadge>;
-    case 'revoked':  return <StatusBadge status="danger" dot>{t('revoked')}</StatusBadge>;
-    default:         return <StatusBadge status="neutral">{status}</StatusBadge>;
+    case 'pending':
+      return (
+        <StatusBadge status="warning" dot>
+          {t('pending')}
+        </StatusBadge>
+      );
+    case 'accepted':
+      return (
+        <StatusBadge status="success" dot>
+          {t('accepted')}
+        </StatusBadge>
+      );
+    case 'expired':
+      return (
+        <StatusBadge status="neutral" dot>
+          {t('expired')}
+        </StatusBadge>
+      );
+    case 'revoked':
+      return (
+        <StatusBadge status="danger" dot>
+          {t('revoked')}
+        </StatusBadge>
+      );
+    default:
+      return <StatusBadge status="neutral">{status}</StatusBadge>;
   }
 }
 
@@ -101,8 +122,14 @@ function InviteDialog({ open, onOpenChange, onSuccess }: InviteDialogProps) {
   };
 
   const handleSubmit = async () => {
-    if (!email.trim()) { setError(t('emailRequired')); return; }
-    if (!selectedRoleId) { setError(t('roleRequired')); return; }
+    if (!email.trim()) {
+      setError(t('emailRequired'));
+      return;
+    }
+    if (!selectedRoleId) {
+      setError(t('roleRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -138,7 +165,9 @@ function InviteDialog({ open, onOpenChange, onSuccess }: InviteDialogProps) {
               placeholder="user@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void handleSubmit(); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSubmit();
+              }}
             />
           </div>
 
@@ -187,14 +216,21 @@ function RevokeDialog({ open, loading, onConfirm, onCancel }: RevokeDialogProps)
   const t = useTranslations('invitations');
   const tc = useTranslations('common');
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onCancel();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('revokeConfirmTitle')}</DialogTitle>
           <DialogDescription>{t('revokeConfirmDescription')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>{tc('cancel')}</Button>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
+            {tc('cancel')}
+          </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={loading}>
             {loading ? tc('loading') : t('revoke')}
           </Button>
@@ -223,11 +259,14 @@ export default function InvitationsPage() {
   const fetchInvitations = React.useCallback(async (p: number) => {
     setIsLoading(true);
     try {
-      const res = await apiClient<InvitationsResponse>(`/api/v1/invitations?page=${p}&pageSize=${PAGE_SIZE}`);
+      const res = await apiClient<InvitationsResponse>(
+        `/api/v1/invitations?page=${p}&pageSize=${PAGE_SIZE}`,
+      );
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
       // silently swallowed
+      console.error('[setTotal]', err);
     } finally {
       setIsLoading(false);
     }
@@ -250,8 +289,9 @@ export default function InvitationsPage() {
       await apiClient(`/api/v1/invitations/${revokeTarget}/revoke`, { method: 'POST' });
       setRevokeTarget(null);
       void fetchInvitations(page);
-    } catch {
+    } catch (err) {
       // keep dialog open on error
+      console.error('[fetchInvitations]', err);
     } finally {
       setRevokeLoading(false);
     }
@@ -264,7 +304,9 @@ export default function InvitationsPage() {
       key: 'email',
       header: t('email'),
       render: (row: InvitationRow) => (
-        <span dir="ltr" className="font-medium text-text-primary">{row.email}</span>
+        <span dir="ltr" className="font-medium text-text-primary">
+          {row.email}
+        </span>
       ),
     },
     {
@@ -284,11 +326,7 @@ export default function InvitationsPage() {
       header: t('actions'),
       render: (row: InvitationRow) =>
         row.status === 'pending' ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRevokeTarget(row.id)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => setRevokeTarget(row.id)}>
             <X className="me-1.5 h-3.5 w-3.5" />
             {t('revoke')}
           </Button>

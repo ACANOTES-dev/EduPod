@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -29,9 +30,7 @@ const MOCK_RESULT = {
     management_body: 'HSE',
     last_verified_date: '2025-01-15',
   },
-  resources: [
-    { name: 'Samaritans', phone: '116 123', website: 'https://samaritans.org' },
-  ],
+  resources: [{ name: 'Samaritans', phone: '116 123', website: 'https://samaritans.org' }],
 };
 
 // ─── Test Suite ──────────────────────────────────────────────────────────────
@@ -45,9 +44,7 @@ describe('ResourceController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ResourceController],
-      providers: [
-        { provide: ResourceService, useValue: mockResourceService },
-      ],
+      providers: [{ provide: ResourceService, useValue: mockResourceService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

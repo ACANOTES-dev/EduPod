@@ -8,6 +8,8 @@
  *
  * Coverage: ~20 endpoints across the highest-traffic modules.
  */
+import { z } from 'zod';
+
 import {
   amendAttendanceRecordSchema,
   bulkUpsertGradesSchema,
@@ -58,7 +60,6 @@ import {
   updateStudentStatusSchema,
   userListQuerySchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

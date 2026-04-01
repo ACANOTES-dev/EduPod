@@ -13,12 +13,12 @@ import {
   YAxis,
 } from 'recharts';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-
 import { BonusAnalysisTable } from './_components/bonus-analysis-table';
 import { CostTrendChart } from './_components/cost-trend-chart';
 import { YtdSummaryTable } from './_components/ytd-summary-table';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -101,8 +101,9 @@ export default function PayrollReportsPage() {
         setCostTrend(trendRes.data);
         setYtdSummary(ytdRes.data);
         setBonusAnalysis(bonusRes.data);
-      } catch {
+      } catch (err) {
         // silent
+        console.error('[setBonusAnalysis]', err);
       } finally {
         setIsLoading(false);
       }
@@ -126,8 +127,9 @@ export default function PayrollReportsPage() {
           );
           setForecast(res.data);
         }
-      } catch {
+      } catch (err) {
         // silent
+        console.error('[setForecast]', err);
       }
     };
     if (activeTab === 'variance' || activeTab === 'forecast') {
@@ -179,7 +181,8 @@ export default function PayrollReportsPage() {
       </div>
 
       {/* Tab content */}
-      {isLoading && (activeTab === 'costTrend' || activeTab === 'ytdSummary' || activeTab === 'bonusAnalysis') ? (
+      {isLoading &&
+      (activeTab === 'costTrend' || activeTab === 'ytdSummary' || activeTab === 'bonusAnalysis') ? (
         <div className="h-64 animate-pulse rounded-2xl bg-surface-secondary" />
       ) : (
         <>
@@ -204,7 +207,10 @@ export default function PayrollReportsPage() {
                     { label: t('departures'), value: String(varianceSummary.departures) },
                     { label: t('changes'), value: String(varianceSummary.changes) },
                   ].map((card) => (
-                    <div key={card.label} className="rounded-2xl border border-border bg-surface p-4">
+                    <div
+                      key={card.label}
+                      className="rounded-2xl border border-border bg-surface p-4"
+                    >
                       <p className="text-xs text-text-secondary">{card.label}</p>
                       <p
                         className={`mt-1 text-xl font-semibold ${
@@ -257,7 +263,8 @@ export default function PayrollReportsPage() {
                             <td className="px-4 py-3">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  CHANGE_TYPE_COLORS[row.change_type] ?? 'bg-neutral-100 text-text-secondary'
+                                  CHANGE_TYPE_COLORS[row.change_type] ??
+                                  'bg-neutral-100 text-text-secondary'
                                 }`}
                               >
                                 {CHANGE_TYPE_LABELS[row.change_type] ?? row.change_type}

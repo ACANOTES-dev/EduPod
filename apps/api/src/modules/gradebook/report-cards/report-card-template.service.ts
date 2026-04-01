@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { GdprOutboundData } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -71,9 +72,7 @@ export class ReportCardTemplateService {
         );
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI template conversion will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI template conversion will be unavailable');
     }
   }
 
@@ -124,10 +123,7 @@ export class ReportCardTemplateService {
 
   // ─── List ─────────────────────────────────────────────────────────────────
 
-  async findAll(
-    tenantId: string,
-    params: { page: number; pageSize: number; locale?: string },
-  ) {
+  async findAll(tenantId: string, params: { page: number; pageSize: number; locale?: string }) {
     const { page, pageSize, locale } = params;
     const skip = (page - 1) * pageSize;
 
@@ -230,7 +226,12 @@ export class ReportCardTemplateService {
 
       if (dto.is_default) {
         await db.reportCardTemplate.updateMany({
-          where: { tenant_id: tenantId, locale: template.locale, is_default: true, id: { not: id } },
+          where: {
+            tenant_id: tenantId,
+            locale: template.locale,
+            is_default: true,
+            id: { not: id },
+          },
           data: { is_default: false },
         });
       }
@@ -314,12 +315,7 @@ export class ReportCardTemplateService {
 
   // ─── AI Template Conversion ───────────────────────────────────────────────
 
-  async convertFromImage(
-    tenantId: string,
-    userId: string,
-    imageBuffer: Buffer,
-    mimeType: string,
-  ) {
+  async convertFromImage(tenantId: string, userId: string, imageBuffer: Buffer, mimeType: string) {
     if (!this.anthropic) {
       throw new ServiceUnavailableException({
         error: {
@@ -473,11 +469,46 @@ Return ONLY the JSON array, no explanation.`;
 
   private buildDefaultSections(): TemplateSectionConfig[] {
     return [
-      { id: 'header', type: 'header', order: 1, style_variant: 'centered', enabled: true, config: {} },
-      { id: 'student_info', type: 'student_info', order: 2, style_variant: 'grid', enabled: true, config: {} },
-      { id: 'grades_table', type: 'grades_table', order: 3, style_variant: 'expanded', enabled: true, config: {} },
-      { id: 'attendance_summary', type: 'attendance_summary', order: 4, style_variant: 'default', enabled: true, config: {} },
-      { id: 'teacher_comment', type: 'teacher_comment', order: 5, style_variant: 'default', enabled: true, config: {} },
+      {
+        id: 'header',
+        type: 'header',
+        order: 1,
+        style_variant: 'centered',
+        enabled: true,
+        config: {},
+      },
+      {
+        id: 'student_info',
+        type: 'student_info',
+        order: 2,
+        style_variant: 'grid',
+        enabled: true,
+        config: {},
+      },
+      {
+        id: 'grades_table',
+        type: 'grades_table',
+        order: 3,
+        style_variant: 'expanded',
+        enabled: true,
+        config: {},
+      },
+      {
+        id: 'attendance_summary',
+        type: 'attendance_summary',
+        order: 4,
+        style_variant: 'default',
+        enabled: true,
+        config: {},
+      },
+      {
+        id: 'teacher_comment',
+        type: 'teacher_comment',
+        order: 5,
+        style_variant: 'default',
+        enabled: true,
+        config: {},
+      },
     ];
   }
 }

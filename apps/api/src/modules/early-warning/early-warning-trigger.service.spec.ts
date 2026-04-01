@@ -1,5 +1,6 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { buildMockPrisma, buildMockQueue } from '../../../test/mock-factories';

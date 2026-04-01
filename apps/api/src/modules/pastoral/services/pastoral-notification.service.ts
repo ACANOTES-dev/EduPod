@@ -1,8 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PastoralConcernSeverity } from '@prisma/client';
-import { pastoralTenantSettingsSchema } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import { pastoralTenantSettingsSchema } from '@school/shared';
 
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';

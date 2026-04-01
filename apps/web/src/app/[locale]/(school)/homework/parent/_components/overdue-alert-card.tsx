@@ -1,13 +1,14 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { formatDate } from '@/lib/format-date';
+import { Badge } from '@school/ui';
 
 import { ParentCompletionToggle } from './parent-completion-toggle';
+
+import { formatDate } from '@/lib/format-date';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

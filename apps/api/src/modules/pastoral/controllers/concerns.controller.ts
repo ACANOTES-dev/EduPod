@@ -13,6 +13,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import type { Request } from 'express';
+import { z } from 'zod';
+
 import {
   amendNarrativeSchema,
   createConcernSchema,
@@ -23,8 +26,6 @@ import {
   updateConcernMetadataSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Request } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
