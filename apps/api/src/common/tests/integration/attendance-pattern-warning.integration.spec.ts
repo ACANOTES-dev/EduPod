@@ -18,9 +18,9 @@ import { PrismaService } from '../../../modules/prisma/prisma.service';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-const TENANT_ID = 'tenant-uuid-integration-003';
-const STUDENT_ID = 'student-uuid-integration-003';
-const ALERT_ID = 'alert-uuid-integration-003';
+const TENANT_ID = '00000000-0000-4000-a000-000000000003';
+const STUDENT_ID = '00000000-0000-4000-a000-000000000103';
+const ALERT_ID = '00000000-0000-4000-a000-000000000203';
 
 // ─── Mock factories ──────────────────────────────────────────────────────────
 
