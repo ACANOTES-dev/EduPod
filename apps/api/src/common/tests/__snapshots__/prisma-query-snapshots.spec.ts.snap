@@ -1,0 +1,239 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Prisma Query Snapshots — InvoicesService findAll include shape matches snapshot: invoice.findMany include 1`] = `
+{
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "lines": {
+    "select": {
+      "description": true,
+      "id": true,
+      "line_total": true,
+      "quantity": true,
+      "student_id": true,
+      "unit_amount": true,
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — InvoicesService findOne include shape matches snapshot: invoice.findFirst include 1`] = `
+{
+  "approval_request": true,
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "installments": {
+    "orderBy": {
+      "due_date": "asc",
+    },
+  },
+  "lines": {
+    "include": {
+      "fee_structure": {
+        "select": {
+          "id": true,
+          "name": true,
+        },
+      },
+      "student": {
+        "select": {
+          "first_name": true,
+          "id": true,
+          "last_name": true,
+        },
+      },
+    },
+  },
+  "payment_allocations": {
+    "include": {
+      "payment": {
+        "select": {
+          "id": true,
+          "payment_method": true,
+          "payment_reference": true,
+          "received_at": true,
+        },
+      },
+    },
+    "orderBy": {
+      "created_at": "desc",
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — InvoicesService findOne include shape matches snapshot: invoice.findFirst where 1`] = `
+{
+  "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+  "tenant_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+}
+`;
+
+exports[`Prisma Query Snapshots — PaymentsService findAll include shape matches snapshot: payment.findMany include 1`] = `
+{
+  "_count": {
+    "select": {
+      "allocations": true,
+    },
+  },
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "posted_by": {
+    "select": {
+      "first_name": true,
+      "id": true,
+      "last_name": true,
+    },
+  },
+  "receipt": {
+    "select": {
+      "id": true,
+      "receipt_number": true,
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — PaymentsService findOne include shape matches snapshot: payment.findFirst include 1`] = `
+{
+  "allocations": {
+    "include": {
+      "invoice": {
+        "select": {
+          "balance_amount": true,
+          "id": true,
+          "invoice_number": true,
+          "status": true,
+          "total_amount": true,
+        },
+      },
+    },
+    "orderBy": {
+      "created_at": "desc",
+    },
+  },
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "posted_by": {
+    "select": {
+      "first_name": true,
+      "id": true,
+      "last_name": true,
+    },
+  },
+  "receipt": true,
+  "refunds": {
+    "orderBy": {
+      "created_at": "desc",
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — PaymentsService findOne include shape matches snapshot: payment.findFirst where 1`] = `
+{
+  "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+  "tenant_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+}
+`;
+
+exports[`Prisma Query Snapshots — StudentsService findAll include shape matches snapshot: student.findMany include 1`] = `
+{
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "year_group": {
+    "select": {
+      "id": true,
+      "name": true,
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — StudentsService findOne include shape matches snapshot: student.findFirst include 1`] = `
+{
+  "class_enrolments": {
+    "include": {
+      "class_entity": {
+        "select": {
+          "academic_year": {
+            "select": {
+              "name": true,
+            },
+          },
+          "id": true,
+          "name": true,
+          "subject": {
+            "select": {
+              "name": true,
+            },
+          },
+        },
+      },
+    },
+    "orderBy": {
+      "start_date": "desc",
+    },
+  },
+  "homeroom_class": {
+    "select": {
+      "id": true,
+      "name": true,
+    },
+  },
+  "household": {
+    "select": {
+      "household_name": true,
+      "id": true,
+    },
+  },
+  "student_parents": {
+    "include": {
+      "parent": {
+        "select": {
+          "email": true,
+          "first_name": true,
+          "id": true,
+          "is_billing_contact": true,
+          "is_primary_contact": true,
+          "last_name": true,
+          "phone": true,
+        },
+      },
+    },
+  },
+  "year_group": {
+    "select": {
+      "id": true,
+      "name": true,
+    },
+  },
+}
+`;
+
+exports[`Prisma Query Snapshots — StudentsService findOne include shape matches snapshot: student.findFirst where 1`] = `
+{
+  "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "tenant_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+}
+`;
