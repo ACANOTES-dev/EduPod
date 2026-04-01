@@ -29,6 +29,22 @@ function buildHealthResult(status: FullHealthResult['status']): FullHealthResult
         },
       },
       disk: { status: 'up', free_gb: 45.2, total_gb: 100 },
+      pgbouncer: {
+        status: 'not_configured',
+        latency_ms: 0,
+        active_client_connections: null,
+        waiting_client_connections: null,
+        max_client_connections: null,
+        utilization_percent: null,
+        alert: null,
+      },
+      redis_memory: {
+        status: 'up',
+        used_memory_bytes: 1_048_576,
+        maxmemory_bytes: 2_097_152,
+        utilization_percent: 50,
+        alert: null,
+      },
     },
   };
 }

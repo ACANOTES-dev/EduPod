@@ -2,7 +2,9 @@ import * as os from 'os';
 
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
+import { Client } from 'pg';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
@@ -10,20 +12,29 @@ import { MeilisearchClient } from '../search/meilisearch.client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type ServiceStatus = 'up' | 'down';
+type MonitorStatus = ServiceStatus | 'not_configured';
+type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';
+type QueueName = 'notifications' | 'behaviour' | 'finance' | 'payroll' | 'pastoral';
+type QueueHealthMap = Record<QueueName, QueueHealthMetrics>;
+type QueueAlertThreshold = { waiting: number; delayed: number; failed: number };
+type DeliveryProviderKey = 'resend_email' | 'twilio_sms' | 'twilio_whatsapp';
+type PgbouncerRow = Record<string, unknown>;
+
 interface DependencyCheck {
-  status: 'up' | 'down';
+  status: ServiceStatus;
   latency_ms: number;
 }
 
 interface BullMQCheck {
-  status: 'up' | 'down';
+  status: ServiceStatus;
   stuck_jobs: number;
   alerts: string[];
   queues: QueueHealthMap;
 }
 
 interface DiskCheck {
-  status: 'up' | 'down';
+  status: ServiceStatus;
   free_gb: number;
   total_gb: number;
 }
@@ -36,12 +47,39 @@ interface QueueHealthMetrics {
   stuck_jobs: number;
 }
 
-type QueueName = 'notifications' | 'behaviour' | 'finance' | 'payroll' | 'pastoral';
-type QueueHealthMap = Record<QueueName, QueueHealthMetrics>;
-type QueueAlertThreshold = { waiting: number; delayed: number; failed: number };
+interface PgbouncerCheck {
+  status: MonitorStatus;
+  latency_ms: number;
+  active_client_connections: number | null;
+  waiting_client_connections: number | null;
+  max_client_connections: number | null;
+  utilization_percent: number | null;
+  alert: string | null;
+}
+
+interface RedisMemoryCheck {
+  status: MonitorStatus;
+  used_memory_bytes: number | null;
+  maxmemory_bytes: number | null;
+  utilization_percent: number | null;
+  alert: string | null;
+}
+
+interface WorkerCheck {
+  status: ServiceStatus;
+  latency_ms: number;
+  url: string;
+}
+
+interface DeliveryProviderCheck {
+  status: 'configured' | 'not_configured';
+  details: string;
+}
+
+type DeliveryProviderMap = Record<DeliveryProviderKey, DeliveryProviderCheck>;
 
 export interface FullHealthResult {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: HealthStatus;
   timestamp: string;
   uptime: number;
   checks: {
@@ -50,13 +88,28 @@ export interface FullHealthResult {
     meilisearch: DependencyCheck;
     bullmq: BullMQCheck;
     disk: DiskCheck;
+    pgbouncer: PgbouncerCheck;
+    redis_memory: RedisMemoryCheck;
   };
+}
+
+export interface AdminHealthResult {
+  status: HealthStatus;
+  timestamp: string;
+  alerts: string[];
+  api: FullHealthResult;
+  worker: WorkerCheck;
+  delivery_providers: DeliveryProviderMap;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Jobs active longer than this are considered stuck (5 minutes). */
 const STUCK_JOB_THRESHOLD_MS = 5 * 60 * 1000;
+const PGBOUNCER_UTILIZATION_ALERT_THRESHOLD = 80;
+const REDIS_MAXMEMORY_ALERT_THRESHOLD = 80;
+const DEFAULT_WORKER_HEALTH_URL = 'http://127.0.0.1:5556/health';
+
 const QUEUE_ALERT_THRESHOLDS: Record<QueueName, QueueAlertThreshold> = {
   behaviour: { waiting: 50, delayed: 25, failed: 5 },
   finance: { waiting: 25, delayed: 25, failed: 5 },
@@ -82,6 +135,77 @@ function buildEmptyQueueHealthMap(): QueueHealthMap {
     finance: buildEmptyQueueHealthMetrics(),
     payroll: buildEmptyQueueHealthMetrics(),
     pastoral: buildEmptyQueueHealthMetrics(),
+  };
+}
+
+function buildNotConfiguredPgbouncerCheck(): PgbouncerCheck {
+  return {
+    status: 'not_configured',
+    latency_ms: 0,
+    active_client_connections: null,
+    waiting_client_connections: null,
+    max_client_connections: null,
+    utilization_percent: null,
+    alert: null,
+  };
+}
+
+function buildDownPgbouncerCheck(latencyMs: number): PgbouncerCheck {
+  return {
+    status: 'down',
+    latency_ms: latencyMs,
+    active_client_connections: null,
+    waiting_client_connections: null,
+    max_client_connections: null,
+    utilization_percent: null,
+    alert: 'pgbouncer:down',
+  };
+}
+
+function buildDownRedisMemoryCheck(): RedisMemoryCheck {
+  return {
+    status: 'down',
+    used_memory_bytes: null,
+    maxmemory_bytes: null,
+    utilization_percent: null,
+    alert: null,
+  };
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  const parsed = toNumber(value);
+  return parsed > 0 ? parsed : null;
+}
+
+function roundPercent(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function readPgbouncerValue(row: PgbouncerRow, key: string): unknown {
+  return row[key];
+}
+
+function sumPgbouncerMetric(rows: PgbouncerRow[], key: string): number {
+  return rows.reduce((sum, row) => sum + toNumber(readPgbouncerValue(row, key)), 0);
+}
+
+function buildDeliveryProviderCheck(configured: boolean, details: string): DeliveryProviderCheck {
+  return {
+    status: configured ? 'configured' : 'not_configured',
+    details,
   };
 }
 
@@ -120,6 +244,7 @@ export class HealthService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly meilisearch: MeilisearchClient,
+    private readonly configService: ConfigService,
     @InjectQueue('notifications') private readonly notificationsQueue: Queue,
     @InjectQueue('behaviour') private readonly behaviourQueue: Queue,
     @InjectQueue('finance') private readonly financeQueue: Queue,
@@ -137,6 +262,32 @@ export class HealthService {
     return this.buildFullResult();
   }
 
+  async getAdminDashboard(): Promise<AdminHealthResult> {
+    const api = await this.buildFullResult();
+    const worker = await this.checkWorker();
+    const deliveryProviders = this.buildDeliveryProviders();
+    const alerts = [
+      ...api.checks.bullmq.alerts,
+      ...(api.checks.pgbouncer.alert ? [api.checks.pgbouncer.alert] : []),
+      ...(api.checks.redis_memory.alert ? [api.checks.redis_memory.alert] : []),
+      ...(worker.status === 'down' ? ['worker:down'] : []),
+    ];
+
+    let status: HealthStatus = api.status;
+    if (status !== 'unhealthy' && worker.status === 'down') {
+      status = 'degraded';
+    }
+
+    return {
+      status,
+      timestamp: api.timestamp,
+      alerts,
+      api,
+      worker,
+      delivery_providers: deliveryProviders,
+    };
+  }
+
   getLiveness(): { status: 'alive'; timestamp: string } {
     return { status: 'alive', timestamp: new Date().toISOString() };
   }
@@ -144,23 +295,31 @@ export class HealthService {
   // ─── Private: Orchestration ─────────────────────────────────────────────────
 
   private async buildFullResult(): Promise<FullHealthResult> {
-    const [postgresql, redis, meilisearch, bullmq, disk] = await Promise.all([
-      this.checkPostgresql(),
-      this.checkRedis(),
-      this.checkMeilisearch(),
-      this.checkBullMQ(),
-      Promise.resolve(this.checkDisk()),
-    ]);
+    const [postgresql, redis, meilisearch, bullmq, disk, pgbouncer, redisMemory] =
+      await Promise.all([
+        this.checkPostgresql(),
+        this.checkRedis(),
+        this.checkMeilisearch(),
+        this.checkBullMQ(),
+        Promise.resolve(this.checkDisk()),
+        this.checkPgbouncer(),
+        this.checkRedisMemory(),
+      ]);
 
     const criticalDown = postgresql.status === 'down' || redis.status === 'down';
     const nonCriticalDown =
-      meilisearch.status === 'down' || bullmq.status === 'down' || disk.status === 'down';
-    const queueAlertPresent = bullmq.alerts.length > 0;
+      meilisearch.status === 'down' ||
+      bullmq.status === 'down' ||
+      disk.status === 'down' ||
+      pgbouncer.status === 'down' ||
+      redisMemory.status === 'down';
+    const monitorAlertPresent =
+      bullmq.alerts.length > 0 || Boolean(pgbouncer.alert) || Boolean(redisMemory.alert);
 
-    let status: 'healthy' | 'degraded' | 'unhealthy';
+    let status: HealthStatus;
     if (criticalDown) {
       status = 'unhealthy';
-    } else if (nonCriticalDown || queueAlertPresent) {
+    } else if (nonCriticalDown || monitorAlertPresent) {
       status = 'degraded';
     } else {
       status = 'healthy';
@@ -170,7 +329,15 @@ export class HealthService {
       status,
       timestamp: new Date().toISOString(),
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
-      checks: { postgresql, redis, meilisearch, bullmq, disk },
+      checks: {
+        postgresql,
+        redis,
+        meilisearch,
+        bullmq,
+        disk,
+        pgbouncer,
+        redis_memory: redisMemory,
+      },
     };
   }
 
@@ -243,6 +410,109 @@ export class HealthService {
     }
   }
 
+  private async checkPgbouncer(): Promise<PgbouncerCheck> {
+    const adminUrl = this.configService.get<string>('PGBOUNCER_ADMIN_URL');
+    if (!adminUrl) {
+      return buildNotConfiguredPgbouncerCheck();
+    }
+
+    const client = new Client({ connectionString: adminUrl });
+    const start = Date.now();
+
+    try {
+      await client.connect();
+
+      const [poolsResult, configResult] = await Promise.all([
+        client.query('SHOW POOLS'),
+        client.query('SHOW CONFIG'),
+      ]);
+
+      const poolRows = poolsResult.rows as PgbouncerRow[];
+      const configRows = configResult.rows as PgbouncerRow[];
+      const activeClientConnections = sumPgbouncerMetric(poolRows, 'cl_active');
+      const waitingClientConnections = sumPgbouncerMetric(poolRows, 'cl_waiting');
+      const maxClientConnRow = configRows.find((row) => {
+        const key = readPgbouncerValue(row, 'key');
+        return typeof key === 'string' && key === 'max_client_conn';
+      });
+      const maxClientConnections = maxClientConnRow
+        ? toNullableNumber(readPgbouncerValue(maxClientConnRow, 'value'))
+        : null;
+      const utilizationPercent =
+        maxClientConnections && maxClientConnections > 0
+          ? roundPercent(
+              ((activeClientConnections + waitingClientConnections) / maxClientConnections) * 100,
+            )
+          : null;
+
+      let alert: string | null = null;
+      if (waitingClientConnections > 0) {
+        alert = 'pgbouncer:waiting_connections>0';
+      } else if (
+        utilizationPercent !== null &&
+        utilizationPercent > PGBOUNCER_UTILIZATION_ALERT_THRESHOLD
+      ) {
+        alert = `pgbouncer:utilization>${PGBOUNCER_UTILIZATION_ALERT_THRESHOLD}`;
+      }
+
+      return {
+        status: 'up',
+        latency_ms: Date.now() - start,
+        active_client_connections: activeClientConnections,
+        waiting_client_connections: waitingClientConnections,
+        max_client_connections: maxClientConnections,
+        utilization_percent: utilizationPercent,
+        alert,
+      };
+    } catch {
+      return buildDownPgbouncerCheck(Date.now() - start);
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+  }
+
+  private async checkRedisMemory(): Promise<RedisMemoryCheck> {
+    try {
+      const memory = await this.redis.getMemoryInfo();
+      const utilizationPercent =
+        memory.maxmemory_bytes && memory.maxmemory_bytes > 0
+          ? roundPercent((memory.used_memory_bytes / memory.maxmemory_bytes) * 100)
+          : null;
+
+      return {
+        status: 'up',
+        used_memory_bytes: memory.used_memory_bytes,
+        maxmemory_bytes: memory.maxmemory_bytes,
+        utilization_percent: utilizationPercent,
+        alert:
+          utilizationPercent !== null && utilizationPercent > REDIS_MAXMEMORY_ALERT_THRESHOLD
+            ? `redis_memory:utilization>${REDIS_MAXMEMORY_ALERT_THRESHOLD}`
+            : null,
+      };
+    } catch {
+      return buildDownRedisMemoryCheck();
+    }
+  }
+
+  private async checkWorker(): Promise<WorkerCheck> {
+    const url = this.configService.get<string>('WORKER_HEALTH_URL') ?? DEFAULT_WORKER_HEALTH_URL;
+    const start = Date.now();
+
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (!response.ok) {
+        return { status: 'down', latency_ms: Date.now() - start, url };
+      }
+
+      return { status: 'up', latency_ms: Date.now() - start, url };
+    } catch {
+      return { status: 'down', latency_ms: Date.now() - start, url };
+    }
+  }
+
   private async checkQueueHealth(
     name: QueueName,
     queue: Queue,
@@ -299,6 +569,36 @@ export class HealthService {
       status: 'up',
       free_gb: Math.round((freeBytes / 1_073_741_824) * 10) / 10,
       total_gb: Math.round((totalBytes / 1_073_741_824) * 10) / 10,
+    };
+  }
+
+  private buildDeliveryProviders(): DeliveryProviderMap {
+    const resendConfigured = Boolean(this.configService.get<string>('RESEND_API_KEY'));
+    const twilioSharedConfigured =
+      Boolean(this.configService.get<string>('TWILIO_ACCOUNT_SID')) &&
+      Boolean(this.configService.get<string>('TWILIO_AUTH_TOKEN'));
+    const smsConfigured =
+      twilioSharedConfigured && Boolean(this.configService.get<string>('TWILIO_SMS_FROM'));
+    const whatsappConfigured =
+      twilioSharedConfigured && Boolean(this.configService.get<string>('TWILIO_WHATSAPP_FROM'));
+
+    return {
+      resend_email: buildDeliveryProviderCheck(
+        resendConfigured,
+        resendConfigured ? 'Resend email delivery is configured.' : 'RESEND_API_KEY is missing.',
+      ),
+      twilio_sms: buildDeliveryProviderCheck(
+        smsConfigured,
+        smsConfigured
+          ? 'Twilio SMS delivery is configured.'
+          : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_SMS_FROM is missing.',
+      ),
+      twilio_whatsapp: buildDeliveryProviderCheck(
+        whatsappConfigured,
+        whatsappConfigured
+          ? 'Twilio WhatsApp delivery is configured.'
+          : 'TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, or TWILIO_WHATSAPP_FROM is missing.',
+      ),
     };
   }
 }

@@ -11,7 +11,8 @@ This runbook defines the minimum production monitoring surface for the Hetzner +
 1. UptimeRobot HTTP checks for user-facing and worker health endpoints
 2. Vector log shipping from PM2 logs into Loki
 3. deploy notifications through Slack and/or Telegram
-4. queue alert thresholds exposed via `/api/health` and `/api/health/ready`
+4. queue alert thresholds, PgBouncer pool monitoring, and Redis memory monitoring exposed via `/api/health` and `/api/health/ready`
+5. platform admin dashboard visibility at `/en/admin/health`
 
 ---
 
@@ -33,9 +34,9 @@ If the worker endpoint is not internet-exposed, monitor it from an internal prob
 
 ---
 
-## 2. Queue Alert Thresholds
+## 2. API Readiness Signals
 
-The API health surface now reports queue backlog and stuck-job alerts for critical queues.
+The API health surface now reports queue backlog and stuck-job alerts for critical queues, plus PgBouncer connection-pool pressure and Redis memory saturation.
 
 Thresholds:
 
@@ -45,11 +46,18 @@ Thresholds:
 - `payroll`: waiting `>10`, delayed `>10`, failed `>2`
 - `pastoral`: waiting `>50`, delayed `>25`, failed `>5`
 - any stuck job older than 5 minutes raises an alert immediately
+- PgBouncer utilization `>80%` degrades health
+- any PgBouncer waiting client connections degrade health immediately
+- Redis `used_memory / maxmemory >80%` degrades health when `maxmemory` is configured
 
 Operational rule:
 
 - treat any non-empty `checks.bullmq.alerts` array as an ops issue
+- treat `checks.pgbouncer.alert` as a capacity issue requiring investigation
+- treat `checks.redis_memory.alert` as a memory-pressure issue requiring action before the next deploy
 - if health status becomes `degraded` because of queue alerts, investigate before the next deploy
+
+If `PGBOUNCER_ADMIN_URL` is not configured, the health payload reports `checks.pgbouncer.status = not_configured` and skips pool alerting. This should only be accepted temporarily.
 
 ---
 
@@ -87,7 +95,26 @@ Notifications fire for:
 
 ---
 
-## 5. Routine Review
+## 5. Platform Dashboard
+
+Platform owners can review the consolidated operational dashboard at:
+
+- `https://edupod.app/en/admin/health`
+
+The dashboard aggregates:
+
+- API dependency health and readiness signals
+- worker reachability
+- BullMQ queue backlog and stuck-job counts
+- PgBouncer pool usage
+- Redis memory usage vs. `maxmemory`
+- delivery provider configuration status for Resend, Twilio SMS, and Twilio WhatsApp
+
+Use the dashboard as the first stop for triage, then jump to logs, PM2, or provider consoles as needed.
+
+---
+
+## 6. Routine Review
 
 Review these at least weekly:
 
