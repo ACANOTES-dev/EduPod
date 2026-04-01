@@ -17,6 +17,7 @@
     "db:seed": "pnpm --filter @school/prisma seed",
     "db:post-migrate": "tsx scripts/post-migrate.ts",
     "seed:demo": "bash scripts/seed-demo.sh",
+    "audit:rls": "tsx scripts/audit-rls.ts",
     "prepare": "husky"
   },
   "lint-staged": {
