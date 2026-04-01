@@ -5,6 +5,7 @@ import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared'
 import { ZodError } from 'zod';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -64,7 +65,10 @@ export interface SettingsValidationResult {
 export class SettingsService {
   private readonly logger = new Logger(SettingsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityAuditService: SecurityAuditService,
+  ) {}
 
   // ─── Read: full settings ────────────────────────────────────────────────────
 
@@ -157,7 +161,7 @@ export class SettingsService {
    * This method still writes to the legacy JSONB blob for backward compatibility.
    * Per-module writes should use updateModuleSettings instead.
    */
-  async updateSettings(tenantId: string, data: Partial<TenantSettingsDto>) {
+  async updateSettings(tenantId: string, data: Partial<TenantSettingsDto>, actorUserId?: string) {
     const existing = await this.prisma.tenantSetting.findUnique({
       where: { tenant_id: tenantId },
     });
@@ -187,6 +191,12 @@ export class SettingsService {
     // Check for cross-module warnings
     const warnings = await this.getWarnings(tenantId, validated);
 
+    if (actorUserId) {
+      await this.securityAuditService.logTenantConfigChange(tenantId, actorUserId, 'settings', {
+        changed_modules: Object.keys(data),
+      });
+    }
+
     return {
       settings: validated,
       warnings,
@@ -206,6 +216,7 @@ export class SettingsService {
     tenantId: string,
     moduleKey: K,
     data: Record<string, unknown>,
+    actorUserId?: string,
   ) {
     // Read existing module data from the per-module row (or legacy blob fallback)
     const existingModuleData = await this.getExistingModuleData(tenantId, moduleKey);
@@ -272,6 +283,12 @@ export class SettingsService {
     // Re-read full settings for warnings check
     const fullSettings = await this.getSettings(tenantId);
     const warnings = await this.getWarnings(tenantId, fullSettings);
+
+    if (actorUserId) {
+      await this.securityAuditService.logTenantConfigChange(tenantId, actorUserId, moduleKey, {
+        changed_keys: Object.keys(data),
+      });
+    }
 
     return {
       settings: validatedModule,

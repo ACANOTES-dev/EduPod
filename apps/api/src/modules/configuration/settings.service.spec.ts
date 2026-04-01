@@ -9,6 +9,7 @@ jest.mock('../../common/middleware/rls.middleware');
 // eslint-disable-next-line import/order
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { SettingsService } from './settings.service';
@@ -83,12 +84,20 @@ describe('SettingsService', () => {
       $transaction: jest.fn((fn: (tx: MockPrisma) => Promise<unknown>) => fn(mockTx)),
     });
 
+    const mockSecurityAuditService = {
+      logTenantConfigChange: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SettingsService,
         {
           provide: PrismaService,
           useValue: mockPrisma,
+        },
+        {
+          provide: SecurityAuditService,
+          useValue: mockSecurityAuditService,
         },
       ],
     }).compile();

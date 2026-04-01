@@ -43,6 +43,8 @@ const mockAuthService = {
 
 const mockSecurityAuditService = {
   logMfaDisable: jest.fn(),
+  logTenantStatusChange: jest.fn().mockResolvedValue(undefined),
+  logModuleToggle: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockPrisma = {

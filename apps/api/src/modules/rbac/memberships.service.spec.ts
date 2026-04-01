@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -60,6 +61,11 @@ const mockPermissionCacheService = {
   invalidate: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSecurityAuditService = {
+  logUserStatusChange: jest.fn().mockResolvedValue(undefined),
+  logMembershipRoleChange: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockPrisma = {
   tenantMembership: {
     findFirst: jest.fn(),
@@ -91,6 +97,7 @@ describe('MembershipsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 
@@ -107,7 +114,15 @@ describe('MembershipsService', () => {
         user_id: USER_ID,
         membership_status: 'active',
         membership_roles: [
-          { role: { id: 'role-so', role_key: 'school_owner', display_name: 'School Owner', role_tier: 'platform', is_system_role: true } },
+          {
+            role: {
+              id: 'role-so',
+              role_key: 'school_owner',
+              display_name: 'School Owner',
+              role_tier: 'platform',
+              is_system_role: true,
+            },
+          },
         ],
       };
       mockPrisma.tenantMembership.findFirst.mockResolvedValueOnce(schoolOwnerMembership);
@@ -155,7 +170,7 @@ describe('MembershipsService', () => {
     it('should allow suspending an owner when multiple owners exist', async () => {
       // Two calls to findFirst: one in suspendMembership, one in getUser at the end
       mockPrisma.tenantMembership.findFirst
-        .mockResolvedValueOnce(ownerMembership)   // suspendMembership lookup
+        .mockResolvedValueOnce(ownerMembership) // suspendMembership lookup
         .mockResolvedValueOnce(ownerMembershipFull); // getUser lookup after suspend
 
       // Two active owners exist — safe to suspend this one
@@ -225,7 +240,14 @@ describe('MembershipsService', () => {
           user_id: USER_ID,
           membership_status: 'active',
           membership_roles: [
-            { role: { id: 'role-staff', role_key: 'custom_staff', role_tier: 'staff', is_system_role: false } },
+            {
+              role: {
+                id: 'role-staff',
+                role_key: 'custom_staff',
+                role_tier: 'staff',
+                is_system_role: false,
+              },
+            },
           ],
         })
         .mockResolvedValueOnce(ownerMembershipFull); // getUser at end

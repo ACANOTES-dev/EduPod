@@ -45,3 +45,13 @@ jobs:
 
       - name: Build
         run: pnpm build --force
+
+      # ── RLS integration tests (S-21) ──────────────────────────────
+      # Requires Docker PostgreSQL service container (DX-03).
+      # Uncomment when DX-03 is implemented. See apps/api/test/rls-integration.md.
+      #
+      # - name: RLS integration tests (restricted DB role)
+      #   run: pnpm --filter @school/api test:integration
+      #   env:
+      #     DATABASE_URL: postgresql://edupod_app:test@localhost:5432/edupod_test
+      #     NODE_ENV: test

@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { RolesService } from './roles.service';
@@ -37,6 +38,11 @@ const mockPermissionCacheService = {
   invalidate: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSecurityAuditService = {
+  logRoleChange: jest.fn().mockResolvedValue(undefined),
+  logPermissionChange: jest.fn().mockResolvedValue(undefined),
+};
+
 describe('RolesService', () => {
   let service: RolesService;
 
@@ -50,6 +56,7 @@ describe('RolesService', () => {
         RolesService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 
@@ -74,14 +81,26 @@ describe('RolesService', () => {
       const staffRoleWithPerms = {
         ...staffRole,
         role_permissions: [
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
-          { permission: { id: PERM_ID_STAFF_2, permission_key: 'students.list', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
+          {
+            permission: {
+              id: PERM_ID_STAFF_2,
+              permission_key: 'students.list',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
       // First findFirst: role lookup in assignPermissions
       mockPrisma.role.findFirst
-        .mockResolvedValueOnce(staffRole)       // assignPermissions role lookup
+        .mockResolvedValueOnce(staffRole) // assignPermissions role lookup
         .mockResolvedValueOnce(staffRoleWithPerms); // getRole at end
 
       // permission.findMany returns two staff-tier permissions
@@ -151,7 +170,13 @@ describe('RolesService', () => {
       const systemRoleWithPerms = {
         ...systemRole,
         role_permissions: [
-          { permission: { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' } },
+          {
+            permission: {
+              id: PERM_ID_ADMIN,
+              permission_key: 'tenant.manage',
+              permission_tier: 'admin',
+            },
+          },
         ],
       };
 
@@ -209,8 +234,20 @@ describe('RolesService', () => {
       const adminRoleWithPerms = {
         ...adminRole,
         role_permissions: [
-          { permission: { id: PERM_ID_ADMIN, permission_key: 'tenant.manage', permission_tier: 'admin' } },
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_ADMIN,
+              permission_key: 'tenant.manage',
+              permission_tier: 'admin',
+            },
+          },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
@@ -379,7 +416,13 @@ describe('RolesService', () => {
       const updatedRole = {
         ...systemRole,
         role_permissions: [
-          { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+          {
+            permission: {
+              id: PERM_ID_STAFF_1,
+              permission_key: 'students.view',
+              permission_tier: 'staff',
+            },
+          },
         ],
       };
 
@@ -439,7 +482,8 @@ describe('RolesService', () => {
       // Duplicate key check: role.findFirst → null (no existing)
       mockPrisma.role.findFirst
         .mockResolvedValueOnce(null) // duplicate check
-        .mockResolvedValueOnce({    // getRole at end
+        .mockResolvedValueOnce({
+          // getRole at end
           id: ROLE_ID,
           tenant_id: TENANT_ID,
           role_key: 'teacher',
@@ -447,7 +491,13 @@ describe('RolesService', () => {
           is_system_role: false,
           role_tier: 'staff',
           role_permissions: [
-            { permission: { id: PERM_ID_STAFF_1, permission_key: 'students.view', permission_tier: 'staff' } },
+            {
+              permission: {
+                id: PERM_ID_STAFF_1,
+                permission_key: 'students.view',
+                permission_tier: 'staff',
+              },
+            },
           ],
         });
 

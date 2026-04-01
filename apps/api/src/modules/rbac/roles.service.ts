@@ -1,12 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateRoleDto, UpdateRoleDto } from '@school/shared';
 import type { RoleTier } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -25,6 +22,7 @@ export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionCacheService: PermissionCacheService,
+    private readonly securityAuditService: SecurityAuditService,
   ) {}
 
   /**
@@ -51,7 +49,7 @@ export class RolesService {
    * Create a custom role for a tenant.
    * Validates tier enforcement on permission assignment.
    */
-  async createRole(tenantId: string, data: CreateRoleDto) {
+  async createRole(tenantId: string, data: CreateRoleDto, actorUserId?: string) {
     // Validate tier enforcement for the requested permissions
     await this.validateTierEnforcement(data.role_tier, data.permission_ids);
 
@@ -94,6 +92,15 @@ export class RolesService {
     // Invalidate permission cache for all memberships in this tenant
     await this.permissionCacheService.invalidateAllForTenant(tenantId);
 
+    if (actorUserId) {
+      await this.securityAuditService.logRoleChange(tenantId, actorUserId, 'create', role.id, {
+        role_key: data.role_key,
+        display_name: data.display_name,
+        role_tier: data.role_tier,
+        permission_count: data.permission_ids.length,
+      });
+    }
+
     return this.getRole(tenantId, role.id);
   }
 
@@ -127,7 +134,7 @@ export class RolesService {
    * Update a role. System roles allow permission changes only (not name).
    * The platform_owner role is fully immutable.
    */
-  async updateRole(tenantId: string, roleId: string, data: UpdateRoleDto) {
+  async updateRole(tenantId: string, roleId: string, data: UpdateRoleDto, actorUserId?: string) {
     const role = await this.prisma.role.findFirst({
       where: {
         id: roleId,
@@ -162,10 +169,7 @@ export class RolesService {
     // system roles bypass tier enforcement since they may have mixed-tier permissions)
     if (data.permission_ids) {
       if (!role.is_system_role) {
-        await this.validateTierEnforcement(
-          role.role_tier as RoleTier,
-          data.permission_ids,
-        );
+        await this.validateTierEnforcement(role.role_tier as RoleTier, data.permission_ids);
       }
 
       // Replace permissions — use the role's tenant_id (or the caller's for null-tenant roles)
@@ -197,13 +201,22 @@ export class RolesService {
     // Invalidate permission cache for all memberships in this tenant
     await this.permissionCacheService.invalidateAllForTenant(tenantId);
 
+    if (actorUserId) {
+      await this.securityAuditService.logRoleChange(tenantId, actorUserId, 'update', roleId, {
+        role_key: role.role_key,
+        display_name_changed: data.display_name !== undefined,
+        permissions_changed: data.permission_ids !== undefined,
+        ...(data.permission_ids ? { new_permission_count: data.permission_ids.length } : {}),
+      });
+    }
+
     return this.getRole(tenantId, roleId);
   }
 
   /**
    * Delete a custom role. System roles and in-use roles are blocked.
    */
-  async deleteRole(tenantId: string, roleId: string) {
+  async deleteRole(tenantId: string, roleId: string, actorUserId?: string) {
     const role = await this.prisma.role.findFirst({
       where: {
         id: roleId,
@@ -246,6 +259,13 @@ export class RolesService {
       where: { id: roleId },
     });
 
+    if (actorUserId) {
+      await this.securityAuditService.logRoleChange(tenantId, actorUserId, 'delete', roleId, {
+        role_key: role.role_key,
+        display_name: role.display_name,
+      });
+    }
+
     return { deleted: true };
   }
 
@@ -257,6 +277,7 @@ export class RolesService {
     tenantId: string,
     roleId: string,
     permissionIds: string[],
+    actorUserId?: string,
   ) {
     const role = await this.prisma.role.findFirst({
       where: {
@@ -282,10 +303,7 @@ export class RolesService {
 
     // Tier enforcement for custom roles only — system roles may have mixed-tier permissions
     if (!role.is_system_role) {
-      await this.validateTierEnforcement(
-        role.role_tier as RoleTier,
-        permissionIds,
-      );
+      await this.validateTierEnforcement(role.role_tier as RoleTier, permissionIds);
     }
 
     // Replace all permissions — use the role's tenant_id (or the caller's for null-tenant roles)
@@ -307,6 +325,16 @@ export class RolesService {
 
     // Invalidate permission cache for all memberships in this tenant
     await this.permissionCacheService.invalidateAllForTenant(tenantId);
+
+    if (actorUserId) {
+      await this.securityAuditService.logPermissionChange(
+        tenantId,
+        actorUserId,
+        roleId,
+        permissionIds,
+        'grant',
+      );
+    }
 
     return this.getRole(tenantId, roleId);
   }
@@ -376,10 +404,7 @@ export class RolesService {
    * A `staff` tier role can include `staff` and `parent` permissions,
    * but NOT `admin` or `platform` permissions.
    */
-  private async validateTierEnforcement(
-    roleTier: RoleTier,
-    permissionIds: string[],
-  ) {
+  private async validateTierEnforcement(roleTier: RoleTier, permissionIds: string[]) {
     if (permissionIds.length === 0) {
       return;
     }
@@ -406,9 +431,7 @@ export class RolesService {
     for (const perm of permissions) {
       const permRank = TIER_RANK[perm.permission_tier as RoleTier];
       if (permRank > roleRank) {
-        violations.push(
-          `${perm.permission_key} (tier: ${perm.permission_tier})`,
-        );
+        violations.push(`${perm.permission_key} (tier: ${perm.permission_tier})`);
       }
     }
 
