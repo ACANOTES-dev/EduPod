@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 
+import { RlsRoleCheckService } from './guards/rls-role-check.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 
 /**
@@ -10,7 +11,7 @@ import { PermissionCacheService } from './services/permission-cache.service';
  */
 @Global()
 @Module({
-  providers: [PermissionCacheService],
+  providers: [PermissionCacheService, RlsRoleCheckService],
   exports: [PermissionCacheService],
 })
 export class CommonModule {}

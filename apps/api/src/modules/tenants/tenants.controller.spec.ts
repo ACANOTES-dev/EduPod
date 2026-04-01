@@ -118,28 +118,28 @@ describe('TenantsController', () => {
     expect(mockService.updateTenant).toHaveBeenCalledWith(TENANT_ID, dto);
   });
 
-  it('should delegate suspendTenant to the service', async () => {
+  it('should delegate suspendTenant to the service with actor user ID', async () => {
     mockService.suspendTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'suspended' });
 
-    const result = await controller.suspendTenant(TENANT_ID);
+    const result = await controller.suspendTenant(TENANT_ID, mockUser);
     expect(result).toEqual({ id: TENANT_ID, status: 'suspended' });
-    expect(mockService.suspendTenant).toHaveBeenCalledWith(TENANT_ID);
+    expect(mockService.suspendTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
   });
 
-  it('should delegate reactivateTenant to the service', async () => {
+  it('should delegate reactivateTenant to the service with actor user ID', async () => {
     mockService.reactivateTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'active' });
 
-    const result = await controller.reactivateTenant(TENANT_ID);
+    const result = await controller.reactivateTenant(TENANT_ID, mockUser);
     expect(result).toEqual({ id: TENANT_ID, status: 'active' });
-    expect(mockService.reactivateTenant).toHaveBeenCalledWith(TENANT_ID);
+    expect(mockService.reactivateTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
   });
 
-  it('should delegate archiveTenant to the service', async () => {
+  it('should delegate archiveTenant to the service with actor user ID', async () => {
     mockService.archiveTenant.mockResolvedValueOnce({ id: TENANT_ID, status: 'archived' });
 
-    const result = await controller.archiveTenant(TENANT_ID);
+    const result = await controller.archiveTenant(TENANT_ID, mockUser);
     expect(result).toEqual({ id: TENANT_ID, status: 'archived' });
-    expect(mockService.archiveTenant).toHaveBeenCalledWith(TENANT_ID);
+    expect(mockService.archiveTenant).toHaveBeenCalledWith(TENANT_ID, USER_ID);
   });
 
   it('should delegate getDashboard to the service', async () => {
@@ -178,12 +178,14 @@ describe('TenantsController', () => {
     expect(mockService.listModules).toHaveBeenCalledWith(TENANT_ID);
   });
 
-  it('should delegate toggleModule to the service', async () => {
+  it('should delegate toggleModule to the service with actor user ID', async () => {
     const updated = { key: 'finance', is_enabled: false };
     mockService.toggleModule.mockResolvedValueOnce(updated);
 
-    const result = await controller.toggleModule(TENANT_ID, 'finance', { is_enabled: false });
+    const result = await controller.toggleModule(TENANT_ID, 'finance', mockUser, {
+      is_enabled: false,
+    });
     expect(result).toEqual(updated);
-    expect(mockService.toggleModule).toHaveBeenCalledWith(TENANT_ID, 'finance', false);
+    expect(mockService.toggleModule).toHaveBeenCalledWith(TENANT_ID, 'finance', false, USER_ID);
   });
 });

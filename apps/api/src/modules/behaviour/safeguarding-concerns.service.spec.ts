@@ -1,14 +1,14 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { PrismaService } from '../prisma/prisma.service';
-import { SequenceService } from '../tenants/sequence.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { ConcernService } from '../pastoral/services/concern.service';
 import { CpRecordService } from '../child-protection/services/cp-record.service';
 import { ConcernVersionService } from '../pastoral/services/concern-version.service';
+import { ConcernService } from '../pastoral/services/concern.service';
 import { PastoralEventService } from '../pastoral/services/pastoral-event.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { SequenceService } from '../tenants/sequence.service';
 
 import { SafeguardingConcernsService } from './safeguarding-concerns.service';
 import { SAFEGUARDING_CRITICAL_ESCALATION_JOB } from './safeguarding.constants';

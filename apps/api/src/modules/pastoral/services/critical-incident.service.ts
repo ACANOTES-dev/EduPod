@@ -12,7 +12,6 @@ import { SequenceService } from '../../tenants/sequence.service';
 
 import { PastoralEventService } from './pastoral-event.service';
 
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface PaginationMeta {

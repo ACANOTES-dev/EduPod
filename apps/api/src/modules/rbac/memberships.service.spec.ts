@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
@@ -60,6 +61,11 @@ const mockPermissionCacheService = {
   invalidate: jest.fn().mockResolvedValue(undefined),
 };
 
+const mockSecurityAuditService = {
+  logUserStatusChange: jest.fn().mockResolvedValue(undefined),
+  logMembershipRoleChange: jest.fn().mockResolvedValue(undefined),
+};
+
 const mockPrisma = {
   tenantMembership: {
     findFirst: jest.fn(),
@@ -91,6 +97,7 @@ describe('MembershipsService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
         { provide: PermissionCacheService, useValue: mockPermissionCacheService },
+        { provide: SecurityAuditService, useValue: mockSecurityAuditService },
       ],
     }).compile();
 

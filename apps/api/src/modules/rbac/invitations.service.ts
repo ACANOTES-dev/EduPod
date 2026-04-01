@@ -1,15 +1,11 @@
 import { createHash, randomBytes } from 'crypto';
 
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import type { CreateInvitationDto, InvitedRolePayload } from '@school/shared';
 import { hash } from 'bcryptjs';
 import { Queue } from 'bullmq';
-
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -31,11 +27,7 @@ export class InvitationsService {
    * Create an invitation to join a tenant.
    * Generates a secure token, stores the SHA-256 hash, 72-hour expiry.
    */
-  async createInvitation(
-    tenantId: string,
-    invitedByUserId: string,
-    data: CreateInvitationDto,
-  ) {
+  async createInvitation(tenantId: string, invitedByUserId: string, data: CreateInvitationDto) {
     // Check for existing pending invitation for this email at this tenant
     const existingInvitation = await this.prisma.invitation.findFirst({
       where: {
@@ -320,8 +312,7 @@ export class InvitationsService {
         ) {
           throw new BadRequestException({
             code: 'REGISTRATION_DATA_REQUIRED',
-            message:
-              'first_name, last_name, and password are required for new users',
+            message: 'first_name, last_name, and password are required for new users',
           });
         }
 
@@ -385,8 +376,7 @@ export class InvitationsService {
    * Assign roles to a membership using a transaction client, clearing any existing roles first.
    */
   private async assignRolesToMembershipTx(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tx: any,
+    tx: Prisma.TransactionClient,
     membershipId: string,
     tenantId: string,
     roleIds: string[],
@@ -407,5 +397,4 @@ export class InvitationsService {
       });
     }
   }
-
 }

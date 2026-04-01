@@ -78,20 +78,20 @@ export class TenantsController {
 
   @Post('tenants/:id/suspend')
   @HttpCode(HttpStatus.OK)
-  async suspendTenant(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantsService.suspendTenant(id);
+  async suspendTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.tenantsService.suspendTenant(id, user.sub);
   }
 
   @Post('tenants/:id/reactivate')
   @HttpCode(HttpStatus.OK)
-  async reactivateTenant(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantsService.reactivateTenant(id);
+  async reactivateTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.tenantsService.reactivateTenant(id, user.sub);
   }
 
   @Post('tenants/:id/archive')
   @HttpCode(HttpStatus.OK)
-  async archiveTenant(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantsService.archiveTenant(id);
+  async archiveTenant(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: JwtPayload) {
+    return this.tenantsService.archiveTenant(id, user.sub);
   }
 
   @Get('dashboard')
@@ -127,8 +127,9 @@ export class TenantsController {
   async toggleModule(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('key') key: string,
+    @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(toggleModuleSchema)) dto: { is_enabled: boolean },
   ) {
-    return this.tenantsService.toggleModule(id, key, dto.is_enabled);
+    return this.tenantsService.toggleModule(id, key, dto.is_enabled, user.sub);
   }
 }
