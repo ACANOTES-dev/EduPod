@@ -8,10 +8,15 @@ config({ path: resolve(__dirname, '../../../.env') });
 
 import { NestFactory } from '@nestjs/core';
 
+import { validateEnv } from './env.validation';
 import { WorkerModule } from './worker.module';
+
+validateEnv();
 
 async function bootstrap() {
   const app = await NestFactory.create(WorkerModule);
+
+  app.enableShutdownHooks();
 
   // Health check endpoint for container health checks
   const port = process.env.WORKER_PORT || 5556;

@@ -1,10 +1,17 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Inject, Module, OnModuleDestroy } from '@nestjs/common';
+import {
+  BeforeApplicationShutdown,
+  Inject,
+  Logger,
+  Module,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 import { QUEUE_NAMES } from './base/queue.constants';
 import { CronSchedulerService } from './cron/cron-scheduler.service';
+import { envValidation } from './env.validation';
 import { WorkerHealthController } from './health/worker-health.controller';
 import { AdmissionsAutoExpiryProcessor } from './processors/admissions-auto-expiry.processor';
 import { ApprovalCallbackReconciliationProcessor } from './processors/approvals/callback-reconciliation.processor';
@@ -94,9 +101,14 @@ import { SurveyClosingReminderProcessor } from './processors/wellbeing/survey-cl
 import { SurveyOpenNotifyProcessor } from './processors/wellbeing/survey-open-notify.processor';
 import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metrics.processor';
 
+const DEFAULT_WORKER_SHUTDOWN_GRACE_MS = 30000;
+
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: envValidation,
+    }),
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -418,8 +430,28 @@ import { WorkloadMetricsProcessor } from './processors/wellbeing/workload-metric
     WorkloadMetricsProcessor,
   ],
 })
-export class WorkerModule implements OnModuleDestroy {
-  constructor(@Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient) {}
+export class WorkerModule
+  implements BeforeApplicationShutdown, OnModuleDestroy
+{
+  private readonly logger = new Logger(WorkerModule.name);
+
+  constructor(
+    @Inject('PRISMA_CLIENT') private readonly prisma: PrismaClient,
+    private readonly configService: ConfigService,
+  ) {}
+
+  async beforeApplicationShutdown(signal?: string): Promise<void> {
+    const drainMs = this.configService.get<number>(
+      'WORKER_SHUTDOWN_GRACE_MS',
+      DEFAULT_WORKER_SHUTDOWN_GRACE_MS,
+    );
+
+    this.logger.warn(
+      `Worker shutdown requested (${signal ?? 'unknown'}) — allowing ${drainMs}ms for BullMQ jobs to drain`,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, drainMs));
+  }
 
   async onModuleDestroy(): Promise<void> {
     await this.prisma.$disconnect();
