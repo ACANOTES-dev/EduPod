@@ -16,6 +16,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Check migration safety
+        run: |
+          BASE_SHA="${{ github.event.before }}"
+
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            mapfile -t changed_files < <(find packages/prisma/migrations -type f \( -name 'migration.sql' -o -name 'post_migrate.sql' \))
+          else
+            mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" "${{ github.sha }}" -- packages/prisma/migrations | grep -E '(migration\.sql|post_migrate\.sql)$' || true)
+          fi
+
+          if [ "${#changed_files[@]}" -eq 0 ]; then
+            echo "No migration SQL changes detected in this deploy."
+            exit 0
+          fi
+
+          node scripts/check-migration-safety.mjs "${changed_files[@]}"
+
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.0
         with:

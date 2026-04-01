@@ -31,19 +31,14 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @school/prisma exec prisma generate
 
-      - name: Lint
-        run: pnpm -r run lint
-
-      - name: Type check
-        run: pnpm -r run type-check
-
-      - name: Run unit tests
-        run: pnpm turbo run test
+      - name: Validate
+        run: pnpm validate
 
       - name: Build
         run: pnpm build --force
 
   integration:
+    needs: [ci]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -107,4 +102,42 @@ jobs:
         run: pnpm db:seed
 
       - name: Run integration tests
-        run: pnpm --filter @school/api test:integration -- --runInBand
+        run: pnpm test:integration
+
+  visual:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_URL: http://localhost:5552
+      APP_URL: http://localhost:5551
+      NEXT_PUBLIC_API_URL: ''
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter @school/web exec playwright install --with-deps chromium
+
+      - name: Run visual smoke tests
+        run: pnpm test:visual
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-visual-report
+          path: |
+            apps/web/e2e/playwright-report
+            apps/web/e2e/test-results
+          if-no-files-found: ignore

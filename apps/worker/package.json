@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1009.0",
+    "@bull-board/api": "^6.20.6",
+    "@bull-board/express": "^6.20.6",
     "@nestjs/bullmq": "^10.2.3",
     "@nestjs/common": "^10.4.15",
     "@nestjs/config": "^3.3.0",
@@ -25,9 +27,9 @@
     "dotenv": "^17.3.1",
     "handlebars": "^4.7.9",
     "ioredis": "^5.4.2",
-    "resend": "^4.1.0",
     "puppeteer": "^23.11.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^4.1.0",
     "rxjs": "^7.8.1",
     "twilio": "^5.4.0",
     "xlsx": "^0.18.5"

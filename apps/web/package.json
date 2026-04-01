@@ -8,7 +8,10 @@
     "start": "next start -p 5551",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "test:visual": "playwright test --config e2e/playwright.visual-smoke.config.ts",
+    "test:visual:full": "playwright test --config e2e/playwright.config.ts",
+    "test:visual:update": "playwright test --config e2e/playwright.visual-smoke.config.ts --update-snapshots"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -26,7 +29,8 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.55.0",
     "recharts": "^3.8.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",

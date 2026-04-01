@@ -17,9 +17,9 @@ import { Client } from 'pg';
  */
 
 async function main() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is required');
+    throw new Error('DATABASE_URL or DATABASE_MIGRATE_URL environment variable is required');
   }
 
   const migrationsDir = path.resolve(__dirname, '..', 'packages/prisma/migrations');
