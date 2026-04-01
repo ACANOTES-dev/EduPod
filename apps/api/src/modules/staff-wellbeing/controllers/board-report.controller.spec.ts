@@ -6,9 +6,6 @@ import request from 'supertest';
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
-import { AuthGuard } from '../../common/guards/auth.guard';
-import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { BoardReportService } from '../services/board-report.service';
 
 import { BoardReportController } from './board-report.controller';

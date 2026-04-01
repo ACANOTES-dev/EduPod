@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 import { PrismaClient } from '@prisma/client';
 
 import { createTenantFixture, TenantFixture } from './tenant-fixture.builder';

@@ -179,7 +179,7 @@ describe('ImportExecutorService', () => {
       expect(stats.parents_created).toBe(1); // Only created once per group
       expect(stats.students_created).toBe(2);
       expect(stats.family_groups).toHaveLength(1);
-      expect(stats.family_groups[0].rows).toEqual([2, 3]); // Original row numbers (index + 2)
+      expect(stats.family_groups[0]!.rows).toEqual([2, 3]); // Original row numbers (index + 2)
     });
 
     it('should reuse existing household if parent found in DB', async () => {

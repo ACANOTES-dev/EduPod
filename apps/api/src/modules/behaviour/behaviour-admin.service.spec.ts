@@ -300,7 +300,7 @@ describe('BehaviourAdminService', () => {
         service.resendNotification(TENANT_ID, {
           parent_id: 'p-1',
           channel: 'email',
-        } as unknown),
+        } as Parameters<typeof service.resendNotification>[1]),
       ).rejects.toThrow('Either incident_id or sanction_id is required');
     });
   });
@@ -309,7 +309,8 @@ describe('BehaviourAdminService', () => {
 
   describe('policyDryRun', () => {
     it('should delegate to policyReplayService', async () => {
-      const policyService = (service as unknown).policyReplayService;
+      const policyService = (service as unknown as { policyReplayService: { dryRun: jest.Mock } })
+        .policyReplayService;
       policyService.dryRun = jest.fn().mockResolvedValue({ some: 'data' });
 
       const result = await service.policyDryRun(TENANT_ID, {

@@ -172,7 +172,12 @@ describe('BehaviourExportAnalyticsService', () => {
 
     it('should return empty CSV for unknown export type', async () => {
       const result = await service.exportCsv(TENANT_ID, USER_ID, PERMISSIONS, {
-        exportType: 'unknown' as unknown as Record<string, unknown>,
+        exportType: 'unknown' as unknown as
+          | 'sanctions'
+          | 'incidents'
+          | 'interventions'
+          | 'categories'
+          | 'staff_activity',
         exposureNormalised: false,
       });
 

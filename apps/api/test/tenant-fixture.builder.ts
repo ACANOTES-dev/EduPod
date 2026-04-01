@@ -1,5 +1,6 @@
+import { randomUUID } from 'crypto';
+
 import { PrismaClient } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface TenantFixtureOptions {
   name?: string;
@@ -29,7 +30,7 @@ export async function createTenantFixture(
   options: TenantFixtureOptions = {},
 ): Promise<TenantFixture> {
   const ts = Date.now();
-  const suffix = uuidv4().substring(0, 8);
+  const suffix = randomUUID().substring(0, 8);
   const slug = options.slug || `fixture-${ts}-${suffix}`;
   const name = options.name || `Fixture School ${suffix}`;
   const domainName = options.domain || `${slug}.test.edupod.app`;
@@ -61,7 +62,7 @@ export async function createTenantFixture(
   });
 
   // 3. User & Staff Profile
-  const ownerUserId = uuidv4();
+  const ownerUserId = randomUUID();
   await prisma.user.create({
     data: {
       id: ownerUserId,

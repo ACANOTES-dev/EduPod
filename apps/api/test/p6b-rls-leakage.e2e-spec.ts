@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 /**
  * RLS Leakage Tests — Phase 6B (Payroll)
  *
@@ -44,7 +45,7 @@ jest.setTimeout(120_000);
 
 describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
   let app: INestApplication;
-  let alNoorToken: string;
+  let _alNoorToken: string;
   let cedarToken: string;
   let alNoorUserId: string;
 
@@ -60,21 +61,11 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     app = await createTestApp();
 
     // Authenticate as both tenants
-    const alNoorLogin = await login(
-      app,
-      AL_NOOR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      AL_NOOR_DOMAIN,
-    );
-    alNoorToken = alNoorLogin.accessToken;
-    alNoorUserId = (alNoorLogin.user as Record<string, string>).id;
+    const alNoorLogin = await login(app, AL_NOOR_OWNER_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+    _alNoorToken = alNoorLogin.accessToken;
+    alNoorUserId = (alNoorLogin.user as Record<string, string>).id!;
 
-    const cedarLogin = await login(
-      app,
-      CEDAR_OWNER_EMAIL,
-      DEV_PASSWORD,
-      CEDAR_DOMAIN,
-    );
+    const cedarLogin = await login(app, CEDAR_OWNER_EMAIL, DEV_PASSWORD, CEDAR_DOMAIN);
     cedarToken = cedarLogin.accessToken;
 
     // ── Direct Prisma for data setup / table-level tests ──────────────────
@@ -87,51 +78,77 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     await directPrisma.$connect();
 
     // ── Find an Al Noor staff profile to attach compensation to ──────────
-    const staffRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const staffRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       SELECT id::text FROM staff_profiles
       WHERE tenant_id = $1::uuid
       LIMIT 1
-    `, AL_NOOR_TENANT_ID);
+    `,
+      AL_NOOR_TENANT_ID,
+    );
 
     if (staffRows.length > 0) {
-      alNoorStaffProfileId = staffRows[0].id;
+      alNoorStaffProfileId = staffRows[0]!.id;
     } else {
       // Create a staff profile directly if none exist
-      const staffInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+      const staffInsert: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+        `
         INSERT INTO staff_profiles (tenant_id, user_id, staff_number, department, job_title, employment_status, employment_type)
         VALUES ($1::uuid, $2::uuid, $3, 'Admin', '${UNIQUE_MARKER} Teacher', 'active', 'full_time')
         RETURNING id::text
-      `, AL_NOOR_TENANT_ID, alNoorUserId, `P6B-RLS-${Date.now()}`);
-      alNoorStaffProfileId = staffInsert[0].id;
+      `,
+        AL_NOOR_TENANT_ID,
+        alNoorUserId,
+        `P6B-RLS-${Date.now()}`,
+      );
+      alNoorStaffProfileId = staffInsert[0]!.id;
     }
 
     // ── Create Al Noor compensation record via direct insert ─────────────
-    const compRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const compRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO staff_compensation (tenant_id, staff_profile_id, compensation_type, base_salary, effective_from, created_by_user_id)
       VALUES ($1::uuid, $2::uuid, 'salaried', 5000.00, '2025-09-01', $3::uuid)
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorStaffProfileId, alNoorUserId);
-    alNoorCompensationId = compRows[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorStaffProfileId,
+      alNoorUserId,
+    );
+    alNoorCompensationId = compRows[0]!.id;
 
     // ── Create Al Noor payroll run via direct insert ─────────────────────
-    const runRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(`
+    const runRows: Array<{ id: string }> = await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO payroll_runs (tenant_id, period_label, period_month, period_year, total_working_days, status, created_by_user_id, total_basic_pay, total_bonus_pay, total_pay, headcount)
       VALUES ($1::uuid, '${UNIQUE_MARKER} March 2026', 3, 2026, 22, 'draft', $2::uuid, 0, 0, 0, 0)
       RETURNING id::text
-    `, AL_NOOR_TENANT_ID, alNoorUserId);
-    alNoorPayrollRunId = runRows[0].id;
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorUserId,
+    );
+    alNoorPayrollRunId = runRows[0]!.id;
 
     // ── Create Al Noor payroll entry via direct insert ───────────────────
-    await directPrisma.$queryRawUnsafe(`
+    await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO payroll_entries (tenant_id, payroll_run_id, staff_profile_id, compensation_type, snapshot_base_salary, basic_pay, bonus_pay, total_pay)
       VALUES ($1::uuid, $2::uuid, $3::uuid, 'salaried', 5000.00, 5000.00, 0, 5000.00)
-    `, AL_NOOR_TENANT_ID, alNoorPayrollRunId, alNoorStaffProfileId);
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorPayrollRunId,
+      alNoorStaffProfileId,
+    );
 
     // ── Create Al Noor payslip via direct insert ─────────────────────────
-    await directPrisma.$queryRawUnsafe(`
+    await directPrisma.$queryRawUnsafe(
+      `
       INSERT INTO payslips (tenant_id, payroll_entry_id, payslip_number, template_locale, issued_at, snapshot_payload_json, render_version)
       VALUES ($1::uuid, (SELECT id FROM payroll_entries WHERE payroll_run_id = $2::uuid AND tenant_id = $1::uuid LIMIT 1), '${UNIQUE_MARKER}-PS-001', 'en', NOW(), '{}'::jsonb, '1.0')
-    `, AL_NOOR_TENANT_ID, alNoorPayrollRunId);
+    `,
+      AL_NOOR_TENANT_ID,
+      alNoorPayrollRunId,
+    );
 
     // ── Table-level RLS setup ───────────────────────────────────────────
 
@@ -141,9 +158,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -178,12 +193,8 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch {
         // Role cleanup is best-effort.
       }
@@ -201,9 +212,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
    *
    * Any row whose tenant_id equals AL_NOOR_TENANT_ID is a policy violation.
    */
-  async function queryAsCedar(
-    tableName: string,
-  ): Promise<Array<{ tenant_id: string | null }>> {
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
     return directPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
@@ -211,19 +220,16 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return tx.$queryRawUnsafe(
-        `SELECT tenant_id::text FROM "${tableName}"`,
-      ) as Promise<Array<{ tenant_id: string | null }>>;
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
     });
   }
 
   /**
    * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
    */
-  function assertNoAlNoorRows(
-    rows: Array<{ tenant_id: string | null }>,
-    context: string,
-  ): void {
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
     const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
@@ -254,12 +260,7 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/runs as Cedar should not return Al Noor payroll runs', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/payroll/runs',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/payroll/runs', cedarToken, CEDAR_DOMAIN).expect(200);
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const ids = Array.isArray(items) ? items.map((i) => i.id) : [];
@@ -269,12 +270,9 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/payslips as Cedar should not return Al Noor payslips', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/payroll/payslips',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/payroll/payslips', cedarToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
       const items: Array<{ id: string }> = res.body.data ?? [];
       const payslipNumbers = Array.isArray(items)
@@ -286,12 +284,9 @@ describe('P6B Payroll — RLS Leakage Tests (e2e)', () => {
     });
 
     it('GET /v1/payroll/dashboard as Cedar should not contain Al Noor data', async () => {
-      const res = await authGet(
-        app,
-        '/api/v1/payroll/dashboard',
-        cedarToken,
-        CEDAR_DOMAIN,
-      ).expect(200);
+      const res = await authGet(app, '/api/v1/payroll/dashboard', cedarToken, CEDAR_DOMAIN).expect(
+        200,
+      );
 
       const dashboard = res.body.data ?? res.body;
 

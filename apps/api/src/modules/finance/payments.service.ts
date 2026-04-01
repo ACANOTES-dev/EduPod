@@ -299,13 +299,13 @@ export class PaymentsService {
         paymentId,
         tenantId,
       );
-      if (!paymentLocks.length || paymentLocks[0].status !== 'posted') {
+      const txPayment = paymentLocks[0];
+      if (!txPayment || txPayment.status !== 'posted') {
         throw new BadRequestException({
           code: 'INVALID_STATUS',
           message: 'Payment status changed concurrently',
         });
       }
-      const txPayment = paymentLocks[0];
 
       // Re-fetch existing allocations INSIDE the transaction to prevent race conditions
       const existingAllocations = await prisma.paymentAllocation.findMany({
@@ -331,13 +331,13 @@ export class PaymentsService {
           alloc.invoice_id,
           tenantId,
         );
-        if (!invoiceLocks.length) {
+        const invoice = invoiceLocks[0];
+        if (!invoice) {
           throw new BadRequestException({
             code: 'INVOICE_NOT_FOUND',
             message: `Invoice "${alloc.invoice_id}" not found`,
           });
         }
-        const invoice = invoiceLocks[0];
         if (invoice.household_id !== txPayment.household_id) {
           throw new BadRequestException({
             code: 'HOUSEHOLD_MISMATCH',

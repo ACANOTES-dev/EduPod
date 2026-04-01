@@ -4,10 +4,7 @@ import type { TenantContext } from '@school/shared';
 import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { ContactFormService } from './contact-form.service';

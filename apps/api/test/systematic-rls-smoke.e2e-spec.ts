@@ -1,7 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 import { PrismaClient, Prisma } from '@prisma/client';
+
 import { createRlsClient } from '../src/common/middleware/rls.middleware';
-import { PrismaService } from '../src/modules/prisma/prisma.service';
+import type { PrismaService } from '../src/modules/prisma/prisma.service';
 
 /**
  * Systematic RLS Smoke Test (BT-09)
@@ -37,7 +38,7 @@ describe('Systematic RLS Smoke Tests', () => {
         m.name !== 'User',
     );
 
-    const rlsClientA = createRlsClient(prisma as unknown as PrismaService, {
+    const _rlsClientA = createRlsClient(prisma as unknown as PrismaService, {
       tenant_id: TENANT_A_ID,
     });
     const rlsClientB = createRlsClient(prisma as unknown as PrismaService, {
@@ -54,11 +55,13 @@ describe('Systematic RLS Smoke Tests', () => {
       const modelNameFirstLower = model.name.charAt(0).toLowerCase() + model.name.slice(1);
 
       // Ensure the model exists on the Prisma client before attempting to call it.
-      if ((rlsClientB as any)[modelNameFirstLower]) {
+      if ((rlsClientB as Record<string, unknown>)[modelNameFirstLower]) {
         try {
           // Attempt a read using Tenant B's context
           const result = await rlsClientB.$transaction(async (tx) => {
-            return (tx as any)[modelNameFirstLower].findFirst();
+            return (tx as Record<string, { findFirst: () => Promise<unknown> }>)[
+              modelNameFirstLower
+            ].findFirst();
           });
 
           // Result should safely be null (or undefined if the table is empty).
@@ -66,11 +69,12 @@ describe('Systematic RLS Smoke Tests', () => {
           // Still, establishing standard querying over every model under RLS validates the policies are structurally sound.
           // For true isolation testing, one would need seed data per model.
           expect(result === null || typeof result === 'object').toBeTruthy();
-        } catch (error: any) {
+        } catch (error: unknown) {
           // It should NOT fail due to RLS syntax errors
           // It might fail due to relation constraints if not careful, but findFirst is safe.
-          expect(error.message).not.toContain('permission denied');
-          expect(error.message).not.toContain('row-level security');
+          const msg = error instanceof Error ? error.message : String(error);
+          expect(msg).not.toContain('permission denied');
+          expect(msg).not.toContain('row-level security');
         }
       }
     }
@@ -78,12 +82,14 @@ describe('Systematic RLS Smoke Tests', () => {
     // Additional strict check on a known populated table (e.g., Student if tests leak)
     try {
       await rlsClientB.$transaction(async (tx) => {
-        const leakedStudents = await (tx as any).student.findMany({
+        const leakedStudents = await (
+          tx as Record<string, { findMany: (args: Record<string, unknown>) => Promise<unknown[]> }>
+        ).student.findMany({
           where: { tenant_id: TENANT_A_ID },
         });
         expect(leakedStudents).toHaveLength(0);
       });
-    } catch (e) {
+    } catch (_e) {
       // Depending on how RLS policies are formulated, enforcing tenant_id = current_setting in the WHERE clause might occur
     }
   });

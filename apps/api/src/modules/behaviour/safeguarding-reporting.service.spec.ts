@@ -1,7 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Test, TestingModule } from '@nestjs/testing';
+
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
+import { PrismaService } from '../prisma/prisma.service';
+
 import { SafeguardingReportingService } from './safeguarding-reporting.service';
 
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -65,10 +67,10 @@ const makeCaseFileConcern = () => ({
 describe('SafeguardingReportingService', () => {
   let service: SafeguardingReportingService;
   let mockPrisma!: {
-    safeguardingConcern: Record<string, jest.Mock>;
-    tenantSetting: Record<string, jest.Mock>;
-    behaviourTask: Record<string, jest.Mock>;
-    safeguardingAction: Record<string, jest.Mock>;
+    safeguardingConcern: { groupBy: jest.Mock; count: jest.Mock };
+    tenantSetting: { findFirst: jest.Mock };
+    behaviourTask: { findMany: jest.Mock };
+    safeguardingAction: { findMany: jest.Mock };
   };
   let mockPdfRenderingService!: { renderFromHtml: jest.Mock };
 
@@ -77,6 +79,9 @@ describe('SafeguardingReportingService', () => {
       safeguardingConcern: {
         groupBy: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
+      },
+      tenantSetting: {
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       behaviourTask: {
         findMany: jest.fn().mockResolvedValue([]),

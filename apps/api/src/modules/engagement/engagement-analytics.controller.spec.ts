@@ -3,10 +3,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { AuthGuard } from '../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
-import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { EngagementAnalyticsController } from './engagement-analytics.controller';

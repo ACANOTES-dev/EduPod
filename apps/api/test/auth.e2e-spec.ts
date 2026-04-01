@@ -90,7 +90,7 @@ describe('Auth Endpoints (e2e)', () => {
       expect(refreshTokenCookie).toBeTruthy();
 
       // Extract raw cookie value (everything before the first ';')
-      const cookieHeader = refreshTokenCookie.split(';')[0]; // e.g. "refresh_token=<value>"
+      const cookieHeader = refreshTokenCookie.split(';')[0]!; // e.g. "refresh_token=<value>"
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
@@ -104,9 +104,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should reject refresh when no cookie is present', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/auth/refresh')
-        .expect(401);
+      const res = await request(app.getHttpServer()).post('/api/v1/auth/refresh').expect(401);
 
       expect(res.body.error).toBeDefined();
       expect(res.body.error.code).toBe('MISSING_REFRESH_TOKEN');
@@ -119,7 +117,7 @@ describe('Auth Endpoints (e2e)', () => {
     it('should logout and return 204 with cookie cleared', async () => {
       const { accessToken, refreshTokenCookie } = await login(app, PLATFORM_ADMIN_EMAIL);
 
-      const cookieHeader = refreshTokenCookie.split(';')[0];
+      const cookieHeader = refreshTokenCookie.split(';')[0]!;
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/logout')
@@ -143,9 +141,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should return 401 when logout is called without a bearer token', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/logout')
-        .expect(401);
+      await request(app.getHttpServer()).post('/api/v1/auth/logout').expect(401);
     });
   });
 
@@ -203,13 +199,9 @@ describe('Auth Endpoints (e2e)', () => {
         return accessToken;
       })();
 
-      const res = await authPost(
-        app,
-        '/api/v1/auth/mfa/setup',
-        token,
-        {},
-        AL_NOOR_DOMAIN,
-      ).expect(200);
+      const res = await authPost(app, '/api/v1/auth/mfa/setup', token, {}, AL_NOOR_DOMAIN).expect(
+        200,
+      );
 
       const body = res.body.data ?? res.body;
       expect(body.secret).toBeDefined();
@@ -221,9 +213,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should return 401 when called without a bearer token', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/mfa/setup')
-        .expect(401);
+      await request(app.getHttpServer()).post('/api/v1/auth/mfa/setup').expect(401);
     });
 
     it.todo(
@@ -251,12 +241,9 @@ describe('Auth Endpoints (e2e)', () => {
       const tenantId: string = alNoorMembership.tenant_id;
 
       // Switch to that tenant
-      const switchRes = await authPost(
-        app,
-        '/api/v1/auth/switch-tenant',
-        tokenNoTenant,
-        { tenant_id: tenantId },
-      ).expect(200);
+      const switchRes = await authPost(app, '/api/v1/auth/switch-tenant', tokenNoTenant, {
+        tenant_id: tenantId,
+      }).expect(200);
 
       const switchBody = switchRes.body.data ?? switchRes.body;
       expect(switchBody.access_token).toBeDefined();
@@ -268,12 +255,9 @@ describe('Auth Endpoints (e2e)', () => {
 
       const fakeUuid = '00000000-0000-0000-0000-000000000099';
 
-      const res = await authPost(
-        app,
-        '/api/v1/auth/switch-tenant',
-        accessToken,
-        { tenant_id: fakeUuid },
-      ).expect(403);
+      const res = await authPost(app, '/api/v1/auth/switch-tenant', accessToken, {
+        tenant_id: fakeUuid,
+      }).expect(403);
 
       expect(res.body.error).toBeDefined();
       expect(res.body.error.code).toBe('MEMBERSHIP_NOT_ACTIVE');
@@ -306,9 +290,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should return 401 when called without a bearer token', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/auth/me')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/auth/me').expect(401);
     });
   });
 
@@ -333,9 +315,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should return 401 when called without a bearer token', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/auth/sessions')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/auth/sessions').expect(401);
     });
   });
 
@@ -344,17 +324,24 @@ describe('Auth Endpoints (e2e)', () => {
   describe('DELETE /api/v1/auth/sessions/:id', () => {
     it('should revoke a session and return 204', async () => {
       // Login twice to have a second session to revoke
-      const { accessToken: token1 } = await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
+      const { accessToken: token1 } = await login(
+        app,
+        AL_NOOR_ADMIN_EMAIL,
+        DEV_PASSWORD,
+        AL_NOOR_DOMAIN,
+      );
       // Login a second time to create a second session
       await login(app, AL_NOOR_ADMIN_EMAIL, DEV_PASSWORD, AL_NOOR_DOMAIN);
 
       // List sessions with token1
-      const listRes = await authGet(app, '/api/v1/auth/sessions', token1, AL_NOOR_DOMAIN).expect(200);
+      const listRes = await authGet(app, '/api/v1/auth/sessions', token1, AL_NOOR_DOMAIN).expect(
+        200,
+      );
       const sessions: Array<{ session_id: string }> = listRes.body.data;
       expect(sessions.length).toBeGreaterThanOrEqual(1);
 
       // Revoke the first session in the list
-      const sessionToRevoke = sessions[0].session_id;
+      const sessionToRevoke = sessions[0]!.session_id;
 
       await authDelete(
         app,
@@ -384,9 +371,7 @@ describe('Auth Endpoints (e2e)', () => {
     });
 
     it('should return 401 when called without a bearer token', async () => {
-      await request(app.getHttpServer())
-        .delete('/api/v1/auth/sessions/some-id')
-        .expect(401);
+      await request(app.getHttpServer()).delete('/api/v1/auth/sessions/some-id').expect(401);
     });
   });
 });

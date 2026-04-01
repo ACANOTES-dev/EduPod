@@ -1,3 +1,4 @@
+/* eslint-disable school/no-raw-sql-outside-rls -- RLS e2e tests require direct SQL for setup/teardown */
 /**
  * RLS Comprehensive Tests — All Tenant-Scoped Tables
  *
@@ -133,12 +134,7 @@ const STANDARD_TENANT_TABLES = [
  * For these tables, the test additionally verifies that platform rows ARE
  * visible while Al Noor rows are NOT.
  */
-const DUAL_POLICY_TABLES = [
-  'roles',
-  'role_permissions',
-  'notification_templates',
-  'audit_logs',
-];
+const DUAL_POLICY_TABLES = ['roles', 'role_permissions', 'notification_templates', 'audit_logs'];
 
 /**
  * Combined list of all tables to test (standard + dual-policy).
@@ -167,9 +163,7 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
        EXCEPTION WHEN duplicate_object THEN NULL;
        END $$`,
     );
-    await directPrisma.$executeRawUnsafe(
-      `GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`,
-    );
+    await directPrisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO ${RLS_TEST_ROLE}`);
     await directPrisma.$executeRawUnsafe(
       `GRANT SELECT ON ALL TABLES IN SCHEMA public TO ${RLS_TEST_ROLE}`,
     );
@@ -181,12 +175,8 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
         await directPrisma.$executeRawUnsafe(
           `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${RLS_TEST_ROLE}`,
         );
-        await directPrisma.$executeRawUnsafe(
-          `REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`,
-        );
-        await directPrisma.$executeRawUnsafe(
-          `DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`,
-        );
+        await directPrisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM ${RLS_TEST_ROLE}`);
+        await directPrisma.$executeRawUnsafe(`DROP ROLE IF EXISTS ${RLS_TEST_ROLE}`);
       } catch {
         // Role cleanup is best-effort.
       }
@@ -203,9 +193,7 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
    *
    * Returns rows with tenant_id cast to text.
    */
-  async function queryAsCedar(
-    tableName: string,
-  ): Promise<Array<{ tenant_id: string | null }>> {
+  async function queryAsCedar(tableName: string): Promise<Array<{ tenant_id: string | null }>> {
     return directPrisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe(
         `SELECT set_config('app.current_tenant_id', '${CEDAR_TENANT_ID}', true)`,
@@ -213,19 +201,16 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
       await tx.$executeRawUnsafe(`SET LOCAL ROLE ${RLS_TEST_ROLE}`);
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return tx.$queryRawUnsafe(
-        `SELECT tenant_id::text FROM "${tableName}"`,
-      ) as Promise<Array<{ tenant_id: string | null }>>;
+      return tx.$queryRawUnsafe(`SELECT tenant_id::text FROM "${tableName}"`) as Promise<
+        Array<{ tenant_id: string | null }>
+      >;
     });
   }
 
   /**
    * Shared assertion: no row in `rows` should carry the Al Noor tenant_id.
    */
-  function assertNoAlNoorRows(
-    rows: Array<{ tenant_id: string | null }>,
-    context: string,
-  ): void {
+  function assertNoAlNoorRows(rows: Array<{ tenant_id: string | null }>, context: string): void {
     const leaks = rows.filter((r) => r.tenant_id === AL_NOOR_TENANT_ID);
     expect(leaks).toHaveLength(0);
     if (leaks.length > 0) {
@@ -329,13 +314,16 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
         // This query will fail if the table does not exist or lacks a
         // tenant_id column, which is itself a test failure indicating
         // a schema drift or missing RLS setup.
-        const result = await directPrisma.$queryRawUnsafe(`
+        const result = (await directPrisma.$queryRawUnsafe(
+          `
           SELECT column_name
           FROM information_schema.columns
           WHERE table_schema = 'public'
             AND table_name = $1
             AND column_name = 'tenant_id'
-        `, tableName) as Array<{ column_name: string }>;
+        `,
+          tableName,
+        )) as Array<{ column_name: string }>;
 
         expect(result.length).toBe(1);
       },
@@ -351,18 +339,22 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
       '%s: has RLS enabled and at least one policy defined',
       async (tableName: string) => {
         // Check that RLS is enabled on the table
-        const rlsEnabled = await directPrisma.$queryRawUnsafe(`
+        const rlsEnabled = (await directPrisma.$queryRawUnsafe(
+          `
           SELECT relrowsecurity
           FROM pg_class
           WHERE relname = $1
             AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-        `, tableName) as Array<{ relrowsecurity: boolean }>;
+        `,
+          tableName,
+        )) as Array<{ relrowsecurity: boolean }>;
 
         expect(rlsEnabled.length).toBe(1);
-        expect(rlsEnabled[0].relrowsecurity).toBe(true);
+        expect(rlsEnabled[0]!.relrowsecurity).toBe(true);
 
         // Check that at least one policy exists
-        const policies = await directPrisma.$queryRawUnsafe(`
+        const policies = (await directPrisma.$queryRawUnsafe(
+          `
           SELECT polname
           FROM pg_policy
           WHERE polrelid = (
@@ -370,7 +362,9 @@ describe('RLS Comprehensive — All Tenant-Scoped Tables (e2e)', () => {
             WHERE relname = $1
               AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
           )
-        `, tableName) as Array<{ polname: string }>;
+        `,
+          tableName,
+        )) as Array<{ polname: string }>;
 
         expect(policies.length).toBeGreaterThan(0);
       },
