@@ -11,6 +11,7 @@
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "test": "pnpm test:unit",
+    "test:affected": "bash scripts/test-affected.sh",
     "test:unit": "pnpm turbo run test",
     "test:integration": "pnpm --filter @school/api test:integration -- --runInBand",
     "test:visual": "API_URL=http://localhost:5552 APP_URL=http://localhost:5551 NEXT_PUBLIC_API_URL= pnpm --filter @school/web test:visual",
@@ -21,6 +22,11 @@
     "db:seed": "pnpm --filter @school/prisma seed",
     "db:post-migrate": "tsx scripts/post-migrate.ts",
     "seed:demo": "bash scripts/seed-demo.sh",
+    "seed:demo:reset": "bash scripts/seed-demo.sh --reset",
+    "audit:rls": "bash scripts/audit-rls.sh",
+    "doctor": "node scripts/doctor.mjs",
+    "changelog": "pnpm exec conventional-changelog -p conventionalcommits --output-unreleased -i CHANGELOG.md -s",
+    "changelog:preview": "pnpm exec conventional-changelog -p conventionalcommits --output-unreleased --stdout",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -32,13 +38,15 @@
     ]
   },
   "devDependencies": {
+    "conventional-changelog": "^7.2.0",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
     "@types/jest": "^29.5.14",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.4.2",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
     "turbo": "^2.3.3"
   },
   "pnpm": {

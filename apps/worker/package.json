@@ -9,7 +9,7 @@
     "start:prod": "node dist/apps/worker/src/main",
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1009.0",

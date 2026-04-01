@@ -9,7 +9,7 @@
     "start:prod": "node dist/main",
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:integration": "jest --config jest.integration.config.js",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },

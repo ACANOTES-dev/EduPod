@@ -41,10 +41,10 @@ This starts PostgreSQL (port 5553), PgBouncer (port 6432), Redis (port 5554), an
 ### 3. Configure environment
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `.env.local` and fill in your secrets. See `plans/external-connections.md` for details on each variable.
+Edit `.env` and fill in your secrets. See `plans/external-connections.md` for details on each variable.
 For local app runtime, `DATABASE_URL` should point at PgBouncer on port `6432`. Use
 `DATABASE_MIGRATE_URL` for schema changes and other direct PostgreSQL operations on port `5553`.
 
@@ -72,6 +72,19 @@ This starts:
 - API: http://localhost:5552
 - Worker health: http://localhost:5556/health
 - BullMQ dashboard (development only): http://localhost:5556/admin/queues
+
+## Developer Commands
+
+```bash
+make help                # discover the common DX shortcuts
+pnpm run doctor          # validate local env, services, and generated artifacts
+pnpm test:affected       # run tests for packages changed since HEAD~1
+pnpm changelog           # regenerate CHANGELOG.md from conventional commits
+pnpm seed:demo:reset     # rebuild the demo dataset from a clean database
+```
+
+The root `Makefile` mirrors the most common setup, dev, test, build, seed, and audit commands.
+For worker queue inspection and failed-job replay, see `Manuals/WORKER-DEBUGGING.md`.
 
 ## Project Structure
 
