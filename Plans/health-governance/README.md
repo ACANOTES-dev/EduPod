@@ -15,6 +15,8 @@ This directory is the version-controlled home for the operating rules that keep 
   - critical-workflow completeness rule
 - [review-cadence.md](./review-cadence.md)
   - weekly health review agenda, outputs, and exit condition
+- [scorecard-metrics.md](./scorecard-metrics.md)
+  - KPI definitions, evidence sources, and current baselines or evidence gaps
 
 ## Adjacent repo sources of truth
 
