@@ -2,16 +2,24 @@
 
 This runs automatically on every commit to catch lint errors, formatting drift, and invalid commit messages before they hit the repo.
 
+This repo uses Husky to keep the local developer workflow honest without turning every commit into a full CI run.
+
 ## What It Does
 
 **Pre-commit hook** — runs on every `git commit`:
 
+- Runs `pnpm lint-staged`
 - Lints staged `.ts`/`.tsx` files with ESLint
-- Formats staged files with Prettier
+- Formats staged source, JSON, Markdown, and CSS files with Prettier
 
 **Commit message hook** — runs after `git commit` is created:
 
 - Enforces Conventional Commits via commitlint
+
+**Pre-push hook** — runs on every `git push`:
+
+- Prints an architecture-doc freshness reminder when code changed but nothing under `architecture/` changed
+- Does not block the push; it is a safety nudge before production-facing changes leave your machine
 
 ## Setup
 
@@ -27,7 +35,7 @@ pnpm install
 ### `.husky/pre-commit`
 
 ```bash
-pnpm exec lint-staged
+pnpm lint-staged
 ```
 
 ### `.husky/commit-msg`
@@ -36,13 +44,22 @@ pnpm exec lint-staged
 pnpm commitlint --edit "$1"
 ```
 
+### `.husky/pre-push`
+
+```bash
+bash scripts/check-architecture-freshness.sh
+```
+
 ### `lint-staged` config in root `package.json`
 
 ```json
 {
   "lint-staged": {
-    "*.{ts,tsx}": ["eslint --fix"],
-    "*.{ts,tsx,js,jsx,json,md,css}": ["prettier --write"]
+    "*.{ts,tsx}": ["eslint --fix --max-warnings=0"],
+    "*.{ts,tsx,js,jsx,json,md,css}": ["prettier --write"],
+    "apps/web/**/*.{ts,tsx}": [
+      "bash -c 'grep -rn \"\\bml-\\|\\bmr-\\|\\bpl-\\|\\bpr-\\|\\bleft-\\|\\bright-\\|\\btext-left\\|\\btext-right\\|\\brounded-l-\\|\\brounded-r-\" \"$@\" && echo \"ERROR: Physical CSS classes found. Use logical equivalents (ms-, me-, ps-, pe-, start-, end-)\" && exit 1 || exit 0' --"
+    ]
   }
 }
 ```
@@ -66,3 +83,9 @@ The four most dangerous mistakes in this codebase are:
 4. **Unstructured commit history** — makes regression tracking and rollback harder
 
 The git hooks catch formatting and code hygiene locally, and commitlint keeps history aligned with the repo's conventional-commit policy. Physical CSS direction mistakes are enforced by the shared ESLint rule rather than a shell grep.
+
+The main goal is fast local feedback:
+
+1. Catch obvious staged-file issues before they land in a commit
+2. Remind you to update `architecture/` when the code change likely has cross-cutting impact
+3. Keep the heavier checks (`pnpm validate`, integration tests, visual smoke) available on demand instead of forcing them into every commit

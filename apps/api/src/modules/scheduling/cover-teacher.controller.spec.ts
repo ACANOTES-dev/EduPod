@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
+
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { CoverTeacherController } from './cover-teacher.controller';
 import { CoverTeacherService } from './cover-teacher.service';
@@ -91,8 +97,43 @@ describe('CoverTeacherController', () => {
       year_group_id: 'yg-uuid',
     };
 
-    await expect(controller.findCoverTeacher(TENANT, query)).rejects.toThrow(
-      'DB failure',
-    );
+    await expect(controller.findCoverTeacher(TENANT, query)).rejects.toThrow('DB failure');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('CoverTeacherController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [CoverTeacherController],
+      providers: [{ provide: CoverTeacherService, useValue: mockService }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks schedule.manage permission (GET /v1/scheduling/cover-teacher)', async () => {
+    await request(app.getHttpServer()).get('/v1/scheduling/cover-teacher').send({}).expect(403);
   });
 });

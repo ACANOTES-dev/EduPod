@@ -6,8 +6,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "generate": "prisma generate",
-    "migrate:dev": "prisma migrate dev",
-    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "DATABASE_URL=${DATABASE_MIGRATE_URL:-$DATABASE_URL} prisma migrate dev",
+    "migrate:deploy": "DATABASE_URL=${DATABASE_MIGRATE_URL:-$DATABASE_URL} prisma migrate deploy",
     "seed": "tsx seed.ts",
     "seed:school-data": "tsx seed/school-data.ts",
     "seed:qa-mdad": "tsx seed-qa-mdad.ts",

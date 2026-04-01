@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
 
+import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
+import { PermissionGuard } from '../../common/guards/permission.guard';
 import { PdfRenderingService } from '../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -115,5 +120,49 @@ describe('TranscriptsController', () => {
       transcriptData,
       expect.anything(),
     );
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('TranscriptsController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [TranscriptsController],
+      providers: [
+        { provide: TranscriptsService, useValue: mockTranscriptsService },
+        { provide: PdfRenderingService, useValue: mockPdfRenderingService },
+        { provide: PrismaService, useValue: mockPrisma },
+      ],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('should return 403 when user lacks transcripts.generate permission (GET /v1/transcripts/students/123e4567-e89b-12d3-a456-426614174000)', async () => {
+    await request(app.getHttpServer())
+      .get('/v1/transcripts/students/123e4567-e89b-12d3-a456-426614174000')
+      .send({})
+      .expect(403);
   });
 });

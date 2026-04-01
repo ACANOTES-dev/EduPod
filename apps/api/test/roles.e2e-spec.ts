@@ -24,7 +24,7 @@ describe('Roles (e2e)', () => {
   let createdRoleId: string;
   let createdRoleKey: string;
   let systemRoleId: string;
-  let staffTierPermissionId: string;
+  let _staffTierPermissionId: string;
   let adminTierPermissionId: string;
 
   beforeAll(async () => {
@@ -179,10 +179,10 @@ describe('Roles (e2e)', () => {
       );
 
     // Keep at most one for the assignment test
-    const staffPermIds = staffPermissions.slice(0, 1).map(
-      (rp: { permission: { id: string } }) => rp.permission.id,
-    );
-    staffTierPermissionId = staffPermIds[0];
+    const staffPermIds = staffPermissions
+      .slice(0, 1)
+      .map((rp: { permission: { id: string } }) => rp.permission.id);
+    _staffTierPermissionId = staffPermIds[0]!;
 
     const res = await authPut(
       app,
@@ -216,7 +216,7 @@ describe('Roles (e2e)', () => {
       );
 
     expect(adminPermissions.length).toBeGreaterThan(0);
-    adminTierPermissionId = adminPermissions[0].permission.id;
+    adminTierPermissionId = adminPermissions[0]!.permission.id;
 
     // Attempt to assign an admin-tier permission to a staff-tier role — must fail
     const res = await authPut(

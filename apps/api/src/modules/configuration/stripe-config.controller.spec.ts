@@ -1,7 +1,10 @@
+import { ForbiddenException, type INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { JwtPayload, TenantContext } from '@school/shared';
+import request from 'supertest';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { ModuleEnabledGuard } from '../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 
 import { StripeConfigController } from './stripe-config.controller';
@@ -43,9 +46,7 @@ describe('StripeConfigController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StripeConfigController],
-      providers: [
-        { provide: StripeConfigService, useValue: mockService },
-      ],
+      providers: [{ provide: StripeConfigService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -91,5 +92,42 @@ describe('StripeConfigController', () => {
     mockService.getConfig.mockRejectedValue(new Error('Not found'));
 
     await expect(controller.getConfig(tenantCtx)).rejects.toThrow('Not found');
+  });
+});
+
+// ─── Permission denied (guard rejection via HTTP) ──────────────────────────────
+
+describe('StripeConfigController — permission denied', () => {
+  let app: INestApplication;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [StripeConfigController],
+      providers: [{ provide: StripeConfigService, useValue: {} }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(PermissionGuard)
+      .useValue({
+        canActivate: () => {
+          throw new ForbiddenException({
+            error: { code: 'PERMISSION_DENIED', message: 'Missing required permission' },
+          });
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('should return 403 when user lacks stripe.manage permission (GET /v1/stripe-config)', async () => {
+    await request(app.getHttpServer()).get('/v1/stripe-config').send({}).expect(403);
   });
 });
