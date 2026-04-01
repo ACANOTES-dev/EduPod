@@ -9,23 +9,90 @@
 
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+function getDirectDatabaseUrl(): string {
+  const connectionString = process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error('DATABASE_URL or DATABASE_MIGRATE_URL environment variable is required');
+  }
+
+  return connectionString;
+}
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: getDirectDatabaseUrl(),
+    },
+  },
+});
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const FIRST_NAMES = [
-  'Ahmed', 'Fatima', 'Omar', 'Layla', 'Yusuf', 'Noor', 'Ibrahim', 'Aisha',
-  'Hassan', 'Maryam', 'Ali', 'Zahra', 'Khalid', 'Hana', 'Samir', 'Dina',
-  'Tariq', 'Salma', 'Rami', 'Leila', 'Faisal', 'Yasmin', 'Nasir', 'Rania',
-  'Bilal', 'Amira', 'Sami', 'Farida', 'Jamal', 'Lina', 'Walid', 'Nadia',
-  'Karim', 'Huda', 'Ziad', 'Mariam', 'Adel', 'Sara', 'Majid', 'Rana',
+  'Ahmed',
+  'Fatima',
+  'Omar',
+  'Layla',
+  'Yusuf',
+  'Noor',
+  'Ibrahim',
+  'Aisha',
+  'Hassan',
+  'Maryam',
+  'Ali',
+  'Zahra',
+  'Khalid',
+  'Hana',
+  'Samir',
+  'Dina',
+  'Tariq',
+  'Salma',
+  'Rami',
+  'Leila',
+  'Faisal',
+  'Yasmin',
+  'Nasir',
+  'Rania',
+  'Bilal',
+  'Amira',
+  'Sami',
+  'Farida',
+  'Jamal',
+  'Lina',
+  'Walid',
+  'Nadia',
+  'Karim',
+  'Huda',
+  'Ziad',
+  'Mariam',
+  'Adel',
+  'Sara',
+  'Majid',
+  'Rana',
 ];
 
 const LAST_NAMES = [
-  'Al-Rashid', 'Hassan', 'Al-Amin', 'Ibrahim', 'Al-Mahmoud', 'Ahmed',
-  'Al-Khalifa', 'Nasser', 'Al-Sayed', 'Farouk', 'Al-Bakr', 'Mustafa',
-  'Al-Harbi', 'Saleh', 'Al-Dosari', 'Hamdan', 'Al-Tamimi', 'Youssef',
-  'Al-Fahad', 'Jaber',
+  'Al-Rashid',
+  'Hassan',
+  'Al-Amin',
+  'Ibrahim',
+  'Al-Mahmoud',
+  'Ahmed',
+  'Al-Khalifa',
+  'Nasser',
+  'Al-Sayed',
+  'Farouk',
+  'Al-Bakr',
+  'Mustafa',
+  'Al-Harbi',
+  'Saleh',
+  'Al-Dosari',
+  'Hamdan',
+  'Al-Tamimi',
+  'Youssef',
+  'Al-Fahad',
+  'Jaber',
 ];
 
 const SUBJECTS = [
@@ -54,7 +121,7 @@ function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function randomName(): { first: string; last: string } {
+function _randomName(): { first: string; last: string } {
   return {
     first: randomItem(FIRST_NAMES),
     last: randomItem(LAST_NAMES),
@@ -176,7 +243,9 @@ async function seedTenantDemoData(tenantId: string): Promise<void> {
     });
   }
 
-  console.log(`    Seeded academic structure: 1 year, ${periods.length} periods, ${YEAR_GROUP_NAMES.length} year groups, ${SUBJECTS.length} subjects`);
+  console.log(
+    `    Seeded academic structure: 1 year, ${periods.length} periods, ${YEAR_GROUP_NAMES.length} year groups, ${SUBJECTS.length} subjects`,
+  );
 }
 
 // ─── Entry point ────────────────────────────────────────────────────────────
