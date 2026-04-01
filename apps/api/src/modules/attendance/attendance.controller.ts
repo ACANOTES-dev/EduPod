@@ -18,6 +18,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AttendanceAlertStatus, AttendanceAlertType } from '@prisma/client';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   createAttendanceSessionSchema,
   saveAttendanceRecordsSchema,
@@ -28,8 +31,6 @@ import {
   uploadUndoSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -81,11 +82,15 @@ const exceptionsQuerySchema = z.object({
 });
 
 const uploadTemplateQuerySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 const uploadBodySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 const listPatternAlertsQuerySchema = z.object({
@@ -105,7 +110,9 @@ interface UploadedFileShape {
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const scanBodySchema = z.object({
-  session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
+  session_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'session_date must be in YYYY-MM-DD format'),
 });
 
 @Controller('v1')
@@ -132,10 +139,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(createAttendanceSessionSchema))
     dto: z.infer<typeof createAttendanceSessionSchema>,
   ) {
-    const { permissions, staffProfileId } = await this.getUserContext(
-      user,
-      tenant.tenant_id,
-    );
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
 
     return this.attendanceService.createSession(
       tenant.tenant_id,
@@ -155,10 +159,7 @@ export class AttendanceController {
     query: z.infer<typeof listSessionsQuerySchema>,
   ) {
     // Check if user is teacher-only (has attendance.take but not attendance.manage)
-    const { permissions, staffProfileId } = await this.getUserContext(
-      user,
-      tenant.tenant_id,
-    );
+    const { permissions, staffProfileId } = await this.getUserContext(user, tenant.tenant_id);
     const hasManage = permissions.includes('attendance.manage');
 
     return this.attendanceService.findAllSessions(
@@ -197,12 +198,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(saveAttendanceRecordsSchema))
     dto: z.infer<typeof saveAttendanceRecordsSchema>,
   ) {
-    return this.attendanceService.saveRecords(
-      tenant.tenant_id,
-      sessionId,
-      user.sub,
-      dto,
-    );
+    return this.attendanceService.saveRecords(tenant.tenant_id, sessionId, user.sub, dto);
   }
 
   @Patch('attendance-sessions/:sessionId/submit')
@@ -212,11 +208,7 @@ export class AttendanceController {
     @CurrentUser() user: JwtPayload,
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
   ) {
-    return this.attendanceService.submitSession(
-      tenant.tenant_id,
-      sessionId,
-      user.sub,
-    );
+    return this.attendanceService.submitSession(tenant.tenant_id, sessionId, user.sub);
   }
 
   @Patch('attendance-records/:id/amend')
@@ -228,12 +220,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(amendAttendanceRecordSchema))
     dto: z.infer<typeof amendAttendanceRecordSchema>,
   ) {
-    return this.attendanceService.amendRecord(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.attendanceService.amendRecord(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Daily Summaries ────────────────────────────────────────────────────
@@ -256,11 +243,7 @@ export class AttendanceController {
     @Query(new ZodValidationPipe(dateRangeQuerySchema))
     query: z.infer<typeof dateRangeQuerySchema>,
   ) {
-    return this.dailySummaryService.findForStudent(
-      tenant.tenant_id,
-      studentId,
-      query,
-    );
+    return this.dailySummaryService.findForStudent(tenant.tenant_id, studentId, query);
   }
 
   // ─── Exceptions ─────────────────────────────────────────────────────────
@@ -411,11 +394,7 @@ export class AttendanceController {
     @Body(new ZodValidationPipe(uploadUndoSchema))
     body: z.infer<typeof uploadUndoSchema>,
   ) {
-    return this.attendanceUploadService.undoUpload(
-      tenant.tenant_id,
-      user.sub,
-      body.batch_id,
-    );
+    return this.attendanceUploadService.undoUpload(tenant.tenant_id, user.sub, body.batch_id);
   }
 
   // ─── AI Scan ────────────────────────────────────────────────────────────
@@ -446,8 +425,7 @@ export class AttendanceController {
       throw new BadRequestException({
         error: {
           code: 'INVALID_FILE_TYPE',
-          message:
-            'Only image files are accepted (JPEG, PNG, GIF, WebP)',
+          message: 'Only image files are accepted (JPEG, PNG, GIF, WebP)',
         },
       });
     }
@@ -508,11 +486,7 @@ export class AttendanceController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.attendancePatternService.acknowledgeAlert(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.attendancePatternService.acknowledgeAlert(tenant.tenant_id, id, user.sub);
   }
 
   @Patch('attendance/pattern-alerts/:id/resolve')
@@ -531,10 +505,7 @@ export class AttendanceController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.attendancePatternService.notifyParentManual(
-      tenant.tenant_id,
-      id,
-    );
+    return this.attendancePatternService.notifyParentManual(tenant.tenant_id, id);
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────

@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { CheckCircle2, ChevronDown, ChevronUp, Phone, Users } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, toast } from '@school/ui';
 
 import { AttendanceToggle } from '../../../_components/attendance-toggle';
 import {
@@ -15,6 +16,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 
 export default function EngagementEventAttendancePage() {
   const params = useParams<{ id: string }>();

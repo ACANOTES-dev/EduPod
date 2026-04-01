@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
@@ -147,10 +148,7 @@ describe('ReferralsController', () => {
     it.each(referralMethods)(
       'should have @RequiresPermission("pastoral.manage_referrals") on %s',
       (method) => {
-        const permission = Reflect.getMetadata(
-          REQUIRES_PERMISSION_KEY,
-          controller[method],
-        );
+        const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller[method]);
         expect(permission).toBe('pastoral.manage_referrals');
       },
     );
@@ -166,10 +164,7 @@ describe('ReferralsController', () => {
     it.each(recommendationMethods)(
       'should have @RequiresPermission("pastoral.manage_referrals") on %s',
       (method) => {
-        const permission = Reflect.getMetadata(
-          REQUIRES_PERMISSION_KEY,
-          controller[method],
-        );
+        const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller[method]);
         expect(permission).toBe('pastoral.manage_referrals');
       },
     );
@@ -190,10 +185,7 @@ describe('ReferralsController', () => {
     it.each(nepsVisitMethods)(
       'should have @RequiresPermission("pastoral.manage_referrals") on %s',
       (method) => {
-        const permission = Reflect.getMetadata(
-          REQUIRES_PERMISSION_KEY,
-          controller[method],
-        );
+        const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller[method]);
         expect(permission).toBe('pastoral.manage_referrals');
       },
     );
@@ -214,11 +206,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.create(TENANT, USER, dto);
 
-      expect(mockReferralService.create).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        dto,
-      );
+      expect(mockReferralService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -269,11 +257,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.update(TENANT, REFERRAL_ID, dto);
 
-      expect(mockReferralService.update).toHaveBeenCalledWith(
-        TENANT_ID,
-        REFERRAL_ID,
-        dto,
-      );
+      expect(mockReferralService.update).toHaveBeenCalledWith(TENANT_ID, REFERRAL_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -285,11 +269,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.submit(TENANT, USER, REFERRAL_ID);
 
-      expect(mockReferralService.submit).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        REFERRAL_ID,
-      );
+      expect(mockReferralService.submit).toHaveBeenCalledWith(TENANT_ID, USER_ID, REFERRAL_ID);
       expect(result).toBe(expected);
     });
   });
@@ -301,11 +281,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.acknowledge(TENANT, USER, REFERRAL_ID);
 
-      expect(mockReferralService.acknowledge).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        REFERRAL_ID,
-      );
+      expect(mockReferralService.acknowledge).toHaveBeenCalledWith(TENANT_ID, USER_ID, REFERRAL_ID);
       expect(result).toBe(expected);
     });
   });
@@ -316,12 +292,7 @@ describe('ReferralsController', () => {
       const expected = { id: REFERRAL_ID, status: 'assessment_scheduled' };
       mockReferralService.scheduleAssessment.mockResolvedValue(expected);
 
-      const result = await controller.scheduleAssessment(
-        TENANT,
-        USER,
-        REFERRAL_ID,
-        dto,
-      );
+      const result = await controller.scheduleAssessment(TENANT, USER, REFERRAL_ID, dto);
 
       expect(mockReferralService.scheduleAssessment).toHaveBeenCalledWith(
         TENANT_ID,
@@ -414,19 +385,14 @@ describe('ReferralsController', () => {
       const result = await controller.prePopulate(TENANT, REFERRAL_ID);
 
       expect(mockReferralService.get).toHaveBeenCalledWith(TENANT_ID, REFERRAL_ID);
-      expect(mockPrepopulateService.generateSnapshot).toHaveBeenCalledWith(
-        TENANT_ID,
-        STUDENT_ID,
-      );
+      expect(mockPrepopulateService.generateSnapshot).toHaveBeenCalledWith(TENANT_ID, STUDENT_ID);
       expect(result).toBe(snapshot);
     });
 
     it('should propagate error if referralService.get throws', async () => {
       mockReferralService.get.mockRejectedValue(new Error('Not found'));
 
-      await expect(
-        controller.prePopulate(TENANT, REFERRAL_ID),
-      ).rejects.toThrow('Not found');
+      await expect(controller.prePopulate(TENANT, REFERRAL_ID)).rejects.toThrow('Not found');
 
       expect(mockPrepopulateService.generateSnapshot).not.toHaveBeenCalled();
     });
@@ -445,12 +411,7 @@ describe('ReferralsController', () => {
       const expected = { id: RECOMMENDATION_ID, ...dto };
       mockRecommendationService.create.mockResolvedValue(expected);
 
-      const result = await controller.createRecommendation(
-        TENANT,
-        USER,
-        REFERRAL_ID,
-        dto,
-      );
+      const result = await controller.createRecommendation(TENANT, USER, REFERRAL_ID, dto);
 
       expect(mockRecommendationService.create).toHaveBeenCalledWith(
         TENANT_ID,
@@ -469,10 +430,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.listRecommendations(TENANT, REFERRAL_ID);
 
-      expect(mockRecommendationService.list).toHaveBeenCalledWith(
-        TENANT_ID,
-        REFERRAL_ID,
-      );
+      expect(mockRecommendationService.list).toHaveBeenCalledWith(TENANT_ID, REFERRAL_ID);
       expect(result).toBe(expected);
     });
   });
@@ -516,11 +474,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.createVisit(TENANT, USER, dto);
 
-      expect(mockNepsVisitService.create).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        dto,
-      );
+      expect(mockNepsVisitService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -558,11 +512,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.updateVisit(TENANT, VISIT_ID, dto);
 
-      expect(mockNepsVisitService.update).toHaveBeenCalledWith(
-        TENANT_ID,
-        VISIT_ID,
-        dto,
-      );
+      expect(mockNepsVisitService.update).toHaveBeenCalledWith(TENANT_ID, VISIT_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -585,11 +535,7 @@ describe('ReferralsController', () => {
 
       const result = await controller.addVisitStudent(TENANT, VISIT_ID, dto);
 
-      expect(mockNepsVisitService.addStudent).toHaveBeenCalledWith(
-        TENANT_ID,
-        VISIT_ID,
-        dto,
-      );
+      expect(mockNepsVisitService.addStudent).toHaveBeenCalledWith(TENANT_ID, VISIT_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -600,12 +546,7 @@ describe('ReferralsController', () => {
       const expected = { id: VISIT_STUDENT_ID, ...dto };
       mockNepsVisitService.updateStudentOutcome.mockResolvedValue(expected);
 
-      const result = await controller.updateVisitStudent(
-        TENANT,
-        VISIT_ID,
-        VISIT_STUDENT_ID,
-        dto,
-      );
+      const result = await controller.updateVisitStudent(TENANT, VISIT_ID, VISIT_STUDENT_ID, dto);
 
       expect(mockNepsVisitService.updateStudentOutcome).toHaveBeenCalledWith(
         TENANT_ID,
@@ -622,10 +563,7 @@ describe('ReferralsController', () => {
 
       await controller.removeVisitStudent(TENANT, VISIT_ID, VISIT_STUDENT_ID);
 
-      expect(mockNepsVisitService.removeStudent).toHaveBeenCalledWith(
-        TENANT_ID,
-        VISIT_STUDENT_ID,
-      );
+      expect(mockNepsVisitService.removeStudent).toHaveBeenCalledWith(TENANT_ID, VISIT_STUDENT_ID);
     });
   });
 });

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -58,8 +59,8 @@ export default function MyPayslipsPage() {
         ]);
         setPayslips(payslipsRes.data);
         setYtd(ytdRes.data);
-      } catch {
-        // silent
+      } catch (err) {
+        console.error('[fetchData]', err);
       } finally {
         setIsLoading(false);
       }
@@ -71,8 +72,8 @@ export default function MyPayslipsPage() {
     setDownloadingId(payslipId);
     try {
       await downloadAuthenticatedPdf(`/api/v1/payroll/runs/${runId}/payslips/${payslipId}`);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleDownload]', err);
     } finally {
       setDownloadingId(null);
     }

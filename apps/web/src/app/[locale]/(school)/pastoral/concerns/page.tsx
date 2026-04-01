@@ -1,5 +1,11 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,11 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

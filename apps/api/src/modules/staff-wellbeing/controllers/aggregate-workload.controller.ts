@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import type {
   AbsenceTrends,
   AggregateTimetableQuality,
@@ -41,20 +42,14 @@ export class AggregateWorkloadController {
   ): Promise<AggregateWorkloadSummary> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<AggregateWorkloadSummary>(
-        tenant_id,
-        'workload-summary',
-      );
-    if (cached) return cached;
-
-    const result =
-      await this.computeService.getAggregateWorkloadSummary(tenant_id);
-    await this.cacheService.setCachedAggregate(
+    const cached = await this.cacheService.getCachedAggregate<AggregateWorkloadSummary>(
       tenant_id,
       'workload-summary',
-      result,
     );
+    if (cached) return cached;
+
+    const result = await this.computeService.getAggregateWorkloadSummary(tenant_id);
+    await this.cacheService.setCachedAggregate(tenant_id, 'workload-summary', result);
     return result;
   }
 
@@ -62,24 +57,17 @@ export class AggregateWorkloadController {
 
   @Get('staff-wellbeing/aggregate/cover-fairness')
   @RequiresPermission('wellbeing.view_aggregate')
-  async getCoverFairness(
-    @CurrentTenant() tenant: TenantContext,
-  ): Promise<CoverFairnessResult> {
+  async getCoverFairness(@CurrentTenant() tenant: TenantContext): Promise<CoverFairnessResult> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<CoverFairnessResult>(
-        tenant_id,
-        'cover-fairness',
-      );
+    const cached = await this.cacheService.getCachedAggregate<CoverFairnessResult>(
+      tenant_id,
+      'cover-fairness',
+    );
     if (cached) return cached;
 
     const result = await this.computeService.getCoverFairness(tenant_id);
-    await this.cacheService.setCachedAggregate(
-      tenant_id,
-      'cover-fairness',
-      result,
-    );
+    await this.cacheService.setCachedAggregate(tenant_id, 'cover-fairness', result);
     return result;
   }
 
@@ -92,20 +80,14 @@ export class AggregateWorkloadController {
   ): Promise<AggregateTimetableQuality> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<AggregateTimetableQuality>(
-        tenant_id,
-        'timetable-quality',
-      );
-    if (cached) return cached;
-
-    const result =
-      await this.computeService.getAggregateTimetableQuality(tenant_id);
-    await this.cacheService.setCachedAggregate(
+    const cached = await this.cacheService.getCachedAggregate<AggregateTimetableQuality>(
       tenant_id,
       'timetable-quality',
-      result,
     );
+    if (cached) return cached;
+
+    const result = await this.computeService.getAggregateTimetableQuality(tenant_id);
+    await this.cacheService.setCachedAggregate(tenant_id, 'timetable-quality', result);
     return result;
   }
 
@@ -113,24 +95,17 @@ export class AggregateWorkloadController {
 
   @Get('staff-wellbeing/aggregate/absence-trends')
   @RequiresPermission('wellbeing.view_aggregate')
-  async getAbsenceTrends(
-    @CurrentTenant() tenant: TenantContext,
-  ): Promise<AbsenceTrends> {
+  async getAbsenceTrends(@CurrentTenant() tenant: TenantContext): Promise<AbsenceTrends> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<AbsenceTrends>(
-        tenant_id,
-        'absence-trends',
-      );
+    const cached = await this.cacheService.getCachedAggregate<AbsenceTrends>(
+      tenant_id,
+      'absence-trends',
+    );
     if (cached) return cached;
 
     const result = await this.computeService.getAbsenceTrends(tenant_id);
-    await this.cacheService.setCachedAggregate(
-      tenant_id,
-      'absence-trends',
-      result,
-    );
+    await this.cacheService.setCachedAggregate(tenant_id, 'absence-trends', result);
     return result;
   }
 
@@ -143,20 +118,14 @@ export class AggregateWorkloadController {
   ): Promise<SubstitutionPressure> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<SubstitutionPressure>(
-        tenant_id,
-        'substitution-pressure',
-      );
-    if (cached) return cached;
-
-    const result =
-      await this.computeService.getSubstitutionPressure(tenant_id);
-    await this.cacheService.setCachedAggregate(
+    const cached = await this.cacheService.getCachedAggregate<SubstitutionPressure>(
       tenant_id,
       'substitution-pressure',
-      result,
     );
+    if (cached) return cached;
+
+    const result = await this.computeService.getSubstitutionPressure(tenant_id);
+    await this.cacheService.setCachedAggregate(tenant_id, 'substitution-pressure', result);
     return result;
   }
 
@@ -164,24 +133,17 @@ export class AggregateWorkloadController {
 
   @Get('staff-wellbeing/aggregate/correlation')
   @RequiresPermission('wellbeing.view_aggregate')
-  async getCorrelation(
-    @CurrentTenant() tenant: TenantContext,
-  ): Promise<CorrelationResult> {
+  async getCorrelation(@CurrentTenant() tenant: TenantContext): Promise<CorrelationResult> {
     const { tenant_id } = tenant;
 
-    const cached =
-      await this.cacheService.getCachedAggregate<CorrelationResult>(
-        tenant_id,
-        'correlation',
-      );
+    const cached = await this.cacheService.getCachedAggregate<CorrelationResult>(
+      tenant_id,
+      'correlation',
+    );
     if (cached) return cached;
 
     const result = await this.computeService.getCorrelation(tenant_id);
-    await this.cacheService.setCachedAggregate(
-      tenant_id,
-      'correlation',
-      result,
-    );
+    await this.cacheService.setCachedAggregate(tenant_id, 'correlation', result);
     return result;
   }
 }

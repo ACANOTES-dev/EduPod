@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { FinanceDashboardData } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,14 +38,11 @@ export class FinanceDashboardService {
       select: { amount: true },
     });
 
-    const receivedPayments = roundMoney(
-      payments.reduce((sum, p) => sum + Number(p.amount), 0),
-    );
+    const receivedPayments = roundMoney(payments.reduce((sum, p) => sum + Number(p.amount), 0));
 
     const outstanding = roundMoney(expectedRevenue - receivedPayments);
-    const collectionRate = expectedRevenue > 0
-      ? roundMoney((receivedPayments / expectedRevenue) * 100)
-      : 0;
+    const collectionRate =
+      expectedRevenue > 0 ? roundMoney((receivedPayments / expectedRevenue) * 100) : 0;
 
     // ─── Household Debt Breakdown ────────────────────────────────────────────
     // Group invoices by household, compute per-household outstanding percentage

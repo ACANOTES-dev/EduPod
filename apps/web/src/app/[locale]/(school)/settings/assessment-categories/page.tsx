@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -11,10 +15,6 @@ import {
   Label,
   toast,
 } from '@school/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -59,7 +59,9 @@ export default function AssessmentCategoriesPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-      const res = await apiClient<CategoriesResponse>(`/api/v1/gradebook/assessment-categories?${params.toString()}`);
+      const res = await apiClient<CategoriesResponse>(
+        `/api/v1/gradebook/assessment-categories?${params.toString()}`,
+      );
       const items = Array.isArray(res.data) ? res.data : [];
       setData(items);
       setTotal(res.meta?.total ?? items.length);

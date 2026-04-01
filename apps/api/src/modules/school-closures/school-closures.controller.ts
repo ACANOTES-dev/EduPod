@@ -11,12 +11,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createClosureSchema,
-  bulkCreateClosureSchema,
-} from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
+
+import { createClosureSchema, bulkCreateClosureSchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -82,10 +80,7 @@ export class SchoolClosuresController {
   @Delete(':id')
   @RequiresPermission('schedule.manage_closures')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async remove(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     await this.closuresService.remove(tenant.tenant_id, id);
   }
 }

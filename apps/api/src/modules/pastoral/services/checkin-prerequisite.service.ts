@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
 import { pastoralTenantSettingsSchema } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -31,19 +28,16 @@ export class CheckinPrerequisiteService {
   async getPrerequisiteStatus(tenantId: string): Promise<PrerequisiteStatus> {
     const settings = await this.loadCheckinSettings(tenantId);
 
-    const monitoring_ownership_defined =
-      settings.monitoring_owner_user_ids.length > 0;
+    const monitoring_ownership_defined = settings.monitoring_owner_user_ids.length > 0;
 
     const monitoring_hours_defined =
-      settings.monitoring_hours_start !== '' &&
-      settings.monitoring_hours_end !== '';
+      settings.monitoring_hours_start !== '' && settings.monitoring_hours_end !== '';
 
     // Escalation protocol is considered defined when monitoring owners are set
     // (monitoring owners + hours ARE the escalation protocol)
     const escalation_protocol_defined = monitoring_ownership_defined;
 
-    const prerequisites_acknowledged =
-      settings.prerequisites_acknowledged === true;
+    const prerequisites_acknowledged = settings.prerequisites_acknowledged === true;
 
     const all_met =
       monitoring_ownership_defined &&
@@ -78,15 +72,15 @@ export class CheckinPrerequisiteService {
       unmet.push('Monitoring hours: Start and end monitoring hours must be defined');
     }
     if (!status.escalation_protocol_defined) {
-      unmet.push('Escalation protocol: Monitoring owners must be assigned to define the escalation protocol');
+      unmet.push(
+        'Escalation protocol: Monitoring owners must be assigned to define the escalation protocol',
+      );
     }
     if (!status.prerequisites_acknowledged) {
       unmet.push('Acknowledgement: Check-ins must be acknowledged as not an emergency service');
     }
 
-    this.logger.warn(
-      `Prerequisites not met for tenant ${tenantId}: ${unmet.join('; ')}`,
-    );
+    this.logger.warn(`Prerequisites not met for tenant ${tenantId}: ${unmet.join('; ')}`);
 
     throw new BadRequestException({
       code: 'CHECKIN_PREREQUISITES_NOT_MET',
@@ -100,10 +94,7 @@ export class CheckinPrerequisiteService {
 
   // ─── VALIDATE MONITORING OWNERS ─────────────────────────────────────────────
 
-  async validateMonitoringOwners(
-    tenantId: string,
-    userIds: string[],
-  ): Promise<void> {
+  async validateMonitoringOwners(tenantId: string, userIds: string[]): Promise<void> {
     if (userIds.length === 0) {
       return;
     }

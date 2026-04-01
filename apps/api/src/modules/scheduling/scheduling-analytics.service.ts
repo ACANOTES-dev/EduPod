@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { AnalyticsQuery, HistoricalComparisonQuery } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,67 +28,61 @@ export class SchedulingAnalyticsService {
   // ─── Get Efficiency Dashboard ─────────────────────────────────────────────
 
   async getEfficiencyDashboard(tenantId: string, query: AnalyticsQuery) {
-    const [
-      schedules,
-      teacherConfigs,
-      rooms,
-      periodTemplates,
-      substitutionRecords,
-      latestRun,
-    ] = await Promise.all([
-      this.prisma.schedule.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: query.academic_year_id,
-          OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
-        },
-        select: {
-          teacher_staff_id: true,
-          room_id: true,
-          period_order: true,
-          weekday: true,
-        },
-      }),
+    const [schedules, teacherConfigs, rooms, periodTemplates, substitutionRecords, latestRun] =
+      await Promise.all([
+        this.prisma.schedule.findMany({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: query.academic_year_id,
+            OR: [{ effective_end_date: null }, { effective_end_date: { gte: new Date() } }],
+          },
+          select: {
+            teacher_staff_id: true,
+            room_id: true,
+            period_order: true,
+            weekday: true,
+          },
+        }),
 
-      this.prisma.teacherSchedulingConfig.findMany({
-        where: { tenant_id: tenantId, academic_year_id: query.academic_year_id },
-        select: { staff_profile_id: true, max_periods_per_week: true },
-      }),
+        this.prisma.teacherSchedulingConfig.findMany({
+          where: { tenant_id: tenantId, academic_year_id: query.academic_year_id },
+          select: { staff_profile_id: true, max_periods_per_week: true },
+        }),
 
-      this.prisma.room.findMany({
-        where: { tenant_id: tenantId, active: true },
-        select: { id: true, capacity: true },
-      }),
+        this.prisma.room.findMany({
+          where: { tenant_id: tenantId, active: true },
+          select: { id: true, capacity: true },
+        }),
 
-      this.prisma.schedulePeriodTemplate.findMany({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: query.academic_year_id,
-          schedule_period_type: 'teaching',
-        },
-        select: { weekday: true, period_order: true },
-        distinct: ['weekday', 'period_order'],
-      }),
+        this.prisma.schedulePeriodTemplate.findMany({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: query.academic_year_id,
+            schedule_period_type: 'teaching',
+          },
+          select: { weekday: true, period_order: true },
+          distinct: ['weekday', 'period_order'],
+        }),
 
-      this.prisma.substitutionRecord.count({
-        where: { tenant_id: tenantId },
-      }),
+        this.prisma.substitutionRecord.count({
+          where: { tenant_id: tenantId },
+        }),
 
-      this.prisma.schedulingRun.findFirst({
-        where: {
-          tenant_id: tenantId,
-          academic_year_id: query.academic_year_id,
-          status: 'applied',
-        },
-        orderBy: { applied_at: 'desc' },
-        select: {
-          soft_preference_score: true,
-          soft_preference_max: true,
-          entries_unassigned: true,
-          entries_generated: true,
-        },
-      }),
-    ]);
+        this.prisma.schedulingRun.findFirst({
+          where: {
+            tenant_id: tenantId,
+            academic_year_id: query.academic_year_id,
+            status: 'applied',
+          },
+          orderBy: { applied_at: 'desc' },
+          select: {
+            soft_preference_score: true,
+            soft_preference_max: true,
+            entries_unassigned: true,
+            entries_generated: true,
+          },
+        }),
+      ]);
 
     // Teacher utilization
     const teacherScheduleCounts = new Map<string, number>();
@@ -100,7 +95,9 @@ export class SchedulingAnalyticsService {
       }
     }
 
-    const configMap = new Map(teacherConfigs.map((c) => [c.staff_profile_id, c.max_periods_per_week]));
+    const configMap = new Map(
+      teacherConfigs.map((c) => [c.staff_profile_id, c.max_periods_per_week]),
+    );
 
     let totalUtilizationPercent = 0;
     let teacherCount = 0;
@@ -126,10 +123,7 @@ export class SchedulingAnalyticsService {
     const totalPeriodSlots = periodTemplates.length;
     const roomCount = rooms.length;
     const totalAvailableRoomSlots = roomCount * totalPeriodSlots;
-    const totalFilledRoomSlots = [...roomScheduleCounts.values()].reduce(
-      (sum, c) => sum + c,
-      0,
-    );
+    const totalFilledRoomSlots = [...roomScheduleCounts.values()].reduce((sum, c) => sum + c, 0);
     const roomUtilizationRate =
       totalAvailableRoomSlots > 0
         ? Math.round((totalFilledRoomSlots / totalAvailableRoomSlots) * 100)
@@ -139,9 +133,7 @@ export class SchedulingAnalyticsService {
     const prefScore = latestRun?.soft_preference_score
       ? Number(latestRun.soft_preference_score)
       : null;
-    const prefMax = latestRun?.soft_preference_max
-      ? Number(latestRun.soft_preference_max)
-      : null;
+    const prefMax = latestRun?.soft_preference_max ? Number(latestRun.soft_preference_max) : null;
     const prefPercent =
       prefScore !== null && prefMax !== null && prefMax > 0
         ? Math.round((prefScore / prefMax) * 100)
@@ -222,15 +214,13 @@ export class SchedulingAnalyticsService {
       }
     }
 
-    const data: TeacherWorkloadEntry[] = [...teacherMap.entries()].map(
-      ([staffId, info]) => ({
-        staff_profile_id: staffId,
-        name: info.name,
-        periods_per_weekday: info.periods_per_weekday,
-        total_periods: info.total,
-        cover_count: coverMap.get(staffId) ?? 0,
-      }),
-    );
+    const data: TeacherWorkloadEntry[] = [...teacherMap.entries()].map(([staffId, info]) => ({
+      staff_profile_id: staffId,
+      name: info.name,
+      periods_per_weekday: info.periods_per_weekday,
+      total_periods: info.total,
+      cover_count: coverMap.get(staffId) ?? 0,
+    }));
 
     data.sort((a, b) => b.total_periods - a.total_periods);
 
@@ -281,10 +271,7 @@ export class SchedulingAnalyticsService {
 
     const data: RoomUtilizationEntry[] = rooms.map((r) => {
       const filled = roomScheduleCounts.get(r.id) ?? 0;
-      const rate =
-        totalSlotsPerRoom > 0
-          ? Math.round((filled / totalSlotsPerRoom) * 100)
-          : 0;
+      const rate = totalSlotsPerRoom > 0 ? Math.round((filled / totalSlotsPerRoom) * 100) : 0;
 
       return {
         room_id: r.id,
@@ -303,10 +290,7 @@ export class SchedulingAnalyticsService {
 
   // ─── Get Historical Comparison ────────────────────────────────────────────
 
-  async getHistoricalComparison(
-    tenantId: string,
-    query: HistoricalComparisonQuery,
-  ) {
+  async getHistoricalComparison(tenantId: string, query: HistoricalComparisonQuery) {
     const [yearA, yearB] = await Promise.all([
       this.getYearMetrics(tenantId, query.year_id_a),
       this.getYearMetrics(tenantId, query.year_id_b),
@@ -317,8 +301,7 @@ export class SchedulingAnalyticsService {
       year_b: { academic_year_id: query.year_id_b, ...yearB },
       comparison: {
         schedule_count_delta: yearB.schedule_count - yearA.schedule_count,
-        unassigned_delta:
-          (yearB.unassigned_count ?? 0) - (yearA.unassigned_count ?? 0),
+        unassigned_delta: (yearB.unassigned_count ?? 0) - (yearA.unassigned_count ?? 0),
         substitution_delta: yearB.substitution_count - yearA.substitution_count,
       },
     };
@@ -352,9 +335,7 @@ export class SchedulingAnalyticsService {
     const prefScore = latestRun?.soft_preference_score
       ? Number(latestRun.soft_preference_score)
       : null;
-    const prefMax = latestRun?.soft_preference_max
-      ? Number(latestRun.soft_preference_max)
-      : null;
+    const prefMax = latestRun?.soft_preference_max ? Number(latestRun.soft_preference_max) : null;
     const prefPercent =
       prefScore !== null && prefMax !== null && prefMax > 0
         ? Math.round((prefScore / prefMax) * 100)

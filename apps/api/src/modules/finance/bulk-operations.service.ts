@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
 import type { BulkExportDto, BulkInvoiceIdsDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,10 +53,7 @@ export class BulkOperationsService {
     return result;
   }
 
-  async bulkVoid(
-    tenantId: string,
-    dto: BulkInvoiceIdsDto,
-  ): Promise<BulkOperationResult> {
+  async bulkVoid(tenantId: string, dto: BulkInvoiceIdsDto): Promise<BulkOperationResult> {
     const result: BulkOperationResult = {
       total: dto.invoice_ids.length,
       succeeded: 0,
@@ -84,10 +78,7 @@ export class BulkOperationsService {
     return result;
   }
 
-  async bulkRemind(
-    tenantId: string,
-    dto: BulkInvoiceIdsDto,
-  ): Promise<BulkOperationResult> {
+  async bulkRemind(tenantId: string, dto: BulkInvoiceIdsDto): Promise<BulkOperationResult> {
     if (dto.invoice_ids.length === 0) {
       throw new BadRequestException({
         code: 'NO_INVOICE_IDS',

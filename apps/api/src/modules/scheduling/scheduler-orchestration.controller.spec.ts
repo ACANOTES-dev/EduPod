@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
 import { SchedulerOrchestrationController } from './scheduler-orchestration.controller';
 import { SchedulerOrchestrationService } from './scheduler-orchestration.service';
-
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -43,18 +43,14 @@ describe('SchedulerOrchestrationController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchedulerOrchestrationController],
-      providers: [
-        { provide: SchedulerOrchestrationService, useValue: mockService },
-      ],
+      providers: [{ provide: SchedulerOrchestrationService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<SchedulerOrchestrationController>(
-      SchedulerOrchestrationController,
-    );
+    controller = module.get<SchedulerOrchestrationController>(SchedulerOrchestrationController);
     jest.clearAllMocks();
   });
 
@@ -66,10 +62,7 @@ describe('SchedulerOrchestrationController', () => {
       academic_year_id: AY_ID,
     });
 
-    expect(mockService.checkPrerequisites).toHaveBeenCalledWith(
-      'tenant-uuid',
-      AY_ID,
-    );
+    expect(mockService.checkPrerequisites).toHaveBeenCalledWith('tenant-uuid', AY_ID);
     expect(result).toEqual(prereqs);
   });
 
@@ -96,12 +89,7 @@ describe('SchedulerOrchestrationController', () => {
     const query = { academic_year_id: AY_ID, page: 1, pageSize: 20 };
     const result = await controller.listRuns(TENANT, query);
 
-    expect(mockService.listRuns).toHaveBeenCalledWith(
-      'tenant-uuid',
-      AY_ID,
-      1,
-      20,
-    );
+    expect(mockService.listRuns).toHaveBeenCalledWith('tenant-uuid', AY_ID, 1, 20);
     expect(result).toEqual(mockResult);
   });
 
@@ -123,12 +111,7 @@ describe('SchedulerOrchestrationController', () => {
       acknowledged_violations: true,
     });
 
-    expect(mockService.applyRun).toHaveBeenCalledWith(
-      'tenant-uuid',
-      RUN_ID,
-      'user-uuid',
-      true,
-    );
+    expect(mockService.applyRun).toHaveBeenCalledWith('tenant-uuid', RUN_ID, 'user-uuid', true);
     expect(result).toEqual(applied);
   });
 
@@ -148,10 +131,7 @@ describe('SchedulerOrchestrationController', () => {
 
     const result = await controller.getRunStatus(TENANT, RUN_ID);
 
-    expect(mockService.getRunStatus).toHaveBeenCalledWith(
-      'tenant-uuid',
-      RUN_ID,
-    );
+    expect(mockService.getRunStatus).toHaveBeenCalledWith('tenant-uuid', RUN_ID);
     expect(result).toEqual(status);
   });
 });

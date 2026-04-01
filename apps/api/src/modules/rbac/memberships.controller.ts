@@ -11,15 +11,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  updateMembershipRolesSchema,
-  userListQuerySchema,
-} from '@school/shared';
-import type {
-  TenantContext,
-  UpdateMembershipRolesDto,
-  UserListQuery,
-} from '@school/shared';
+
+import { updateMembershipRolesSchema, userListQuerySchema } from '@school/shared';
+import type { TenantContext, UpdateMembershipRolesDto, UserListQuery } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -46,10 +40,7 @@ export class MembershipsController {
 
   @Get(':id')
   @RequiresPermission('users.view')
-  async getUser(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getUser(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.membershipsService.getUser(tenant.tenant_id, id);
   }
 
@@ -61,11 +52,7 @@ export class MembershipsController {
     @Body(new ZodValidationPipe(updateMembershipRolesSchema))
     dto: UpdateMembershipRolesDto,
   ) {
-    return this.membershipsService.updateMembershipRoles(
-      tenant.tenant_id,
-      id,
-      dto.role_ids,
-    );
+    return this.membershipsService.updateMembershipRoles(tenant.tenant_id, id, dto.role_ids);
   }
 
   @Post(':id/suspend')

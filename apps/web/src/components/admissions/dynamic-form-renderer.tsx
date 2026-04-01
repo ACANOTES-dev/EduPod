@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Input,
   Textarea,
@@ -13,9 +16,6 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,10 +82,7 @@ const COUNTRIES = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isFieldVisible(
-  field: FieldDef,
-  values: Record<string, unknown>,
-): boolean {
+function isFieldVisible(field: FieldDef, values: Record<string, unknown>): boolean {
   const cond = field.conditional_visibility_json;
   if (!cond) return true;
 
@@ -138,7 +135,9 @@ function FieldRenderer({
         <Input
           type="number"
           value={stringVal}
-          onChange={(e) => onFieldChange(field.field_key, e.target.value ? Number(e.target.value) : '')}
+          onChange={(e) =>
+            onFieldChange(field.field_key, e.target.value ? Number(e.target.value) : '')
+          }
           disabled={readOnly}
           required={field.required}
         />
@@ -338,9 +337,7 @@ export function DynamicFormRenderer({
                 onFieldChange={handleFieldChange}
                 readOnly={readOnly}
               />
-              {field.help_text && (
-                <p className="text-xs text-text-tertiary">{field.help_text}</p>
-              )}
+              {field.help_text && <p className="text-xs text-text-tertiary">{field.help_text}</p>}
             </div>
           );
         }
@@ -349,9 +346,7 @@ export function DynamicFormRenderer({
           <div key={field.field_key} className="space-y-1.5">
             <Label htmlFor={`field-${field.field_key}`}>
               {field.label}
-              {field.required && (
-                <span className="ms-0.5 text-emerald-600">*</span>
-              )}
+              {field.required && <span className="ms-0.5 text-emerald-600">*</span>}
             </Label>
             <FieldRenderer
               field={field}
@@ -359,17 +354,13 @@ export function DynamicFormRenderer({
               onFieldChange={handleFieldChange}
               readOnly={readOnly}
             />
-            {field.help_text && (
-              <p className="text-xs text-text-tertiary">{field.help_text}</p>
-            )}
+            {field.help_text && <p className="text-xs text-text-tertiary">{field.help_text}</p>}
           </div>
         );
       })}
 
       {sortedFields.length === 0 && (
-        <p className="py-8 text-center text-sm text-text-tertiary">
-          {t('noFormsYet')}
-        </p>
+        <p className="py-8 text-center text-sm text-text-tertiary">{t('noFormsYet')}</p>
       )}
     </div>
   );

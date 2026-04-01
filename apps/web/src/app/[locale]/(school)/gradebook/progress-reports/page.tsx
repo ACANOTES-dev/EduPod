@@ -1,5 +1,9 @@
 'use client';
 
+import { Loader2, Send } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Label,
@@ -12,9 +16,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Loader2, Send } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -100,10 +101,7 @@ export default function ProgressReportsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('progressReportsTitle')}
-        description={t('progressReportsDescription')}
-      />
+      <PageHeader title={t('progressReportsTitle')} description={t('progressReportsDescription')} />
 
       {/* Tabs */}
       <nav className="flex gap-1 border-b border-border" aria-label="Progress reports tabs">
@@ -123,13 +121,9 @@ export default function ProgressReportsPage() {
         ))}
       </nav>
 
-      {activeTab === 'generate' && (
-        <GenerateTab periods={periods} classes={classes} t={t} />
-      )}
+      {activeTab === 'generate' && <GenerateTab periods={periods} classes={classes} t={t} />}
 
-      {activeTab === 'history' && (
-        <HistoryTab periods={periods} classes={classes} t={t} />
-      )}
+      {activeTab === 'history' && <HistoryTab periods={periods} classes={classes} t={t} />}
     </div>
   );
 }
@@ -235,7 +229,9 @@ function GenerateTab({ periods, classes, t }: TabProps) {
               </SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -248,7 +244,9 @@ function GenerateTab({ periods, classes, t }: TabProps) {
               </SelectTrigger>
               <SelectContent>
                 {periods.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -266,11 +264,7 @@ function GenerateTab({ periods, classes, t }: TabProps) {
             )}
           </Button>
           {drafts.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={handleSendToParents}
-              disabled={sending}
-            >
+            <Button variant="outline" onClick={handleSendToParents} disabled={sending}>
               {sending ? (
                 <>
                   <Loader2 className="me-2 h-4 w-4 animate-spin" />
@@ -294,7 +288,10 @@ function GenerateTab({ periods, classes, t }: TabProps) {
             {t('progressReportsDraftCount', { count: drafts.length })}
           </h3>
           {drafts.map((draft) => (
-            <div key={draft.student_id} className="rounded-xl border border-border bg-surface overflow-hidden">
+            <div
+              key={draft.student_id}
+              className="rounded-xl border border-border bg-surface overflow-hidden"
+            >
               <div className="flex items-center justify-between border-b border-border bg-surface-secondary px-4 py-3">
                 <div>
                   <span className="text-sm font-semibold text-text-primary">
@@ -318,7 +315,10 @@ function GenerateTab({ periods, classes, t }: TabProps) {
                         <TrendBadge trend={entry.trend} />
                       </div>
                       {entry.current_average !== null && (
-                        <span className="text-sm font-semibold text-text-primary font-mono" dir="ltr">
+                        <span
+                          className="text-sm font-semibold text-text-primary font-mono"
+                          dir="ltr"
+                        >
                           {entry.current_average.toFixed(1)}%
                         </span>
                       )}
@@ -355,27 +355,24 @@ function HistoryTab({ periods, classes, t }: TabProps) {
   const PAGE_SIZE = 20;
   const [isLoading, setIsLoading] = React.useState(true);
 
-  const fetchHistory = React.useCallback(
-    async (p: number, classId: string, periodId: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (classId !== 'all') params.set('class_id', classId);
-        if (periodId !== 'all') params.set('academic_period_id', periodId);
-        const res = await apiClient<HistoryResponse>(
-          `/api/v1/gradebook/progress-reports?${params.toString()}`,
-        );
-        setRows(res.data);
-        setTotal(res.meta.total);
-      } catch {
-        setRows([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchHistory = React.useCallback(async (p: number, classId: string, periodId: string) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (classId !== 'all') params.set('class_id', classId);
+      if (periodId !== 'all') params.set('academic_period_id', periodId);
+      const res = await apiClient<HistoryResponse>(
+        `/api/v1/gradebook/progress-reports?${params.toString()}`,
+      );
+      setRows(res.data);
+      setTotal(res.meta.total);
+    } catch {
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchHistory(page, classFilter, periodFilter);
@@ -387,25 +384,41 @@ function HistoryTab({ periods, classes, t }: TabProps) {
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+        <Select
+          value={classFilter}
+          onValueChange={(v) => {
+            setClassFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectClass')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allClasses')}</SelectItem>
             {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={periodFilter} onValueChange={(v) => { setPeriodFilter(v); setPage(1); }}>
+        <Select
+          value={periodFilter}
+          onValueChange={(v) => {
+            setPeriodFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('selectPeriod')} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('allPeriods')}</SelectItem>
             {periods.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -453,7 +466,10 @@ function HistoryTab({ periods, classes, t }: TabProps) {
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors">
+                  <tr
+                    key={row.id}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
+                  >
                     <td className="px-4 py-3 text-sm font-medium text-text-primary">
                       {row.student_name}
                     </td>
@@ -490,7 +506,9 @@ function HistoryTab({ periods, classes, t }: TabProps) {
             >
               {'‹'}
             </Button>
-            <span className="px-2">{page} / {totalPages}</span>
+            <span className="px-2">
+              {page} / {totalPages}
+            </span>
             <Button
               variant="ghost"
               size="icon"

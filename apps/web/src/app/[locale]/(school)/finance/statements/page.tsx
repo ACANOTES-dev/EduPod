@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, EmptyState, Input } from '@school/ui';
 import { ScrollText, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, EmptyState, Input } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -91,9 +92,7 @@ export default function StatementsIndexPage() {
       key: 'billing_parent_name',
       header: t('billingParent'),
       render: (row: Household) => (
-        <span className="text-sm text-text-secondary">
-          {row.billing_parent_name ?? '--'}
-        </span>
+        <span className="text-sm text-text-secondary">{row.billing_parent_name ?? '--'}</span>
       ),
     },
     {
@@ -130,10 +129,7 @@ export default function StatementsIndexPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('statements')}
-        description={t('statementsDescription')}
-      />
+      <PageHeader title={t('statements')} description={t('statementsDescription')} />
 
       {!isLoading && households.length === 0 && !search ? (
         <EmptyState

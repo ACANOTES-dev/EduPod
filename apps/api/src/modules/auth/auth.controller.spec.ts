@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request, Response } from 'express';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -430,10 +431,7 @@ describe('AuthController', () => {
         new_password: 'NewSecure123!',
       });
 
-      expect(service.confirmPasswordReset).toHaveBeenCalledWith(
-        'reset-token',
-        'NewSecure123!',
-      );
+      expect(service.confirmPasswordReset).toHaveBeenCalledWith('reset-token', 'NewSecure123!');
       expect(result).toBe(expected);
     });
   });

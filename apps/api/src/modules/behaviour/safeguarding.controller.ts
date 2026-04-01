@@ -15,6 +15,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   approveSealSchema,
   assignSafeguardingConcernSchema,
@@ -33,8 +36,6 @@ import {
   uploadSafeguardingAttachmentSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -90,7 +91,10 @@ export class SafeguardingController {
     query: z.infer<typeof listSafeguardingConcernsQuerySchema>,
   ) {
     return this.safeguardingService.listConcerns(
-      tenant.tenant_id, user.sub, user.membership_id ?? '', query,
+      tenant.tenant_id,
+      user.sub,
+      user.membership_id ?? '',
+      query,
     );
   }
 
@@ -102,7 +106,10 @@ export class SafeguardingController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.safeguardingService.getConcernDetail(
-      tenant.tenant_id, user.sub, user.membership_id ?? '', id,
+      tenant.tenant_id,
+      user.sub,
+      user.membership_id ?? '',
+      id,
     );
   }
 
@@ -167,7 +174,11 @@ export class SafeguardingController {
     query: z.infer<typeof listSafeguardingActionsQuerySchema>,
   ) {
     return this.safeguardingService.getActions(
-      tenant.tenant_id, user.sub, user.membership_id ?? '', id, query,
+      tenant.tenant_id,
+      user.sub,
+      user.membership_id ?? '',
+      id,
+      query,
     );
   }
 
@@ -229,7 +240,12 @@ export class SafeguardingController {
       id,
       aid,
       (userId, tenantId, membershipId, concernId) =>
-        this.safeguardingService.checkEffectivePermission(userId, tenantId, membershipId, concernId),
+        this.safeguardingService.checkEffectivePermission(
+          userId,
+          tenantId,
+          membershipId,
+          concernId,
+        ),
     );
   }
 
@@ -243,9 +259,7 @@ export class SafeguardingController {
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
-    const buffer = await this.safeguardingService.generateCaseFile(
-      tenant.tenant_id, id, false,
-    );
+    const buffer = await this.safeguardingService.generateCaseFile(tenant.tenant_id, id, false);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="case-file-${id.slice(0, 8)}.pdf"`,
@@ -261,9 +275,7 @@ export class SafeguardingController {
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ) {
-    const buffer = await this.safeguardingService.generateCaseFile(
-      tenant.tenant_id, id, true,
-    );
+    const buffer = await this.safeguardingService.generateCaseFile(tenant.tenant_id, id, true);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="case-file-redacted-${id.slice(0, 8)}.pdf"`,

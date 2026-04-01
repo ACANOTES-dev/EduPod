@@ -1,16 +1,13 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { hash } from 'bcryptjs';
+
 import type {
   CreateStaffProfileDto,
   PreviewResponse,
   StaffProfileQueryDto,
   UpdateStaffProfileDto,
 } from '@school/shared';
-import { hash } from 'bcryptjs';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { EncryptionService } from '../configuration/encryption.service';
@@ -97,10 +94,7 @@ export class StaffProfilesService {
       { length: 3 },
       () => letters[Math.floor(Math.random() * 26)],
     ).join('');
-    const numberPart = String(Math.floor(Math.random() * 10000)).padStart(
-      4,
-      '0',
-    );
+    const numberPart = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
     const lastDigit = Math.floor(Math.random() * 10);
     return `${letterPart}${numberPart}-${lastDigit}`;
   }
@@ -166,8 +160,7 @@ export class StaffProfilesService {
           if (existingProfile) {
             throw new ConflictException({
               code: 'STAFF_PROFILE_EXISTS',
-              message:
-                'A staff profile already exists for this email in this school',
+              message: 'A staff profile already exists for this email in this school',
             });
           }
 
@@ -266,14 +259,10 @@ export class StaffProfilesService {
 
       return this.maskBankDetails(profile);
     } catch (err: unknown) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'STAFF_PROFILE_EXISTS',
-          message:
-            'A staff profile already exists for this user in this tenant',
+          message: 'A staff profile already exists for this user in this tenant',
         });
       }
       throw err;
@@ -417,8 +406,7 @@ export class StaffProfilesService {
       assignment_role: cs.assignment_role,
     }));
 
-    const { class_staff: _cs, ...profileWithoutClassStaff } =
-      this.maskBankDetails(profile);
+    const { class_staff: _cs, ...profileWithoutClassStaff } = this.maskBankDetails(profile);
 
     return {
       ...profileWithoutClassStaff,
@@ -472,11 +460,7 @@ export class StaffProfilesService {
     }
 
     // Build update data, omitting raw bank fields (replaced by encrypted versions)
-    const {
-      bank_account_number: _ban,
-      bank_iban: _bi,
-      ...profileFields
-    } = dto;
+    const { bank_account_number: _ban, bank_iban: _bi, ...profileFields } = dto;
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -542,10 +526,7 @@ export class StaffProfilesService {
     let bankAccountMasked: string | null = null;
     let bankIbanMasked: string | null = null;
 
-    if (
-      profile.bank_account_number_encrypted &&
-      profile.bank_encryption_key_ref
-    ) {
+    if (profile.bank_account_number_encrypted && profile.bank_encryption_key_ref) {
       const decrypted = this.encryptionService.decrypt(
         profile.bank_account_number_encrypted,
         profile.bank_encryption_key_ref,
@@ -620,8 +601,7 @@ export class StaffProfilesService {
       });
     }
 
-    const fullName =
-      `${profile.user.first_name} ${profile.user.last_name}`.trim();
+    const fullName = `${profile.user.first_name} ${profile.user.last_name}`.trim();
 
     const facts: { label: string; value: string }[] = [
       { label: 'Email', value: profile.user.email },
@@ -665,9 +645,7 @@ export class StaffProfilesService {
     profile: T,
   ): Omit<
     T,
-    | 'bank_account_number_encrypted'
-    | 'bank_iban_encrypted'
-    | 'bank_encryption_key_ref'
+    'bank_account_number_encrypted' | 'bank_iban_encrypted' | 'bank_encryption_key_ref'
   > & {
     bank_account_last4: string | null;
     bank_iban_last4: string | null;

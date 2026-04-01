@@ -1,5 +1,7 @@
 'use client';
 
+import { Play } from 'lucide-react';
+
 import {
   Button,
   Input,
@@ -10,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Play } from 'lucide-react';
 
 import type { PolicyRule, ReplayResult } from './policy-types';
 

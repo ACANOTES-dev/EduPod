@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,10 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -27,7 +27,10 @@ import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Room { id: string; name: string }
+interface Room {
+  id: string;
+  name: string;
+}
 
 interface RoomClosureRow {
   id: string;
@@ -143,23 +146,17 @@ export default function RoomClosuresPage() {
     {
       key: 'date_from',
       header: tv('rcDateFrom'),
-      render: (row: RoomClosureRow) => (
-        <span className="text-text-secondary">{row.date_from}</span>
-      ),
+      render: (row: RoomClosureRow) => <span className="text-text-secondary">{row.date_from}</span>,
     },
     {
       key: 'date_to',
       header: tv('rcDateTo'),
-      render: (row: RoomClosureRow) => (
-        <span className="text-text-secondary">{row.date_to}</span>
-      ),
+      render: (row: RoomClosureRow) => <span className="text-text-secondary">{row.date_to}</span>,
     },
     {
       key: 'reason',
       header: tv('rcReason'),
-      render: (row: RoomClosureRow) => (
-        <span className="text-text-secondary">{row.reason}</span>
-      ),
+      render: (row: RoomClosureRow) => <span className="text-text-secondary">{row.reason}</span>,
     },
     {
       key: 'created_by',
@@ -181,14 +178,22 @@ export default function RoomClosuresPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={roomFilter} onValueChange={(v) => { setRoomFilter(v); setPage(1); }}>
+      <Select
+        value={roomFilter}
+        onValueChange={(v) => {
+          setRoomFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder={tv('rcFilterRoom')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{tc('all')}</SelectItem>
           {rooms.map((r) => (
-            <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+            <SelectItem key={r.id} value={r.id}>
+              {r.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -201,7 +206,13 @@ export default function RoomClosuresPage() {
         title={tv('roomClosures')}
         description={tv('roomClosuresDesc')}
         actions={
-          <Button size="sm" onClick={() => { setForm(EMPTY_FORM); setFormOpen(true); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setForm(EMPTY_FORM);
+              setFormOpen(true);
+            }}
+          >
             <Plus className="me-1.5 h-3.5 w-3.5" />
             {tv('addClosure')}
           </Button>
@@ -229,11 +240,18 @@ export default function RoomClosuresPage() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>{tv('rcRoom')}</Label>
-              <Select value={form.room_id} onValueChange={(v) => setForm((f) => ({ ...f, room_id: v }))}>
-                <SelectTrigger><SelectValue placeholder={tv('rcSelectRoom')} /></SelectTrigger>
+              <Select
+                value={form.room_id}
+                onValueChange={(v) => setForm((f) => ({ ...f, room_id: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={tv('rcSelectRoom')} />
+                </SelectTrigger>
                 <SelectContent>
                   {rooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -271,7 +289,9 @@ export default function RoomClosuresPage() {
             </Button>
             <Button
               onClick={() => void handleSave()}
-              disabled={isSaving || !form.room_id || !form.date_from || !form.date_to || !form.reason.trim()}
+              disabled={
+                isSaving || !form.room_id || !form.date_from || !form.date_to || !form.reason.trim()
+              }
             >
               {isSaving ? '...' : tc('save')}
             </Button>

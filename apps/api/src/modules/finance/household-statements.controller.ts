@@ -1,19 +1,9 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  statementPdfQuerySchema,
-  statementQuerySchema,
-} from '@school/shared';
-import type { TenantContext } from '@school/shared';
+import { Controller, Get, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import { statementPdfQuerySchema, statementQuerySchema } from '@school/shared';
+import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -26,9 +16,7 @@ import { HouseholdStatementsService } from './household-statements.service';
 @Controller('v1/finance/household-statements')
 @UseGuards(AuthGuard, PermissionGuard)
 export class HouseholdStatementsController {
-  constructor(
-    private readonly statementsService: HouseholdStatementsService,
-  ) {}
+  constructor(private readonly statementsService: HouseholdStatementsService) {}
 
   @Get(':householdId')
   @RequiresPermission('finance.view')

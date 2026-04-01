@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
+
 import type { CreateSenProfileDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';

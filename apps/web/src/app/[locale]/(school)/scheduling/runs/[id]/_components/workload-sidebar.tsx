@@ -1,10 +1,10 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Badge, Button } from '@school/ui';
 
 import type { ScheduleEntry } from './schedule-grid';
 
@@ -150,9 +150,7 @@ export function WorkloadSidebar({
     <div className="rounded-xl border border-border bg-surface overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t('runs.workloadTitle')}
-        </h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t('runs.workloadTitle')}</h3>
         <Button
           variant="ghost"
           size="sm"
@@ -191,9 +189,7 @@ export function WorkloadSidebar({
             >
               {/* Name + total */}
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-text-primary truncate">
-                  {w.name}
-                </span>
+                <span className="text-xs font-medium text-text-primary truncate">{w.name}</span>
                 <span
                   className={`text-xs font-mono font-semibold shrink-0 px-1.5 py-0.5 rounded ${bgColour} ${colour}`}
                 >

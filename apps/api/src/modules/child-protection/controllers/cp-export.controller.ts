@@ -10,9 +10,10 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 import { cpExportGenerateSchema, cpExportPreviewSchema } from '@school/shared';
-import type { Request, Response } from 'express';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -45,12 +46,7 @@ export class CpExportController {
     dto: Parameters<CpExportService['preview']>[2],
     @Req() req: Request,
   ) {
-    return this.cpExportService.preview(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpExportService.preview(tenant.tenant_id, user.sub, dto, req.ip ?? null);
   }
 
   // ─── 2. Generate Export ─────────────────────────────────────────────────
@@ -66,12 +62,7 @@ export class CpExportController {
     dto: Parameters<CpExportService['generate']>[2],
     @Req() req: Request,
   ) {
-    return this.cpExportService.generate(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpExportService.generate(tenant.tenant_id, user.sub, dto, req.ip ?? null);
   }
 
   // ─── 3. Download Export (Token-Based) ───────────────────────────────────
@@ -83,22 +74,15 @@ export class CpExportController {
    */
   @Get('download/:token')
   @HttpCode(HttpStatus.OK)
-  async download(
-    @Param('token') token: string,
-    @Req() req: Request,
-    @Res() res: Response,
-  ) {
-    const result = await this.cpExportService.download(
-      token,
-      req.ip ?? null,
-    );
+  async download(@Param('token') token: string, @Req() req: Request, @Res() res: Response) {
+    const result = await this.cpExportService.download(token, req.ip ?? null);
 
     res.set({
       'Content-Type': result.contentType,
       'Content-Disposition': `attachment; filename="${result.filename}"`,
       'Content-Length': result.buffer.length.toString(),
       'Cache-Control': 'no-store, no-cache, must-revalidate',
-      'Pragma': 'no-cache',
+      Pragma: 'no-cache',
     });
 
     res.send(result.buffer);

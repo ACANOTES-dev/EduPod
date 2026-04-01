@@ -1,9 +1,6 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type {
   ParentChildSummary,
   ParentIncidentView,
@@ -52,7 +49,7 @@ export class BehaviourParentService {
     const parent = await this.resolveParent(tenantId, userId);
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
       const sevenDaysAgo = new Date(today);
@@ -65,7 +62,9 @@ export class BehaviourParentService {
           student: { select: { id: true, first_name: true, last_name: true } },
         },
       });
-      const studentLinks = rawLinks as Array<typeof rawLinks[0] & { student: { id: string; first_name: string; last_name: string } }>;
+      const studentLinks = rawLinks as Array<
+        (typeof rawLinks)[0] & { student: { id: string; first_name: string; last_name: string } }
+      >;
 
       const summaries: ParentChildSummary[] = [];
 
@@ -147,7 +146,7 @@ export class BehaviourParentService {
       }
 
       return { data: summaries };
-    }) as unknown as Promise<{ data: ParentChildSummary[] }>);
+    }) as unknown as Promise<{ data: ParentChildSummary[] }>;
   }
 
   // ─── Incidents (parent-safe) ─────────────────────────────────────────
@@ -158,12 +157,15 @@ export class BehaviourParentService {
     studentId: string,
     page: number,
     pageSize: number,
-  ): Promise<{ data: ParentIncidentView[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: ParentIncidentView[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
     const parent = await this.resolveParent(tenantId, userId);
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
 
@@ -186,7 +188,8 @@ export class BehaviourParentService {
       });
       const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
       const behaviourSettings = (settings.behaviour as Record<string, unknown>) ?? {};
-      const showTeacherName = (behaviourSettings.parent_visibility_show_teacher_name as boolean) ?? false;
+      const showTeacherName =
+        (behaviourSettings.parent_visibility_show_teacher_name as boolean) ?? false;
 
       // parent_visible is on BehaviourCategory, not BehaviourIncident
       const where: Prisma.BehaviourIncidentWhereInput = {
@@ -212,7 +215,7 @@ export class BehaviourParentService {
         db.behaviourIncident.count({ where }),
       ]);
 
-      type IncidentRow = typeof rawIncidents[0] & {
+      type IncidentRow = (typeof rawIncidents)[0] & {
         category: { name: string; name_ar: string | null } | null;
         reported_by: { first_name: string; last_name: string } | null;
         parent_description: string | null;
@@ -223,17 +226,18 @@ export class BehaviourParentService {
 
       // Get pending acknowledgements for these incidents
       const incidentIds = incidents.map((i) => i.id);
-      const acks = incidentIds.length > 0
-        ? await db.behaviourParentAcknowledgement.findMany({
-            where: {
-              tenant_id: tenantId,
-              parent_id: parent.id,
-              incident_id: { in: incidentIds },
-              acknowledged_at: null,
-            },
-            select: { id: true, incident_id: true },
-          })
-        : [];
+      const acks =
+        incidentIds.length > 0
+          ? await db.behaviourParentAcknowledgement.findMany({
+              where: {
+                tenant_id: tenantId,
+                parent_id: parent.id,
+                incident_id: { in: incidentIds },
+                acknowledged_at: null,
+              },
+              select: { id: true, incident_id: true },
+            })
+          : [];
       const ackByIncident = new Map(acks.map((a) => [a.incident_id, a.id]));
 
       // Apply parent-safe rendering priority chain
@@ -246,14 +250,18 @@ export class BehaviourParentService {
         severity: inc.severity,
         incident_description: this.renderIncidentForParent(inc, parentLocale),
         occurred_at: inc.occurred_at.toISOString(),
-        reported_by_name: showTeacherName && inc.reported_by
-          ? `${inc.reported_by.first_name} ${inc.reported_by.last_name}`
-          : null,
+        reported_by_name:
+          showTeacherName && inc.reported_by
+            ? `${inc.reported_by.first_name} ${inc.reported_by.last_name}`
+            : null,
         pending_acknowledgement_id: ackByIncident.get(inc.id) ?? null,
       }));
 
       return { data, meta: { page, pageSize, total } };
-    }) as unknown as Promise<{ data: ParentIncidentView[]; meta: { page: number; pageSize: number; total: number } }>);
+    }) as unknown as Promise<{
+      data: ParentIncidentView[];
+      meta: { page: number; pageSize: number; total: number };
+    }>;
   }
 
   // ─── Points & Awards ─────────────────────────────────────────────────
@@ -266,7 +274,7 @@ export class BehaviourParentService {
     const parent = await this.resolveParent(tenantId, userId);
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
       const sevenDaysAgo = new Date(today);
@@ -315,7 +323,7 @@ export class BehaviourParentService {
         orderBy: { awarded_at: 'desc' },
         take: 20,
       });
-      type AwardWithType = typeof rawAwards[0] & {
+      type AwardWithType = (typeof rawAwards)[0] & {
         award_type: { name: string; tier_level: number | null };
       };
       const awards = rawAwards as AwardWithType[];
@@ -331,7 +339,7 @@ export class BehaviourParentService {
           })),
         },
       };
-    }) as unknown as Promise<{ data: ParentPointsAwards }>);
+    }) as unknown as Promise<{ data: ParentPointsAwards }>;
   }
 
   // ─── Sanctions (parent-safe) ─────────────────────────────────────────
@@ -344,7 +352,7 @@ export class BehaviourParentService {
     const parent = await this.resolveParent(tenantId, userId);
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       const today = new Date();
 
@@ -360,10 +368,7 @@ export class BehaviourParentService {
           tenant_id: tenantId,
           student_id: studentId,
           status: {
-            notIn: [
-              'cancelled' as $Enums.SanctionStatus,
-              'superseded' as $Enums.SanctionStatus,
-            ],
+            notIn: ['cancelled' as $Enums.SanctionStatus, 'superseded' as $Enums.SanctionStatus],
           },
         },
         select: {
@@ -402,7 +407,9 @@ export class BehaviourParentService {
       }
 
       return { data: { upcoming, recent } };
-    }) as unknown as Promise<{ data: { upcoming: ParentSanctionView[]; recent: ParentSanctionView[] } }>);
+    }) as unknown as Promise<{
+      data: { upcoming: ParentSanctionView[]; recent: ParentSanctionView[] };
+    }>;
   }
 
   // ─── Acknowledge ─────────────────────────────────────────────────────
@@ -505,7 +512,7 @@ export class BehaviourParentService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    return (rlsClient.$transaction(async (tx) => {
+    return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Check if recognition wall is enabled
@@ -529,14 +536,15 @@ export class BehaviourParentService {
         orderBy: { awarded_at: 'desc' },
         take: 50,
       });
-      type WallAward = typeof rawAwards[0] & {
+      type WallAward = (typeof rawAwards)[0] & {
         student: { first_name: string; last_name: string };
         award_type: { name: string; icon: string | null };
       };
       const awards = rawAwards as WallAward[];
 
       // Check consent requirements
-      const requiresConsent = (behaviourSettings.recognition_wall_requires_consent as boolean) ?? true;
+      const requiresConsent =
+        (behaviourSettings.recognition_wall_requires_consent as boolean) ?? true;
 
       let filtered: WallAward[];
       if (requiresConsent) {
@@ -564,7 +572,7 @@ export class BehaviourParentService {
       }));
 
       return { data };
-    }) as unknown as Promise<{ data: ParentRecognitionItem[] }>);
+    }) as unknown as Promise<{ data: ParentRecognitionItem[] }>;
   }
 
   // ─── Parent-Safe Rendering Priority Chain ────────────────────────────
@@ -602,9 +610,10 @@ export class BehaviourParentService {
     }
 
     // Priority 3: category name + date (locale-aware)
-    const categoryName = (isArabic && incident.category?.name_ar?.trim())
-      ? incident.category.name_ar
-      : (incident.category?.name ?? 'Incident');
+    const categoryName =
+      isArabic && incident.category?.name_ar?.trim()
+        ? incident.category.name_ar
+        : (incident.category?.name ?? 'Incident');
     const dateLocale = isArabic ? 'ar-SA' : 'en-IE';
     const dateStr = incident.occurred_at.toLocaleDateString(dateLocale, {
       day: 'numeric',
@@ -637,10 +646,7 @@ export class BehaviourParentService {
         },
         status: 'active_restriction' as $Enums.RestrictionStatus,
         effective_from: { lte: today },
-        OR: [
-          { effective_until: null },
-          { effective_until: { gte: today } },
-        ],
+        OR: [{ effective_until: null }, { effective_until: { gte: today } }],
       },
     });
 
@@ -662,7 +668,7 @@ export class BehaviourParentService {
     if (!link) {
       throw new ForbiddenException({
         code: 'STUDENT_NOT_LINKED',
-        message: 'You do not have access to this student\'s behaviour data',
+        message: "You do not have access to this student's behaviour data",
       });
     }
   }

@@ -8,8 +8,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -19,7 +20,6 @@ import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
-
 import { ParentPastoralService } from '../services/parent-pastoral.service';
 
 // ─── Inline Schemas (parent-engagement.schema.ts not yet in barrel) ─────────
@@ -42,9 +42,7 @@ const parentSelfReferralSchema = z.object({
 @ModuleEnabled('pastoral')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class ParentPastoralController {
-  constructor(
-    private readonly parentPastoralService: ParentPastoralService,
-  ) {}
+  constructor(private readonly parentPastoralService: ParentPastoralService) {}
 
   // ─── 1. Get Shared Concerns ──────────────────────────────────────────────
 
@@ -56,11 +54,7 @@ export class ParentPastoralController {
     @Query(new ZodValidationPipe(parentPastoralQuerySchema))
     query: z.infer<typeof parentPastoralQuerySchema>,
   ) {
-    return this.parentPastoralService.getSharedConcerns(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    return this.parentPastoralService.getSharedConcerns(tenant.tenant_id, user.sub, query);
   }
 
   // ─── 2. Submit Self-Referral ─────────────────────────────────────────────
@@ -74,11 +68,7 @@ export class ParentPastoralController {
     @Body(new ZodValidationPipe(parentSelfReferralSchema))
     dto: z.infer<typeof parentSelfReferralSchema>,
   ) {
-    return this.parentPastoralService.submitSelfReferral(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.parentPastoralService.submitSelfReferral(tenant.tenant_id, user.sub, dto);
   }
 
   // ─── 3. Get Intervention Summaries ───────────────────────────────────────

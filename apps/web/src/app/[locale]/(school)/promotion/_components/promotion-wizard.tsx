@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, ChevronRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Label,
@@ -9,18 +13,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { CheckCircle2, ChevronRight } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+
+import { PromotionPreview, type PreviewStudent, type OverrideMap } from './promotion-preview';
+import { PromotionSummary } from './promotion-summary';
 
 import { apiClient } from '@/lib/api-client';
-
-import {
-  PromotionPreview,
-  type PreviewStudent,
-  type OverrideMap,
-} from './promotion-preview';
-import { PromotionSummary } from './promotion-summary';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,8 +52,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               i + 1 < currentStep
                 ? 'bg-success-text text-white'
                 : i + 1 === currentStep
-                ? 'bg-primary-700 text-white'
-                : 'bg-surface-secondary text-text-tertiary'
+                  ? 'bg-primary-700 text-white'
+                  : 'bg-surface-secondary text-text-tertiary'
             }`}
           >
             {i + 1 < currentStep ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
@@ -95,7 +93,9 @@ export function PromotionWizard() {
 
   // Load academic years on mount
   React.useEffect(() => {
-    apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=100&sort=start_date&order=desc')
+    apiClient<{ data: AcademicYear[] }>(
+      '/api/v1/academic-years?pageSize=100&sort=start_date&order=desc',
+    )
       .then((res) => setAcademicYears(res.data))
       .catch(() => setAcademicYears([]));
   }, []);
@@ -108,7 +108,10 @@ export function PromotionWizard() {
     setError('');
 
     if (step === 1) {
-      if (!selectedYearId) { setError(t('selectYearRequired')); return; }
+      if (!selectedYearId) {
+        setError(t('selectYearRequired'));
+        return;
+      }
       // Steps 2 and 3 both show preview — fetch on transition to step 2
       setPreviewLoading(true);
       try {
@@ -260,7 +263,9 @@ export function PromotionWizard() {
             <CheckCircle2 className="h-6 w-6 shrink-0 text-success-text" />
             <div>
               <p className="font-semibold text-success-text">{t('commitSuccess')}</p>
-              <p className="text-sm text-success-text/80">{t('processedCount', { count: commitResult.processed })}</p>
+              <p className="text-sm text-success-text/80">
+                {t('processedCount', { count: commitResult.processed })}
+              </p>
             </div>
           </div>
 
@@ -271,12 +276,21 @@ export function PromotionWizard() {
               ['graduated', commitResult.graduated],
               ['withdrawn', commitResult.withdrawn],
               ['skipped', commitResult.skipped],
-            ].filter(([, v]) => (v as number) > 0).map(([key, value]) => (
-              <div key={key as string} className="rounded-xl border border-border bg-surface px-4 py-3 shadow-sm">
-                <p className="text-2xl font-bold text-text-primary">{value as number}</p>
-                <p className="text-sm text-text-secondary capitalize">{t(`action${(key as string).charAt(0).toUpperCase() + (key as string).slice(1).replace('_', '')}`)}</p>
-              </div>
-            ))}
+            ]
+              .filter(([, v]) => (v as number) > 0)
+              .map(([key, value]) => (
+                <div
+                  key={key as string}
+                  className="rounded-xl border border-border bg-surface px-4 py-3 shadow-sm"
+                >
+                  <p className="text-2xl font-bold text-text-primary">{value as number}</p>
+                  <p className="text-sm text-text-secondary capitalize">
+                    {t(
+                      `action${(key as string).charAt(0).toUpperCase() + (key as string).slice(1).replace('_', '')}`,
+                    )}
+                  </p>
+                </div>
+              ))}
           </div>
 
           <Button onClick={handleReset}>{t('runAgain')}</Button>
@@ -296,24 +310,20 @@ export function PromotionWizard() {
 
     return (
       <div className="flex items-center justify-between border-t border-border pt-4">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          disabled={step === 1 || isLoading}
-        >
+        <Button variant="outline" onClick={handleBack} disabled={step === 1 || isLoading}>
           {tc('back')}
         </Button>
         <Button onClick={handleNext} disabled={isLoading}>
-          {isLoading
-            ? tc('loading')
-            : isLastActionStep
-            ? t('confirmAndCommit')
-            : (
-              <>
-                {tc('next')}
-                <ChevronRight className="ms-1.5 h-4 w-4 rtl:rotate-180" />
-              </>
-            )}
+          {isLoading ? (
+            tc('loading')
+          ) : isLastActionStep ? (
+            t('confirmAndCommit')
+          ) : (
+            <>
+              {tc('next')}
+              <ChevronRight className="ms-1.5 h-4 w-4 rtl:rotate-180" />
+            </>
+          )}
         </Button>
       </div>
     );

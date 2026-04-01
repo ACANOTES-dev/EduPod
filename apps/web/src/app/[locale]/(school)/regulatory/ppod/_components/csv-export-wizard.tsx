@@ -1,16 +1,6 @@
 'use client';
 
 import {
-  Button,
-  cn,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  toast,
-} from '@school/ui';
-import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
@@ -21,6 +11,17 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  cn,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  toast,
+} from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
@@ -264,9 +265,7 @@ export function CsvExportWizard({ databaseType, onComplete, onCancel }: CsvExpor
             <p className="text-xs text-text-tertiary">{t('ppod.exportUpdated')}</p>
           </div>
           <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 text-center">
-            <p className="text-2xl font-bold text-text-tertiary">
-              {diffPreview.unchanged_records}
-            </p>
+            <p className="text-2xl font-bold text-text-tertiary">{diffPreview.unchanged_records}</p>
             <p className="text-xs text-text-tertiary">{t('ppod.exportUnchanged')}</p>
           </div>
         </div>
@@ -290,16 +289,15 @@ export function CsvExportWizard({ databaseType, onComplete, onCancel }: CsvExpor
               </thead>
               <tbody>
                 {diffPreview.records.map((record) => (
-                  <tr
-                    key={record.student_id}
-                    className="border-b border-border last:border-b-0"
-                  >
+                  <tr key={record.student_id} className="border-b border-border last:border-b-0">
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-text-primary">
                       {record.student_id}
                     </td>
                     <td className="px-3 py-2 text-text-primary">{record.student_name}</td>
                     <td className="px-3 py-2">
-                      <span className={cn('text-xs font-medium capitalize', statusColor(record.status))}>
+                      <span
+                        className={cn('text-xs font-medium capitalize', statusColor(record.status))}
+                      >
                         {record.status}
                       </span>
                     </td>
@@ -410,11 +408,7 @@ export function CsvExportWizard({ databaseType, onComplete, onCancel }: CsvExpor
       <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
         {currentStep === 0 && (
           <>
-            <Button
-              variant="outline"
-              onClick={onCancel}
-              className="min-h-[44px] w-full sm:w-auto"
-            >
+            <Button variant="outline" onClick={onCancel} className="min-h-[44px] w-full sm:w-auto">
               {t('ppod.cancel')}
             </Button>
             <Button onClick={handleNext} className="min-h-[44px] w-full sm:w-auto">

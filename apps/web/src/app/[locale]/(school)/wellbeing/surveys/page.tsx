@@ -1,6 +1,23 @@
 'use client';
 
 import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ClipboardList,
+  Copy,
+  Edit2,
+  Loader2,
+  Play,
+  Plus,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Badge,
   Button,
   Dialog,
@@ -21,22 +38,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ClipboardList,
-  Copy,
-  Edit2,
-  Loader2,
-  Play,
-  Plus,
-  Square,
-  Trash2,
-  X,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -192,8 +193,8 @@ export default function SurveyManagementPage() {
       );
       setSurveys(result.data);
       setTotal(result.meta.total);
-    } catch {
-      // Error handled by global handler
+    } catch (err) {
+      console.error('[fetchSurveys]', err);
     } finally {
       setIsLoading(false);
     }
@@ -355,8 +356,8 @@ export default function SurveyManagementPage() {
           })),
       });
       setDialogOpen(true);
-    } catch {
-      // Error handled by global handler
+    } catch (err) {
+      console.error('[openEdit]', err);
     }
   }
 
@@ -409,8 +410,8 @@ export default function SurveyManagementPage() {
 
       setDialogOpen(false);
       void fetchSurveys();
-    } catch {
-      // Error handled by global handler
+    } catch (err) {
+      console.error('[handleSave]', err);
     } finally {
       setIsSaving(false);
     }
@@ -420,14 +421,13 @@ export default function SurveyManagementPage() {
 
   async function handleClone(surveyId: string) {
     try {
-      const cloned = await apiClient<Survey>(
-        `/api/v1/staff-wellbeing/surveys/${surveyId}/clone`,
-        { method: 'POST' },
-      );
+      const cloned = await apiClient<Survey>(`/api/v1/staff-wellbeing/surveys/${surveyId}/clone`, {
+        method: 'POST',
+      });
       await fetchSurveys();
       void openEdit(cloned);
-    } catch {
-      // Error handled by global handler
+    } catch (err) {
+      console.error('[handleClone]', err);
     }
   }
 
@@ -446,8 +446,8 @@ export default function SurveyManagementPage() {
       await apiClient<Survey>(endpoint, { method: 'POST' });
       setConfirmAction(null);
       void fetchSurveys();
-    } catch {
-      // Error handled by global handler
+    } catch (err) {
+      console.error('[handleConfirmAction]', err);
     } finally {
       setIsConfirming(false);
     }
@@ -534,11 +534,7 @@ export default function SurveyManagementPage() {
       case 'closed':
         return (
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-[44px] min-w-[44px]"
-            >
+            <Button variant="ghost" size="sm" className="min-h-[44px] min-w-[44px]">
               <ClipboardList className="me-1.5 h-3.5 w-3.5" />
               {t('viewResults')}
             </Button>
@@ -646,9 +642,7 @@ export default function SurveyManagementPage() {
                   <tr key={survey.id} className="border-b border-border last:border-b-0">
                     <td className="py-4 pe-4 font-medium text-text-primary">{survey.title}</td>
                     <td className="py-4 pe-4">
-                      <Badge className={STATUS_COLORS[survey.status]}>
-                        {t(survey.status)}
-                      </Badge>
+                      <Badge className={STATUS_COLORS[survey.status]}>{t(survey.status)}</Badge>
                     </td>
                     <td className="py-4 pe-4 text-text-secondary" dir="ltr">
                       {formatDateRange(survey.window_opens_at, survey.window_closes_at)}
@@ -667,15 +661,10 @@ export default function SurveyManagementPage() {
       {!isLoading && filteredSurveys.length > 0 && (
         <div className="space-y-3 md:hidden">
           {filteredSurveys.map((survey) => (
-            <div
-              key={survey.id}
-              className="rounded-xl border border-border bg-surface p-4"
-            >
+            <div key={survey.id} className="rounded-xl border border-border bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-sm font-medium text-text-primary">{survey.title}</h3>
-                <Badge className={STATUS_COLORS[survey.status]}>
-                  {t(survey.status)}
-                </Badge>
+                <Badge className={STATUS_COLORS[survey.status]}>{t(survey.status)}</Badge>
               </div>
               <p className="mt-2 text-xs text-text-secondary" dir="ltr">
                 {formatDateRange(survey.window_opens_at, survey.window_closes_at)}
@@ -1055,10 +1044,7 @@ export default function SurveyManagementPage() {
             >
               {t('cancel')}
             </Button>
-            <Button
-              onClick={() => void handleConfirmAction()}
-              disabled={isConfirming}
-            >
+            <Button onClick={() => void handleConfirmAction()} disabled={isConfirming}>
               {isConfirming && <Loader2 className="me-1.5 h-4 w-4 animate-spin" />}
               {confirmAction?.type === 'activate' ? t('activate') : t('close')}
             </Button>

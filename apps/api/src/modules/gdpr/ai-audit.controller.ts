@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -72,11 +73,7 @@ export class AiAuditController {
     @Query('date_from') dateFrom?: string,
     @Query('date_to') dateTo?: string,
   ) {
-    return this.aiAuditService.getStats(
-      tenant.tenant_id,
-      dateFrom,
-      dateTo,
-    );
+    return this.aiAuditService.getStats(tenant.tenant_id, dateFrom, dateTo);
   }
 
   // GET /v1/ai-audit/subject/:type/:id
@@ -109,12 +106,7 @@ export class AiAuditController {
     @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe)
     pageSize: number,
   ) {
-    return this.aiAuditService.getLogsByService(
-      tenant.tenant_id,
-      service,
-      page,
-      pageSize,
-    );
+    return this.aiAuditService.getLogsByService(tenant.tenant_id, service, page, pageSize);
   }
 
   // GET /v1/ai-audit/:id
@@ -143,9 +135,7 @@ export class AiAuditController {
       ai_input: {
         data_categories: log.input_data_categories,
         tokenised: log.tokenised,
-        note: log.tokenised
-          ? 'Student identifiers were anonymised before processing'
-          : null,
+        note: log.tokenised ? 'Student identifiers were anonymised before processing' : null,
       },
       ai_output: {
         summary: log.response_summary,
@@ -158,8 +148,7 @@ export class AiAuditController {
         accepted: log.output_used,
         reviewed_by_user_id: log.accepted_by_user_id,
         reviewed_at: log.accepted_at,
-        ...(log.rejected_reason !== null &&
-        log.rejected_reason !== undefined
+        ...(log.rejected_reason !== null && log.rejected_reason !== undefined
           ? { rejected_reason: log.rejected_reason }
           : {}),
       },

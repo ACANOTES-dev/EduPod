@@ -1,9 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { CreateParentDto, UpdateParentDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -117,10 +114,7 @@ export class ParentsService {
           },
         })) as ParentListItem;
       } catch (err: unknown) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException({
             error: {
               code: 'PARENT_EMAIL_EXISTS',
@@ -143,10 +137,7 @@ export class ParentsService {
             },
           });
         } catch (err: unknown) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
             // Already linked — skip silently
           } else {
             throw err;
@@ -295,10 +286,7 @@ export class ParentsService {
       try {
         return await db.parent.update({ where: { id }, data: updateData });
       } catch (err: unknown) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException({
             error: {
               code: 'PARENT_EMAIL_EXISTS',
@@ -360,10 +348,7 @@ export class ParentsService {
           },
         });
       } catch (err: unknown) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           throw new ConflictException({
             error: {
               code: 'STUDENT_ALREADY_LINKED',

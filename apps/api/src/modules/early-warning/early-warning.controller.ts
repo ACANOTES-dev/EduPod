@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -151,11 +152,7 @@ export class EarlyWarningController {
     @CurrentUser() user: JwtPayload,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    await this.earlyWarningService.acknowledgeProfile(
-      tenantContext.tenant_id,
-      user.sub,
-      studentId,
-    );
+    await this.earlyWarningService.acknowledgeProfile(tenantContext.tenant_id, user.sub, studentId);
   }
 
   // POST /v1/early-warnings/:studentId/assign

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, SubmitFormDto, TenantContext } from '@school/shared';
 
 import { ConsentRecordsService } from './consent-records.service';

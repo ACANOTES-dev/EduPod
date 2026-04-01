@@ -1,8 +1,5 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   CreateAllowanceTypeDto,
   CreateStaffAllowanceDto,
@@ -19,10 +16,7 @@ export class PayrollAllowancesService {
 
   // ─── Allowance Types ─────────────────────────────────────────────────────────
 
-  async createAllowanceType(
-    tenantId: string,
-    dto: CreateAllowanceTypeDto,
-  ) {
+  async createAllowanceType(tenantId: string, dto: CreateAllowanceTypeDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx) => {
@@ -85,11 +79,7 @@ export class PayrollAllowancesService {
     return this.serializeAllowanceType(type);
   }
 
-  async updateAllowanceType(
-    tenantId: string,
-    typeId: string,
-    dto: UpdateAllowanceTypeDto,
-  ) {
+  async updateAllowanceType(tenantId: string, typeId: string, dto: UpdateAllowanceTypeDto) {
     await this.getAllowanceType(tenantId, typeId);
 
     const updated = await this.prisma.payrollAllowanceType.update({
@@ -114,10 +104,7 @@ export class PayrollAllowancesService {
 
   // ─── Staff Allowances ─────────────────────────────────────────────────────────
 
-  async createStaffAllowance(
-    tenantId: string,
-    dto: CreateStaffAllowanceDto,
-  ) {
+  async createStaffAllowance(tenantId: string, dto: CreateStaffAllowanceDto) {
     // Validate allowance type exists
     await this.getAllowanceType(tenantId, dto.allowance_type_id);
 
@@ -144,11 +131,7 @@ export class PayrollAllowancesService {
     });
   }
 
-  async listStaffAllowances(
-    tenantId: string,
-    staffProfileId: string,
-    activeOnly = true,
-  ) {
+  async listStaffAllowances(tenantId: string, staffProfileId: string, activeOnly = true) {
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
       staff_profile_id: staffProfileId,
@@ -158,10 +141,7 @@ export class PayrollAllowancesService {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       where.effective_from = { lte: today };
-      where.OR = [
-        { effective_to: null },
-        { effective_to: { gte: today } },
-      ];
+      where.OR = [{ effective_to: null }, { effective_to: { gte: today } }];
     }
 
     const allowances = await this.prisma.staffAllowance.findMany({
@@ -175,11 +155,7 @@ export class PayrollAllowancesService {
     return { data: allowances.map((a) => this.serializeStaffAllowance(a)) };
   }
 
-  async updateStaffAllowance(
-    tenantId: string,
-    allowanceId: string,
-    dto: UpdateStaffAllowanceDto,
-  ) {
+  async updateStaffAllowance(tenantId: string, allowanceId: string, dto: UpdateStaffAllowanceDto) {
     const allowance = await this.prisma.staffAllowance.findFirst({
       where: { id: allowanceId, tenant_id: tenantId },
     });
@@ -228,20 +204,13 @@ export class PayrollAllowancesService {
    * Calculate total active allowances for a staff member at a given date.
    * Used when auto-populating payroll entries.
    */
-  async calculateAllowancesForEntry(
-    tenantId: string,
-    staffProfileId: string,
-    asOfDate: Date,
-  ) {
+  async calculateAllowancesForEntry(tenantId: string, staffProfileId: string, asOfDate: Date) {
     const allowances = await this.prisma.staffAllowance.findMany({
       where: {
         tenant_id: tenantId,
         staff_profile_id: staffProfileId,
         effective_from: { lte: asOfDate },
-        OR: [
-          { effective_to: null },
-          { effective_to: { gte: asOfDate } },
-        ],
+        OR: [{ effective_to: null }, { effective_to: { gte: asOfDate } }],
       },
       include: {
         allowance_type: { select: { id: true, name: true, name_ar: true, is_recurring: true } },

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { formatDate } from '@/lib/format-date';
 
@@ -90,7 +91,9 @@ export function ParentNoteThread({ notes, onAcknowledge, acknowledgingId }: Pare
                           {formatDate(note.created_at)}
                         </span>
                       </div>
-                      <p className="text-sm text-text-secondary whitespace-pre-wrap">{note.content}</p>
+                      <p className="text-sm text-text-secondary whitespace-pre-wrap">
+                        {note.content}
+                      </p>
 
                       {/* Acknowledged indicator */}
                       {note.acknowledged && note.acknowledged_at && (

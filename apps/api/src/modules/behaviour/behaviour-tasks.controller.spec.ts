@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -43,9 +44,7 @@ describe('BehaviourTasksController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourTasksController],
-      providers: [
-        { provide: BehaviourTasksService, useValue: mockService },
-      ],
+      providers: [{ provide: BehaviourTasksService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -122,7 +121,12 @@ describe('BehaviourTasksController', () => {
 
     const result = await controller.completeTask(TENANT, USER, 'task-1', dto as never);
 
-    expect(mockService.completeTask).toHaveBeenCalledWith('tenant-uuid', 'task-1', 'user-uuid', dto);
+    expect(mockService.completeTask).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'task-1',
+      'user-uuid',
+      dto,
+    );
     expect(result).toEqual({ id: 'task-1', status: 'completed' });
   });
 

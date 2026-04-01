@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type { CreateApplicationNoteDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -59,11 +60,7 @@ export class ApplicationNotesService {
 
   // ─── Find By Application ──────────────────────────────────────────────────
 
-  async findByApplication(
-    tenantId: string,
-    applicationId: string,
-    includeInternal: boolean,
-  ) {
+  async findByApplication(tenantId: string, applicationId: string, includeInternal: boolean) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {

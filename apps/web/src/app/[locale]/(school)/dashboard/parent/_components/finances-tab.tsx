@@ -1,5 +1,9 @@
 'use client';
 
+import { CreditCard, Download, FileText, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { InvoiceStatus } from '@school/shared';
 import {
   Button,
@@ -14,9 +18,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { CreditCard, Download, FileText, Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -297,11 +298,7 @@ export function FinancesTab() {
                             {t('parentDashboard.contactSchoolForPayment')}
                           </span>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openPlanModal(invoice)}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => openPlanModal(invoice)}>
                           {tf('paymentPlans.requestPlan')}
                         </Button>
                       </div>
@@ -348,7 +345,10 @@ export function FinancesTab() {
                     <td className="px-4 py-3 text-text-secondary">
                       {formatDate(payment.received_at)}
                     </td>
-                    <td className="px-4 py-3 text-end font-mono font-semibold text-text-primary" dir="ltr">
+                    <td
+                      className="px-4 py-3 text-end font-mono font-semibold text-text-primary"
+                      dir="ltr"
+                    >
                       {payment.amount.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -453,9 +453,7 @@ export function FinancesTab() {
               onClick={() => void handleSubmitPlan()}
               disabled={submittingPlan || !planReason}
             >
-              {submittingPlan ? (
-                <Loader2 className="me-2 h-4 w-4 animate-spin" />
-              ) : null}
+              {submittingPlan ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : null}
               {tf('paymentPlans.submitRequest')}
             </Button>
           </DialogFooter>

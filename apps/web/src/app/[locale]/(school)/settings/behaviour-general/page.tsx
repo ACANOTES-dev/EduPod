@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label, Switch, toast } from '@school/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label, Switch, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -109,7 +110,15 @@ const DEFAULT_SETTINGS: BehaviourSettings = {
 
 // ─── Section UI helpers ──────────────────────────────────────────────────────
 
-function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
   const [open, setOpen] = React.useState(true);
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
@@ -123,19 +132,35 @@ function SectionCard({ title, description, children }: { title: string; descript
           <span className="text-sm font-semibold text-text-primary">{title}</span>
           {description && <p className="mt-0.5 text-xs text-text-tertiary">{description}</p>}
         </div>
-        {open ? <ChevronUp className="h-4 w-4 shrink-0 text-text-tertiary" /> : <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary" />}
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-text-tertiary" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary" />
+        )}
       </button>
       {open && <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>}
     </div>
   );
 }
 
-function BooleanRow({ label, description, value, onChange }: { label: string; description?: string; value: boolean; onChange: (v: boolean) => void }) {
+function BooleanRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
   const id = React.useId();
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 flex-1 space-y-0.5">
-        <Label htmlFor={id} className="text-sm text-text-primary">{label}</Label>
+        <Label htmlFor={id} className="text-sm text-text-primary">
+          {label}
+        </Label>
         {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Switch id={id} checked={value} onCheckedChange={onChange} className="shrink-0" />
@@ -143,19 +168,38 @@ function BooleanRow({ label, description, value, onChange }: { label: string; de
   );
 }
 
-function NumberRow({ label, description, value, onChange, min, max }: { label: string; description?: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) {
+function NumberRow({
+  label,
+  description,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  label: string;
+  description?: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+}) {
   const id = React.useId();
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1 space-y-0.5">
-        <Label htmlFor={id} className="text-sm text-text-primary">{label}</Label>
+        <Label htmlFor={id} className="text-sm text-text-primary">
+          {label}
+        </Label>
         {description && <p className="text-xs text-text-tertiary">{description}</p>}
       </div>
       <Input
         id={id}
         type="number"
         value={value}
-        onChange={(e) => { const n = parseInt(e.target.value, 10); if (!isNaN(n)) onChange(n); }}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (!isNaN(n)) onChange(n);
+        }}
         min={min}
         max={max}
         className="w-full shrink-0 text-end sm:w-28"
@@ -173,15 +217,20 @@ export default function BehaviourGeneralSettingsPage() {
   const [settings, setSettings] = React.useState<BehaviourSettings>(DEFAULT_SETTINGS);
 
   React.useEffect(() => {
-    apiClient<{ data?: { behaviour?: Partial<BehaviourSettings> }; behaviour?: Partial<BehaviourSettings> }>('/api/v1/settings')
+    apiClient<{
+      data?: { behaviour?: Partial<BehaviourSettings> };
+      behaviour?: Partial<BehaviourSettings>;
+    }>('/api/v1/settings')
       .then((res) => {
-        const root = ('data' in res && res.data) ? res.data : res;
+        const root = 'data' in res && res.data ? res.data : res;
         const beh = root.behaviour;
         if (beh && typeof beh === 'object') {
           setSettings((prev) => ({ ...prev, ...beh }));
         }
       })
-      .catch(() => { /* use defaults */ })
+      .catch(() => {
+        /* use defaults */
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -317,7 +366,10 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Parent Visibility */}
-        <SectionCard title={t('sections.parentVisibility')} description={t('sections.parentVisibilityDesc')}>
+        <SectionCard
+          title={t('sections.parentVisibility')}
+          description={t('sections.parentVisibilityDesc')}
+        >
           <BooleanRow
             label={t('labels.parentPortalEnabled')}
             value={settings.parent_portal_behaviour_enabled}
@@ -359,7 +411,10 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Recognition Wall */}
-        <SectionCard title={t('sections.recognitionWall')} description={t('sections.recognitionWallDesc')}>
+        <SectionCard
+          title={t('sections.recognitionWall')}
+          description={t('sections.recognitionWallDesc')}
+        >
           <BooleanRow
             label={t('labels.recognitionWallEnabled')}
             value={settings.recognition_wall_enabled}
@@ -383,7 +438,10 @@ export default function BehaviourGeneralSettingsPage() {
         </SectionCard>
 
         {/* Safeguarding */}
-        <SectionCard title={t('sections.safeguarding')} description={t('sections.safeguardingDesc')}>
+        <SectionCard
+          title={t('sections.safeguarding')}
+          description={t('sections.safeguardingDesc')}
+        >
           <NumberRow
             label={t('labels.criticalSla')}
             value={settings.safeguarding_sla_critical_hours}

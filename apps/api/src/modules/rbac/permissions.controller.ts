@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+
 import type { RoleTier } from '@school/shared';
 
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -16,8 +17,7 @@ export class PermissionsController {
   @RequiresPermission('roles.manage')
   async listPermissions(@Query('tier') tier?: string) {
     const validTiers = ['platform', 'admin', 'staff', 'parent'];
-    const roleTier =
-      tier && validTiers.includes(tier) ? (tier as RoleTier) : undefined;
+    const roleTier = tier && validTiers.includes(tier) ? (tier as RoleTier) : undefined;
     return this.rolesService.listPermissions(roleTier);
   }
 }

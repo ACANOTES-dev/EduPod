@@ -12,6 +12,8 @@ import {
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createTenantSchema,
   paginationQuerySchema,
@@ -19,7 +21,6 @@ import {
   updateTenantSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SensitiveDataAccess } from '../../common/decorators/sensitive-data-access.decorator';

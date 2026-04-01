@@ -1,8 +1,5 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { UpsertRotationConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -21,10 +18,7 @@ export class RotationService {
 
   // ─── Upsert Rotation Config ───────────────────────────────────────────────
 
-  async upsertRotationConfig(
-    tenantId: string,
-    dto: UpsertRotationConfigDto,
-  ) {
+  async upsertRotationConfig(tenantId: string, dto: UpsertRotationConfigDto) {
     // Verify academic year exists
     const academicYear = await this.prisma.academicYear.findFirst({
       where: { id: dto.academic_year_id, tenant_id: tenantId },
@@ -43,7 +37,7 @@ export class RotationService {
       select: { id: true },
     });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       if (existing) {
@@ -66,7 +60,7 @@ export class RotationService {
           effective_start_date: new Date(dto.effective_start_date),
         },
       });
-    }) as unknown as {
+    })) as unknown as {
       id: string;
       cycle_length: number;
       week_labels_json: unknown;
@@ -144,7 +138,8 @@ export class RotationService {
       throw new ConflictException({
         error: {
           code: 'ROTATION_IN_USE',
-          message: 'Cannot delete rotation config — schedules reference rotation weeks. Update or archive those schedules first.',
+          message:
+            'Cannot delete rotation config — schedules reference rotation weeks. Update or archive those schedules first.',
         },
       });
     }
@@ -183,9 +178,7 @@ export class RotationService {
 
     // Calculate the number of weeks elapsed since effective_start_date
     const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const weeksElapsed = Math.floor(
-      (targetDate.getTime() - effectiveStart.getTime()) / msPerWeek,
-    );
+    const weeksElapsed = Math.floor((targetDate.getTime() - effectiveStart.getTime()) / msPerWeek);
     const safeWeeks = Math.max(0, weeksElapsed);
     const weekIndex = safeWeeks % config.cycle_length;
 

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type { ConvertApplicationDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';

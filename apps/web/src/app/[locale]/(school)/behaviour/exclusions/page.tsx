@@ -1,11 +1,12 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { AlertTriangle, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -131,29 +132,26 @@ export default function ExclusionListPage() {
   }, []);
 
   // Fetch exclusion cases
-  const fetchExclusions = React.useCallback(
-    async (p: number, tab: TabKey) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          page: String(p),
-          pageSize: String(PAGE_SIZE),
-        });
-        if (tab !== 'all') params.set('status', tab);
-        const res = await apiClient<ExclusionsResponse>(
-          `/api/v1/behaviour/exclusion-cases?${params.toString()}`,
-        );
-        setData(res.data ?? []);
-        setTotal(res.meta?.total ?? 0);
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchExclusions = React.useCallback(async (p: number, tab: TabKey) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(p),
+        pageSize: String(PAGE_SIZE),
+      });
+      if (tab !== 'all') params.set('status', tab);
+      const res = await apiClient<ExclusionsResponse>(
+        `/api/v1/behaviour/exclusion-cases?${params.toString()}`,
+      );
+      setData(res.data ?? []);
+      setTotal(res.meta?.total ?? 0);
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchExclusions(page, activeTab);
@@ -194,9 +192,7 @@ export default function ExclusionListPage() {
       key: 'case_number',
       header: t('columns.caseNumber'),
       render: (row: ExclusionRow) => (
-        <span className="font-mono text-xs font-medium text-text-primary">
-          {row.case_number}
-        </span>
+        <span className="font-mono text-xs font-medium text-text-primary">{row.case_number}</span>
       ),
     },
     {
@@ -238,9 +234,7 @@ export default function ExclusionListPage() {
       header: t('columns.noticeIssued'),
       render: (row: ExclusionRow) => (
         <span className="text-xs text-text-secondary">
-          {row.formal_notice_issued_at
-            ? formatDateTime(row.formal_notice_issued_at)
-            : '--'}
+          {row.formal_notice_issued_at ? formatDateTime(row.formal_notice_issued_at) : '--'}
         </span>
       ),
     },
@@ -293,9 +287,7 @@ export default function ExclusionListPage() {
               </span>
             )}
             {days !== null && days < 0 && (
-              <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                Expired
-              </span>
+              <span className="text-xs font-medium text-red-600 dark:text-red-400">Expired</span>
             )}
           </div>
         );
@@ -329,9 +321,7 @@ export default function ExclusionListPage() {
               </span>
             </div>
             <p className="mt-1 text-sm text-text-primary">
-              {row.student
-                ? `${row.student.first_name} ${row.student.last_name}`
-                : '--'}
+              {row.student ? `${row.student.first_name} ${row.student.last_name}` : '--'}
             </p>
           </div>
           <span
@@ -414,17 +404,12 @@ export default function ExclusionListPage() {
           <div className="space-y-2">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-24 animate-pulse rounded-xl bg-surface-secondary"
-                />
+                <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
               <div className="rounded-xl border border-border bg-surface py-12 text-center">
                 <ShieldAlert className="mx-auto h-8 w-8 text-text-tertiary" />
-                <p className="mt-2 text-sm text-text-tertiary">
-                  {t('noResults')}
-                </p>
+                <p className="mt-2 text-sm text-text-tertiary">{t('noResults')}</p>
               </div>
             ) : (
               data.map(renderMobileCard)
@@ -433,9 +418,7 @@ export default function ExclusionListPage() {
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>
-                {t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}
-              </span>
+              <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -465,9 +448,7 @@ export default function ExclusionListPage() {
           pageSize={PAGE_SIZE}
           total={total}
           onPageChange={setPage}
-          onRowClick={(row) =>
-            router.push(`/${locale}/behaviour/exclusions/${row.id}`)
-          }
+          onRowClick={(row) => router.push(`/${locale}/behaviour/exclusions/${row.id}`)}
           keyExtractor={(row) => row.id}
           isLoading={isLoading}
         />

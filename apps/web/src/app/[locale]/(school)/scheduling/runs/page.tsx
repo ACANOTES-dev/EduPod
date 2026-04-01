@@ -1,5 +1,10 @@
 'use client';
 
+import { ChevronRight, Clock, Loader2, Sparkles } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,16 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import {
-  ChevronRight,
-  Clock,
-  Loader2,
-  Sparkles,
-} from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -102,9 +97,7 @@ export default function SchedulingRunsPage() {
   React.useEffect(() => {
     if (!selectedYear) return;
     setLoading(true);
-    apiClient<{ data: SchedulingRun[] }>(
-      `/api/v1/scheduling-runs?academic_year_id=${selectedYear}`,
-    )
+    apiClient<{ data: SchedulingRun[] }>(`/api/v1/scheduling-runs?academic_year_id=${selectedYear}`)
       .then((res) => setRuns(res.data ?? []))
       .catch(() => setRuns([]))
       .finally(() => setLoading(false));
@@ -130,10 +123,7 @@ export default function SchedulingRunsPage() {
               </SelectContent>
             </Select>
 
-            <Button
-              onClick={() => router.push(`/${locale}/scheduling/auto`)}
-              className="gap-1.5"
-            >
+            <Button onClick={() => router.push(`/${locale}/scheduling/auto`)} className="gap-1.5">
               <Sparkles className="h-4 w-4" />
               {t('runs.generate')}
             </Button>
@@ -214,9 +204,7 @@ export default function SchedulingRunsPage() {
                         {t(`auto.${run.status}`)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 font-mono text-text-primary">
-                      {run.assigned_count}
-                    </td>
+                    <td className="px-4 py-3 font-mono text-text-primary">{run.assigned_count}</td>
                     <td className="px-4 py-3 font-mono text-text-secondary">
                       {run.unassigned_count}
                     </td>

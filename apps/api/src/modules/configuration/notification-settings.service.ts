@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import { NOTIFICATION_TYPES } from '@school/shared';
 import type { UpdateNotificationSettingDto } from '@school/shared';
 
@@ -26,17 +23,9 @@ export class NotificationSettingsService {
    * Update a specific notification setting by type.
    * Validates that the notification type is one of the known types.
    */
-  async updateSetting(
-    tenantId: string,
-    type: string,
-    data: UpdateNotificationSettingDto,
-  ) {
+  async updateSetting(tenantId: string, type: string, data: UpdateNotificationSettingDto) {
     // Validate notification type
-    if (
-      !NOTIFICATION_TYPES.includes(
-        type as (typeof NOTIFICATION_TYPES)[number],
-      )
-    ) {
+    if (!NOTIFICATION_TYPES.includes(type as (typeof NOTIFICATION_TYPES)[number])) {
       throw new BadRequestException({
         code: 'INVALID_NOTIFICATION_TYPE',
         message: `"${type}" is not a valid notification type. Valid types: ${NOTIFICATION_TYPES.join(', ')}`,

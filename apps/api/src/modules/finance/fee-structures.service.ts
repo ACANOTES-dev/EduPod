@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { CreateFeeStructureDto, UpdateFeeStructureDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';

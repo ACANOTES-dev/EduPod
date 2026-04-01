@@ -1,9 +1,10 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { GripVertical, Shuffle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { Student, YearGroup } from './export-utils';
 
@@ -92,7 +93,8 @@ export function AssignmentBoard({
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-text-primary">{cls.name}</span>
                         <Badge variant={pct !== null && pct >= 90 ? 'danger' : 'success'}>
-                          {count}{cap ? `/${cap}` : ''}
+                          {count}
+                          {cap ? `/${cap}` : ''}
                         </Badge>
                       </div>
                       {pct !== null && (

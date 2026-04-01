@@ -1,13 +1,7 @@
-import {
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import type { JwtPayload, TenantContext } from '@school/shared';
+import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -49,30 +43,21 @@ export class HomeworkParentController {
   // GET /v1/parent/homework/today
   @Get('today')
   @RequiresPermission('parent.homework')
-  async listToday(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async listToday(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.service.listToday(tenant.tenant_id, user.sub);
   }
 
   // GET /v1/parent/homework/overdue
   @Get('overdue')
   @RequiresPermission('parent.homework')
-  async listOverdue(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async listOverdue(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.service.listOverdue(tenant.tenant_id, user.sub);
   }
 
   // GET /v1/parent/homework/week
   @Get('week')
   @RequiresPermission('parent.homework')
-  async listWeek(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async listWeek(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.service.listWeek(tenant.tenant_id, user.sub);
   }
 

@@ -1,10 +1,10 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { BarChart3, CheckCircle2, Loader2, Star } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Badge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -46,7 +46,9 @@ export default function MySatisfactionPage() {
           setLoading(false);
           return;
         }
-        return apiClient<MySatisfaction>(`/api/v1/scheduling-dashboard/preferences?academic_year_id=${yearId}`)
+        return apiClient<MySatisfaction>(
+          `/api/v1/scheduling-dashboard/preferences?academic_year_id=${yearId}`,
+        )
           .then((res) => setData(res))
           .catch(() => setError(true));
       })
@@ -96,7 +98,9 @@ export default function MySatisfactionPage() {
         <div className="rounded-xl border border-border bg-surface p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-text-tertiary uppercase tracking-wide">Total Preferences</p>
+              <p className="text-xs text-text-tertiary uppercase tracking-wide">
+                Total Preferences
+              </p>
               <p className="mt-1 text-3xl font-bold text-text-primary">{data.total_preferences}</p>
             </div>
             <Star className="h-6 w-6 text-text-tertiary" />
@@ -154,9 +158,7 @@ export default function MySatisfactionPage() {
               >
                 <CheckCircle2
                   className={`h-4 w-4 shrink-0 ${
-                    detail.satisfied
-                      ? 'text-green-500'
-                      : 'text-text-tertiary opacity-30'
+                    detail.satisfied ? 'text-green-500' : 'text-text-tertiary opacity-30'
                   }`}
                 />
                 <div className="flex-1 min-w-0">

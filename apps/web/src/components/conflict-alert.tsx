@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { AlertTriangle, XOctagon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

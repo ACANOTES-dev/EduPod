@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -10,8 +13,6 @@ import {
   Input,
   Label,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -56,8 +57,8 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
       if (res.data.errors.length === 0) {
         onSuccess();
       }
-    } catch {
-      // handled by apiClient
+    } catch (err) {
+      console.error('[handleImport]', err);
     } finally {
       setIsImporting(false);
     }
@@ -80,12 +81,7 @@ export function BulkImportDialog({ open, onOpenChange, onSuccess }: BulkImportDi
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>CSV File</Label>
-            <Input
-              ref={fileRef}
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-            />
+            <Input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} />
           </div>
 
           {result && (

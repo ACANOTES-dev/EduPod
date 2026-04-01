@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   CreateRetentionHoldDto,
   RetentionDataCategory,
@@ -45,9 +41,7 @@ export class RetentionPoliciesService {
       }),
     ]);
 
-    const overrideMap = new Map(
-      tenantOverrides.map((o) => [o.data_category, o]),
-    );
+    const overrideMap = new Map(tenantOverrides.map((o) => [o.data_category, o]));
 
     const effectivePolicies = platformDefaults.map((defaultPolicy) => {
       const override = overrideMap.get(defaultPolicy.data_category);
@@ -74,11 +68,7 @@ export class RetentionPoliciesService {
    * Allows a tenant to override an overridable policy.
    * Cannot reduce below the statutory minimum (platform default).
    */
-  async overridePolicy(
-    tenantId: string,
-    policyId: string,
-    dto: UpdateRetentionPolicyDto,
-  ) {
+  async overridePolicy(tenantId: string, policyId: string, dto: UpdateRetentionPolicyDto) {
     const policy = await this.prisma.retentionPolicy.findFirst({
       where: { id: policyId },
     });
@@ -192,11 +182,7 @@ export class RetentionPoliciesService {
   /**
    * Place a legal hold on a subject, preventing retention enforcement.
    */
-  async createHold(
-    tenantId: string,
-    userId: string,
-    dto: CreateRetentionHoldDto,
-  ) {
+  async createHold(tenantId: string, userId: string, dto: CreateRetentionHoldDto) {
     // Verify no active hold already exists for same subject
     const existingHold = await this.prisma.retentionHold.findFirst({
       where: {

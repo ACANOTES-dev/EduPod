@@ -1,5 +1,10 @@
 'use client';
 
+import { List, Plus, Search, Shapes } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,10 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { List, Plus, Search, Shapes } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   EVENT_TYPE_OPTIONS,

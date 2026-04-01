@@ -1,5 +1,9 @@
 'use client';
 
+import { BookOpen, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -18,9 +22,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { BookOpen, Pencil, Plus, Trash2, Upload } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -281,13 +282,23 @@ export default function CurriculumStandardsPage() {
       header: tc('actions'),
       render: (row: CurriculumStandard) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(row); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEdit(row);
+            }}
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(row.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDeleteId(row.id);
+            }}
           >
             <Trash2 className="h-4 w-4 text-danger-text" />
           </Button>
@@ -318,7 +329,10 @@ export default function CurriculumStandardsPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Select
           value={subjectFilter}
-          onValueChange={(v) => { setSubjectFilter(v); setPage(1); }}
+          onValueChange={(v) => {
+            setSubjectFilter(v);
+            setPage(1);
+          }}
         >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('subject')} />
@@ -326,14 +340,19 @@ export default function CurriculumStandardsPage() {
           <SelectContent>
             <SelectItem value="all">All Subjects</SelectItem>
             {subjects.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select
           value={yearGroupFilter}
-          onValueChange={(v) => { setYearGroupFilter(v); setPage(1); }}
+          onValueChange={(v) => {
+            setYearGroupFilter(v);
+            setPage(1);
+          }}
         >
           <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder={t('yearGroup')} />
@@ -341,7 +360,9 @@ export default function CurriculumStandardsPage() {
           <SelectContent>
             <SelectItem value="all">All Year Groups</SelectItem>
             {yearGroups.map((yg) => (
-              <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+              <SelectItem key={yg.id} value={yg.id}>
+                {yg.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -399,7 +420,9 @@ export default function CurriculumStandardsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -412,7 +435,9 @@ export default function CurriculumStandardsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {yearGroups.map((yg) => (
-                    <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                    <SelectItem key={yg.id} value={yg.id}>
+                      {yg.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -499,17 +524,27 @@ export default function CurriculumStandardsPage() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-surface-secondary">
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">Code</th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">Description</th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">Subject</th>
-                        <th className="px-3 py-2 text-start font-medium text-text-secondary">Year Group</th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
+                          Code
+                        </th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
+                          Description
+                        </th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
+                          Subject
+                        </th>
+                        <th className="px-3 py-2 text-start font-medium text-text-secondary">
+                          Year Group
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {csvPreview.slice(0, 20).map((row, i) => (
                         <tr key={i} className="border-t border-border">
                           <td className="px-3 py-2 font-mono text-text-primary">{row.code}</td>
-                          <td className="px-3 py-2 text-text-secondary line-clamp-1">{row.description}</td>
+                          <td className="px-3 py-2 text-text-secondary line-clamp-1">
+                            {row.description}
+                          </td>
                           <td className="px-3 py-2 text-text-secondary">{row.subject_name}</td>
                           <td className="px-3 py-2 text-text-secondary">{row.year_group_name}</td>
                         </tr>
@@ -532,10 +567,7 @@ export default function CurriculumStandardsPage() {
             <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
               {tc('cancel')}
             </Button>
-            <Button
-              onClick={handleImport}
-              disabled={importing || csvPreview.length === 0}
-            >
+            <Button onClick={handleImport} disabled={importing || csvPreview.length === 0}>
               {importing ? tc('loading') : t('importStandards')}
             </Button>
           </DialogFooter>

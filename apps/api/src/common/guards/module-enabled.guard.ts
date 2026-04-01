@@ -1,10 +1,6 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
 import type { TenantContext } from '@school/shared';
 
 import { PrismaService } from '../../modules/prisma/prisma.service';
@@ -36,10 +32,10 @@ export class ModuleEnabledGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredModule = this.reflector.getAllAndOverride<string>(
-      MODULE_ENABLED_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredModule = this.reflector.getAllAndOverride<string>(MODULE_ENABLED_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredModule) {
       return true;

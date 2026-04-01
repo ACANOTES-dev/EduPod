@@ -1,11 +1,11 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft, Edit, Eye, EyeOff } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { RecordHub } from '@/components/record-hub';
@@ -68,8 +68,7 @@ function BankDetailsTab({ staffId }: { staffId: string }) {
     return <p className="text-sm text-text-tertiary">{t('noBankDetails')}</p>;
   }
 
-  const mask = (val: string | null) =>
-    val ? (visible ? val : `****${val.slice(-4)}`) : '—';
+  const mask = (val: string | null) => (val ? (visible ? val : `****${val.slice(-4)}`) : '—');
 
   return (
     <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">

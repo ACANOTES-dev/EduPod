@@ -1,16 +1,15 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import {
-  ComplianceAnonymisationCore,
-} from '@school/prisma';
 import { Job } from 'bullmq';
+
+import { ComplianceAnonymisationCore } from '@school/prisma';
 import type { AnonymisationCleanupPlan } from '@school/prisma';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { getRedisClient } from '../../base/redis.helpers';
-import { deleteSearchDocument } from '../../base/search.helpers';
 import { deleteFromS3, uploadToS3 } from '../../base/s3.helpers';
+import { deleteSearchDocument } from '../../base/search.helpers';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -65,10 +64,7 @@ export class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPa
     super(prisma);
   }
 
-  protected async processJob(
-    data: ComplianceExecutionPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: ComplianceExecutionPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id, compliance_request_id } = data;
 
     // 1. Fetch compliance request
@@ -80,13 +76,13 @@ export class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPa
     });
 
     if (!request) {
-      throw new Error(`ComplianceRequest ${compliance_request_id} not found for tenant ${tenant_id}`);
+      throw new Error(
+        `ComplianceRequest ${compliance_request_id} not found for tenant ${tenant_id}`,
+      );
     }
 
     if (request.status === 'completed') {
-      this.logger.warn(
-        `ComplianceRequest ${compliance_request_id} already completed. Skipping.`,
-      );
+      this.logger.warn(`ComplianceRequest ${compliance_request_id} already completed. Skipping.`);
       return;
     }
 
@@ -129,7 +125,12 @@ export class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPa
     },
   ): Promise<void> {
     // Collect all data for the subject
-    const exportData = await this.collectSubjectData(tx, tenantId, request.subject_type, request.subject_id);
+    const exportData = await this.collectSubjectData(
+      tx,
+      tenantId,
+      request.subject_type,
+      request.subject_id,
+    );
 
     // Upload JSON export to S3
     const exportFileKey = `compliance-exports/${tenantId}/${request.id}-${Date.now()}.json`;
@@ -358,13 +359,7 @@ export class ComplianceExecutionJob extends TenantAwareJob<ComplianceExecutionPa
     let cursor = '0';
 
     do {
-      const [nextCursor, foundKeys] = await redis.scan(
-        cursor,
-        'MATCH',
-        pattern,
-        'COUNT',
-        '100',
-      );
+      const [nextCursor, foundKeys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
       cursor = nextCursor;
       for (const key of foundKeys) {
         keys.add(key);

@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Label,
@@ -12,10 +17,6 @@ import {
   toast,
   Input,
 } from '@school/ui';
-import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -156,10 +157,7 @@ export default function NewInquiryPage() {
             <Button variant="ghost" type="button" onClick={() => router.back()}>
               {tc('cancel')}
             </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || !subject.trim() || !message.trim()}
-            >
+            <Button type="submit" disabled={isSubmitting || !subject.trim() || !message.trim()}>
               {isSubmitting ? tc('loading') : tc('submit')}
             </Button>
           </div>

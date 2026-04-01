@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type { GrantCpAccessDto, RevokeCpAccessDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -206,10 +202,7 @@ export class CpAccessService {
    * List all active CP access grants for the tenant.
    * Returns: grant id, user name, granted_by name, granted_at.
    */
-  async listActive(
-    tenantId: string,
-    userId: string,
-  ): Promise<{ data: CpAccessGrantSummary[] }> {
+  async listActive(tenantId: string, userId: string): Promise<{ data: CpAccessGrantSummary[] }> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: userId,
@@ -231,10 +224,14 @@ export class CpAccessService {
       });
     });
 
-    const data = (grants as Array<CpAccessGrantRow & {
-      user: { first_name: string; last_name: string };
-      granted_by: { first_name: string; last_name: string };
-    }>).map((g) => ({
+    const data = (
+      grants as Array<
+        CpAccessGrantRow & {
+          user: { first_name: string; last_name: string };
+          granted_by: { first_name: string; last_name: string };
+        }
+      >
+    ).map((g) => ({
       id: g.id,
       user_id: g.user_id,
       user_name: `${g.user.first_name} ${g.user.last_name}`,
@@ -253,10 +250,7 @@ export class CpAccessService {
    * Used by CpAccessGuard and by service-layer checks.
    * Does NOT generate an audit event (called on every CP-related request).
    */
-  async hasAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  async hasAccess(tenantId: string, userId: string): Promise<boolean> {
     const grant = await this.prisma.cpAccessGrant.findFirst({
       where: {
         tenant_id: tenantId,

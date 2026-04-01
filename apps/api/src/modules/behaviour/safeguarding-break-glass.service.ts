@@ -1,13 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
-import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import type { CompleteBreakGlassReviewDto, GrantBreakGlassDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -113,11 +109,7 @@ export class SafeguardingBreakGlassService {
 
   // ─── Grant Access ──────────────────────────────────────────────────────────
 
-  async grantAccess(
-    tenantId: string,
-    userId: string,
-    dto: GrantBreakGlassDto,
-  ) {
+  async grantAccess(tenantId: string, userId: string, dto: GrantBreakGlassDto) {
     if (dto.duration_hours > 72) {
       throw new BadRequestException({
         code: 'DURATION_EXCEEDED',

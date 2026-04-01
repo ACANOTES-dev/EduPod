@@ -1,5 +1,10 @@
 'use client';
 
+import { Archive, SendHorizonal } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,10 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Archive, SendHorizonal } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { CompletionDashboard } from '../../_components/completion-dashboard';
 import {

@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -115,7 +110,9 @@ export function TimetableTab({ students }: TimetableTabProps) {
           </SelectTrigger>
           <SelectContent>
             {students.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -139,7 +136,8 @@ export function TimetableTab({ students }: TimetableTabProps) {
               </span>
             )}
             <span className="text-text-tertiary">
-              {new Date(data.week_start).toLocaleDateString()} – {new Date(data.week_end).toLocaleDateString()}
+              {new Date(data.week_start).toLocaleDateString()} –{' '}
+              {new Date(data.week_end).toLocaleDateString()}
             </span>
           </div>
 
@@ -186,7 +184,9 @@ export function TimetableTab({ students }: TimetableTabProps) {
                           className={`border border-border p-1.5 align-top ${isToday ? 'bg-primary/5' : 'bg-surface'}`}
                         >
                           {cell ? (
-                            <div className={`rounded-lg border p-2 text-xs space-y-0.5 ${subjectColour(cell.subject_name)}`}>
+                            <div
+                              className={`rounded-lg border p-2 text-xs space-y-0.5 ${subjectColour(cell.subject_name)}`}
+                            >
                               <p className="font-semibold">{cell.subject_name}</p>
                               {cell.teacher_name && (
                                 <p className="opacity-75">{cell.teacher_name}</p>
@@ -217,8 +217,8 @@ export function TimetableTab({ students }: TimetableTabProps) {
                     mobileDay === wd
                       ? 'bg-primary text-white'
                       : wd === todayWeekday
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-surface-secondary text-text-secondary'
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-surface-secondary text-text-secondary'
                   }`}
                 >
                   {WEEKDAY_SHORT[wd] ?? wd}

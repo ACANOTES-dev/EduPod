@@ -1,13 +1,8 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
+
 import { pastoralTenantSettingsSchema } from '@school/shared';
 import type { TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
@@ -136,10 +131,7 @@ export class PastoralAdminController {
     const parsed = pastoralTenantSettingsSchema.parse(mergedPastoral);
 
     return {
-      data: this.buildEscalationSettingsResponse(
-        mergedPastoral as Record<string, unknown>,
-        parsed,
-      ),
+      data: this.buildEscalationSettingsResponse(mergedPastoral as Record<string, unknown>, parsed),
     };
   }
 
@@ -227,9 +219,7 @@ export class PastoralAdminController {
       record: { id: string; created_at: Date } | null,
     ): OldestUnacknowledged | null => {
       if (!record) return null;
-      const minutesElapsed = Math.round(
-        (now.getTime() - record.created_at.getTime()) / 60_000,
-      );
+      const minutesElapsed = Math.round((now.getTime() - record.created_at.getTime()) / 60_000);
       return {
         concern_id: record.id,
         created_at: record.created_at.toISOString(),
@@ -275,9 +265,8 @@ export class PastoralAdminController {
     parsed: z.infer<typeof pastoralTenantSettingsSchema>,
   ): EscalationSettingsResponse {
     return {
-      escalation_enabled: typeof raw.escalation_enabled === 'boolean'
-        ? raw.escalation_enabled
-        : true, // Default: enabled
+      escalation_enabled:
+        typeof raw.escalation_enabled === 'boolean' ? raw.escalation_enabled : true, // Default: enabled
       escalation_urgent_timeout_minutes: parsed.escalation.urgent_timeout_minutes,
       escalation_critical_timeout_minutes: parsed.escalation.critical_timeout_minutes,
       escalation_urgent_recipients: Array.isArray(raw.escalation_urgent_recipients)

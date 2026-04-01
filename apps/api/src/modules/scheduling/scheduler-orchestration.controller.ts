@@ -10,9 +10,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import { triggerSolverRunSchema } from '@school/shared';
 import type { JwtPayload, TriggerSolverRunDto } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -62,12 +63,7 @@ export class SchedulerOrchestrationController {
     @Body(new ZodValidationPipe(triggerSolverRunSchema))
     dto: TriggerSolverRunDto,
   ) {
-    return this.service.triggerSolverRun(
-      tenant.tenant_id,
-      dto.academic_year_id,
-      user.sub,
-      dto,
-    );
+    return this.service.triggerSolverRun(tenant.tenant_id, dto.academic_year_id, user.sub, dto);
   }
 
   @Get()
@@ -104,12 +100,7 @@ export class SchedulerOrchestrationController {
     @Body(new ZodValidationPipe(applyBodySchema))
     body: z.infer<typeof applyBodySchema>,
   ) {
-    return this.service.applyRun(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      body.acknowledged_violations,
-    );
+    return this.service.applyRun(tenant.tenant_id, id, user.sub, body.acknowledged_violations);
   }
 
   @Post(':id/discard')

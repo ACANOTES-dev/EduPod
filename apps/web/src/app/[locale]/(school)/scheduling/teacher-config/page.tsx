@@ -1,5 +1,9 @@
 'use client';
 
+import { Copy, Save } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,17 +14,16 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Copy, Save } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AcademicYear { id: string; name: string }
+interface AcademicYear {
+  id: string;
+  name: string;
+}
 
 interface StaffMember {
   id: string;
@@ -77,8 +80,12 @@ export default function TeacherConfigPage() {
     setIsLoading(true);
     try {
       const [configRes, staffRes] = await Promise.all([
-        apiClient<{ data: ApiConfigRow[] }>(`/api/v1/scheduling/teacher-config?academic_year_id=${selectedYear}`),
-        apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=200'),
+        apiClient<{ data: ApiConfigRow[] }>(
+          `/api/v1/scheduling/teacher-config?academic_year_id=${selectedYear}`,
+        ),
+        apiClient<{
+          data: Array<{ id: string; user?: { first_name: string; last_name: string } }>;
+        }>('/api/v1/staff-profiles?pageSize=200'),
       ]);
 
       // Build a map of existing configs by staff_profile_id
@@ -138,7 +145,7 @@ export default function TeacherConfigPage() {
         if (i !== index) return r;
         const numVal = value === '' ? null : Number(value);
         return { ...r, [field]: numVal, dirty: true };
-      })
+      }),
     );
   };
 
@@ -158,8 +165,8 @@ export default function TeacherConfigPage() {
               max_periods_per_day: row.max_periods_per_day,
               max_supervision_duties_per_week: row.max_supervision_duties_per_week,
             }),
-          })
-        )
+          }),
+        ),
       );
       setRows((prev) => prev.map((r) => ({ ...r, dirty: false })));
       toast.success(tc('save'));
@@ -203,7 +210,9 @@ export default function TeacherConfigPage() {
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                  <SelectItem key={y.id} value={y.id}>
+                    {y.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -213,9 +222,13 @@ export default function TeacherConfigPage() {
                 <SelectValue placeholder={tv('copyFromYear')} />
               </SelectTrigger>
               <SelectContent>
-                {academicYears.filter((y) => y.id !== selectedYear).map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
-                ))}
+                {academicYears
+                  .filter((y) => y.id !== selectedYear)
+                  .map((y) => (
+                    <SelectItem key={y.id} value={y.id}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {hasDirtyRows && (
@@ -234,20 +247,39 @@ export default function TeacherConfigPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('teacherName')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('maxPerWeek')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('maxPerDay')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('maxSupervision')}</th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('teacherName')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('maxPerWeek')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('maxPerDay')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('maxSupervision')}
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">{tc('loading')}</td></tr>
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">
+                    {tc('loading')}
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">{tv('noTeacherConfig')}</td></tr>
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-text-tertiary">
+                    {tv('noTeacherConfig')}
+                  </td>
+                </tr>
               ) : (
                 rows.map((row, idx) => (
-                  <tr key={row.staff_profile_id} className={`border-t border-border ${row.dirty ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-surface-secondary/50'}`}>
+                  <tr
+                    key={row.staff_profile_id}
+                    className={`border-t border-border ${row.dirty ? 'bg-amber-50/50 dark:bg-amber-900/10' : 'hover:bg-surface-secondary/50'}`}
+                  >
                     <td className="px-4 py-3 font-medium text-text-primary">{row.teacher_name}</td>
                     <td className="px-4 py-2">
                       <Input
@@ -275,7 +307,9 @@ export default function TeacherConfigPage() {
                         min={0}
                         className="w-20 h-8 text-sm"
                         value={row.max_supervision_duties_per_week ?? ''}
-                        onChange={(e) => updateField(idx, 'max_supervision_duties_per_week', e.target.value)}
+                        onChange={(e) =>
+                          updateField(idx, 'max_supervision_duties_per_week', e.target.value)
+                        }
                         placeholder={tv('noLimit')}
                       />
                     </td>

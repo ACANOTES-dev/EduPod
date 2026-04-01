@@ -1,5 +1,11 @@
 'use client';
 
+import { Copy, Edit, FileText, Link as Link2, Trash2, Video } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -11,18 +17,14 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Copy, Edit, FileText, Link as Link2, Trash2, Video } from 'lucide-react';
-import Link from 'next/link';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { CompletionDonut } from '../_components/completion-donut';
+import { HomeworkTypeBadge } from '../_components/homework-type-badge';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
-import { CompletionDonut } from '../_components/completion-donut';
-import { HomeworkTypeBadge } from '../_components/homework-type-badge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,8 +91,12 @@ export default function HomeworkDetailPage() {
     try {
       const [hwRes, rateRes, compRes] = await Promise.all([
         apiClient<{ data: HomeworkDetail }>(`/api/v1/homework/${id}`),
-        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch(() => null),
-        apiClient<{ data: CompletionPreview[] }>(`/api/v1/homework/${id}/completions?pageSize=10`, { silent: true }).catch(() => ({ data: [] })),
+        apiClient<CompletionRate>(`/api/v1/homework/${id}/completion-rate`, { silent: true }).catch(
+          () => null,
+        ),
+        apiClient<{ data: CompletionPreview[] }>(`/api/v1/homework/${id}/completions?pageSize=10`, {
+          silent: true,
+        }).catch(() => ({ data: [] })),
       ]);
       setHw(hwRes.data);
       setRate(rateRes);
@@ -165,11 +171,13 @@ export default function HomeworkDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link href={`/${locale}/homework/${id}/edit`}>
               <Button variant="outline" size="sm">
-                <Edit className="me-1 h-4 w-4" />{t('edit')}
+                <Edit className="me-1 h-4 w-4" />
+                {t('edit')}
               </Button>
             </Link>
             <Button variant="outline" size="sm" onClick={handleCopy}>
-              <Copy className="me-1 h-4 w-4" />{t('copy')}
+              <Copy className="me-1 h-4 w-4" />
+              {t('copy')}
             </Button>
             {hw.status === 'draft' && (
               <Button size="sm" onClick={() => handleStatusChange('published')}>
@@ -182,7 +190,8 @@ export default function HomeworkDetailPage() {
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="me-1 h-4 w-4" />{t('delete')}
+              <Trash2 className="me-1 h-4 w-4" />
+              {t('delete')}
             </Button>
           </div>
         }
@@ -191,14 +200,49 @@ export default function HomeworkDetailPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-4 rounded-2xl bg-surface-secondary p-4 sm:p-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div><p className="text-xs text-text-tertiary">{t('class')}</p><p className="text-sm font-medium text-text-primary">{hw.class_entity?.name ?? '—'}</p></div>
-            <div><p className="text-xs text-text-tertiary">{t('subject')}</p><p className="text-sm font-medium text-text-primary">{hw.subject?.name ?? '—'}</p></div>
-            <div><p className="text-xs text-text-tertiary">{t('type')}</p><HomeworkTypeBadge type={hw.homework_type} /></div>
-            <div><p className="text-xs text-text-tertiary">{t('dueDate')}</p><p className="text-sm font-medium text-text-primary">{formatDate(hw.due_date)}{hw.due_time ? ` at ${hw.due_time}` : ''}</p></div>
-            <div><p className="text-xs text-text-tertiary">{t('status')}</p><StatusBadge status={STATUS_MAP[hw.status] ?? 'neutral'}>{hw.status}</StatusBadge></div>
-            {hw.max_points != null && <div><p className="text-xs text-text-tertiary">{t('maxPoints')}</p><p className="text-sm font-medium text-text-primary">{hw.max_points}</p></div>}
-            <div><p className="text-xs text-text-tertiary">{t('assignedBy')}</p><p className="text-sm font-medium text-text-primary">{hw.assigned_by_user ? `${hw.assigned_by_user.first_name} ${hw.assigned_by_user.last_name}` : '—'}</p></div>
-            <div><p className="text-xs text-text-tertiary">{t('created')}</p><p className="text-sm font-medium text-text-primary">{formatDate(hw.created_at)}</p></div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('class')}</p>
+              <p className="text-sm font-medium text-text-primary">
+                {hw.class_entity?.name ?? '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('subject')}</p>
+              <p className="text-sm font-medium text-text-primary">{hw.subject?.name ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('type')}</p>
+              <HomeworkTypeBadge type={hw.homework_type} />
+            </div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('dueDate')}</p>
+              <p className="text-sm font-medium text-text-primary">
+                {formatDate(hw.due_date)}
+                {hw.due_time ? ` at ${hw.due_time}` : ''}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('status')}</p>
+              <StatusBadge status={STATUS_MAP[hw.status] ?? 'neutral'}>{hw.status}</StatusBadge>
+            </div>
+            {hw.max_points != null && (
+              <div>
+                <p className="text-xs text-text-tertiary">{t('maxPoints')}</p>
+                <p className="text-sm font-medium text-text-primary">{hw.max_points}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-text-tertiary">{t('assignedBy')}</p>
+              <p className="text-sm font-medium text-text-primary">
+                {hw.assigned_by_user
+                  ? `${hw.assigned_by_user.first_name} ${hw.assigned_by_user.last_name}`
+                  : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-text-tertiary">{t('created')}</p>
+              <p className="text-sm font-medium text-text-primary">{formatDate(hw.created_at)}</p>
+            </div>
           </div>
 
           {hw.description && (
@@ -216,7 +260,14 @@ export default function HomeworkDetailPage() {
                   <div key={a.id} className="flex items-center gap-2 text-sm text-text-primary">
                     {ATTACH_ICON[a.attachment_type] ?? <FileText className="h-4 w-4" />}
                     {a.url ? (
-                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">{a.file_name ?? a.url}</a>
+                      <a
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:underline"
+                      >
+                        {a.file_name ?? a.url}
+                      </a>
                     ) : (
                       <span>{a.file_name ?? '—'}</span>
                     )}
@@ -230,8 +281,15 @@ export default function HomeworkDetailPage() {
         <div className="space-y-4">
           {rate && (
             <div className="rounded-2xl bg-surface-secondary p-4 flex flex-col items-center">
-              <CompletionDonut completed={rate.completed} inProgress={rate.in_progress} notStarted={rate.not_started} />
-              <Link href={`/${locale}/homework/${id}/completions`} className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-700">
+              <CompletionDonut
+                completed={rate.completed}
+                inProgress={rate.in_progress}
+                notStarted={rate.not_started}
+              />
+              <Link
+                href={`/${locale}/homework/${id}/completions`}
+                className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
                 {t('viewAllCompletions')}
               </Link>
             </div>
@@ -243,8 +301,20 @@ export default function HomeworkDetailPage() {
               <div className="space-y-1">
                 {completions.map((c) => (
                   <div key={c.student_id} className="flex items-center justify-between text-sm">
-                    <span className="text-text-primary">{c.student ? `${c.student.first_name} ${c.student.last_name}` : c.student_id}</span>
-                    <StatusBadge status={c.status === 'completed' ? 'success' : c.status === 'in_progress' ? 'warning' : 'neutral'}>{c.status}</StatusBadge>
+                    <span className="text-text-primary">
+                      {c.student ? `${c.student.first_name} ${c.student.last_name}` : c.student_id}
+                    </span>
+                    <StatusBadge
+                      status={
+                        c.status === 'completed'
+                          ? 'success'
+                          : c.status === 'in_progress'
+                            ? 'warning'
+                            : 'neutral'
+                      }
+                    >
+                      {c.status}
+                    </StatusBadge>
                   </div>
                 ))}
               </div>
@@ -255,11 +325,17 @@ export default function HomeworkDetailPage() {
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t('confirmDelete')}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{t('confirmDelete')}</DialogTitle>
+          </DialogHeader>
           <p className="text-sm text-text-secondary py-2">{t('confirmDeleteDesc')}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>{t('delete')}</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              {t('delete')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

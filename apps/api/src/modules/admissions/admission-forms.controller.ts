@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   createFormDefinitionSchema,
   listFormDefinitionsSchema,
@@ -34,9 +35,7 @@ import { AdmissionFormsService } from './admission-forms.service';
 @Controller('v1/admission-forms')
 @UseGuards(AuthGuard, PermissionGuard)
 export class AdmissionFormsController {
-  constructor(
-    private readonly admissionFormsService: AdmissionFormsService,
-  ) {}
+  constructor(private readonly admissionFormsService: AdmissionFormsService) {}
 
   @Post('system')
   @RequiresPermission('admissions.manage')
@@ -66,10 +65,7 @@ export class AdmissionFormsController {
 
   @Get(':id')
   @RequiresPermission('admissions.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.admissionFormsService.findOne(tenant.tenant_id, id);
   }
 
@@ -91,15 +87,15 @@ export class AdmissionFormsController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: {
+    @Body()
+    body: {
       fields: Array<{ field_key: string; label: string }>;
       justifications?: Record<string, string>;
     },
   ) {
     // Verify form exists
     await this.admissionFormsService.findOne(tenant.tenant_id, id);
-    const warnings =
-      this.admissionFormsService.validateFieldsForDataMinimisation(body.fields);
+    const warnings = this.admissionFormsService.validateFieldsForDataMinimisation(body.fields);
 
     // Log overrides for flagged fields that have justifications
     if (body.justifications) {
@@ -127,19 +123,13 @@ export class AdmissionFormsController {
 
   @Post(':id/publish')
   @RequiresPermission('admissions.manage')
-  async publish(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async publish(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.admissionFormsService.publish(tenant.tenant_id, id);
   }
 
   @Post(':id/archive')
   @RequiresPermission('admissions.manage')
-  async archive(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async archive(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.admissionFormsService.archive(tenant.tenant_id, id);
   }
 

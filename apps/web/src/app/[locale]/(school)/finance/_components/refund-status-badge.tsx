@@ -1,10 +1,10 @@
 'use client';
 
-import type { RefundStatus } from '@school/shared';
-import { StatusBadge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { RefundStatus } from '@school/shared';
+import { StatusBadge } from '@school/ui';
 
 const statusVariantMap: Record<
   RefundStatus,

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request, Response } from 'express';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
 import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard';
@@ -53,9 +54,7 @@ describe('CpExportController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CpExportController],
-      providers: [
-        { provide: CpExportService, useValue: mockExportService },
-      ],
+      providers: [{ provide: CpExportService, useValue: mockExportService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -165,10 +164,7 @@ describe('CpExportController', () => {
 
       await controller.download('download-token-123', MOCK_REQUEST, mockRes);
 
-      expect(mockExportService.download).toHaveBeenCalledWith(
-        'download-token-123',
-        '127.0.0.1',
-      );
+      expect(mockExportService.download).toHaveBeenCalledWith('download-token-123', '127.0.0.1');
     });
 
     it('should set correct response headers for PDF download', async () => {
@@ -232,9 +228,7 @@ describe('CpExportController', () => {
       } as unknown as Response;
 
       // No tenant or user needed for download — token-based auth
-      await expect(
-        controller.download('any-token', MOCK_REQUEST, mockRes),
-      ).resolves.not.toThrow();
+      await expect(controller.download('any-token', MOCK_REQUEST, mockRes)).resolves.not.toThrow();
     });
   });
 

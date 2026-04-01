@@ -1,5 +1,6 @@
-import { createEnrolmentSchema } from '@school/shared';
 import { z } from 'zod';
+
+import { createEnrolmentSchema } from '@school/shared';
 
 export type CreateEnrolmentDto = z.infer<typeof createEnrolmentSchema>;
 export { createEnrolmentSchema };

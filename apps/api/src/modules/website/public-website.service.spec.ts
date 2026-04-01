@@ -19,10 +19,7 @@ describe('PublicWebsiteService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        PublicWebsiteService,
-        { provide: PrismaService, useValue: mockPrisma },
-      ],
+      providers: [PublicWebsiteService, { provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     service = module.get<PublicWebsiteService>(PublicWebsiteService);
@@ -100,9 +97,9 @@ describe('PublicWebsiteService', () => {
   it('should throw NotFoundException when page slug does not exist', async () => {
     mockPrisma.websitePage.findFirst.mockResolvedValueOnce(null);
 
-    await expect(
-      service.getPageBySlug(TENANT_ID, 'nonexistent', 'en'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.getPageBySlug(TENANT_ID, 'nonexistent', 'en')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should only return published pages by slug', async () => {
@@ -110,8 +107,11 @@ describe('PublicWebsiteService', () => {
 
     try {
       await service.getPageBySlug(TENANT_ID, 'draft-page', 'en');
-    } catch {
-      // Expected
+    } catch (err) {
+      console.error(
+        '[PublicWebsiteService.getPageBySlug test] expected error',
+        err instanceof Error ? err.stack : err,
+      );
     }
 
     expect(mockPrisma.websitePage.findFirst).toHaveBeenCalledWith(

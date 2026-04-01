@@ -1,5 +1,10 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -9,11 +14,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -88,41 +88,56 @@ export default function ClassesPage() {
       .catch(() => undefined);
   }, []);
 
-  const fetchClasses = React.useCallback(async (p: number, year: string, group: string, status: string) => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-      if (year !== 'all') params.set('academic_year_id', year);
-      if (group !== 'all') params.set('year_group_id', group);
-      if (status !== 'all') params.set('status', status);
-      const res = await apiClient<ClassesResponse>(`/api/v1/classes?${params.toString()}`);
-      setData(res.data);
-      setTotal(res.meta.total);
-    } catch {
-      setData([]);
-      setTotal(0);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchClasses = React.useCallback(
+    async (p: number, year: string, group: string, status: string) => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+        if (year !== 'all') params.set('academic_year_id', year);
+        if (group !== 'all') params.set('year_group_id', group);
+        if (status !== 'all') params.set('status', status);
+        const res = await apiClient<ClassesResponse>(`/api/v1/classes?${params.toString()}`);
+        setData(res.data);
+        setTotal(res.meta.total);
+      } catch {
+        setData([]);
+        setTotal(0);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   React.useEffect(() => {
     void fetchClasses(page, yearFilter, groupFilter, statusFilter);
   }, [page, yearFilter, groupFilter, statusFilter, fetchClasses]);
 
   const statusBadge = (status: string) => {
-    if (status === 'active') return <StatusBadge status="success" dot>{t('statusActive')}</StatusBadge>;
-    if (status === 'inactive') return <StatusBadge status="warning" dot>{t('statusInactive')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{t('statusArchived')}</StatusBadge>;
+    if (status === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('statusActive')}
+        </StatusBadge>
+      );
+    if (status === 'inactive')
+      return (
+        <StatusBadge status="warning" dot>
+          {t('statusInactive')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {t('statusArchived')}
+      </StatusBadge>
+    );
   };
 
   const columns = [
     {
       key: 'name',
       header: t('colName'),
-      render: (row: ClassRow) => (
-        <span className="font-medium text-text-primary">{row.name}</span>
-      ),
+      render: (row: ClassRow) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: 'academic_year',
@@ -134,9 +149,7 @@ export default function ClassesPage() {
     {
       key: 'year_group',
       header: t('colYearGroup'),
-      render: (row: ClassRow) => (
-        <span className="text-text-secondary">{row.year_group.name}</span>
-      ),
+      render: (row: ClassRow) => <span className="text-text-secondary">{row.year_group.name}</span>,
     },
     {
       key: 'status',
@@ -154,31 +167,53 @@ export default function ClassesPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPage(1); }}>
+      <Select
+        value={yearFilter}
+        onValueChange={(v) => {
+          setYearFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder={t('filterYear')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filterAllYears')}</SelectItem>
           {academicYears.map((y) => (
-            <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+            <SelectItem key={y.id} value={y.id}>
+              {y.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={groupFilter} onValueChange={(v) => { setGroupFilter(v); setPage(1); }}>
+      <Select
+        value={groupFilter}
+        onValueChange={(v) => {
+          setGroupFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder={t('filterGroup')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filterAllGroups')}</SelectItem>
           {yearGroups.map((g) => (
-            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+            <SelectItem key={g.id} value={g.id}>
+              {g.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>

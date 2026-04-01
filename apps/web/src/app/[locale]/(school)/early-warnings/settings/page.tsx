@@ -1,8 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from '@school/shared';
-import { Button, toast } from '@school/ui';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -10,15 +8,18 @@ import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
+import { updateEarlyWarningConfigSchema, type UpdateEarlyWarningConfigDto } from '@school/shared';
+import { Button, toast } from '@school/ui';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
-import type { EarlyWarningConfig, RiskTier, SignalDomain } from '@/lib/early-warning';
 
 import { DigestConfig } from './_components/digest-config';
 import { RoutingRulesConfig } from './_components/routing-rules-config';
 import { ThresholdConfig } from './_components/threshold-config';
 import { WeightSliders } from './_components/weight-sliders';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+import type { EarlyWarningConfig, RiskTier, SignalDomain } from '@/lib/early-warning';
 
 const DEFAULT_WEIGHTS: Record<SignalDomain, number> = {
   attendance: 25,
@@ -176,11 +177,13 @@ export default function EarlyWarningSettingsPage() {
             name="routing_rules_json"
             render={({ field }) => (
               <RoutingRulesConfig
-                routingRules={field.value as {
-                  yellow: { role: string };
-                  amber: { role: string };
-                  red: { roles: string[] };
-                }}
+                routingRules={
+                  field.value as {
+                    yellow: { role: string };
+                    amber: { role: string };
+                    red: { roles: string[] };
+                  }
+                }
                 onChange={field.onChange}
               />
             )}
@@ -199,7 +202,9 @@ export default function EarlyWarningSettingsPage() {
             render={({ field }) => (
               <DigestConfig
                 digestDay={field.value ?? 1}
-                digestRecipients={(form.watch('digest_recipients_json') as string[]) ?? ['principal']}
+                digestRecipients={
+                  (form.watch('digest_recipients_json') as string[]) ?? ['principal']
+                }
                 onDayChange={field.onChange}
                 onRecipientsChange={(v) => form.setValue('digest_recipients_json', v)}
               />

@@ -1,10 +1,7 @@
 import crypto from 'crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import { GdprOutboundData } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -51,10 +48,7 @@ export class GdprTokenService {
     }
 
     // 2. Determine whether to tokenise
-    const shouldTokenise = this.resolveTokenisation(
-      policy.tokenisation,
-      options,
-    );
+    const shouldTokenise = this.resolveTokenisation(policy.tokenisation, options);
 
     // 3. Tokenise or pass through
     let processedData: GdprOutboundData;
@@ -204,10 +198,9 @@ export class GdprTokenService {
     }
 
     // Total tokens generated
-    const totalTokensGenerated =
-      await this.prisma.gdprAnonymisationToken.count({
-        where: tokenWhere,
-      });
+    const totalTokensGenerated = await this.prisma.gdprAnonymisationToken.count({
+      where: tokenWhere,
+    });
 
     // Usage grouped by export_type
     const usageByServiceRaw = await this.prisma.gdprTokenUsageLog.groupBy({
@@ -237,9 +230,10 @@ export class GdprTokenService {
       monthCounts.set(key, (monthCounts.get(key) ?? 0) + 1);
     }
 
-    const usageByMonth = Array.from(monthCounts.entries()).map(
-      ([month, count]) => ({ month, count }),
-    );
+    const usageByMonth = Array.from(monthCounts.entries()).map(([month, count]) => ({
+      month,
+      count,
+    }));
 
     return { totalTokensGenerated, usageByService, usageByMonth };
   }
@@ -315,8 +309,7 @@ export class GdprTokenService {
           if (!options.overrideReason) {
             throw new BadRequestException({
               code: 'OVERRIDE_REASON_REQUIRED',
-              message:
-                'A reason is required when overriding tokenisation on a configurable policy',
+              message: 'A reason is required when overriding tokenisation on a configurable policy',
             });
           }
           return false;

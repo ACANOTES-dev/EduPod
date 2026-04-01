@@ -1,7 +1,8 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { useTranslations } from 'next-intl';
+
+import { Badge } from '@school/ui';
 
 import type { TaskEntry } from './intervention-types';
 

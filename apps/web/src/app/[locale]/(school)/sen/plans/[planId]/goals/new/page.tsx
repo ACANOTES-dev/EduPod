@@ -1,14 +1,15 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { CreateSenGoalDto } from '@school/shared';
-import { createSenGoalSchema } from '@school/shared';
-import { Button, Input, Label, Textarea, toast } from '@school/ui';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+
+import { createSenGoalSchema } from '@school/shared';
+import type { CreateSenGoalDto } from '@school/shared';
+import { Button, Input, Label, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

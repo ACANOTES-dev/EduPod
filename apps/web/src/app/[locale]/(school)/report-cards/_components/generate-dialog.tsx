@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -16,10 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertTriangle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -146,7 +146,9 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
               </SelectTrigger>
               <SelectContent>
                 {periods.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -157,10 +159,7 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
               <Label>{t('selectStudents')}</Label>
               <div className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-border p-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                  <Checkbox
-                    checked={selectAll}
-                    onCheckedChange={(v) => handleSelectAll(!!v)}
-                  />
+                  <Checkbox checked={selectAll} onCheckedChange={(v) => handleSelectAll(!!v)} />
                   {t('allStudents')} ({students.length})
                 </label>
                 {!selectAll &&
@@ -183,9 +182,7 @@ export function GenerateDialog({ open, onOpenChange, onGenerated }: GenerateDial
           {studentsWithoutGrades.length > 0 && (
             <div className="flex items-start gap-2 rounded-xl border border-warning-fill bg-warning-fill/10 p-3 text-sm text-warning-text">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>
-                {studentsWithoutGrades.length} student(s) do not have period grades yet.
-              </span>
+              <span>{studentsWithoutGrades.length} student(s) do not have period grades yet.</span>
             </div>
           )}
 

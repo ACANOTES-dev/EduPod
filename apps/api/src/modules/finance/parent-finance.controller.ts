@@ -11,10 +11,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  checkoutSessionSchema,
-  requestPaymentPlanSchema,
-} from '@school/shared';
+
+import { checkoutSessionSchema, requestPaymentPlanSchema } from '@school/shared';
 import type { JwtPayload, RequestPaymentPlanDto, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -56,11 +54,7 @@ export class ParentFinanceController {
     );
 
     const [invoicesResult, payments] = await Promise.all([
-      this.invoicesService.findAll(
-        tenant.tenant_id,
-        { page: 1, pageSize: 50 },
-        [household.id],
-      ),
+      this.invoicesService.findAll(tenant.tenant_id, { page: 1, pageSize: 50 }, [household.id]),
       this.prisma.payment.findMany({
         where: {
           tenant_id: tenant.tenant_id,

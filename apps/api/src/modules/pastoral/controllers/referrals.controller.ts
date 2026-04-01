@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   addStudentToVisitSchema,
   createNepsVisitSchema,
@@ -29,7 +31,6 @@ import {
   withdrawReferralSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -101,10 +102,7 @@ export class ReferralsController {
 
   @Get('pastoral/referrals/:id')
   @RequiresPermission('pastoral.manage_referrals')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.referralService.get(tenant.tenant_id, id);
   }
 
@@ -159,12 +157,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(scheduleAssessmentSchema))
     dto: z.infer<typeof scheduleAssessmentSchema>,
   ) {
-    return this.referralService.scheduleAssessment(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.referralService.scheduleAssessment(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 9. Complete Assessment ─────────────────────────────────────────────
@@ -177,11 +170,7 @@ export class ReferralsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.referralService.completeAssessment(
-      tenant.tenant_id,
-      user.sub,
-      id,
-    );
+    return this.referralService.completeAssessment(tenant.tenant_id, user.sub, id);
   }
 
   // ─── 10. Receive Report ─────────────────────────────────────────────────
@@ -196,12 +185,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(recordReportReceivedSchema))
     dto: z.infer<typeof recordReportReceivedSchema>,
   ) {
-    return this.referralService.receiveReport(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.referralService.receiveReport(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 11. Mark Complete (Recommendations Implemented) ────────────────────
@@ -214,11 +198,7 @@ export class ReferralsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.referralService.markRecommendationsImplemented(
-      tenant.tenant_id,
-      user.sub,
-      id,
-    );
+    return this.referralService.markRecommendationsImplemented(tenant.tenant_id, user.sub, id);
   }
 
   // ─── 12. Withdraw Referral ──────────────────────────────────────────────
@@ -233,12 +213,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(withdrawReferralSchema))
     dto: z.infer<typeof withdrawReferralSchema>,
   ) {
-    return this.referralService.withdraw(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.referralService.withdraw(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── 13. Pre-Populate Referral ──────────────────────────────────────────
@@ -251,10 +226,7 @@ export class ReferralsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const referral = await this.referralService.get(tenant.tenant_id, id);
-    return this.prepopulateService.generateSnapshot(
-      tenant.tenant_id,
-      referral.student_id,
-    );
+    return this.prepopulateService.generateSnapshot(tenant.tenant_id, referral.student_id);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -273,12 +245,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(createRecommendationSchema))
     dto: z.infer<typeof createRecommendationSchema>,
   ) {
-    return this.recommendationService.create(
-      tenant.tenant_id,
-      user.sub,
-      referralId,
-      dto,
-    );
+    return this.recommendationService.create(tenant.tenant_id, user.sub, referralId, dto);
   }
 
   // ─── 15. List Recommendations ───────────────────────────────────────────
@@ -304,12 +271,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(updateRecommendationSchema))
     dto: z.infer<typeof updateRecommendationSchema>,
   ) {
-    return this.recommendationService.update(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.recommendationService.update(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -346,10 +308,7 @@ export class ReferralsController {
 
   @Get('pastoral/neps-visits/:id')
   @RequiresPermission('pastoral.manage_referrals')
-  async getVisit(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getVisit(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.nepsVisitService.get(tenant.tenant_id, id);
   }
 
@@ -403,11 +362,7 @@ export class ReferralsController {
     @Body(new ZodValidationPipe(updateVisitStudentSchema))
     dto: z.infer<typeof updateVisitStudentSchema>,
   ) {
-    return this.nepsVisitService.updateStudentOutcome(
-      tenant.tenant_id,
-      id,
-      dto,
-    );
+    return this.nepsVisitService.updateStudentOutcome(tenant.tenant_id, id, dto);
   }
 
   // ─── 24. Remove Visit Student ───────────────────────────────────────────

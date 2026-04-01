@@ -1,5 +1,9 @@
 'use client';
 
+import { Bot, HeartPulse, Info, MessageSquare, ShieldCheck } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -10,14 +14,16 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
-import { Bot, HeartPulse, Info, MessageSquare, ShieldCheck } from 'lucide-react';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
 type ConsentStatus = 'granted' | 'withdrawn' | 'expired';
-type ConsentCategory = 'health' | 'ai_features' | 'communications' | 'cross_school' | 'student_experience';
+type ConsentCategory =
+  | 'health'
+  | 'ai_features'
+  | 'communications'
+  | 'cross_school'
+  | 'student_experience';
 
 interface ParentConsentItem {
   consent_id: string | null;
@@ -100,12 +106,14 @@ function AgeGateBanner() {
         if (!cancelled && res.data.age_gated_students.length > 0) {
           setStudents(res.data.age_gated_students);
         }
-      } catch {
-        // Endpoint may not exist yet — silently skip
+      } catch (err) {
+        console.error('[load]', err);
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (students.length === 0) return null;
@@ -120,9 +128,9 @@ function AgeGateBanner() {
         <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
           {students.length === 1 && students[0]
             ? `Your child ${students[0].first_name} is 17 or older.`
-            : `${students.length} of your children are 17 or older.`}
-          {' '}Under DPC guidance, students aged 17 and over may exercise their own data
-          protection rights.
+            : `${students.length} of your children are 17 or older.`}{' '}
+          Under DPC guidance, students aged 17 and over may exercise their own data protection
+          rights.
         </p>
       </div>
     </div>
@@ -142,9 +150,12 @@ export default function PrivacyConsentPage() {
   const loadConsents = React.useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiClient<{ data: ParentConsentItem[] }>('/api/v1/parent-portal/consent', {
-        silent: true,
-      });
+      const response = await apiClient<{ data: ParentConsentItem[] }>(
+        '/api/v1/parent-portal/consent',
+        {
+          silent: true,
+        },
+      );
       setItems(response.data);
     } catch (err) {
       console.error('[PrivacyConsentPage.loadConsents]', err);
@@ -196,9 +207,7 @@ export default function PrivacyConsentPage() {
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-text-primary">
           {t('title')}
         </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
-          {t('description')}
-        </p>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">{t('description')}</p>
       </div>
 
       <AgeGateBanner />
@@ -252,9 +261,7 @@ export default function PrivacyConsentPage() {
                           <p className="text-sm font-semibold text-text-primary">
                             {t(`types.${item.consent_type}.label`)}
                           </p>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {item.subject_name}
-                          </p>
+                          <p className="mt-1 text-xs text-text-secondary">{item.subject_name}</p>
                         </div>
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${

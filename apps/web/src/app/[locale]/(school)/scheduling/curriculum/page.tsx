@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertTriangle, Copy, ExternalLink, Save } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -12,9 +16,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertTriangle, Copy, ExternalLink, Save } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -115,21 +116,24 @@ export default function CurriculumPage() {
         apiClient<{ data: ApiCurriculumRow[] }>(
           `/api/v1/scheduling/curriculum-requirements?${params.toString()}&pageSize=100`,
         ),
-        apiClient<{ total_teaching_periods: number } | { data: { total_teaching_periods: number } }>(
-          `/api/v1/period-grid/teaching-count?${params.toString()}`,
-        ).catch(() => ({ total_teaching_periods: 0 })),
+        apiClient<
+          { total_teaching_periods: number } | { data: { total_teaching_periods: number } }
+        >(`/api/v1/period-grid/teaching-count?${params.toString()}`).catch(() => ({
+          total_teaching_periods: 0,
+        })),
       ]);
 
       // Handle wrapped response: { data: { total_teaching_periods: N } } or { total_teaching_periods: N }
-      const teachingCount = 'data' in gridRes && typeof gridRes.data === 'object' && gridRes.data !== null
-        ? (gridRes.data as { total_teaching_periods: number }).total_teaching_periods
-        : (gridRes as { total_teaching_periods: number }).total_teaching_periods;
+      const teachingCount =
+        'data' in gridRes && typeof gridRes.data === 'object' && gridRes.data !== null
+          ? (gridRes.data as { total_teaching_periods: number }).total_teaching_periods
+          : (gridRes as { total_teaching_periods: number }).total_teaching_periods;
       setTotalTeachingPeriods(teachingCount ?? 0);
 
       // Handle response shape — API may wrap in { data: [...] } or return raw array
       const matrixRes: MatrixSubject[] = Array.isArray(matrixRaw)
         ? matrixRaw
-        : (matrixRaw as { data: MatrixSubject[] }).data ?? [];
+        : ((matrixRaw as { data: MatrixSubject[] }).data ?? []);
       setHasMatrixSubjects(matrixRes.length > 0);
 
       if (matrixRes.length === 0) {
@@ -153,16 +157,12 @@ export default function CurriculumPage() {
             classes: ms.classes,
             existing_id: existing.id,
             period_duration:
-              existing.period_duration != null
-                ? String(existing.period_duration)
-                : '',
+              existing.period_duration != null ? String(existing.period_duration) : '',
             min_periods_per_week: String(existing.min_periods_per_week),
             max_periods_per_day: String(existing.max_periods_per_day),
             requires_double_period: existing.requires_double_period,
             double_period_count:
-              existing.double_period_count != null
-                ? String(existing.double_period_count)
-                : '',
+              existing.double_period_count != null ? String(existing.double_period_count) : '',
           };
         }
         return {
@@ -193,12 +193,9 @@ export default function CurriculumPage() {
 
   // ─── Row update helpers ───────────────────────────────────────────────────
 
-  const updateRow = React.useCallback(
-    (idx: number, patch: Partial<EditableRow>) => {
-      setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-    },
-    [],
-  );
+  const updateRow = React.useCallback((idx: number, patch: Partial<EditableRow>) => {
+    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }, []);
 
   // ─── Computed totals ─────────────────────────────────────────────────────
 
@@ -231,9 +228,7 @@ export default function CurriculumPage() {
           r.requires_double_period && r.double_period_count
             ? parseInt(r.double_period_count, 10)
             : null,
-        period_duration: r.period_duration
-          ? parseInt(r.period_duration, 10)
-          : null,
+        period_duration: r.period_duration ? parseInt(r.period_duration, 10) : null,
       }));
 
     if (itemsToSave.length === 0) return;
@@ -374,8 +369,8 @@ export default function CurriculumPage() {
             <span
               className={`ms-auto text-sm font-medium ${overCapacity ? 'text-red-600 dark:text-red-400' : 'text-text-secondary'}`}
             >
-              {tv('totalAllocated')}: {totalAllocated} / {totalTeachingPeriods}.{' '}
-              {tv('remaining')}: {remaining}
+              {tv('totalAllocated')}: {totalAllocated} / {totalTeachingPeriods}. {tv('remaining')}:{' '}
+              {remaining}
             </span>
           </div>
 
@@ -389,18 +384,12 @@ export default function CurriculumPage() {
           )}
 
           {/* Loading */}
-          {isLoading && (
-            <div className="py-8 text-center text-text-tertiary">
-              {tc('loading')}
-            </div>
-          )}
+          {isLoading && <div className="py-8 text-center text-text-tertiary">{tc('loading')}</div>}
 
           {/* Empty state: no subjects in matrix */}
           {!isLoading && !hasMatrixSubjects && (
             <div className="rounded-2xl border border-border bg-surface-secondary px-6 py-10 text-center space-y-3">
-              <p className="text-sm text-text-secondary">
-                {tv('noMatrixSubjects')}
-              </p>
+              <p className="text-sm text-text-secondary">{tv('noMatrixSubjects')}</p>
               <Button variant="outline" size="sm" asChild>
                 <a href="/academics/curriculum-matrix">
                   <ExternalLink className="me-1.5 h-3.5 w-3.5" />
@@ -569,24 +558,16 @@ export default function CurriculumPage() {
                       <td className="px-3 py-2.5" />
                       <td className="px-3 py-2.5" />
                       <td className="px-3 py-2.5 text-end text-text-primary tabular-nums">
-                        {rows
-                          .reduce((sum, r) => sum + (computeHoursPerWeek(r) ?? 0), 0)
-                          .toFixed(1)}
+                        {rows.reduce((sum, r) => sum + (computeHoursPerWeek(r) ?? 0), 0).toFixed(1)}
                       </td>
                       <td className="px-3 py-2.5 text-end text-text-primary tabular-nums">
                         {(
-                          rows.reduce(
-                            (sum, r) => sum + (computeHoursPerWeek(r) ?? 0),
-                            0,
-                          ) * 4
+                          rows.reduce((sum, r) => sum + (computeHoursPerWeek(r) ?? 0), 0) * 4
                         ).toFixed(1)}
                       </td>
                       <td className="px-3 py-2.5 text-end text-text-primary tabular-nums">
                         {(
-                          rows.reduce(
-                            (sum, r) => sum + (computeHoursPerWeek(r) ?? 0),
-                            0,
-                          ) * 33
+                          rows.reduce((sum, r) => sum + (computeHoursPerWeek(r) ?? 0), 0) * 33
                         ).toFixed(1)}
                       </td>
                     </tr>
@@ -598,9 +579,7 @@ export default function CurriculumPage() {
 
           {/* Has subjects but table is empty after loading (shouldn't normally happen) */}
           {!isLoading && hasMatrixSubjects && rows.length === 0 && (
-            <div className="py-8 text-center text-text-tertiary">
-              {tv('noRequirements')}
-            </div>
+            <div className="py-8 text-center text-text-tertiary">{tv('noRequirements')}</div>
           )}
         </>
       )}

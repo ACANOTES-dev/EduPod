@@ -15,10 +15,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  importFilterSchema,
-  importUploadSchema,
-} from '@school/shared';
+import type { Response } from 'express';
+import { z } from 'zod';
+
+import { importFilterSchema, importUploadSchema } from '@school/shared';
 import type {
   ImportFilterDto,
   ImportType,
@@ -26,8 +26,6 @@ import type {
   JwtPayload,
   TenantContext,
 } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -47,7 +45,14 @@ interface UploadedFileShape {
 }
 
 const templateQuerySchema = z.object({
-  import_type: z.enum(['students', 'parents', 'staff', 'fees', 'exam_results', 'staff_compensation']),
+  import_type: z.enum([
+    'students',
+    'parents',
+    'staff',
+    'fees',
+    'exam_results',
+    'staff_compensation',
+  ]),
 });
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -151,30 +156,21 @@ export class ImportController {
 
   @Get(':id')
   @RequiresPermission('settings.manage')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.get(tenant.tenant_id, id);
   }
 
   @Post(':id/confirm')
   @RequiresPermission('settings.manage')
   @HttpCode(HttpStatus.OK)
-  async confirm(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async confirm(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.confirm(tenant.tenant_id, id);
   }
 
   @Post(':id/rollback')
   @RequiresPermission('settings.manage')
   @HttpCode(HttpStatus.OK)
-  async rollback(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async rollback(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.rollback(tenant.tenant_id, id);
   }
 }

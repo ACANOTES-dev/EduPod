@@ -1,13 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  SolverInputV2,
-  SolverAssignmentV2,
-  ValidationResult,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import type { SolverInputV2, SolverAssignmentV2, ValidationResult } from '@school/shared';
 import { validateSchedule } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -119,10 +112,7 @@ export class SchedulerValidationService {
       : [];
     const allAdjustments = [...existingAdjustments, ...adjustments];
 
-    const entries = this.applyAdjustmentsToEntries(
-      resultJson.entries,
-      allAdjustments,
-    );
+    const entries = this.applyAdjustmentsToEntries(resultJson.entries, allAdjustments);
 
     return validateSchedule(input, entries);
   }

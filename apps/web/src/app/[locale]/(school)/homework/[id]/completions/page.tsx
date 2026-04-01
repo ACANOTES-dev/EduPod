@@ -1,16 +1,18 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { Save } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button, toast } from '@school/ui';
 
 import { CompletionGrid } from '../../_components/completion-grid';
 import type { StudentCompletion } from '../../_components/completion-grid';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +49,9 @@ export default function CompletionsPage() {
     try {
       const [hwRes, compRes] = await Promise.all([
         apiClient<{ data: HomeworkBrief }>(`/api/v1/homework/${id}`, { silent: true }),
-        apiClient<{ data: CompletionRecord[] }>(`/api/v1/homework/${id}/completions`, { silent: true }),
+        apiClient<{ data: CompletionRecord[] }>(`/api/v1/homework/${id}/completions`, {
+          silent: true,
+        }),
       ]);
       setHw(hwRes.data);
       setRecords(compRes.data ?? []);
@@ -72,15 +76,21 @@ export default function CompletionsPage() {
           student_name: r.student ? `${r.student.first_name} ${r.student.last_name}` : r.student_id,
           status: (local?.status as StudentCompletion['status']) ?? r.status,
           notes: local?.notes ?? r.notes ?? '',
-          points_awarded: local?.points_awarded !== undefined ? local.points_awarded : (r.points_awarded ?? null),
-          verified: local?.verified !== undefined ? (local.verified as boolean) : (r.verified ?? false),
+          points_awarded:
+            local?.points_awarded !== undefined ? local.points_awarded : (r.points_awarded ?? null),
+          verified:
+            local?.verified !== undefined ? (local.verified as boolean) : (r.verified ?? false),
         };
       }),
     [records, changes],
   );
 
   const handleUpdate = React.useCallback(
-    (studentId: string, field: 'status' | 'notes' | 'points_awarded' | 'verified', value: string | number | boolean | null) => {
+    (
+      studentId: string,
+      field: 'status' | 'notes' | 'points_awarded' | 'verified',
+      value: string | number | boolean | null,
+    ) => {
       setChanges((prev) => {
         const next = new Map(prev);
         const existing = next.get(studentId) ?? {};
@@ -112,7 +122,8 @@ export default function CompletionsPage() {
           student_id,
           status: (c.status as string) ?? original?.status ?? 'not_started',
           notes: c.notes ?? original?.notes,
-          points_awarded: c.points_awarded !== undefined ? c.points_awarded : original?.points_awarded,
+          points_awarded:
+            c.points_awarded !== undefined ? c.points_awarded : original?.points_awarded,
           verified: c.verified !== undefined ? c.verified : original?.verified,
         };
       });

@@ -1,9 +1,10 @@
 'use client';
 
-import { Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import {
   EVENT_TYPE_OPTIONS,

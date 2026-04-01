@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,10 +16,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -103,10 +104,18 @@ export default function ConversionPage() {
           setParent1Phone(d.submitted_by_parent.phone ?? '');
         } else {
           // Fallback to payload fields
-          setParent1FirstName((payload.parent1_first_name as string) ?? (payload.parent_first_name as string) ?? '');
-          setParent1LastName((payload.parent1_last_name as string) ?? (payload.parent_last_name as string) ?? '');
-          setParent1Email((payload.parent1_email as string) ?? (payload.parent_email as string) ?? '');
-          setParent1Phone((payload.parent1_phone as string) ?? (payload.parent_phone as string) ?? '');
+          setParent1FirstName(
+            (payload.parent1_first_name as string) ?? (payload.parent_first_name as string) ?? '',
+          );
+          setParent1LastName(
+            (payload.parent1_last_name as string) ?? (payload.parent_last_name as string) ?? '',
+          );
+          setParent1Email(
+            (payload.parent1_email as string) ?? (payload.parent_email as string) ?? '',
+          );
+          setParent1Phone(
+            (payload.parent1_phone as string) ?? (payload.parent_phone as string) ?? '',
+          );
         }
       })
       .catch(() => toast.error('Failed to load conversion preview'))
@@ -163,7 +172,12 @@ export default function ConversionPage() {
   }
 
   const canSubmit =
-    studentFirstName && studentLastName && studentDob && yearGroupId && parent1FirstName && parent1LastName;
+    studentFirstName &&
+    studentLastName &&
+    studentDob &&
+    yearGroupId &&
+    parent1FirstName &&
+    parent1LastName;
 
   return (
     <div className="space-y-6">
@@ -178,26 +192,24 @@ export default function ConversionPage() {
 
       {/* Student section */}
       <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <h3 className="mb-4 text-base font-semibold text-text-primary">
-          {t('studentName')}
-        </h3>
+        <h3 className="mb-4 text-base font-semibold text-text-primary">{t('studentName')}</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>First Name <span className="text-emerald-600">*</span></Label>
-            <Input
-              value={studentFirstName}
-              onChange={(e) => setStudentFirstName(e.target.value)}
-            />
+            <Label>
+              First Name <span className="text-emerald-600">*</span>
+            </Label>
+            <Input value={studentFirstName} onChange={(e) => setStudentFirstName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>Last Name <span className="text-emerald-600">*</span></Label>
-            <Input
-              value={studentLastName}
-              onChange={(e) => setStudentLastName(e.target.value)}
-            />
+            <Label>
+              Last Name <span className="text-emerald-600">*</span>
+            </Label>
+            <Input value={studentLastName} onChange={(e) => setStudentLastName(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label>{t('dateOfBirth')} <span className="text-emerald-600">*</span></Label>
+            <Label>
+              {t('dateOfBirth')} <span className="text-emerald-600">*</span>
+            </Label>
             <Input
               type="date"
               dir="ltr"
@@ -212,7 +224,9 @@ export default function ConversionPage() {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label>{t('yearGroup')} <span className="text-emerald-600">*</span></Label>
+            <Label>
+              {t('yearGroup')} <span className="text-emerald-600">*</span>
+            </Label>
             <Select value={yearGroupId} onValueChange={setYearGroupId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select year group" />
@@ -231,23 +245,16 @@ export default function ConversionPage() {
 
       {/* Household section */}
       <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <h3 className="mb-4 text-base font-semibold text-text-primary">
-          {t('household')}
-        </h3>
+        <h3 className="mb-4 text-base font-semibold text-text-primary">{t('household')}</h3>
         <div className="space-y-1.5">
           <Label>Household Name</Label>
-          <Input
-            value={householdName}
-            onChange={(e) => setHouseholdName(e.target.value)}
-          />
+          <Input value={householdName} onChange={(e) => setHouseholdName(e.target.value)} />
         </div>
       </div>
 
       {/* Parent 1 section */}
       <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
-        <h3 className="mb-4 text-base font-semibold text-text-primary">
-          {t('parent')} 1
-        </h3>
+        <h3 className="mb-4 text-base font-semibold text-text-primary">{t('parent')} 1</h3>
 
         {/* Parent matching */}
         {preview.matching_parents.length > 0 && (
@@ -278,10 +285,7 @@ export default function ConversionPage() {
                     checked={parent1LinkId === match.id}
                     onChange={() => setParent1LinkId(match.id)}
                   />
-                  <label
-                    htmlFor={`parent1-${match.id}`}
-                    className="text-sm text-text-secondary"
-                  >
+                  <label htmlFor={`parent1-${match.id}`} className="text-sm text-text-secondary">
                     Link to {match.first_name} {match.last_name}
                     {match.email && (
                       <span className="ms-1 text-xs text-text-tertiary" dir="ltr">
@@ -299,18 +303,19 @@ export default function ConversionPage() {
         {parent1LinkId === null && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>First Name <span className="text-emerald-600">*</span></Label>
+              <Label>
+                First Name <span className="text-emerald-600">*</span>
+              </Label>
               <Input
                 value={parent1FirstName}
                 onChange={(e) => setParent1FirstName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Last Name <span className="text-emerald-600">*</span></Label>
-              <Input
-                value={parent1LastName}
-                onChange={(e) => setParent1LastName(e.target.value)}
-              />
+              <Label>
+                Last Name <span className="text-emerald-600">*</span>
+              </Label>
+              <Input value={parent1LastName} onChange={(e) => setParent1LastName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>Email</Label>

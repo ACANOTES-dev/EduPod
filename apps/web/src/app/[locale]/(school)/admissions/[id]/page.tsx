@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Textarea, toast } from '@school/ui';
 import { ArrowLeft, CheckCircle, Clock, UserPlus, XCircle } from 'lucide-react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Textarea, toast } from '@school/ui';
 
 import { DynamicFormRenderer } from '@/components/admissions/dynamic-form-renderer';
 import { RecordHub } from '@/components/record-hub';
@@ -143,10 +143,7 @@ function NotesTab({
       ) : (
         <div className="space-y-3">
           {notes.map((note) => (
-            <div
-              key={note.id}
-              className="rounded-xl border border-border bg-surface p-4 shadow-sm"
-            >
+            <div key={note.id} className="rounded-xl border border-border bg-surface p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-text-primary">{note.user_name}</span>
                 <span className="text-xs text-text-tertiary">
@@ -195,7 +192,9 @@ export default function ApplicationDetailPage() {
     void fetchApplication();
   }, [fetchApplication]);
 
-  const handleReviewAction = async (status: 'under_review' | 'pending_acceptance_approval' | 'rejected') => {
+  const handleReviewAction = async (
+    status: 'under_review' | 'pending_acceptance_approval' | 'rejected',
+  ) => {
     if (!application) return;
     if (status === 'rejected' && !rejectionReason.trim()) {
       setShowRejectForm(true);
@@ -309,10 +308,7 @@ export default function ApplicationDetailPage() {
         break;
       case 'accepted':
         actions.push(
-          <Button
-            key="convert"
-            onClick={() => router.push(`/${locale}/admissions/${id}/convert`)}
-          >
+          <Button key="convert" onClick={() => router.push(`/${locale}/admissions/${id}/convert`)}>
             <UserPlus className="me-2 h-4 w-4" />
             {t('convertToStudent')}
           </Button>,
@@ -323,12 +319,7 @@ export default function ApplicationDetailPage() {
     // Withdraw is available when not already withdrawn, rejected, or draft
     if (!['withdrawn', 'rejected', 'draft'].includes(application.status)) {
       actions.push(
-        <Button
-          key="withdraw"
-          variant="ghost"
-          onClick={handleWithdraw}
-          disabled={actionLoading}
-        >
+        <Button key="withdraw" variant="ghost" onClick={handleWithdraw} disabled={actionLoading}>
           {t('withdraw')}
         </Button>,
       );
@@ -400,7 +391,10 @@ export default function ApplicationDetailPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => { setShowRejectForm(false); setRejectionReason(''); }}
+                onClick={() => {
+                  setShowRejectForm(false);
+                  setRejectionReason('');
+                }}
               >
                 {tc('cancel')}
               </Button>

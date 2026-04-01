@@ -1,5 +1,9 @@
 'use client';
 
+import { Eye, Trash2 } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -15,10 +19,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { Eye, Trash2 } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -183,13 +183,14 @@ export default function WebsitePageEditorPage() {
 
   if (!page) return null;
 
-  const pageTypeLabel = {
-    home: 'Home',
-    about: 'About',
-    admissions: 'Admissions',
-    contact: 'Contact',
-    custom: 'Custom',
-  }[page.page_type] ?? page.page_type;
+  const pageTypeLabel =
+    {
+      home: 'Home',
+      about: 'About',
+      admissions: 'Admissions',
+      contact: 'Contact',
+      custom: 'Custom',
+    }[page.page_type] ?? page.page_type;
 
   return (
     <div className="space-y-6">
@@ -245,11 +246,7 @@ export default function WebsitePageEditorPage() {
                 <Label htmlFor="title">
                   Title <span className="text-error-text">*</span>
                 </Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
 
               <div className="space-y-1.5">
@@ -269,7 +266,9 @@ export default function WebsitePageEditorPage() {
               <div className="space-y-1.5">
                 <Label>Page Type</Label>
                 <div className="rounded-lg bg-surface-secondary px-3 py-2">
-                  <span className="text-sm font-medium text-text-secondary capitalize">{pageTypeLabel}</span>
+                  <span className="text-sm font-medium text-text-secondary capitalize">
+                    {pageTypeLabel}
+                  </span>
                 </div>
                 <p className="text-xs text-text-tertiary">Page type is fixed after creation</p>
               </div>
@@ -313,7 +312,9 @@ export default function WebsitePageEditorPage() {
                   placeholder="Brief description for search engines"
                   className="min-h-[80px]"
                 />
-                <p className="text-xs text-text-tertiary">{metaDescription.length} / 160 characters</p>
+                <p className="text-xs text-text-tertiary">
+                  {metaDescription.length} / 160 characters
+                </p>
               </div>
             </div>
           </div>
@@ -349,10 +350,7 @@ export default function WebsitePageEditorPage() {
                   <p className="text-sm font-medium text-text-primary">Show in Navigation</p>
                   <p className="text-xs text-text-tertiary">Display in site menu</p>
                 </div>
-                <Switch
-                  checked={showInNav}
-                  onCheckedChange={setShowInNav}
-                />
+                <Switch checked={showInNav} onCheckedChange={setShowInNav} />
               </div>
 
               {showInNav && (
@@ -380,7 +378,8 @@ export default function WebsitePageEditorPage() {
           <DialogHeader>
             <DialogTitle>Delete Page</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{page.title}&quot;? This action cannot be undone.
+              Are you sure you want to delete &quot;{page.title}&quot;? This action cannot be
+              undone.
               {page.status === 'published' && (
                 <span className="mt-2 block font-medium text-error-text">
                   This page is currently published and visible to the public.
@@ -404,13 +403,13 @@ export default function WebsitePageEditorPage() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Preview: {page.title}</DialogTitle>
-            <DialogDescription>
-              Rendered preview of the page body HTML
-            </DialogDescription>
+            <DialogDescription>Rendered preview of the page body HTML</DialogDescription>
           </DialogHeader>
           <div
             className="prose prose-sm max-h-[60vh] max-w-none overflow-y-auto rounded-lg border border-border bg-surface p-4 text-text-primary"
-            dangerouslySetInnerHTML={{ __html: bodyHtml || '<p class="text-text-tertiary">No content yet.</p>' }}
+            dangerouslySetInnerHTML={{
+              __html: bodyHtml || '<p class="text-text-tertiary">No content yet.</p>',
+            }}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>

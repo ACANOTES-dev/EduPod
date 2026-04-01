@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { MessageCircle, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -105,7 +105,9 @@ export default function ParentInquiriesPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-text-primary truncate">{inquiry.subject}</span>
+                    <span className="font-medium text-text-primary truncate">
+                      {inquiry.subject}
+                    </span>
                     <StatusBadge status={STATUS_VARIANT[inquiry.status]} dot>
                       {STATUS_LABEL[inquiry.status]}
                     </StatusBadge>

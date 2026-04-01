@@ -12,15 +12,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createBreakGroupSchema,
-  updateBreakGroupSchema,
-} from '@school/shared';
-import type {
-  CreateBreakGroupDto,
-  UpdateBreakGroupDto,
-} from '@school/shared';
 import { z } from 'zod';
+
+import { createBreakGroupSchema, updateBreakGroupSchema } from '@school/shared';
+import type { CreateBreakGroupDto, UpdateBreakGroupDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

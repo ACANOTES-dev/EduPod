@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, StatCard } from '@school/ui';
 import {
   Activity,
   ArrowRight,
@@ -15,6 +14,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';

@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { Megaphone, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, EmptyState, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -100,9 +100,7 @@ export default function CommunicationsPage() {
       key: 'scope',
       header: t('columns.scope'),
       render: (row: Announcement) => (
-        <span className="text-text-secondary">
-          {SCOPE_LABELS[row.scope] ?? row.scope}
-        </span>
+        <span className="text-text-secondary">{SCOPE_LABELS[row.scope] ?? row.scope}</span>
       ),
     },
     {
@@ -129,9 +127,7 @@ export default function CommunicationsPage() {
     {
       key: 'author_name',
       header: t('columns.author'),
-      render: (row: Announcement) => (
-        <span className="text-text-secondary">{row.author_name}</span>
-      ),
+      render: (row: Announcement) => <span className="text-text-secondary">{row.author_name}</span>,
     },
   ];
 
@@ -171,7 +167,10 @@ export default function CommunicationsPage() {
           icon={Megaphone}
           title={t('announcements')}
           description="No announcements yet. Create your first announcement."
-          action={{ label: t('newAnnouncement'), onClick: () => router.push('/communications/new') }}
+          action={{
+            label: t('newAnnouncement'),
+            onClick: () => router.push('/communications/new'),
+          }}
         />
       ) : (
         <DataTable

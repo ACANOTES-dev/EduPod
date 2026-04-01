@@ -1,8 +1,8 @@
 'use client';
 
-import { Button, Input, Label, Textarea } from '@school/ui';
 import * as React from 'react';
 
+import { Button, Input, Label, Textarea } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -70,7 +70,12 @@ export default function PublicContactPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success-surface">
-          <svg className="h-8 w-8 text-success-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            className="h-8 w-8 text-success-text"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>

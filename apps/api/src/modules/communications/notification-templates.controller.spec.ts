@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -39,9 +40,7 @@ describe('NotificationTemplatesController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [NotificationTemplatesController],
-      providers: [
-        { provide: NotificationTemplatesService, useValue: mockService },
-      ],
+      providers: [{ provide: NotificationTemplatesService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -57,7 +56,11 @@ describe('NotificationTemplatesController', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('should call service.list with tenant_id and query', async () => {
-    const query = {} as { channel?: 'email' | 'whatsapp' | 'in_app'; template_key?: string; locale?: string };
+    const query = {} as {
+      channel?: 'email' | 'whatsapp' | 'in_app';
+      template_key?: string;
+      locale?: string;
+    };
     const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
     mockService.list.mockResolvedValue(expected);
 

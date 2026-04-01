@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 
 import { REQUIRES_PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
@@ -50,9 +51,7 @@ describe('HomeworkCompletionsController', () => {
 
     module = await Test.createTestingModule({
       controllers: [HomeworkCompletionsController],
-      providers: [
-        { provide: HomeworkCompletionsService, useValue: mockService },
-      ],
+      providers: [{ provide: HomeworkCompletionsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -60,9 +59,7 @@ describe('HomeworkCompletionsController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<HomeworkCompletionsController>(
-      HomeworkCompletionsController,
-    );
+    controller = module.get<HomeworkCompletionsController>(HomeworkCompletionsController);
   });
 
   afterEach(async () => {
@@ -79,10 +76,7 @@ describe('HomeworkCompletionsController', () => {
 
       const result = await controller.listCompletions(tenantCtx, HOMEWORK_ID);
 
-      expect(mockService.listCompletions).toHaveBeenCalledWith(
-        TENANT_ID,
-        HOMEWORK_ID,
-      );
+      expect(mockService.listCompletions).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID);
       expect(result).toEqual(expected);
     });
   });
@@ -95,12 +89,7 @@ describe('HomeworkCompletionsController', () => {
       const expected = { id: 'comp-1', status: 'completed' };
       mockService.studentSelfReport.mockResolvedValue(expected);
 
-      const result = await controller.studentSelfReport(
-        tenantCtx,
-        userCtx,
-        HOMEWORK_ID,
-        dto,
-      );
+      const result = await controller.studentSelfReport(tenantCtx, userCtx, HOMEWORK_ID, dto);
 
       expect(mockService.studentSelfReport).toHaveBeenCalledWith(
         TENANT_ID,
@@ -117,26 +106,14 @@ describe('HomeworkCompletionsController', () => {
   describe('bulkMark', () => {
     it('should delegate to service with tenantId, homeworkId, userId, and dto', async () => {
       const dto = {
-        completions: [
-          { student_id: STUDENT_ID, status: 'completed' as const },
-        ],
+        completions: [{ student_id: STUDENT_ID, status: 'completed' as const }],
       };
       const expected = { data: [], count: 1 };
       mockService.bulkMark.mockResolvedValue(expected);
 
-      const result = await controller.bulkMark(
-        tenantCtx,
-        userCtx,
-        HOMEWORK_ID,
-        dto,
-      );
+      const result = await controller.bulkMark(tenantCtx, userCtx, HOMEWORK_ID, dto);
 
-      expect(mockService.bulkMark).toHaveBeenCalledWith(
-        TENANT_ID,
-        HOMEWORK_ID,
-        USER_ID,
-        dto,
-      );
+      expect(mockService.bulkMark).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID, USER_ID, dto);
       expect(result).toEqual(expected);
     });
   });
@@ -184,10 +161,7 @@ describe('HomeworkCompletionsController', () => {
 
       const result = await controller.getCompletionRate(tenantCtx, HOMEWORK_ID);
 
-      expect(mockService.getCompletionRate).toHaveBeenCalledWith(
-        TENANT_ID,
-        HOMEWORK_ID,
-      );
+      expect(mockService.getCompletionRate).toHaveBeenCalledWith(TENANT_ID, HOMEWORK_ID);
       expect(result).toEqual(expected);
     });
   });
@@ -196,10 +170,7 @@ describe('HomeworkCompletionsController', () => {
 
   describe('Permission guards', () => {
     it('should have AuthGuard and PermissionGuard applied at class level', () => {
-      const guards = Reflect.getMetadata(
-        '__guards__',
-        HomeworkCompletionsController,
-      );
+      const guards = Reflect.getMetadata('__guards__', HomeworkCompletionsController);
       expect(guards).toBeDefined();
       expect(guards.length).toBeGreaterThanOrEqual(2);
     });

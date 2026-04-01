@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -51,8 +52,8 @@ export default function StaffPaymentHistoryPage() {
       setData(res.data);
       setTotal(res.meta.total);
       setStaffName(res.meta.staff_name);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchData]', err);
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +66,7 @@ export default function StaffPaymentHistoryPage() {
   const handlePrintPayslip = (runId: string) => {
     window.open(
       `${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/payroll/runs/${runId}/entries/staff/${staffProfileId}/payslip`,
-      '_blank'
+      '_blank',
     );
   };
 

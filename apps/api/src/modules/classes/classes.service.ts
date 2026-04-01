@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, $Enums } from '@prisma/client';
+
 import type { PreviewResponse } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -108,7 +109,7 @@ export class ClassesService {
             homeroom_teacher_staff_id: dto.homeroom_teacher_staff_id ?? null,
             homeroom_id: homeroomId ?? null,
             name: dto.name,
-            max_capacity: (dto as Record<string, unknown>).max_capacity as number ?? null,
+            max_capacity: ((dto as Record<string, unknown>).max_capacity as number) ?? null,
             status: dto.status,
           },
           include: {
@@ -119,10 +120,7 @@ export class ClassesService {
         });
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'DUPLICATE_CLASS_NAME',
           message: `A class with name "${dto.name}" already exists in this academic year`,
@@ -133,7 +131,8 @@ export class ClassesService {
   }
 
   async findAll(tenantId: string, params: ListClassesParams) {
-    const { page, pageSize, academic_year_id, year_group_id, status, search, homeroom_only } = params;
+    const { page, pageSize, academic_year_id, year_group_id, status, search, homeroom_only } =
+      params;
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.ClassWhereInput = { tenant_id: tenantId };
@@ -242,21 +241,30 @@ export class ClassesService {
         where: { id: dto.year_group_id, tenant_id: tenantId },
         select: { id: true },
       });
-      if (!yg) throw new NotFoundException({ code: 'YEAR_GROUP_NOT_FOUND', message: `Year group not found` });
+      if (!yg)
+        throw new NotFoundException({
+          code: 'YEAR_GROUP_NOT_FOUND',
+          message: `Year group not found`,
+        });
     }
     if ('subject_id' in dto && dto.subject_id) {
       const sub = await this.prisma.subject.findFirst({
         where: { id: dto.subject_id, tenant_id: tenantId },
         select: { id: true },
       });
-      if (!sub) throw new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: `Subject not found` });
+      if (!sub)
+        throw new NotFoundException({ code: 'SUBJECT_NOT_FOUND', message: `Subject not found` });
     }
     if ('homeroom_teacher_staff_id' in dto && dto.homeroom_teacher_staff_id) {
       const sp = await this.prisma.staffProfile.findFirst({
         where: { id: dto.homeroom_teacher_staff_id, tenant_id: tenantId },
         select: { id: true },
       });
-      if (!sp) throw new NotFoundException({ code: 'STAFF_PROFILE_NOT_FOUND', message: `Staff profile not found` });
+      if (!sp)
+        throw new NotFoundException({
+          code: 'STAFF_PROFILE_NOT_FOUND',
+          message: `Staff profile not found`,
+        });
     }
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
@@ -280,8 +288,7 @@ export class ClassesService {
           updateData.homeroom_teacher = dto.homeroom_teacher_staff_id
             ? { connect: { id: dto.homeroom_teacher_staff_id } }
             : { disconnect: true };
-        if ('max_capacity' in dto)
-          updateData.max_capacity = dto.max_capacity ?? null;
+        if ('max_capacity' in dto) updateData.max_capacity = dto.max_capacity ?? null;
 
         return db.class.update({
           where: { id },
@@ -294,10 +301,7 @@ export class ClassesService {
 
       return updated;
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'DUPLICATE_CLASS_NAME',
           message: `A class with name "${dto.name}" already exists in this academic year`,
@@ -385,10 +389,7 @@ export class ClassesService {
         });
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'STAFF_ALREADY_ASSIGNED',
           message: `Staff member is already assigned to this class with role "${dto.assignment_role}"`,
@@ -398,12 +399,7 @@ export class ClassesService {
     }
   }
 
-  async removeStaff(
-    tenantId: string,
-    classId: string,
-    staffProfileId: string,
-    role: string,
-  ) {
+  async removeStaff(tenantId: string, classId: string, staffProfileId: string, role: string) {
     const existing = await this.prisma.classStaff.findFirst({
       where: {
         class_id: classId,
@@ -492,7 +488,8 @@ export class ClassesService {
     ];
 
     if (classEntity.homeroom_teacher) {
-      const teacherName = `${classEntity.homeroom_teacher.user.first_name} ${classEntity.homeroom_teacher.user.last_name}`.trim();
+      const teacherName =
+        `${classEntity.homeroom_teacher.user.first_name} ${classEntity.homeroom_teacher.user.last_name}`.trim();
       facts.push({ label: 'Teacher', value: teacherName });
     }
 

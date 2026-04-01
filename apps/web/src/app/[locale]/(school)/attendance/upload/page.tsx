@@ -1,11 +1,20 @@
 'use client';
 
-import { Button, Input, Label, Textarea, toast } from '@school/ui';
-import { ArrowLeft, Camera, Download, Upload, CheckCircle2, AlertTriangle, Undo2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Camera,
+  Download,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+  Undo2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient, getAccessToken } from '@/lib/api-client';
@@ -66,7 +75,9 @@ export default function AttendanceUploadPage() {
   // Exceptions mode state
   const [quickMarkText, setQuickMarkText] = React.useState('');
   const [isSubmittingQuickMark, setIsSubmittingQuickMark] = React.useState(false);
-  const [exceptionsResult, setExceptionsResult] = React.useState<ExceptionsUploadResult | null>(null);
+  const [exceptionsResult, setExceptionsResult] = React.useState<ExceptionsUploadResult | null>(
+    null,
+  );
 
   // Undo state
   const [undoCountdown, setUndoCountdown] = React.useState(0);
@@ -81,15 +92,16 @@ export default function AttendanceUploadPage() {
   React.useEffect(() => {
     async function checkAi() {
       try {
-        const res = await apiClient<{ data?: { ai?: { enabled?: boolean } }; ai?: { enabled?: boolean } }>(
-          '/api/v1/settings',
-        );
-        const settings = ('data' in res && res.data) ? res.data : res;
+        const res = await apiClient<{
+          data?: { ai?: { enabled?: boolean } };
+          ai?: { enabled?: boolean };
+        }>('/api/v1/settings');
+        const settings = 'data' in res && res.data ? res.data : res;
         if (settings?.ai?.enabled) {
           setAiEnabled(true);
         }
-      } catch {
-        // Silently ignore — AI button just stays hidden
+      } catch (err) {
+        console.error('[checkAi]', err);
       }
     }
     void checkAi();
@@ -136,12 +148,9 @@ export default function AttendanceUploadPage() {
     setIsDownloading(true);
     try {
       const token = getAccessToken();
-      const res = await fetch(
-        `/api/v1/attendance/upload-template?session_date=${selectedDate}`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      );
+      const res = await fetch(`/api/v1/attendance/upload-template?session_date=${selectedDate}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
 
       if (!res.ok) {
         const err = await res.json().catch(() => null);
@@ -410,9 +419,7 @@ export default function AttendanceUploadPage() {
                   2
                 </span>
                 <div className="flex-1 space-y-3">
-                  <Label className="text-base font-medium">
-                    {t('downloadTemplate')}
-                  </Label>
+                  <Label className="text-base font-medium">{t('downloadTemplate')}</Label>
                   <div>
                     <Button
                       variant="outline"
@@ -447,9 +454,7 @@ export default function AttendanceUploadPage() {
                       disabled={!hasDate}
                       className="block w-full text-sm text-text-secondary file:me-3 file:rounded-md file:border-0 file:bg-primary-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-text hover:file:cursor-pointer disabled:opacity-50"
                     />
-                    <p className="text-xs text-text-tertiary">
-                      {t('uploadAccept')}
-                    </p>
+                    <p className="text-xs text-text-tertiary">{t('uploadAccept')}</p>
                   </div>
                   <div>
                     <Button
@@ -465,9 +470,7 @@ export default function AttendanceUploadPage() {
             </div>
 
             {/* Status Help */}
-            <p className="text-center text-xs text-text-tertiary">
-              {t('statusHelp')}
-            </p>
+            <p className="text-center text-xs text-text-tertiary">{t('statusHelp')}</p>
 
             {/* Standard Results Area */}
             {result && result.valid && (
@@ -475,9 +478,7 @@ export default function AttendanceUploadPage() {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success-text" />
                   <div className="space-y-1">
-                    <p className="font-semibold text-success-text">
-                      {t('uploadSuccess')}
-                    </p>
+                    <p className="font-semibold text-success-text">{t('uploadSuccess')}</p>
                     <p className="text-sm text-text-secondary">
                       {t('sessionsCreated', { count: result.sessions_created })}
                     </p>
@@ -501,9 +502,7 @@ export default function AttendanceUploadPage() {
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
                   <div className="space-y-1">
-                    <p className="font-semibold text-danger-text">
-                      {t('validationErrors')}
-                    </p>
+                    <p className="font-semibold text-danger-text">{t('validationErrors')}</p>
                     <p className="text-sm text-text-secondary">
                       {t('validRows', {
                         valid: result.valid_rows,
@@ -533,15 +532,9 @@ export default function AttendanceUploadPage() {
                           key={`${err.row}-${err.field}-${idx}`}
                           className="border-b border-danger-border/50"
                         >
-                          <td className="py-2 pe-4 font-mono text-text-primary">
-                            {err.row}
-                          </td>
-                          <td className="py-2 pe-4 text-text-primary">
-                            {err.field}
-                          </td>
-                          <td className="py-2 text-text-secondary">
-                            {err.message}
-                          </td>
+                          <td className="py-2 pe-4 font-mono text-text-primary">{err.row}</td>
+                          <td className="py-2 pe-4 text-text-primary">{err.field}</td>
+                          <td className="py-2 text-text-secondary">{err.message}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -562,14 +555,10 @@ export default function AttendanceUploadPage() {
                   2
                 </span>
                 <div className="flex-1 space-y-3">
-                  <Label className="text-base font-medium">
-                    {t('quickMark')}
-                  </Label>
-                  <p className="text-sm text-text-secondary">
-                    {t('quickMarkDescription')}
-                  </p>
+                  <Label className="text-base font-medium">{t('quickMark')}</Label>
+                  <p className="text-sm text-text-secondary">{t('quickMarkDescription')}</p>
                   <Textarea
-                    placeholder={"1045 A\n1032 L\n1078 AE sick"}
+                    placeholder={'1045 A\n1032 L\n1078 AE sick'}
                     value={quickMarkText}
                     onChange={(e) => setQuickMarkText(e.target.value)}
                     rows={8}
@@ -590,9 +579,7 @@ export default function AttendanceUploadPage() {
             </div>
 
             {/* Status Help */}
-            <p className="text-center text-xs text-text-tertiary">
-              {t('statusHelp')}
-            </p>
+            <p className="text-center text-xs text-text-tertiary">{t('statusHelp')}</p>
 
             {/* Undo Banner */}
             {exceptionsResult && exceptionsResult.batch_id && exceptionsResult.updated > 0 && (
@@ -609,11 +596,7 @@ export default function AttendanceUploadPage() {
                     )}
                   </div>
                   {undoCountdown > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={handleUndo}
-                      disabled={isUndoing}
-                    >
+                    <Button variant="outline" onClick={handleUndo} disabled={isUndoing}>
                       <Undo2 className="me-2 h-4 w-4" />
                       {isUndoing
                         ? t('undoing')
@@ -621,9 +604,7 @@ export default function AttendanceUploadPage() {
                     </Button>
                   )}
                   {undoCountdown === 0 && exceptionsResult.batch_id && (
-                    <span className="text-sm text-text-tertiary">
-                      {t('undoExpired')}
-                    </span>
+                    <span className="text-sm text-text-tertiary">{t('undoExpired')}</span>
                   )}
                 </div>
               </div>
@@ -654,16 +635,9 @@ export default function AttendanceUploadPage() {
                     </thead>
                     <tbody>
                       {exceptionsResult.errors.map((err, idx) => (
-                        <tr
-                          key={`${err.row}-${idx}`}
-                          className="border-b border-danger-border/50"
-                        >
-                          <td className="py-2 pe-4 font-mono text-text-primary">
-                            {err.row}
-                          </td>
-                          <td className="py-2 text-text-secondary">
-                            {err.error}
-                          </td>
+                        <tr key={`${err.row}-${idx}`} className="border-b border-danger-border/50">
+                          <td className="py-2 pe-4 font-mono text-text-primary">{err.row}</td>
+                          <td className="py-2 text-text-secondary">{err.error}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -673,25 +647,28 @@ export default function AttendanceUploadPage() {
             )}
 
             {/* Success without errors — show back link */}
-            {exceptionsResult && exceptionsResult.updated > 0 && exceptionsResult.errors.length === 0 && undoCountdown === 0 && (
-              <div className="rounded-lg border border-success-border bg-success-surface p-6">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success-text" />
-                  <div className="space-y-1">
-                    <p className="font-semibold text-success-text">
-                      {t('quickMarkSuccess', { count: exceptionsResult.updated })}
-                    </p>
-                    <div className="pt-3">
-                      <Link href={`/${locale}/attendance`}>
-                        <Button variant="outline" size="sm">
-                          {t('backToAttendance')}
-                        </Button>
-                      </Link>
+            {exceptionsResult &&
+              exceptionsResult.updated > 0 &&
+              exceptionsResult.errors.length === 0 &&
+              undoCountdown === 0 && (
+                <div className="rounded-lg border border-success-border bg-success-surface p-6">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success-text" />
+                    <div className="space-y-1">
+                      <p className="font-semibold text-success-text">
+                        {t('quickMarkSuccess', { count: exceptionsResult.updated })}
+                      </p>
+                      <div className="pt-3">
+                        <Link href={`/${locale}/attendance`}>
+                          <Button variant="outline" size="sm">
+                            {t('backToAttendance')}
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </>
         )}
       </div>

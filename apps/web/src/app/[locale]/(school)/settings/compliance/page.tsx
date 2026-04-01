@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle, Eye, Play, Plus, ShieldCheck, Tag, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -18,10 +22,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { CheckCircle, Eye, Play, Plus, ShieldCheck, Tag, XCircle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -94,9 +94,18 @@ function NewRequestDialog({ open, onOpenChange, onSuccess }: NewRequestDialogPro
   };
 
   const handleSubmit = async () => {
-    if (!requestType) { setError(t('requestTypeRequired')); return; }
-    if (!subjectType) { setError(t('subjectTypeRequired')); return; }
-    if (!subjectId.trim()) { setError(t('subjectIdRequired')); return; }
+    if (!requestType) {
+      setError(t('requestTypeRequired'));
+      return;
+    }
+    if (!subjectType) {
+      setError(t('subjectTypeRequired'));
+      return;
+    }
+    if (!subjectId.trim()) {
+      setError(t('subjectIdRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -219,7 +228,12 @@ function DetailDialog({ request, onClose, onAction }: DetailDialogProps) {
   };
 
   return (
-    <Dialog open={!!request} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={!!request}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('requestDetail')}</DialogTitle>
@@ -237,7 +251,9 @@ function DetailDialog({ request, onClose, onAction }: DetailDialogProps) {
           </div>
           <div className="flex justify-between">
             <span className="text-text-tertiary">{t('subjectId')}</span>
-            <span dir="ltr" className="font-mono text-xs">{request.subject_id}</span>
+            <span dir="ltr" className="font-mono text-xs">
+              {request.subject_id}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-tertiary">{t('created')}</span>
@@ -325,8 +341,8 @@ export default function CompliancePage() {
         );
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
-        // silently swallowed
+      } catch (err) {
+        console.error('[fetchRequests]', err);
       } finally {
         setIsLoading(false);
       }
@@ -347,9 +363,7 @@ export default function CompliancePage() {
       key: 'request_type',
       header: t('requestType'),
       render: (row: ComplianceRequest) => (
-        <span className="font-medium text-text-primary">
-          {row.request_type.replace(/_/g, ' ')}
-        </span>
+        <span className="font-medium text-text-primary">{row.request_type.replace(/_/g, ' ')}</span>
       ),
     },
     {
@@ -498,8 +512,8 @@ export default function CompliancePage() {
           <DialogHeader>
             <DialogTitle>Confirm Age-Gated DSAR</DialogTitle>
             <DialogDescription>
-              This student is 17 or older. Per DPC guidance, please confirm that processing
-              this DSAR is in the student&apos;s best interest before it can proceed.
+              This student is 17 or older. Per DPC guidance, please confirm that processing this
+              DSAR is in the student&apos;s best interest before it can proceed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -525,7 +539,8 @@ export default function CompliancePage() {
                   );
                   setAgeGateConfirmId(null);
                   void fetchRequests(page);
-                } catch {
+                } catch (err) {
+                  console.error('[confirmAgeGate]', err);
                   toast.error('Failed to confirm age-gated review');
                 } finally {
                   setAgeGateConfirming(false);

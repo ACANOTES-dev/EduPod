@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -41,9 +42,7 @@ describe('BehaviourParentController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourParentController],
-      providers: [
-        { provide: BehaviourParentService, useValue: mockParentService },
-      ],
+      providers: [{ provide: BehaviourParentService, useValue: mockParentService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -70,7 +69,11 @@ describe('BehaviourParentController', () => {
     const result = await controller.getIncidents(TENANT, PARENT_USER, query as never);
 
     expect(mockParentService.getIncidents).toHaveBeenCalledWith(
-      'tenant-uuid', 'parent-uuid', 'student-1', 1, 20,
+      'tenant-uuid',
+      'parent-uuid',
+      'student-1',
+      1,
+      20,
     );
     expect(result).toEqual({ data: [], meta: { total: 0 } });
   });
@@ -82,7 +85,9 @@ describe('BehaviourParentController', () => {
     const result = await controller.getPointsAwards(TENANT, PARENT_USER, query as never);
 
     expect(mockParentService.getPointsAwards).toHaveBeenCalledWith(
-      'tenant-uuid', 'parent-uuid', 'student-1',
+      'tenant-uuid',
+      'parent-uuid',
+      'student-1',
     );
     expect(result).toEqual({ points: 50, awards: [] });
   });
@@ -94,7 +99,9 @@ describe('BehaviourParentController', () => {
     const result = await controller.getSanctions(TENANT, PARENT_USER, query as never);
 
     expect(mockParentService.getSanctions).toHaveBeenCalledWith(
-      'tenant-uuid', 'parent-uuid', 'student-1',
+      'tenant-uuid',
+      'parent-uuid',
+      'student-1',
     );
     expect(result).toEqual([]);
   });
@@ -104,7 +111,11 @@ describe('BehaviourParentController', () => {
 
     const result = await controller.acknowledge(TENANT, PARENT_USER, 'ack-1');
 
-    expect(mockParentService.acknowledge).toHaveBeenCalledWith('tenant-uuid', 'parent-uuid', 'ack-1');
+    expect(mockParentService.acknowledge).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'parent-uuid',
+      'ack-1',
+    );
     expect(result).toEqual({ acknowledged: true });
   });
 
@@ -118,7 +129,11 @@ describe('BehaviourParentController', () => {
   });
 
   it('should call parentService.submitAppeal with tenant_id, user sub, and dto', async () => {
-    const dto = { incident_id: 'inc-1', reason: 'Unfair sanction', details: 'My child was not involved' };
+    const dto = {
+      incident_id: 'inc-1',
+      reason: 'Unfair sanction',
+      details: 'My child was not involved',
+    };
     mockParentService.submitAppeal.mockResolvedValue({ id: 'appeal-1', status: 'submitted' });
 
     const result = await controller.submitAppeal(TENANT, PARENT_USER, dto as never);

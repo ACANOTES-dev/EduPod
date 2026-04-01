@@ -1,5 +1,10 @@
 'use client';
 
+import { Bell } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
 import {
   EmptyState,
   Input,
@@ -11,11 +16,6 @@ import {
   SelectValue,
   StatCard,
 } from '@school/ui';
-import { Bell } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -138,14 +138,21 @@ export default function NotificationDeliveryPage() {
 
           {report.channels.length > 0 && (
             <div className="rounded-xl border border-border bg-surface p-4">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('channelBreakdown')}</h3>
+              <h3 className="mb-4 text-sm font-semibold text-text-primary">
+                {t('channelBreakdown')}
+              </h3>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={report.channels}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="channel" className="text-xs" />
                   <YAxis className="text-xs" />
                   <Tooltip />
-                  <Bar dataKey="delivered" name={t('delivered')} fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="delivered"
+                    name={t('delivered')}
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                  />
                   <Bar dataKey="failed" name={t('failed')} fill="#ef4444" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -172,8 +179,13 @@ export default function NotificationDeliveryPage() {
               </thead>
               <tbody>
                 {report.channels.map((ch) => (
-                  <tr key={ch.channel} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
-                    <td className="px-4 py-3 text-sm font-medium text-text-primary">{ch.channel}</td>
+                  <tr
+                    key={ch.channel}
+                    className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                  >
+                    <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                      {ch.channel}
+                    </td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{ch.sent}</td>
                     <td className="px-4 py-3 text-sm text-emerald-600">{ch.delivered}</td>
                     <td className="px-4 py-3 text-sm text-red-600">{ch.failed}</td>

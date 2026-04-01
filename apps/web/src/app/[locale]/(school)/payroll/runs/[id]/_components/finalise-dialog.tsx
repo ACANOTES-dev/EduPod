@@ -1,16 +1,9 @@
 'use client';
 
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -71,11 +64,15 @@ export function FinaliseDialog({ open, onOpenChange, run, onConfirm }: FinaliseD
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-text-secondary">{t('basicPay')}</span>
-              <span className="font-medium text-text-primary">{formatCurrency(run.total_basic_pay)}</span>
+              <span className="font-medium text-text-primary">
+                {formatCurrency(run.total_basic_pay)}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-text-secondary">{t('bonusPay')}</span>
-              <span className="font-medium text-text-primary">{formatCurrency(run.total_bonus_pay)}</span>
+              <span className="font-medium text-text-primary">
+                {formatCurrency(run.total_bonus_pay)}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm border-t border-border pt-2">
               <span className="font-semibold text-text-primary">{t('grandTotal')}</span>

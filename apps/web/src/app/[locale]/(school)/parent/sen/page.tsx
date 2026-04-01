@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, EmptyState, Skeleton, StatusBadge } from '@school/ui';
 import { Eye, HeartHandshake } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, EmptyState, Skeleton, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

@@ -1,5 +1,10 @@
 'use client';
 
+import { AlertCircle, ArrowLeft, CheckCircle2, Loader2, Pin, Trash2 } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -10,18 +15,6 @@ import {
   DialogTitle,
   toast,
 } from '@school/ui';
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Pin,
-  Trash2,
-} from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { PinToggle } from '@/components/scheduling/pin-toggle';
@@ -165,9 +158,7 @@ export default function RunReviewPage() {
     if (!data) return;
     setData({
       ...data,
-      entries: data.entries.map((e) =>
-        e.id === entryId ? { ...e, is_pinned: pinned } : e
-      ),
+      entries: data.entries.map((e) => (e.id === entryId ? { ...e, is_pinned: pinned } : e)),
     });
   }
 
@@ -198,7 +189,11 @@ export default function RunReviewPage() {
 
   // Unique sorted period orders
   const periodOrders = Array.from(
-    new Set(Object.values(grouped).flat().map((e) => e.period_order))
+    new Set(
+      Object.values(grouped)
+        .flat()
+        .map((e) => e.period_order),
+    ),
   ).sort((a, b) => a - b);
 
   return (
@@ -278,7 +273,7 @@ export default function RunReviewPage() {
                     </td>
                     {weekdays.map((day) => {
                       const cellEntries = (grouped[day] ?? []).filter(
-                        (e) => e.period_order === period
+                        (e) => e.period_order === period,
                       );
                       return (
                         <td key={day} className="px-2 py-1.5 align-top">

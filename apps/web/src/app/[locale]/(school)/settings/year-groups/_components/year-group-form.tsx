@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,9 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 interface YearGroup {
   id: string;
@@ -114,7 +114,9 @@ export function YearGroupForm({
               type="number"
               min={1}
               value={values.display_order}
-              onChange={(e) => setValues((p) => ({ ...p, display_order: parseInt(e.target.value, 10) || 1 }))}
+              onChange={(e) =>
+                setValues((p) => ({ ...p, display_order: parseInt(e.target.value, 10) || 1 }))
+              }
               dir="ltr"
             />
           </div>
@@ -122,7 +124,9 @@ export function YearGroupForm({
             <Label htmlFor="yg-next">{t('fieldNextYearGroup')}</Label>
             <Select
               value={values.next_year_group_id || '__none__'}
-              onValueChange={(v) => setValues((p) => ({ ...p, next_year_group_id: v === '__none__' ? '' : v }))}
+              onValueChange={(v) =>
+                setValues((p) => ({ ...p, next_year_group_id: v === '__none__' ? '' : v }))
+              }
             >
               <SelectTrigger id="yg-next">
                 <SelectValue placeholder={t('noNextGroup')} />
@@ -130,7 +134,9 @@ export function YearGroupForm({
               <SelectContent>
                 <SelectItem value="__none__">{t('noNextGroup')}</SelectItem>
                 {availableGroups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -142,7 +148,12 @@ export function YearGroupForm({
             <p className="text-xs text-text-tertiary">{tSched('classroomModel.description')}</p>
             <Select
               value={values.classroom_model}
-              onValueChange={(v) => setValues((p) => ({ ...p, classroom_model: v as 'fixed_homeroom' | 'free_movement' }))}
+              onValueChange={(v) =>
+                setValues((p) => ({
+                  ...p,
+                  classroom_model: v as 'fixed_homeroom' | 'free_movement',
+                }))
+              }
             >
               <SelectTrigger id="yg-classroom-model">
                 <SelectValue />
@@ -160,7 +171,12 @@ export function YearGroupForm({
 
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               {tc('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>

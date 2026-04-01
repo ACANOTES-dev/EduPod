@@ -13,6 +13,9 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   createInstallmentsSchema,
   createInvoiceSchema,
@@ -29,8 +32,6 @@ import type {
   UpdateInvoiceDto,
   WriteOffDto,
 } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -64,19 +65,13 @@ export class InvoicesController {
 
   @Get(':id')
   @RequiresPermission('finance.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.invoicesService.findOne(tenant.tenant_id, id);
   }
 
   @Get(':id/preview')
   @RequiresPermission('finance.view')
-  async getPreview(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getPreview(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.invoicesService.getPreview(tenant.tenant_id, id);
   }
 

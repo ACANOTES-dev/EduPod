@@ -1,8 +1,9 @@
 'use client';
 
-import { Input, Label } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Input, Label } from '@school/ui';
 
 import { TIER_COLORS, type RiskTier } from '@/lib/early-warning';
 
@@ -35,9 +36,7 @@ export function ThresholdConfig({
           const colors = TIER_COLORS[tier];
           return (
             <div key={tier}>
-              <Label className={`text-sm ${colors.text}`}>
-                {t(`summary.${tier}` as never)}
-              </Label>
+              <Label className={`text-sm ${colors.text}`}>{t(`summary.${tier}` as never)}</Label>
               <Input
                 type="number"
                 min={0}
@@ -55,12 +54,8 @@ export function ThresholdConfig({
       </div>
 
       <div className="border-t border-border pt-4">
-        <Label className="text-sm text-text-secondary">
-          {t('settings.hysteresis')}
-        </Label>
-        <p className="mt-1 text-xs text-text-tertiary">
-          {t('settings.hysteresis_description')}
-        </p>
+        <Label className="text-sm text-text-secondary">{t('settings.hysteresis')}</Label>
+        <p className="mt-1 text-xs text-text-tertiary">{t('settings.hysteresis_description')}</p>
         <Input
           type="number"
           min={0}

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   ClassifyComplianceRequestDto,
   ComplianceDecisionDto,
@@ -67,9 +68,7 @@ describe('ComplianceController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(
-        require('../../common/guards/permission.guard').PermissionGuard,
-      )
+      .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -162,11 +161,7 @@ describe('ComplianceController', () => {
       format: 'json',
     });
 
-    expect(service.execute).toHaveBeenCalledWith(
-      TENANT_ID,
-      REQUEST_ID,
-      'json',
-    );
+    expect(service.execute).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID, 'json');
     expect(result).toBe(expected);
   });
 
@@ -178,11 +173,7 @@ describe('ComplianceController', () => {
       format: 'csv',
     });
 
-    expect(service.execute).toHaveBeenCalledWith(
-      TENANT_ID,
-      REQUEST_ID,
-      'csv',
-    );
+    expect(service.execute).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID, 'csv');
     expect(result).toBe(expected);
   });
 
@@ -208,11 +199,7 @@ describe('ComplianceController', () => {
 
       const result = await controller.extend(mockTenant, REQUEST_ID, dto);
       expect(result).toEqual(expected);
-      expect(service.extend).toHaveBeenCalledWith(
-        TENANT_ID,
-        REQUEST_ID,
-        dto,
-      );
+      expect(service.extend).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID, dto);
     });
   });
 
@@ -227,12 +214,7 @@ describe('ComplianceController', () => {
       service.confirmAgeGate.mockResolvedValue(expected);
 
       const dto: ConfirmAgeGateDto = { confirmation_notes: 'Confirmed in student best interest' };
-      const result = await controller.confirmAgeGate(
-        mockTenant,
-        mockJwtPayload,
-        REQUEST_ID,
-        dto,
-      );
+      const result = await controller.confirmAgeGate(mockTenant, mockJwtPayload, REQUEST_ID, dto);
 
       expect(result).toEqual(expected);
       expect(service.confirmAgeGate).toHaveBeenCalledWith(
@@ -248,12 +230,7 @@ describe('ComplianceController', () => {
       service.confirmAgeGate.mockResolvedValue(expected);
 
       const dto: ConfirmAgeGateDto = {};
-      const result = await controller.confirmAgeGate(
-        mockTenant,
-        mockJwtPayload,
-        REQUEST_ID,
-        dto,
-      );
+      const result = await controller.confirmAgeGate(mockTenant, mockJwtPayload, REQUEST_ID, dto);
 
       expect(result).toEqual(expected);
       expect(service.confirmAgeGate).toHaveBeenCalledWith(

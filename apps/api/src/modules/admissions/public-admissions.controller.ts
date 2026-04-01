@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
+
 import { createPublicApplicationSchema } from '@school/shared';
 import type { CreatePublicApplicationDto, TenantContext } from '@school/shared';
-import type { Request } from 'express';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -29,11 +30,7 @@ export class PublicAdmissionsController {
     @Req() req: Request,
   ) {
     const ip = this.extractClientIp(req);
-    return this.applicationsService.createPublic(
-      tenant.tenant_id,
-      dto,
-      ip,
-    );
+    return this.applicationsService.createPublic(tenant.tenant_id, dto, ip);
   }
 
   private extractClientIp(req: Request): string {

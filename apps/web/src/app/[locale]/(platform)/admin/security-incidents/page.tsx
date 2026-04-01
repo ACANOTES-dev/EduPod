@@ -1,5 +1,10 @@
 'use client';
 
+import { AlertTriangle, ExternalLink, Plus, Shield } from 'lucide-react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import * as React from 'react';
+
 import {
   SECURITY_INCIDENT_SEVERITIES,
   SECURITY_INCIDENT_STATUSES,
@@ -24,11 +29,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import { AlertTriangle, ExternalLink, Plus, Shield } from 'lucide-react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -90,8 +90,7 @@ function formatRelativeTime(isoString: string): string {
 }
 
 function getHoursRemaining(detectedAt: string): number {
-  const hoursElapsed =
-    (Date.now() - new Date(detectedAt).getTime()) / (1000 * 60 * 60);
+  const hoursElapsed = (Date.now() - new Date(detectedAt).getTime()) / (1000 * 60 * 60);
   return Math.max(0, 72 - hoursElapsed);
 }
 
@@ -121,18 +120,12 @@ function StatusBadgeLocal({ status }: { status: string }) {
     closed: 'bg-gray-100 text-gray-600 border-gray-200',
   };
   const cls = map[status] ?? 'bg-gray-100 text-gray-600 border-gray-200';
-  return (
-    <Badge className={`border text-xs font-medium ${cls}`}>
-      {toTitleCase(status)}
-    </Badge>
-  );
+  return <Badge className={`border text-xs font-medium ${cls}`}>{toTitleCase(status)}</Badge>;
 }
 
 function CountdownCell({ incident }: { incident: SecurityIncident }) {
-  const isOpen =
-    incident.status !== 'resolved' && incident.status !== 'closed';
-  const isHighRisk =
-    incident.severity === 'critical' || incident.severity === 'high';
+  const isOpen = incident.status !== 'resolved' && incident.status !== 'closed';
+  const isHighRisk = incident.severity === 'critical' || incident.severity === 'high';
 
   if (!isOpen || !isHighRisk) return <span className="text-text-tertiary">—</span>;
 
@@ -223,7 +216,12 @@ function CreateIncidentDialog({ onCreated }: { onCreated: () => void }) {
         <DialogHeader>
           <DialogTitle>Create Security Incident</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { void handleSubmit(e); }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            void handleSubmit(e);
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="severity">Severity *</Label>
             <Select
@@ -370,9 +368,7 @@ export default function SecurityIncidentsPage() {
       header: 'Description',
       render: (row: SecurityIncident) => (
         <span className="text-sm text-text-secondary">
-          {row.description.length > 80
-            ? `${row.description.slice(0, 80)}…`
-            : row.description}
+          {row.description.length > 80 ? `${row.description.slice(0, 80)}…` : row.description}
         </span>
       ),
     },
@@ -474,9 +470,7 @@ export default function SecurityIncidentsPage() {
       <PageHeader
         title="Security Incidents"
         description="GDPR breach detection and management"
-        actions={
-          <CreateIncidentDialog onCreated={() => void fetchIncidents(page)} />
-        }
+        actions={<CreateIncidentDialog onCreated={() => void fetchIncidents(page)} />}
       />
 
       {total === 0 && !isLoading && !hasFilters && (

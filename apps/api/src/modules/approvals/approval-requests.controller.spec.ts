@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -50,9 +51,7 @@ describe('ApprovalRequestsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ApprovalRequestsController],
-      providers: [
-        { provide: ApprovalRequestsService, useValue: mockService },
-      ],
+      providers: [{ provide: ApprovalRequestsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -60,8 +59,7 @@ describe('ApprovalRequestsController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller =
-      module.get<ApprovalRequestsController>(ApprovalRequestsController);
+    controller = module.get<ApprovalRequestsController>(ApprovalRequestsController);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -91,42 +89,28 @@ describe('ApprovalRequestsController', () => {
     const result = await controller.getRequest(mockTenant, REQUEST_ID);
 
     expect(result).toEqual(expected);
-    expect(mockService.getRequest).toHaveBeenCalledWith(
-      TENANT_ID,
-      REQUEST_ID,
-    );
+    expect(mockService.getRequest).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID);
   });
 
   it('should approve a request', async () => {
     const expected = { id: REQUEST_ID, status: 'approved' };
     mockService.approve.mockResolvedValue(expected);
 
-    const result = await controller.approveRequest(
-      mockTenant,
-      REQUEST_ID,
-      mockUser,
-      { comment: 'Looks good' },
-    );
+    const result = await controller.approveRequest(mockTenant, REQUEST_ID, mockUser, {
+      comment: 'Looks good',
+    });
 
     expect(result).toEqual(expected);
-    expect(mockService.approve).toHaveBeenCalledWith(
-      TENANT_ID,
-      REQUEST_ID,
-      USER_ID,
-      'Looks good',
-    );
+    expect(mockService.approve).toHaveBeenCalledWith(TENANT_ID, REQUEST_ID, USER_ID, 'Looks good');
   });
 
   it('should reject a request', async () => {
     const expected = { id: REQUEST_ID, status: 'rejected' };
     mockService.reject.mockResolvedValue(expected);
 
-    const result = await controller.rejectRequest(
-      mockTenant,
-      REQUEST_ID,
-      mockUser,
-      { comment: 'Needs revision' },
-    );
+    const result = await controller.rejectRequest(mockTenant, REQUEST_ID, mockUser, {
+      comment: 'Needs revision',
+    });
 
     expect(result).toEqual(expected);
     expect(mockService.reject).toHaveBeenCalledWith(
@@ -141,12 +125,9 @@ describe('ApprovalRequestsController', () => {
     const expected = { id: REQUEST_ID, status: 'cancelled' };
     mockService.cancel.mockResolvedValue(expected);
 
-    const result = await controller.cancelRequest(
-      mockTenant,
-      REQUEST_ID,
-      mockUser,
-      { comment: 'No longer needed' },
-    );
+    const result = await controller.cancelRequest(mockTenant, REQUEST_ID, mockUser, {
+      comment: 'No longer needed',
+    });
 
     expect(result).toEqual(expected);
     expect(mockService.cancel).toHaveBeenCalledWith(

@@ -1,10 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
-import type {
-  AlertDetail,
-  AlertListItem,
-  AlertListQuery,
-} from '@school/shared';
+
+import type { AlertDetail, AlertListItem, AlertListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,7 +21,10 @@ export class BehaviourAlertsService {
   ): Promise<{ data: AlertListItem[]; meta: { page: number; pageSize: number; total: number } }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    type ListResult = { data: AlertListItem[]; meta: { page: number; pageSize: number; total: number } };
+    type ListResult = {
+      data: AlertListItem[];
+      meta: { page: number; pageSize: number; total: number };
+    };
     return rlsClient.$transaction(async (txRaw) => {
       const tx = txRaw as unknown as PrismaService;
       const recipientWhere: Prisma.BehaviourAlertRecipientWhereInput = {
@@ -52,7 +52,7 @@ export class BehaviourAlertsService {
       }
       if (query.severity) {
         recipientWhere.alert = {
-          ...recipientWhere.alert as Prisma.BehaviourAlertWhereInput,
+          ...(recipientWhere.alert as Prisma.BehaviourAlertWhereInput),
           severity: query.severity as $Enums.AlertSeverity,
         };
       }
@@ -66,7 +66,9 @@ export class BehaviourAlertsService {
               include: {
                 student: { select: { id: true, first_name: true, last_name: true } },
                 subject: { select: { id: true, name: true } },
-                staff: { select: { id: true, user: { select: { first_name: true, last_name: true } } } },
+                staff: {
+                  select: { id: true, user: { select: { first_name: true, last_name: true } } },
+                },
               },
             },
           },
@@ -103,11 +105,7 @@ export class BehaviourAlertsService {
 
   // ─── Get Alert Detail ──────────────────────────────────────────────────────
 
-  async getAlert(
-    tenantId: string,
-    userId: string,
-    alertId: string,
-  ): Promise<AlertDetail> {
+  async getAlert(tenantId: string, userId: string, alertId: string): Promise<AlertDetail> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (txRaw) => {
@@ -203,12 +201,7 @@ export class BehaviourAlertsService {
     });
   }
 
-  async snooze(
-    tenantId: string,
-    userId: string,
-    alertId: string,
-    until: Date,
-  ): Promise<void> {
+  async snooze(tenantId: string, userId: string, alertId: string, until: Date): Promise<void> {
     await this.updateRecipientStatus(tenantId, userId, alertId, {
       status: 'snoozed' as $Enums.AlertRecipientStatus,
       snoozed_until: until,
@@ -229,12 +222,7 @@ export class BehaviourAlertsService {
     });
   }
 
-  async dismiss(
-    tenantId: string,
-    userId: string,
-    alertId: string,
-    reason?: string,
-  ): Promise<void> {
+  async dismiss(tenantId: string, userId: string, alertId: string, reason?: string): Promise<void> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     await rlsClient.$transaction(async (txRaw) => {

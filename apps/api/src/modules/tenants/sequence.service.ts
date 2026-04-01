@@ -25,14 +25,13 @@ export class SequenceService {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
       };
 
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- tenant sequence generation with SELECT FOR UPDATE locking
       const rows = (await rawTx.$queryRaw(
         Prisma.sql`SELECT current_value FROM tenant_sequences WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType} FOR UPDATE`,
       )) as Array<{ current_value: bigint }>;
 
       if (!rows.length) {
-        throw new Error(
-          `Sequence type "${sequenceType}" not found for tenant ${tenantId}`,
-        );
+        throw new Error(`Sequence type "${sequenceType}" not found for tenant ${tenantId}`);
       }
 
       const newValue = Number(rows[0]?.current_value ?? 0) + 1;
@@ -40,6 +39,7 @@ export class SequenceService {
       const rawExec = db as unknown as {
         $executeRaw: (sql: Prisma.Sql) => Promise<number>;
       };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- tenant sequence generation with SELECT FOR UPDATE locking
       await rawExec.$executeRaw(
         Prisma.sql`UPDATE tenant_sequences SET current_value = ${newValue} WHERE tenant_id = ${tenantId}::uuid AND sequence_type = ${sequenceType}`,
       );
@@ -59,10 +59,7 @@ export class SequenceService {
    * Includes collision check — retries on duplicate within tenant.
    * This reference doubles as the parent's initial portal password.
    */
-  async generateHouseholdReference(
-    tenantId: string,
-    tx?: unknown,
-  ): Promise<string> {
+  async generateHouseholdReference(tenantId: string, tx?: unknown): Promise<string> {
     const doWork = async (db: unknown): Promise<string> => {
       const rawTx = db as unknown as {
         $queryRaw: (sql: Prisma.Sql) => Promise<unknown[]>;
@@ -73,6 +70,7 @@ export class SequenceService {
         const ref = this.randomHouseholdRef();
 
         // Check uniqueness within tenant
+        // eslint-disable-next-line school/no-raw-sql-outside-rls -- tenant sequence generation with SELECT FOR UPDATE locking
         const existing = (await rawTx.$queryRaw(
           Prisma.sql`SELECT 1 FROM households WHERE tenant_id = ${tenantId}::uuid AND household_number = ${ref} LIMIT 1`,
         )) as unknown[];
@@ -82,9 +80,7 @@ export class SequenceService {
         }
       }
 
-      throw new Error(
-        'Failed to generate unique household reference after 10 attempts',
-      );
+      throw new Error('Failed to generate unique household reference after 10 attempts');
     };
 
     if (tx) {

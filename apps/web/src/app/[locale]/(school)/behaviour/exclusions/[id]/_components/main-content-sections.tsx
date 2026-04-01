@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge, Button, Input, Textarea } from '@school/ui';
 import { CheckCircle2, FileText, Gavel, Plus, ShieldAlert, Trash2, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Badge, Button, Input, Textarea } from '@school/ui';
 
 
 import type {

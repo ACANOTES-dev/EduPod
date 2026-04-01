@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+
 import type { InvoiceStatus } from '@school/shared';
 import { isValidInvoiceTransition, PAYABLE_INVOICE_STATUSES } from '@school/shared';
 
@@ -37,7 +38,8 @@ export function deriveInvoiceStatus(
   }
   if (writeOffAmount && writeOffAmount > 0 && Math.abs(balanceAmount) < 0.005) return 'written_off';
   if (Math.abs(balanceAmount) < 0.005) return 'paid';
-  if (balanceAmount > 0.005 && Math.abs(balanceAmount - totalAmount) > 0.005) return 'partially_paid';
+  if (balanceAmount > 0.005 && Math.abs(balanceAmount - totalAmount) > 0.005)
+    return 'partially_paid';
   if (Math.abs(balanceAmount - totalAmount) < 0.005 && dueDate < new Date()) return 'overdue';
   return 'issued';
 }

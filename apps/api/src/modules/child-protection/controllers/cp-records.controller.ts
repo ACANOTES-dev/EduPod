@@ -12,14 +12,15 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { z } from 'zod';
+
 import {
   createCpRecordSchema,
   listCpRecordsQuerySchema,
   updateCpRecordSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Request } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -48,12 +49,7 @@ export class CpRecordsController {
     dto: z.infer<typeof createCpRecordSchema>,
     @Req() req: Request,
   ) {
-    return this.cpRecordService.create(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpRecordService.create(tenant.tenant_id, user.sub, dto, req.ip ?? null);
   }
 
   // ─── 2. List CP Records ───────────────────────────────────────────────────
@@ -66,12 +62,7 @@ export class CpRecordsController {
     query: z.infer<typeof listCpRecordsQuerySchema>,
     @Req() req: Request,
   ) {
-    return this.cpRecordService.listByStudent(
-      tenant.tenant_id,
-      user.sub,
-      query,
-      req.ip ?? null,
-    );
+    return this.cpRecordService.listByStudent(tenant.tenant_id, user.sub, query, req.ip ?? null);
   }
 
   // ─── 3. Get CP Record By ID ───────────────────────────────────────────────
@@ -83,12 +74,7 @@ export class CpRecordsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
   ) {
-    return this.cpRecordService.getById(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      req.ip ?? null,
-    );
+    return this.cpRecordService.getById(tenant.tenant_id, user.sub, id, req.ip ?? null);
   }
 
   // ─── 4. Update CP Record Metadata ─────────────────────────────────────────
@@ -102,12 +88,6 @@ export class CpRecordsController {
     dto: z.infer<typeof updateCpRecordSchema>,
     @Req() req: Request,
   ) {
-    return this.cpRecordService.update(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-      req.ip ?? null,
-    );
+    return this.cpRecordService.update(tenant.tenant_id, user.sub, id, dto, req.ip ?? null);
   }
 }

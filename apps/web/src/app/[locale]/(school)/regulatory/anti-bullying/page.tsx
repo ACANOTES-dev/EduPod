@@ -1,19 +1,21 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { Shield } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { StatCard } from '@school/ui';
+
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import type { BullyingIncidentSummary } from './_components/bullying-incident-summary';
 import { BullyingIncidentSummary as BullyingIncidentSummaryComponent } from './_components/bullying-incident-summary';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -63,8 +65,7 @@ export default function AntiBullyingPage() {
   const total = summary?.total_incidents ?? 0;
   const open = summary?.open ?? 0;
   const resolved = summary?.resolved ?? 0;
-  const resolutionRate =
-    total > 0 ? `${Math.round((resolved / total) * 100)}%` : '—';
+  const resolutionRate = total > 0 ? `${Math.round((resolved / total) * 100)}%` : '—';
 
   return (
     <div className="space-y-6">
@@ -103,32 +104,17 @@ export default function AntiBullyingPage() {
       {/* ─── Summary Stats ────────────────────────────────────────────────── */}
       {!isLoading && summary !== null && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label={t('antiBullying.statsTotal')}
-            value={total}
-          />
-          <StatCard
-            label={t('antiBullying.statsOpen')}
-            value={open}
-          />
-          <StatCard
-            label={t('antiBullying.statsResolved')}
-            value={resolved}
-          />
-          <StatCard
-            label={t('antiBullying.statsResolutionRate')}
-            value={resolutionRate}
-          />
+          <StatCard label={t('antiBullying.statsTotal')} value={total} />
+          <StatCard label={t('antiBullying.statsOpen')} value={open} />
+          <StatCard label={t('antiBullying.statsResolved')} value={resolved} />
+          <StatCard label={t('antiBullying.statsResolutionRate')} value={resolutionRate} />
         </div>
       )}
 
       {isLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="animate-pulse rounded-2xl bg-surface-secondary p-5"
-            >
+            <div key={i} className="animate-pulse rounded-2xl bg-surface-secondary p-5">
               <div className="h-3 w-1/2 rounded bg-surface-primary" />
               <div className="mt-2 h-8 w-1/3 rounded bg-surface-primary" />
             </div>
@@ -137,11 +123,7 @@ export default function AntiBullyingPage() {
       )}
 
       {/* ─── Category Breakdown ───────────────────────────────────────────── */}
-      <BullyingIncidentSummaryComponent
-        data={summary}
-        isLoading={isLoading}
-        locale={locale}
-      />
+      <BullyingIncidentSummaryComponent data={summary} isLoading={isLoading} locale={locale} />
     </div>
   );
 }

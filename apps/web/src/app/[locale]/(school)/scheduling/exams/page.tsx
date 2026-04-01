@@ -1,5 +1,9 @@
 'use client';
 
+import { BookOpen, Calendar, ChevronRight, Loader2, Plus, Sparkles, UserCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -17,17 +21,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import {
-  BookOpen,
-  Calendar,
-  ChevronRight,
-  Loader2,
-  Plus,
-  Sparkles,
-  UserCheck,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -83,7 +76,12 @@ function CreateSessionModal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   periods: AcademicPeriod[];
-  onSubmit: (values: { name: string; academic_period_id: string; start_date: string; end_date: string }) => Promise<void>;
+  onSubmit: (values: {
+    name: string;
+    academic_period_id: string;
+    start_date: string;
+    end_date: string;
+  }) => Promise<void>;
 }) {
   const t = useTranslations('scheduling.exams');
   const tc = useTranslations('common');
@@ -95,16 +93,30 @@ function CreateSessionModal({
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    if (open) { setName(''); setPeriodId(''); setStartDate(''); setEndDate(''); setError(''); }
+    if (open) {
+      setName('');
+      setPeriodId('');
+      setStartDate('');
+      setEndDate('');
+      setError('');
+    }
   }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !periodId || !startDate || !endDate) { setError(t('validationRequired')); return; }
+    if (!name || !periodId || !startDate || !endDate) {
+      setError(t('validationRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await onSubmit({ name, academic_period_id: periodId, start_date: startDate, end_date: endDate });
+      await onSubmit({
+        name,
+        academic_period_id: periodId,
+        start_date: startDate,
+        end_date: endDate,
+      });
       onOpenChange(false);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -117,34 +129,66 @@ function CreateSessionModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{t('createSession')}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t('createSession')}</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
             <Label>{t('sessionName')}</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('sessionNamePlaceholder')} required />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('sessionNamePlaceholder')}
+              required
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t('academicPeriod')}</Label>
             <Select value={periodId} onValueChange={setPeriodId}>
-              <SelectTrigger><SelectValue placeholder={t('selectPeriod')} /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder={t('selectPeriod')} />
+              </SelectTrigger>
               <SelectContent>
-                {periods.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {periods.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('startDate')}</Label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} dir="ltr" required />
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                dir="ltr"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>{t('endDate')}</Label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} dir="ltr" required />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                dir="ltr"
+                required
+              />
             </div>
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>{tc('cancel')}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              {tc('cancel')}
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('createSession')}
@@ -167,7 +211,14 @@ function AddExamSlotModal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   sessionId: string;
-  onSubmit: (values: { subject_id: string; year_group_id: string; date: string; start_time: string; duration_minutes: number; student_count: number }) => Promise<void>;
+  onSubmit: (values: {
+    subject_id: string;
+    year_group_id: string;
+    date: string;
+    start_time: string;
+    duration_minutes: number;
+    student_count: number;
+  }) => Promise<void>;
 }) {
   const t = useTranslations('scheduling.exams');
   const tc = useTranslations('common');
@@ -184,24 +235,44 @@ function AddExamSlotModal({
 
   React.useEffect(() => {
     if (open) {
-      setSubjectId(''); setYearGroupId(''); setDate(''); setStartTime(''); setDuration(90); setStudentCount(30); setError('');
+      setSubjectId('');
+      setYearGroupId('');
+      setDate('');
+      setStartTime('');
+      setDuration(90);
+      setStudentCount(30);
+      setError('');
       Promise.all([
         apiClient<{ data: Array<{ id: string; name: string }> }>('/api/v1/subjects?pageSize=100'),
-        apiClient<{ data: Array<{ id: string; name: string }> }>('/api/v1/year-groups?pageSize=100'),
-      ]).then(([sRes, ygRes]) => {
-        setSubjects(sRes.data ?? []);
-        setYearGroups(ygRes.data ?? []);
-      }).catch(() => {});
+        apiClient<{ data: Array<{ id: string; name: string }> }>(
+          '/api/v1/year-groups?pageSize=100',
+        ),
+      ])
+        .then(([sRes, ygRes]) => {
+          setSubjects(sRes.data ?? []);
+          setYearGroups(ygRes.data ?? []);
+        })
+        .catch(() => {});
     }
   }, [open, sessionId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectId || !yearGroupId || !date || !startTime) { setError(t('validationRequired')); return; }
+    if (!subjectId || !yearGroupId || !date || !startTime) {
+      setError(t('validationRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await onSubmit({ subject_id: subjectId, year_group_id: yearGroupId, date, start_time: startTime, duration_minutes: duration, student_count: studentCount });
+      await onSubmit({
+        subject_id: subjectId,
+        year_group_id: yearGroupId,
+        date,
+        start_time: startTime,
+        duration_minutes: duration,
+        student_count: studentCount,
+      });
       onOpenChange(false);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -214,47 +285,96 @@ function AddExamSlotModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{t('addExam')}</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{t('addExam')}</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('subject')}</Label>
               <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger><SelectValue placeholder={t('selectSubject')} /></SelectTrigger>
-                <SelectContent>{subjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('selectSubject')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>{t('yearGroup')}</Label>
               <Select value={yearGroupId} onValueChange={setYearGroupId}>
-                <SelectTrigger><SelectValue placeholder={t('selectYearGroup')} /></SelectTrigger>
-                <SelectContent>{yearGroups.map((yg) => <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('selectYearGroup')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearGroups.map((yg) => (
+                    <SelectItem key={yg.id} value={yg.id}>
+                      {yg.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('examDate')}</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} dir="ltr" required />
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                dir="ltr"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label>{t('startTime')}</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} dir="ltr" required />
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                dir="ltr"
+                required
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t('durationMinutes')}</Label>
-              <Input type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value, 10) || 90)} min={10} dir="ltr" />
+              <Input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(parseInt(e.target.value, 10) || 90)}
+                min={10}
+                dir="ltr"
+              />
             </div>
             <div className="space-y-1.5">
               <Label>{t('studentCount')}</Label>
-              <Input type="number" value={studentCount} onChange={(e) => setStudentCount(parseInt(e.target.value, 10) || 1)} min={1} dir="ltr" />
+              <Input
+                type="number"
+                value={studentCount}
+                onChange={(e) => setStudentCount(parseInt(e.target.value, 10) || 1)}
+                min={1}
+                dir="ltr"
+              />
             </div>
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>{tc('cancel')}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              {tc('cancel')}
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin me-2" />}
               {t('addExam')}
@@ -268,13 +388,7 @@ function AddExamSlotModal({
 
 // ─── Session Detail ───────────────────────────────────────────────────────────
 
-function SessionDetail({
-  session,
-  onBack,
-}: {
-  session: ExamSession;
-  onBack: () => void;
-}) {
+function SessionDetail({ session, onBack }: { session: ExamSession; onBack: () => void }) {
   const t = useTranslations('scheduling.exams');
   const [slots, setSlots] = React.useState<ExamSlot[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -286,7 +400,9 @@ function SessionDetail({
   const fetchSlots = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<{ data: ExamSlot[] }>(`/api/v1/scheduling/exam-sessions/${session.id}/slots`);
+      const res = await apiClient<{ data: ExamSlot[] }>(
+        `/api/v1/scheduling/exam-sessions/${session.id}/slots`,
+      );
       setSlots(res.data ?? []);
     } catch {
       setSlots([]);
@@ -295,9 +411,18 @@ function SessionDetail({
     }
   }, [session.id]);
 
-  React.useEffect(() => { void fetchSlots(); }, [fetchSlots]);
+  React.useEffect(() => {
+    void fetchSlots();
+  }, [fetchSlots]);
 
-  const handleAddSlot = async (values: { subject_id: string; year_group_id: string; date: string; start_time: string; duration_minutes: number; student_count: number }) => {
+  const handleAddSlot = async (values: {
+    subject_id: string;
+    year_group_id: string;
+    date: string;
+    start_time: string;
+    duration_minutes: number;
+    student_count: number;
+  }) => {
     await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/slots`, {
       method: 'POST',
       body: JSON.stringify(values),
@@ -309,7 +434,9 @@ function SessionDetail({
   const handleGenerateSchedule = async () => {
     setSolving(true);
     try {
-      await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/generate`, { method: 'POST' });
+      await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/generate`, {
+        method: 'POST',
+      });
       toast.success(t('solverStarted'));
     } catch {
       toast.error(t('solverFailed'));
@@ -321,7 +448,9 @@ function SessionDetail({
   const handleAssignInvigilators = async () => {
     setAssigningInvig(true);
     try {
-      await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/assign-invigilators`, { method: 'POST' });
+      await apiClient(`/api/v1/scheduling/exam-sessions/${session.id}/assign-invigilators`, {
+        method: 'POST',
+      });
       toast.success(t('invigilatorsAssigned'));
       void fetchSlots();
     } catch {
@@ -357,12 +486,30 @@ function SessionDetail({
             </Button>
             {session.status === 'planning' && (
               <>
-                <Button variant="outline" size="sm" onClick={() => void handleGenerateSchedule()} disabled={solving}>
-                  {solving ? <Loader2 className="h-4 w-4 animate-spin me-2" /> : <Sparkles className="h-4 w-4 me-2" />}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleGenerateSchedule()}
+                  disabled={solving}
+                >
+                  {solving ? (
+                    <Loader2 className="h-4 w-4 animate-spin me-2" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 me-2" />
+                  )}
                   {t('generateSchedule')}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => void handleAssignInvigilators()} disabled={assigningInvig}>
-                  {assigningInvig ? <Loader2 className="h-4 w-4 animate-spin me-2" /> : <UserCheck className="h-4 w-4 me-2" />}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleAssignInvigilators()}
+                  disabled={assigningInvig}
+                >
+                  {assigningInvig ? (
+                    <Loader2 className="h-4 w-4 animate-spin me-2" />
+                  ) : (
+                    <UserCheck className="h-4 w-4 me-2" />
+                  )}
                   {t('assignInvigilators')}
                 </Button>
                 <Button onClick={() => void handlePublish()} disabled={publishing}>
@@ -397,18 +544,39 @@ function SessionDetail({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                {[t('subject'), t('yearGroup'), t('date'), t('time'), t('duration'), t('room'), t('students'), t('invigilators')].map((h) => (
-                  <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase">{h}</th>
+                {[
+                  t('subject'),
+                  t('yearGroup'),
+                  t('date'),
+                  t('time'),
+                  t('duration'),
+                  t('room'),
+                  t('students'),
+                  t('invigilators'),
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-4 py-3 text-start text-xs font-semibold text-text-tertiary uppercase"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {slots.map((slot) => (
-                <tr key={slot.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50">
+                <tr
+                  key={slot.id}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary/50"
+                >
                   <td className="px-4 py-3 font-medium text-text-primary">{slot.subject_name}</td>
                   <td className="px-4 py-3 text-text-secondary">{slot.year_group_name}</td>
-                  <td className="px-4 py-3 text-text-secondary">{new Date(slot.date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-text-secondary font-mono text-xs">{slot.start_time}</td>
+                  <td className="px-4 py-3 text-text-secondary">
+                    {new Date(slot.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary font-mono text-xs">
+                    {slot.start_time}
+                  </td>
                   <td className="px-4 py-3 text-text-secondary">{slot.duration_minutes}m</td>
                   <td className="px-4 py-3 text-text-secondary">{slot.room_name ?? '—'}</td>
                   <td className="px-4 py-3 text-text-secondary">{slot.student_count}</td>
@@ -455,7 +623,9 @@ export default function ExamsPage() {
   const fetchSessions = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient<{ data: ExamSession[] }>('/api/v1/scheduling/exam-sessions?pageSize=50');
+      const res = await apiClient<{ data: ExamSession[] }>(
+        '/api/v1/scheduling/exam-sessions?pageSize=50',
+      );
       setSessions(res.data ?? []);
     } catch {
       setSessions([]);
@@ -471,7 +641,12 @@ export default function ExamsPage() {
       .catch(() => setPeriods([]));
   }, [fetchSessions]);
 
-  const handleCreateSession = async (values: { name: string; academic_period_id: string; start_date: string; end_date: string }) => {
+  const handleCreateSession = async (values: {
+    name: string;
+    academic_period_id: string;
+    start_date: string;
+    end_date: string;
+  }) => {
     await apiClient('/api/v1/scheduling/exam-sessions', {
       method: 'POST',
       body: JSON.stringify(values),
@@ -484,7 +659,10 @@ export default function ExamsPage() {
     return (
       <SessionDetail
         session={selectedSession}
-        onBack={() => { setSelectedSession(null); void fetchSessions(); }}
+        onBack={() => {
+          setSelectedSession(null);
+          void fetchSessions();
+        }}
       />
     );
   }
@@ -504,7 +682,9 @@ export default function ExamsPage() {
 
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl bg-surface-secondary" />
+          ))}
         </div>
       ) : sessions.length === 0 ? (
         <div className="rounded-2xl border border-border bg-surface p-12 text-center">
@@ -530,12 +710,16 @@ export default function ExamsPage() {
                     <Badge variant={sessionStatusVariant(session.status)}>{session.status}</Badge>
                   </div>
                   <p className="text-sm text-text-secondary">
-                    {new Date(session.start_date).toLocaleDateString()} – {new Date(session.end_date).toLocaleDateString()}
+                    {new Date(session.start_date).toLocaleDateString()} –{' '}
+                    {new Date(session.end_date).toLocaleDateString()}
                   </p>
                   <p className="text-xs text-text-tertiary">
                     {session.slot_count} {t('examsTotal')}
                     {session.unassigned_count > 0 && (
-                      <span className="text-warning-600"> · {session.unassigned_count} {t('unassigned')}</span>
+                      <span className="text-warning-600">
+                        {' '}
+                        · {session.unassigned_count} {t('unassigned')}
+                      </span>
                     )}
                   </p>
                 </div>

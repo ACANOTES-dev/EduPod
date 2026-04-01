@@ -1,15 +1,5 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StatCard,
-} from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -25,6 +15,17 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatCard,
+} from '@school/ui';
 
 import {
   EVENT_TYPE_OPTIONS,

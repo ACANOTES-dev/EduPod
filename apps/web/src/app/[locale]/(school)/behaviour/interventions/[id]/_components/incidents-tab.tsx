@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+
+import { Badge } from '@school/ui';
 
 
 import type { LinkedIncident } from './intervention-types';

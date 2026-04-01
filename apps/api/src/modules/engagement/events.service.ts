@@ -8,9 +8,10 @@ import {
 } from '@nestjs/common';
 import { EngagementEventStatus } from '@prisma/client';
 import type { EventStaffRole } from '@prisma/client';
+import type { Queue } from 'bullmq';
+
 import type { CreateEngagementEventDto, UpdateEngagementEventDto } from '@school/shared';
 import { EVENT_VALID_TRANSITIONS } from '@school/shared';
-import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

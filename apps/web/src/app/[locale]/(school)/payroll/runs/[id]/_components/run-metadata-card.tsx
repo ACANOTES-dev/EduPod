@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, Input, StatusBadge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, StatusBadge } from '@school/ui';
 
 const statusVariantMap: Record<string, 'success' | 'warning' | 'info' | 'neutral' | 'danger'> = {
   draft: 'warning',
@@ -83,7 +83,9 @@ export function RunMetadataCard({ run, isDraft, onUpdateWorkingDays }: RunMetada
                   }}
                   autoFocus
                 />
-                <Button size="sm" onClick={handleSaveDays}>{t('save')}</Button>
+                <Button size="sm" onClick={handleSaveDays}>
+                  {t('save')}
+                </Button>
               </div>
             ) : (
               <p

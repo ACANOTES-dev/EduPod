@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -82,7 +83,12 @@ describe('EarlyWarningController', () => {
 
   describe('list', () => {
     it('should delegate to earlyWarningService.listProfiles with tenant, user, and query', async () => {
-      const query = { page: 1, pageSize: 20, sort: 'composite_score' as const, order: 'desc' as const };
+      const query = {
+        page: 1,
+        pageSize: 20,
+        sort: 'composite_score' as const,
+        order: 'desc' as const,
+      };
       const expected = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
       mockEarlyWarningService.listProfiles.mockResolvedValue(expected);
 
@@ -162,10 +168,7 @@ describe('EarlyWarningController', () => {
 
       const result = await controller.updateConfig(TENANT, dto as never);
 
-      expect(mockConfigService.updateConfig).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        dto,
-      );
+      expect(mockConfigService.updateConfig).toHaveBeenCalledWith(TENANT.tenant_id, dto);
       expect(result).toEqual({ data: configData });
     });
   });

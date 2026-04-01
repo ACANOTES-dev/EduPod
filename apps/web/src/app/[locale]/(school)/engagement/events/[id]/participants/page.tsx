@@ -1,5 +1,10 @@
 'use client';
 
+import { Download, BellRing } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,10 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Download, BellRing } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   getParticipantClassName,

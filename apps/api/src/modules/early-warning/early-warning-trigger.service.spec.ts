@@ -1,5 +1,6 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,11 +56,7 @@ describe('EarlyWarningTriggerService', () => {
     it('should enqueue compute-student job when enabled and event matches', async () => {
       mockPrisma.earlyWarningConfig.findFirst.mockResolvedValue({
         is_enabled: true,
-        high_severity_events_json: [
-          'suspension',
-          'critical_incident',
-          'third_consecutive_absence',
-        ],
+        high_severity_events_json: ['suspension', 'critical_incident', 'third_consecutive_absence'],
       });
 
       await service.triggerStudentRecompute(TENANT_ID, STUDENT_ID, 'suspension');

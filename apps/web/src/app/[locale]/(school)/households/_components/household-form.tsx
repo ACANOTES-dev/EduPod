@@ -1,13 +1,9 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  Label,
-} from '@school/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import * as React from 'react';
 
+import { Button, Input, Label } from '@school/ui';
 
 export interface EmergencyContactData {
   id?: string;
@@ -103,8 +99,7 @@ export function HouseholdForm({ initialData, onSubmit, isEditMode = false }: Hou
     formData.emergency_contacts.forEach((contact, index) => {
       if (!contact.contact_name.trim())
         newErrors[`contact_${index}_contact_name`] = 'Contact name is required';
-      if (!contact.phone.trim())
-        newErrors[`contact_${index}_phone`] = 'Phone is required';
+      if (!contact.phone.trim()) newErrors[`contact_${index}_phone`] = 'Phone is required';
       if (!contact.relationship_label.trim())
         newErrors[`contact_${index}_relationship_label`] = 'Relationship is required';
     });
@@ -192,9 +187,7 @@ export function HouseholdForm({ initialData, onSubmit, isEditMode = false }: Hou
       {/* Emergency contacts */}
       <fieldset className="space-y-4">
         <div className="flex items-center justify-between">
-          <legend className="text-sm font-semibold text-text-primary">
-            Emergency Contacts *
-          </legend>
+          <legend className="text-sm font-semibold text-text-primary">Emergency Contacts *</legend>
           {formData.emergency_contacts.length < 3 && (
             <Button type="button" variant="outline" size="sm" onClick={addContact}>
               <Plus className="me-1 h-3.5 w-3.5" />
@@ -204,10 +197,7 @@ export function HouseholdForm({ initialData, onSubmit, isEditMode = false }: Hou
         </div>
 
         {formData.emergency_contacts.map((contact, index) => (
-          <div
-            key={index}
-            className="relative rounded-xl border border-border p-4 space-y-4"
-          >
+          <div key={index} className="relative rounded-xl border border-border p-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">
                 Contact {contact.display_order}

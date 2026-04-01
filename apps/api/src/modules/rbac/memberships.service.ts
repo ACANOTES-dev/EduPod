@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { UserListQuery } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -149,11 +146,7 @@ export class MembershipsService {
    * Replace the roles assigned to a user's membership.
    * Invalidates permission cache.
    */
-  async updateMembershipRoles(
-    tenantId: string,
-    userId: string,
-    roleIds: string[],
-  ) {
+  async updateMembershipRoles(tenantId: string, userId: string, roleIds: string[]) {
     const membership = await this.prisma.tenantMembership.findFirst({
       where: {
         tenant_id: tenantId,

@@ -1,10 +1,7 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { SchedulingPreferenceType } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+
 import type {
   CreateStaffPreferenceDto,
   PreferencePayloadDto,
@@ -77,7 +74,8 @@ export class StaffPreferencesService {
     if (!canManageAll && !canManageOwn) {
       throw new ForbiddenException({
         code: 'PERMISSION_DENIED',
-        message: 'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
+        message:
+          'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
       });
     }
 
@@ -121,7 +119,8 @@ export class StaffPreferencesService {
     if (!canManageAll && !canManageOwn) {
       throw new ForbiddenException({
         code: 'PERMISSION_DENIED',
-        message: 'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
+        message:
+          'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
       });
     }
 
@@ -150,12 +149,7 @@ export class StaffPreferencesService {
     });
   }
 
-  async delete(
-    tenantId: string,
-    userId: string,
-    id: string,
-    userPermissions: string[],
-  ) {
+  async delete(tenantId: string, userId: string, id: string, userPermissions: string[]) {
     const existing = await this.assertExists(tenantId, id);
 
     const canManageAll = userPermissions.includes('schedule.manage_preferences');
@@ -164,7 +158,8 @@ export class StaffPreferencesService {
     if (!canManageAll && !canManageOwn) {
       throw new ForbiddenException({
         code: 'PERMISSION_DENIED',
-        message: 'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
+        message:
+          'Missing required permission: schedule.manage_preferences or schedule.manage_own_preferences',
       });
     }
 

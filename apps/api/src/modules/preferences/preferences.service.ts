@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { UpdateUiPreferencesDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -50,10 +51,7 @@ export class PreferencesService {
    * Get UI preferences for a user at a specific tenant.
    * Returns empty object if no preferences have been saved.
    */
-  async getPreferences(
-    tenantId: string,
-    userId: string,
-  ): Promise<Record<string, unknown>> {
+  async getPreferences(tenantId: string, userId: string): Promise<Record<string, unknown>> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const record = (await prismaWithRls.$transaction(async (tx) => {

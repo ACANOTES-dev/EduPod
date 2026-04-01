@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import {
   DryRunResult,
   DryRunStageResult,
@@ -54,10 +50,7 @@ export class PolicyReplayService {
    * Historical replay: evaluates a rule against past incidents WITHOUT
    * executing any actions or writing any ledger entries.
    */
-  async replayRule(
-    tenantId: string,
-    dto: ReplayPolicyRuleDto,
-  ): Promise<ReplayResult> {
+  async replayRule(tenantId: string, dto: ReplayPolicyRuleDto): Promise<ReplayResult> {
     // Validate period
     const fromDate = new Date(dto.replay_period.from);
     const toDate = new Date(dto.replay_period.to + 'T23:59:59Z');
@@ -123,24 +116,14 @@ export class PolicyReplayService {
       for (const participant of incident.participants) {
         if (!participant.student_id) continue;
 
-        const input = this.buildEvaluatedInputFromSnapshot(
-          incident,
-          participant,
-          conditions,
-        );
-        const matches = this.evaluationEngine.evaluateConditions(
-          conditions,
-          input,
-        );
+        const input = this.buildEvaluatedInputFromSnapshot(incident, participant, conditions);
+        const matches = this.evaluationEngine.evaluateConditions(conditions, input);
 
         if (matches) {
           matchedIncidentIds.add(incident.id);
           affectedStudentIds.add(participant.student_id);
 
-          const snapshot = (participant.student_snapshot ?? {}) as Record<
-            string,
-            unknown
-          >;
+          const snapshot = (participant.student_snapshot ?? {}) as Record<string, unknown>;
           if (snapshot.year_group_name) {
             affectedYearGroupNames.add(snapshot.year_group_name as string);
           }
@@ -168,21 +151,14 @@ export class PolicyReplayService {
 
             sampleMatches.push({
               incident_id: incident.id,
-              incident_number:
-                (incident as Record<string, unknown>).incident_number as string,
+              incident_number: (incident as Record<string, unknown>).incident_number as string,
               occurred_at: incident.occurred_at.toISOString(),
               student_id: participant.student_id,
               student_label: studentLabelMap.get(participant.student_id)!,
-              year_group:
-                (snapshot.year_group_name as string) ?? null,
+              year_group: (snapshot.year_group_name as string) ?? null,
               category_name: incident.category?.name ?? '',
-              matched_conditions: conditions as unknown as Record<
-                string,
-                unknown
-              >,
-              actions_that_would_fire: rule.actions.map(
-                (a) => a.action_type as string,
-              ),
+              matched_conditions: conditions as unknown as Record<string, unknown>,
+              actions_that_would_fire: rule.actions.map((a) => a.action_type as string),
             });
           }
         }
@@ -190,8 +166,7 @@ export class PolicyReplayService {
     }
 
     const approvalCount =
-      (actionCounts['require_approval'] ?? 0) +
-      (actionCounts['block_without_approval'] ?? 0);
+      (actionCounts['require_approval'] ?? 0) + (actionCounts['block_without_approval'] ?? 0);
 
     return {
       rule_id: rule.id,
@@ -286,20 +261,14 @@ export class PolicyReplayService {
           matchedRules.push({
             rule_id: rule.id,
             rule_name: rule.name,
-            matched_conditions: conditions.data as unknown as Record<
-              string,
-              unknown
-            >,
+            matched_conditions: conditions.data as unknown as Record<string, unknown>,
             actions_that_would_fire: rule.actions.map((a) => ({
               action_type: a.action_type as string,
               action_config: a.action_config as Record<string, unknown>,
             })),
           });
 
-          if (
-            rule.stop_processing_stage ||
-            rule.match_strategy === 'first_match'
-          ) {
+          if (rule.stop_processing_stage || rule.match_strategy === 'first_match') {
             break;
           }
         }
@@ -313,10 +282,7 @@ export class PolicyReplayService {
     }
 
     return {
-      hypothetical_input: hypotheticalInput as unknown as Record<
-        string,
-        unknown
-      >,
+      hypothetical_input: hypotheticalInput as unknown as Record<string, unknown>,
       stage_results: stageResults,
     };
   }
@@ -370,10 +336,7 @@ export class PolicyReplayService {
     },
     conditions: PolicyCondition,
   ): EvaluatedInput {
-    const snapshot = (participant.student_snapshot ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const snapshot = (participant.student_snapshot ?? {}) as Record<string, unknown>;
 
     return {
       category_id: incident.category_id,
@@ -389,8 +352,7 @@ export class PolicyReplayService {
       year_group_id: (snapshot.year_group_id as string) ?? null,
       year_group_name: (snapshot.year_group_name as string) ?? null,
       has_send: (snapshot.has_send as boolean) ?? false,
-      had_active_intervention:
-        (snapshot.had_active_intervention as boolean) ?? false,
+      had_active_intervention: (snapshot.had_active_intervention as boolean) ?? false,
       repeat_count: 0, // Replay doesn't recompute repeat count from DB
       repeat_window_days_used: conditions.repeat_window_days ?? null,
       repeat_category_ids_used: conditions.repeat_category_ids ?? [],

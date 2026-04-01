@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -35,9 +36,7 @@ describe('BrandingController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BrandingController],
-      providers: [
-        { provide: BrandingService, useValue: mockService },
-      ],
+      providers: [{ provide: BrandingService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -88,8 +87,6 @@ describe('BrandingController', () => {
   });
 
   it('should throw BadRequestException when no file is uploaded', async () => {
-    await expect(
-      controller.uploadLogo(tenantCtx, undefined),
-    ).rejects.toThrow(BadRequestException);
+    await expect(controller.uploadLogo(tenantCtx, undefined)).rejects.toThrow(BadRequestException);
   });
 });

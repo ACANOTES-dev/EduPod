@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { AcademicAlertType, AcademicRiskLevel, PrismaClient } from '@prisma/client';
-import { CONSENT_TYPES } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { CONSENT_TYPES } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -80,18 +81,14 @@ export class GradebookRiskDetectionProcessor extends WorkerHost {
 
     if (tenant_id) {
       // Per-tenant mode: dispatched explicitly for a single tenant
-      this.logger.log(
-        `Processing ${GRADEBOOK_DETECT_RISKS_JOB} — tenant ${tenant_id}`,
-      );
+      this.logger.log(`Processing ${GRADEBOOK_DETECT_RISKS_JOB} — tenant ${tenant_id}`);
       const innerJob = new GradebookRiskDetectionJob(this.prisma);
       await innerJob.execute(job.data);
       return;
     }
 
     // Cross-tenant cron mode: iterate all active tenants
-    this.logger.log(
-      `Processing ${GRADEBOOK_DETECT_RISKS_JOB} — cross-tenant cron run`,
-    );
+    this.logger.log(`Processing ${GRADEBOOK_DETECT_RISKS_JOB} — cross-tenant cron run`);
 
     const tenants = await this.prisma.tenant.findMany({
       where: { status: 'active' },
@@ -105,9 +102,7 @@ export class GradebookRiskDetectionProcessor extends WorkerHost {
         await innerJob.execute({ tenant_id: tenant.id });
         successCount++;
       } catch (err: unknown) {
-        this.logger.error(
-          `Risk detection failed for tenant ${tenant.id}: ${String(err)}`,
-        );
+        this.logger.error(`Risk detection failed for tenant ${tenant.id}: ${String(err)}`);
       }
     }
 
@@ -122,10 +117,7 @@ export class GradebookRiskDetectionProcessor extends WorkerHost {
 class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPayload> {
   private readonly logger = new Logger(GradebookRiskDetectionJob.name);
 
-  protected async processJob(
-    data: GradebookRiskDetectionPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: GradebookRiskDetectionPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // 1. Read tenant settings
@@ -209,9 +201,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
       select: { subject_id: true },
     });
 
-    const activeStudentIds = new Set(
-      riskDetectionConsents.map((consent) => consent.subject_id),
-    );
+    const activeStudentIds = new Set(riskDetectionConsents.map((consent) => consent.subject_id));
 
     if (activeStudentIds.size === 0) {
       this.logger.log(
@@ -287,7 +277,10 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
 
     // ── B. Class-level anomaly detection ────────────────────────────────────
     // Group grades by class + subject + assessment, ordered by assessment creation time
-    const gradesByAssessment = new Map<string, { classSubjectKey: string; grades: GradeDataPoint[] }>();
+    const gradesByAssessment = new Map<
+      string,
+      { classSubjectKey: string; grades: GradeDataPoint[] }
+    >();
     for (const g of grades) {
       const key = g.assessment_id;
       const existing = gradesByAssessment.get(key);
@@ -381,7 +374,10 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
     }
 
     // Group assessments per teacher
-    const assessmentsByTeacher = new Map<string, Array<{ assessment_id: string; stddev: number; pcts: number[] }>>();
+    const assessmentsByTeacher = new Map<
+      string,
+      Array<{ assessment_id: string; stddev: number; pcts: number[] }>
+    >();
     for (const [key, pcts] of gradesByTeacherAssessment) {
       const [teacherId, assessmentId] = key.split('::');
       if (!teacherId || !assessmentId) continue;
@@ -440,7 +436,9 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
     detectedDate: Date,
   ): AlertCreateData | null {
     // Sort ascending by created_at to get chronological order
-    const sorted = [...studentGrades].sort((a, b) => a.created_at.getTime() - b.created_at.getTime());
+    const sorted = [...studentGrades].sort(
+      (a, b) => a.created_at.getTime() - b.created_at.getTime(),
+    );
     const pcts = sorted.map((g) => g.pct);
 
     // Calculate trajectory: avg of last 3 vs avg of previous 3
@@ -479,10 +477,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
     ) {
       riskLevel = 'medium';
       alertType = 'at_risk_medium';
-    } else if (
-      trajectoryDrop > 0 &&
-      belowClassMeanPct > config.belowClassMeanThresholdPct / 2
-    ) {
+    } else if (trajectoryDrop > 0 && belowClassMeanPct > config.belowClassMeanThresholdPct / 2) {
       riskLevel = 'low';
       alertType = 'at_risk_low';
     }
@@ -556,10 +551,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
 
   // ─── Config reader ───────────────────────────────────────────────────────
 
-  private async readRiskConfig(
-    tx: PrismaClient,
-    tenantId: string,
-  ): Promise<RiskDetectionConfig> {
+  private async readRiskConfig(tx: PrismaClient, tenantId: string): Promise<RiskDetectionConfig> {
     const tenantSettings = await tx.tenantSetting.findFirst({
       where: { tenant_id: tenantId },
       select: { settings: true },
@@ -571,9 +563,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
 
     return {
       enabled:
-        typeof riskConfig.enabled === 'boolean'
-          ? riskConfig.enabled
-          : DEFAULT_CONFIG.enabled,
+        typeof riskConfig.enabled === 'boolean' ? riskConfig.enabled : DEFAULT_CONFIG.enabled,
       minAssessments:
         typeof riskConfig.minAssessments === 'number'
           ? riskConfig.minAssessments
@@ -614,10 +604,7 @@ class GradebookRiskDetectionJob extends TenantAwareJob<GradebookRiskDetectionPay
    * Unlike AttendancePatternAlert (which has a unique index), StudentAcademicRiskAlert
    * has no unique constraint, so we guard with a findFirst check before creating.
    */
-  private async createAlertSafe(
-    tx: PrismaClient,
-    data: AlertCreateData,
-  ): Promise<number> {
+  private async createAlertSafe(tx: PrismaClient, data: AlertCreateData): Promise<number> {
     try {
       const existing = await tx.studentAcademicRiskAlert.findFirst({
         where: {

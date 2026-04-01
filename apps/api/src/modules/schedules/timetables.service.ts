@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type { TimetableEntry, WorkloadEntry } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -123,10 +124,7 @@ export class TimetablesService {
     return schedules.map((s) => this.toTimetableEntry(s));
   }
 
-  async getWorkloadReport(
-    tenantId: string,
-    academicYearId: string,
-  ): Promise<WorkloadEntry[]> {
+  async getWorkloadReport(tenantId: string, academicYearId: string): Promise<WorkloadEntry[]> {
     // Get all effective schedules for the academic year with teachers
     const where = this.buildEffectiveFilter(tenantId, academicYearId);
     where.teacher_staff_id = { not: null };
@@ -177,10 +175,8 @@ export class TimetablesService {
       entry.totalPeriods += 1;
 
       // Calculate duration in minutes
-      const startMinutes =
-        s.start_time.getUTCHours() * 60 + s.start_time.getUTCMinutes();
-      const endMinutes =
-        s.end_time.getUTCHours() * 60 + s.end_time.getUTCMinutes();
+      const startMinutes = s.start_time.getUTCHours() * 60 + s.start_time.getUTCMinutes();
+      const endMinutes = s.end_time.getUTCHours() * 60 + s.end_time.getUTCMinutes();
       const duration = endMinutes - startMinutes;
       entry.totalMinutes += duration;
 
@@ -223,10 +219,7 @@ export class TimetablesService {
       tenant_id: tenantId,
       academic_year_id: academicYearId,
       effective_start_date: { lte: referenceDate },
-      OR: [
-        { effective_end_date: null },
-        { effective_end_date: { gte: referenceDate } },
-      ],
+      OR: [{ effective_end_date: null }, { effective_end_date: { gte: referenceDate } }],
     };
 
     return where;

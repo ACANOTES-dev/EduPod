@@ -1,5 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { BLOCK_IMPERSONATION_KEY } from '../../../common/decorators/block-impersonation.decorator';
@@ -66,9 +67,7 @@ describe('SurveyController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SurveyController],
-      providers: [
-        { provide: SurveyService, useValue: mockSurveyService },
-      ],
+      providers: [{ provide: SurveyService, useValue: mockSurveyService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -116,10 +115,7 @@ describe('SurveyController', () => {
     it.each(adminMethods)(
       'should have @RequiresPermission("wellbeing.manage_surveys") on %s',
       (method) => {
-        const permission = Reflect.getMetadata(
-          REQUIRES_PERMISSION_KEY,
-          controller[method],
-        );
+        const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller[method]);
         expect(permission).toBe('wellbeing.manage_surveys');
       },
     );
@@ -127,26 +123,17 @@ describe('SurveyController', () => {
 
   describe('staff endpoint permissions', () => {
     it('should NOT have @RequiresPermission on submitResponse', () => {
-      const permission = Reflect.getMetadata(
-        REQUIRES_PERMISSION_KEY,
-        controller.submitResponse,
-      );
+      const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.submitResponse);
       expect(permission).toBeUndefined();
     });
 
     it('should NOT have @RequiresPermission on getActiveSurvey', () => {
-      const permission = Reflect.getMetadata(
-        REQUIRES_PERMISSION_KEY,
-        controller.getActiveSurvey,
-      );
+      const permission = Reflect.getMetadata(REQUIRES_PERMISSION_KEY, controller.getActiveSurvey);
       expect(permission).toBeUndefined();
     });
 
     it('should have @BlockImpersonation on the controller class (covers all endpoints)', () => {
-      const blocked = Reflect.getMetadata(
-        BLOCK_IMPERSONATION_KEY,
-        SurveyController,
-      );
+      const blocked = Reflect.getMetadata(BLOCK_IMPERSONATION_KEY, SurveyController);
       expect(blocked).toBe(true);
     });
   });
@@ -179,11 +166,7 @@ describe('SurveyController', () => {
 
       const result = await controller.create(TENANT, USER, dto);
 
-      expect(mockSurveyService.create).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        dto,
-      );
+      expect(mockSurveyService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -221,11 +204,7 @@ describe('SurveyController', () => {
 
       const result = await controller.update(TENANT, SURVEY_ID, dto);
 
-      expect(mockSurveyService.update).toHaveBeenCalledWith(
-        TENANT_ID,
-        SURVEY_ID,
-        dto,
-      );
+      expect(mockSurveyService.update).toHaveBeenCalledWith(TENANT_ID, SURVEY_ID, dto);
       expect(result).toBe(expected);
     });
   });
@@ -237,11 +216,7 @@ describe('SurveyController', () => {
 
       const result = await controller.clone(TENANT, USER, SURVEY_ID);
 
-      expect(mockSurveyService.clone).toHaveBeenCalledWith(
-        TENANT_ID,
-        SURVEY_ID,
-        USER_ID,
-      );
+      expect(mockSurveyService.clone).toHaveBeenCalledWith(TENANT_ID, SURVEY_ID, USER_ID);
       expect(result).toBe(expected);
     });
   });
@@ -277,19 +252,12 @@ describe('SurveyController', () => {
   describe('submitResponse', () => {
     it('should delegate to surveyService.submitResponse and return the result', async () => {
       const dto = {
-        answers: [
-          { question_id: QUESTION_ID, answer_value: 4 },
-        ],
+        answers: [{ question_id: QUESTION_ID, answer_value: 4 }],
       };
       const expected = { submitted: true };
       mockSurveyService.submitResponse.mockResolvedValue(expected);
 
-      const result = await controller.submitResponse(
-        TENANT,
-        USER,
-        SURVEY_ID,
-        dto,
-      );
+      const result = await controller.submitResponse(TENANT, USER, SURVEY_ID, dto);
 
       expect(mockSurveyService.submitResponse).toHaveBeenCalledWith(
         TENANT_ID,
@@ -310,16 +278,9 @@ describe('SurveyController', () => {
       mockSurveyService.getActiveSurvey.mockResolvedValue(expected);
 
       const mockRes = createMockResponse();
-      const result = await controller.getActiveSurvey(
-        TENANT,
-        USER,
-        mockRes as never,
-      );
+      const result = await controller.getActiveSurvey(TENANT, USER, mockRes as never);
 
-      expect(mockSurveyService.getActiveSurvey).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-      );
+      expect(mockSurveyService.getActiveSurvey).toHaveBeenCalledWith(TENANT_ID, USER_ID);
       expect(result).toBe(expected);
       expect(mockRes.status).not.toHaveBeenCalled();
     });
@@ -328,16 +289,9 @@ describe('SurveyController', () => {
       mockSurveyService.getActiveSurvey.mockResolvedValue(null);
 
       const mockRes = createMockResponse();
-      const result = await controller.getActiveSurvey(
-        TENANT,
-        USER,
-        mockRes as never,
-      );
+      const result = await controller.getActiveSurvey(TENANT, USER, mockRes as never);
 
-      expect(mockSurveyService.getActiveSurvey).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-      );
+      expect(mockSurveyService.getActiveSurvey).toHaveBeenCalledWith(TENANT_ID, USER_ID);
       expect(mockRes.status).toHaveBeenCalledWith(HttpStatus.NO_CONTENT);
       expect(result).toBeUndefined();
     });

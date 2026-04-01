@@ -1,6 +1,5 @@
 'use client';
 
-import { cn } from '@school/ui';
 import {
   Activity,
   Building2,
@@ -14,6 +13,8 @@ import {
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { RequireAuth } from '@/providers/auth-provider';
@@ -40,8 +41,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           '/api/v1/admin/security-incidents?pageSize=1&severity=high',
         );
         setOpenIncidentCount(res.meta.total);
-      } catch {
-        // Silently ignore — badge just won't show
+      } catch (err) {
+        console.error('[fetchOpenIncidents]', err);
       }
     }
     void fetchOpenIncidents();
@@ -54,7 +55,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     { icon: Building2, label: 'Tenants', href: `/${locale}/admin/tenants` },
     { icon: Activity, label: 'Health', href: `/${locale}/admin/health` },
     { icon: ClipboardList, label: 'Audit Log', href: `/${locale}/admin/audit-log` },
-    { icon: ShieldAlert, label: 'Security Incidents', href: `/${locale}/admin/security-incidents`, badge: openIncidentCount },
+    {
+      icon: ShieldAlert,
+      label: 'Security Incidents',
+      href: `/${locale}/admin/security-incidents`,
+      badge: openIncidentCount,
+    },
   ];
 
   const isActive = (href: string) => {
@@ -95,59 +101,52 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
   return (
     <RequireAuth>
-    <div className="flex h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
-        <div className="flex h-14 items-center border-b border-border px-5">
-          <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {sidebarNav}
-        </div>
-      </aside>
+      <div className="flex h-screen bg-background">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
+          <div className="flex h-14 items-center border-b border-border px-5">
+            <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
+          </div>
+          <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+        </aside>
 
-      {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
-            <div className="flex h-14 items-center justify-between border-b border-border px-5">
-              <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="p-1 text-text-secondary hover:text-text-primary"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {sidebarNav}
-            </div>
-          </aside>
-        </div>
-      )}
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
+              <div className="flex h-14 items-center justify-between border-b border-border px-5">
+                <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="p-1 text-text-secondary hover:text-text-primary"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+            </aside>
+          </div>
+        )}
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
-          <button
-            className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <h1 className="text-lg font-semibold text-text-primary lg:hidden">Platform Admin</h1>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-          <div className="mx-auto max-w-content">{children}</div>
-        </main>
+        {/* Main content */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
+            <button
+              className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-text-primary lg:hidden">Platform Admin</h1>
+          </header>
+          <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+            <div className="mx-auto max-w-content">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
     </RequireAuth>
   );
 }

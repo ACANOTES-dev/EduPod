@@ -1,12 +1,8 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import type { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+
+import type { JwtPayload } from '@school/shared';
 
 import { DpaService } from './dpa.service';
 
@@ -28,7 +24,9 @@ export class DpaAcceptedGuard implements CanActivate {
 
     const request = context
       .switchToHttp()
-      .getRequest<Request & { tenantContext?: { tenant_id: string } | null; currentUser?: JwtPayload }>();
+      .getRequest<
+        Request & { tenantContext?: { tenant_id: string } | null; currentUser?: JwtPayload }
+      >();
 
     if (request.method === 'OPTIONS') {
       return true;

@@ -1,9 +1,20 @@
 'use client';
 
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '@school/ui';
 import { Bell, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -26,8 +37,12 @@ interface AlertsResponse {
 }
 
 const METRICS = [
-  'attendance_rate', 'collection_rate', 'overdue_invoice_count',
-  'at_risk_student_count', 'average_grade', 'staff_absence_rate',
+  'attendance_rate',
+  'collection_rate',
+  'overdue_invoice_count',
+  'at_risk_student_count',
+  'average_grade',
+  'staff_absence_rate',
 ] as const;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -55,14 +70,14 @@ export default function AlertsPage() {
   }, []);
 
   const toggleAlert = async (id: string, active: boolean) => {
-    setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, active } : a));
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active } : a)));
     try {
       await apiClient(`/api/v1/reports/alerts/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active }),
       });
     } catch {
-      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, active: !active } : a));
+      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, active: !active } : a)));
     }
   };
 
@@ -73,23 +88,37 @@ export default function AlertsPage() {
       const res = await apiClient<{ data: ReportAlert }>('/api/v1/reports/alerts', {
         method: 'POST',
         body: JSON.stringify({
-          name: formName, metric: formMetric, operator: formOperator,
-          threshold: parseFloat(formThreshold), check_frequency: formFreq,
-          notification_recipients_json: formRecipients.split(',').map((e) => e.trim()).filter(Boolean),
+          name: formName,
+          metric: formMetric,
+          operator: formOperator,
+          threshold: parseFloat(formThreshold),
+          check_frequency: formFreq,
+          notification_recipients_json: formRecipients
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean),
         }),
       });
       setAlerts((prev) => [res.data, ...prev]);
     } catch {
       const mock: ReportAlert = {
-        id: crypto.randomUUID(), name: formName, metric: formMetric,
-        operator: formOperator, threshold: parseFloat(formThreshold),
-        check_frequency: formFreq, active: true, last_triggered_at: null,
+        id: crypto.randomUUID(),
+        name: formName,
+        metric: formMetric,
+        operator: formOperator,
+        threshold: parseFloat(formThreshold),
+        check_frequency: formFreq,
+        active: true,
+        last_triggered_at: null,
       };
       setAlerts((prev) => [mock, ...prev]);
     } finally {
       setSaving(false);
       setShowCreate(false);
-      setFormName(''); setFormMetric(''); setFormThreshold(''); setFormRecipients('');
+      setFormName('');
+      setFormMetric('');
+      setFormThreshold('');
+      setFormRecipients('');
     }
   };
 
@@ -117,21 +146,38 @@ export default function AlertsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Label htmlFor="alert-name">{t('alerts.name')}</Label>
-              <Input id="alert-name" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('alerts.namePlaceholder')} className="mt-1" />
+              <Input
+                id="alert-name"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder={t('alerts.namePlaceholder')}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>{t('alerts.metric')}</Label>
               <Select value={formMetric} onValueChange={setFormMetric}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder={t('alerts.selectMetric')} /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={t('alerts.selectMetric')} />
+                </SelectTrigger>
                 <SelectContent>
-                  {METRICS.map((m) => <SelectItem key={m} value={m}>{t(`alerts.metrics.${m}`)}</SelectItem>)}
+                  {METRICS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {t(`alerts.metrics.${m}`)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>{t('alerts.operator')}</Label>
-              <Select value={formOperator} onValueChange={(v) => setFormOperator(v as 'lt' | 'gt' | 'eq')}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={formOperator}
+                onValueChange={(v) => setFormOperator(v as 'lt' | 'gt' | 'eq')}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="lt">{t('alerts.operatorLt')}</SelectItem>
                   <SelectItem value="gt">{t('alerts.operatorGt')}</SelectItem>
@@ -141,12 +187,21 @@ export default function AlertsPage() {
             </div>
             <div>
               <Label htmlFor="alert-threshold">{t('alerts.threshold')}</Label>
-              <Input id="alert-threshold" type="number" value={formThreshold} onChange={(e) => setFormThreshold(e.target.value)} placeholder="e.g. 80" className="mt-1" />
+              <Input
+                id="alert-threshold"
+                type="number"
+                value={formThreshold}
+                onChange={(e) => setFormThreshold(e.target.value)}
+                placeholder="e.g. 80"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>{t('alerts.frequency')}</Label>
               <Select value={formFreq} onValueChange={(v) => setFormFreq(v as 'daily' | 'weekly')}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="daily">{t('alerts.daily')}</SelectItem>
                   <SelectItem value="weekly">{t('alerts.weekly')}</SelectItem>
@@ -155,14 +210,25 @@ export default function AlertsPage() {
             </div>
             <div>
               <Label htmlFor="alert-recipients">{t('alerts.recipients')}</Label>
-              <Input id="alert-recipients" value={formRecipients} onChange={(e) => setFormRecipients(e.target.value)} placeholder={t('alerts.recipientsPlaceholder')} className="mt-1" />
+              <Input
+                id="alert-recipients"
+                value={formRecipients}
+                onChange={(e) => setFormRecipients(e.target.value)}
+                placeholder={t('alerts.recipientsPlaceholder')}
+                className="mt-1"
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => void handleCreate()} disabled={saving || !formName.trim() || !formMetric || !formThreshold}>
+            <Button
+              onClick={() => void handleCreate()}
+              disabled={saving || !formName.trim() || !formMetric || !formThreshold}
+            >
               {saving ? t('alerts.saving') : t('alerts.save')}
             </Button>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('alerts.cancel')}</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              {t('alerts.cancel')}
+            </Button>
           </div>
         </section>
       )}
@@ -170,7 +236,9 @@ export default function AlertsPage() {
       {/* List */}
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-secondary" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-secondary" />
+          ))}
         </div>
       ) : alerts.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface py-16">
@@ -180,7 +248,10 @@ export default function AlertsPage() {
       ) : (
         <div className="space-y-2">
           {alerts.map((alert) => (
-            <div key={alert.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+            <div
+              key={alert.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
                   <Bell className="h-4 w-4 text-amber-600" />
@@ -191,12 +262,15 @@ export default function AlertsPage() {
                     {alert.metric} {operatorLabel(alert.operator)} {alert.threshold}
                     {' · '}
                     {alert.check_frequency}
-                    {alert.last_triggered_at && ` · ${t('alerts.lastTriggered')} ${new Date(alert.last_triggered_at).toLocaleDateString()}`}
+                    {alert.last_triggered_at &&
+                      ` · ${t('alerts.lastTriggered')} ${new Date(alert.last_triggered_at).toLocaleDateString()}`}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${alert.active ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-secondary text-text-tertiary'}`}>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${alert.active ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-secondary text-text-tertiary'}`}
+                >
                   {alert.active ? t('alerts.active') : t('alerts.inactive')}
                 </span>
                 <Switch

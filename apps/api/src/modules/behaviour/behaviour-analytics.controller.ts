@@ -9,6 +9,9 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   aiQuerySchema,
   behaviourAnalyticsQuerySchema,
@@ -16,8 +19,6 @@ import {
   csvExportQuerySchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -100,7 +101,12 @@ export class BehaviourAnalyticsController {
     query: z.infer<typeof behaviourAnalyticsQuerySchema>,
   ) {
     const permissions = await this.getUserPermissions(user.membership_id);
-    return this.analyticsService.getHistoricalHeatmap(tenant.tenant_id, user.sub, permissions, query);
+    return this.analyticsService.getHistoricalHeatmap(
+      tenant.tenant_id,
+      user.sub,
+      permissions,
+      query,
+    );
   }
 
   // ─── Trends ────────────────────────────────────────────────────────────────
@@ -332,22 +338,17 @@ export class BehaviourAnalyticsController {
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  private async getUserPermissions(
-    membershipId: string | null,
-  ): Promise<string[]> {
+  private async getUserPermissions(membershipId: string | null): Promise<string[]> {
     if (!membershipId) return [];
     return this.permissionCacheService.getPermissions(membershipId);
   }
 
-  private async getBehaviourSettings(
-    tenantId: string,
-  ): Promise<Record<string, unknown>> {
+  private async getBehaviourSettings(tenantId: string): Promise<Record<string, unknown>> {
     const tenantSettings = await this.prisma.tenantSetting.findFirst({
       where: { tenant_id: tenantId },
       select: { settings: true },
     });
-    const settings =
-      (tenantSettings?.settings as Record<string, unknown>) ?? {};
+    const settings = (tenantSettings?.settings as Record<string, unknown>) ?? {};
     return (settings?.behaviour as Record<string, unknown>) ?? {};
   }
 }

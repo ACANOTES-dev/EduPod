@@ -1,9 +1,20 @@
 'use client';
 
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch } from '@school/ui';
 import { Clock, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -26,14 +37,18 @@ interface ScheduledResponse {
 }
 
 const REPORT_TYPES = [
-  'attendance_summary', 'grade_analytics', 'fee_collection',
-  'board_report', 'admissions_funnel', 'staff_headcount',
+  'attendance_summary',
+  'grade_analytics',
+  'fee_collection',
+  'board_report',
+  'admissions_funnel',
+  'staff_headcount',
 ] as const;
 
 const FREQUENCIES = [
-  { value: '0 8 * * 1',   label: 'Every Monday' },
-  { value: '0 8 * * 5',   label: 'Every Friday' },
-  { value: '0 8 1 * *',   label: 'Monthly (1st)' },
+  { value: '0 8 * * 1', label: 'Every Monday' },
+  { value: '0 8 * * 5', label: 'Every Friday' },
+  { value: '0 8 1 * *', label: 'Monthly (1st)' },
   { value: '0 8 * * 1-5', label: 'Daily (weekdays)' },
 ] as const;
 
@@ -61,7 +76,7 @@ export default function ScheduledReportsPage() {
   }, []);
 
   const toggleActive = async (id: string, active: boolean) => {
-    setSchedules((prev) => prev.map((s) => s.id === id ? { ...s, active } : s));
+    setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, active } : s)));
     try {
       await apiClient(`/api/v1/reports/scheduled/${id}`, {
         method: 'PATCH',
@@ -69,7 +84,7 @@ export default function ScheduledReportsPage() {
       });
     } catch {
       // revert
-      setSchedules((prev) => prev.map((s) => s.id === id ? { ...s, active: !active } : s));
+      setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, active: !active } : s)));
     }
   };
 
@@ -83,7 +98,10 @@ export default function ScheduledReportsPage() {
           name: formName,
           report_type: formReport,
           schedule_cron: formFreq,
-          recipient_emails: formRecipients.split(',').map((e) => e.trim()).filter(Boolean),
+          recipient_emails: formRecipients
+            .split(',')
+            .map((e) => e.trim())
+            .filter(Boolean),
           format: formFormat,
         }),
       });
@@ -91,14 +109,21 @@ export default function ScheduledReportsPage() {
     } catch {
       // Mock add
       const mock: ScheduledReport = {
-        id: crypto.randomUUID(), name: formName, report_type: formReport,
-        schedule_cron: formFreq, format: formFormat, active: true, last_sent_at: null,
+        id: crypto.randomUUID(),
+        name: formName,
+        report_type: formReport,
+        schedule_cron: formFreq,
+        format: formFormat,
+        active: true,
+        last_sent_at: null,
       };
       setSchedules((prev) => [mock, ...prev]);
     } finally {
       setSaving(false);
       setShowCreate(false);
-      setFormName(''); setFormReport(''); setFormRecipients('');
+      setFormName('');
+      setFormReport('');
+      setFormRecipients('');
     }
   };
 
@@ -122,34 +147,59 @@ export default function ScheduledReportsPage() {
       {/* Create form */}
       {showCreate && (
         <section className="rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-6 space-y-4">
-          <h2 className="text-base font-semibold text-text-primary">{t('scheduled.createTitle')}</h2>
+          <h2 className="text-base font-semibold text-text-primary">
+            {t('scheduled.createTitle')}
+          </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="sched-name">{t('scheduled.name')}</Label>
-              <Input id="sched-name" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('scheduled.namePlaceholder')} className="mt-1" />
+              <Input
+                id="sched-name"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder={t('scheduled.namePlaceholder')}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>{t('scheduled.reportType')}</Label>
               <Select value={formReport} onValueChange={setFormReport}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder={t('scheduled.selectReport')} /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={t('scheduled.selectReport')} />
+                </SelectTrigger>
                 <SelectContent>
-                  {REPORT_TYPES.map((r) => <SelectItem key={r} value={r}>{t(`scheduled.reportTypes.${r}`)}</SelectItem>)}
+                  {REPORT_TYPES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {t(`scheduled.reportTypes.${r}`)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>{t('scheduled.frequency')}</Label>
               <Select value={formFreq} onValueChange={setFormFreq}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  {FREQUENCIES.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>{t('scheduled.format')}</Label>
-              <Select value={formFormat} onValueChange={(v) => setFormFormat(v as 'pdf' | 'csv' | 'xlsx')}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <Select
+                value={formFormat}
+                onValueChange={(v) => setFormFormat(v as 'pdf' | 'csv' | 'xlsx')}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pdf">PDF</SelectItem>
                   <SelectItem value="csv">CSV</SelectItem>
@@ -159,14 +209,25 @@ export default function ScheduledReportsPage() {
             </div>
             <div className="sm:col-span-2">
               <Label htmlFor="sched-recipients">{t('scheduled.recipients')}</Label>
-              <Input id="sched-recipients" value={formRecipients} onChange={(e) => setFormRecipients(e.target.value)} placeholder={t('scheduled.recipientsPlaceholder')} className="mt-1" />
+              <Input
+                id="sched-recipients"
+                value={formRecipients}
+                onChange={(e) => setFormRecipients(e.target.value)}
+                placeholder={t('scheduled.recipientsPlaceholder')}
+                className="mt-1"
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => void handleCreate()} disabled={saving || !formName.trim() || !formReport}>
+            <Button
+              onClick={() => void handleCreate()}
+              disabled={saving || !formName.trim() || !formReport}
+            >
               {saving ? t('scheduled.saving') : t('scheduled.save')}
             </Button>
-            <Button variant="outline" onClick={() => setShowCreate(false)}>{t('scheduled.cancel')}</Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>
+              {t('scheduled.cancel')}
+            </Button>
           </div>
         </section>
       )}
@@ -174,7 +235,9 @@ export default function ScheduledReportsPage() {
       {/* List */}
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-secondary" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 animate-pulse rounded-xl bg-surface-secondary" />
+          ))}
         </div>
       ) : schedules.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface py-16">
@@ -184,7 +247,10 @@ export default function ScheduledReportsPage() {
       ) : (
         <div className="space-y-2">
           {schedules.map((s) => (
-            <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+            >
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-secondary">
                   <Clock className="h-4 w-4 text-text-tertiary" />
@@ -193,12 +259,15 @@ export default function ScheduledReportsPage() {
                   <p className="text-sm font-semibold text-text-primary">{s.name}</p>
                   <p className="text-xs text-text-tertiary">
                     {cronLabel(s.schedule_cron)} · {s.format.toUpperCase()}
-                    {s.last_sent_at && ` · ${t('scheduled.lastSent')} ${new Date(s.last_sent_at).toLocaleDateString()}`}
+                    {s.last_sent_at &&
+                      ` · ${t('scheduled.lastSent')} ${new Date(s.last_sent_at).toLocaleDateString()}`}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.active ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-secondary text-text-tertiary'}`}>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.active ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-secondary text-text-tertiary'}`}
+                >
                   {s.active ? t('scheduled.active') : t('scheduled.inactive')}
                 </span>
                 <Switch

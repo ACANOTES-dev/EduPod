@@ -1,11 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  createReducedSchoolDaySchema,
-  updateReducedSchoolDaySchema,
-} from '@school/shared';
+import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+
 import type { CreateReducedSchoolDayDto, UpdateReducedSchoolDayDto } from '@school/shared';
+import { createReducedSchoolDaySchema, updateReducedSchoolDaySchema } from '@school/shared';
 import {
   Button,
   Checkbox,
@@ -18,10 +20,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { Loader2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-import { useForm } from 'react-hook-form';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -124,9 +122,7 @@ function CreateReducedDayForm({
           {...form.register('student_id')}
         />
         {form.formState.errors.student_id && (
-          <p className="text-xs text-danger-text">
-            {form.formState.errors.student_id.message}
-          </p>
+          <p className="text-xs text-danger-text">{form.formState.errors.student_id.message}</p>
         )}
       </div>
 
@@ -140,9 +136,7 @@ function CreateReducedDayForm({
           {...form.register('start_date')}
         />
         {form.formState.errors.start_date && (
-          <p className="text-xs text-danger-text">
-            {form.formState.errors.start_date.message}
-          </p>
+          <p className="text-xs text-danger-text">{form.formState.errors.start_date.message}</p>
         )}
       </div>
 
@@ -170,9 +164,7 @@ function CreateReducedDayForm({
           {...form.register('hours_per_day', { valueAsNumber: true })}
         />
         {form.formState.errors.hours_per_day && (
-          <p className="text-xs text-danger-text">
-            {form.formState.errors.hours_per_day.message}
-          </p>
+          <p className="text-xs text-danger-text">{form.formState.errors.hours_per_day.message}</p>
         )}
       </div>
 
@@ -182,11 +174,9 @@ function CreateReducedDayForm({
         <Select
           value={form.watch('reason')}
           onValueChange={(val) =>
-            form.setValue(
-              'reason',
-              val as CreateReducedSchoolDayDto['reason'],
-              { shouldValidate: true },
-            )
+            form.setValue('reason', val as CreateReducedSchoolDayDto['reason'], {
+              shouldValidate: true,
+            })
           }
         >
           <SelectTrigger className="w-full sm:w-64">
@@ -201,9 +191,7 @@ function CreateReducedDayForm({
           </SelectContent>
         </Select>
         {form.formState.errors.reason && (
-          <p className="text-xs text-danger-text">
-            {form.formState.errors.reason.message}
-          </p>
+          <p className="text-xs text-danger-text">{form.formState.errors.reason.message}</p>
         )}
       </div>
 
@@ -254,9 +242,7 @@ function CreateReducedDayForm({
       </div>
 
       {/* Error */}
-      {submitError && (
-        <p className="text-sm text-danger-text">{submitError}</p>
-      )}
+      {submitError && <p className="text-sm text-danger-text">{submitError}</p>}
 
       {/* Actions */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -268,11 +254,7 @@ function CreateReducedDayForm({
         >
           {t('tusla.reducedDaysCancel')}
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="min-h-[44px]"
-        >
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="min-h-[44px]">
           {isSubmitting ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />
@@ -373,9 +355,7 @@ function EditReducedDayForm({
           {...form.register('hours_per_day', { valueAsNumber: true })}
         />
         {form.formState.errors.hours_per_day && (
-          <p className="text-xs text-danger-text">
-            {form.formState.errors.hours_per_day.message}
-          </p>
+          <p className="text-xs text-danger-text">{form.formState.errors.hours_per_day.message}</p>
         )}
       </div>
 
@@ -440,9 +420,7 @@ function EditReducedDayForm({
       </div>
 
       {/* Error */}
-      {submitError && (
-        <p className="text-sm text-danger-text">{submitError}</p>
-      )}
+      {submitError && <p className="text-sm text-danger-text">{submitError}</p>}
 
       {/* Actions */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -454,11 +432,7 @@ function EditReducedDayForm({
         >
           {t('tusla.reducedDaysCancel')}
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting}
-          className="min-h-[44px]"
-        >
+        <Button onClick={handleSubmit} disabled={isSubmitting} className="min-h-[44px]">
           {isSubmitting ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />
@@ -478,18 +452,9 @@ function EditReducedDayForm({
 export function ReducedDayForm({ mode, initialData, onSuccess, onCancel }: ReducedDayFormProps) {
   if (mode === 'edit' && initialData) {
     return (
-      <EditReducedDayForm
-        initialData={initialData}
-        onSuccess={onSuccess}
-        onCancel={onCancel}
-      />
+      <EditReducedDayForm initialData={initialData} onSuccess={onSuccess} onCancel={onCancel} />
     );
   }
 
-  return (
-    <CreateReducedDayForm
-      onSuccess={onSuccess}
-      onCancel={onCancel}
-    />
-  );
+  return <CreateReducedDayForm onSuccess={onSuccess} onCancel={onCancel} />;
 }

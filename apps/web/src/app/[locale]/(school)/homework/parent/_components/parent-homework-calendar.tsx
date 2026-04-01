@@ -1,9 +1,10 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,9 +133,7 @@ export function ParentHomeworkCalendar({
         >
           <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
         </button>
-        <h3 className="text-sm font-semibold text-text-primary">
-          {formatMonthYear(year, month)}
-        </h3>
+        <h3 className="text-sm font-semibold text-text-primary">{formatMonthYear(year, month)}</h3>
         <button
           type="button"
           onClick={handleNextMonth}
@@ -179,9 +178,7 @@ export function ParentHomeworkCalendar({
               >
                 <span
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
-                    today
-                      ? 'bg-primary-600 text-white'
-                      : 'text-text-primary'
+                    today ? 'bg-primary-600 text-white' : 'text-text-primary'
                   }`}
                 >
                   {day}
@@ -216,7 +213,10 @@ export function ParentHomeworkCalendar({
             </h4>
             <div className="space-y-2">
               {(assignmentsByDay.get(expandedDay) ?? []).map((a) => (
-                <div key={a.id} className="flex items-start gap-3 rounded-lg bg-surface-secondary p-3">
+                <div
+                  key={a.id}
+                  className="flex items-start gap-3 rounded-lg bg-surface-secondary p-3"
+                >
                   <div
                     className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
                       TYPE_DOT_COLOURS[a.homework_type] ?? 'bg-gray-400'
@@ -226,7 +226,9 @@ export function ParentHomeworkCalendar({
                     <p className="text-sm font-medium text-text-primary">{a.title}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       {a.subject && (
-                        <Badge variant="secondary" className="text-xs">{a.subject.name}</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {a.subject.name}
+                        </Badge>
                       )}
                       <span className="text-xs text-text-tertiary">{a.class_entity.name}</span>
                     </div>
@@ -251,9 +253,7 @@ export function ParentHomeworkCalendar({
               <div className="flex items-center gap-2 mb-2">
                 <span
                   className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-                    today
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-surface-secondary text-text-primary'
+                    today ? 'bg-primary-600 text-white' : 'bg-surface-secondary text-text-primary'
                   }`}
                 >
                   {day}

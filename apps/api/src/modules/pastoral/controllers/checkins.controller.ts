@@ -8,9 +8,10 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import { submitCheckinSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -45,12 +46,7 @@ export class CheckinsController {
     @Body(new ZodValidationPipe(submitCheckinSchema))
     dto: z.infer<typeof submitCheckinSchema>,
   ) {
-    return this.checkinService.submitCheckin(
-      tenant.tenant_id,
-      user.sub,
-      user.sub,
-      dto,
-    );
+    return this.checkinService.submitCheckin(tenant.tenant_id, user.sub, user.sub, dto);
   }
 
   // ─── 2. Own Check-in History ────────────────────────────────────────────
@@ -73,13 +69,7 @@ export class CheckinsController {
   // ─── 3. Check-in Status ────────────────────────────────────────────────
 
   @Get('pastoral/checkins/status')
-  async status(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.checkinService.getCheckinStatus(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async status(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.checkinService.getCheckinStatus(tenant.tenant_id, user.sub);
   }
 }

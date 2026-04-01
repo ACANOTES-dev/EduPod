@@ -1,5 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import { pastoralTenantSettingsSchema } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';

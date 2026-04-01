@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertTriangle, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -9,10 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { AlertTriangle, CheckCircle2, ShieldAlert, XCircle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import type { ValidationResult, ViolationDetail } from './health-score';
 
@@ -61,9 +61,7 @@ export function ValidateResults({
   return (
     <div className="rounded-xl border border-border bg-surface overflow-hidden">
       <div className="px-4 py-3 border-b border-border bg-surface-secondary">
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t('runs.validationResults')}
-        </h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t('runs.validationResults')}</h3>
       </div>
 
       <div className="divide-y divide-border">
@@ -101,16 +99,14 @@ export function ValidateResults({
         )}
 
         {/* All clear */}
-        {result.tier1_count === 0 &&
-          result.tier2_count === 0 &&
-          result.tier3_count === 0 && (
-            <div className="px-4 py-6 flex flex-col items-center gap-2 text-center">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
-              <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                {t('runs.allClear')}
-              </p>
-            </div>
-          )}
+        {result.tier1_count === 0 && result.tier2_count === 0 && result.tier3_count === 0 && (
+          <div className="px-4 py-6 flex flex-col items-center gap-2 text-center">
+            <CheckCircle2 className="h-8 w-8 text-green-500" />
+            <p className="text-sm font-medium text-green-700 dark:text-green-400">
+              {t('runs.allClear')}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -140,9 +136,7 @@ export function ValidateResults({
           </DialogHeader>
 
           <div className="space-y-3">
-            <p className="text-sm text-text-secondary">
-              {t('runs.acknowledgeDescription')}
-            </p>
+            <p className="text-sm text-text-secondary">{t('runs.acknowledgeDescription')}</p>
 
             <div className="rounded-lg border border-red-200 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10 p-3 space-y-2 max-h-60 overflow-y-auto">
               {result.tier2_violations.map((v, i) => (
@@ -158,9 +152,7 @@ export function ValidateResults({
                 onCheckedChange={(checked) => setAcknowledged(checked === true)}
                 className="mt-0.5"
               />
-              <span className="text-sm text-text-primary">
-                {t('runs.acknowledgeCheckbox')}
-              </span>
+              <span className="text-sm text-text-primary">{t('runs.acknowledgeCheckbox')}</span>
             </label>
           </div>
 
@@ -198,13 +190,9 @@ function ViolationSection({
   onCellClick?: (cellKey: string) => void;
 }) {
   const headerBg =
-    colour === 'red'
-      ? 'bg-red-50 dark:bg-red-900/10'
-      : 'bg-amber-50 dark:bg-amber-900/10';
+    colour === 'red' ? 'bg-red-50 dark:bg-red-900/10' : 'bg-amber-50 dark:bg-amber-900/10';
   const textColour =
-    colour === 'red'
-      ? 'text-red-700 dark:text-red-400'
-      : 'text-amber-700 dark:text-amber-400';
+    colour === 'red' ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400';
 
   return (
     <div>

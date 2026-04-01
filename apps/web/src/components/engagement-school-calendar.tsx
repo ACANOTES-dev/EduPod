@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import {
   EVENT_TYPE_OPTIONS,

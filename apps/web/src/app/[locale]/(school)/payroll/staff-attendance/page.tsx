@@ -1,13 +1,20 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-type AttendanceStatus = 'present' | 'absent' | 'half_day' | 'unpaid_leave' | 'paid_leave' | 'sick_leave';
+type AttendanceStatus =
+  | 'present'
+  | 'absent'
+  | 'half_day'
+  | 'unpaid_leave'
+  | 'paid_leave'
+  | 'sick_leave';
 
 interface StaffAttendanceRecord {
   staff_profile_id: string;
@@ -71,9 +78,7 @@ export default function StaffAttendancePage() {
   >({});
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSaving, setIsSaving] = React.useState(false);
-  const [pendingChanges, setPendingChanges] = React.useState<
-    Record<string, AttendanceStatus>
-  >({});
+  const [pendingChanges, setPendingChanges] = React.useState<Record<string, AttendanceStatus>>({});
 
   const dateObj = React.useMemo(() => new Date(selectedDate + 'T00:00:00'), [selectedDate]);
   const year = dateObj.getFullYear();
@@ -88,8 +93,8 @@ export default function StaffAttendancePage() {
       );
       setStaff(res.data);
       setPendingChanges({});
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchDaily]', err);
     } finally {
       setIsLoading(false);
     }
@@ -102,8 +107,8 @@ export default function StaffAttendancePage() {
         data: Record<string, Record<string, AttendanceStatus>>;
       }>(`/api/v1/payroll/staff-attendance/monthly?year=${year}&month=${month + 1}`);
       setMonthlyData(res.data);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchMonthly]', err);
     } finally {
       setIsLoading(false);
     }
@@ -120,9 +125,7 @@ export default function StaffAttendancePage() {
   const handleStatusChange = (staffProfileId: string, status: AttendanceStatus) => {
     setPendingChanges((prev) => ({ ...prev, [staffProfileId]: status }));
     setStaff((prev) =>
-      prev.map((s) =>
-        s.staff_profile_id === staffProfileId ? { ...s, status } : s,
-      ),
+      prev.map((s) => (s.staff_profile_id === staffProfileId ? { ...s, status } : s)),
     );
   };
 
@@ -150,8 +153,8 @@ export default function StaffAttendancePage() {
         }),
       });
       setPendingChanges({});
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleSave]', err);
     } finally {
       setIsSaving(false);
     }
@@ -319,7 +322,11 @@ export default function StaffAttendancePage() {
                             className={`mx-auto h-5 w-5 rounded-sm ${
                               status ? HEATMAP_COLORS[status] : 'bg-surface-secondary'
                             }`}
-                            title={status ? t(`status_${status}` as Parameters<typeof t>[0]) : t('noRecord')}
+                            title={
+                              status
+                                ? t(`status_${status}` as Parameters<typeof t>[0])
+                                : t('noRecord')
+                            }
                           />
                         </td>
                       );

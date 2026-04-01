@@ -1,5 +1,9 @@
 'use client';
 
+import { Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,10 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -36,8 +36,6 @@ interface DayEntry {
   from_time: string;
   to_time: string;
 }
-
-
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -70,12 +68,16 @@ function DayRow({ weekday, label, entry, onChange, onToggle }: DayRowProps) {
   return (
     <div
       className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 transition-colors ${
-        isEnabled ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-border bg-surface-secondary'
+        isEnabled
+          ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+          : 'border-border bg-surface-secondary'
       }`}
     >
       <button
         className={`h-5 w-5 shrink-0 rounded border-2 transition-colors ${
-          isEnabled ? 'border-green-500 bg-green-500 dark:border-green-400 dark:bg-green-400' : 'border-border bg-canvas'
+          isEnabled
+            ? 'border-green-500 bg-green-500 dark:border-green-400 dark:bg-green-400'
+            : 'border-border bg-canvas'
         }`}
         onClick={() => onToggle(weekday, !isEnabled)}
         aria-label={isEnabled ? 'Disable' : 'Enable'}
@@ -130,14 +132,18 @@ export default function AvailabilityPage() {
   React.useEffect(() => {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
-      apiClient<{ data: Array<{ id: string; user: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user: { first_name: string; last_name: string } }> }>(
+        '/api/v1/staff-profiles?pageSize=100',
+      ),
     ])
       .then(([yearsRes, staffRes]) => {
         setAcademicYears(yearsRes.data);
-        setStaff((staffRes.data ?? []).map((s) => ({
-          id: s.id,
-          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
-        })));
+        setStaff(
+          (staffRes.data ?? []).map((s) => ({
+            id: s.id,
+            name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+          })),
+        );
         if (yearsRes.data.length > 0 && yearsRes.data[0]) {
           setSelectedYear(yearsRes.data[0].id);
         }
@@ -149,16 +155,28 @@ export default function AvailabilityPage() {
   React.useEffect(() => {
     if (!selectedStaff || !selectedYear) return;
     setIsLoading(true);
-    apiClient<Array<{ id: string; weekday: number; available_from: string; available_to: string }> | { data: Array<{ id: string; weekday: number; available_from: string; available_to: string }> }>(
+    apiClient<
+      | Array<{ id: string; weekday: number; available_from: string; available_to: string }>
+      | {
+          data: Array<{
+            id: string;
+            weekday: number;
+            available_from: string;
+            available_to: string;
+          }>;
+        }
+    >(
       `/api/v1/staff-availability?staff_profile_id=${selectedStaff}&academic_year_id=${selectedYear}`,
     )
       .then((res) => {
         const records = Array.isArray(res) ? res : (res.data ?? []);
-        setEntries(records.map((r) => ({
-          weekday: r.weekday,
-          from_time: r.available_from,
-          to_time: r.available_to,
-        })));
+        setEntries(
+          records.map((r) => ({
+            weekday: r.weekday,
+            from_time: r.available_from,
+            to_time: r.available_to,
+          })),
+        );
         setRecordId(records[0]?.id ?? null);
       })
       .catch(() => {
@@ -178,9 +196,7 @@ export default function AvailabilityPage() {
   };
 
   const handleChange = (weekday: number, field: 'from_time' | 'to_time', value: string) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.weekday === weekday ? { ...e, [field]: value } : e)),
-    );
+    setEntries((prev) => prev.map((e) => (e.weekday === weekday ? { ...e, [field]: value } : e)));
   };
 
   const handleSave = async () => {
@@ -209,18 +225,13 @@ export default function AvailabilityPage() {
     setEntries([]);
   };
 
-  const filteredStaff = staff.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredStaff = staff.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()));
 
   const selectedMember = staff.find((s) => s.id === selectedStaff);
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('auto.availability')}
-        description={t('auto.availabilityDesc')}
-      />
+      <PageHeader title={t('auto.availability')} description={t('auto.availabilityDesc')} />
 
       <div className="flex flex-col gap-6 sm:flex-row">
         {/* Staff list */}
@@ -249,9 +260,7 @@ export default function AvailabilityPage() {
               </button>
             ))}
             {filteredStaff.length === 0 && (
-              <div className="px-3 py-6 text-center text-xs text-text-tertiary">
-                No staff found
-              </div>
+              <div className="px-3 py-6 text-center text-xs text-text-tertiary">No staff found</div>
             )}
           </div>
         </div>

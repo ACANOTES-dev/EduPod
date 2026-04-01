@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { validateSchedule } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -161,9 +162,7 @@ describe('SchedulerValidationService', () => {
         status: 'running',
       });
 
-      await expect(service.validateRun(TENANT_ID, RUN_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.validateRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when run has no result_json', async () => {
@@ -175,9 +174,7 @@ describe('SchedulerValidationService', () => {
         proposed_adjustments: null,
       });
 
-      await expect(service.validateRun(TENANT_ID, RUN_ID)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.validateRun(TENANT_ID, RUN_ID)).rejects.toThrow(BadRequestException);
     });
 
     it('should include proposed_adjustments when present', async () => {
@@ -304,9 +301,9 @@ describe('SchedulerValidationService', () => {
     it('should throw NotFoundException when run does not exist', async () => {
       mockPrisma.schedulingRun.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.validateAdjustments(TENANT_ID, 'nonexistent', []),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.validateAdjustments(TENANT_ID, 'nonexistent', [])).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw BadRequestException when run has no result_json', async () => {
@@ -318,9 +315,9 @@ describe('SchedulerValidationService', () => {
         proposed_adjustments: null,
       });
 
-      await expect(
-        service.validateAdjustments(TENANT_ID, RUN_ID, []),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.validateAdjustments(TENANT_ID, RUN_ID, [])).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should handle move adjustment type', async () => {

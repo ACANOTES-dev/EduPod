@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
@@ -167,10 +168,7 @@ describe('AI Comments GDPR Integration', () => {
       'Alice Smith is performing very well this term.',
     );
 
-    const result = await commentsService.generateComment(
-      TENANT_ID,
-      REPORT_CARD_ID,
-    );
+    const result = await commentsService.generateComment(TENANT_ID, REPORT_CARD_ID);
 
     // Verify processOutbound was called with correct shape
     expect(mockGdprTokenService.processOutbound).toHaveBeenCalledTimes(1);
@@ -187,9 +185,7 @@ describe('AI Comments GDPR Integration', () => {
     expect(triggeredBy).toBe(SYSTEM_USER_SENTINEL);
 
     // Verify the result was detokenised
-    expect(result.comment).toBe(
-      'Alice Smith is performing very well this term.',
-    );
+    expect(result.comment).toBe('Alice Smith is performing very well this term.');
   });
 
   it('should call processInbound to detokenise AI response', async () => {
@@ -228,9 +224,7 @@ describe('AI Comments GDPR Integration', () => {
       tokenMap,
     });
 
-    mockGdprTokenService.processInbound.mockResolvedValue(
-      'Alice Smith shows excellent progress.',
-    );
+    mockGdprTokenService.processInbound.mockResolvedValue('Alice Smith shows excellent progress.');
 
     await commentsService.generateComment(TENANT_ID, REPORT_CARD_ID);
 
@@ -259,12 +253,11 @@ describe('AI Comments GDPR Integration', () => {
       ],
     }).compile();
 
-    const serviceWithoutKey =
-      module.get<AiCommentsService>(AiCommentsService);
+    const serviceWithoutKey = module.get<AiCommentsService>(AiCommentsService);
 
-    await expect(
-      serviceWithoutKey.generateComment(TENANT_ID, REPORT_CARD_ID),
-    ).rejects.toThrow(ServiceUnavailableException);
+    await expect(serviceWithoutKey.generateComment(TENANT_ID, REPORT_CARD_ID)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
 
     expect(mockGdprTokenService.processOutbound).not.toHaveBeenCalled();
   });
@@ -344,8 +337,7 @@ describe('AI Substitution GDPR Integration', () => {
       ],
     }).compile();
 
-    substitutionService =
-      module.get<AiSubstitutionService>(AiSubstitutionService);
+    substitutionService = module.get<AiSubstitutionService>(AiSubstitutionService);
   });
 
   afterEach(() => {
@@ -437,11 +429,7 @@ describe('AI Substitution GDPR Integration', () => {
     ]);
     mockGdprTokenService.processInbound.mockResolvedValue(aiResponseJson);
 
-    await substitutionService.rankSubstitutes(
-      TENANT_ID,
-      SCHEDULE_ID,
-      '2026-03-30',
-    );
+    await substitutionService.rankSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-30');
 
     // Verify processOutbound was called with staff entities
     expect(mockGdprTokenService.processOutbound).toHaveBeenCalledTimes(1);
@@ -460,9 +448,7 @@ describe('AI Substitution GDPR Integration', () => {
     }
 
     // Verify staff IDs match available staff
-    const entityIds = outboundData.entities.map(
-      (e: { id: string }) => e.id,
-    );
+    const entityIds = outboundData.entities.map((e: { id: string }) => e.id);
     expect(entityIds).toContain(STAFF_A_ID);
     expect(entityIds).toContain(STAFF_B_ID);
   });
@@ -525,15 +511,9 @@ describe('AI Substitution GDPR Integration', () => {
         reasoning: 'Best match for the subject.',
       },
     ]);
-    mockGdprTokenService.processInbound.mockResolvedValue(
-      detokenisedResponse,
-    );
+    mockGdprTokenService.processInbound.mockResolvedValue(detokenisedResponse);
 
-    await substitutionService.rankSubstitutes(
-      TENANT_ID,
-      SCHEDULE_ID,
-      '2026-03-30',
-    );
+    await substitutionService.rankSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-30');
 
     // Verify processInbound was called with the AI response text and tokenMap
     expect(mockGdprTokenService.processInbound).toHaveBeenCalledTimes(1);
@@ -577,11 +557,7 @@ describe('AI Substitution GDPR Integration', () => {
       },
     ]);
 
-    const result = await substitutionService.rankSubstitutes(
-      TENANT_ID,
-      SCHEDULE_ID,
-      '2026-03-30',
-    );
+    const result = await substitutionService.rankSubstitutes(TENANT_ID, SCHEDULE_ID, '2026-03-30');
 
     expect(result.data).toEqual([]);
     expect(mockGdprTokenService.processOutbound).not.toHaveBeenCalled();

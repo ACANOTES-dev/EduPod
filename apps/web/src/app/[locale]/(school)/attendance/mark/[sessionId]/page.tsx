@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -14,10 +19,6 @@ import {
   TooltipTrigger,
   toast,
 } from '@school/ui';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
-import { useRouter, useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { AttendanceStatusBadge } from '@/components/attendance-status-badge';
 import { apiClient } from '@/lib/api-client';

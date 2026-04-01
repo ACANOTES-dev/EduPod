@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   AssignPermissionsDto,
   CreateRoleDto,
@@ -47,9 +48,7 @@ describe('RolesController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(
-        require('../../common/guards/permission.guard').PermissionGuard,
-      )
+      .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -121,17 +120,9 @@ describe('RolesController', () => {
     const expected = { id: ROLE_ID, role_permissions: [] };
     service.assignPermissions.mockResolvedValue(expected);
 
-    const result = await controller.assignPermissions(
-      mockTenant,
-      ROLE_ID,
-      dto,
-    );
+    const result = await controller.assignPermissions(mockTenant, ROLE_ID, dto);
 
-    expect(service.assignPermissions).toHaveBeenCalledWith(
-      TENANT_ID,
-      ROLE_ID,
-      permIds,
-    );
+    expect(service.assignPermissions).toHaveBeenCalledWith(TENANT_ID, ROLE_ID, permIds);
     expect(result).toBe(expected);
   });
 });

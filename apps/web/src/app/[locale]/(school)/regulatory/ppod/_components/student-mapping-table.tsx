@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, StatusBadge, toast } from '@school/ui';
 import { RefreshCw, Search } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, StatusBadge, toast } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { apiClient } from '@/lib/api-client';
@@ -37,7 +38,10 @@ interface StudentMappingTableProps {
 
 const PAGE_SIZE = 20;
 
-const SYNC_STATUS_VARIANT: Record<StudentMapping['sync_status'], 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+const SYNC_STATUS_VARIANT: Record<
+  StudentMapping['sync_status'],
+  'success' | 'warning' | 'danger' | 'info' | 'neutral'
+> = {
   pending: 'warning',
   synced: 'success',
   changed: 'info',
@@ -102,27 +106,30 @@ export function StudentMappingTable({ databaseType, onSyncStudent }: StudentMapp
 
   // ─── Sync Handler ───────────────────────────────────────────────────────────
 
-  const handleSync = React.useCallback(async (studentId: string) => {
-    setSyncingIds((prev) => new Set(prev).add(studentId));
-    try {
-      await apiClient(`/api/v1/regulatory/ppod/sync/${studentId}`, {
-        method: 'POST',
-        body: JSON.stringify({ database_type: databaseType }),
-      });
-      toast.success(t('ppod.syncSuccess'));
-      onSyncStudent?.(studentId);
-      void fetchStudents();
-    } catch (err) {
-      console.error('[StudentMappingTable.handleSync]', err);
-      toast.error(t('ppod.syncError'));
-    } finally {
-      setSyncingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(studentId);
-        return next;
-      });
-    }
-  }, [databaseType, fetchStudents, onSyncStudent, t]);
+  const handleSync = React.useCallback(
+    async (studentId: string) => {
+      setSyncingIds((prev) => new Set(prev).add(studentId));
+      try {
+        await apiClient(`/api/v1/regulatory/ppod/sync/${studentId}`, {
+          method: 'POST',
+          body: JSON.stringify({ database_type: databaseType }),
+        });
+        toast.success(t('ppod.syncSuccess'));
+        onSyncStudent?.(studentId);
+        void fetchStudents();
+      } catch (err) {
+        console.error('[StudentMappingTable.handleSync]', err);
+        toast.error(t('ppod.syncError'));
+      } finally {
+        setSyncingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(studentId);
+          return next;
+        });
+      }
+    },
+    [databaseType, fetchStudents, onSyncStudent, t],
+  );
 
   // ─── Filtered Data ─────────────────────────────────────────────────────────
 
@@ -134,68 +141,69 @@ export function StudentMappingTable({ databaseType, onSyncStudent }: StudentMapp
 
   // ─── Columns ────────────────────────────────────────────────────────────────
 
-  const columns = React.useMemo(() => [
-    {
-      key: 'student_name',
-      header: t('ppod.columnStudentName'),
-      render: (row: StudentMapping) => (
-        <span className="font-medium">{row.student_name}</span>
-      ),
-    },
-    {
-      key: 'pps_number',
-      header: t('ppod.columnPpsNumber'),
-      render: (row: StudentMapping) => (
-        <span className="font-mono text-xs">{row.pps_number ?? '—'}</span>
-      ),
-    },
-    {
-      key: 'external_id',
-      header: t('ppod.columnExternalId'),
-      render: (row: StudentMapping) => (
-        <span className="font-mono text-xs">{row.external_id ?? '—'}</span>
-      ),
-    },
-    {
-      key: 'sync_status',
-      header: t('ppod.columnSyncStatus'),
-      render: (row: StudentMapping) => (
-        <StatusBadge status={SYNC_STATUS_VARIANT[row.sync_status]} dot>
-          {SYNC_STATUS_LABEL[row.sync_status]}
-        </StatusBadge>
-      ),
-    },
-    {
-      key: 'last_synced_at',
-      header: t('ppod.columnLastSynced'),
-      render: (row: StudentMapping) => (
-        <span className="text-xs text-text-secondary">
-          {row.last_synced_at ? formatDateTime(row.last_synced_at) : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: t('ppod.columnActions'),
-      render: (row: StudentMapping) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={syncingIds.has(row.student_id) || row.sync_status === 'not_applicable'}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            void handleSync(row.student_id);
-          }}
-        >
-          <RefreshCw
-            className={`me-1.5 h-3.5 w-3.5 ${syncingIds.has(row.student_id) ? 'animate-spin' : ''}`}
-          />
-          {t('ppod.syncButton')}
-        </Button>
-      ),
-      className: 'w-28',
-    },
-  ], [handleSync, syncingIds, t]);
+  const columns = React.useMemo(
+    () => [
+      {
+        key: 'student_name',
+        header: t('ppod.columnStudentName'),
+        render: (row: StudentMapping) => <span className="font-medium">{row.student_name}</span>,
+      },
+      {
+        key: 'pps_number',
+        header: t('ppod.columnPpsNumber'),
+        render: (row: StudentMapping) => (
+          <span className="font-mono text-xs">{row.pps_number ?? '—'}</span>
+        ),
+      },
+      {
+        key: 'external_id',
+        header: t('ppod.columnExternalId'),
+        render: (row: StudentMapping) => (
+          <span className="font-mono text-xs">{row.external_id ?? '—'}</span>
+        ),
+      },
+      {
+        key: 'sync_status',
+        header: t('ppod.columnSyncStatus'),
+        render: (row: StudentMapping) => (
+          <StatusBadge status={SYNC_STATUS_VARIANT[row.sync_status]} dot>
+            {SYNC_STATUS_LABEL[row.sync_status]}
+          </StatusBadge>
+        ),
+      },
+      {
+        key: 'last_synced_at',
+        header: t('ppod.columnLastSynced'),
+        render: (row: StudentMapping) => (
+          <span className="text-xs text-text-secondary">
+            {row.last_synced_at ? formatDateTime(row.last_synced_at) : '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'actions',
+        header: t('ppod.columnActions'),
+        render: (row: StudentMapping) => (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={syncingIds.has(row.student_id) || row.sync_status === 'not_applicable'}
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              void handleSync(row.student_id);
+            }}
+          >
+            <RefreshCw
+              className={`me-1.5 h-3.5 w-3.5 ${syncingIds.has(row.student_id) ? 'animate-spin' : ''}`}
+            />
+            {t('ppod.syncButton')}
+          </Button>
+        ),
+        className: 'w-28',
+      },
+    ],
+    [handleSync, syncingIds, t],
+  );
 
   // ─── Toolbar ────────────────────────────────────────────────────────────────
 

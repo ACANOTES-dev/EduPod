@@ -14,6 +14,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   applyCurveSchema,
   bulkImportStandardsSchema,
@@ -35,7 +37,6 @@ import {
   updateRubricTemplateSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -228,9 +229,7 @@ export class GradebookAdvancedController {
 
   @Get('gradebook/competency-scales')
   @RequiresPermission('gradebook.view')
-  async listCompetencyScales(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listCompetencyScales(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.competencyScaleService.list(tenant.tenant_id);
   }
 
@@ -294,11 +293,7 @@ export class GradebookAdvancedController {
     @Body(new ZodValidationPipe(computeGpaSchema))
     dto: z.infer<typeof computeGpaSchema>,
   ) {
-    return this.gpaService.computeGpa(
-      tenant.tenant_id,
-      dto.student_id,
-      dto.academic_period_id,
-    );
+    return this.gpaService.computeGpa(tenant.tenant_id, dto.student_id, dto.academic_period_id);
   }
 
   // ─── C5: Grade Curve ─────────────────────────────────────────────────────
@@ -313,12 +308,7 @@ export class GradebookAdvancedController {
     @Body(new ZodValidationPipe(applyCurveSchema))
     dto: z.infer<typeof applyCurveSchema>,
   ) {
-    return this.gradeCurveService.applyCurve(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.gradeCurveService.applyCurve(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('gradebook/assessments/:id/curve')

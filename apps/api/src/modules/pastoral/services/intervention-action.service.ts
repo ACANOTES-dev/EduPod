@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import type {
   CreateInterventionActionDto,
   InterventionActionFilters,
@@ -49,10 +50,7 @@ const VALID_ACTION_TRANSITIONS: Record<string, string[]> = {
   overdue: ['in_progress', 'completed', 'cancelled'],
 };
 
-const TERMINAL_ACTION_STATUSES: ReadonlySet<string> = new Set([
-  'completed',
-  'cancelled',
-]);
+const TERMINAL_ACTION_STATUSES: ReadonlySet<string> = new Set(['completed', 'cancelled']);
 
 const STATUS_TO_PRISMA: Record<string, $Enums.PastoralActionStatus> = {
   pending: $Enums.PastoralActionStatus.pc_pending,

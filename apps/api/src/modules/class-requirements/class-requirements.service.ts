@@ -1,9 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   BulkClassRequirementsDto,
   CreateClassRequirementDto,
@@ -123,10 +120,7 @@ export class ClassRequirementsService {
         });
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException({
           code: 'REQUIREMENT_ALREADY_EXISTS',
           message: `Scheduling requirement already exists for class "${dto.class_id}" in this academic year`,

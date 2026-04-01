@@ -14,6 +14,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PodDatabaseType } from '@prisma/client';
+import { z } from 'zod';
+
 import {
   cbaSyncSchema,
   createCalendarEventSchema,
@@ -63,7 +65,6 @@ import type {
   UpdateSubmissionDto,
   UpdateTransferDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -91,7 +92,10 @@ const listReducedSchoolDaysQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   student_id: z.string().uuid().optional(),
-  is_active: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
+  is_active: z
+    .enum(['true', 'false'])
+    .transform((v) => v === 'true')
+    .optional(),
 });
 
 type ListReducedSchoolDaysQueryDto = z.infer<typeof listReducedSchoolDaysQuerySchema>;
@@ -320,7 +324,8 @@ export class RegulatoryController {
   @HttpCode(HttpStatus.CREATED)
   async createTuslaMapping(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createTuslaAbsenceCodeMappingSchema)) dto: CreateTuslaAbsenceCodeMappingDto,
+    @Body(new ZodValidationPipe(createTuslaAbsenceCodeMappingSchema))
+    dto: CreateTuslaAbsenceCodeMappingDto,
   ) {
     return this.tuslaMappingsService.create(tenant.tenant_id, dto);
   }
@@ -407,7 +412,8 @@ export class RegulatoryController {
   @HttpCode(HttpStatus.CREATED)
   async createDesMapping(
     @CurrentTenant() tenant: TenantContext,
-    @Body(new ZodValidationPipe(createDesSubjectCodeMappingSchema)) dto: CreateDesSubjectCodeMappingDto,
+    @Body(new ZodValidationPipe(createDesSubjectCodeMappingSchema))
+    dto: CreateDesSubjectCodeMappingDto,
   ) {
     return this.desMappingsService.create(tenant.tenant_id, dto);
   }

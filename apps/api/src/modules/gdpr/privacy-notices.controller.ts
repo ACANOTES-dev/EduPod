@@ -11,9 +11,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
+
 import { createPrivacyNoticeSchema, updatePrivacyNoticeSchema } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Request } from 'express';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -34,10 +35,7 @@ export class PrivacyNoticesController {
   constructor(private readonly privacyNoticesService: PrivacyNoticesService) {}
 
   @Get('current')
-  async getCurrent(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getCurrent(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.privacyNoticesService.getCurrentForUser(tenant.tenant_id, user.sub);
   }
 
@@ -88,10 +86,7 @@ export class PrivacyNoticesController {
   @Post(':id/publish')
   @UseGuards(PermissionGuard)
   @RequiresPermission('privacy.manage')
-  async publish(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async publish(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.privacyNoticesService.publishVersion(tenant.tenant_id, id);
   }
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import { EmptyState, Input, Label, StatCard } from '@school/ui';
 import { DollarSign } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { EmptyState, Input, Label, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -57,10 +57,16 @@ export default function WriteOffsReportPage() {
   }, [fetchReport]);
 
   const formatCurrency = (val: number) =>
-    new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+    new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      val,
+    );
 
   const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
 
   return (
     <div className="space-y-6">
@@ -107,8 +113,14 @@ export default function WriteOffsReportPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <StatCard label={t('totalWrittenOff')} value={formatCurrency(report.summary.total_written_off)} />
-            <StatCard label={t('totalDiscounts')} value={formatCurrency(report.summary.total_discounts)} />
+            <StatCard
+              label={t('totalWrittenOff')}
+              value={formatCurrency(report.summary.total_written_off)}
+            />
+            <StatCard
+              label={t('totalDiscounts')}
+              value={formatCurrency(report.summary.total_discounts)}
+            />
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-border bg-surface">
@@ -144,12 +156,23 @@ export default function WriteOffsReportPage() {
                   </tr>
                 ) : (
                   report.data.map((entry) => (
-                    <tr key={entry.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
-                      <td className="px-4 py-3 text-sm text-text-secondary">{formatDate(entry.date)}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{entry.student_name}</td>
-                      <td className="px-4 py-3 text-sm text-text-secondary">{entry.household_name}</td>
+                    <tr
+                      key={entry.id}
+                      className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                    >
+                      <td className="px-4 py-3 text-sm text-text-secondary">
+                        {formatDate(entry.date)}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {entry.student_name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">
+                        {entry.household_name}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{entry.type}</td>
-                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{formatCurrency(entry.amount)}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {formatCurrency(entry.amount)}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{entry.reason}</td>
                     </tr>
                   ))

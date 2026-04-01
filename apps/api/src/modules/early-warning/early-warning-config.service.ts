@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+
 import type { UpdateEarlyWarningConfigDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -95,8 +96,10 @@ export class EarlyWarningConfigService {
       if (dto.hysteresis_buffer !== undefined) data.hysteresis_buffer = dto.hysteresis_buffer;
       if (dto.routing_rules_json !== undefined) data.routing_rules_json = dto.routing_rules_json;
       if (dto.digest_day !== undefined) data.digest_day = dto.digest_day;
-      if (dto.digest_recipients_json !== undefined) data.digest_recipients_json = dto.digest_recipients_json;
-      if (dto.high_severity_events_json !== undefined) data.high_severity_events_json = dto.high_severity_events_json;
+      if (dto.digest_recipients_json !== undefined)
+        data.digest_recipients_json = dto.digest_recipients_json;
+      if (dto.high_severity_events_json !== undefined)
+        data.high_severity_events_json = dto.high_severity_events_json;
 
       if (existing) {
         return tx.earlyWarningConfig.update({

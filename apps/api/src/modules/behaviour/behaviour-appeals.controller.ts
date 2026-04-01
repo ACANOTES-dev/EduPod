@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   appealListQuerySchema,
   recordAppealDecisionSchema,
@@ -19,7 +21,6 @@ import {
   withdrawAppealSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -68,10 +69,7 @@ export class BehaviourAppealsController {
 
   @Get('behaviour/appeals/:id')
   @RequiresPermission('behaviour.manage')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.appealsService.getById(tenant.tenant_id, id);
   }
 

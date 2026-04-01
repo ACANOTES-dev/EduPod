@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { homeworkSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { homeworkSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, TenantJobPayload } from '../../base/tenant-aware-job';
@@ -35,9 +36,7 @@ export class HomeworkDigestProcessor extends WorkerHost {
       throw new Error('Job rejected: missing tenant_id in payload.');
     }
 
-    this.logger.log(
-      `Processing ${HOMEWORK_DIGEST_JOB} for tenant ${tenant_id}`,
-    );
+    this.logger.log(`Processing ${HOMEWORK_DIGEST_JOB} for tenant ${tenant_id}`);
 
     const digestJob = new HomeworkDigestJob(this.prisma);
     await digestJob.execute(job.data);
@@ -66,10 +65,7 @@ interface ParentDigest {
 class HomeworkDigestJob extends TenantAwareJob<HomeworkDigestPayload> {
   private readonly logger = new Logger(HomeworkDigestJob.name);
 
-  protected async processJob(
-    data: HomeworkDigestPayload,
-    tx: PrismaClient,
-  ): Promise<void> {
+  protected async processJob(data: HomeworkDigestPayload, tx: PrismaClient): Promise<void> {
     const { tenant_id } = data;
 
     // ─── 1. Parse tenant homework settings ──────────────────────────────────
@@ -82,9 +78,7 @@ class HomeworkDigestJob extends TenantAwareJob<HomeworkDigestPayload> {
     const homeworkSettings = homeworkSettingsSchema.parse(rawSettings.homework ?? {});
 
     if (!homeworkSettings.parent_digest_include_homework) {
-      this.logger.log(
-        `Homework digest disabled for tenant ${tenant_id} — skipping`,
-      );
+      this.logger.log(`Homework digest disabled for tenant ${tenant_id} — skipping`);
       return;
     }
 
@@ -170,10 +164,7 @@ class HomeworkDigestJob extends TenantAwareJob<HomeworkDigestPayload> {
     });
 
     // Build parentsByStudent map — only active parents with a user account
-    const parentsByStudent = new Map<
-      string,
-      Array<{ parent_id: string; user_id: string }>
-    >();
+    const parentsByStudent = new Map<string, Array<{ parent_id: string; user_id: string }>>();
     for (const sp of studentParentLinks) {
       if (sp.parent.status !== 'active' || !sp.parent.user_id) continue;
       const existing = parentsByStudent.get(sp.student_id) ?? [];
@@ -234,11 +225,13 @@ class HomeworkDigestJob extends TenantAwareJob<HomeworkDigestPayload> {
             template_key: 'homework_digest',
             locale: 'en',
             status: 'delivered',
-            payload_json: JSON.parse(JSON.stringify({
-              is_digest: true,
-              entries: digest.entries,
-              total_assignments: digest.entries.length,
-            })),
+            payload_json: JSON.parse(
+              JSON.stringify({
+                is_digest: true,
+                entries: digest.entries,
+                total_assignments: digest.entries.length,
+              }),
+            ),
             source_entity_type: 'homework_digest',
             source_entity_id: tenant_id,
             delivered_at: now,

@@ -1,5 +1,9 @@
 'use client';
 
+import { Home, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Input,
   Select,
@@ -10,9 +14,6 @@ import {
   StatusBadge,
   EmptyState,
 } from '@school/ui';
-import { Home, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { EntityLink } from '@/components/entity-link';
@@ -178,10 +179,7 @@ export default function HouseholdsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Households"
-        description="Manage family household records"
-      />
+      <PageHeader title="Households" description="Manage family household records" />
 
       {!isLoading && households.length === 0 && !search && statusFilter === 'all' ? (
         <EmptyState

@@ -1,11 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+
 import { updateNotificationSettingSchema } from '@school/shared';
 import type { TenantContext, UpdateNotificationSettingDto } from '@school/shared';
 
@@ -20,9 +14,7 @@ import { NotificationSettingsService } from './notification-settings.service';
 @Controller('v1/notification-settings')
 @UseGuards(AuthGuard, PermissionGuard)
 export class NotificationSettingsController {
-  constructor(
-    private readonly notificationSettingsService: NotificationSettingsService,
-  ) {}
+  constructor(private readonly notificationSettingsService: NotificationSettingsService) {}
 
   @Get()
   @RequiresPermission('notifications.manage')
@@ -38,10 +30,6 @@ export class NotificationSettingsController {
     @Body(new ZodValidationPipe(updateNotificationSettingSchema))
     dto: UpdateNotificationSettingDto,
   ) {
-    return this.notificationSettingsService.updateSetting(
-      tenant.tenant_id,
-      type,
-      dto,
-    );
+    return this.notificationSettingsService.updateSetting(tenant.tenant_id, type, dto);
   }
 }

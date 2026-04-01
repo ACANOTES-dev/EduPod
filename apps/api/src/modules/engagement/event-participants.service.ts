@@ -6,8 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { EventTargetConfig } from '@school/shared';
 import type { Queue } from 'bullmq';
+
+import type { EventTargetConfig } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -265,6 +266,7 @@ export class EventParticipantsService {
       const db = tx as unknown as typeof this.prisma;
 
       // Lock event row for capacity check
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- participant count aggregation query
       const events = await db.$queryRaw<{ id: string; capacity: number | null; status: string }[]>`
         SELECT id, capacity, status FROM engagement_events
         WHERE id = ${eventId}::uuid AND tenant_id = ${tenantId}::uuid

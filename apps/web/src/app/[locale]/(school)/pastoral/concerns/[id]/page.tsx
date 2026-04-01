@@ -1,11 +1,12 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { Edit3, Eye, FileClock, Link2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { PastoralSeverityBadge, PastoralTierBadge } from '@/components/pastoral/pastoral-badges';

@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, Checkbox, Label, Switch } from '@school/ui';
 import { BarChart3, FileText, Loader2, Save } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -19,6 +18,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { Button, Checkbox, Label, Switch } from '@school/ui';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
@@ -27,15 +28,22 @@ import { apiClient } from '@/lib/api-client';
 type DataSource = 'students' | 'attendance' | 'grades' | 'finance' | 'staff' | 'admissions';
 type ChartType = 'table' | 'bar' | 'line' | 'pie';
 
-interface DimensionDef { key: string; label: string }
-interface MeasureDef { key: string; label: string; aggregation: 'count' | 'sum' | 'average' | 'min' | 'max' | 'percentage' | 'rate' }
+interface DimensionDef {
+  key: string;
+  label: string;
+}
+interface MeasureDef {
+  key: string;
+  label: string;
+  aggregation: 'count' | 'sum' | 'average' | 'min' | 'max' | 'percentage' | 'rate';
+}
 
 const SOURCES: { value: DataSource; label: string }[] = [
-  { value: 'students',   label: 'Students' },
+  { value: 'students', label: 'Students' },
   { value: 'attendance', label: 'Attendance' },
-  { value: 'grades',     label: 'Grades' },
-  { value: 'finance',    label: 'Finance' },
-  { value: 'staff',      label: 'Staff' },
+  { value: 'grades', label: 'Grades' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'staff', label: 'Staff' },
   { value: 'admissions', label: 'Admissions' },
 ];
 
@@ -64,17 +72,17 @@ const MEASURES: MeasureDef[] = [
 
 const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: 'table', label: 'Table' },
-  { value: 'bar',   label: 'Bar Chart' },
-  { value: 'line',  label: 'Line Chart' },
-  { value: 'pie',   label: 'Pie Chart' },
+  { value: 'bar', label: 'Bar Chart' },
+  { value: 'line', label: 'Line Chart' },
+  { value: 'pie', label: 'Pie Chart' },
 ];
 
 // ─── Mock preview data ────────────────────────────────────────────────────────
 
 const MOCK_DATA = [
-  { label: 'Year 7',  value: 33 },
-  { label: 'Year 8',  value: 37 },
-  { label: 'Year 9',  value: 35 },
+  { label: 'Year 7', value: 33 },
+  { label: 'Year 8', value: 37 },
+  { label: 'Year 9', value: 35 },
   { label: 'Year 10', value: 40 },
   { label: 'Year 12', value: 30 },
 ];
@@ -147,9 +155,12 @@ export default function ReportBuilderPage() {
       setSavedReports((prev) => [res.data, ...prev]);
     } catch {
       const mock: SavedReport = {
-        id: crypto.randomUUID(), name: reportName,
-        data_source: source as DataSource, chart_type: chartType,
-        created_at: new Date().toISOString(), is_shared: isShared,
+        id: crypto.randomUUID(),
+        name: reportName,
+        data_source: source as DataSource,
+        chart_type: chartType,
+        created_at: new Date().toISOString(),
+        is_shared: isShared,
       };
       setSavedReports((prev) => [mock, ...prev]);
     } finally {
@@ -166,8 +177,11 @@ export default function ReportBuilderPage() {
   };
 
   const STEPS = [
-    t('builder.step1'), t('builder.step2'), t('builder.step3'),
-    t('builder.step4'), t('builder.step5'),
+    t('builder.step1'),
+    t('builder.step2'),
+    t('builder.step3'),
+    t('builder.step4'),
+    t('builder.step5'),
   ];
 
   return (
@@ -182,12 +196,18 @@ export default function ReportBuilderPage() {
             <React.Fragment key={s}>
               <button
                 type="button"
-                onClick={() => { if (s < step || canProceed((s - 1) as Step)) setStep(s); }}
+                onClick={() => {
+                  if (s < step || canProceed((s - 1) as Step)) setStep(s);
+                }}
                 className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  step === s ? 'bg-primary text-white' : 'bg-surface-secondary text-text-secondary hover:bg-surface'
+                  step === s
+                    ? 'bg-primary text-white'
+                    : 'bg-surface-secondary text-text-secondary hover:bg-surface'
                 }`}
               >
-                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${step === s ? 'bg-white/20' : 'bg-surface text-text-tertiary'}`}>
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${step === s ? 'bg-white/20' : 'bg-surface text-text-tertiary'}`}
+                >
                   {s}
                 </span>
                 {label}
@@ -201,11 +221,12 @@ export default function ReportBuilderPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
         {/* Wizard Panel */}
         <section className="rounded-xl border border-border bg-surface p-4 sm:p-6 space-y-6">
-
           {/* Step 1: Source */}
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">{t('builder.selectSource')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('builder.selectSource')}
+              </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {SOURCES.map((s) => (
                   <button
@@ -228,10 +249,15 @@ export default function ReportBuilderPage() {
           {/* Step 2: Dimensions */}
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">{t('builder.selectDimensions')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('builder.selectDimensions')}
+              </h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {DIMENSIONS.map((d) => (
-                  <label key={d.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary">
+                  <label
+                    key={d.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary"
+                  >
                     <Checkbox
                       checked={selectedDimensions.has(d.key)}
                       onCheckedChange={() => toggleDimension(d.key)}
@@ -246,10 +272,15 @@ export default function ReportBuilderPage() {
           {/* Step 3: Measures */}
           {step === 3 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">{t('builder.selectMeasures')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('builder.selectMeasures')}
+              </h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {MEASURES.map((m) => (
-                  <label key={m.key} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary">
+                  <label
+                    key={m.key}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border p-3 hover:bg-surface-secondary"
+                  >
                     <Checkbox
                       checked={selectedMeasures.has(m.key)}
                       onCheckedChange={() => toggleMeasure(m.key)}
@@ -264,7 +295,9 @@ export default function ReportBuilderPage() {
           {/* Step 4: Chart Type */}
           {step === 4 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">{t('builder.selectChart')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('builder.selectChart')}
+              </h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {CHART_TYPES.map((ct) => (
                   <button
@@ -288,7 +321,9 @@ export default function ReportBuilderPage() {
           {/* Step 5: Save */}
           {step === 5 && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-text-primary">{t('builder.saveReport')}</h2>
+              <h2 className="text-base font-semibold text-text-primary">
+                {t('builder.saveReport')}
+              </h2>
               <div>
                 <Label htmlFor="builder-name">{t('builder.reportName')}</Label>
                 <input
@@ -310,9 +345,15 @@ export default function ReportBuilderPage() {
                 className="w-full"
               >
                 {saving ? (
-                  <><Loader2 className="me-2 h-4 w-4 animate-spin" />{t('builder.saving')}</>
+                  <>
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                    {t('builder.saving')}
+                  </>
                 ) : (
-                  <><Save className="me-2 h-4 w-4" />{t('builder.save')}</>
+                  <>
+                    <Save className="me-2 h-4 w-4" />
+                    {t('builder.save')}
+                  </>
                 )}
               </Button>
             </div>
@@ -352,8 +393,12 @@ export default function ReportBuilderPage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-border bg-surface-secondary">
-                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">{t('builder.label')}</th>
-                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">{t('builder.value')}</th>
+                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">
+                        {t('builder.label')}
+                      </th>
+                      <th className="px-3 py-2 text-start font-semibold text-text-tertiary">
+                        {t('builder.value')}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -383,15 +428,34 @@ export default function ReportBuilderPage() {
                   <XAxis dataKey="label" className="text-xs" />
                   <YAxis className="text-xs" />
                   <Tooltip />
-                  <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={MOCK_DATA} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }: { name?: string; percent?: number }) => `${String(name ?? '')} ${Math.round((percent ?? 0) * 100)}%`}>
+                  <Pie
+                    data={MOCK_DATA}
+                    dataKey="value"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={({ name, percent }: { name?: string; percent?: number }) =>
+                      `${String(name ?? '')} ${Math.round((percent ?? 0) * 100)}%`
+                    }
+                  >
                     {MOCK_DATA.map((_, i) => (
-                      <Cell key={i} fill={['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'][i % 5]} />
+                      <Cell
+                        key={i}
+                        fill={['#6366f1', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'][i % 5]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -403,14 +467,26 @@ export default function ReportBuilderPage() {
           {/* Summary */}
           {source && (
             <div className="rounded-xl border border-border bg-surface p-4 space-y-2 text-xs text-text-secondary">
-              <p><span className="font-medium text-text-primary">{t('builder.source')}:</span> {source}</p>
+              <p>
+                <span className="font-medium text-text-primary">{t('builder.source')}:</span>{' '}
+                {source}
+              </p>
               {selectedDimensions.size > 0 && (
-                <p><span className="font-medium text-text-primary">{t('builder.dimensions')}:</span> {Array.from(selectedDimensions).join(', ')}</p>
+                <p>
+                  <span className="font-medium text-text-primary">{t('builder.dimensions')}:</span>{' '}
+                  {Array.from(selectedDimensions).join(', ')}
+                </p>
               )}
               {selectedMeasures.size > 0 && (
-                <p><span className="font-medium text-text-primary">{t('builder.measures')}:</span> {Array.from(selectedMeasures).join(', ')}</p>
+                <p>
+                  <span className="font-medium text-text-primary">{t('builder.measures')}:</span>{' '}
+                  {Array.from(selectedMeasures).join(', ')}
+                </p>
               )}
-              <p><span className="font-medium text-text-primary">{t('builder.chart')}:</span> {chartType}</p>
+              <p>
+                <span className="font-medium text-text-primary">{t('builder.chart')}:</span>{' '}
+                {chartType}
+              </p>
             </div>
           )}
         </section>
@@ -424,13 +500,18 @@ export default function ReportBuilderPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {savedReports.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
+              <div
+                key={r.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4"
+              >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-secondary">
                   <FileText className="h-4 w-4 text-text-tertiary" />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-text-primary">{r.name}</p>
-                  <p className="text-xs text-text-tertiary">{r.data_source} · {r.chart_type ?? 'table'}</p>
+                  <p className="text-xs text-text-tertiary">
+                    {r.data_source} · {r.chart_type ?? 'table'}
+                  </p>
                 </div>
                 {r.is_shared && (
                   <span className="ms-auto shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">

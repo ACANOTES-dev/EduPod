@@ -1,5 +1,6 @@
 import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -37,9 +38,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -58,9 +57,7 @@ const DEFAULT_CHECKIN_SETTINGS = {
   prerequisites_acknowledged: true,
 };
 
-const makeTenantSettingsRecord = (
-  checkinOverrides: Record<string, unknown> = {},
-) => ({
+const makeTenantSettingsRecord = (checkinOverrides: Record<string, unknown> = {}) => ({
   id: 'settings-1',
   tenant_id: TENANT_ID,
   settings: {
@@ -126,26 +123,23 @@ describe('CheckinAlertService', () => {
 
   describe('matchKeywords', () => {
     it('exact keyword in text triggers flag', () => {
-      const result = service.matchKeywords(
-        'I feel like suicide is the only option',
-        ['suicide', 'self-harm'],
-      );
+      const result = service.matchKeywords('I feel like suicide is the only option', [
+        'suicide',
+        'self-harm',
+      ]);
       expect(result).toBe('suicide');
     });
 
     it('case-insensitive matching works', () => {
-      const result = service.matchKeywords(
-        'I have been SELF-HARM ing',
-        ['self-harm'],
-      );
+      const result = service.matchKeywords('I have been SELF-HARM ing', ['self-harm']);
       expect(result).toBe('self-harm');
     });
 
     it('partial word does NOT match (shortcut != cut)', () => {
-      const result = service.matchKeywords(
-        'I took a shortcut to school today',
-        ['cut', 'cut myself'],
-      );
+      const result = service.matchKeywords('I took a shortcut to school today', [
+        'cut',
+        'cut myself',
+      ]);
       expect(result).toBeNull();
     });
 
@@ -176,27 +170,14 @@ describe('CheckinAlertService', () => {
         { mood_score: 1 },
       ]);
 
-      const result = await service.detectConsecutiveLow(
-        TENANT_ID,
-        STUDENT_ID,
-        3,
-        1,
-      );
+      const result = await service.detectConsecutiveLow(TENANT_ID, STUDENT_ID, 3, 1);
       expect(result).toBe(true);
     });
 
     it('2 does NOT trigger (threshold=3)', async () => {
-      mockRlsTx.studentCheckin.findMany.mockResolvedValue([
-        { mood_score: 1 },
-        { mood_score: 1 },
-      ]);
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([{ mood_score: 1 }, { mood_score: 1 }]);
 
-      const result = await service.detectConsecutiveLow(
-        TENANT_ID,
-        STUDENT_ID,
-        3,
-        1,
-      );
+      const result = await service.detectConsecutiveLow(TENANT_ID, STUDENT_ID, 3, 1);
       expect(result).toBe(false);
     });
 
@@ -207,26 +188,14 @@ describe('CheckinAlertService', () => {
         { mood_score: 1 },
       ]);
 
-      const result = await service.detectConsecutiveLow(
-        TENANT_ID,
-        STUDENT_ID,
-        3,
-        1,
-      );
+      const result = await service.detectConsecutiveLow(TENANT_ID, STUDENT_ID, 3, 1);
       expect(result).toBe(false);
     });
 
     it('fewer than threshold total does NOT trigger', async () => {
-      mockRlsTx.studentCheckin.findMany.mockResolvedValue([
-        { mood_score: 1 },
-      ]);
+      mockRlsTx.studentCheckin.findMany.mockResolvedValue([{ mood_score: 1 }]);
 
-      const result = await service.detectConsecutiveLow(
-        TENANT_ID,
-        STUDENT_ID,
-        3,
-        1,
-      );
+      const result = await service.detectConsecutiveLow(TENANT_ID, STUDENT_ID, 3, 1);
       expect(result).toBe(false);
     });
   });

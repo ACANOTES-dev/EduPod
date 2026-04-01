@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { ZodError } from 'zod';
+
 import { TENANT_SETTINGS_MODULE_SCHEMAS, tenantSettingsSchema } from '@school/shared';
 import type { TenantSettingsDto, TenantSettingsModuleKey } from '@school/shared';
-import { ZodError } from 'zod';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

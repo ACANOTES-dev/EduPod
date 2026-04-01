@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -16,8 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 export interface SubjectFormValues {
   name: string;
@@ -126,15 +127,18 @@ export function SubjectForm({
             <Checkbox
               id="sub-active"
               checked={values.active}
-              onCheckedChange={(checked) =>
-                setValues((p) => ({ ...p, active: checked === true }))
-              }
+              onCheckedChange={(checked) => setValues((p) => ({ ...p, active: checked === true }))}
             />
             <Label htmlFor="sub-active">{t('fieldActive')}</Label>
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               {tc('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>

@@ -1,18 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   AddStudentToHouseholdDto,
   FamilyRegistrationDto,
   PreviewFeesDto,
 } from '@school/shared';
-import {
-  CONSENT_TYPES,
-  mapConsentCaptureToTypes,
-} from '@school/shared';
+import { CONSENT_TYPES, mapConsentCaptureToTypes } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { roundMoney } from '../finance/helpers/invoice-status.helper';
@@ -56,7 +49,8 @@ export class RegistrationService {
         where: { tenant_id: tenantId, status: 'active' },
         include: { _count: { select: { periods: true } } },
       });
-      const termCount = (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
+      const termCount =
+        (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
 
       // Collect unique year_group_ids
       const yearGroupIds = [...new Set(dto.students.map((s) => s.year_group_id))];
@@ -66,10 +60,7 @@ export class RegistrationService {
         where: {
           tenant_id: tenantId,
           active: true,
-          OR: [
-            { year_group_id: { in: yearGroupIds } },
-            { year_group_id: null },
-          ],
+          OR: [{ year_group_id: { in: yearGroupIds } }, { year_group_id: null }],
         },
         include: {
           year_group: { select: { id: true, name: true } },
@@ -274,7 +265,13 @@ export class RegistrationService {
       });
 
       // ── 7. Create Students ─────────────────────────────────────────────
-      const createdStudents: Array<{ id: string; index: number; student_number: string; first_name: string; last_name: string }> = [];
+      const createdStudents: Array<{
+        id: string;
+        index: number;
+        student_number: string;
+        first_name: string;
+        last_name: string;
+      }> = [];
 
       for (let i = 0; i < dto.students.length; i++) {
         const s = dto.students[i]!;
@@ -297,7 +294,13 @@ export class RegistrationService {
           },
         });
 
-        createdStudents.push({ id: student.id, index: i, student_number: studentNumber, first_name: s.first_name, last_name: s.last_name });
+        createdStudents.push({
+          id: student.id,
+          index: i,
+          student_number: studentNumber,
+          first_name: s.first_name,
+          last_name: s.last_name,
+        });
 
         // ── 8. Create StudentParent links ────────────────────────────────
         await db.studentParent.create({
@@ -359,7 +362,10 @@ export class RegistrationService {
 
       // ── 9. Create HouseholdFeeAssignment records ───────────────────────
       const today = new Date();
-      const feeAssignmentMap: Map<number, Array<{ feeAssignmentId: string; feeStructureId: string; studentId: string }>> = new Map();
+      const feeAssignmentMap: Map<
+        number,
+        Array<{ feeAssignmentId: string; feeStructureId: string; studentId: string }>
+      > = new Map();
 
       for (let faIdx = 0; faIdx < dto.fee_assignments.length; faIdx++) {
         const fa = dto.fee_assignments[faIdx]!;
@@ -372,7 +378,9 @@ export class RegistrationService {
         }
 
         // Check if any applied discount targets this fee assignment
-        const matchingDiscount = dto.applied_discounts.find((ad) => ad.fee_assignment_index === faIdx);
+        const matchingDiscount = dto.applied_discounts.find(
+          (ad) => ad.fee_assignment_index === faIdx,
+        );
 
         const assignment = await db.householdFeeAssignment.create({
           data: {
@@ -414,14 +422,20 @@ export class RegistrationService {
       const invoicePrefix = branding?.invoice_prefix ?? 'INV';
 
       // Generate invoice number
-      const invoiceNumber = await this.sequenceService.nextNumber(tenantId, 'invoice', tx, invoicePrefix);
+      const invoiceNumber = await this.sequenceService.nextNumber(
+        tenantId,
+        'invoice',
+        tx,
+        invoicePrefix,
+      );
 
       // Get term count for annual amount calculation
       const activeYear = await db.academicYear.findFirst({
         where: { tenant_id: tenantId, status: 'active' },
         include: { _count: { select: { periods: true } } },
       });
-      const termCount = (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
+      const termCount =
+        (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
 
       // Build invoice lines
       const lineData: Array<{
@@ -486,7 +500,9 @@ export class RegistrationService {
         subtotal += lineTotal;
 
         // Check for discount on this fee assignment
-        const matchingDiscount = dto.applied_discounts.find((ad) => ad.fee_assignment_index === faIdx);
+        const matchingDiscount = dto.applied_discounts.find(
+          (ad) => ad.fee_assignment_index === faIdx,
+        );
         if (matchingDiscount) {
           const discount = await db.discount.findFirst({
             where: { id: matchingDiscount.discount_id, tenant_id: tenantId },
@@ -562,14 +578,26 @@ export class RegistrationService {
       });
 
       const parents: RegistrationResult['parents'] = [
-        { id: primaryParent.id, first_name: dto.primary_parent.first_name, last_name: dto.primary_parent.last_name },
+        {
+          id: primaryParent.id,
+          first_name: dto.primary_parent.first_name,
+          last_name: dto.primary_parent.last_name,
+        },
       ];
       if (secondaryParent && dto.secondary_parent) {
-        parents.push({ id: secondaryParent.id, first_name: dto.secondary_parent.first_name, last_name: dto.secondary_parent.last_name });
+        parents.push({
+          id: secondaryParent.id,
+          first_name: dto.secondary_parent.first_name,
+          last_name: dto.secondary_parent.last_name,
+        });
       }
 
       return {
-        household: { id: household.id, household_number: householdNumber, household_name: dto.household.household_name },
+        household: {
+          id: household.id,
+          household_number: householdNumber,
+          household_name: dto.household.household_name,
+        },
         parents,
         students: createdStudents.map((cs) => ({
           id: cs.id,
@@ -651,7 +679,9 @@ export class RegistrationService {
 
       // ── 3. Create student ──────────────────────────────────────────────
       const studentNumber = await this.sequenceService.nextNumber(tenantId, 'student', tx, 'STU');
-      const lastName = dto.last_name || household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '');
+      const lastName =
+        dto.last_name ||
+        household.household_name.replace(/^The\s+/i, '').replace(/\s+Family$/i, '');
 
       const student = await db.student.create({
         data: {
@@ -689,10 +719,7 @@ export class RegistrationService {
         where: {
           tenant_id: tenantId,
           active: true,
-          OR: [
-            { year_group_id: null },
-            { year_group_id: dto.year_group_id },
-          ],
+          OR: [{ year_group_id: null }, { year_group_id: dto.year_group_id }],
         },
       });
 
@@ -717,14 +744,20 @@ export class RegistrationService {
 
       const branding = await db.tenantBranding.findUnique({ where: { tenant_id: tenantId } });
       const invoicePrefix = branding?.invoice_prefix ?? 'INV';
-      const invoiceNumber = await this.sequenceService.nextNumber(tenantId, 'invoice', tx, invoicePrefix);
+      const invoiceNumber = await this.sequenceService.nextNumber(
+        tenantId,
+        'invoice',
+        tx,
+        invoicePrefix,
+      );
 
       // Get term count for annual amount calculation
       const activeYear = await db.academicYear.findFirst({
         where: { tenant_id: tenantId, status: 'active' },
         include: { _count: { select: { periods: true } } },
       });
-      const termCount = (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
+      const termCount =
+        (activeYear as unknown as { _count: { periods: number } } | null)?._count?.periods ?? 3;
 
       const lineData: Array<{
         tenant_id: string;
@@ -808,12 +841,23 @@ export class RegistrationService {
       };
     })) as {
       student: { id: string; student_number: string; first_name: string; last_name: string };
-      invoice: { id: string; invoice_number: string; total_amount: number; balance_amount: number; status: string };
+      invoice: {
+        id: string;
+        invoice_number: string;
+        total_amount: number;
+        balance_amount: number;
+        status: string;
+      };
     };
 
     // Issue invoice after transaction commits
     try {
-      const issuedInvoice = await this.invoicesService.issue(tenantId, result.invoice.id, userId, true);
+      const issuedInvoice = await this.invoicesService.issue(
+        tenantId,
+        result.invoice.id,
+        userId,
+        true,
+      );
       return {
         ...result,
         invoice: {

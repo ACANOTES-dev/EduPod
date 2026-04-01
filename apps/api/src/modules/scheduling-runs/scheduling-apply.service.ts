@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { ApplyRunDto, SchedulingResultEntry, SchedulingAdjustment } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -26,6 +27,7 @@ export class SchedulingApplyService {
       const db = tx as unknown as PrismaService;
 
       // Lock the row
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- scheduling slot application with complex INSERT ... ON CONFLICT
       const runs = await db.$queryRaw<Array<Record<string, unknown>>>`
         SELECT * FROM scheduling_runs WHERE id = ${runId}::uuid AND tenant_id = ${tenantId}::uuid FOR UPDATE
       `;
@@ -51,9 +53,10 @@ export class SchedulingApplyService {
 
       // ── Step 3: Optimistic concurrency check ─────────────────────────────
 
-      const updatedAt = run['updated_at'] instanceof Date
-        ? run['updated_at'].toISOString()
-        : String(run['updated_at']);
+      const updatedAt =
+        run['updated_at'] instanceof Date
+          ? run['updated_at'].toISOString()
+          : String(run['updated_at']);
 
       const expectedAt = new Date(dto.expected_updated_at).toISOString();
       if (expectedAt !== updatedAt) {
@@ -83,7 +86,10 @@ export class SchedulingApplyService {
 
       // ── Step 5: Merge result_json entries + proposed_adjustments ─────────
 
-      const resultJson = run['result_json'] as { entries: SchedulingResultEntry[]; unassigned: unknown[] } | null;
+      const resultJson = run['result_json'] as {
+        entries: SchedulingResultEntry[];
+        unassigned: unknown[];
+      } | null;
       if (!resultJson || !Array.isArray(resultJson.entries)) {
         throw new BadRequestException({
           code: 'NO_RESULT_JSON',
@@ -120,8 +126,16 @@ export class SchedulingApplyService {
             entriesMap.set(entryKey(adj.class_id, adj.to_weekday, adj.to_period_order), newEntry);
           }
         } else if (adj.type === 'swap') {
-          const keyA = entryKey(adj.entry_a.class_id, adj.entry_a.weekday, adj.entry_a.period_order);
-          const keyB = entryKey(adj.entry_b.class_id, adj.entry_b.weekday, adj.entry_b.period_order);
+          const keyA = entryKey(
+            adj.entry_a.class_id,
+            adj.entry_a.weekday,
+            adj.entry_a.period_order,
+          );
+          const keyB = entryKey(
+            adj.entry_b.class_id,
+            adj.entry_b.weekday,
+            adj.entry_b.period_order,
+          );
           const entA = entriesMap.get(keyA);
           const entB = entriesMap.get(keyB);
           if (entA && entB) {
@@ -180,10 +194,7 @@ export class SchedulingApplyService {
         select: { weekday: true, period_order: true, start_time: true, end_time: true },
       });
 
-      const periodMap = new Map<
-        string,
-        { start_time: Date; end_time: Date }
-      >();
+      const periodMap = new Map<string, { start_time: Date; end_time: Date }>();
       for (const pt of periodTemplates) {
         periodMap.set(`${pt.weekday}|${pt.period_order}`, {
           start_time: pt.start_time,
@@ -288,24 +299,26 @@ export class SchedulingApplyService {
   private formatRun(run: Record<string, unknown>): Record<string, unknown> {
     return {
       ...run,
-      solver_seed: run['solver_seed'] !== null && run['solver_seed'] !== undefined
-        ? Number(run['solver_seed'])
-        : null,
-      soft_preference_score: run['soft_preference_score'] !== null
-        ? Number(run['soft_preference_score'])
-        : null,
-      soft_preference_max: run['soft_preference_max'] !== null
-        ? Number(run['soft_preference_max'])
-        : null,
-      created_at: run['created_at'] instanceof Date
-        ? (run['created_at'] as Date).toISOString()
-        : run['created_at'],
-      updated_at: run['updated_at'] instanceof Date
-        ? (run['updated_at'] as Date).toISOString()
-        : run['updated_at'],
-      applied_at: run['applied_at'] instanceof Date
-        ? (run['applied_at'] as Date).toISOString()
-        : run['applied_at'],
+      solver_seed:
+        run['solver_seed'] !== null && run['solver_seed'] !== undefined
+          ? Number(run['solver_seed'])
+          : null,
+      soft_preference_score:
+        run['soft_preference_score'] !== null ? Number(run['soft_preference_score']) : null,
+      soft_preference_max:
+        run['soft_preference_max'] !== null ? Number(run['soft_preference_max']) : null,
+      created_at:
+        run['created_at'] instanceof Date
+          ? (run['created_at'] as Date).toISOString()
+          : run['created_at'],
+      updated_at:
+        run['updated_at'] instanceof Date
+          ? (run['updated_at'] as Date).toISOString()
+          : run['updated_at'],
+      applied_at:
+        run['applied_at'] instanceof Date
+          ? (run['applied_at'] as Date).toISOString()
+          : run['applied_at'],
     };
   }
 }

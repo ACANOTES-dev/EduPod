@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -85,12 +86,9 @@ describe('ImportController', () => {
       const expected = { id: IMPORT_ID, status: 'pending' };
       mockImportService.upload.mockResolvedValue(expected);
 
-      const result = await controller.upload(
-        mockTenant,
-        mockUser,
-        file,
-        { import_type: 'students' },
-      );
+      const result = await controller.upload(mockTenant, mockUser, file, {
+        import_type: 'students',
+      });
 
       expect(result).toEqual(expected);
       expect(mockImportService.upload).toHaveBeenCalledWith(
@@ -149,12 +147,9 @@ describe('ImportController', () => {
       };
       mockImportService.upload.mockResolvedValue({ id: IMPORT_ID });
 
-      const result = await controller.upload(
-        mockTenant,
-        mockUser,
-        file,
-        { import_type: 'students' },
-      );
+      const result = await controller.upload(mockTenant, mockUser, file, {
+        import_type: 'students',
+      });
 
       expect(result).toEqual({ id: IMPORT_ID });
     });
@@ -198,14 +193,9 @@ describe('ImportController', () => {
         send: jest.fn(),
       };
 
-      await controller.getTemplate(
-        { import_type: 'students' },
-        mockRes as never,
-      );
+      await controller.getTemplate({ import_type: 'students' }, mockRes as never);
 
-      expect(mockTemplateService.generateTemplate).toHaveBeenCalledWith(
-        'students',
-      );
+      expect(mockTemplateService.generateTemplate).toHaveBeenCalledWith('students');
       expect(mockRes.setHeader).toHaveBeenCalledWith(
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

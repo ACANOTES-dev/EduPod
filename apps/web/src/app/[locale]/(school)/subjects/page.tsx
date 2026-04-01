@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -10,15 +14,13 @@ import {
   StatusBadge,
   Switch,
 } from '@school/ui';
-import { Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { SubjectForm, type SubjectFormValues } from './_components/subject-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { SubjectForm, type SubjectFormValues } from './_components/subject-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +64,8 @@ export default function SubjectsPage() {
       const res = await apiClient<SubjectsResponse>(`/api/v1/subjects?${params.toString()}`);
       setData(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[fetchSubjects]', err);
       setData([]);
       setTotal(0);
     } finally {
@@ -108,8 +111,8 @@ export default function SubjectsPage() {
         body: JSON.stringify({ active: !subject.active }),
       });
       void fetchSubjects(page, typeFilter, activeFilter);
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error('[handleToggleActive]', err);
     }
   };
 
@@ -117,23 +120,21 @@ export default function SubjectsPage() {
     {
       key: 'name',
       header: t('fieldName'),
-      render: (row: Subject) => (
-        <span className="font-medium text-text-primary">{row.name}</span>
-      ),
+      render: (row: Subject) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: 'code',
       header: t('fieldCode'),
       render: (row: Subject) => (
-        <span className="font-mono text-text-secondary" dir="ltr">{row.code ?? '—'}</span>
+        <span className="font-mono text-text-secondary" dir="ltr">
+          {row.code ?? '—'}
+        </span>
       ),
     },
     {
       key: 'type',
       header: t('fieldType'),
-      render: (row: Subject) => (
-        <StatusBadge status="info">{row.subject_type}</StatusBadge>
-      ),
+      render: (row: Subject) => <StatusBadge status="info">{row.subject_type}</StatusBadge>,
     },
     {
       key: 'active',
@@ -150,7 +151,14 @@ export default function SubjectsPage() {
       key: 'actions',
       header: tc('actions'),
       render: (row: Subject) => (
-        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditTarget(row); }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditTarget(row);
+          }}
+        >
           <Pencil className="h-4 w-4" />
           <span className="sr-only">{tc('edit')}</span>
         </Button>
@@ -160,7 +168,13 @@ export default function SubjectsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+      <Select
+        value={typeFilter}
+        onValueChange={(v) => {
+          setTypeFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder={t('filterType')} />
         </SelectTrigger>
@@ -173,7 +187,13 @@ export default function SubjectsPage() {
         </SelectContent>
       </Select>
 
-      <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v); setPage(1); }}>
+      <Select
+        value={activeFilter}
+        onValueChange={(v) => {
+          setActiveFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue />
         </SelectTrigger>
@@ -220,7 +240,9 @@ export default function SubjectsPage() {
       {editTarget && (
         <SubjectForm
           open={!!editTarget}
-          onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+          onOpenChange={(v) => {
+            if (!v) setEditTarget(null);
+          }}
           initialValues={{
             name: editTarget.name,
             code: editTarget.code ?? '',

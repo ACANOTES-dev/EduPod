@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { Video } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Badge } from '@school/ui';
 
 import {
   formatDisplayTimeRange,

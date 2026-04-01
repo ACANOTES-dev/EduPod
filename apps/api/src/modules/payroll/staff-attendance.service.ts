@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   BulkMarkAttendanceDto,
   CalculateDaysWorkedDto,
@@ -16,11 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StaffAttendanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async markAttendance(
-    tenantId: string,
-    userId: string,
-    dto: MarkAttendanceDto,
-  ) {
+  async markAttendance(tenantId: string, userId: string, dto: MarkAttendanceDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (tx) => {
@@ -61,11 +55,7 @@ export class StaffAttendanceService {
     });
   }
 
-  async bulkMarkAttendance(
-    tenantId: string,
-    userId: string,
-    dto: BulkMarkAttendanceDto,
-  ) {
+  async bulkMarkAttendance(tenantId: string, userId: string, dto: BulkMarkAttendanceDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
     const dateObj = new Date(dto.date);
 
@@ -117,10 +107,7 @@ export class StaffAttendanceService {
     });
   }
 
-  async getDailyAttendance(
-    tenantId: string,
-    query: StaffAttendanceQueryDto,
-  ) {
+  async getDailyAttendance(tenantId: string, query: StaffAttendanceQueryDto) {
     const { date, page, pageSize } = query;
 
     if (!date) {
@@ -167,10 +154,7 @@ export class StaffAttendanceService {
     };
   }
 
-  async getMonthlyAttendance(
-    tenantId: string,
-    query: StaffAttendanceQueryDto,
-  ) {
+  async getMonthlyAttendance(tenantId: string, query: StaffAttendanceQueryDto) {
     const { month, year, staff_profile_id, page, pageSize } = query;
     const effectiveYear = year ?? new Date().getFullYear();
     const effectiveMonth = month ?? new Date().getMonth() + 1;
@@ -213,10 +197,7 @@ export class StaffAttendanceService {
     };
   }
 
-  async calculateDaysWorked(
-    tenantId: string,
-    dto: CalculateDaysWorkedDto,
-  ) {
+  async calculateDaysWorked(tenantId: string, dto: CalculateDaysWorkedDto) {
     const records = await this.prisma.staffAttendanceRecord.findMany({
       where: {
         tenant_id: tenantId,

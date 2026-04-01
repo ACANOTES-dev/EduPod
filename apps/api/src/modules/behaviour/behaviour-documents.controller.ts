@@ -11,6 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   finaliseDocumentSchema,
   generateDocumentSchema,
@@ -34,9 +35,7 @@ import { BehaviourDocumentService } from './behaviour-document.service';
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourDocumentsController {
-  constructor(
-    private readonly documentService: BehaviourDocumentService,
-  ) {}
+  constructor(private readonly documentService: BehaviourDocumentService) {}
 
   @Post('generate')
   @RequiresPermission('behaviour.manage')
@@ -47,11 +46,7 @@ export class BehaviourDocumentsController {
     @Body(new ZodValidationPipe(generateDocumentSchema))
     dto: ReturnType<typeof generateDocumentSchema.parse>,
   ) {
-    return this.documentService.generateDocument(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.documentService.generateDocument(tenant.tenant_id, user.sub, dto);
   }
 
   @Get()
@@ -82,12 +77,7 @@ export class BehaviourDocumentsController {
     @Body(new ZodValidationPipe(finaliseDocumentSchema))
     dto: ReturnType<typeof finaliseDocumentSchema.parse>,
   ) {
-    return this.documentService.finaliseDocument(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto.notes,
-    );
+    return this.documentService.finaliseDocument(tenant.tenant_id, user.sub, id, dto.notes);
   }
 
   @Post(':id/send')
@@ -100,12 +90,7 @@ export class BehaviourDocumentsController {
     @Body(new ZodValidationPipe(sendDocumentSchema))
     dto: ReturnType<typeof sendDocumentSchema.parse>,
   ) {
-    return this.documentService.sendDocument(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.documentService.sendDocument(tenant.tenant_id, user.sub, id, dto);
   }
 
   @Get(':id/download')

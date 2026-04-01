@@ -1,5 +1,11 @@
 'use client';
 
+import { Calendar, CheckCircle, ExternalLink, List } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -10,11 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Calendar, CheckCircle, ExternalLink, List } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -109,7 +110,8 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        STATUS_BADGE_CLASSES[status] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+        STATUS_BADGE_CLASSES[status] ??
+        'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
       }`}
     >
       {t(`statuses.${status}` as Parameters<typeof t>[0])}
@@ -160,14 +162,7 @@ export default function SanctionListPage() {
 
   // Fetch sanctions
   const fetchSanctions = React.useCallback(
-    async (
-      p: number,
-      type: string,
-      status: string,
-      from: string,
-      to: string,
-      search: string,
-    ) => {
+    async (p: number, type: string, status: string, from: string, to: string, search: string) => {
       setIsLoading(true);
       try {
         const params = new URLSearchParams({
@@ -184,7 +179,8 @@ export default function SanctionListPage() {
         );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
-      } catch {
+      } catch (err) {
+        console.error('[fetchSanctions]', err);
         setData([]);
         setTotal(0);
       } finally {
@@ -209,8 +205,8 @@ export default function SanctionListPage() {
       });
       // Refresh list
       void fetchSanctions(page, typeFilter, statusFilter, dateFrom, dateTo, debouncedSearch);
-    } catch {
-      // Error toast handled by apiClient
+    } catch (err) {
+      console.error('[handleMarkServed]', err);
     } finally {
       setMarkingServed(null);
     }
@@ -233,9 +229,7 @@ export default function SanctionListPage() {
       header: t('columns.student'),
       render: (row: SanctionRow) => (
         <span className="text-sm font-medium text-text-primary">
-          {row.student
-            ? `${row.student.first_name} ${row.student.last_name}`
-            : '\u2014'}
+          {row.student ? `${row.student.first_name} ${row.student.last_name}` : '\u2014'}
         </span>
       ),
     },
@@ -408,19 +402,17 @@ export default function SanctionListPage() {
                 ? `${row.student.first_name} ${row.student.last_name}`
                 : t('unknownStudent')}
             </p>
-            <p className="mt-0.5 font-mono text-xs text-text-tertiary">
-              {row.sanction_number}
-            </p>
+            <p className="mt-0.5 font-mono text-xs text-text-tertiary">{row.sanction_number}</p>
           </div>
           <StatusBadge status={row.status} />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeClass}`}>
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeClass}`}
+          >
             {t(`types.${row.type}` as Parameters<typeof t>[0])}
           </span>
-          <span className="text-xs text-text-tertiary">
-            {formatDate(row.scheduled_date)}
-          </span>
+          <span className="text-xs text-text-tertiary">{formatDate(row.scheduled_date)}</span>
           {row.supervised_by && (
             <span className="text-xs text-text-tertiary">
               {row.supervised_by.first_name} {row.supervised_by.last_name}
@@ -489,12 +481,8 @@ export default function SanctionListPage() {
       {viewTab === 'calendar' ? (
         <div className="rounded-xl border border-border bg-surface py-16 text-center dark:bg-surface">
           <Calendar className="mx-auto h-10 w-10 text-text-tertiary" />
-          <p className="mt-3 text-sm font-medium text-text-primary">
-            {t('calendarComingSoon')}
-          </p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {t('calendarComingSoonDescription')}
-          </p>
+          <p className="mt-3 text-sm font-medium text-text-primary">{t('calendarComingSoon')}</p>
+          <p className="mt-1 text-xs text-text-tertiary">{t('calendarComingSoonDescription')}</p>
         </div>
       ) : (
         <>
@@ -505,19 +493,14 @@ export default function SanctionListPage() {
               <div className="mt-4 space-y-2">
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-28 animate-pulse rounded-xl bg-surface-secondary"
-                    />
+                    <div key={i} className="h-28 animate-pulse rounded-xl bg-surface-secondary" />
                   ))
                 ) : data.length === 0 ? (
                   <div className="rounded-xl border border-border bg-surface py-12 text-center dark:bg-surface">
                     <Badge variant="secondary" className="mx-auto mb-2">
                       {t('noResults')}
                     </Badge>
-                    <p className="text-sm text-text-tertiary">
-                      {t('noResultsDescription')}
-                    </p>
+                    <p className="text-sm text-text-tertiary">{t('noResultsDescription')}</p>
                   </div>
                 ) : (
                   data.map(renderMobileCard)
@@ -526,9 +509,7 @@ export default function SanctionListPage() {
               {/* Mobile pagination */}
               {total > PAGE_SIZE && (
                 <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-                  <span>
-                    {t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}
-                  </span>
+                  <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -559,9 +540,7 @@ export default function SanctionListPage() {
               pageSize={PAGE_SIZE}
               total={total}
               onPageChange={setPage}
-              onRowClick={(row) =>
-                router.push(`/${locale}/behaviour/sanctions/${row.id}`)
-              }
+              onRowClick={(row) => router.push(`/${locale}/behaviour/sanctions/${row.id}`)}
               keyExtractor={(row) => row.id}
               isLoading={isLoading}
             />

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, StatusBadge } from '@school/ui';
 import { Clock, Download, Loader2, Search, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, StatusBadge } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -84,14 +85,16 @@ export default function ReportsAskAiPage() {
     const headers = result.columns.join(',');
     const rows = result.rows
       .map((row) =>
-        result.columns.map((col) => {
-          const val = row[col];
-          if (val === null || val === undefined) return '';
-          const str = String(val);
-          return str.includes(',') || str.includes('"') || str.includes('\n')
-            ? `"${str.replace(/"/g, '""')}"`
-            : str;
-        }).join(','),
+        result.columns
+          .map((col) => {
+            const val = row[col];
+            if (val === null || val === undefined) return '';
+            const str = String(val);
+            return str.includes(',') || str.includes('"') || str.includes('\n')
+              ? `"${str.replace(/"/g, '""')}"`
+              : str;
+          })
+          .join(','),
       )
       .join('\n');
     const csv = `${headers}\n${rows}`;
@@ -120,7 +123,9 @@ export default function ReportsAskAiPage() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !loading) void handleSubmit(query); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !loading) void handleSubmit(query);
+              }}
               placeholder={t('askAi.placeholder')}
               className="ps-10 text-sm"
               disabled={loading}
@@ -188,7 +193,10 @@ export default function ReportsAskAiPage() {
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
                   {result.columns.map((col) => (
-                    <th key={col} className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary"
+                    >
                       {col}
                     </th>
                   ))}
@@ -197,13 +205,19 @@ export default function ReportsAskAiPage() {
               <tbody>
                 {result.rows.length === 0 ? (
                   <tr>
-                    <td colSpan={result.columns.length} className="px-4 py-12 text-center text-sm text-text-tertiary">
+                    <td
+                      colSpan={result.columns.length}
+                      className="px-4 py-12 text-center text-sm text-text-tertiary"
+                    >
                       {t('askAi.noResults')}
                     </td>
                   </tr>
                 ) : (
                   result.rows.map((row, i) => (
-                    <tr key={i} className="border-b border-border last:border-b-0 hover:bg-surface-secondary">
+                    <tr
+                      key={i}
+                      className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                    >
                       {result.columns.map((col) => (
                         <td key={col} className="px-4 py-3 text-sm text-text-primary">
                           {row[col] !== null && row[col] !== undefined ? String(row[col]) : '—'}
@@ -227,7 +241,9 @@ export default function ReportsAskAiPage() {
           </div>
           {loadingHistory ? (
             <div className="space-y-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-secondary" />)}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-secondary" />
+              ))}
             </div>
           ) : history.length === 0 ? (
             <p className="text-sm text-text-tertiary">{t('askAi.noHistory')}</p>

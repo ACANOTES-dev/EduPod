@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -157,7 +158,11 @@ describe('BehaviourRecognitionController', () => {
 
     const result = await controller.getHouseDetail(TENANT, HOUSE_ID);
 
-    expect(mockHouseService.getHouseDetail).toHaveBeenCalledWith(TENANT_ID, HOUSE_ID, ACADEMIC_YEAR_ID);
+    expect(mockHouseService.getHouseDetail).toHaveBeenCalledWith(
+      TENANT_ID,
+      HOUSE_ID,
+      ACADEMIC_YEAR_ID,
+    );
     expect(result).toEqual({ id: HOUSE_ID, name: 'Red', members: [] });
   });
 
@@ -226,7 +231,11 @@ describe('BehaviourRecognitionController', () => {
 
     const result = await controller.approvePublication(TENANT, USER, PUB_ID, dto as never);
 
-    expect(mockRecognitionService.approvePublication).toHaveBeenCalledWith(TENANT_ID, PUB_ID, USER_ID);
+    expect(mockRecognitionService.approvePublication).toHaveBeenCalledWith(
+      TENANT_ID,
+      PUB_ID,
+      USER_ID,
+    );
     expect(result).toEqual({ id: PUB_ID, status: 'approved' });
   });
 
@@ -235,7 +244,11 @@ describe('BehaviourRecognitionController', () => {
 
     const result = await controller.rejectPublication(TENANT, USER, PUB_ID);
 
-    expect(mockRecognitionService.rejectPublication).toHaveBeenCalledWith(TENANT_ID, PUB_ID, USER_ID);
+    expect(mockRecognitionService.rejectPublication).toHaveBeenCalledWith(
+      TENANT_ID,
+      PUB_ID,
+      USER_ID,
+    );
     expect(result).toEqual({ id: PUB_ID, status: 'rejected' });
   });
 
@@ -262,9 +275,9 @@ describe('BehaviourRecognitionController', () => {
 
     const result = await controller.bulkHouseAssign(TENANT, dto as never);
 
-    expect(mockHouseService.bulkAssign).toHaveBeenCalledWith(
-      TENANT_ID, ACADEMIC_YEAR_ID, [{ student_id: 's1', house_id: HOUSE_ID }],
-    );
+    expect(mockHouseService.bulkAssign).toHaveBeenCalledWith(TENANT_ID, ACADEMIC_YEAR_ID, [
+      { student_id: 's1', house_id: HOUSE_ID },
+    ]);
     expect(result).toEqual({ assigned: 1 });
   });
 });

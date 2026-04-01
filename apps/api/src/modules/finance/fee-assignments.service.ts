@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { CreateFeeAssignmentDto, UpdateFeeAssignmentDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -61,9 +62,7 @@ export class FeeAssignmentsService {
         fee_structure: a.fee_structure
           ? { ...a.fee_structure, amount: Number(a.fee_structure.amount) }
           : null,
-        discount: a.discount
-          ? { ...a.discount, value: Number(a.discount.value) }
-          : null,
+        discount: a.discount ? { ...a.discount, value: Number(a.discount.value) } : null,
       })),
       meta: { page, pageSize, total },
     };
@@ -180,7 +179,8 @@ export class FeeAssignmentsService {
     if (duplicate) {
       throw new ConflictException({
         code: 'DUPLICATE_ASSIGNMENT',
-        message: 'An active fee assignment already exists for this household/student and fee structure',
+        message:
+          'An active fee assignment already exists for this household/student and fee structure',
       });
     }
 

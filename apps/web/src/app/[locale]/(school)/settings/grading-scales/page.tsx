@@ -1,5 +1,9 @@
 'use client';
 
+import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -20,10 +24,6 @@ import {
   TooltipTrigger,
   toast,
 } from '@school/ui';
-import { Lock, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -92,7 +92,9 @@ export default function GradingScalesPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-      const res = await apiClient<GradingScalesResponse>(`/api/v1/gradebook/grading-scales?${params.toString()}`);
+      const res = await apiClient<GradingScalesResponse>(
+        `/api/v1/gradebook/grading-scales?${params.toString()}`,
+      );
       setData(res.data);
       setTotal(res.meta.total);
     } catch {
@@ -114,10 +116,7 @@ export default function GradingScalesPage() {
       { min: 0, max: 59, label: 'F' },
       { min: 60, max: 100, label: 'A' },
     ]);
-    setGrades([
-      { label: 'Excellent' },
-      { label: 'Good' },
-    ]);
+    setGrades([{ label: 'Excellent' }, { label: 'Good' }]);
   }, []);
 
   const openCreate = React.useCallback(() => {
@@ -192,9 +191,7 @@ export default function GradingScalesPage() {
   const updateRange = (idx: number, field: keyof ScaleRange, value: string) => {
     setRanges((prev) =>
       prev.map((r, i) =>
-        i === idx
-          ? { ...r, [field]: field === 'label' ? value : Number(value) }
-          : r,
+        i === idx ? { ...r, [field]: field === 'label' ? value : Number(value) } : r,
       ),
     );
   };
@@ -208,9 +205,7 @@ export default function GradingScalesPage() {
   };
 
   const updateGrade = (idx: number, value: string) => {
-    setGrades((prev) =>
-      prev.map((g, i) => (i === idx ? { ...g, label: value } : g)),
-    );
+    setGrades((prev) => prev.map((g, i) => (i === idx ? { ...g, label: value } : g)));
   };
 
   const columns = [
@@ -320,11 +315,7 @@ export default function GradingScalesPage() {
 
             <div>
               <Label>Type</Label>
-              <Select
-                value={scaleType}
-                onValueChange={setScaleType}
-                disabled={!!editTarget}
-              >
+              <Select value={scaleType} onValueChange={setScaleType} disabled={!!editTarget}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -369,11 +360,7 @@ export default function GradingScalesPage() {
                       placeholder="Label (e.g. A)"
                     />
                     {ranges.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeRange(idx)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => removeRange(idx)}>
                         <Trash2 className="h-3.5 w-3.5 text-danger-text" />
                       </Button>
                     )}
@@ -398,11 +385,7 @@ export default function GradingScalesPage() {
                       placeholder="Grade label (e.g. Excellent)"
                     />
                     {grades.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeGrade(idx)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => removeGrade(idx)}>
                         <Trash2 className="h-3.5 w-3.5 text-danger-text" />
                       </Button>
                     )}

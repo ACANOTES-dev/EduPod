@@ -12,10 +12,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { importConfirmSchema } from '@school/shared';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import { importConfirmSchema } from '@school/shared';
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';

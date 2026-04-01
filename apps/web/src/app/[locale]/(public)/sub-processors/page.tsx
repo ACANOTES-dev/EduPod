@@ -1,11 +1,12 @@
 'use client';
 
-import type { SubProcessorRegisterVersion } from '@school/shared';
-import { Button } from '@school/ui';
 import { ArrowLeftRight, Globe2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import type { SubProcessorRegisterVersion } from '@school/shared';
+import { Button } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -108,7 +109,9 @@ export default function PublicSubProcessorsPage() {
 
                   <dl className="mt-5 space-y-3 text-sm">
                     <div>
-                      <dt className="font-medium text-slate-500">{t('subProcessorsDataCategories')}</dt>
+                      <dt className="font-medium text-slate-500">
+                        {t('subProcessorsDataCategories')}
+                      </dt>
                       <dd className="mt-1 text-slate-800">{entry.data_categories}</dd>
                     </div>
                     <div>
@@ -116,7 +119,9 @@ export default function PublicSubProcessorsPage() {
                       <dd className="mt-1 text-slate-800">{entry.location}</dd>
                     </div>
                     <div>
-                      <dt className="font-medium text-slate-500">{t('subProcessorsTransferMechanism')}</dt>
+                      <dt className="font-medium text-slate-500">
+                        {t('subProcessorsTransferMechanism')}
+                      </dt>
                       <dd className="mt-1 text-slate-800">{entry.transfer_mechanism}</dd>
                     </div>
                     {entry.notes ? (
@@ -131,7 +136,9 @@ export default function PublicSubProcessorsPage() {
             </section>
 
             <section className="rounded-3xl border border-white/70 bg-white/90 p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-slate-900">{t('subProcessorsHistoryTitle')}</h2>
+              <h2 className="text-xl font-semibold text-slate-900">
+                {t('subProcessorsHistoryTitle')}
+              </h2>
               <div className="mt-5 space-y-3">
                 {versionHistory.map((version) => (
                   <article
@@ -142,9 +149,7 @@ export default function PublicSubProcessorsPage() {
                       <p className="text-sm font-semibold text-slate-900">
                         {t('subProcessorsVersionLabel', { version: version.version })}
                       </p>
-                      <p className="text-sm text-slate-600">
-                        {formatDate(version.published_at)}
-                      </p>
+                      <p className="text-sm text-slate-600">{formatDate(version.published_at)}</p>
                     </div>
                     <p className="mt-2 text-sm text-slate-700">{version.change_summary}</p>
                   </article>

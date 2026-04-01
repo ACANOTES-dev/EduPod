@@ -1,15 +1,6 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  feeGenerationConfirmSchema,
-  feeGenerationPreviewSchema,
-} from '@school/shared';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+
+import { feeGenerationConfirmSchema, feeGenerationPreviewSchema } from '@school/shared';
 import type {
   FeeGenerationConfirmDto,
   FeeGenerationPreviewDto,

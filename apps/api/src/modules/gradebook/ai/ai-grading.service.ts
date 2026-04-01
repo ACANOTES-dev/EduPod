@@ -6,6 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import type { GdprOutboundData } from '@school/shared';
 import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
@@ -18,12 +19,7 @@ import { RedisService } from '../../redis/redis.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-] as const;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
 
 type AllowedMediaType = (typeof ALLOWED_MIME_TYPES)[number];
 
@@ -81,14 +77,10 @@ export class AiGradingService {
         const AnthropicSdk = require('@anthropic-ai/sdk').default;
         this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
       } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI grading will be unavailable',
-        );
+        this.logger.warn('@anthropic-ai/sdk is not installed — AI grading will be unavailable');
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI grading will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI grading will be unavailable');
     }
   }
 
@@ -109,8 +101,7 @@ export class AiGradingService {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'AI grading is not configured. ANTHROPIC_API_KEY is not set.',
+          message: 'AI grading is not configured. ANTHROPIC_API_KEY is not set.',
         },
       });
     }
@@ -240,8 +231,7 @@ export class AiGradingService {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'AI grading is not configured. ANTHROPIC_API_KEY is not set.',
+          message: 'AI grading is not configured. ANTHROPIC_API_KEY is not set.',
         },
       });
     }
@@ -340,10 +330,7 @@ export class AiGradingService {
           (b: { type: string; text?: string }) => b.type === 'text',
         );
         const batchRawText = textBlock?.text ?? '';
-        const parsed = this.parseGradingResponse(
-          batchRawText,
-          context.maxScore,
-        );
+        const parsed = this.parseGradingResponse(batchRawText, context.maxScore);
 
         const batchConfidenceMap: Record<string, number> = { high: 0.9, medium: 0.7, low: 0.4 };
 
@@ -429,7 +416,9 @@ export class AiGradingService {
 
   // ─── Build Prompt ─────────────────────────────────────────────────────────
 
-  private buildGradingPrompt(context: NonNullable<Awaited<ReturnType<typeof this.loadGradingContext>>>): string {
+  private buildGradingPrompt(
+    context: NonNullable<Awaited<ReturnType<typeof this.loadGradingContext>>>,
+  ): string {
     const parts: string[] = [
       `You are grading a student exam/assignment for the following:`,
       `Subject: ${context.subjectName}`,
@@ -443,9 +432,7 @@ export class AiGradingService {
     }
 
     if (context.rubricCriteria) {
-      parts.push(
-        `\nRubric Criteria (JSON):\n${JSON.stringify(context.rubricCriteria, null, 2)}`,
-      );
+      parts.push(`\nRubric Criteria (JSON):\n${JSON.stringify(context.rubricCriteria, null, 2)}`);
     }
 
     parts.push(`
@@ -499,17 +486,13 @@ Analyze the student's work shown in the image and respond with ONLY a JSON objec
         : null;
 
     const confidence: AiGradingConfidence =
-      raw.confidence === 'high' || raw.confidence === 'medium'
-        ? raw.confidence
-        : 'low';
+      raw.confidence === 'high' || raw.confidence === 'medium' ? raw.confidence : 'low';
 
     return {
       suggested_score: score,
       confidence,
       reasoning: raw.reasoning ?? '',
-      criterion_scores: Array.isArray(raw.criterion_scores)
-        ? raw.criterion_scores
-        : undefined,
+      criterion_scores: Array.isArray(raw.criterion_scores) ? raw.criterion_scores : undefined,
     };
   }
 

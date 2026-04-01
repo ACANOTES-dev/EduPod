@@ -1,11 +1,12 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';
 import { StudentAnalyticsTab } from '@/components/behaviour/student-analytics-tab';
@@ -71,7 +72,14 @@ interface StudentAward {
   awarded_by: { first_name: string; last_name: string } | null;
 }
 
-const TAB_KEYS = ['timeline', 'analytics', 'interventions', 'sanctions', 'awards', 'tasks'] as const;
+const TAB_KEYS = [
+  'timeline',
+  'analytics',
+  'interventions',
+  'sanctions',
+  'awards',
+  'tasks',
+] as const;
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'bg-gray-100 text-gray-700',
@@ -124,7 +132,9 @@ export default function StudentBehaviourProfilePage() {
   const [sanctions, setSanctions] = React.useState<StudentSanction[]>([]);
   const [awards, setAwards] = React.useState<StudentAward[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [tabLoading, setTabLoading] = React.useState<Partial<Record<(typeof TAB_KEYS)[number], boolean>>>({});
+  const [tabLoading, setTabLoading] = React.useState<
+    Partial<Record<(typeof TAB_KEYS)[number], boolean>>
+  >({});
   const [activeTab, setActiveTab] = React.useState<(typeof TAB_KEYS)[number]>('timeline');
 
   React.useEffect(() => {
@@ -134,10 +144,14 @@ export default function StudentBehaviourProfilePage() {
       apiClient<{ data: StudentProfile }>(`/api/v1/behaviour/students/${studentId}`)
         .then((res) => setProfile(res.data))
         .catch(() => setProfile(null)),
-      apiClient<{ data: IncidentCardData[] }>(`/api/v1/behaviour/incidents?student_id=${studentId}&pageSize=50&sort=occurred_at&order=desc`)
+      apiClient<{ data: IncidentCardData[] }>(
+        `/api/v1/behaviour/incidents?student_id=${studentId}&pageSize=50&sort=occurred_at&order=desc`,
+      )
         .then((res) => setIncidents(res.data ?? []))
         .catch(() => setIncidents([])),
-      apiClient<{ data: StudentTask[] }>(`/api/v1/behaviour/tasks?entity_type=incident&pageSize=50&student_id=${studentId}`)
+      apiClient<{ data: StudentTask[] }>(
+        `/api/v1/behaviour/tasks?entity_type=incident&pageSize=50&student_id=${studentId}`,
+      )
         .then((res) => setTasks(res.data ?? []))
         .catch(() => setTasks([])),
     ]).finally(() => setLoading(false));
@@ -149,7 +163,9 @@ export default function StudentBehaviourProfilePage() {
 
     if (activeTab === 'interventions' && interventions.length === 0 && !tabLoading.interventions) {
       setTabLoading((prev) => ({ ...prev, interventions: true }));
-      apiClient<{ data: StudentIntervention[] }>(`/api/v1/behaviour/students/${studentId}/interventions?pageSize=50`)
+      apiClient<{ data: StudentIntervention[] }>(
+        `/api/v1/behaviour/students/${studentId}/interventions?pageSize=50`,
+      )
         .then((res) => setInterventions(res.data ?? []))
         .catch(() => setInterventions([]))
         .finally(() => setTabLoading((prev) => ({ ...prev, interventions: false })));
@@ -157,7 +173,9 @@ export default function StudentBehaviourProfilePage() {
 
     if (activeTab === 'sanctions' && sanctions.length === 0 && !tabLoading.sanctions) {
       setTabLoading((prev) => ({ ...prev, sanctions: true }));
-      apiClient<{ data: StudentSanction[] }>(`/api/v1/behaviour/students/${studentId}/sanctions?pageSize=50`)
+      apiClient<{ data: StudentSanction[] }>(
+        `/api/v1/behaviour/students/${studentId}/sanctions?pageSize=50`,
+      )
         .then((res) => setSanctions(res.data ?? []))
         .catch(() => setSanctions([]))
         .finally(() => setTabLoading((prev) => ({ ...prev, sanctions: false })));
@@ -165,12 +183,14 @@ export default function StudentBehaviourProfilePage() {
 
     if (activeTab === 'awards' && awards.length === 0 && !tabLoading.awards) {
       setTabLoading((prev) => ({ ...prev, awards: true }));
-      apiClient<{ data: StudentAward[] }>(`/api/v1/behaviour/students/${studentId}/awards?pageSize=50`)
+      apiClient<{ data: StudentAward[] }>(
+        `/api/v1/behaviour/students/${studentId}/awards?pageSize=50`,
+      )
         .then((res) => setAwards(res.data ?? []))
         .catch(() => setAwards([]))
         .finally(() => setTabLoading((prev) => ({ ...prev, awards: false })));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, studentId]);
 
   if (loading) {
@@ -448,7 +468,8 @@ export default function StudentBehaviourProfilePage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {award.award_type.tier_group != null && award.award_type.tier_level != null ? (
+                        {award.award_type.tier_group != null &&
+                        award.award_type.tier_level != null ? (
                           <Badge variant="secondary" className="bg-indigo-100 text-indigo-700">
                             {award.award_type.tier_group} {award.award_type.tier_level}
                           </Badge>
@@ -459,9 +480,7 @@ export default function StudentBehaviourProfilePage() {
                       <td className="px-4 py-3 text-text-secondary">
                         {formatDate(award.awarded_at)}
                       </td>
-                      <td className="pe-4 px-4 py-3 text-text-secondary">
-                        {award.notes ?? '—'}
-                      </td>
+                      <td className="pe-4 px-4 py-3 text-text-secondary">{award.notes ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>

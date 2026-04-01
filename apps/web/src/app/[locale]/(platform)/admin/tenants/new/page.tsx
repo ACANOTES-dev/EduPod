@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,11 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -44,11 +44,7 @@ const TIMEZONES = [
   'UTC',
 ];
 
-const DATE_FORMATS = [
-  'DD/MM/YYYY',
-  'MM/DD/YYYY',
-  'YYYY-MM-DD',
-];
+const DATE_FORMATS = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
 
 const CURRENCIES = [
   { code: 'SAR', label: 'SAR — Saudi Riyal' },
@@ -141,7 +137,9 @@ export default function CreateTenantPage() {
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to create tenant')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to create tenant',
+            )
           : 'Failed to create tenant';
       setError(message);
     } finally {
@@ -161,10 +159,7 @@ export default function CreateTenantPage() {
         </Link>
       </div>
 
-      <PageHeader
-        title="Create Tenant"
-        description="Set up a new school tenant on the platform"
-      />
+      <PageHeader title="Create Tenant" description="Set up a new school tenant on the platform" />
 
       {error && (
         <div className="mt-6 rounded-xl border border-danger-fill bg-danger-fill/10 px-4 py-3 text-sm text-danger-text">
@@ -221,10 +216,7 @@ export default function CreateTenantPage() {
           {/* Timezone */}
           <div className="space-y-2">
             <Label htmlFor="timezone">Timezone</Label>
-            <Select
-              value={form.timezone}
-              onValueChange={(v) => updateField('timezone', v)}
-            >
+            <Select value={form.timezone} onValueChange={(v) => updateField('timezone', v)}>
               <SelectTrigger id="timezone">
                 <SelectValue />
               </SelectTrigger>
@@ -241,10 +233,7 @@ export default function CreateTenantPage() {
           {/* Date Format */}
           <div className="space-y-2">
             <Label htmlFor="date_format">Date Format</Label>
-            <Select
-              value={form.date_format}
-              onValueChange={(v) => updateField('date_format', v)}
-            >
+            <Select value={form.date_format} onValueChange={(v) => updateField('date_format', v)}>
               <SelectTrigger id="date_format">
                 <SelectValue />
               </SelectTrigger>
@@ -305,11 +294,7 @@ export default function CreateTenantPage() {
             {submitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
             Create Tenant
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push('/en/admin/tenants')}
-          >
+          <Button type="button" variant="outline" onClick={() => router.push('/en/admin/tenants')}>
             Cancel
           </Button>
         </div>

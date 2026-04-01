@@ -7,8 +7,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
 import { z } from 'zod';
+
+import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -69,11 +70,7 @@ export class TimetablesController {
 
     // If only view_own, verify the staffProfileId belongs to the current user
     if (!hasManage && hasViewOwn) {
-      const isOwn = await this.isOwnStaffProfile(
-        tenant.tenant_id,
-        user.sub,
-        staffProfileId,
-      );
+      const isOwn = await this.isOwnStaffProfile(tenant.tenant_id, user.sub, staffProfileId);
       if (!isOwn) {
         throw new ForbiddenException({
           error: {
@@ -84,14 +81,10 @@ export class TimetablesController {
       }
     }
 
-    return this.timetablesService.getTeacherTimetable(
-      tenant.tenant_id,
-      staffProfileId,
-      {
-        academic_year_id: query.academic_year_id,
-        week_start: query.week_start,
-      },
-    );
+    return this.timetablesService.getTeacherTimetable(tenant.tenant_id, staffProfileId, {
+      academic_year_id: query.academic_year_id,
+      week_start: query.week_start,
+    });
   }
 
   @Get('timetables/room/:roomId')
@@ -116,14 +109,10 @@ export class TimetablesController {
     @Query(new ZodValidationPipe(timetableQuerySchema))
     query: z.infer<typeof timetableQuerySchema>,
   ) {
-    return this.timetablesService.getStudentTimetable(
-      tenant.tenant_id,
-      studentId,
-      {
-        academic_year_id: query.academic_year_id,
-        week_start: query.week_start,
-      },
-    );
+    return this.timetablesService.getStudentTimetable(tenant.tenant_id, studentId, {
+      academic_year_id: query.academic_year_id,
+      week_start: query.week_start,
+    });
   }
 
   @Get('reports/workload')
@@ -133,10 +122,7 @@ export class TimetablesController {
     @Query(new ZodValidationPipe(workloadQuerySchema))
     query: z.infer<typeof workloadQuerySchema>,
   ) {
-    return this.timetablesService.getWorkloadReport(
-      tenant.tenant_id,
-      query.academic_year_id,
-    );
+    return this.timetablesService.getWorkloadReport(tenant.tenant_id, query.academic_year_id);
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

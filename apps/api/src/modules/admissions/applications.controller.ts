@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   admissionsAnalyticsSchema,
   createApplicationNoteSchema,
@@ -67,19 +68,13 @@ export class ApplicationsController {
 
   @Get(':id')
   @RequiresPermission('admissions.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.findOne(tenant.tenant_id, id);
   }
 
   @Get(':id/preview')
   @RequiresPermission('admissions.view')
-  async preview(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async preview(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.preview(tenant.tenant_id, id);
   }
 
@@ -92,12 +87,7 @@ export class ApplicationsController {
     @Body(new ZodValidationPipe(reviewApplicationSchema))
     dto: ReviewApplicationDto,
   ) {
-    return this.applicationsService.review(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.applicationsService.review(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Post(':id/withdraw')
@@ -121,10 +111,7 @@ export class ApplicationsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.applicationsService.getConversionPreview(
-      tenant.tenant_id,
-      id,
-    );
+    return this.applicationsService.getConversionPreview(tenant.tenant_id, id);
   }
 
   @Post(':id/convert')
@@ -136,12 +123,7 @@ export class ApplicationsController {
     @Body(new ZodValidationPipe(convertApplicationSchema))
     dto: ConvertApplicationDto,
   ) {
-    return this.applicationsService.convert(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.applicationsService.convert(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Get(':applicationId/notes')
@@ -166,12 +148,7 @@ export class ApplicationsController {
     @Body(new ZodValidationPipe(createApplicationNoteSchema))
     dto: CreateApplicationNoteDto,
   ) {
-    return this.applicationNotesService.create(
-      tenant.tenant_id,
-      applicationId,
-      user.sub,
-      dto,
-    );
+    return this.applicationNotesService.create(tenant.tenant_id, applicationId, user.sub, dto);
   }
 
   // ─── Admin Payment Endpoints ─────────────────────────────────────────────
@@ -183,11 +160,7 @@ export class ApplicationsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.admissionsPaymentService.markPaymentReceived(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.admissionsPaymentService.markPaymentReceived(tenant.tenant_id, id, user.sub);
   }
 
   @Post(':id/setup-payment-plan')
@@ -197,11 +170,7 @@ export class ApplicationsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.admissionsPaymentService.setupPaymentPlan(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.admissionsPaymentService.setupPaymentPlan(tenant.tenant_id, id, user.sub);
   }
 
   @Post(':id/waive-fees')
@@ -211,10 +180,6 @@ export class ApplicationsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.admissionsPaymentService.waiveFees(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.admissionsPaymentService.waiveFees(tenant.tenant_id, id, user.sub);
   }
 }

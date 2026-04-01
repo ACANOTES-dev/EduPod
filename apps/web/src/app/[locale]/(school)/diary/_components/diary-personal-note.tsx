@@ -1,9 +1,10 @@
 'use client';
 
-import { Textarea } from '@school/ui';
 import { Check, NotebookPen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Textarea } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

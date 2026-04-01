@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createExclusionCaseSchema,
   exclusionCaseListQuerySchema,
@@ -19,7 +21,6 @@ import {
   updateExclusionCaseSchema,
 } from '@school/shared';
 import type { ExclusionStatusKey, JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -34,18 +35,14 @@ import { BehaviourExclusionCasesService } from './behaviour-exclusion-cases.serv
 
 /** Map API-facing status values to Prisma enum names */
 function toExclusionStatus(value: string): ExclusionStatusKey {
-  return value === 'hearing_scheduled'
-    ? 'hearing_scheduled_exc'
-    : (value as ExclusionStatusKey);
+  return value === 'hearing_scheduled' ? 'hearing_scheduled_exc' : (value as ExclusionStatusKey);
 }
 
 @Controller('v1')
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourExclusionsController {
-  constructor(
-    private readonly exclusionCasesService: BehaviourExclusionCasesService,
-  ) {}
+  constructor(private readonly exclusionCasesService: BehaviourExclusionCasesService) {}
 
   // ─── Create ─────────────────────────────────────────────────────────────────
 
@@ -58,11 +55,7 @@ export class BehaviourExclusionsController {
     @Body(new ZodValidationPipe(createExclusionCaseSchema))
     dto: z.infer<typeof createExclusionCaseSchema>,
   ) {
-    return this.exclusionCasesService.create(
-      tenant.tenant_id,
-      dto,
-      user.sub,
-    );
+    return this.exclusionCasesService.create(tenant.tenant_id, dto, user.sub);
   }
 
   // ─── List ───────────────────────────────────────────────────────────────────
@@ -81,10 +74,7 @@ export class BehaviourExclusionsController {
 
   @Get('behaviour/exclusion-cases/:id')
   @RequiresPermission('behaviour.manage')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.exclusionCasesService.getById(tenant.tenant_id, id);
   }
 
@@ -97,12 +87,7 @@ export class BehaviourExclusionsController {
     @Body(new ZodValidationPipe(updateExclusionCaseSchema))
     dto: z.infer<typeof updateExclusionCaseSchema>,
   ) {
-    return this.exclusionCasesService.update(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.exclusionCasesService.update(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Patch('behaviour/exclusion-cases/:id/status')
@@ -131,11 +116,7 @@ export class BehaviourExclusionsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.exclusionCasesService.generateNotice(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.exclusionCasesService.generateNotice(tenant.tenant_id, id, user.sub);
   }
 
   @Post('behaviour/exclusion-cases/:id/generate-board-pack')
@@ -146,11 +127,7 @@ export class BehaviourExclusionsController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.exclusionCasesService.generateBoardPack(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.exclusionCasesService.generateBoardPack(tenant.tenant_id, id, user.sub);
   }
 
   @Post('behaviour/exclusion-cases/:id/record-decision')
@@ -163,12 +140,7 @@ export class BehaviourExclusionsController {
     @Body(new ZodValidationPipe(recordExclusionDecisionSchema))
     dto: z.infer<typeof recordExclusionDecisionSchema>,
   ) {
-    return this.exclusionCasesService.recordDecision(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.exclusionCasesService.recordDecision(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Get('behaviour/exclusion-cases/:id/timeline')

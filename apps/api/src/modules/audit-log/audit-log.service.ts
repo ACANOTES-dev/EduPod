@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type {
   AuditLogCategory,
   AuditLogEntry,
@@ -125,9 +126,7 @@ export class AuditLogService {
    * List audit logs across all tenants (platform admin). Uses direct prisma
    * queries — not RLS-scoped. Includes actor name and tenant name.
    */
-  async listPlatform(
-    filters: PlatformAuditLogFilterDto,
-  ): Promise<{
+  async listPlatform(filters: PlatformAuditLogFilterDto): Promise<{
     data: (AuditLogEntry & { tenant_name?: string })[];
     meta: { page: number; pageSize: number; total: number };
   }> {

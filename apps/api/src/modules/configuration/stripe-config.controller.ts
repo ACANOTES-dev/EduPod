@@ -1,10 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Put,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+
 import { upsertStripeConfigSchema } from '@school/shared';
 import type { JwtPayload, TenantContext, UpsertStripeConfigDto } from '@school/shared';
 

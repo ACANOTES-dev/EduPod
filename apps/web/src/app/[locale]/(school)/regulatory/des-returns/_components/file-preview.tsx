@@ -1,8 +1,9 @@
 'use client';
 
-import { cn } from '@school/ui';
 import { AlertTriangle, XCircle } from 'lucide-react';
 import * as React from 'react';
+
+import { cn } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,12 @@ export interface DesPreviewResponse {
   sample_rows?: Array<Record<string, string | number | null>>;
   rows?: Array<Record<string, string | number | null>>;
   validation_warnings?: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
-  validation_errors?: Array<{ row_index: number; field: string; message: string; severity: 'error' | 'warning' }>;
+  validation_errors?: Array<{
+    row_index: number;
+    field: string;
+    message: string;
+    severity: 'error' | 'warning';
+  }>;
 }
 
 interface FilePreviewProps {
@@ -169,16 +175,12 @@ export function FilePreview({ preview, isLoading }: FilePreviewProps) {
             </thead>
             <tbody className="divide-y divide-border">
               {sampleRows.map((row, rowIdx) => (
-                <tr
-                  key={rowIdx}
-                  className="transition-colors hover:bg-surface-secondary"
-                >
+                <tr key={rowIdx} className="transition-colors hover:bg-surface-secondary">
                   {columnLabels.map((col) => (
-                    <td
-                      key={col}
-                      className="whitespace-nowrap px-3 py-2 text-text-primary"
-                    >
-                      {row[col] != null ? String(row[col]) : (
+                    <td key={col} className="whitespace-nowrap px-3 py-2 text-text-primary">
+                      {row[col] != null ? (
+                        String(row[col])
+                      ) : (
                         <span className="text-text-tertiary">-</span>
                       )}
                     </td>

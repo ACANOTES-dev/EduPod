@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -18,18 +22,20 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AcademicYear { id: string; name: string }
-interface YearGroup { id: string; name: string }
+interface AcademicYear {
+  id: string;
+  name: string;
+}
+interface YearGroup {
+  id: string;
+  name: string;
+}
 
 interface BreakGroupRow {
   id: string;
@@ -79,11 +85,13 @@ export default function BreakGroupsPage() {
     Promise.all([
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
-    ]).then(([yearsRes, ygRes]) => {
-      setAcademicYears(yearsRes.data);
-      setYearGroups(ygRes.data);
-      if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
-    }).catch(() => toast.error(tc('errorGeneric')));
+    ])
+      .then(([yearsRes, ygRes]) => {
+        setAcademicYears(yearsRes.data);
+        setYearGroups(ygRes.data);
+        if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
+      })
+      .catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
   // Fetch break groups
@@ -92,7 +100,9 @@ export default function BreakGroupsPage() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({ academic_year_id: selectedYear });
-      const res = await apiClient<{ data: BreakGroupRow[] }>(`/api/v1/scheduling/break-groups?${params.toString()}`);
+      const res = await apiClient<{ data: BreakGroupRow[] }>(
+        `/api/v1/scheduling/break-groups?${params.toString()}`,
+      );
       setRows(res.data);
     } catch {
       setRows([]);
@@ -188,7 +198,9 @@ export default function BreakGroupsPage() {
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                  <SelectItem key={y.id} value={y.id}>
+                    {y.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -206,33 +218,57 @@ export default function BreakGroupsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-secondary">
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('bgName')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('bgLocation')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('bgSupervisors')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('bgYearGroups')}</th>
-                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tc('actions')}</th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('bgName')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('bgLocation')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('bgSupervisors')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tv('bgYearGroups')}
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                  {tc('actions')}
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-text-tertiary">{tc('loading')}</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-text-tertiary">
+                    {tc('loading')}
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-text-tertiary">{tv('noBreakGroups')}</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-text-tertiary">
+                    {tv('noBreakGroups')}
+                  </td>
+                </tr>
               ) : (
                 rows.map((row) => (
                   <tr key={row.id} className="border-t border-border hover:bg-surface-secondary/50">
                     <td className="px-4 py-3 font-medium text-text-primary">
                       {row.name}
                       {row.name_ar && (
-                        <span className="ms-2 text-xs text-text-tertiary" dir="rtl">{row.name_ar}</span>
+                        <span className="ms-2 text-xs text-text-tertiary" dir="rtl">
+                          {row.name_ar}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-text-secondary">{row.location ?? '-'}</td>
-                    <td className="px-4 py-3 text-text-secondary">{row.required_supervisor_count}</td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {row.required_supervisor_count}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {row.year_groups.map((yg) => (
-                          <Badge key={yg.id} variant="secondary" className="text-xs">{yg.name}</Badge>
+                          <Badge key={yg.id} variant="secondary" className="text-xs">
+                            {yg.name}
+                          </Badge>
                         ))}
                         {row.year_groups.length === 0 && (
                           <span className="text-text-tertiary">-</span>
@@ -296,7 +332,9 @@ export default function BreakGroupsPage() {
                 type="number"
                 min={1}
                 value={form.required_supervisor_count}
-                onChange={(e) => setForm((f) => ({ ...f, required_supervisor_count: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, required_supervisor_count: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -309,7 +347,9 @@ export default function BreakGroupsPage() {
                       checked={form.year_group_ids.includes(yg.id)}
                       onCheckedChange={() => toggleYearGroup(yg.id)}
                     />
-                    <Label htmlFor={`yg-${yg.id}`} className="text-sm">{yg.name}</Label>
+                    <Label htmlFor={`yg-${yg.id}`} className="text-sm">
+                      {yg.name}
+                    </Label>
                   </div>
                 ))}
               </div>

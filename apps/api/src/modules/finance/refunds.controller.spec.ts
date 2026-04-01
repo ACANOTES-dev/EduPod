@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -67,13 +68,23 @@ describe('RefundsController', () => {
   it('should call service.approve with tenant, id, user.sub and comment', async () => {
     mockService.approve.mockResolvedValue({ id: 'ref-1', status: 'approved' });
     await controller.approve(TENANT, USER, 'ref-1', { comment: 'Looks good' });
-    expect(mockService.approve).toHaveBeenCalledWith('tenant-uuid', 'ref-1', 'user-uuid', 'Looks good');
+    expect(mockService.approve).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'ref-1',
+      'user-uuid',
+      'Looks good',
+    );
   });
 
   it('should call service.reject with tenant, id, user.sub and comment', async () => {
     mockService.reject.mockResolvedValue({ id: 'ref-1', status: 'rejected' });
     await controller.reject(TENANT, USER, 'ref-1', { comment: 'Not eligible' });
-    expect(mockService.reject).toHaveBeenCalledWith('tenant-uuid', 'ref-1', 'user-uuid', 'Not eligible');
+    expect(mockService.reject).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'ref-1',
+      'user-uuid',
+      'Not eligible',
+    );
   });
 
   it('should call service.execute with tenant and id', async () => {

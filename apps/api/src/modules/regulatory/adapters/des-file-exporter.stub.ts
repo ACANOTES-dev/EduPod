@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
+
 import type { DesFileType } from '@school/shared';
 
-import type { DesColumnDef, DesFileExporter, DesFileExportResult, DesFileRow } from './des-file-exporter.interface';
+import type {
+  DesColumnDef,
+  DesFileExporter,
+  DesFileExportResult,
+  DesFileRow,
+} from './des-file-exporter.interface';
 
 @Injectable()
 export class DesFileExporterStub implements DesFileExporter {

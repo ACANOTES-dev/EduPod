@@ -1,5 +1,9 @@
 'use client';
 
+import { Search, UserX, UserCheck, UserPlus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -17,10 +21,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Search, UserX, UserCheck, UserPlus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -94,8 +94,14 @@ function InviteDialog({ open, onOpenChange, onSuccess }: InviteDialogProps) {
   };
 
   const handleSubmit = async () => {
-    if (!email.trim()) { setError(ti('emailRequired')); return; }
-    if (!selectedRoleId) { setError(ti('roleRequired')); return; }
+    if (!email.trim()) {
+      setError(ti('emailRequired'));
+      return;
+    }
+    if (!selectedRoleId) {
+      setError(ti('roleRequired'));
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -182,18 +188,38 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-function ConfirmDialog({ open, title, description, confirmLabel, variant = 'default', loading, onConfirm, onCancel }: ConfirmDialogProps) {
+function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  variant = 'default',
+  loading,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
   const tc = useTranslations('common');
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onCancel();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>{tc('cancel')}</Button>
-          <Button variant={variant === 'destructive' ? 'destructive' : 'default'} onClick={onConfirm} disabled={loading}>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
+            {tc('cancel')}
+          </Button>
+          <Button
+            variant={variant === 'destructive' ? 'destructive' : 'default'}
+            onClick={onConfirm}
+            disabled={loading}
+          >
             {loading ? tc('loading') : confirmLabel}
           </Button>
         </DialogFooter>
@@ -248,22 +274,25 @@ export default function UsersPage() {
     setPage(1);
   }, [debouncedSearch, roleFilter, statusFilter]);
 
-  const fetchUsers = React.useCallback(async (p: number, search: string, roleId: string, status: string) => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-      if (search) params.set('search', search);
-      if (roleId) params.set('role_id', roleId);
-      if (status) params.set('status', status);
-      const res = await apiClient<UsersResponse>(`/api/v1/users?${params.toString()}`);
-      setData(res.data);
-      setTotal(res.meta.total);
-    } catch {
-      // errors are silently swallowed; table shows empty state
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const fetchUsers = React.useCallback(
+    async (p: number, search: string, roleId: string, status: string) => {
+      setIsLoading(true);
+      try {
+        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+        if (search) params.set('search', search);
+        if (roleId) params.set('role_id', roleId);
+        if (status) params.set('status', status);
+        const res = await apiClient<UsersResponse>(`/api/v1/users?${params.toString()}`);
+        setData(res.data);
+        setTotal(res.meta.total);
+      } catch (err) {
+        console.error('[fetchUsers]', err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   React.useEffect(() => {
     void fetchUsers(page, debouncedSearch, roleFilter, statusFilter);
@@ -287,8 +316,8 @@ export default function UsersPage() {
       await apiClient(path, { method: 'POST' });
       setConfirmAction(null);
       void fetchUsers(page, debouncedSearch, roleFilter, statusFilter);
-    } catch {
-      // keep dialog open on error
+    } catch (err) {
+      console.error('[handleConfirmAction]', err);
     } finally {
       setActionLoading(false);
     }
@@ -296,9 +325,23 @@ export default function UsersPage() {
 
   const statusBadge = (row: MembershipRow) => {
     const s = row.membership_status;
-    if (s === 'active') return <StatusBadge status="success" dot>{t('active')}</StatusBadge>;
-    if (s === 'suspended') return <StatusBadge status="danger" dot>{t('suspended')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{s}</StatusBadge>;
+    if (s === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('active')}
+        </StatusBadge>
+      );
+    if (s === 'suspended')
+      return (
+        <StatusBadge status="danger" dot>
+          {t('suspended')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {s}
+      </StatusBadge>
+    );
   };
 
   const columns = [
@@ -447,8 +490,16 @@ export default function UsersPage() {
       {confirmAction && (
         <ConfirmDialog
           open={true}
-          title={confirmAction.action === 'suspend' ? t('suspendConfirmTitle') : t('reactivateConfirmTitle')}
-          description={confirmAction.action === 'suspend' ? t('suspendConfirmDescription') : t('reactivateConfirmDescription')}
+          title={
+            confirmAction.action === 'suspend'
+              ? t('suspendConfirmTitle')
+              : t('reactivateConfirmTitle')
+          }
+          description={
+            confirmAction.action === 'suspend'
+              ? t('suspendConfirmDescription')
+              : t('reactivateConfirmDescription')
+          }
           confirmLabel={confirmAction.action === 'suspend' ? t('suspend') : t('reactivate')}
           variant={confirmAction.action === 'suspend' ? 'destructive' : 'default'}
           loading={actionLoading}

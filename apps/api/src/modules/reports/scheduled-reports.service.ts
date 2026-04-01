@@ -1,12 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import type {
-  CreateScheduledReportDto,
-  UpdateScheduledReportDto,
-} from '@school/shared';
+
+import type { CreateScheduledReportDto, UpdateScheduledReportDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,7 +29,10 @@ export class ScheduledReportsService {
     tenantId: string,
     page: number,
     pageSize: number,
-  ): Promise<{ data: ScheduledReportRow[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: ScheduledReportRow[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -55,7 +53,10 @@ export class ScheduledReportsService {
         data: reports.map((r) => this.toRow(r)),
         meta: { page, pageSize, total },
       };
-    }) as unknown as { data: ScheduledReportRow[]; meta: { page: number; pageSize: number; total: number } };
+    }) as unknown as {
+      data: ScheduledReportRow[];
+      meta: { page: number; pageSize: number; total: number };
+    };
   }
 
   async get(tenantId: string, reportId: string): Promise<ScheduledReportRow> {
@@ -133,9 +134,13 @@ export class ScheduledReportsService {
         data: {
           ...(dto.name !== undefined && { name: dto.name }),
           ...(dto.report_type !== undefined && { report_type: dto.report_type }),
-          ...(dto.parameters_json !== undefined && { parameters_json: dto.parameters_json as Prisma.InputJsonValue }),
+          ...(dto.parameters_json !== undefined && {
+            parameters_json: dto.parameters_json as Prisma.InputJsonValue,
+          }),
           ...(dto.schedule_cron !== undefined && { schedule_cron: dto.schedule_cron }),
-          ...(dto.recipient_emails !== undefined && { recipient_emails: dto.recipient_emails as Prisma.InputJsonValue }),
+          ...(dto.recipient_emails !== undefined && {
+            recipient_emails: dto.recipient_emails as Prisma.InputJsonValue,
+          }),
           ...(dto.format !== undefined && { format: dto.format }),
           ...(dto.active !== undefined && { active: dto.active }),
         },

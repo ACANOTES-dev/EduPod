@@ -1,13 +1,5 @@
 'use client';
 
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import {
@@ -20,6 +12,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -109,17 +103,15 @@ export default function ClassDeliveryPage() {
         apiClient<{ data: TeacherSummary[] }>(
           `/api/v1/payroll/class-delivery/summary?${params.toString()}`,
         ),
-        apiClient<{ data: MonthlyComparisonPoint[] }>(
-          '/api/v1/payroll/class-delivery/comparison',
-        ),
+        apiClient<{ data: MonthlyComparisonPoint[] }>('/api/v1/payroll/class-delivery/comparison'),
         apiClient<{ data: StaffOption[] }>('/api/v1/payroll/staff?pageSize=200'),
       ]);
       setRecords(recordsRes.data);
       setSummaries(summariesRes.data);
       setComparison(comparisonRes.data);
       setStaffOptions(staffRes.data);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchData]', err);
     } finally {
       setIsLoading(false);
     }
@@ -135,11 +127,9 @@ export default function ClassDeliveryPage() {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
-      setRecords((prev) =>
-        prev.map((r) => (r.id === recordId ? { ...r, status } : r)),
-      );
-    } catch {
-      // silent
+      setRecords((prev) => prev.map((r) => (r.id === recordId ? { ...r, status } : r)));
+    } catch (err) {
+      console.error('[handleStatusChange]', err);
     }
   };
 
@@ -151,8 +141,8 @@ export default function ClassDeliveryPage() {
         body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
       });
       void fetchData();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleAutoPopulate]', err);
     } finally {
       setIsAutoPopulating(false);
     }
@@ -208,7 +198,10 @@ export default function ClassDeliveryPage() {
       {!isLoading && summaries.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {summaries.map((s) => (
-            <div key={s.staff_profile_id} className="rounded-2xl border border-border bg-surface p-4">
+            <div
+              key={s.staff_profile_id}
+              className="rounded-2xl border border-border bg-surface p-4"
+            >
               <p className="text-sm font-semibold text-text-primary">{s.staff_name}</p>
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                 <div>
@@ -261,8 +254,18 @@ export default function ClassDeliveryPage() {
               <YAxis tick={{ fontSize: 11 }} stroke="var(--color-text-tertiary)" />
               <Tooltip />
               <Legend />
-              <Bar dataKey="prescribed" name={t('prescribed')} fill="hsl(var(--color-primary) / 0.4)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="delivered" name={t('delivered')} fill="hsl(var(--color-success))" radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey="prescribed"
+                name={t('prescribed')}
+                fill="hsl(var(--color-primary) / 0.4)"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="delivered"
+                name={t('delivered')}
+                fill="hsl(var(--color-success))"
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -316,9 +319,7 @@ export default function ClassDeliveryPage() {
                     <td className="px-4 py-3">
                       <Select
                         value={record.status}
-                        onValueChange={(v) =>
-                          handleStatusChange(record.id, v as DeliveryStatus)
-                        }
+                        onValueChange={(v) => handleStatusChange(record.id, v as DeliveryStatus)}
                       >
                         <SelectTrigger
                           className={`h-7 w-40 text-xs ${STATUS_COLORS[record.status]}`}

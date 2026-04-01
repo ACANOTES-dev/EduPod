@@ -1,9 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import {
   CreatePolicyRuleDto,
   ImportPolicyRulesDto,
@@ -42,15 +39,11 @@ function toApiStage(prismaStage: string): string {
   return PRISMA_TO_STAGE[prismaStage] ?? prismaStage;
 }
 
-function toPrismaMatchStrategy(
-  strategy: string,
-): $Enums.PolicyMatchStrategy {
+function toPrismaMatchStrategy(strategy: string): $Enums.PolicyMatchStrategy {
   return strategy as $Enums.PolicyMatchStrategy;
 }
 
-function toPrismaActionType(
-  actionType: string,
-): $Enums.PolicyActionType {
+function toPrismaActionType(actionType: string): $Enums.PolicyActionType {
   return actionType as $Enums.PolicyActionType;
 }
 
@@ -60,12 +53,10 @@ function mapRuleToApi(rule: Record<string, unknown>): Record<string, unknown> {
     stage: toApiStage(rule.stage as string),
     ...(rule.actions
       ? {
-          actions: (rule.actions as Array<Record<string, unknown>>).map(
-            (a) => ({
-              ...a,
-              action_type: a.action_type as string,
-            }),
-          ),
+          actions: (rule.actions as Array<Record<string, unknown>>).map((a) => ({
+            ...a,
+            action_type: a.action_type as string,
+          })),
         }
       : {}),
   };
@@ -126,11 +117,7 @@ export class PolicyRulesService {
     return mapRuleToApi(rule as unknown as Record<string, unknown>);
   }
 
-  async createRule(
-    tenantId: string,
-    userId: string,
-    dto: CreatePolicyRuleDto,
-  ) {
+  async createRule(tenantId: string, userId: string, dto: CreatePolicyRuleDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(
@@ -198,12 +185,7 @@ export class PolicyRulesService {
     );
   }
 
-  async updateRule(
-    tenantId: string,
-    ruleId: string,
-    userId: string,
-    dto: UpdatePolicyRuleDto,
-  ) {
+  async updateRule(tenantId: string, ruleId: string, userId: string, dto: UpdatePolicyRuleDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(
@@ -250,10 +232,8 @@ export class PolicyRulesService {
         };
 
         if (dto.name !== undefined) updateData.name = dto.name;
-        if (dto.description !== undefined)
-          updateData.description = dto.description;
-        if (dto.stage !== undefined)
-          updateData.stage = toPrismaStage(dto.stage);
+        if (dto.description !== undefined) updateData.description = dto.description;
+        if (dto.stage !== undefined) updateData.stage = toPrismaStage(dto.stage);
         if (dto.priority !== undefined) updateData.priority = dto.priority;
         if (dto.match_strategy !== undefined)
           updateData.match_strategy = toPrismaMatchStrategy(dto.match_strategy);
@@ -261,8 +241,7 @@ export class PolicyRulesService {
           updateData.stop_processing_stage = dto.stop_processing_stage;
         if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
         if (dto.conditions !== undefined)
-          updateData.conditions =
-            dto.conditions as unknown as Prisma.InputJsonValue;
+          updateData.conditions = dto.conditions as unknown as Prisma.InputJsonValue;
 
         await db.behaviourPolicyRule.update({
           where: { id: ruleId },
@@ -353,20 +332,19 @@ export class PolicyRulesService {
   }
 
   async getVersion(tenantId: string, ruleId: string, version: number) {
-    const versionRecord =
-      await this.prisma.behaviourPolicyRuleVersion.findFirst({
-        where: { rule_id: ruleId, tenant_id: tenantId, version },
-        include: {
-          changed_by: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              email: true,
-            },
+    const versionRecord = await this.prisma.behaviourPolicyRuleVersion.findFirst({
+      where: { rule_id: ruleId, tenant_id: tenantId, version },
+      include: {
+        changed_by: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
           },
         },
-      });
+      },
+    });
 
     if (!versionRecord) {
       throw new NotFoundException({
@@ -378,11 +356,7 @@ export class PolicyRulesService {
     return { ...versionRecord, stage: toApiStage(versionRecord.stage) };
   }
 
-  async updatePriority(
-    tenantId: string,
-    ruleId: string,
-    dto: UpdatePolicyPriorityDto,
-  ) {
+  async updatePriority(tenantId: string, ruleId: string, dto: UpdatePolicyPriorityDto) {
     const rule = await this.prisma.behaviourPolicyRule.findFirst({
       where: { id: ruleId, tenant_id: tenantId },
     });
@@ -402,11 +376,7 @@ export class PolicyRulesService {
     return mapRuleToApi(updated as unknown as Record<string, unknown>);
   }
 
-  async importRules(
-    tenantId: string,
-    userId: string,
-    dto: ImportPolicyRulesDto,
-  ) {
+  async importRules(tenantId: string, userId: string, dto: ImportPolicyRulesDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(
@@ -450,8 +420,7 @@ export class PolicyRulesService {
               priority: ruleDto.priority,
               match_strategy: toPrismaMatchStrategy(ruleDto.match_strategy),
               stop_processing_stage: ruleDto.stop_processing_stage,
-              conditions:
-                parsedConditions as unknown as Prisma.InputJsonValue,
+              conditions: parsedConditions as unknown as Prisma.InputJsonValue,
               current_version: 1,
             },
           });
@@ -475,8 +444,7 @@ export class PolicyRulesService {
               rule_id: rule.id,
               version: 1,
               name: ruleDto.name,
-              conditions:
-                parsedConditions as unknown as Prisma.InputJsonValue,
+              conditions: parsedConditions as unknown as Prisma.InputJsonValue,
               actions: actions.map((a) => ({
                 action_type: a.action_type,
                 action_config: a.action_config,
@@ -512,10 +480,7 @@ export class PolicyRulesService {
       select: { id: true, name: true },
     });
     const catIdToToken = new Map(
-      categories.map((c) => [
-        c.id,
-        `__${c.name.toUpperCase().replace(/\s+/g, '_')}__`,
-      ]),
+      categories.map((c) => [c.id, `__${c.name.toUpperCase().replace(/\s+/g, '_')}__`]),
     );
 
     return rules.map((rule) => ({
@@ -584,9 +549,7 @@ export class PolicyRulesService {
         result[key] = catIdToToken.get(value);
       } else if (Array.isArray(value)) {
         result[key] = value.map((v) =>
-          typeof v === 'string' && catIdToToken.has(v)
-            ? catIdToToken.get(v)
-            : v,
+          typeof v === 'string' && catIdToToken.has(v) ? catIdToToken.get(v) : v,
         );
       }
     }

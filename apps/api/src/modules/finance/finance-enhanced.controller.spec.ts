@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -175,7 +176,12 @@ describe('FinanceEnhancedController', () => {
     const dto = { notes: 'Approved' } as never;
     mockPaymentPlans.approvePlan.mockResolvedValue({ id: 'pp-1', status: 'approved' });
     await controller.approvePlan(TENANT, USER, 'pp-1', dto);
-    expect(mockPaymentPlans.approvePlan).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', 'pp-1', dto);
+    expect(mockPaymentPlans.approvePlan).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      'pp-1',
+      dto,
+    );
   });
 
   // ─── Audit Trail ──────────────────────────────────────────────────────────

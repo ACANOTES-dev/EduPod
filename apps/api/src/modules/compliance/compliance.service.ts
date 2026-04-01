@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type {
   ClassifyComplianceRequestDto,
   ComplianceDecisionDto,
@@ -357,7 +358,7 @@ export class ComplianceService {
       throw new BadRequestException({
         code: 'AGE_GATE_NOT_CONFIRMED',
         message:
-          'This request requires age-gated review confirmation before execution. The student is 17+ and per DPC guidance, school must confirm processing is in the student\'s best interest.',
+          "This request requires age-gated review confirmation before execution. The student is 17+ and per DPC guidance, school must confirm processing is in the student's best interest.",
       });
     }
 
@@ -585,18 +586,11 @@ export class ComplianceService {
   }
 
   private getAccessExportType(requestType: string): string {
-    return requestType === 'portability'
-      ? 'dsar_portability'
-      : 'dsar_access_export';
+    return requestType === 'portability' ? 'dsar_portability' : 'dsar_access_export';
   }
 
   private buildGdprAuditData(subjectType: string, subjectId: string): GdprOutboundData {
-    const gdprEntityTypes = new Set<GdprEntityType>([
-      'student',
-      'parent',
-      'staff',
-      'household',
-    ]);
+    const gdprEntityTypes = new Set<GdprEntityType>(['student', 'parent', 'staff', 'household']);
 
     if (gdprEntityTypes.has(subjectType as GdprEntityType)) {
       return {

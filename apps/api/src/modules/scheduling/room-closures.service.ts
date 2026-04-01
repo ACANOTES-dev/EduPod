@@ -1,7 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type { CreateRoomClosureDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -83,7 +81,7 @@ export class RoomClosuresService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = await prismaWithRls.$transaction(async (tx) => {
+    const record = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.roomClosure.create({
         data: {
@@ -96,7 +94,7 @@ export class RoomClosuresService {
         },
         include: INCLUDE_RELATIONS,
       });
-    }) as unknown as Record<string, unknown>;
+    })) as unknown as Record<string, unknown>;
 
     return this.formatClosure(record);
   }

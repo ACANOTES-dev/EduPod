@@ -1,5 +1,10 @@
 'use client';
 
+import { Search, UserPlus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -13,10 +18,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Search, UserPlus } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -64,7 +65,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const GROUNDS_COLORS: Record<string, string> = {
   factual_inaccuracy: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  disproportionate_consequence: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  disproportionate_consequence:
+    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   procedural_error: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   mitigating_circumstances: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   mistaken_identity: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
@@ -78,11 +80,20 @@ const DECISION_COLORS: Record<string, string> = {
   overturned: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
 };
 
-function StatusBadgeInline({ value, colorMap }: { value: string; colorMap: Record<string, string> }) {
+function StatusBadgeInline({
+  value,
+  colorMap,
+}: {
+  value: string;
+  colorMap: Record<string, string>;
+}) {
   const label = value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const color = colorMap[value] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400';
+  const color =
+    colorMap[value] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400';
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}
+    >
       {label}
     </span>
   );
@@ -90,7 +101,14 @@ function StatusBadgeInline({ value, colorMap }: { value: string; colorMap: Recor
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TAB_KEYS = ['all', 'submitted', 'under_review', 'hearing_scheduled', 'decided', 'withdrawn'] as const;
+const TAB_KEYS = [
+  'all',
+  'submitted',
+  'under_review',
+  'hearing_scheduled',
+  'decided',
+  'withdrawn',
+] as const;
 
 type TabKey = (typeof TAB_KEYS)[number];
 
@@ -255,9 +273,7 @@ export default function AppealsListPage() {
     {
       key: 'status',
       header: t('columns.status'),
-      render: (row: AppealRow) => (
-        <StatusBadgeInline value={row.status} colorMap={STATUS_COLORS} />
-      ),
+      render: (row: AppealRow) => <StatusBadgeInline value={row.status} colorMap={STATUS_COLORS} />,
     },
     {
       key: 'reviewer',
@@ -320,16 +336,26 @@ export default function AppealsListPage() {
           <StatusBadgeInline value={row.status} colorMap={STATUS_COLORS} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge variant="secondary" className="text-xs capitalize">{row.entity_type}</Badge>
+          <Badge variant="secondary" className="text-xs capitalize">
+            {row.entity_type}
+          </Badge>
           <StatusBadgeInline value={row.grounds_category} colorMap={GROUNDS_COLORS} />
-          {row.decision && (
-            <StatusBadgeInline value={row.decision} colorMap={DECISION_COLORS} />
-          )}
+          {row.decision && <StatusBadgeInline value={row.decision} colorMap={DECISION_COLORS} />}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-text-secondary">
-          <span>{t('columns.submitted')}: {formatDate(row.submitted_at)}</span>
-          {row.hearing_date && <span>{t('columns.hearing')}: {formatDate(row.hearing_date)}</span>}
-          {row.reviewer && <span>{t('columns.reviewer')}: {getReviewerName(row)}</span>}
+          <span>
+            {t('columns.submitted')}: {formatDate(row.submitted_at)}
+          </span>
+          {row.hearing_date && (
+            <span>
+              {t('columns.hearing')}: {formatDate(row.hearing_date)}
+            </span>
+          )}
+          {row.reviewer && (
+            <span>
+              {t('columns.reviewer')}: {getReviewerName(row)}
+            </span>
+          )}
         </div>
         {row.status === 'submitted' && (
           <div className="mt-3">
@@ -359,20 +385,33 @@ export default function AppealsListPage() {
         <Input
           placeholder={t('search')}
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="ps-9"
         />
       </div>
-      <Select value={groundsFilter} onValueChange={(v) => { setGroundsFilter(v); setPage(1); }}>
+      <Select
+        value={groundsFilter}
+        onValueChange={(v) => {
+          setGroundsFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-48">
           <SelectValue placeholder="Grounds" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filters.allGrounds')}</SelectItem>
           <SelectItem value="factual_inaccuracy">{t('filters.factualInaccuracy')}</SelectItem>
-          <SelectItem value="disproportionate_consequence">{t('filters.disproportionate')}</SelectItem>
+          <SelectItem value="disproportionate_consequence">
+            {t('filters.disproportionate')}
+          </SelectItem>
           <SelectItem value="procedural_error">{t('filters.proceduralError')}</SelectItem>
-          <SelectItem value="mitigating_circumstances">{t('filters.mitigatingCircumstances')}</SelectItem>
+          <SelectItem value="mitigating_circumstances">
+            {t('filters.mitigatingCircumstances')}
+          </SelectItem>
           <SelectItem value="mistaken_identity">{t('filters.mistakenIdentity')}</SelectItem>
           <SelectItem value="other">{t('filters.other')}</SelectItem>
         </SelectContent>
@@ -380,14 +419,20 @@ export default function AppealsListPage() {
       <input
         type="date"
         value={dateFrom}
-        onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateFrom(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
         aria-label="Date from"
       />
       <input
         type="date"
         value={dateTo}
-        onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateTo(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary dark:bg-surface-secondary sm:w-auto"
         aria-label="Date to"
       />
@@ -439,10 +484,20 @@ export default function AppealsListPage() {
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>{t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
                   {t('previous')}
                 </Button>
-                <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                  onClick={() => setPage(page + 1)}
+                >
                   {t('next')}
                 </Button>
               </div>

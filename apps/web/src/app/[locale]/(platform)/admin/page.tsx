@@ -1,9 +1,9 @@
 'use client';
 
-import { Skeleton, StatCard } from '@school/ui';
 import { Activity, AlertTriangle, Building2, Users } from 'lucide-react';
 import * as React from 'react';
 
+import { Skeleton, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -43,7 +43,10 @@ export default function PlatformDashboardPage() {
         if (!cancelled) {
           const message =
             err && typeof err === 'object' && 'error' in err
-              ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to load dashboard')
+              ? String(
+                  (err as { error: { message?: string } }).error?.message ??
+                    'Failed to load dashboard',
+                )
               : 'Failed to load dashboard';
           setError(message);
         }
@@ -88,18 +91,9 @@ export default function PlatformDashboardPage() {
               value={data.tenants?.active ?? 0}
               className="relative"
             />
-            <StatCard
-              label="Total Users"
-              value={data.users?.total ?? 0}
-            />
-            <StatCard
-              label="Suspended Tenants"
-              value={data.tenants?.suspended ?? 0}
-            />
-            <StatCard
-              label="Total Tenants"
-              value={data.tenants?.total ?? 0}
-            />
+            <StatCard label="Total Users" value={data.users?.total ?? 0} />
+            <StatCard label="Suspended Tenants" value={data.tenants?.suspended ?? 0} />
+            <StatCard label="Total Tenants" value={data.tenants?.total ?? 0} />
           </>
         ) : null}
       </div>

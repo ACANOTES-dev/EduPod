@@ -1,10 +1,5 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Logger,
-  forwardRef,
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+
 import type { ExportPurpose, ReportFilterDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -73,28 +68,12 @@ export class PastoralExportService {
     studentId: string,
     locale: string,
   ): Promise<Buffer> {
-    const data = await this.reportService.getStudentSummary(
-      tenantId,
-      userId,
-      studentId,
-      {},
-    );
+    const data = await this.reportService.getStudentSummary(tenantId, userId, studentId, {});
     const branding = await this.getTenantBranding(tenantId);
 
-    const buffer = await this.pdfService.renderPdf(
-      'pastoral-summary',
-      locale,
-      data,
-      branding,
-    );
+    const buffer = await this.pdfService.renderPdf('pastoral-summary', locale, data, branding);
 
-    await this.recordExportAuditEvent(
-      tenantId,
-      userId,
-      studentId,
-      'student_summary',
-      1,
-    );
+    await this.recordExportAuditEvent(tenantId, userId, studentId, 'student_summary', 1);
 
     return buffer;
   }
@@ -109,27 +88,12 @@ export class PastoralExportService {
     filters: ReportFilterDto,
     locale: string,
   ): Promise<Buffer> {
-    const data = await this.reportService.getSstActivity(
-      tenantId,
-      userId,
-      filters,
-    );
+    const data = await this.reportService.getSstActivity(tenantId, userId, filters);
     const branding = await this.getTenantBranding(tenantId);
 
-    const buffer = await this.pdfService.renderPdf(
-      'sst-activity',
-      locale,
-      data,
-      branding,
-    );
+    const buffer = await this.pdfService.renderPdf('sst-activity', locale, data, branding);
 
-    await this.recordExportAuditEvent(
-      tenantId,
-      userId,
-      null,
-      'sst_activity',
-      2,
-    );
+    await this.recordExportAuditEvent(tenantId, userId, null, 'sst_activity', 2);
 
     return buffer;
   }
@@ -257,7 +221,7 @@ export class PastoralExportService {
       user_id: tenantId, // System-level query; RLS scoped to tenant
     });
 
-    const result = await rlsClient.$transaction(async (tx) => {
+    const result = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const tenant = await db.tenant.findUnique({
@@ -276,7 +240,7 @@ export class PastoralExportService {
       });
 
       return { tenant, branding };
-    }) as {
+    })) as {
       tenant: { name: string } | null;
       branding: {
         school_name_display: string | null;
@@ -286,10 +250,7 @@ export class PastoralExportService {
       } | null;
     };
 
-    const schoolName =
-      result.branding?.school_name_display ??
-      result.tenant?.name ??
-      'School';
+    const schoolName = result.branding?.school_name_display ?? result.tenant?.name ?? 'School';
 
     return {
       school_name: schoolName,
@@ -303,10 +264,7 @@ export class PastoralExportService {
    * Assert the user has an active CP access grant.
    * Throws ForbiddenException if no active grant exists.
    */
-  private async assertCpAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<void> {
+  private async assertCpAccess(tenantId: string, userId: string): Promise<void> {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
       user_id: userId,
@@ -327,8 +285,7 @@ export class PastoralExportService {
       throw new ForbiddenException({
         error: {
           code: 'CP_ACCESS_REQUIRED',
-          message:
-            'You do not have child protection access to perform this export.',
+          message: 'You do not have child protection access to perform this export.',
         },
       });
     }

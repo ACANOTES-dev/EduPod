@@ -15,6 +15,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { z } from 'zod';
+
 import {
   bulkPositiveSchema,
   createIncidentSchema,
@@ -28,7 +30,6 @@ import {
   withdrawIncidentSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -82,11 +83,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(createIncidentSchema))
     dto: z.infer<typeof createIncidentSchema>,
   ) {
-    return this.behaviourService.createIncident(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.behaviourService.createIncident(tenant.tenant_id, user.sub, dto);
   }
 
   @Post('behaviour/incidents/quick')
@@ -130,12 +127,7 @@ export class BehaviourController {
     query: z.infer<typeof listIncidentsQuerySchema>,
   ) {
     const permissions = await this.getUserPermissions(user.membership_id);
-    return this.behaviourService.listIncidents(
-      tenant.tenant_id,
-      user.sub,
-      permissions,
-      query,
-    );
+    return this.behaviourService.listIncidents(tenant.tenant_id, user.sub, permissions, query);
   }
 
   @Get('behaviour/incidents/my')
@@ -180,12 +172,7 @@ export class BehaviourController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     const permissions = await this.getUserPermissions(user.membership_id);
-    return this.behaviourService.getIncident(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      permissions,
-    );
+    return this.behaviourService.getIncident(tenant.tenant_id, id, user.sub, permissions);
   }
 
   @Patch('behaviour/incidents/:id')
@@ -197,12 +184,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(updateIncidentSchema))
     dto: z.infer<typeof updateIncidentSchema>,
   ) {
-    return this.behaviourService.updateIncident(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.behaviourService.updateIncident(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Patch('behaviour/incidents/:id/status')
@@ -214,12 +196,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(statusTransitionSchema))
     dto: z.infer<typeof statusTransitionSchema>,
   ) {
-    return this.behaviourService.transitionStatus(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.behaviourService.transitionStatus(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Post('behaviour/incidents/:id/withdraw')
@@ -232,12 +209,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(withdrawIncidentSchema))
     dto: z.infer<typeof withdrawIncidentSchema>,
   ) {
-    return this.behaviourService.withdrawIncident(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.behaviourService.withdrawIncident(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Post('behaviour/incidents/:id/follow-up')
@@ -250,12 +222,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(recordFollowUpSchema))
     dto: z.infer<typeof recordFollowUpSchema>,
   ) {
-    return this.attachmentService.recordFollowUp(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      dto,
-    );
+    return this.attachmentService.recordFollowUp(tenant.tenant_id, user.sub, id, dto);
   }
 
   // ─── Participants ───────────────────────────────────────────────────────────
@@ -270,12 +237,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(createParticipantSchema))
     dto: z.infer<typeof createParticipantSchema>,
   ) {
-    return this.behaviourService.addParticipant(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.behaviourService.addParticipant(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('behaviour/incidents/:id/participants/:pid')
@@ -286,12 +248,7 @@ export class BehaviourController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('pid', ParseUUIDPipe) pid: string,
   ) {
-    return this.behaviourService.removeParticipant(
-      tenant.tenant_id,
-      id,
-      pid,
-      user.sub,
-    );
+    return this.behaviourService.removeParticipant(tenant.tenant_id, id, pid, user.sub);
   }
 
   // ─── Attachments ────────────────────────────────────────────────────────────
@@ -308,13 +265,7 @@ export class BehaviourController {
     @Body(new ZodValidationPipe(uploadBehaviourAttachmentSchema))
     dto: z.infer<typeof uploadBehaviourAttachmentSchema>,
   ) {
-    return this.attachmentService.uploadAttachment(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      file,
-      dto,
-    );
+    return this.attachmentService.uploadAttachment(tenant.tenant_id, user.sub, id, file, dto);
   }
 
   @Get('behaviour/incidents/:id/attachments')
@@ -334,12 +285,7 @@ export class BehaviourController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('aid', ParseUUIDPipe) aid: string,
   ) {
-    return this.attachmentService.getAttachment(
-      tenant.tenant_id,
-      user.sub,
-      id,
-      aid,
-    );
+    return this.attachmentService.getAttachment(tenant.tenant_id, user.sub, id, aid);
   }
 
   // ─── History ───────────────────────────────────────────────────────────────
@@ -369,10 +315,7 @@ export class BehaviourController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policyReplayService.getIncidentEvaluationTrace(
-      tenant.tenant_id,
-      id,
-    );
+    return this.policyReplayService.getIncidentEvaluationTrace(tenant.tenant_id, id);
   }
 
   // ─── Quick-Log Context ─────────────────────────────────────────────────────
@@ -388,9 +331,7 @@ export class BehaviourController {
 
   @Get('behaviour/quick-log/templates')
   @RequiresPermission('behaviour.log')
-  async getQuickLogTemplates(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getQuickLogTemplates(@CurrentTenant() tenant: TenantContext) {
     // Templates are included in the context response, but this provides a
     // separate endpoint for template-only refresh without full context reload.
     const context = await this.quickLogService.getContext(
@@ -402,9 +343,7 @@ export class BehaviourController {
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  private async getUserPermissions(
-    membershipId: string | null,
-  ): Promise<string[]> {
+  private async getUserPermissions(membershipId: string | null): Promise<string[]> {
     if (!membershipId) return [];
     return this.permissionCacheService.getPermissions(membershipId);
   }

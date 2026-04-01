@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   createNotificationTemplateSchema,
   listNotificationTemplatesSchema,
@@ -48,10 +49,7 @@ export class NotificationTemplatesController {
   }
 
   @Get(':id')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getById(tenant.tenant_id, id);
   }
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import type { PulseDimension, PulseResult } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -61,11 +62,36 @@ export class BehaviourPulseService {
       ]);
 
     const dimensions: PulseDimension[] = [
-      { name: 'positive_ratio', value: positiveRatio, weight: WEIGHTS.positive_ratio, label: 'Positive Ratio' },
-      { name: 'severity_index', value: severityIndex, weight: WEIGHTS.severity_index, label: 'Severity Index' },
-      { name: 'serious_incidents', value: seriousRate, weight: WEIGHTS.serious_incidents, label: 'Serious Incidents' },
-      { name: 'resolution_rate', value: resolutionRate, weight: WEIGHTS.resolution_rate, label: 'Resolution Rate' },
-      { name: 'reporting_confidence', value: reportingConfidence, weight: WEIGHTS.reporting_confidence, label: 'Reporting Confidence' },
+      {
+        name: 'positive_ratio',
+        value: positiveRatio,
+        weight: WEIGHTS.positive_ratio,
+        label: 'Positive Ratio',
+      },
+      {
+        name: 'severity_index',
+        value: severityIndex,
+        weight: WEIGHTS.severity_index,
+        label: 'Severity Index',
+      },
+      {
+        name: 'serious_incidents',
+        value: seriousRate,
+        weight: WEIGHTS.serious_incidents,
+        label: 'Serious Incidents',
+      },
+      {
+        name: 'resolution_rate',
+        value: resolutionRate,
+        weight: WEIGHTS.resolution_rate,
+        label: 'Resolution Rate',
+      },
+      {
+        name: 'reporting_confidence',
+        value: reportingConfidence,
+        weight: WEIGHTS.reporting_confidence,
+        label: 'Reporting Confidence',
+      },
     ];
 
     const composite = this.computeComposite(dimensions);
@@ -93,11 +119,7 @@ export class BehaviourPulseService {
    * Dimension 1: Positive Ratio (weight 20%)
    * positive / (positive + negative) in last 7 days.
    */
-  async computePositiveRatio(
-    tenantId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number | null> {
+  async computePositiveRatio(tenantId: string, from: Date, to: Date): Promise<number | null> {
     const counts = await this.prisma.behaviourIncident.groupBy({
       by: ['polarity'],
       where: {
@@ -123,11 +145,7 @@ export class BehaviourPulseService {
    * Inverted normalised average severity of negative incidents.
    * No negatives = 1.0 (best).
    */
-  async computeSeverityIndex(
-    tenantId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number> {
+  async computeSeverityIndex(tenantId: string, from: Date, to: Date): Promise<number> {
     const result = await this.prisma.behaviourIncident.aggregate({
       where: {
         tenant_id: tenantId,
@@ -150,11 +168,7 @@ export class BehaviourPulseService {
    * Rate of severity >= 7 negative incidents per 100 enrolled students.
    * Graduated decay curve.
    */
-  async computeSeriousIncidentRate(
-    tenantId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number> {
+  async computeSeriousIncidentRate(tenantId: string, from: Date, to: Date): Promise<number> {
     const [seriousCount, enrolledCount] = await Promise.all([
       this.prisma.behaviourIncident.count({
         where: {
@@ -190,11 +204,7 @@ export class BehaviourPulseService {
    * Dimension 4: Resolution Rate (weight 15%)
    * follow_ups_completed / follow_ups_required over 30-day window.
    */
-  async computeResolutionRate(
-    tenantId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number> {
+  async computeResolutionRate(tenantId: string, from: Date, to: Date): Promise<number> {
     const followUpsRequired = await this.prisma.behaviourIncident.count({
       where: {
         tenant_id: tenantId,
@@ -225,11 +235,7 @@ export class BehaviourPulseService {
    * Dimension 5: Reporting Confidence (weight 15%)
    * Distinct reporters in window / total staff with behaviour.log permission.
    */
-  async computeReportingConfidence(
-    tenantId: string,
-    from: Date,
-    to: Date,
-  ): Promise<number | null> {
+  async computeReportingConfidence(tenantId: string, from: Date, to: Date): Promise<number | null> {
     const [distinctReporters, totalStaff] = await Promise.all([
       this.prisma.behaviourIncident
         .findMany({
@@ -272,9 +278,7 @@ export class BehaviourPulseService {
    * Returns null if reporting_confidence < 0.50 or any dimension is null.
    */
   computeComposite(dimensions: PulseDimension[]): number | null {
-    const reportingConfidence = dimensions.find(
-      (d) => d.name === 'reporting_confidence',
-    );
+    const reportingConfidence = dimensions.find((d) => d.name === 'reporting_confidence');
     if (
       reportingConfidence?.value === null ||
       reportingConfidence?.value === undefined ||
@@ -288,10 +292,7 @@ export class BehaviourPulseService {
       return null;
     }
 
-    return dimensions.reduce(
-      (sum, d) => sum + (d.value ?? 0) * d.weight,
-      0,
-    );
+    return dimensions.reduce((sum, d) => sum + (d.value ?? 0) * d.weight, 0);
   }
 
   /**

@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,9 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ChevronDown, ChevronRight, Download, Search } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';

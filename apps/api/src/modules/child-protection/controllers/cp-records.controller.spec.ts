@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CpAccessGuard } from '../guards/cp-access.guard';
@@ -94,9 +95,7 @@ describe('CpRecordsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CpRecordsController],
-      providers: [
-        { provide: CpRecordService, useValue: mockCpRecordService },
-      ],
+      providers: [{ provide: CpRecordService, useValue: mockCpRecordService }],
     })
       .overrideGuard(require('../../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
@@ -126,38 +125,18 @@ describe('CpRecordsController', () => {
     it('should call cpRecordService.create with tenant_id, user_id, dto, and ip', async () => {
       mockCpRecordService.create.mockResolvedValue(RECORD_RESPONSE);
 
-      const result = await controller.create(
-        TENANT,
-        USER,
-        dto,
-        MOCK_REQUEST as never,
-      );
+      const result = await controller.create(TENANT, USER, dto, MOCK_REQUEST as never);
 
-      expect(mockCpRecordService.create).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        dto,
-        '127.0.0.1',
-      );
+      expect(mockCpRecordService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto, '127.0.0.1');
       expect(result).toEqual(RECORD_RESPONSE);
     });
 
     it('should pass ip as null when request.ip is undefined', async () => {
       mockCpRecordService.create.mockResolvedValue(RECORD_RESPONSE);
 
-      await controller.create(
-        TENANT,
-        USER,
-        dto,
-        { ip: undefined } as never,
-      );
+      await controller.create(TENANT, USER, dto, { ip: undefined } as never);
 
-      expect(mockCpRecordService.create).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        dto,
-        null,
-      );
+      expect(mockCpRecordService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto, null);
     });
   });
 
@@ -173,12 +152,7 @@ describe('CpRecordsController', () => {
     it('should call cpRecordService.listByStudent with tenant_id, user_id, query, and ip', async () => {
       mockCpRecordService.listByStudent.mockResolvedValue(LIST_RESPONSE);
 
-      const result = await controller.list(
-        TENANT,
-        USER,
-        query,
-        MOCK_REQUEST as never,
-      );
+      const result = await controller.list(TENANT, USER, query, MOCK_REQUEST as never);
 
       expect(mockCpRecordService.listByStudent).toHaveBeenCalledWith(
         TENANT_ID,
@@ -194,14 +168,12 @@ describe('CpRecordsController', () => {
         ...query,
         record_type: 'mandated_report' as const,
       };
-      mockCpRecordService.listByStudent.mockResolvedValue({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+      mockCpRecordService.listByStudent.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
 
-      await controller.list(
-        TENANT,
-        USER,
-        queryWithType,
-        MOCK_REQUEST as never,
-      );
+      await controller.list(TENANT, USER, queryWithType, MOCK_REQUEST as never);
 
       expect(mockCpRecordService.listByStudent).toHaveBeenCalledWith(
         TENANT_ID,
@@ -218,12 +190,7 @@ describe('CpRecordsController', () => {
     it('should call cpRecordService.getById with tenant_id, user_id, record_id, and ip', async () => {
       mockCpRecordService.getById.mockResolvedValue(RECORD_RESPONSE);
 
-      const result = await controller.getById(
-        TENANT,
-        USER,
-        RECORD_ID,
-        MOCK_REQUEST as never,
-      );
+      const result = await controller.getById(TENANT, USER, RECORD_ID, MOCK_REQUEST as never);
 
       expect(mockCpRecordService.getById).toHaveBeenCalledWith(
         TENANT_ID,
@@ -245,13 +212,7 @@ describe('CpRecordsController', () => {
       };
       mockCpRecordService.update.mockResolvedValue(updatedResponse);
 
-      const result = await controller.update(
-        TENANT,
-        USER,
-        RECORD_ID,
-        dto,
-        MOCK_REQUEST as never,
-      );
+      const result = await controller.update(TENANT, USER, RECORD_ID, dto, MOCK_REQUEST as never);
 
       expect(mockCpRecordService.update).toHaveBeenCalledWith(
         TENANT_ID,
@@ -269,13 +230,7 @@ describe('CpRecordsController', () => {
         data: { ...RECORD_RESPONSE.data, tusla_contact_name: 'Inspector Smith' },
       });
 
-      await controller.update(
-        TENANT,
-        USER,
-        RECORD_ID,
-        dto,
-        MOCK_REQUEST as never,
-      );
+      await controller.update(TENANT, USER, RECORD_ID, dto, MOCK_REQUEST as never);
 
       expect(mockCpRecordService.update).toHaveBeenCalledWith(
         TENANT_ID,

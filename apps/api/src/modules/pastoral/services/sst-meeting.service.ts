@@ -1,9 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import type { CreateMeetingDto, MeetingAttendeeDto, MeetingFilterDto } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { ContactFormService } from './contact-form.service';
@@ -58,8 +59,8 @@ describe('PublicContactController', () => {
     const dto = { name: 'Spam', email: 'spam@example.com', message: 'Spam' };
     mockService.submit.mockRejectedValueOnce(new Error('Rate limit exceeded'));
 
-    await expect(
-      controller.submit(tenant, '1.2.3.4', dto as never),
-    ).rejects.toThrow('Rate limit exceeded');
+    await expect(controller.submit(tenant, '1.2.3.4', dto as never)).rejects.toThrow(
+      'Rate limit exceeded',
+    );
   });
 });

@@ -10,9 +10,10 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -74,10 +75,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getStudentProfile(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getStudentProfile(tenant.tenant_id, studentId);
   }
 
   // ─── Student Timeline ─────────────────────────────────────────────────────
@@ -106,10 +104,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getStudentAnalytics(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getStudentAnalytics(tenant.tenant_id, studentId);
   }
 
   // ─── Student Points ───────────────────────────────────────────────────────
@@ -120,10 +115,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getStudentPoints(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getStudentPoints(tenant.tenant_id, studentId);
   }
 
   // ─── Student Sanctions ───────────────────────────────────────────────────
@@ -188,10 +180,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getStudentAiSummary(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getStudentAiSummary(tenant.tenant_id, studentId);
   }
 
   // ─── Student Hover Card Preview ───────────────────────────────────────────
@@ -202,10 +191,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getStudentPreview(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getStudentPreview(tenant.tenant_id, studentId);
   }
 
   // ─── Student PDF Export ──────────────────────────────────────────────────
@@ -220,7 +206,10 @@ export class BehaviourStudentsController {
     @Res() res: Response,
   ) {
     const buffer = await this.exportService.generateStudentPackPdf(
-      tenant.tenant_id, studentId, user.sub, 'en',
+      tenant.tenant_id,
+      studentId,
+      user.sub,
+      'en',
     );
     res.set({
       'Content-Type': 'application/pdf',
@@ -237,10 +226,7 @@ export class BehaviourStudentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.studentsService.getParentView(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.studentsService.getParentView(tenant.tenant_id, studentId);
   }
 
   // ─── Student Tasks ────────────────────────────────────────────────────────
@@ -263,9 +249,7 @@ export class BehaviourStudentsController {
 
   // ─── Private Helpers ───────────────────────────────────────────────────────
 
-  private async getUserPermissions(
-    membershipId: string | null,
-  ): Promise<string[]> {
+  private async getUserPermissions(membershipId: string | null): Promise<string[]> {
     if (!membershipId) return [];
     return this.permissionCacheService.getPermissions(membershipId);
   }

@@ -1,16 +1,25 @@
 'use client';
 
-import { REGULATORY_DOMAINS } from '@school/shared';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@school/ui';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { REGULATORY_DOMAINS } from '@school/shared';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+} from '@school/ui';
+
+import { RegulatoryNav } from '../_components/regulatory-nav';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RegulatoryNav } from '../_components/regulatory-nav';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,9 +208,7 @@ export default function RegulatoryCalendarPage() {
           <div>
             <p className="text-sm font-medium text-text-primary">{row.title}</p>
             {row.description && (
-              <p className="mt-0.5 text-xs text-text-tertiary line-clamp-1">
-                {row.description}
-              </p>
+              <p className="mt-0.5 text-xs text-text-tertiary line-clamp-1">{row.description}</p>
             )}
           </div>
         ),
@@ -210,9 +217,7 @@ export default function RegulatoryCalendarPage() {
         key: 'domain',
         header: t('calendar.domain'),
         render: (row: CalendarEvent) => (
-          <span className="text-sm text-text-secondary">
-            {getDomainLabel(row.domain)}
-          </span>
+          <span className="text-sm text-text-secondary">{getDomainLabel(row.domain)}</span>
         ),
       },
       {
@@ -260,10 +265,7 @@ export default function RegulatoryCalendarPage() {
         </p>
       ) : (
         events.map((event) => (
-          <div
-            key={event.id}
-            className="rounded-2xl border border-border bg-surface px-4 py-4"
-          >
+          <div key={event.id} className="rounded-2xl border border-border bg-surface px-4 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <StatusBadge status={statusVariant[event.status] ?? 'neutral'} dot>
                 {t(`status.${getStatusKey(event.status)}` as never)}
@@ -289,10 +291,7 @@ export default function RegulatoryCalendarPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('calendar.title')}
-        description={t('calendar.description')}
-      />
+      <PageHeader title={t('calendar.title')} description={t('calendar.description')} />
 
       <RegulatoryNav />
 

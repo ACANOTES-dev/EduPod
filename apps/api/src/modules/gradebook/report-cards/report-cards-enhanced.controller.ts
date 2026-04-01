@@ -15,6 +15,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Queue } from 'bullmq';
+import type { Request } from 'express';
+import { z } from 'zod';
+
+import type { JwtPayload } from '@school/shared';
 import {
   acknowledgeReportCardSchema,
   analyticsQuerySchema,
@@ -36,10 +41,6 @@ import {
   updateGradeThresholdConfigSchema,
   updateReportCardTemplateSchema,
 } from '@school/shared';
-import type { JwtPayload } from '@school/shared';
-import type { Queue } from 'bullmq';
-import type { Request } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -66,9 +67,7 @@ import { ReportCardsService } from './report-cards.service';
  */
 @Controller('v1')
 export class ReportCardVerificationController {
-  constructor(
-    private readonly verificationService: ReportCardVerificationService,
-  ) {}
+  constructor(private readonly verificationService: ReportCardVerificationService) {}
 
   @Get('verify/:token')
   async verify(@Param('token') token: string) {
@@ -179,9 +178,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/approval-configs')
   @RequiresPermission('gradebook.view')
-  async listApprovalConfigs(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listApprovalConfigs(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.approvalService.findAllConfigs(tenant.tenant_id);
   }
 
@@ -256,12 +253,10 @@ export class ReportCardsEnhancedController {
     @Query(new ZodValidationPipe(getPendingApprovalsQuerySchema))
     query: z.infer<typeof getPendingApprovalsQuerySchema>,
   ) {
-    return this.approvalService.getPendingApprovals(
-      tenant.tenant_id,
-      user.sub,
-      query.role_key,
-      { page: query.page, pageSize: query.pageSize },
-    );
+    return this.approvalService.getPendingApprovals(tenant.tenant_id, user.sub, query.role_key, {
+      page: query.page,
+      pageSize: query.pageSize,
+    });
   }
 
   @Post('report-cards/approvals/bulk-approve')
@@ -310,9 +305,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/custom-fields')
   @RequiresPermission('gradebook.view')
-  async listCustomFields(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listCustomFields(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.customFieldsService.findAllFieldDefs(tenant.tenant_id);
   }
 
@@ -382,9 +375,7 @@ export class ReportCardsEnhancedController {
 
   @Get('report-cards/grade-thresholds')
   @RequiresPermission('gradebook.view')
-  async listThresholds(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listThresholds(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.thresholdService.findAll(tenant.tenant_id);
   }
 
@@ -429,9 +420,10 @@ export class ReportCardsEnhancedController {
     dto: z.infer<typeof acknowledgeReportCardSchema>,
     @Req() req: Request,
   ) {
-    const ipAddress = (req.headers['x-forwarded-for'] as string | undefined)
-      ?? req.socket.remoteAddress
-      ?? undefined;
+    const ipAddress =
+      (req.headers['x-forwarded-for'] as string | undefined) ??
+      req.socket.remoteAddress ??
+      undefined;
     return this.acknowledgmentService.acknowledge(tenant.tenant_id, id, dto.parent_id, ipAddress);
   }
 

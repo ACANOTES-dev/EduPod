@@ -1,11 +1,9 @@
 'use client';
 
-import {
-  Skeleton,
-  StatusBadge,
-} from '@school/ui';
 import { useParams } from 'next/navigation';
 import * as React from 'react';
+
+import { Skeleton, StatusBadge } from '@school/ui';
 
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
@@ -63,8 +61,8 @@ export default function ParentDetailPage() {
       try {
         const res = await apiClient<{ data: ParentDetail }>(`/api/v1/parents/${id}`);
         setParent(res.data);
-      } catch {
-        // handled by empty state
+      } catch (err) {
+        console.error('[fetchParent]', err);
       } finally {
         setIsLoading(false);
       }
@@ -95,15 +93,11 @@ export default function ParentDetailPage() {
   const metrics = [
     {
       label: 'Email',
-      value: parent.email ? (
-        <span dir="ltr">{parent.email}</span>
-      ) : '—',
+      value: parent.email ? <span dir="ltr">{parent.email}</span> : '—',
     },
     {
       label: 'Phone',
-      value: parent.phone ? (
-        <span dir="ltr">{parent.phone}</span>
-      ) : '—',
+      value: parent.phone ? <span dir="ltr">{parent.phone}</span> : '—',
     },
     {
       label: 'Relationship',
@@ -159,10 +153,7 @@ export default function ParentDetailPage() {
           <h3 className="mb-2 text-sm font-semibold text-text-primary">Children</h3>
           <ul className="divide-y divide-border rounded-xl border border-border">
             {parent.student_parents.map((sp) => (
-              <li
-                key={sp.student.id}
-                className="flex items-center justify-between px-4 py-3"
-              >
+              <li key={sp.student.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
                   <EntityLink
                     entityType="student"
@@ -180,9 +171,11 @@ export default function ParentDetailPage() {
                   </span>
                   <StatusBadge
                     status={
-                      sp.student.status === 'active' ? 'success'
-                        : sp.student.status === 'applicant' ? 'info'
-                        : 'neutral'
+                      sp.student.status === 'active'
+                        ? 'success'
+                        : sp.student.status === 'applicant'
+                          ? 'info'
+                          : 'neutral'
                     }
                   >
                     {sp.student.status.charAt(0).toUpperCase() + sp.student.status.slice(1)}
@@ -199,17 +192,17 @@ export default function ParentDetailPage() {
   return (
     <RecordHub
       title={fullName}
-      subtitle={parent.relationship_label
-        ? parent.relationship_label.charAt(0).toUpperCase() + parent.relationship_label.slice(1)
-        : undefined}
+      subtitle={
+        parent.relationship_label
+          ? parent.relationship_label.charAt(0).toUpperCase() + parent.relationship_label.slice(1)
+          : undefined
+      }
       status={{
         label: parent.status.charAt(0).toUpperCase() + parent.status.slice(1),
         variant: statusVariantMap[parent.status] ?? 'neutral',
       }}
       metrics={metrics}
-      tabs={[
-        { key: 'overview', label: 'Overview', content: overviewTab },
-      ]}
+      tabs={[{ key: 'overview', label: 'Overview', content: overviewTab }]}
     />
   );
 }

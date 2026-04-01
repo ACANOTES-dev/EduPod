@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   CreateHouseholdDto,
   EmergencyContactDto,
@@ -326,8 +323,10 @@ export class HouseholdsService {
 
     const completion_issues: string[] = [];
     if (household.needs_completion) {
-      if (household.emergency_contacts.length < 1) completion_issues.push('missing_emergency_contact');
-      if (household.primary_billing_parent_id === null) completion_issues.push('missing_billing_parent');
+      if (household.emergency_contacts.length < 1)
+        completion_issues.push('missing_emergency_contact');
+      if (household.primary_billing_parent_id === null)
+        completion_issues.push('missing_billing_parent');
     }
 
     return { ...household, completion_issues };
@@ -454,11 +453,7 @@ export class HouseholdsService {
 
   // ─── Emergency Contacts ───────────────────────────────────────────────────
 
-  async addEmergencyContact(
-    tenantId: string,
-    householdId: string,
-    dto: EmergencyContactDto,
-  ) {
+  async addEmergencyContact(tenantId: string, householdId: string, dto: EmergencyContactDto) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -478,8 +473,8 @@ export class HouseholdsService {
         });
       }
 
-      const count = (household as unknown as { _count: { emergency_contacts: number } })
-        ._count.emergency_contacts;
+      const count = (household as unknown as { _count: { emergency_contacts: number } })._count
+        .emergency_contacts;
 
       if (count >= 3) {
         throw new BadRequestException({
@@ -543,11 +538,7 @@ export class HouseholdsService {
     });
   }
 
-  async removeEmergencyContact(
-    tenantId: string,
-    householdId: string,
-    contactId: string,
-  ) {
+  async removeEmergencyContact(tenantId: string, householdId: string, contactId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -567,8 +558,8 @@ export class HouseholdsService {
         });
       }
 
-      const count = (household as unknown as { _count: { emergency_contacts: number } })
-        ._count.emergency_contacts;
+      const count = (household as unknown as { _count: { emergency_contacts: number } })._count
+        .emergency_contacts;
 
       if (count <= 1) {
         throw new BadRequestException({
@@ -600,12 +591,7 @@ export class HouseholdsService {
 
   // ─── Parent Links ─────────────────────────────────────────────────────────
 
-  async linkParent(
-    tenantId: string,
-    householdId: string,
-    parentId: string,
-    roleLabel?: string,
-  ) {
+  async linkParent(tenantId: string, householdId: string, parentId: string, roleLabel?: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return prismaWithRls.$transaction(async (tx) => {
@@ -647,10 +633,7 @@ export class HouseholdsService {
           },
         });
       } catch (err: unknown) {
-        if (
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          err.code === 'P2002'
-        ) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
           // Already linked — return existing record silently
           return db.householdParent.findUnique({
             where: {
@@ -690,8 +673,7 @@ export class HouseholdsService {
         throw new BadRequestException({
           error: {
             code: 'IS_BILLING_PARENT',
-            message:
-              'Cannot unlink the billing parent. Assign a different billing parent first.',
+            message: 'Cannot unlink the billing parent. Assign a different billing parent first.',
           },
         });
       }
@@ -747,8 +729,14 @@ export class HouseholdsService {
       // Lock in sorted ID order to prevent deadlocks
       const [h1Id, h2Id] = [sourceId, targetId].sort();
       const rawTx = tx as unknown as { $queryRaw: (sql: Prisma.Sql) => Promise<unknown> };
-      await rawTx.$queryRaw(Prisma.sql`SELECT id FROM households WHERE id = ${h1Id}::uuid FOR UPDATE`);
-      await rawTx.$queryRaw(Prisma.sql`SELECT id FROM households WHERE id = ${h2Id}::uuid FOR UPDATE`);
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- household merge/link operations requiring raw SQL
+      await rawTx.$queryRaw(
+        Prisma.sql`SELECT id FROM households WHERE id = ${h1Id}::uuid FOR UPDATE`,
+      );
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- household merge/link operations requiring raw SQL
+      await rawTx.$queryRaw(
+        Prisma.sql`SELECT id FROM households WHERE id = ${h2Id}::uuid FOR UPDATE`,
+      );
 
       const [source, target] = await Promise.all([
         db.household.findFirst({ where: { id: sourceId, tenant_id: tenantId } }),
@@ -917,6 +905,7 @@ export class HouseholdsService {
 
       // Lock source household
       const rawTx = tx as unknown as { $queryRaw: (sql: Prisma.Sql) => Promise<unknown> };
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- household merge/link operations requiring raw SQL
       await rawTx.$queryRaw(
         Prisma.sql`SELECT id FROM households WHERE id = ${dto.source_household_id}::uuid FOR UPDATE`,
       );
@@ -990,10 +979,7 @@ export class HouseholdsService {
             },
           });
         } catch (err: unknown) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
             // Already linked — skip
             continue;
           }

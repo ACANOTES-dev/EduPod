@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { Pin, PinOff } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 

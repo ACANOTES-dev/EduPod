@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -40,16 +41,16 @@ describe('BehaviourGuardianRestrictionsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourGuardianRestrictionsController],
-      providers: [
-        { provide: BehaviourGuardianRestrictionsService, useValue: mockService },
-      ],
+      providers: [{ provide: BehaviourGuardianRestrictionsService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
-    controller = module.get<BehaviourGuardianRestrictionsController>(BehaviourGuardianRestrictionsController);
+    controller = module.get<BehaviourGuardianRestrictionsController>(
+      BehaviourGuardianRestrictionsController,
+    );
     jest.clearAllMocks();
   });
 
@@ -107,7 +108,12 @@ describe('BehaviourGuardianRestrictionsController', () => {
 
     const result = await controller.revoke(TENANT, USER, 'restr-1', dto as never);
 
-    expect(mockService.revoke).toHaveBeenCalledWith('tenant-uuid', 'restr-1', 'user-uuid', 'Court order lifted');
+    expect(mockService.revoke).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'restr-1',
+      'user-uuid',
+      'Court order lifted',
+    );
     expect(result).toEqual({ id: 'restr-1', status: 'revoked' });
   });
 });

@@ -1,8 +1,9 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,12 @@ function formatShort(dateStr: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function HomeworkWeekView({ weekStart, homework, onHomeworkClick, onWeekChange }: HomeworkWeekViewProps) {
+export function HomeworkWeekView({
+  weekStart,
+  homework,
+  onHomeworkClick,
+  onWeekChange,
+}: HomeworkWeekViewProps) {
   const dates = DAYS.map((_, i) => addDays(weekStart, i));
   const today = new Date().toISOString().slice(0, 10);
 
@@ -81,7 +87,9 @@ export function HomeworkWeekView({ weekStart, homework, onHomeworkClick, onWeekC
             key={date}
             className={`min-h-[120px] rounded-xl border p-2 ${date === today ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/10' : 'border-border bg-surface-secondary'}`}
           >
-            <p className="mb-2 text-xs font-semibold text-text-tertiary">{DAYS[i]} {formatShort(date)}</p>
+            <p className="mb-2 text-xs font-semibold text-text-tertiary">
+              {DAYS[i]} {formatShort(date)}
+            </p>
             <div className="space-y-1">
               {(byDay[date] ?? []).map((h) => (
                 <button

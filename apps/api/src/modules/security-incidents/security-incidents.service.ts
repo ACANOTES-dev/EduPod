@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import { SECURITY_INCIDENT_STATUS_TRANSITIONS } from '@school/shared';
 import type {
   CreateIncidentEventDto,

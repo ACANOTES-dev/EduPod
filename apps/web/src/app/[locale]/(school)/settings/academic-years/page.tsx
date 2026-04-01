@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -9,20 +13,14 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { ChevronDown, ChevronRight, Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { AcademicYearForm, type AcademicYearFormValues } from './_components/academic-year-form';
+import { PeriodManagement } from './_components/period-management';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
-import {
-  AcademicYearForm,
-  type AcademicYearFormValues,
-} from './_components/academic-year-form';
-import { PeriodManagement } from './_components/period-management';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,7 +53,8 @@ export default function AcademicYearsPage() {
         '/api/v1/academic-years?pageSize=100&sort=start_date&order=desc',
       );
       setYears(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[fetchYears]', err);
       setYears([]);
     } finally {
       setLoading(false);
@@ -90,15 +89,29 @@ export default function AcademicYearsPage() {
         body: JSON.stringify({ status }),
       });
       void fetchYears();
-    } catch {
-      // silently fail
+    } catch (err) {
+      console.error('[handleStatusChange]', err);
     }
   };
 
   const statusBadge = (status: string) => {
-    if (status === 'active') return <StatusBadge status="success" dot>{t('statusActive')}</StatusBadge>;
-    if (status === 'planned') return <StatusBadge status="info" dot>{t('statusPlanned')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{t('statusClosed')}</StatusBadge>;
+    if (status === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('statusActive')}
+        </StatusBadge>
+      );
+    if (status === 'planned')
+      return (
+        <StatusBadge status="info" dot>
+          {t('statusPlanned')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {t('statusClosed')}
+      </StatusBadge>
+    );
   };
 
   return (
@@ -139,8 +152,7 @@ export default function AcademicYearsPage() {
                   {year.name}
                 </button>
                 <span className="text-xs text-text-tertiary" dir="ltr">
-                  {formatDate(year.start_date)} –{' '}
-                  {formatDate(year.end_date)}
+                  {formatDate(year.start_date)} – {formatDate(year.end_date)}
                 </span>
                 {statusBadge(year.status)}
                 <span className="text-xs text-text-tertiary">
@@ -148,10 +160,7 @@ export default function AcademicYearsPage() {
                 </span>
                 <div className="ms-auto flex items-center gap-2">
                   {/* Status transition */}
-                  <Select
-                    value={year.status}
-                    onValueChange={(v) => handleStatusChange(year.id, v)}
-                  >
+                  <Select value={year.status} onValueChange={(v) => handleStatusChange(year.id, v)}>
                     <SelectTrigger className="h-7 w-32 text-xs">
                       <SelectValue />
                     </SelectTrigger>
@@ -161,11 +170,7 @@ export default function AcademicYearsPage() {
                       <SelectItem value="closed">{t('statusClosed')}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditTarget(year)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setEditTarget(year)}>
                     <Pencil className="h-4 w-4" />
                     <span className="sr-only">{tc('edit')}</span>
                   </Button>
@@ -194,7 +199,9 @@ export default function AcademicYearsPage() {
       {editTarget && (
         <AcademicYearForm
           open={!!editTarget}
-          onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+          onOpenChange={(v) => {
+            if (!v) setEditTarget(null);
+          }}
           initialValues={{
             name: editTarget.name,
             start_date: editTarget.start_date.slice(0, 10),

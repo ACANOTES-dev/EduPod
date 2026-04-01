@@ -1,9 +1,6 @@
-import {
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -45,9 +42,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
-        fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -247,9 +242,7 @@ describe('NepsVisitService', () => {
     it('should throw NotFoundException when not found', async () => {
       mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.get(TENANT_ID, VISIT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.get(TENANT_ID, VISIT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -300,9 +293,7 @@ describe('NepsVisitService', () => {
     it('should throw NotFoundException when not found', async () => {
       mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.remove(TENANT_ID, VISIT_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove(TENANT_ID, VISIT_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -337,10 +328,11 @@ describe('NepsVisitService', () => {
       const visit = makeVisit();
       mockRlsTx.pastoralNepsVisit.findFirst.mockResolvedValue(visit);
 
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Unique constraint failed',
-        { code: 'P2002', clientVersion: '5.0.0', meta: { target: ['tenant_id', 'visit_id', 'student_id'] } },
-      );
+      const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+        meta: { target: ['tenant_id', 'visit_id', 'student_id'] },
+      });
       mockRlsTx.pastoralNepsVisitStudent.create.mockRejectedValue(prismaError);
 
       await expect(
@@ -360,11 +352,9 @@ describe('NepsVisitService', () => {
       const updated = makeVisitStudent({ outcome: 'Positive progress observed' });
       mockRlsTx.pastoralNepsVisitStudent.update.mockResolvedValue(updated);
 
-      const result = await service.updateStudentOutcome(
-        TENANT_ID,
-        VISIT_STUDENT_ID,
-        { outcome: 'Positive progress observed' },
-      );
+      const result = await service.updateStudentOutcome(TENANT_ID, VISIT_STUDENT_ID, {
+        outcome: 'Positive progress observed',
+      });
 
       expect(result.outcome).toBe('Positive progress observed');
       expect(mockRlsTx.pastoralNepsVisitStudent.update).toHaveBeenCalledWith({

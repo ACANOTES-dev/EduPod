@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   CreateCurriculumRequirementDto,
   UpdateCurriculumRequirementDto,
@@ -198,7 +195,7 @@ export class CurriculumRequirementsService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Delete existing requirements for this year group + academic year
@@ -232,18 +229,14 @@ export class CurriculumRequirementsService {
       }
 
       return created;
-    }) as unknown as Record<string, unknown>[];
+    })) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { upserted: result.length } };
   }
 
   // ─── Copy from Academic Year ───────────────────────────────────────────────
 
-  async copyFromAcademicYear(
-    tenantId: string,
-    sourceYearId: string,
-    targetYearId: string,
-  ) {
+  async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
     // Validate both years exist
     const [sourceYear, targetYear] = await Promise.all([
       this.prisma.academicYear.findFirst({
@@ -283,7 +276,7 @@ export class CurriculumRequirementsService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const created = [];
@@ -306,18 +299,14 @@ export class CurriculumRequirementsService {
       }
 
       return created;
-    }) as unknown as Record<string, unknown>[];
+    })) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { copied: result.length } };
   }
 
   // ─── Matrix Subjects ───────────────────────────────────────────────────────
 
-  async getMatrixSubjects(
-    tenantId: string,
-    academicYearId: string,
-    yearGroupId: string,
-  ) {
+  async getMatrixSubjects(tenantId: string, academicYearId: string, yearGroupId: string) {
     // Get active classes in this year group for this academic year
     const classes = await this.prisma.class.findMany({
       where: {

@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   autoPopulateDeliverySchema,
   bulkMarkAttendanceSchema,
@@ -64,7 +66,6 @@ import type {
   UpdateRecurringDeductionDto,
   UpdateStaffAllowanceDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

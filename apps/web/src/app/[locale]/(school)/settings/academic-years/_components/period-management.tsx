@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Pencil } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,10 +20,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Plus, Pencil } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -79,7 +79,10 @@ function PeriodDialog({
   const t = useTranslations('academicYears');
   const tc = useTranslations('common');
 
-  const [values, setValues] = React.useState<PeriodFormValues>({ ...DEFAULT_PERIOD, ...initialValues });
+  const [values, setValues] = React.useState<PeriodFormValues>({
+    ...DEFAULT_PERIOD,
+    ...initialValues,
+  });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
@@ -133,7 +136,10 @@ function PeriodDialog({
           </div>
           <div className="space-y-1.5">
             <Label>{t('fieldPeriodType')}</Label>
-            <Select value={values.period_type} onValueChange={(v) => setValues((p) => ({ ...p, period_type: v }))}>
+            <Select
+              value={values.period_type}
+              onValueChange={(v) => setValues((p) => ({ ...p, period_type: v }))}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -169,7 +175,10 @@ function PeriodDialog({
           </div>
           <div className="space-y-1.5">
             <Label>{t('fieldStatus')}</Label>
-            <Select value={values.status} onValueChange={(v) => setValues((p) => ({ ...p, status: v }))}>
+            <Select
+              value={values.status}
+              onValueChange={(v) => setValues((p) => ({ ...p, status: v }))}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -182,7 +191,12 @@ function PeriodDialog({
           </div>
           {error && <p className="text-sm text-danger-text">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               {tc('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>
@@ -224,9 +238,23 @@ export function PeriodManagement({ academicYearId }: PeriodManagementProps) {
   }, [fetchPeriods]);
 
   const statusBadge = (status: string) => {
-    if (status === 'active') return <StatusBadge status="success" dot>{t('statusActive')}</StatusBadge>;
-    if (status === 'planned') return <StatusBadge status="info" dot>{t('statusPlanned')}</StatusBadge>;
-    return <StatusBadge status="neutral" dot>{t('statusClosed')}</StatusBadge>;
+    if (status === 'active')
+      return (
+        <StatusBadge status="success" dot>
+          {t('statusActive')}
+        </StatusBadge>
+      );
+    if (status === 'planned')
+      return (
+        <StatusBadge status="info" dot>
+          {t('statusPlanned')}
+        </StatusBadge>
+      );
+    return (
+      <StatusBadge status="neutral" dot>
+        {t('statusClosed')}
+      </StatusBadge>
+    );
   };
 
   if (loading) {
@@ -253,17 +281,12 @@ export function PeriodManagement({ academicYearId }: PeriodManagementProps) {
                 <div>
                   <p className="text-sm font-medium text-text-primary">{p.name}</p>
                   <p className="text-xs text-text-tertiary" dir="ltr">
-                    {formatDate(p.start_date)} –{' '}
-                    {formatDate(p.end_date)}
+                    {formatDate(p.start_date)} – {formatDate(p.end_date)}
                   </p>
                 </div>
                 {statusBadge(p.status)}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditTarget(p)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setEditTarget(p)}>
                 <Pencil className="h-4 w-4" />
               </Button>
             </li>
@@ -282,7 +305,9 @@ export function PeriodManagement({ academicYearId }: PeriodManagementProps) {
         <PeriodDialog
           academicYearId={academicYearId}
           open={!!editTarget}
-          onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+          onOpenChange={(v) => {
+            if (!v) setEditTarget(null);
+          }}
           onSuccess={fetchPeriods}
           editId={editTarget.id}
           initialValues={{

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import type { JwtPayload, TenantContext } from '@school/shared';
 import type { Request } from 'express';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { REQUIRES_PERMISSION_KEY } from '../../../common/decorators/requires-permission.decorator';
 import { AuthGuard } from '../../../common/guards/auth.guard';

@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { Download, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,11 +52,7 @@ export function PdfPreviewModal({ url, onClose }: PdfPreviewModalProps) {
 
       {/* PDF iframe */}
       <div className="flex-1 p-4">
-        <iframe
-          src={url}
-          className="h-full w-full rounded-lg bg-white"
-          title={t('preview')}
-        />
+        <iframe src={url} className="h-full w-full rounded-lg bg-white" title={t('preview')} />
       </div>
     </div>
   );

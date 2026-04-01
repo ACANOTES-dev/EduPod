@@ -5,6 +5,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import type { JwtPayload } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -89,7 +90,8 @@ export class PlatformOwnerGuard implements CanActivate {
       await client.setex(userCacheKey, 60, 'false');
       throw new ForbiddenException({
         code: 'PLATFORM_ACCESS_DENIED',
-        message: 'Platform owner access required. Please re-run the seed script to populate platform owner data.',
+        message:
+          'Platform owner access required. Please re-run the seed script to populate platform owner data.',
       });
     }
 

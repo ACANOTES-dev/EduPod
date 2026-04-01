@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { MODULE_ENABLED_KEY } from '../../../common/decorators/module-enabled.decorator';
@@ -51,9 +52,7 @@ describe('PastoralImportController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PastoralImportController],
-      providers: [
-        { provide: PastoralImportService, useValue: mockImportService },
-      ],
+      providers: [{ provide: PastoralImportService, useValue: mockImportService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -119,18 +118,14 @@ describe('PastoralImportController', () => {
 
       const result = await controller.validate(TENANT, USER, file);
 
-      expect(mockImportService.validate).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        fileBuffer,
-      );
+      expect(mockImportService.validate).toHaveBeenCalledWith(TENANT_ID, USER_ID, fileBuffer);
       expect(result).toBe(expectedResult);
     });
 
     it('should throw BadRequestException when no file is uploaded', async () => {
-      await expect(
-        controller.validate(TENANT, USER, undefined),
-      ).rejects.toThrow(BadRequestException);
+      await expect(controller.validate(TENANT, USER, undefined)).rejects.toThrow(
+        BadRequestException,
+      );
 
       expect(mockImportService.validate).not.toHaveBeenCalled();
     });
@@ -146,11 +141,7 @@ describe('PastoralImportController', () => {
 
       const result = await controller.confirm(TENANT, USER, body);
 
-      expect(mockImportService.confirm).toHaveBeenCalledWith(
-        TENANT_ID,
-        USER_ID,
-        'tok_abc123',
-      );
+      expect(mockImportService.confirm).toHaveBeenCalledWith(TENANT_ID, USER_ID, 'tok_abc123');
       expect(result).toBe(expectedResult);
     });
   });

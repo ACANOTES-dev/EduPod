@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import { OCTOBER_RETURNS_FIELDS } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -117,11 +118,7 @@ export class RegulatoryOctoberReturnsService {
     const categories: ReadinessCategory[] = [];
 
     for (const fieldDef of OCTOBER_RETURNS_FIELDS) {
-      const category = this.evaluateReadinessField(
-        fieldDef,
-        activeStudents,
-        ayRecord,
-      );
+      const category = this.evaluateReadinessField(fieldDef, activeStudents, ayRecord);
       categories.push(category);
     }
 
@@ -193,10 +190,7 @@ export class RegulatoryOctoberReturnsService {
     for (const s of activeStudents) {
       let yearGroupName: string | null = null;
       for (const enrol of s.class_enrolments) {
-        if (
-          enrol.class_entity.academic_year_id === ayRecord.id &&
-          enrol.class_entity.year_group
-        ) {
+        if (enrol.class_entity.academic_year_id === ayRecord.id && enrol.class_entity.year_group) {
           yearGroupName = enrol.class_entity.year_group.name;
           break;
         }
@@ -367,7 +361,12 @@ export class RegulatoryOctoberReturnsService {
     switch (fieldDef.field) {
       case 'student_count': {
         if (totalStudents > 0) {
-          return { ...base, status: 'pass', message: `${totalStudents} active students found`, count: totalStudents };
+          return {
+            ...base,
+            status: 'pass',
+            message: `${totalStudents} active students found`,
+            count: totalStudents,
+          };
         }
         return { ...base, status: 'fail', message: 'No active students found', count: 0 };
       }
@@ -378,9 +377,19 @@ export class RegulatoryOctoberReturnsService {
           return { ...base, status: 'fail', message: 'No active students to check', count: 0 };
         }
         if (withGender === totalStudents) {
-          return { ...base, status: 'pass', message: 'All students have gender set', count: withGender };
+          return {
+            ...base,
+            status: 'pass',
+            message: 'All students have gender set',
+            count: withGender,
+          };
         }
-        return { ...base, status: 'fail', message: `${totalStudents - withGender} students missing gender`, count: withGender };
+        return {
+          ...base,
+          status: 'fail',
+          message: `${totalStudents - withGender} students missing gender`,
+          count: withGender,
+        };
       }
 
       case 'nationality_breakdown': {
@@ -390,43 +399,81 @@ export class RegulatoryOctoberReturnsService {
         }
         const percentage = (withNationality / totalStudents) * 100;
         if (percentage === 100) {
-          return { ...base, status: 'pass', message: 'All students have nationality set', count: withNationality };
+          return {
+            ...base,
+            status: 'pass',
+            message: 'All students have nationality set',
+            count: withNationality,
+          };
         }
         if (percentage >= 80) {
-          return { ...base, status: 'warning', message: `${totalStudents - withNationality} students missing nationality (${Math.round(percentage)}% complete)`, count: withNationality };
+          return {
+            ...base,
+            status: 'warning',
+            message: `${totalStudents - withNationality} students missing nationality (${Math.round(percentage)}% complete)`,
+            count: withNationality,
+          };
         }
-        return { ...base, status: 'fail', message: `${totalStudents - withNationality} students missing nationality (${Math.round(percentage)}% complete)`, count: withNationality };
+        return {
+          ...base,
+          status: 'fail',
+          message: `${totalStudents - withNationality} students missing nationality (${Math.round(percentage)}% complete)`,
+          count: withNationality,
+        };
       }
 
       case 'year_group_enrolment': {
         const withYearGroup = activeStudents.filter((s) =>
           s.class_enrolments.some(
-            (e) => e.class_entity.academic_year_id === ayRecord.id && e.class_entity.year_group_id !== null,
+            (e) =>
+              e.class_entity.academic_year_id === ayRecord.id &&
+              e.class_entity.year_group_id !== null,
           ),
         ).length;
         if (totalStudents === 0) {
           return { ...base, status: 'fail', message: 'No active students to check', count: 0 };
         }
         if (withYearGroup === totalStudents) {
-          return { ...base, status: 'pass', message: 'All students have year group enrolments', count: withYearGroup };
+          return {
+            ...base,
+            status: 'pass',
+            message: 'All students have year group enrolments',
+            count: withYearGroup,
+          };
         }
-        return { ...base, status: 'fail', message: `${totalStudents - withYearGroup} students without year group enrolment`, count: withYearGroup };
+        return {
+          ...base,
+          status: 'fail',
+          message: `${totalStudents - withYearGroup} students without year group enrolment`,
+          count: withYearGroup,
+        };
       }
 
       case 'new_entrants': {
         const newEntrants = activeStudents.filter((s) => {
           if (!s.entry_date) return false;
           const entryDate = new Date(s.entry_date);
-          return entryDate >= new Date(ayRecord.start_date) && entryDate <= new Date(ayRecord.end_date);
+          return (
+            entryDate >= new Date(ayRecord.start_date) && entryDate <= new Date(ayRecord.end_date)
+          );
         }).length;
-        return { ...base, status: 'pass', message: `${newEntrants} new entrants identified`, count: newEntrants };
+        return {
+          ...base,
+          status: 'pass',
+          message: `${newEntrants} new entrants identified`,
+          count: newEntrants,
+        };
       }
 
       case 'sen_students':
       case 'traveller_students':
       case 'eal_students':
       case 'repeat_students': {
-        return { ...base, status: 'not_applicable', message: 'Optional — tracked separately if applicable' };
+        return {
+          ...base,
+          status: 'not_applicable',
+          message: 'Optional — tracked separately if applicable',
+        };
       }
 
       default: {
@@ -455,12 +502,20 @@ export class RegulatoryOctoberReturnsService {
     if (!student.national_id) {
       problems.push({ field: 'national_id', message: 'PPSN is missing', severity: 'error' });
     } else if (!PPSN_REGEX.test(student.national_id)) {
-      problems.push({ field: 'national_id', message: 'PPSN format is invalid (expected 7 digits followed by 1-2 letters)', severity: 'error' });
+      problems.push({
+        field: 'national_id',
+        message: 'PPSN format is invalid (expected 7 digits followed by 1-2 letters)',
+        severity: 'error',
+      });
     }
 
     // Date of birth
     if (!student.date_of_birth) {
-      problems.push({ field: 'date_of_birth', message: 'Date of birth is missing', severity: 'error' });
+      problems.push({
+        field: 'date_of_birth',
+        message: 'Date of birth is missing',
+        severity: 'error',
+      });
     }
 
     // Gender
@@ -470,7 +525,11 @@ export class RegulatoryOctoberReturnsService {
 
     // Nationality
     if (!student.nationality) {
-      problems.push({ field: 'nationality', message: 'Nationality is missing', severity: 'warning' });
+      problems.push({
+        field: 'nationality',
+        message: 'Nationality is missing',
+        severity: 'warning',
+      });
     }
 
     // Entry date
@@ -481,25 +540,39 @@ export class RegulatoryOctoberReturnsService {
     // Class enrolment
     const hasActiveEnrolment = student.class_enrolments.length > 0;
     if (!hasActiveEnrolment) {
-      problems.push({ field: 'class_enrolment', message: 'No active class enrolment', severity: 'error' });
+      problems.push({
+        field: 'class_enrolment',
+        message: 'No active class enrolment',
+        severity: 'error',
+      });
     }
 
     // Year group (via class enrolment or no enrolment at all)
     if (hasActiveEnrolment) {
       const hasYearGroup = academicYearId
         ? student.class_enrolments.some(
-            (e) => e.class_entity.academic_year_id === academicYearId && e.class_entity.year_group_id !== null,
+            (e) =>
+              e.class_entity.academic_year_id === academicYearId &&
+              e.class_entity.year_group_id !== null,
           )
         : student.class_enrolments.some((e) => e.class_entity.year_group_id !== null);
 
       if (!hasYearGroup) {
-        problems.push({ field: 'year_group', message: 'No year group assigned via class enrolment', severity: 'warning' });
+        problems.push({
+          field: 'year_group',
+          message: 'No year group assigned via class enrolment',
+          severity: 'warning',
+        });
       }
     }
 
     // Address (via household)
     if (!student.household || !student.household.address_line_1) {
-      problems.push({ field: 'address', message: 'No household address on file', severity: 'warning' });
+      problems.push({
+        field: 'address',
+        message: 'No household address on file',
+        severity: 'warning',
+      });
     }
 
     return problems;

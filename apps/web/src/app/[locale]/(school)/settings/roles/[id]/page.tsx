@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, Lock, Trash2 } from 'lucide-react';
+import { useRouter, usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -12,16 +17,12 @@ import {
   Label,
   StatusBadge,
 } from '@school/ui';
-import { ArrowLeft, Lock, Trash2 } from 'lucide-react';
-import { useRouter, usePathname, useParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { PermissionPicker, type RoleTier } from '../_components/permission-picker';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,14 +66,21 @@ function DeleteDialog({ open, loading, onConfirm, onCancel }: DeleteDialogProps)
   const t = useTranslations('roles');
   const tc = useTranslations('common');
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onCancel();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('deleteConfirmTitle')}</DialogTitle>
           <DialogDescription>{t('deleteConfirmDescription')}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={loading}>{tc('cancel')}</Button>
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
+            {tc('cancel')}
+          </Button>
           <Button variant="destructive" onClick={onConfirm} disabled={loading}>
             {loading ? tc('loading') : tc('delete')}
           </Button>

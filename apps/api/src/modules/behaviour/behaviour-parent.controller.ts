@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   parentBehaviourIncidentsQuerySchema,
   parentBehaviourStudentQuerySchema,
@@ -29,16 +30,11 @@ import { BehaviourParentService } from './behaviour-parent.service';
 @Controller('v1/parent/behaviour')
 @UseGuards(AuthGuard, PermissionGuard)
 export class BehaviourParentController {
-  constructor(
-    private readonly parentService: BehaviourParentService,
-  ) {}
+  constructor(private readonly parentService: BehaviourParentService) {}
 
   @Get('summary')
   @RequiresPermission('parent.view_behaviour')
-  async getSummary(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getSummary(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.parentService.getSummary(tenant.tenant_id, user.sub);
   }
 
@@ -67,11 +63,7 @@ export class BehaviourParentController {
     @Query(new ZodValidationPipe(parentBehaviourStudentQuerySchema))
     query: ReturnType<typeof parentBehaviourStudentQuerySchema.parse>,
   ) {
-    return this.parentService.getPointsAwards(
-      tenant.tenant_id,
-      user.sub,
-      query.student_id,
-    );
+    return this.parentService.getPointsAwards(tenant.tenant_id, user.sub, query.student_id);
   }
 
   @Get('sanctions')
@@ -82,11 +74,7 @@ export class BehaviourParentController {
     @Query(new ZodValidationPipe(parentBehaviourStudentQuerySchema))
     query: ReturnType<typeof parentBehaviourStudentQuerySchema.parse>,
   ) {
-    return this.parentService.getSanctions(
-      tenant.tenant_id,
-      user.sub,
-      query.student_id,
-    );
+    return this.parentService.getSanctions(tenant.tenant_id, user.sub, query.student_id);
   }
 
   @Post('acknowledge/:acknowledgementId')
@@ -97,11 +85,7 @@ export class BehaviourParentController {
     @CurrentUser() user: JwtPayload,
     @Param('acknowledgementId', ParseUUIDPipe) acknowledgementId: string,
   ) {
-    return this.parentService.acknowledge(
-      tenant.tenant_id,
-      user.sub,
-      acknowledgementId,
-    );
+    return this.parentService.acknowledge(tenant.tenant_id, user.sub, acknowledgementId);
   }
 
   @Get('recognition')

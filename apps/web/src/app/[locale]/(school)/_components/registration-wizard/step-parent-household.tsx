@@ -1,5 +1,9 @@
 'use client';
 
+import { Plus, Trash2, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -11,9 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus, Trash2, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import type {
   ConsentFormData,
@@ -221,9 +222,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
         {/* Row 1: First Name / Last Name */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`${prefix}-first-name`}>
-              {t('firstName')} *
-            </Label>
+            <Label htmlFor={`${prefix}-first-name`}>{t('firstName')} *</Label>
             <Input
               id={`${prefix}-first-name`}
               value={parent.first_name}
@@ -234,9 +233,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`${prefix}-last-name`}>
-              {t('lastName')} *
-            </Label>
+            <Label htmlFor={`${prefix}-last-name`}>{t('lastName')} *</Label>
             <Input
               id={`${prefix}-last-name`}
               value={parent.last_name}
@@ -251,9 +248,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
         {/* Row 2: Email / Phone */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label htmlFor={`${prefix}-email`}>
-              {t('email')}
-            </Label>
+            <Label htmlFor={`${prefix}-email`}>{t('email')}</Label>
             <Input
               id={`${prefix}-email`}
               type="email"
@@ -263,9 +258,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`${prefix}-phone`}>
-              {t('phone')} *
-            </Label>
+            <Label htmlFor={`${prefix}-phone`}>{t('phone')} *</Label>
             <Input
               id={`${prefix}-phone`}
               type="tel"
@@ -309,17 +302,13 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
     <div className="space-y-6">
       {/* ── Section 1: Primary Parent / Guardian ────────────────────────── */}
       <section className="space-y-4">
-        <h3 className="text-base font-semibold text-text-primary">
-          {t('primaryParent')}
-        </h3>
+        <h3 className="text-base font-semibold text-text-primary">{t('primaryParent')}</h3>
         {renderParentFields(state.primaryParent, 'primary', handlePrimaryChange)}
       </section>
 
       {/* ── Section 2: Second Parent (Optional) ─────────────────────────── */}
       <section className="space-y-4">
-        <h3 className="text-base font-semibold text-text-primary">
-          {t('secondParent')}
-        </h3>
+        <h3 className="text-base font-semibold text-text-primary">{t('secondParent')}</h3>
 
         {!state.showSecondaryParent ? (
           <button
@@ -348,9 +337,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
 
       {/* ── Section 3: Household ─────────────────────────────────────────── */}
       <section className="space-y-4">
-        <h3 className="text-base font-semibold text-text-primary">
-          {t('household')}
-        </h3>
+        <h3 className="text-base font-semibold text-text-primary">{t('household')}</h3>
 
         <div className="space-y-4">
           {/* Household name (auto-derived) */}
@@ -425,9 +412,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
 
       {/* ── Section 4: Emergency Contacts ─────────────────────────────── */}
       <section className="space-y-4">
-        <h3 className="text-base font-semibold text-text-primary">
-          {t('emergencyContact')}
-        </h3>
+        <h3 className="text-base font-semibold text-text-primary">{t('emergencyContact')}</h3>
 
         <div className="space-y-3">
           {state.emergencyContacts.map((ec, index) => (
@@ -438,9 +423,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
                   <Input
                     id={`ec-name-${index}`}
                     value={ec.contact_name}
-                    onChange={(e) =>
-                      updateEmergencyContact(index, 'contact_name', e.target.value)
-                    }
+                    onChange={(e) => updateEmergencyContact(index, 'contact_name', e.target.value)}
                   />
                   {errors[`emergency.${index}.contact_name`] && (
                     <p className="text-xs text-danger-text">
@@ -455,14 +438,10 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
                     type="tel"
                     dir="ltr"
                     value={ec.phone}
-                    onChange={(e) =>
-                      updateEmergencyContact(index, 'phone', e.target.value)
-                    }
+                    onChange={(e) => updateEmergencyContact(index, 'phone', e.target.value)}
                   />
                   {errors[`emergency.${index}.phone`] && (
-                    <p className="text-xs text-danger-text">
-                      {errors[`emergency.${index}.phone`]}
-                    </p>
+                    <p className="text-xs text-danger-text">{errors[`emergency.${index}.phone`]}</p>
                   )}
                 </div>
                 <div className="space-y-1.5">
@@ -500,7 +479,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
           ))}
         </div>
 
-      {state.emergencyContacts.length < 3 && (
+        {state.emergencyContacts.length < 3 && (
           <Button
             type="button"
             variant="outline"
@@ -517,12 +496,8 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
       {/* ── Section 5: Privacy & Consent ─────────────────────────────── */}
       <section className="space-y-4">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-text-primary">
-            {t('consentTitle')}
-          </h3>
-          <p className="text-sm text-text-secondary">
-            {t('consentDescription')}
-          </p>
+          <h3 className="text-base font-semibold text-text-primary">{t('consentTitle')}</h3>
+          <p className="text-sm text-text-secondary">{t('consentDescription')}</p>
         </div>
 
         <div className="space-y-3 rounded-lg border border-border-primary bg-surface-primary p-4">
@@ -537,9 +512,7 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
               <Label htmlFor="consent-health-data" className="cursor-pointer text-sm font-medium">
                 {t('consentHealthData')}
               </Label>
-              <p className="text-xs text-text-tertiary">
-                {t('consentHealthDataDescription')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('consentHealthDataDescription')}</p>
             </div>
           </div>
 
@@ -554,21 +527,15 @@ export function StepParentHousehold({ state, dispatch }: StepParentHouseholdProp
               <Label htmlFor="consent-whatsapp" className="cursor-pointer text-sm font-medium">
                 {t('consentWhatsApp')}
               </Label>
-              <p className="text-xs text-text-tertiary">
-                {t('consentWhatsAppDescription')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('consentWhatsAppDescription')}</p>
             </div>
           </div>
         </div>
 
         <div className="space-y-3 rounded-lg border border-border-primary bg-surface-primary p-4">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-text-primary">
-              {t('consentAiTitle')}
-            </p>
-            <p className="text-xs text-text-tertiary">
-              {t('consentAiDescription')}
-            </p>
+            <p className="text-sm font-medium text-text-primary">{t('consentAiTitle')}</p>
+            <p className="text-xs text-text-tertiary">{t('consentAiDescription')}</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

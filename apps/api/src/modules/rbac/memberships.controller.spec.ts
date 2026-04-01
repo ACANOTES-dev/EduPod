@@ -1,10 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
-import type {
-  TenantContext,
-  UpdateMembershipRolesDto,
-  UserListQuery,
-} from '@school/shared';
+
+import type { TenantContext, UpdateMembershipRolesDto, UserListQuery } from '@school/shared';
 
 import { MembershipsController } from './memberships.controller';
 import { MembershipsService } from './memberships.service';
@@ -44,9 +41,7 @@ describe('MembershipsController', () => {
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(
-        require('../../common/guards/permission.guard').PermissionGuard,
-      )
+      .overrideGuard(require('../../common/guards/permission.guard').PermissionGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -86,17 +81,9 @@ describe('MembershipsController', () => {
     const expected = { id: 'mem-1', membership_roles: [] };
     service.updateMembershipRoles.mockResolvedValue(expected);
 
-    const result = await controller.updateMembershipRoles(
-      mockTenant,
-      USER_ID,
-      dto,
-    );
+    const result = await controller.updateMembershipRoles(mockTenant, USER_ID, dto);
 
-    expect(service.updateMembershipRoles).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      roleIds,
-    );
+    expect(service.updateMembershipRoles).toHaveBeenCalledWith(TENANT_ID, USER_ID, roleIds);
     expect(result).toBe(expected);
   });
 
@@ -122,10 +109,7 @@ describe('MembershipsController', () => {
 
     const result = await controller.reactivateMembership(mockTenant, USER_ID);
 
-    expect(service.reactivateMembership).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-    );
+    expect(service.reactivateMembership).toHaveBeenCalledWith(TENANT_ID, USER_ID);
     expect(result).toBe(expected);
   });
 

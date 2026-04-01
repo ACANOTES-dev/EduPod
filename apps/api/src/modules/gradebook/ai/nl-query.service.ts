@@ -4,6 +4,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import type { GdprOutboundData } from '@school/shared';
 
 import { SettingsService } from '../../configuration/settings.service';
@@ -17,12 +18,7 @@ type FilterOp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'in' | 'contains';
 type SortDir = 'asc' | 'desc';
 type AggFn = 'count' | 'avg' | 'sum' | 'min' | 'max';
 
-type SupportedEntity =
-  | 'student'
-  | 'grade'
-  | 'assessment'
-  | 'period_grade'
-  | 'gpa_snapshot';
+type SupportedEntity = 'student' | 'grade' | 'assessment' | 'period_grade' | 'gpa_snapshot';
 
 interface QueryFilter {
   field: string;
@@ -126,30 +122,21 @@ export class NlQueryService {
         const AnthropicSdk = require('@anthropic-ai/sdk').default;
         this.anthropic = new AnthropicSdk({ apiKey }) as AnthropicClient;
       } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — NL queries will be unavailable',
-        );
+        this.logger.warn('@anthropic-ai/sdk is not installed — NL queries will be unavailable');
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — NL queries will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — NL queries will be unavailable');
     }
   }
 
   // ─── Process Query ────────────────────────────────────────────────────────
 
-  async processQuery(
-    tenantId: string,
-    userId: string,
-    question: string,
-  ): Promise<NlQueryResult> {
+  async processQuery(tenantId: string, userId: string, question: string): Promise<NlQueryResult> {
     if (!this.anthropic) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'Natural language queries require ANTHROPIC_API_KEY to be set.',
+          message: 'Natural language queries require ANTHROPIC_API_KEY to be set.',
         },
       });
     }
@@ -195,12 +182,7 @@ export class NlQueryService {
     const data = await this.executeQuery(tenantId, structuredQuery);
 
     // 3. Save to query history
-    const queryId = await this.saveQueryHistory(
-      tenantId,
-      userId,
-      question,
-      structuredQuery,
-    );
+    const queryId = await this.saveQueryHistory(tenantId, userId, question, structuredQuery);
 
     return {
       query_id: queryId,
@@ -214,12 +196,7 @@ export class NlQueryService {
 
   // ─── Get Query History ────────────────────────────────────────────────────
 
-  async getQueryHistory(
-    tenantId: string,
-    userId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getQueryHistory(tenantId: string, userId: string, page: number, pageSize: number) {
     const skip = (page - 1) * pageSize;
 
     const [data, total] = await Promise.all([
@@ -245,9 +222,7 @@ export class NlQueryService {
 
   // ─── Generate Structured Query via Claude ─────────────────────────────────
 
-  private async generateStructuredQuery(
-    question: string,
-  ): Promise<NlStructuredQuery> {
+  private async generateStructuredQuery(question: string): Promise<NlStructuredQuery> {
     if (!this.anthropic) {
       throw new ServiceUnavailableException({
         error: { code: 'AI_SERVICE_UNAVAILABLE', message: 'AI not available' },
@@ -334,9 +309,7 @@ Rules:
     return {
       entity: raw.entity as SupportedEntity,
       filters: Array.isArray(raw.filters) ? raw.filters : [],
-      aggregations: Array.isArray(raw.aggregations)
-        ? raw.aggregations
-        : undefined,
+      aggregations: Array.isArray(raw.aggregations) ? raw.aggregations : undefined,
       select: Array.isArray(raw.select) ? raw.select : [],
       sort: Array.isArray(raw.sort) ? raw.sort : undefined,
       limit: typeof raw.limit === 'number' ? Math.min(raw.limit, 200) : 50,
@@ -541,10 +514,7 @@ Rules:
 
   // ─── Filter Builder ───────────────────────────────────────────────────────
 
-  private applyFilters(
-    where: Record<string, unknown>,
-    filters: QueryFilter[],
-  ): void {
+  private applyFilters(where: Record<string, unknown>, filters: QueryFilter[]): void {
     for (const filter of filters) {
       // Only apply simple top-level field filters safely
       // Skip dot-notation fields (relation traversal — handled at query level)
@@ -571,9 +541,7 @@ Rules:
     }
   }
 
-  private buildOrderBy(
-    sort?: QuerySort[],
-  ): Record<string, string> | undefined {
+  private buildOrderBy(sort?: QuerySort[]): Record<string, string> | undefined {
     if (!sort || sort.length === 0) return undefined;
     const first = sort[0];
     if (!first) return undefined;
@@ -594,9 +562,7 @@ Rules:
           tenant_id: tenantId,
           user_id: userId,
           question,
-          structured_query_json: JSON.parse(
-            JSON.stringify(structuredQuery),
-          ) as object,
+          structured_query_json: JSON.parse(JSON.stringify(structuredQuery)) as object,
           result_count: 0, // updated after execution
         },
         select: { id: true },

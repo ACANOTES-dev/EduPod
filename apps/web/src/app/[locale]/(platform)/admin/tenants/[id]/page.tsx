@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, Globe, Loader2, Pencil, Plus, Settings, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -13,19 +18,6 @@ import {
   StatusBadge,
   Switch,
 } from '@school/ui';
-import {
-  ArrowLeft,
-  Globe,
-  Loader2,
-  Pencil,
-  Plus,
-  Settings,
-  Trash2,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -91,14 +83,14 @@ export default function TenantDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient<{ data: TenantDetail }>(
-        `/api/v1/admin/tenants/${tenantId}`,
-      );
+      const result = await apiClient<{ data: TenantDetail }>(`/api/v1/admin/tenants/${tenantId}`);
       setTenant(result.data);
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to load tenant')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to load tenant',
+            )
           : 'Failed to load tenant';
       setError(message);
     } finally {
@@ -142,11 +134,12 @@ export default function TenantDetailPage() {
     );
   }
 
-  const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { key: 'overview', label: 'Overview', icon: Settings },
-    { key: 'domains', label: 'Domains', icon: Globe },
-    { key: 'modules', label: 'Modules', icon: Settings },
-  ];
+  const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] =
+    [
+      { key: 'overview', label: 'Overview', icon: Settings },
+      { key: 'domains', label: 'Domains', icon: Globe },
+      { key: 'modules', label: 'Modules', icon: Settings },
+    ];
 
   return (
     <div>
@@ -194,15 +187,9 @@ export default function TenantDetailPage() {
 
       {/* Tab content */}
       <div className="mt-6">
-        {activeTab === 'overview' && (
-          <OverviewTab tenant={tenant} onUpdate={fetchTenant} />
-        )}
-        {activeTab === 'domains' && (
-          <DomainsTab tenant={tenant} onUpdate={fetchTenant} />
-        )}
-        {activeTab === 'modules' && (
-          <ModulesTab tenant={tenant} onUpdate={fetchTenant} />
-        )}
+        {activeTab === 'overview' && <OverviewTab tenant={tenant} onUpdate={fetchTenant} />}
+        {activeTab === 'domains' && <DomainsTab tenant={tenant} onUpdate={fetchTenant} />}
+        {activeTab === 'modules' && <ModulesTab tenant={tenant} onUpdate={fetchTenant} />}
       </div>
     </div>
   );
@@ -232,8 +219,8 @@ function TenantActions({
       } else {
         onUpdate();
       }
-    } catch {
-      // Error handling — could add toast
+    } catch (err) {
+      console.error('[performAction]', err);
     } finally {
       setActionLoading(null);
     }
@@ -260,7 +247,9 @@ function TenantActions({
             onClick={() => performAction('reactivate')}
             disabled={!!actionLoading}
           >
-            {actionLoading === 'reactivate' && <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" />}
+            {actionLoading === 'reactivate' && (
+              <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" />
+            )}
             Reactivate
           </Button>
           <Button
@@ -280,13 +269,7 @@ function TenantActions({
 
 // ---------- Overview Tab ----------
 
-function OverviewTab({
-  tenant,
-  onUpdate,
-}: {
-  tenant: TenantDetail;
-  onUpdate: () => void;
-}) {
+function OverviewTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () => void }) {
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -330,7 +313,9 @@ function OverviewTab({
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to update tenant')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to update tenant',
+            )
           : 'Failed to update tenant';
       setSaveError(message);
     } finally {
@@ -351,18 +336,20 @@ function OverviewTab({
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <InfoField label="Name" value={tenant.name} />
           <InfoField label="Slug" value={tenant.slug} mono />
-          <InfoField label="Default Language" value={tenant.default_locale === 'ar' ? 'Arabic' : 'English'} />
+          <InfoField
+            label="Default Language"
+            value={tenant.default_locale === 'ar' ? 'Arabic' : 'English'}
+          />
           <InfoField label="Timezone" value={tenant.timezone} />
           <InfoField label="Date Format" value={tenant.date_format} />
           <InfoField label="Currency" value={tenant.currency_code} />
           <InfoField
             label="Academic Year Start"
-            value={new Date(2024, tenant.academic_year_start_month - 1).toLocaleString('en', { month: 'long' })}
+            value={new Date(2024, tenant.academic_year_start_month - 1).toLocaleString('en', {
+              month: 'long',
+            })}
           />
-          <InfoField
-            label="Created"
-            value={formatDate(tenant.created_at)}
-          />
+          <InfoField label="Created" value={formatDate(tenant.created_at)} />
         </div>
       </div>
     );
@@ -421,11 +408,22 @@ function OverviewTab({
             </SelectTrigger>
             <SelectContent>
               {[
-                'Asia/Riyadh', 'Asia/Dubai', 'Asia/Kuwait', 'Asia/Bahrain',
-                'Asia/Qatar', 'Asia/Muscat', 'Africa/Cairo', 'Europe/London',
-                'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'UTC',
+                'Asia/Riyadh',
+                'Asia/Dubai',
+                'Asia/Kuwait',
+                'Asia/Bahrain',
+                'Asia/Qatar',
+                'Asia/Muscat',
+                'Africa/Cairo',
+                'Europe/London',
+                'America/New_York',
+                'America/Chicago',
+                'America/Los_Angeles',
+                'UTC',
               ].map((tz) => (
-                <SelectItem key={tz} value={tz}>{tz}</SelectItem>
+                <SelectItem key={tz} value={tz}>
+                  {tz}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -469,7 +467,9 @@ function OverviewTab({
                 { code: 'GBP', label: 'GBP — British Pound' },
                 { code: 'USD', label: 'USD — US Dollar' },
               ].map((c) => (
-                <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                <SelectItem key={c.code} value={c.code}>
+                  {c.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -489,7 +489,9 @@ function OverviewTab({
                 value: String(i + 1),
                 label: new Date(2024, i).toLocaleString('en', { month: 'long' }),
               })).map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -520,13 +522,7 @@ function InfoField({ label, value, mono }: { label: string; value: string; mono?
 
 // ---------- Domains Tab ----------
 
-function DomainsTab({
-  tenant,
-  onUpdate,
-}: {
-  tenant: TenantDetail;
-  onUpdate: () => void;
-}) {
+function DomainsTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () => void }) {
   const [newDomain, setNewDomain] = React.useState('');
   const [adding, setAdding] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<string | null>(null);
@@ -548,7 +544,9 @@ function DomainsTab({
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to add domain')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to add domain',
+            )
           : 'Failed to add domain';
       setError(message);
     } finally {
@@ -567,7 +565,9 @@ function DomainsTab({
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to remove domain')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to remove domain',
+            )
           : 'Failed to remove domain';
       setError(message);
     } finally {
@@ -626,16 +626,11 @@ function DomainsTab({
         ) : (
           <div className="divide-y divide-border">
             {tenant.domains.map((domain) => (
-              <div
-                key={domain.id}
-                className="flex items-center justify-between px-6 py-3"
-              >
+              <div key={domain.id} className="flex items-center justify-between px-6 py-3">
                 <div className="flex items-center gap-3">
                   <Globe className="h-4 w-4 text-text-tertiary" />
                   <span className="text-sm font-medium text-text-primary">{domain.domain}</span>
-                  {domain.is_primary && (
-                    <StatusBadge status="info">Primary</StatusBadge>
-                  )}
+                  {domain.is_primary && <StatusBadge status="info">Primary</StatusBadge>}
                 </div>
                 <Button
                   variant="ghost"
@@ -661,13 +656,7 @@ function DomainsTab({
 
 // ---------- Modules Tab ----------
 
-function ModulesTab({
-  tenant,
-  onUpdate,
-}: {
-  tenant: TenantDetail;
-  onUpdate: () => void;
-}) {
+function ModulesTab({ tenant, onUpdate }: { tenant: TenantDetail; onUpdate: () => void }) {
   const [togglingKey, setTogglingKey] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -683,7 +672,9 @@ function ModulesTab({
     } catch (err: unknown) {
       const message =
         err && typeof err === 'object' && 'error' in err
-          ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to update module')
+          ? String(
+              (err as { error: { message?: string } }).error?.message ?? 'Failed to update module',
+            )
           : 'Failed to update module';
       setError(message);
     } finally {
@@ -714,10 +705,7 @@ function ModulesTab({
       ) : (
         <div className="divide-y divide-border">
           {tenant.modules.map((mod) => (
-            <div
-              key={mod.key}
-              className="flex items-center justify-between px-6 py-4"
-            >
+            <div key={mod.key} className="flex items-center justify-between px-6 py-4">
               <div>
                 <p className="text-sm font-medium text-text-primary">{mod.label}</p>
                 <p className="mt-0.5 text-xs text-text-secondary font-mono">{mod.key}</p>

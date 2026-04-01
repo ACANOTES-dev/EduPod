@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+
 import { updateBrandingSchema } from '@school/shared';
 import type { TenantContext, UpdateBrandingDto } from '@school/shared';
 

@@ -1,23 +1,18 @@
 'use client';
 
-import {
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
+
 
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { CsvExportWizard } from '../_components/csv-export-wizard';
+
+import { PageHeader } from '@/components/page-header';
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -45,10 +40,7 @@ export default function PpodExportPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('ppod.exportTitle')}
-        description={t('ppod.exportDescription')}
-      />
+      <PageHeader title={t('ppod.exportTitle')} description={t('ppod.exportDescription')} />
 
       <RegulatoryNav />
 

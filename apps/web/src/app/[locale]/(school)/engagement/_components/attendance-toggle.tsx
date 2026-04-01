@@ -1,8 +1,9 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { Check, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Button } from '@school/ui';
 
 interface AttendanceToggleProps {
   disabled?: boolean;

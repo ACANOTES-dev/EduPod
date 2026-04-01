@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@school/ui';
 import { GripVertical, Pin, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@school/ui';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,8 +92,10 @@ function getViolationTier(violations: CellViolation[]): 1 | 2 | 3 | null {
 }
 
 function violationOverlayClasses(tier: 1 | 2 | 3 | null): string {
-  if (tier === 1 || tier === 2) return 'bg-red-50/60 dark:bg-red-900/20 ring-2 ring-red-400 dark:ring-red-600';
-  if (tier === 3) return 'bg-amber-50/60 dark:bg-amber-900/20 ring-2 ring-amber-400 dark:ring-amber-600';
+  if (tier === 1 || tier === 2)
+    return 'bg-red-50/60 dark:bg-red-900/20 ring-2 ring-red-400 dark:ring-red-600';
+  if (tier === 3)
+    return 'bg-amber-50/60 dark:bg-amber-900/20 ring-2 ring-amber-400 dark:ring-amber-600';
   return '';
 }
 
@@ -119,7 +116,10 @@ export function ScheduleGrid({
 }: ScheduleGridProps) {
   const t = useTranslations('scheduling');
   const [draggedEntryId, setDraggedEntryId] = React.useState<string | null>(null);
-  const [dropTarget, setDropTarget] = React.useState<{ weekday: number; periodOrder: number } | null>(null);
+  const [dropTarget, setDropTarget] = React.useState<{
+    weekday: number;
+    periodOrder: number;
+  } | null>(null);
   const [locale, setLocale] = React.useState<string>('en');
 
   React.useEffect(() => {
@@ -212,8 +212,10 @@ export function ScheduleGrid({
 
           {/* Body rows */}
           {sortedPeriods.map((period) => {
-            const isBreak = period.period_type === 'break_supervision' || period.period_type === 'lunch_duty';
-            const isFreeOrAssembly = period.period_type === 'assembly' || period.period_type === 'free';
+            const isBreak =
+              period.period_type === 'break_supervision' || period.period_type === 'lunch_duty';
+            const isFreeOrAssembly =
+              period.period_type === 'assembly' || period.period_type === 'free';
 
             return (
               <React.Fragment key={period.period_order}>
@@ -252,9 +254,9 @@ export function ScheduleGrid({
                           : isFreeOrAssembly
                             ? 'bg-gray-50/30 dark:bg-gray-800/10'
                             : ''
-                      } ${isDropping ? 'bg-brand/10 ring-2 ring-brand/30' : ''} ${
-                        violationOverlayClasses(violationTier)
-                      }`}
+                      } ${isDropping ? 'bg-brand/10 ring-2 ring-brand/30' : ''} ${violationOverlayClasses(
+                        violationTier,
+                      )}`}
                       onDragOver={(e) => handleDragOver(e, day, period.period_order)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, day, period.period_order)}
@@ -279,8 +281,7 @@ export function ScheduleGrid({
                         {cellEntries.map((entry) => {
                           const isDragging = draggedEntryId === entry.id;
                           const isHighlighted =
-                            highlightTeacherId != null &&
-                            entry.teacher_id === highlightTeacherId;
+                            highlightTeacherId != null && entry.teacher_id === highlightTeacherId;
 
                           return (
                             <Tooltip key={entry.id}>
@@ -304,7 +305,9 @@ export function ScheduleGrid({
                                   } ${isDragging ? 'opacity-40' : ''} ${
                                     isHighlighted ? 'ring-2 ring-brand shadow-sm' : ''
                                   } ${
-                                    !readOnly && !entry.is_pinned ? 'cursor-grab active:cursor-grabbing' : ''
+                                    !readOnly && !entry.is_pinned
+                                      ? 'cursor-grab active:cursor-grabbing'
+                                      : ''
                                   }`}
                                 >
                                   {/* Subject */}
@@ -360,7 +363,10 @@ export function ScheduleGrid({
                               {t('runs.supervision')}
                             </div>
                             {cellEntries.map((e) => (
-                              <div key={e.id} className="text-amber-600 dark:text-amber-300 truncate">
+                              <div
+                                key={e.id}
+                                className="text-amber-600 dark:text-amber-300 truncate"
+                              >
                                 {e.teacher_name}
                               </div>
                             ))}
@@ -379,9 +385,7 @@ export function ScheduleGrid({
                               }
                             }}
                           >
-                            {!readOnly && (
-                              <Plus className="h-3.5 w-3.5 text-text-tertiary" />
-                            )}
+                            {!readOnly && <Plus className="h-3.5 w-3.5 text-text-tertiary" />}
                           </div>
                         )}
                       </div>

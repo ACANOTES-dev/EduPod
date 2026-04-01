@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -45,9 +46,7 @@ describe('BehaviourExclusionsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [BehaviourExclusionsController],
-      providers: [
-        { provide: BehaviourExclusionCasesService, useValue: mockService },
-      ],
+      providers: [{ provide: BehaviourExclusionCasesService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -101,12 +100,19 @@ describe('BehaviourExclusionsController', () => {
 
   it('should call exclusionCasesService.transitionStatus with mapped status', async () => {
     const dto = { status: 'hearing_scheduled', reason: 'Hearing set' };
-    mockService.transitionStatus.mockResolvedValue({ id: 'exc-1', status: 'hearing_scheduled_exc' });
+    mockService.transitionStatus.mockResolvedValue({
+      id: 'exc-1',
+      status: 'hearing_scheduled_exc',
+    });
 
     const result = await controller.transitionStatus(TENANT, USER, 'exc-1', dto as never);
 
     expect(mockService.transitionStatus).toHaveBeenCalledWith(
-      'tenant-uuid', 'exc-1', 'hearing_scheduled_exc', 'Hearing set', 'user-uuid',
+      'tenant-uuid',
+      'exc-1',
+      'hearing_scheduled_exc',
+      'Hearing set',
+      'user-uuid',
     );
     expect(result).toEqual({ id: 'exc-1', status: 'hearing_scheduled_exc' });
   });
@@ -135,7 +141,12 @@ describe('BehaviourExclusionsController', () => {
 
     const result = await controller.recordDecision(TENANT, USER, 'exc-1', dto as never);
 
-    expect(mockService.recordDecision).toHaveBeenCalledWith('tenant-uuid', 'exc-1', dto, 'user-uuid');
+    expect(mockService.recordDecision).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'exc-1',
+      dto,
+      'user-uuid',
+    );
     expect(result).toEqual({ id: 'exc-1', decision: 'permanent_exclusion' });
   });
 

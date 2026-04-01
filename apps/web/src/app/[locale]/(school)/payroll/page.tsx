@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, StatCard } from '@school/ui';
 import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -15,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, StatCard } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -117,8 +118,8 @@ export default function PayrollDashboardPage() {
     try {
       const res = await apiClient<{ data: DashboardData }>('/api/v1/payroll/dashboard');
       setData(res.data);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchDashboard]', err);
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +195,8 @@ export default function PayrollDashboardPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-text-primary">
-                  {t('nextPayDate')}: {new Date(cal.next_pay_date).toLocaleDateString(locale, {
+                  {t('nextPayDate')}:{' '}
+                  {new Date(cal.next_pay_date).toLocaleDateString(locale, {
                     day: 'numeric',
                     month: 'long',
                   })}
@@ -208,7 +210,8 @@ export default function PayrollDashboardPage() {
             </div>
             {cal.preparation_deadline && (
               <div className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-text">
-                {t('prepDeadline')}: {new Date(cal.preparation_deadline).toLocaleDateString(locale, {
+                {t('prepDeadline')}:{' '}
+                {new Date(cal.preparation_deadline).toLocaleDateString(locale, {
                   day: 'numeric',
                   month: 'short',
                 })}
@@ -225,7 +228,9 @@ export default function PayrollDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           label={t('totalPayThisMonth')}
-          value={formatCurrency(data?.latest_finalised?.total_pay ?? data?.latest_run?.total_pay ?? 0)}
+          value={formatCurrency(
+            data?.latest_finalised?.total_pay ?? data?.latest_run?.total_pay ?? 0,
+          )}
         />
         <StatCard
           label={t('headcount')}
@@ -233,7 +238,9 @@ export default function PayrollDashboardPage() {
         />
         <StatCard
           label={t('totalBonus')}
-          value={formatCurrency(data?.latest_finalised?.total_bonus_pay ?? data?.latest_run?.total_bonus_pay ?? 0)}
+          value={formatCurrency(
+            data?.latest_finalised?.total_bonus_pay ?? data?.latest_run?.total_bonus_pay ?? 0,
+          )}
         />
       </div>
 

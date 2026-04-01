@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   createInquiryMessageSchema,
   createInquirySchema,
@@ -63,10 +64,7 @@ export class ParentInquiriesController {
 
   @Get(':id')
   @RequiresPermission('inquiries.view')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getByIdForAdmin(tenant.tenant_id, id);
   }
 

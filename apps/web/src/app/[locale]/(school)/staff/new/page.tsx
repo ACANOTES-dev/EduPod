@@ -1,22 +1,17 @@
 'use client';
 
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@school/ui';
 import { ArrowLeft, Check, Copy } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@school/ui';
+
+import { StaffForm, type StaffFormValues } from '../_components/staff-form';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { StaffForm, type StaffFormValues } from '../_components/staff-form';
 
 interface CreatedCredentials {
   name: string;
@@ -42,11 +37,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
         </p>
       </div>
       <Button variant="ghost" size="icon" onClick={() => void handleCopy()}>
-        {copied ? (
-          <Check className="h-4 w-4 text-success-text" />
-        ) : (
-          <Copy className="h-4 w-4" />
-        )}
+        {copied ? <Check className="h-4 w-4 text-success-text" /> : <Copy className="h-4 w-4" />}
       </Button>
     </div>
   );
@@ -120,15 +111,11 @@ export default function NewStaffPage() {
                 <CopyField label={t('fieldEmail')} value={credentials.email} />
                 <CopyField label={t('credentialsPassword')} value={credentials.staffNumber} />
               </div>
-              <p className="text-xs text-text-tertiary">
-                {t('credentialsNote')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('credentialsNote')}</p>
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => router.push(`/${locale}/staff`)}>
-              {tc('done')}
-            </Button>
+            <Button onClick={() => router.push(`/${locale}/staff`)}>{tc('done')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Input, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, TableWrapper } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -70,7 +71,7 @@ function SalariedRow({
   });
   const [overrideOpen, setOverrideOpen] = React.useState(false);
   const [overrideValue, setOverrideValue] = React.useState(
-    entry.override_total_pay != null ? String(entry.override_total_pay) : ''
+    entry.override_total_pay != null ? String(entry.override_total_pay) : '',
   );
   const [overrideNote, setOverrideNote] = React.useState(entry.override_note ?? '');
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,51 +85,53 @@ function SalariedRow({
       try {
         const res = await apiClient<{ data: CalculatePreview }>(
           `/api/v1/payroll/entries/${entry.id}/calculate`,
-          { method: 'POST', body: JSON.stringify({ days_worked: val ? Number(val) : null }) }
+          { method: 'POST', body: JSON.stringify({ days_worked: val ? Number(val) : null }) },
         );
         setPreview(res.data);
-      } catch { /* silent */ }
+      } catch (err) {
+        console.error('[handleInputChange]', err);
+      }
     }, 300);
   };
 
   const handleBlur = async () => {
     try {
-      const res = await apiClient<{ data: PayrollEntry }>(
-        `/api/v1/payroll/entries/${entry.id}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            days_worked: actualDays ? Number(actualDays) : null,
-            expected_updated_at: entry.updated_at,
-          }),
-        }
-      );
+      const res = await apiClient<{ data: PayrollEntry }>(`/api/v1/payroll/entries/${entry.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          days_worked: actualDays ? Number(actualDays) : null,
+          expected_updated_at: entry.updated_at,
+        }),
+      });
       onEntryUpdated(res.data);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('[handleBlur]', err);
+    }
   };
 
   const handleOverrideSave = async () => {
     const val = overrideValue ? Number(overrideValue) : null;
     if (val !== null && !overrideNote.trim()) return;
     try {
-      const res = await apiClient<{ data: PayrollEntry }>(
-        `/api/v1/payroll/entries/${entry.id}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            override_total_pay: val,
-            override_note: val !== null ? overrideNote : null,
-            expected_updated_at: entry.updated_at,
-          }),
-        }
-      );
+      const res = await apiClient<{ data: PayrollEntry }>(`/api/v1/payroll/entries/${entry.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          override_total_pay: val,
+          override_note: val !== null ? overrideNote : null,
+          expected_updated_at: entry.updated_at,
+        }),
+      });
       onEntryUpdated(res.data);
       setOverrideOpen(false);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('[handleOverrideSave]', err);
+    }
   };
 
   React.useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const effectivePay = entry.override_total_pay ?? preview.total_pay;
@@ -153,13 +156,19 @@ function SalariedRow({
             <span className="text-text-primary">{entry.days_worked}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(preview.basic_pay)}</td>
+        <td className="px-4 py-3 text-sm text-text-primary text-end">
+          {formatCurrency(preview.basic_pay)}
+        </td>
         <td className="px-4 py-3 text-sm text-text-tertiary text-end">{bonusDays}</td>
-        <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(preview.bonus_pay)}</td>
+        <td className="px-4 py-3 text-sm text-text-primary text-end">
+          {formatCurrency(preview.bonus_pay)}
+        </td>
         <td className="px-4 py-3 text-sm font-semibold text-end">
           {entry.override_total_pay != null ? (
             <span className="flex items-center justify-end gap-2">
-              <span className="text-text-tertiary line-through">{formatCurrency(preview.total_pay)}</span>
+              <span className="text-text-tertiary line-through">
+                {formatCurrency(preview.total_pay)}
+              </span>
               <span className="text-text-primary">{formatCurrency(entry.override_total_pay)}</span>
             </span>
           ) : (
@@ -173,7 +182,9 @@ function SalariedRow({
             </Button>
           )}
           {!isDraft && entry.override_note && (
-            <span className="text-xs text-text-tertiary" title={entry.override_note}>*</span>
+            <span className="text-xs text-text-tertiary" title={entry.override_note}>
+              *
+            </span>
           )}
         </td>
       </tr>
@@ -182,7 +193,9 @@ function SalariedRow({
           <td colSpan={8} className="px-4 py-3">
             <div className="flex items-end gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">{t('overrideAmount')}</label>
+                <label className="text-xs font-medium text-text-secondary">
+                  {t('overrideAmount')}
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -194,20 +207,30 @@ function SalariedRow({
                 />
               </div>
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium text-text-secondary">{t('overrideReason')}</label>
+                <label className="text-xs font-medium text-text-secondary">
+                  {t('overrideReason')}
+                </label>
                 <Input
                   value={overrideNote}
                   onChange={(e) => setOverrideNote(e.target.value)}
                   placeholder={t('overrideReasonPlaceholder')}
                 />
               </div>
-              <Button size="sm" onClick={handleOverrideSave}>{t('save')}</Button>
+              <Button size="sm" onClick={handleOverrideSave}>
+                {t('save')}
+              </Button>
               {entry.override_total_pay != null && (
-                <Button size="sm" variant="outline" onClick={() => {
-                  setOverrideValue('');
-                  setOverrideNote('');
-                  void handleOverrideSave();
-                }}>{t('clearOverride')}</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOverrideValue('');
+                    setOverrideNote('');
+                    void handleOverrideSave();
+                  }}
+                >
+                  {t('clearOverride')}
+                </Button>
               )}
             </div>
           </td>
@@ -237,7 +260,7 @@ function PerClassRow({
   });
   const [overrideOpen, setOverrideOpen] = React.useState(false);
   const [overrideValue, setOverrideValue] = React.useState(
-    entry.override_total_pay != null ? String(entry.override_total_pay) : ''
+    entry.override_total_pay != null ? String(entry.override_total_pay) : '',
   );
   const [overrideNote, setOverrideNote] = React.useState(entry.override_note ?? '');
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,51 +274,53 @@ function PerClassRow({
       try {
         const res = await apiClient<{ data: CalculatePreview }>(
           `/api/v1/payroll/entries/${entry.id}/calculate`,
-          { method: 'POST', body: JSON.stringify({ classes_taught: val ? Number(val) : null }) }
+          { method: 'POST', body: JSON.stringify({ classes_taught: val ? Number(val) : null }) },
         );
         setPreview(res.data);
-      } catch { /* silent */ }
+      } catch (err) {
+        console.error('[handleInputChange]', err);
+      }
     }, 300);
   };
 
   const handleBlur = async () => {
     try {
-      const res = await apiClient<{ data: PayrollEntry }>(
-        `/api/v1/payroll/entries/${entry.id}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            classes_taught: actualClasses ? Number(actualClasses) : null,
-            expected_updated_at: entry.updated_at,
-          }),
-        }
-      );
+      const res = await apiClient<{ data: PayrollEntry }>(`/api/v1/payroll/entries/${entry.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          classes_taught: actualClasses ? Number(actualClasses) : null,
+          expected_updated_at: entry.updated_at,
+        }),
+      });
       onEntryUpdated(res.data);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('[handleBlur]', err);
+    }
   };
 
   const handleOverrideSave = async () => {
     const val = overrideValue ? Number(overrideValue) : null;
     if (val !== null && !overrideNote.trim()) return;
     try {
-      const res = await apiClient<{ data: PayrollEntry }>(
-        `/api/v1/payroll/entries/${entry.id}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            override_total_pay: val,
-            override_note: val !== null ? overrideNote : null,
-            expected_updated_at: entry.updated_at,
-          }),
-        }
-      );
+      const res = await apiClient<{ data: PayrollEntry }>(`/api/v1/payroll/entries/${entry.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          override_total_pay: val,
+          override_note: val !== null ? overrideNote : null,
+          expected_updated_at: entry.updated_at,
+        }),
+      });
       onEntryUpdated(res.data);
       setOverrideOpen(false);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error('[handleOverrideSave]', err);
+    }
   };
 
   React.useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const effectivePay = entry.override_total_pay ?? preview.total_pay;
@@ -320,13 +345,19 @@ function PerClassRow({
             <span className="text-text-primary">{entry.classes_taught}</span>
           )}
         </td>
-        <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(preview.basic_pay)}</td>
+        <td className="px-4 py-3 text-sm text-text-primary text-end">
+          {formatCurrency(preview.basic_pay)}
+        </td>
         <td className="px-4 py-3 text-sm text-text-tertiary text-end">{bonusClasses}</td>
-        <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(preview.bonus_pay)}</td>
+        <td className="px-4 py-3 text-sm text-text-primary text-end">
+          {formatCurrency(preview.bonus_pay)}
+        </td>
         <td className="px-4 py-3 text-sm font-semibold text-end">
           {entry.override_total_pay != null ? (
             <span className="flex items-center justify-end gap-2">
-              <span className="text-text-tertiary line-through">{formatCurrency(preview.total_pay)}</span>
+              <span className="text-text-tertiary line-through">
+                {formatCurrency(preview.total_pay)}
+              </span>
               <span className="text-text-primary">{formatCurrency(entry.override_total_pay)}</span>
             </span>
           ) : (
@@ -340,7 +371,9 @@ function PerClassRow({
             </Button>
           )}
           {!isDraft && entry.override_note && (
-            <span className="text-xs text-text-tertiary" title={entry.override_note}>*</span>
+            <span className="text-xs text-text-tertiary" title={entry.override_note}>
+              *
+            </span>
           )}
         </td>
       </tr>
@@ -349,7 +382,9 @@ function PerClassRow({
           <td colSpan={8} className="px-4 py-3">
             <div className="flex items-end gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-text-secondary">{t('overrideAmount')}</label>
+                <label className="text-xs font-medium text-text-secondary">
+                  {t('overrideAmount')}
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -361,20 +396,30 @@ function PerClassRow({
                 />
               </div>
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium text-text-secondary">{t('overrideReason')}</label>
+                <label className="text-xs font-medium text-text-secondary">
+                  {t('overrideReason')}
+                </label>
                 <Input
                   value={overrideNote}
                   onChange={(e) => setOverrideNote(e.target.value)}
                   placeholder={t('overrideReasonPlaceholder')}
                 />
               </div>
-              <Button size="sm" onClick={handleOverrideSave}>{t('save')}</Button>
+              <Button size="sm" onClick={handleOverrideSave}>
+                {t('save')}
+              </Button>
               {entry.override_total_pay != null && (
-                <Button size="sm" variant="outline" onClick={() => {
-                  setOverrideValue('');
-                  setOverrideNote('');
-                  void handleOverrideSave();
-                }}>{t('clearOverride')}</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOverrideValue('');
+                    setOverrideNote('');
+                    void handleOverrideSave();
+                  }}
+                >
+                  {t('clearOverride')}
+                </Button>
               )}
             </div>
           </td>
@@ -406,18 +451,30 @@ export function EntriesTable({
         bonus_pay: acc.bonus_pay + e.bonus_pay,
         total_pay: acc.total_pay + (e.override_total_pay ?? e.total_pay),
       }),
-      { basic_pay: 0, bonus_pay: 0, total_pay: 0 }
+      { basic_pay: 0, bonus_pay: 0, total_pay: 0 },
     );
   }, [filteredEntries]);
 
   const salariedHeaders = [
-    t('staffName'), t('prescribedDays'), t('actualDaysWorked'),
-    t('basePay'), t('bonusDays'), t('bonusPay'), t('totalPay'), t('override'),
+    t('staffName'),
+    t('prescribedDays'),
+    t('actualDaysWorked'),
+    t('basePay'),
+    t('bonusDays'),
+    t('bonusPay'),
+    t('totalPay'),
+    t('override'),
   ];
 
   const perClassHeaders = [
-    t('staffName'), t('assignedClasses'), t('actualClassesTaught'),
-    t('baseClassPay'), t('bonusClasses'), t('bonusPay'), t('totalPay'), t('override'),
+    t('staffName'),
+    t('assignedClasses'),
+    t('actualClassesTaught'),
+    t('baseClassPay'),
+    t('bonusClasses'),
+    t('bonusPay'),
+    t('totalPay'),
+    t('override'),
   ];
 
   const headers = activeTab === 'salaried' ? salariedHeaders : perClassHeaders;

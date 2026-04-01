@@ -1,18 +1,11 @@
 'use client';
 
-import {
-  Button,
-  Checkbox,
-  Input,
-  StatusBadge,
-  Textarea,
-  toast,
-} from '@school/ui';
 import { ArrowLeft, Lock } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Checkbox, Input, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -162,15 +155,17 @@ export default function GradeEntryPage() {
   }
 
   if (!assessment) {
-    return (
-      <div className="py-12 text-center text-text-tertiary">Assessment not found</div>
-    );
+    return <div className="py-12 text-center text-text-tertiary">Assessment not found</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`/${locale}/gradebook/${classId}`)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/${locale}/gradebook/${classId}`)}
+        >
           <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
         </Button>
         <PageHeader title={t('gradeEntry')} />
@@ -185,8 +180,12 @@ export default function GradeEntryPage() {
           </StatusBadge>
         </div>
         <div className="mt-2 flex flex-wrap gap-4 text-sm text-text-secondary">
-          <span>{t('category')}: {assessment.category_name}</span>
-          <span>{t('maxScore')}: <span dir="ltr">{assessment.max_score}</span></span>
+          <span>
+            {t('category')}: {assessment.category_name}
+          </span>
+          <span>
+            {t('maxScore')}: <span dir="ltr">{assessment.max_score}</span>
+          </span>
         </div>
       </div>
 
@@ -229,7 +228,9 @@ export default function GradeEntryPage() {
                 </td>
                 <td className="px-4 py-3">
                   <Input
-                    ref={(el) => { scoreRefs.current[idx] = el; }}
+                    ref={(el) => {
+                      scoreRefs.current[idx] = el;
+                    }}
                     type="number"
                     min={0}
                     max={assessment.max_score}

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import type { GdprOutboundData } from '@school/shared';
 import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
@@ -62,9 +63,7 @@ export class AiProgressSummaryService {
         );
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI progress summaries will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI progress summaries will be unavailable');
     }
   }
 
@@ -85,8 +84,7 @@ export class AiProgressSummaryService {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'AI progress summaries are not configured. ANTHROPIC_API_KEY is not set.',
+          message: 'AI progress summaries are not configured. ANTHROPIC_API_KEY is not set.',
         },
       });
     }
@@ -153,13 +151,12 @@ export class AiProgressSummaryService {
       entityCount: 1,
     };
 
-    const { processedData, tokenMap } =
-      await this.gdprTokenService.processOutbound(
-        tenantId,
-        'ai_progress_summary',
-        outbound,
-        SYSTEM_USER_SENTINEL,
-      );
+    const { processedData, tokenMap } = await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_progress_summary',
+      outbound,
+      SYSTEM_USER_SENTINEL,
+    );
 
     // Build prompt with tokenised student name
     const tokenisedContext = {
@@ -173,9 +170,7 @@ export class AiProgressSummaryService {
 
     const prompt = this.buildSummaryPrompt(tokenisedContext, commentStyle, locale);
 
-    this.logger.log(
-      `Generating AI progress summary for student ${studentId}, period ${periodId}`,
-    );
+    this.logger.log(`Generating AI progress summary for student ${studentId}, period ${periodId}`);
 
     const startTime = Date.now();
     const response = await this.anthropic.messages.create({
@@ -205,11 +200,7 @@ export class AiProgressSummaryService {
     });
 
     // Detokenise AI response — restore real student name
-    const summary = await this.gdprTokenService.processInbound(
-      tenantId,
-      rawSummary,
-      tokenMap,
-    );
+    const summary = await this.gdprTokenService.processInbound(tenantId, rawSummary, tokenMap);
 
     const result: ProgressSummaryResult = {
       student_id: studentId,
@@ -232,18 +223,12 @@ export class AiProgressSummaryService {
    * Invalidate the progress summary cache for a student.
    * Called when grades are published for the student.
    */
-  async invalidateCache(
-    tenantId: string,
-    studentId: string,
-    periodId?: string,
-  ): Promise<void> {
+  async invalidateCache(tenantId: string, studentId: string, periodId?: string): Promise<void> {
     try {
       const client = this.redis.getClient();
 
       if (periodId) {
-        await client.del(
-          `ai:progress_summary:${tenantId}:${studentId}:${periodId}`,
-        );
+        await client.del(`ai:progress_summary:${tenantId}:${studentId}:${periodId}`);
       } else {
         // Scan and delete all period summaries for this student
         const pattern = `ai:progress_summary:${tenantId}:${studentId}:*`;
@@ -261,11 +246,7 @@ export class AiProgressSummaryService {
 
   // ─── Load Context ─────────────────────────────────────────────────────────
 
-  private async loadStudentContext(
-    tenantId: string,
-    studentId: string,
-    periodId: string,
-  ) {
+  private async loadStudentContext(tenantId: string, studentId: string, periodId: string) {
     const student = await this.prisma.student.findFirst({
       where: { id: studentId, tenant_id: tenantId },
       select: { id: true, first_name: true, last_name: true },
@@ -299,12 +280,8 @@ export class AiProgressSummaryService {
     });
 
     const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(
-      (r) => r.status === 'present',
-    ).length;
-    const absentDays = attendanceRecords.filter((r) =>
-      r.status.startsWith('absent'),
-    ).length;
+    const presentDays = attendanceRecords.filter((r) => r.status === 'present').length;
+    const absentDays = attendanceRecords.filter((r) => r.status.startsWith('absent')).length;
 
     return {
       student,
@@ -335,19 +312,15 @@ export class AiProgressSummaryService {
         : '- No grades recorded yet';
 
     const styleDescriptions: Record<string, string> = {
-      formal:
-        'Write in a formal, professional tone suitable for academic reporting.',
+      formal: 'Write in a formal, professional tone suitable for academic reporting.',
       warm: 'Write in a warm, encouraging and supportive tone.',
       balanced: 'Write in a balanced, friendly yet professional tone.',
     };
 
-    const styleInstruction =
-      styleDescriptions[commentStyle] ?? styleDescriptions.balanced;
+    const styleInstruction = styleDescriptions[commentStyle] ?? styleDescriptions.balanced;
 
     const languageInstruction =
-      locale === 'ar'
-        ? 'Write in Arabic (Modern Standard Arabic).'
-        : 'Write in English.';
+      locale === 'ar' ? 'Write in Arabic (Modern Standard Arabic).' : 'Write in English.';
 
     return `Write a brief academic progress summary for a parent to read.
 

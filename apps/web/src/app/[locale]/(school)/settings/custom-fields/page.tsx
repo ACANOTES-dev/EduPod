@@ -1,5 +1,9 @@
 'use client';
 
+import { ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,9 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -345,7 +346,11 @@ function FieldEditor({ field, isNew, onSave, onCancel }: FieldEditorProps) {
 
         <div className="space-y-1.5">
           <Label>{tr('fieldLabel')}</Label>
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Conduct" />
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Conduct"
+          />
         </div>
 
         <div className="space-y-1.5">

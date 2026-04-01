@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, CheckCircle, Download, Upload } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Select,
@@ -10,10 +15,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { ArrowLeft, CheckCircle, Download, Upload } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -108,7 +109,7 @@ export default function GradebookImportPage() {
         },
       );
       if (!res.ok) throw new Error('Validation failed');
-      const data = await res.json() as { data: ValidationResult };
+      const data = (await res.json()) as { data: ValidationResult };
       setValidation(data.data);
       setStep(2);
     } catch {
@@ -142,10 +143,7 @@ export default function GradebookImportPage() {
   };
 
   const handleDownloadTemplate = () => {
-    window.open(
-      `${process.env.NEXT_PUBLIC_API_URL || ''}${templateUrl}`,
-      '_blank',
-    );
+    window.open(`${process.env.NEXT_PUBLIC_API_URL || ''}${templateUrl}`, '_blank');
   };
 
   return (
@@ -172,11 +170,7 @@ export default function GradebookImportPage() {
               }`}
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-current/10 text-xs">
-                {step > s.key ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  s.key
-                )}
+                {step > s.key ? <CheckCircle className="h-4 w-4" /> : s.key}
               </span>
               <span className="hidden sm:inline">{s.label}</span>
             </div>
@@ -196,7 +190,9 @@ export default function GradebookImportPage() {
               <SelectContent>
                 <SelectItem value="all">All Classes</SelectItem>
                 {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -207,7 +203,9 @@ export default function GradebookImportPage() {
               <SelectContent>
                 <SelectItem value="all">All Periods</SelectItem>
                 {periods.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -222,9 +220,7 @@ export default function GradebookImportPage() {
               onChange={handleFileChange}
               className="mt-3 text-sm"
             />
-            {file && (
-              <p className="mt-2 text-sm text-text-primary">{file.name}</p>
-            )}
+            {file && <p className="mt-2 text-sm text-text-primary">{file.name}</p>}
           </div>
 
           <div className="flex gap-3">
@@ -260,20 +256,36 @@ export default function GradebookImportPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Row</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Student</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Status</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Details</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Row
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Student
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Details
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {validation.rows.map((row) => (
                   <tr key={row.row_number} className="border-b border-border last:border-b-0">
-                    <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">{row.row_number}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">
+                      {row.row_number}
+                    </td>
                     <td className="px-4 py-3 text-sm text-text-primary">{row.student_name}</td>
                     <td className="px-4 py-3">
                       <StatusBadge
-                        status={row.status === 'matched' ? 'success' : row.status === 'unmatched' ? 'warning' : 'danger'}
+                        status={
+                          row.status === 'matched'
+                            ? 'success'
+                            : row.status === 'unmatched'
+                              ? 'warning'
+                              : 'danger'
+                        }
                       >
                         {t(row.status)}
                       </StatusBadge>
@@ -308,8 +320,12 @@ export default function GradebookImportPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-surface-secondary">
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Student</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">Score</th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Student
+                  </th>
+                  <th className="px-4 py-3 text-start text-xs font-semibold uppercase text-text-tertiary">
+                    Score
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -318,7 +334,9 @@ export default function GradebookImportPage() {
                   .map((row) => (
                     <tr key={row.row_number} className="border-b border-border last:border-b-0">
                       <td className="px-4 py-3 text-sm text-text-primary">{row.student_name}</td>
-                      <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">{row.score}</td>
+                      <td className="px-4 py-3 text-sm font-mono text-text-secondary" dir="ltr">
+                        {row.score}
+                      </td>
                     </tr>
                   ))}
               </tbody>

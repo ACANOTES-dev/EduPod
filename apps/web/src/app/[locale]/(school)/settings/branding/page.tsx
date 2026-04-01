@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label, toast } from '@school/ui';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, Label, toast } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -39,8 +40,8 @@ export default function BrandingPage() {
         if (data.primary_color) setPrimaryColor(data.primary_color);
         if (data.secondary_color) setSecondaryColor(data.secondary_color);
         if (data.logo_url) setLogoUrl(data.logo_url);
-      } catch {
-        // Branding may not exist yet — that's fine, use defaults
+      } catch (err) {
+        console.error('[fetchBranding]', err);
       } finally {
         setLoading(false);
       }

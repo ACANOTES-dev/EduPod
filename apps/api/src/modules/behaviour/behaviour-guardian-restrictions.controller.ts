@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createGuardianRestrictionSchema,
   listGuardianRestrictionsQuerySchema,
@@ -18,7 +20,6 @@ import {
   updateGuardianRestrictionSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -32,9 +33,7 @@ import { BehaviourGuardianRestrictionsService } from './behaviour-guardian-restr
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class BehaviourGuardianRestrictionsController {
-  constructor(
-    private readonly restrictionsService: BehaviourGuardianRestrictionsService,
-  ) {}
+  constructor(private readonly restrictionsService: BehaviourGuardianRestrictionsService) {}
 
   // ─── Create ──────────────────────────────────────────────────────────────────
 
@@ -74,10 +73,7 @@ export class BehaviourGuardianRestrictionsController {
 
   @Get('behaviour/guardian-restrictions/:id')
   @RequiresPermission('behaviour.admin')
-  async getDetail(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getDetail(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.restrictionsService.getDetail(tenant.tenant_id, id);
   }
 
@@ -92,12 +88,7 @@ export class BehaviourGuardianRestrictionsController {
     @Body(new ZodValidationPipe(updateGuardianRestrictionSchema))
     dto: z.infer<typeof updateGuardianRestrictionSchema>,
   ) {
-    return this.restrictionsService.update(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.restrictionsService.update(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Revoke ──────────────────────────────────────────────────────────────────
@@ -112,11 +103,6 @@ export class BehaviourGuardianRestrictionsController {
     @Body(new ZodValidationPipe(revokeGuardianRestrictionSchema))
     dto: z.infer<typeof revokeGuardianRestrictionSchema>,
   ) {
-    return this.restrictionsService.revoke(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto.reason,
-    );
+    return this.restrictionsService.revoke(tenant.tenant_id, id, user.sub, dto.reason);
   }
 }

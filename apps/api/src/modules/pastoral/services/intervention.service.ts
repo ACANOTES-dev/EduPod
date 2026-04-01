@@ -7,6 +7,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import type { Queue } from 'bullmq';
+
 import type {
   CreatePastoralInterventionDto,
   CreatePastoralInterventionProgressDto,
@@ -16,7 +18,6 @@ import type {
   UpdatePastoralInterventionDto,
 } from '@school/shared';
 import { pastoralTenantSettingsSchema } from '@school/shared';
-import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
 import { PrismaService } from '../../prisma/prisma.service';

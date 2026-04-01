@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+
 import { bulkMarkCompletionSchema, markCompletionSchema } from '@school/shared';
 import type { BulkMarkCompletionDto, JwtPayload, MarkCompletionDto } from '@school/shared';
 
@@ -25,9 +26,7 @@ import { HomeworkCompletionsService } from './homework-completions.service';
 @Controller('v1/homework')
 @UseGuards(AuthGuard, PermissionGuard)
 export class HomeworkCompletionsController {
-  constructor(
-    private readonly completionsService: HomeworkCompletionsService,
-  ) {}
+  constructor(private readonly completionsService: HomeworkCompletionsService) {}
 
   // GET /v1/homework/:id/completions
   @Get(':id/completions')
@@ -36,10 +35,7 @@ export class HomeworkCompletionsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) homeworkId: string,
   ) {
-    return this.completionsService.listCompletions(
-      tenant.tenant_id,
-      homeworkId,
-    );
+    return this.completionsService.listCompletions(tenant.tenant_id, homeworkId);
   }
 
   // POST /v1/homework/:id/completions
@@ -52,12 +48,7 @@ export class HomeworkCompletionsController {
     @Param('id', ParseUUIDPipe) homeworkId: string,
     @Body(new ZodValidationPipe(markCompletionSchema)) dto: MarkCompletionDto,
   ) {
-    return this.completionsService.studentSelfReport(
-      tenant.tenant_id,
-      homeworkId,
-      user.sub,
-      dto,
-    );
+    return this.completionsService.studentSelfReport(tenant.tenant_id, homeworkId, user.sub, dto);
   }
 
   // POST /v1/homework/:id/completions/bulk — STATIC route before :studentId
@@ -71,12 +62,7 @@ export class HomeworkCompletionsController {
     @Body(new ZodValidationPipe(bulkMarkCompletionSchema))
     dto: BulkMarkCompletionDto,
   ) {
-    return this.completionsService.bulkMark(
-      tenant.tenant_id,
-      homeworkId,
-      user.sub,
-      dto,
-    );
+    return this.completionsService.bulkMark(tenant.tenant_id, homeworkId, user.sub, dto);
   }
 
   // PATCH /v1/homework/:id/completions/:studentId
@@ -105,9 +91,6 @@ export class HomeworkCompletionsController {
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('id', ParseUUIDPipe) homeworkId: string,
   ) {
-    return this.completionsService.getCompletionRate(
-      tenant.tenant_id,
-      homeworkId,
-    );
+    return this.completionsService.getCompletionRate(tenant.tenant_id, homeworkId);
   }
 }

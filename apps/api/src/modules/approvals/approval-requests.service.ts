@@ -6,8 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 import type { Queue } from 'bullmq';
+
+import type { ApprovalActionType, ApprovalRequestStatus } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -125,12 +126,7 @@ export class ApprovalRequestsService {
   /**
    * Approve an approval request.
    */
-  async approve(
-    tenantId: string,
-    requestId: string,
-    approverUserId: string,
-    comment?: string,
-  ) {
+  async approve(tenantId: string, requestId: string, approverUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,
@@ -161,7 +157,10 @@ export class ApprovalRequestsService {
 
     // Mode A: Auto-execute on approval
     const MODE_A_CALLBACKS: Record<string, { queue: Queue; jobName: string }> = {
-      announcement_publish: { queue: this.notificationsQueue, jobName: 'communications:on-approval' },
+      announcement_publish: {
+        queue: this.notificationsQueue,
+        jobName: 'communications:on-approval',
+      },
       invoice_issue: { queue: this.financeQueue, jobName: 'finance:on-approval' },
       payroll_finalise: { queue: this.payrollQueue, jobName: 'payroll:on-approval' },
     };
@@ -209,9 +208,7 @@ export class ApprovalRequestsService {
         });
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `Failed to enqueue callback for approval ${requestId}: ${errorMessage}`,
-        );
+        this.logger.error(`Failed to enqueue callback for approval ${requestId}: ${errorMessage}`);
         // Mark callback as failed so reconciliation can retry
         await this.prisma.approvalRequest.update({
           where: { id: requestId },
@@ -229,12 +226,7 @@ export class ApprovalRequestsService {
   /**
    * Reject an approval request.
    */
-  async reject(
-    tenantId: string,
-    requestId: string,
-    approverUserId: string,
-    comment?: string,
-  ) {
+  async reject(tenantId: string, requestId: string, approverUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,
@@ -297,12 +289,7 @@ export class ApprovalRequestsService {
   /**
    * Cancel an approval request. Only the requester can cancel.
    */
-  async cancel(
-    tenantId: string,
-    requestId: string,
-    requesterUserId: string,
-    comment?: string,
-  ) {
+  async cancel(tenantId: string, requestId: string, requesterUserId: string, comment?: string) {
     const request = await this.prisma.approvalRequest.findFirst({
       where: {
         id: requestId,

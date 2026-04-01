@@ -12,11 +12,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  createGradingScaleSchema,
-  updateGradingScaleSchema,
-} from '@school/shared';
 import { z } from 'zod';
+
+import { createGradingScaleSchema, updateGradingScaleSchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
@@ -36,9 +34,7 @@ const listGradingScalesQuerySchema = z.object({
 @Controller('v1')
 @UseGuards(AuthGuard, PermissionGuard)
 export class GradingScalesController {
-  constructor(
-    private readonly gradingScalesService: GradingScalesService,
-  ) {}
+  constructor(private readonly gradingScalesService: GradingScalesService) {}
 
   @Post('gradebook/grading-scales')
   @RequiresPermission('gradebook.manage')

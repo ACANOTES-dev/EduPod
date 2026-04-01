@@ -1,5 +1,9 @@
 'use client';
 
+import { Search, Filter } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -9,10 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Search, Filter } from 'lucide-react';
-import { useParams } from 'next/navigation';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -114,8 +114,8 @@ export default function PlatformAuditLogPage() {
         );
         setData(res.data);
         setTotal(res.meta.total);
-      } catch {
-        // silently swallowed; table shows empty state
+      } catch (err) {
+        console.error('[fetchLogs]', err);
       } finally {
         setIsLoading(false);
       }
@@ -170,9 +170,7 @@ export default function PlatformAuditLogPage() {
     {
       key: 'action',
       header: 'Action',
-      render: (row: AuditLogEntry) => (
-        <span className="text-text-secondary">{row.action}</span>
-      ),
+      render: (row: AuditLogEntry) => <span className="text-text-secondary">{row.action}</span>,
     },
     {
       key: 'entity_type',
@@ -245,19 +243,11 @@ export default function PlatformAuditLogPage() {
       </div>
 
       <div className="w-40">
-        <Input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
+        <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
       </div>
 
       <div className="w-40">
-        <Input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
+        <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
       </div>
 
       {hasFilters && (

@@ -1,19 +1,16 @@
 'use client';
 
-import type { AllocationSuggestion } from '@school/shared';
-import {
-  Button,
-  Input,
-  toast,
-} from '@school/ui';
 import { Sparkles, Check } from 'lucide-react';
 import * as React from 'react';
 
+import type { AllocationSuggestion } from '@school/shared';
+import { Button, Input, toast } from '@school/ui';
+
+import { CurrencyDisplay } from '../../_components/currency-display';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
-import { CurrencyDisplay } from '../../_components/currency-display';
 
 interface AllocationRow {
   invoice_id: string;
@@ -88,9 +85,7 @@ export function AllocationPanel({
   };
 
   const updateAmount = (index: number, value: string) => {
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, amount: value } : row)),
-    );
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, amount: value } : row)));
   };
 
   const handleConfirm = async () => {
@@ -137,7 +132,8 @@ export function AllocationPanel({
       {!hasSuggested && rows.length === 0 && (
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
           <p className="text-sm text-text-tertiary">
-            Click &quot;Suggest Allocations&quot; to auto-fill using FIFO (oldest invoices first), or manually enter amounts below.
+            Click &quot;Suggest Allocations&quot; to auto-fill using FIFO (oldest invoices first),
+            or manually enter amounts below.
           </p>
         </div>
       )}
@@ -167,10 +163,7 @@ export function AllocationPanel({
                   const amt = parseFloat(row.amount);
                   const exceedsBalance = !isNaN(amt) && amt > row.invoice_balance + 0.01;
                   return (
-                    <tr
-                      key={row.invoice_id}
-                      className="border-b border-border last:border-b-0"
-                    >
+                    <tr key={row.invoice_id} className="border-b border-border last:border-b-0">
                       <td className="px-4 py-3 text-sm">
                         <span className="font-mono text-xs text-primary-700">
                           {row.invoice_number}
@@ -180,7 +173,10 @@ export function AllocationPanel({
                         {formatDate(row.invoice_due_date)}
                       </td>
                       <td className="px-4 py-3 text-end text-sm text-text-primary">
-                        <CurrencyDisplay amount={row.invoice_balance} currency_code={currencyCode} />
+                        <CurrencyDisplay
+                          amount={row.invoice_balance}
+                          currency_code={currencyCode}
+                        />
                       </td>
                       <td className="px-4 py-3 text-end">
                         <div className="flex flex-col items-end gap-1">
@@ -240,10 +236,7 @@ export function AllocationPanel({
           )}
 
           <div className="flex justify-end">
-            <Button
-              onClick={() => void handleConfirm()}
-              disabled={!isValid || isConfirming}
-            >
+            <Button onClick={() => void handleConfirm()} disabled={!isValid || isConfirming}>
               <Check className="me-2 h-4 w-4" />
               {isConfirming ? 'Confirming...' : 'Confirm Allocations'}
             </Button>

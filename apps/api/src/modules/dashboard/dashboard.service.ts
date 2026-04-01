@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   ParentDashboard,
   ParentDashboardStudent,
@@ -30,7 +31,10 @@ function buildGreeting(firstName: string, locale?: string | null): string {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async schoolAdmin(tenantId: string, userId: string): Promise<SchoolAdminDashboard & { greeting: string; summary: string }> {
+  async schoolAdmin(
+    tenantId: string,
+    userId: string,
+  ): Promise<SchoolAdminDashboard & { greeting: string; summary: string }> {
     // Load the user from the platform users table (no RLS — users table is platform-level)
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -46,7 +50,7 @@ export class DashboardService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const stats = await prismaWithRls.$transaction(async (tx) => {
+    const stats = (await prismaWithRls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaService;
 
       const [
@@ -66,10 +70,14 @@ export class DashboardService {
         txClient.student.count({ where: { tenant_id: tenantId, status: 'active' } }),
         txClient.student.count({ where: { tenant_id: tenantId } }),
         txClient.student.count({ where: { tenant_id: tenantId, status: 'applicant' } }),
-        txClient.staffProfile.count({ where: { tenant_id: tenantId, employment_status: 'active' } }),
+        txClient.staffProfile.count({
+          where: { tenant_id: tenantId, employment_status: 'active' },
+        }),
         txClient.staffProfile.count({ where: { tenant_id: tenantId } }),
         txClient.class.count({ where: { tenant_id: tenantId, status: 'active' } }),
-        txClient.approvalRequest.count({ where: { tenant_id: tenantId, status: 'pending_approval' } }),
+        txClient.approvalRequest.count({
+          where: { tenant_id: tenantId, status: 'pending_approval' },
+        }),
         txClient.academicYear.findFirst({
           where: { tenant_id: tenantId, status: 'active' },
           select: { name: true },
@@ -86,7 +94,12 @@ export class DashboardService {
           },
         }),
         txClient.application.count({ where: { tenant_id: tenantId, status: 'submitted' } }),
-        txClient.application.count({ where: { tenant_id: tenantId, status: { in: ['submitted', 'under_review', 'pending_acceptance_approval'] } } }),
+        txClient.application.count({
+          where: {
+            tenant_id: tenantId,
+            status: { in: ['submitted', 'under_review', 'pending_acceptance_approval'] },
+          },
+        }),
         txClient.application.count({ where: { tenant_id: tenantId, status: 'accepted' } }),
       ]);
 
@@ -104,7 +117,7 @@ export class DashboardService {
         pendingApplications,
         acceptedApplications,
       };
-    }) as {
+    })) as {
       activeStudents: number;
       totalStudents: number;
       applicants: number;
@@ -177,7 +190,7 @@ export class DashboardService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const dashboardData = await prismaWithRls.$transaction(async (tx) => {
+    const dashboardData = (await prismaWithRls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaService;
 
       // Find the parent record linked to this user_id in this tenant
@@ -214,7 +227,7 @@ export class DashboardService {
       }));
 
       return { students };
-    }) as { students: ParentDashboardStudent[] };
+    })) as { students: ParentDashboardStudent[] };
 
     const greeting = buildGreeting(user.first_name, user.preferred_locale);
 
@@ -225,7 +238,10 @@ export class DashboardService {
     };
   }
 
-  async teacher(tenantId: string, userId: string): Promise<TeacherDashboardData & { greeting: string }> {
+  async teacher(
+    tenantId: string,
+    userId: string,
+  ): Promise<TeacherDashboardData & { greeting: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { first_name: true },
@@ -240,7 +256,7 @@ export class DashboardService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const data = await prismaWithRls.$transaction(async (tx) => {
+    const data = (await prismaWithRls.$transaction(async (tx) => {
       const txClient = tx as unknown as PrismaService;
 
       // Find teacher's staff profile
@@ -270,10 +286,7 @@ export class DashboardService {
           teacher_staff_id: staffProfile.id,
           weekday: planWeekday,
           effective_start_date: { lte: todayDate },
-          OR: [
-            { effective_end_date: null },
-            { effective_end_date: { gte: todayDate } },
-          ],
+          OR: [{ effective_end_date: null }, { effective_end_date: { gte: todayDate } }],
         },
         include: {
           class_entity: { select: { name: true } },
@@ -342,8 +355,12 @@ export class DashboardService {
 
       const pendingSubmissions = sessions.filter((s) => s.status === 'open').length;
 
-      return { todays_schedule: todaysSchedule, todays_sessions: todaysSessions, pending_submissions: pendingSubmissions };
-    }) as TeacherDashboardData;
+      return {
+        todays_schedule: todaysSchedule,
+        todays_sessions: todaysSessions,
+        pending_submissions: pendingSubmissions,
+      };
+    })) as TeacherDashboardData;
 
     const greeting = buildGreeting(user.first_name);
 

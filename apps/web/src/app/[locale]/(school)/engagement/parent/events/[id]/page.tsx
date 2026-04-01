@@ -1,11 +1,12 @@
 'use client';
 
-import { Button, toast } from '@school/ui';
 import { CreditCard, FileSignature } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, toast } from '@school/ui';
 
 import {
   formatDisplayDate,
@@ -18,6 +19,7 @@ import { EventStatusBadge } from '../../../_components/event-status-badge';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 
 export default function ParentEngagementEventDetailPage() {
   const params = useParams<{ id: string }>();

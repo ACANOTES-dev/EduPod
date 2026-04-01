@@ -1,15 +1,17 @@
 'use client';
 
-import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Badge, Button, StatCard, StatusBadge, toast } from '@school/ui';
 
 import { RegulatoryNav } from '../../_components/regulatory-nav';
 import { CbaSyncTable } from '../_components/cba-sync-table';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -140,17 +142,12 @@ export default function CbaSyncStatusPage() {
   const handleSyncAll = React.useCallback(async () => {
     setIsSyncingAll(true);
     try {
-      const response = await apiClient<BulkSyncResponse>(
-        '/api/v1/regulatory/cba/sync',
-        {
-          method: 'POST',
-          body: JSON.stringify({ academic_year: academicYear }),
-        },
-      );
+      const response = await apiClient<BulkSyncResponse>('/api/v1/regulatory/cba/sync', {
+        method: 'POST',
+        body: JSON.stringify({ academic_year: academicYear }),
+      });
       if (response.failed > 0) {
-        toast.error(
-          t('cba.bulkSyncPartial', { synced: response.synced, failed: response.failed }),
-        );
+        toast.error(t('cba.bulkSyncPartial', { synced: response.synced, failed: response.failed }));
       } else {
         toast.success(t('cba.bulkSyncSuccess', { count: response.synced }));
       }
@@ -215,10 +212,7 @@ export default function CbaSyncStatusPage() {
           </>
         ) : (
           <>
-            <StatCard
-              label={t('cba.totalRecords')}
-              value={status?.total_records ?? 0}
-            />
+            <StatCard label={t('cba.totalRecords')} value={status?.total_records ?? 0} />
             <StatCard
               label={t('cba.synced')}
               value={status?.synced ?? 0}
@@ -252,9 +246,7 @@ export default function CbaSyncStatusPage() {
 
       {/* ─── Subject Breakdown Table ─────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('cba.subjectBreakdown')}
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('cba.subjectBreakdown')}</h2>
         <div className="mt-3">
           {isLoading ? (
             <SubjectTableSkeleton />
@@ -283,10 +275,7 @@ export default function CbaSyncStatusPage() {
                 <tbody>
                   {status?.by_subject.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-12 text-center text-sm text-text-tertiary"
-                      >
+                      <td colSpan={5} className="px-4 py-12 text-center text-sm text-text-tertiary">
                         {t('cba.noSubjectData')}
                       </td>
                     </tr>
@@ -299,9 +288,7 @@ export default function CbaSyncStatusPage() {
                         <td className="px-4 py-3 text-sm font-medium text-text-primary">
                           {subject.subject_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-text-primary">
-                          {subject.total}
-                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary">{subject.total}</td>
                         <td className="px-4 py-3">
                           <StatusBadge status="success" dot>
                             {subject.synced}
@@ -333,9 +320,7 @@ export default function CbaSyncStatusPage() {
 
       {/* ─── CBA Sync Records Table ──────────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary">
-          {t('cba.syncRecords')}
-        </h2>
+        <h2 className="text-lg font-semibold text-text-primary">{t('cba.syncRecords')}</h2>
         <div className="mt-3">
           <CbaSyncTable academicYear={academicYear} />
         </div>

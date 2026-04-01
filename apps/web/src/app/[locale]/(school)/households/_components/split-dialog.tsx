@@ -1,5 +1,8 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -13,9 +16,6 @@ import {
   Label,
   toast,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -94,11 +94,7 @@ export function SplitDialog({
     });
   };
 
-  const setContactField = (
-    index: number,
-    field: keyof SplitEmergencyContact,
-    value: string,
-  ) => {
+  const setContactField = (index: number, field: keyof SplitEmergencyContact, value: string) => {
     setEmergencyContacts((prev) => {
       const next = [...prev];
       next[index] = { ...next[index]!, [field]: value };
@@ -186,9 +182,7 @@ export function SplitDialog({
             )}
           </div>
 
-          {errors.selection && (
-            <p className="text-xs text-danger-text">{errors.selection}</p>
-          )}
+          {errors.selection && <p className="text-xs text-danger-text">{errors.selection}</p>}
 
           {/* Students */}
           {students.length > 0 && (
@@ -202,7 +196,8 @@ export function SplitDialog({
                     onCheckedChange={() => toggleStudent(student.id)}
                   />
                   <Label htmlFor={`split_student_${student.id}`} className="cursor-pointer">
-                    {student.full_name || `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim()}
+                    {student.full_name ||
+                      `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim()}
                   </Label>
                 </div>
               ))}
@@ -243,10 +238,7 @@ export function SplitDialog({
             </div>
 
             {emergencyContacts.map((contact, index) => (
-              <div
-                key={index}
-                className="rounded-xl border border-border p-4 space-y-3"
-              >
+              <div key={index} className="rounded-xl border border-border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">
                     Contact {index + 1}

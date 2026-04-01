@@ -6,6 +6,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { PrismaService } from '../prisma/prisma.service';
 
 const TENANT_A_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -73,7 +74,7 @@ describe('Homework RLS Integration Tests', () => {
             published_at: new Date(),
           },
         });
-        _assignmentAId =result.id;
+        _assignmentAId = result.id;
       });
 
       await withTenantContext(TENANT_B_ID, async () => {
@@ -132,7 +133,7 @@ describe('Homework RLS Integration Tests', () => {
             due_date: new Date('2026-04-01'),
           },
         });
-        _assignmentAId =assignment.id;
+        _assignmentAId = assignment.id;
 
         const completion = await prisma.homeworkCompletion.create({
           data: {

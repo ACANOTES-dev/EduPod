@@ -10,12 +10,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import { listNotificationsSchema } from '@school/shared';
-import type {
-  JwtPayload,
-  ListNotificationsDto,
-  TenantContext,
-} from '@school/shared';
+import type { JwtPayload, ListNotificationsDto, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -44,10 +41,7 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
-  async getUnreadCount(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async getUnreadCount(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.service.getUnreadCount(tenant.tenant_id, user.sub);
   }
 
@@ -70,10 +64,7 @@ export class NotificationsController {
 
   @Post('mark-all-read')
   @HttpCode(HttpStatus.OK)
-  async markAllRead(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  async markAllRead(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
     return this.service.markAllAsRead(tenant.tenant_id, user.sub);
   }
 }

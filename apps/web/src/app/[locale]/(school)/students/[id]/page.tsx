@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, Edit, HeartHandshake } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,9 +15,6 @@ import {
   Skeleton,
   toast,
 } from '@school/ui';
-import { ChevronDown, Edit, HeartHandshake } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
-import * as React from 'react';
 
 import { EntityLink } from '@/components/entity-link';
 import { RecordHub } from '@/components/record-hub';
@@ -118,8 +119,8 @@ export default function StudentHubPage() {
     try {
       const res = await apiClient<{ data: Student }>(`/api/v1/students/${id}`);
       setStudent(res.data);
-    } catch {
-      // handled by empty state
+    } catch (err) {
+      console.error('[fetchStudent]', err);
     } finally {
       setIsLoading(false);
     }

@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@school/ui';
 import { Download, Loader2, Printer } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@school/ui';
 
 import { getAccessToken } from '@/lib/api-client';
 
@@ -14,12 +15,7 @@ interface PdfPreviewModalProps {
   pdfUrl: string | null;
 }
 
-export function PdfPreviewModal({
-  open,
-  onOpenChange,
-  title,
-  pdfUrl,
-}: PdfPreviewModalProps) {
+export function PdfPreviewModal({ open, onOpenChange, title, pdfUrl }: PdfPreviewModalProps) {
   const t = useTranslations('finance');
   const [blobUrl, setBlobUrl] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -101,21 +97,11 @@ export function PdfPreviewModal({
 
         {/* Toolbar */}
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            disabled={!blobUrl}
-          >
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={!blobUrl}>
             <Printer className="me-2 h-4 w-4" />
             {t('print')}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            disabled={!blobUrl}
-          >
+          <Button variant="outline" size="sm" onClick={handleDownload} disabled={!blobUrl}>
             <Download className="me-2 h-4 w-4" />
             {t('download')}
           </Button>
@@ -134,11 +120,7 @@ export function PdfPreviewModal({
             </div>
           )}
           {blobUrl && !isLoading && !error && (
-            <iframe
-              src={blobUrl}
-              className="h-[60vh] w-full"
-              title={title}
-            />
+            <iframe src={blobUrl} className="h-[60vh] w-full" title={title} />
           )}
         </div>
       </DialogContent>

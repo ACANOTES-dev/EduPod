@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 import type { GdprOutboundData } from '@school/shared';
 
@@ -19,7 +20,13 @@ export interface TrendPrediction {
 export class AiPredictionsService {
   private readonly logger = new Logger(AiPredictionsService.name);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private anthropic: { messages: { create: (params: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null = null;
+  private anthropic: {
+    messages: {
+      create: (
+        params: Record<string, unknown>,
+      ) => Promise<{ content: Array<{ type: string; text?: string }> }>;
+    };
+  } | null = null;
 
   constructor(
     private readonly settingsService: SettingsService,
@@ -33,14 +40,10 @@ export class AiPredictionsService {
         const AnthropicSdk = require('@anthropic-ai/sdk').default;
         this.anthropic = new AnthropicSdk({ apiKey });
       } catch {
-        this.logger.warn(
-          '@anthropic-ai/sdk is not installed — AI predictions will be unavailable',
-        );
+        this.logger.warn('@anthropic-ai/sdk is not installed — AI predictions will be unavailable');
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI predictions will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI predictions will be unavailable');
     }
   }
 
@@ -115,7 +118,8 @@ Respond with ONLY valid JSON in this exact format (no explanation, no markdown):
       };
 
       const confidenceValue = this.normaliseConfidence(parsed.confidence);
-      const confidenceScore = confidenceValue === 'high' ? 0.9 : confidenceValue === 'medium' ? 0.6 : 0.3;
+      const confidenceScore =
+        confidenceValue === 'high' ? 0.9 : confidenceValue === 'medium' ? 0.6 : 0.3;
 
       await this.aiAuditService.log({
         tenantId,

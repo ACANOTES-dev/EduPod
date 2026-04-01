@@ -1,5 +1,9 @@
 'use client';
 
+import { Loader2, Plus, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -11,13 +15,11 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Loader2, Plus, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import type { FeePreviewResult, RegistrationResult, WizardAction, WizardState } from './types';
 
 import { apiClient } from '@/lib/api-client';
 
-import type { FeePreviewResult, RegistrationResult, WizardAction, WizardState } from './types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -149,9 +151,10 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
 
       const dto = {
         primary_parent: cleanParent(state.primaryParent),
-        secondary_parent: state.showSecondaryParent && state.secondaryParent
-          ? cleanParent(state.secondaryParent)
-          : undefined,
+        secondary_parent:
+          state.showSecondaryParent && state.secondaryParent
+            ? cleanParent(state.secondaryParent)
+            : undefined,
         household: state.household,
         emergency_contacts: state.emergencyContacts,
         students: state.students.map((s) => ({
@@ -169,21 +172,17 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         consents: state.consents,
       };
 
-      const res = await apiClient<{ data: RegistrationResult }>(
-        '/api/v1/registration/family',
-        {
-          method: 'POST',
-          silent: true,
-          body: JSON.stringify(dto),
-        },
-      );
+      const res = await apiClient<{ data: RegistrationResult }>('/api/v1/registration/family', {
+        method: 'POST',
+        silent: true,
+        body: JSON.stringify(dto),
+      });
 
       dispatch({ type: 'SET_REGISTRATION_RESULT', result: res.data });
       dispatch({ type: 'SET_STEP', step: 4 });
     } catch (err) {
       const message =
-        (err as { error?: { message?: string } })?.error?.message ??
-        t('registrationFailed');
+        (err as { error?: { message?: string } })?.error?.message ?? t('registrationFailed');
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -236,10 +235,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
         const subtotal = sp.fees.reduce((sum, f) => sum + f.annual_amount, 0);
 
         return (
-          <div
-            key={spIdx}
-            className="rounded-lg border border-border-primary bg-surface-primary"
-          >
+          <div key={spIdx} className="rounded-lg border border-border-primary bg-surface-primary">
             {/* Student header */}
             <div className="flex items-center gap-3 border-b border-border-primary px-4 py-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
@@ -290,9 +286,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
             {/* Subtotal */}
             {sp.fees.length > 0 && (
               <div className="flex items-center justify-between border-t border-border-primary bg-surface-secondary px-4 py-2.5">
-                <span className="text-sm font-medium text-text-secondary">
-                  {t('subtotal')}
-                </span>
+                <span className="text-sm font-medium text-text-secondary">{t('subtotal')}</span>
                 <span className="text-sm font-semibold text-text-primary" dir="ltr">
                   {formatCurrency(subtotal)}
                 </span>
@@ -305,9 +299,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
       {/* ── Discounts section ────────────────────────────────────────── */}
       <div className="rounded-lg border border-border-primary bg-surface-primary">
         <div className="border-b border-border-primary px-4 py-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t('discounts')}
-          </h3>
+          <h3 className="text-sm font-semibold text-text-primary">{t('discounts')}</h3>
         </div>
 
         <div className="space-y-3 p-4">
@@ -318,9 +310,7 @@ export function StepFeeSummary({ state, dispatch }: StepFeeSummaryProps) {
             );
             if (!disc) return null;
             const discountAmount =
-              disc.discount_type === 'fixed'
-                ? disc.value
-                : (feesTotal * disc.value) / 100;
+              disc.discount_type === 'fixed' ? disc.value : (feesTotal * disc.value) / 100;
             return (
               <div
                 key={idx}

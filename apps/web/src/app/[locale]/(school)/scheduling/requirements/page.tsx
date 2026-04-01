@@ -1,5 +1,9 @@
 'use client';
 
+import { CheckCircle2, Circle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -11,10 +15,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { CheckCircle2, Circle } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -170,32 +170,29 @@ export default function RequirementsPage() {
       .catch(() => toast.error('Failed to load reference data'));
   }, []);
 
-  const fetchRequirements = React.useCallback(
-    async (p: number, year: string, cls: string) => {
-      if (!year) return;
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          page: String(p),
-          pageSize: String(PAGE_SIZE),
-          academic_year_id: year,
-        });
-        if (cls !== 'all') params.set('class_id', cls);
-        const res = await apiClient<RequirementsResponse>(
-          `/api/v1/class-scheduling-requirements?${params.toString()}`,
-        );
-        setData(res.data);
-        setTotal(res.meta.total);
-      } catch {
-        setData([]);
-        setTotal(0);
-        toast.error('Failed to load requirements');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchRequirements = React.useCallback(async (p: number, year: string, cls: string) => {
+    if (!year) return;
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(p),
+        pageSize: String(PAGE_SIZE),
+        academic_year_id: year,
+      });
+      if (cls !== 'all') params.set('class_id', cls);
+      const res = await apiClient<RequirementsResponse>(
+        `/api/v1/class-scheduling-requirements?${params.toString()}`,
+      );
+      setData(res.data);
+      setTotal(res.meta.total);
+    } catch {
+      setData([]);
+      setTotal(0);
+      toast.error('Failed to load requirements');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchRequirements(page, selectedYear, classFilter);
@@ -203,10 +200,10 @@ export default function RequirementsPage() {
 
   const updateRequirement = async (id: string, patch: Partial<Requirement>) => {
     try {
-      const updated = await apiClient<Requirement>(
-        `/api/v1/class-scheduling-requirements/${id}`,
-        { method: 'PATCH', body: JSON.stringify(patch) },
-      );
+      const updated = await apiClient<Requirement>(`/api/v1/class-scheduling-requirements/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
       setData((prev) => prev.map((r) => (r.id === id ? { ...r, ...updated } : r)));
     } catch {
       toast.error('Failed to update requirement');
@@ -222,9 +219,7 @@ export default function RequirementsPage() {
     {
       key: 'class',
       header: 'Class',
-      render: (row: Requirement) => (
-        <span className="font-medium">{row.class?.name ?? '—'}</span>
-      ),
+      render: (row: Requirement) => <span className="font-medium">{row.class?.name ?? '—'}</span>,
     },
     {
       key: 'subject',
@@ -239,7 +234,9 @@ export default function RequirementsPage() {
       render: (row: Requirement) => (
         <Select
           value={row.teacher_id ?? 'none'}
-          onValueChange={(v) => void updateRequirement(row.id, { teacher_id: v === 'none' ? null : v })}
+          onValueChange={(v) =>
+            void updateRequirement(row.id, { teacher_id: v === 'none' ? null : v })
+          }
         >
           <SelectTrigger className="h-7 w-36 text-xs">
             <SelectValue placeholder="Unassigned" />
@@ -270,15 +267,14 @@ export default function RequirementsPage() {
     {
       key: 'room_type',
       header: 'Room Type',
-      render: (row: Requirement) => (
+      render: (row: Requirement) =>
         row.room_type ? (
           <Badge variant="secondary" className="text-xs capitalize">
             {row.room_type}
           </Badge>
         ) : (
           <span className="text-xs text-text-tertiary">Any</span>
-        )
-      ),
+        ),
     },
     {
       key: 'preferred_room',
@@ -316,13 +312,12 @@ export default function RequirementsPage() {
     {
       key: 'spread',
       header: 'Spread',
-      render: (row: Requirement) => (
+      render: (row: Requirement) =>
         row.spread_across_week ? (
           <CheckCircle2 className="h-4 w-4 text-green-500" />
         ) : (
           <Circle className="h-4 w-4 text-text-tertiary" />
-        )
-      ),
+        ),
     },
     {
       key: 'students',
@@ -335,7 +330,13 @@ export default function RequirementsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={selectedYear} onValueChange={(v) => { setSelectedYear(v); setPage(1); }}>
+      <Select
+        value={selectedYear}
+        onValueChange={(v) => {
+          setSelectedYear(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-44">
           <SelectValue placeholder="Academic Year" />
         </SelectTrigger>
@@ -348,7 +349,13 @@ export default function RequirementsPage() {
         </SelectContent>
       </Select>
 
-      <Select value={classFilter} onValueChange={(v) => { setClassFilter(v); setPage(1); }}>
+      <Select
+        value={classFilter}
+        onValueChange={(v) => {
+          setClassFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder="All Classes" />
         </SelectTrigger>
@@ -366,10 +373,7 @@ export default function RequirementsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('auto.requirements')}
-        description={t('auto.requirementsDesc')}
-      />
+      <PageHeader title={t('auto.requirements')} description={t('auto.requirementsDesc')} />
 
       {/* Completeness banner */}
       {totalClasses > 0 && (

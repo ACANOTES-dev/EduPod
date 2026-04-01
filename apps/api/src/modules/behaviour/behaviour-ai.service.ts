@@ -1,3 +1,4 @@
+import Anthropic from '@anthropic-ai/sdk';
 import {
   ForbiddenException,
   Injectable,
@@ -5,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
+
 import { AI_BEHAVIOUR_SYSTEM_PROMPT, anonymiseForAI } from '@school/shared';
 import type {
   AIQueryHistoryResult,
@@ -58,7 +59,10 @@ export class BehaviourAIService {
     // Check AI gate
     if (!settings.ai_nl_query_enabled) {
       throw new ForbiddenException({
-        error: { code: 'AI_FEATURE_DISABLED', message: 'AI queries are not enabled for your school.' },
+        error: {
+          code: 'AI_FEATURE_DISABLED',
+          message: 'AI queries are not enabled for your school.',
+        },
       });
     }
 
@@ -242,7 +246,7 @@ export class BehaviourAIService {
     return {
       entries: entries.map((e) => ({
         id: e.id,
-        query: (e.metadata_json as Record<string, unknown>)?.anonymised_query as string ?? '',
+        query: ((e.metadata_json as Record<string, unknown>)?.anonymised_query as string) ?? '',
         result_summary: '',
         created_at: e.created_at.toISOString(),
       })),

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 import {
   Button,
   Dialog,
@@ -14,7 +16,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
 
 import type { StaffOption } from './exclusion-types';
 

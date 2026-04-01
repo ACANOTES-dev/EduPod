@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,9 +19,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { ConflictAlert } from '@/components/conflict-alert';
 import { apiClient } from '@/lib/api-client';
@@ -66,7 +66,13 @@ const WEEKDAYS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editId }: ScheduleFormProps) {
+export function ScheduleForm({
+  open,
+  onOpenChange,
+  onSuccess,
+  initialData,
+  editId,
+}: ScheduleFormProps) {
   const t = useTranslations('scheduling');
   const tc = useTranslations('common');
 
@@ -91,15 +97,19 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
     if (!open) return;
     Promise.all([
       apiClient<{ data: SelectOption[] }>('/api/v1/classes?pageSize=100'),
-      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>('/api/v1/staff-profiles?pageSize=100'),
+      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string } }> }>(
+        '/api/v1/staff-profiles?pageSize=100',
+      ),
       apiClient<{ data: SelectOption[] }>('/api/v1/rooms?pageSize=100'),
     ])
       .then(([classesRes, teachersRes, roomsRes]) => {
         setClasses(classesRes.data);
-        setTeachers((teachersRes.data ?? []).map((s) => ({
-          id: s.id,
-          name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
-        })));
+        setTeachers(
+          (teachersRes.data ?? []).map((s) => ({
+            id: s.id,
+            name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+          })),
+        );
         setRooms(roomsRes.data);
       })
       .catch(() => undefined);
@@ -180,7 +190,9 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -194,7 +206,9 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
                 </SelectTrigger>
                 <SelectContent>
                   {teachers.map((tr) => (
-                    <SelectItem key={tr.id} value={tr.id}>{tr.name}</SelectItem>
+                    <SelectItem key={tr.id} value={tr.id}>
+                      {tr.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -208,7 +222,9 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
                 </SelectTrigger>
                 <SelectContent>
                   {rooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -232,22 +248,41 @@ export function ScheduleForm({ open, onOpenChange, onSuccess, initialData, editI
 
             <div className="space-y-2">
               <Label>{t('startTime')}</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                required
+              />
             </div>
 
             <div className="space-y-2">
               <Label>{t('endTime')}</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                required
+              />
             </div>
 
             <div className="space-y-2">
               <Label>{t('effectiveFrom')}</Label>
-              <Input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} required />
+              <Input
+                type="date"
+                value={effectiveFrom}
+                onChange={(e) => setEffectiveFrom(e.target.value)}
+                required
+              />
             </div>
 
             <div className="space-y-2">
               <Label>{t('effectiveTo')}</Label>
-              <Input type="date" value={effectiveTo} onChange={(e) => setEffectiveTo(e.target.value)} />
+              <Input
+                type="date"
+                value={effectiveTo}
+                onChange={(e) => setEffectiveTo(e.target.value)}
+              />
             </div>
           </div>
 

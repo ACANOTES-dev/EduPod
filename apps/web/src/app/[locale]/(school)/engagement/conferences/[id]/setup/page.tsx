@@ -1,15 +1,16 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { generateTimeSlotsSchema } from '@school/shared';
-import type { GenerateTimeSlotsDto } from '@school/shared';
-import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 import { CalendarRange, Clock3, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+
+import type { GenerateTimeSlotsDto } from '@school/shared';
+import { generateTimeSlotsSchema } from '@school/shared';
+import { Button, Checkbox, Input, Label, toast } from '@school/ui';
 
 import {
   getStaffDisplayName,
@@ -21,6 +22,7 @@ import {
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
+
 
 function calculateSlotsPerTeacher(values: Partial<GenerateTimeSlotsDto>): number {
   if (

@@ -1,5 +1,10 @@
 'use client';
 
+import { Download, Eye, Plus } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,10 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Download, Eye, Plus } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -219,9 +220,7 @@ export default function DocumentsPage() {
       header: t('columns.student'),
       render: (row: DocumentRow) => (
         <span className="text-sm font-medium text-text-primary">
-          {row.student
-            ? `${row.student.first_name} ${row.student.last_name}`
-            : '\u2014'}
+          {row.student ? `${row.student.first_name} ${row.student.last_name}` : '\u2014'}
         </span>
       ),
     },
@@ -238,9 +237,7 @@ export default function DocumentsPage() {
       key: 'generated_at',
       header: t('columns.generated'),
       render: (row: DocumentRow) => (
-        <span className="font-mono text-xs text-text-primary">
-          {formatDate(row.generated_at)}
-        </span>
+        <span className="font-mono text-xs text-text-primary">{formatDate(row.generated_at)}</span>
       ),
     },
     {
@@ -355,10 +352,7 @@ export default function DocumentsPage() {
   // ─── Mobile Card ─────────────────────────────────────────────────────────
 
   const renderMobileCard = (row: DocumentRow) => (
-    <div
-      key={row.id}
-      className="rounded-xl border border-border bg-surface p-4"
-    >
+    <div key={row.id} className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-primary">
@@ -396,12 +390,7 @@ export default function DocumentsPage() {
           {t('view')}
         </Button>
         {row.download_url && (
-          <a
-            href={row.download_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1"
-          >
+          <a href={row.download_url} target="_blank" rel="noopener noreferrer" className="flex-1">
             <Button variant="outline" size="sm" className="w-full">
               <Download className="me-1.5 h-3.5 w-3.5" />
               {t('download')}
@@ -420,7 +409,12 @@ export default function DocumentsPage() {
         title={t('title')}
         description={t('description')}
         actions={
-          <Button onClick={() => { setGenerateError(''); setGenerateOpen(true); }}>
+          <Button
+            onClick={() => {
+              setGenerateError('');
+              setGenerateOpen(true);
+            }}
+          >
             <Plus className="me-2 h-4 w-4" />
             {t('generateDocument')}
           </Button>
@@ -436,9 +430,7 @@ export default function DocumentsPage() {
                 <div key={i} className="h-28 animate-pulse rounded-xl bg-surface-secondary" />
               ))
             ) : data.length === 0 ? (
-              <p className="py-12 text-center text-sm text-text-tertiary">
-                {t('noResults')}
-              </p>
+              <p className="py-12 text-center text-sm text-text-tertiary">{t('noResults')}</p>
             ) : (
               data.map(renderMobileCard)
             )}
@@ -534,16 +526,10 @@ export default function DocumentsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {generateError && (
-              <p className="text-sm text-danger-text">{generateError}</p>
-            )}
+            {generateError && <p className="text-sm text-danger-text">{generateError}</p>}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setGenerateOpen(false)}
-              disabled={generating}
-            >
+            <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generating}>
               {t('cancel')}
             </Button>
             <Button onClick={handleGenerate} disabled={generating}>

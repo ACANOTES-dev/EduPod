@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -68,9 +64,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -94,9 +90,7 @@ const makeStudent = (id: string, overrides: Record<string, unknown> = {}) => ({
   last_name: 'Doe',
   tenant_id: TENANT_ID,
   year_group: { id: 'yg-1', name: 'Year 7' },
-  class_enrolments: [
-    { class_entity: { name: '7A' }, status: 'active' },
-  ],
+  class_enrolments: [{ class_entity: { name: '7A' }, status: 'active' }],
   ...overrides,
 });
 
@@ -188,9 +182,7 @@ describe('BehaviourService', () => {
     };
 
     const setupCreateMocks = (categoryOverrides: Record<string, unknown> = {}) => {
-      mockRlsTx.behaviourCategory!.findFirst.mockResolvedValue(
-        makeCategory(categoryOverrides),
-      );
+      mockRlsTx.behaviourCategory!.findFirst.mockResolvedValue(makeCategory(categoryOverrides));
       mockRlsTx.student!.findMany.mockResolvedValue([makeStudent(STUDENT_ID)]);
       mockRlsTx.user!.findUnique.mockResolvedValue({
         first_name: 'Jane',
@@ -345,9 +337,7 @@ describe('BehaviourService', () => {
 
     it('should NOT queue policy evaluation for draft incidents', async () => {
       setupCreateMocks();
-      mockRlsTx.behaviourIncident!.create.mockResolvedValue(
-        makeIncident({ status: 'draft' }),
-      );
+      mockRlsTx.behaviourIncident!.create.mockResolvedValue(makeIncident({ status: 'draft' }));
 
       await service.createIncident(TENANT_ID, USER_ID, {
         ...baseDto,
@@ -362,9 +352,7 @@ describe('BehaviourService', () => {
 
     it('should set initial status to draft when auto_submit is false', async () => {
       setupCreateMocks();
-      mockRlsTx.behaviourIncident!.create.mockResolvedValue(
-        makeIncident({ status: 'draft' }),
-      );
+      mockRlsTx.behaviourIncident!.create.mockResolvedValue(makeIncident({ status: 'draft' }));
 
       await service.createIncident(TENANT_ID, USER_ID, {
         ...baseDto,
@@ -381,18 +369,18 @@ describe('BehaviourService', () => {
     it('should throw CATEGORY_NOT_FOUND when category does not exist', async () => {
       mockRlsTx.behaviourCategory!.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.createIncident(TENANT_ID, USER_ID, baseDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.createIncident(TENANT_ID, USER_ID, baseDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NO_VALID_STUDENTS when no students found', async () => {
       mockRlsTx.behaviourCategory!.findFirst.mockResolvedValue(makeCategory());
       mockRlsTx.student!.findMany.mockResolvedValue([]);
 
-      await expect(
-        service.createIncident(TENANT_ID, USER_ID, baseDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createIncident(TENANT_ID, USER_ID, baseDto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should record creation history', async () => {
@@ -458,9 +446,7 @@ describe('BehaviourService', () => {
 
       await service.listIncidents(TENANT_ID, USER_ID, ['behaviour.log'], baseQuery);
 
-      expect(mockScope.getUserScope).toHaveBeenCalledWith(
-        TENANT_ID, USER_ID, ['behaviour.log'],
-      );
+      expect(mockScope.getUserScope).toHaveBeenCalledWith(TENANT_ID, USER_ID, ['behaviour.log']);
       expect(mockPrisma.behaviourIncident.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -508,8 +494,11 @@ describe('BehaviourService', () => {
           where: expect.objectContaining({
             status: {
               in: [
-                'draft', 'investigating', 'under_review',
-                'awaiting_approval', 'awaiting_parent_meeting',
+                'draft',
+                'investigating',
+                'under_review',
+                'awaiting_approval',
+                'awaiting_parent_meeting',
               ],
             },
           }),
@@ -566,9 +555,7 @@ describe('BehaviourService', () => {
       mockPrisma.behaviourIncident.findMany.mockResolvedValue([]);
       mockPrisma.behaviourIncident.count.mockResolvedValue(50);
 
-      const result = await service.listIncidents(
-        TENANT_ID, USER_ID, ['behaviour.view'], baseQuery,
-      );
+      const result = await service.listIncidents(TENANT_ID, USER_ID, ['behaviour.view'], baseQuery);
 
       expect(result.meta).toEqual({ page: 1, pageSize: 20, total: 50 });
     });
@@ -580,9 +567,7 @@ describe('BehaviourService', () => {
       ]);
       mockPrisma.behaviourIncident.count.mockResolvedValue(2);
 
-      const result = await service.listIncidents(
-        TENANT_ID, USER_ID, ['behaviour.view'], baseQuery,
-      );
+      const result = await service.listIncidents(TENANT_ID, USER_ID, ['behaviour.view'], baseQuery);
 
       expect(result.data[0]!.status).toBe('closed');
       expect(result.data[1]!.status).toBe('active');
@@ -595,7 +580,10 @@ describe('BehaviourService', () => {
       mockPrisma.behaviourIncident.count.mockResolvedValue(1);
 
       const result = await service.listIncidents(
-        TENANT_ID, USER_ID, ['behaviour.view', 'safeguarding.view'], baseQuery,
+        TENANT_ID,
+        USER_ID,
+        ['behaviour.view', 'safeguarding.view'],
+        baseQuery,
       );
 
       expect(result.data[0]!.status).toBe('converted_to_safeguarding');
@@ -615,9 +603,10 @@ describe('BehaviourService', () => {
       };
       mockPrisma.behaviourIncident.findFirst.mockResolvedValue(incident);
 
-      const result = await service.getIncident(
-        TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view', 'behaviour.view_sensitive'],
-      );
+      const result = await service.getIncident(TENANT_ID, INCIDENT_ID, USER_ID, [
+        'behaviour.view',
+        'behaviour.view_sensitive',
+      ]);
 
       expect(result.id).toBe(INCIDENT_ID);
       expect(result.participants).toHaveLength(1);
@@ -631,9 +620,7 @@ describe('BehaviourService', () => {
       };
       mockPrisma.behaviourIncident.findFirst.mockResolvedValue(incident);
 
-      const result = await service.getIncident(
-        TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view'],
-      );
+      const result = await service.getIncident(TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view']);
 
       expect(result.context_notes).toBeUndefined();
     });
@@ -646,9 +633,10 @@ describe('BehaviourService', () => {
       };
       mockPrisma.behaviourIncident.findFirst.mockResolvedValue(incident);
 
-      const result = await service.getIncident(
-        TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view', 'behaviour.view_sensitive'],
-      );
+      const result = await service.getIncident(TENANT_ID, INCIDENT_ID, USER_ID, [
+        'behaviour.view',
+        'behaviour.view_sensitive',
+      ]);
 
       expect(result.context_notes).toBe('Sensitive info');
     });
@@ -660,9 +648,7 @@ describe('BehaviourService', () => {
       };
       mockPrisma.behaviourIncident.findFirst.mockResolvedValue(incident);
 
-      const result = await service.getIncident(
-        TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view'],
-      );
+      const result = await service.getIncident(TENANT_ID, INCIDENT_ID, USER_ID, ['behaviour.view']);
 
       expect(result.status).toBe('closed');
     });
@@ -687,9 +673,9 @@ describe('BehaviourService', () => {
         description: 'New desc',
       });
 
-      const result = await service.updateIncident(TENANT_ID, INCIDENT_ID, USER_ID, {
+      const result = (await service.updateIncident(TENANT_ID, INCIDENT_ID, USER_ID, {
         description: 'New desc',
-      }) as { description: string };
+      })) as { description: string };
 
       expect(result.description).toBe('New desc');
       expect(mockHistory.recordHistory).toHaveBeenCalledWith(
@@ -742,31 +728,25 @@ describe('BehaviourService', () => {
 
   describe('transitionStatus', () => {
     it('should allow draft -> active transition', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'draft' }),
-      );
-      mockRlsTx.behaviourIncident!.update.mockResolvedValue(
-        makeIncident({ status: 'active' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'draft' }));
+      mockRlsTx.behaviourIncident!.update.mockResolvedValue(makeIncident({ status: 'active' }));
 
-      const result = await service.transitionStatus(
-        TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-      ) as { status: string };
+      const result = (await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
+        status: 'active',
+      })) as { status: string };
 
       expect(result.status).toBe('active');
     });
 
     it('should allow active -> investigating transition', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'active' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'active' }));
       mockRlsTx.behaviourIncident!.update.mockResolvedValue(
         makeIncident({ status: 'investigating' }),
       );
 
-      const result = await service.transitionStatus(
-        TENANT_ID, INCIDENT_ID, USER_ID, { status: 'investigating' },
-      ) as { status: string };
+      const result = (await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
+        status: 'investigating',
+      })) as { status: string };
 
       expect(result.status).toBe('investigating');
     });
@@ -775,26 +755,20 @@ describe('BehaviourService', () => {
       mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
         makeIncident({ status: 'investigating' }),
       );
-      mockRlsTx.behaviourIncident!.update.mockResolvedValue(
-        makeIncident({ status: 'resolved' }),
-      );
+      mockRlsTx.behaviourIncident!.update.mockResolvedValue(makeIncident({ status: 'resolved' }));
 
-      const result = await service.transitionStatus(
-        TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' },
-      ) as { status: string };
+      const result = (await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
+        status: 'resolved',
+      })) as { status: string };
 
       expect(result.status).toBe('resolved');
     });
 
     it('should throw INVALID_TRANSITION for blocked transitions', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'draft' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'draft' }));
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -804,19 +778,13 @@ describe('BehaviourService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should record status change history with reason', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'active' }),
-      );
-      mockRlsTx.behaviourIncident!.update.mockResolvedValue(
-        makeIncident({ status: 'withdrawn' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'active' }));
+      mockRlsTx.behaviourIncident!.update.mockResolvedValue(makeIncident({ status: 'withdrawn' }));
 
       await service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
         status: 'withdrawn',
@@ -840,9 +808,7 @@ describe('BehaviourService', () => {
       mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -851,20 +817,16 @@ describe('BehaviourService', () => {
 
   describe('withdrawIncident', () => {
     it('should transition to withdrawn with reason', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'active' }),
-      );
-      mockRlsTx.behaviourIncident!.update.mockResolvedValue(
-        makeIncident({ status: 'withdrawn' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'active' }));
+      mockRlsTx.behaviourIncident!.update.mockResolvedValue(makeIncident({ status: 'withdrawn' }));
       mockRlsTx.behaviourSanction!.findMany.mockResolvedValue([]);
       mockRlsTx.behaviourIncident!.findUnique.mockResolvedValue(
         makeIncident({ status: 'withdrawn' }),
       );
 
-      const result = await service.withdrawIncident(
-        TENANT_ID, INCIDENT_ID, USER_ID, { reason: 'Reported in error' },
-      ) as { status: string };
+      const result = (await service.withdrawIncident(TENANT_ID, INCIDENT_ID, USER_ID, {
+        reason: 'Reported in error',
+      })) as { status: string };
 
       expect(result.status).toBe('withdrawn');
       expect(mockRlsTx.behaviourIncident!.update).toHaveBeenCalledWith({
@@ -901,17 +863,12 @@ describe('BehaviourService', () => {
         student_id: STUDENT_ID,
       });
 
-      const result = await service.addParticipant(
-        TENANT_ID,
-        INCIDENT_ID,
-        USER_ID,
-        {
-          participant_type: 'student',
-          student_id: STUDENT_ID,
-          role: 'subject',
-          parent_visible: true,
-        },
-      ) as { id: string };
+      const result = (await service.addParticipant(TENANT_ID, INCIDENT_ID, USER_ID, {
+        participant_type: 'student',
+        student_id: STUDENT_ID,
+        role: 'subject',
+        parent_visible: true,
+      })) as { id: string };
 
       expect(result.id).toBe(PARTICIPANT_ID);
       expect(mockRlsTx.behaviourIncidentParticipant!.create).toHaveBeenCalledWith({
@@ -1030,7 +987,10 @@ describe('BehaviourService', () => {
       mockRlsTx.behaviourIncidentParticipant!.delete.mockResolvedValue({});
 
       const result = await service.removeParticipant(
-        TENANT_ID, INCIDENT_ID, PARTICIPANT_ID, USER_ID,
+        TENANT_ID,
+        INCIDENT_ID,
+        PARTICIPANT_ID,
+        USER_ID,
       );
 
       expect(result).toEqual({ success: true });
@@ -1069,7 +1029,10 @@ describe('BehaviourService', () => {
       mockRlsTx.behaviourIncidentParticipant!.delete.mockResolvedValue({});
 
       const result = await service.removeParticipant(
-        TENANT_ID, INCIDENT_ID, PARTICIPANT_ID, USER_ID,
+        TENANT_ID,
+        INCIDENT_ID,
+        PARTICIPANT_ID,
+        USER_ID,
       );
 
       expect(result).toEqual({ success: true });
@@ -1086,9 +1049,7 @@ describe('BehaviourService', () => {
       mockRlsTx.behaviourIncidentParticipant!.count.mockResolvedValue(2);
       mockRlsTx.behaviourIncidentParticipant!.delete.mockResolvedValue({});
 
-      await service.removeParticipant(
-        TENANT_ID, INCIDENT_ID, PARTICIPANT_ID, USER_ID,
-      );
+      await service.removeParticipant(TENANT_ID, INCIDENT_ID, PARTICIPANT_ID, USER_ID);
 
       expect(mockHistory.recordHistory).toHaveBeenCalledWith(
         mockRlsTx,
@@ -1116,9 +1077,7 @@ describe('BehaviourService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1128,9 +1087,7 @@ describe('BehaviourService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1140,9 +1097,7 @@ describe('BehaviourService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -1152,33 +1107,25 @@ describe('BehaviourService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'active' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject draft -> resolved (invalid skip)', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'draft' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'draft' }));
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, { status: 'resolved' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject active -> closed_after_appeal (invalid skip)', async () => {
-      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(
-        makeIncident({ status: 'active' }),
-      );
+      mockRlsTx.behaviourIncident!.findFirst.mockResolvedValue(makeIncident({ status: 'active' }));
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID, INCIDENT_ID, USER_ID, { status: 'closed_after_appeal' },
-        ),
+        service.transitionStatus(TENANT_ID, INCIDENT_ID, USER_ID, {
+          status: 'closed_after_appeal',
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

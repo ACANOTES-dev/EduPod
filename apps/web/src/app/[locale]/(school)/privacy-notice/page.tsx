@@ -1,10 +1,11 @@
 'use client';
 
-import type { PrivacyNoticeCurrent } from '@school/shared';
-import { Button, StatusBadge, toast } from '@school/ui';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import type { PrivacyNoticeCurrent } from '@school/shared';
+import { Button, StatusBadge, toast } from '@school/ui';
 
 import { LegalDocument } from '@/components/legal/legal-document';
 import { PageHeader } from '@/components/page-header';

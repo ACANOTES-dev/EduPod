@@ -1,5 +1,6 @@
 import { CanActivate } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -62,9 +63,12 @@ describe('ParentInquiriesController', () => {
       controllers: [ParentInquiriesController],
       providers: [{ provide: ParentInquiriesService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue(mockGuard)
-      .overrideGuard(PermissionGuard).useValue(mockGuard)
-      .overrideGuard(ModuleEnabledGuard).useValue(mockGuard)
+      .overrideGuard(AuthGuard)
+      .useValue(mockGuard)
+      .overrideGuard(PermissionGuard)
+      .useValue(mockGuard)
+      .overrideGuard(ModuleEnabledGuard)
+      .useValue(mockGuard)
       .compile();
 
     controller = module.get<ParentInquiriesController>(ParentInquiriesController);
@@ -156,7 +160,12 @@ describe('ParentInquiriesController', () => {
 
       const result = await controller.addParentMessage(tenant, user, INQUIRY_ID, dto);
 
-      expect(mockService.addParentMessage).toHaveBeenCalledWith(TENANT_ID, USER_ID, INQUIRY_ID, dto);
+      expect(mockService.addParentMessage).toHaveBeenCalledWith(
+        TENANT_ID,
+        USER_ID,
+        INQUIRY_ID,
+        dto,
+      );
       expect(result).toEqual(message);
     });
   });

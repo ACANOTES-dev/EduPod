@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -100,7 +101,12 @@ describe('InvoicesController', () => {
   it('should call service.issue with tenant, id, user.sub and false', async () => {
     mockInvoicesService.issue.mockResolvedValue({ id: 'inv-1', status: 'issued' });
     await controller.issue(TENANT, USER, 'inv-1');
-    expect(mockInvoicesService.issue).toHaveBeenCalledWith('tenant-uuid', 'inv-1', 'user-uuid', false);
+    expect(mockInvoicesService.issue).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'inv-1',
+      'user-uuid',
+      false,
+    );
   });
 
   it('should call service.voidInvoice with tenant and id', async () => {

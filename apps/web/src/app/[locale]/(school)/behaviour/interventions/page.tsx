@@ -1,11 +1,12 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { AlertTriangle, CalendarClock, Plus, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -117,26 +118,23 @@ export default function InterventionListPage() {
   }, []);
 
   // Fetch interventions
-  const fetchInterventions = React.useCallback(
-    async (p: number, tab: TabKey) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (tab !== 'all') params.set('status', tab);
-        const res = await apiClient<InterventionsResponse>(
-          `/api/v1/behaviour/interventions?${params.toString()}`,
-        );
-        setData(res.data ?? []);
-        setTotal(res.meta?.total ?? 0);
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchInterventions = React.useCallback(async (p: number, tab: TabKey) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (tab !== 'all') params.set('status', tab);
+      const res = await apiClient<InterventionsResponse>(
+        `/api/v1/behaviour/interventions?${params.toString()}`,
+      );
+      setData(res.data ?? []);
+      setTotal(res.meta?.total ?? 0);
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchInterventions(page, activeTab);
@@ -155,9 +153,7 @@ export default function InterventionListPage() {
       header: t('columns.student'),
       render: (row: InterventionRow) => (
         <span className="text-sm font-medium text-text-primary">
-          {row.student
-            ? `${row.student.first_name} ${row.student.last_name}`
-            : '—'}
+          {row.student ? `${row.student.first_name} ${row.student.last_name}` : '—'}
         </span>
       ),
     },
@@ -195,9 +191,7 @@ export default function InterventionListPage() {
       key: 'start_date',
       header: t('columns.startDate'),
       render: (row: InterventionRow) => (
-        <span className="font-mono text-xs text-text-primary">
-          {formatDate(row.start_date)}
-        </span>
+        <span className="font-mono text-xs text-text-primary">{formatDate(row.start_date)}</span>
       ),
     },
     {
@@ -207,7 +201,9 @@ export default function InterventionListPage() {
         if (!row.next_review_date) return <span className="text-text-tertiary">—</span>;
         const overdue = isOverdue(row.next_review_date);
         return (
-          <span className={`font-mono text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-primary'}`}>
+          <span
+            className={`font-mono text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-primary'}`}
+          >
             {formatDate(row.next_review_date)}
             {overdue && <AlertTriangle className="ms-1 inline h-3 w-3" />}
           </span>
@@ -264,7 +260,9 @@ export default function InterventionListPage() {
             {TYPE_LABELS[row.intervention_type] ?? row.intervention_type}
           </Badge>
           {row.next_review_date && (
-            <span className={`flex items-center gap-1 text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-tertiary'}`}>
+            <span
+              className={`flex items-center gap-1 text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-tertiary'}`}
+            >
               <CalendarClock className="h-3 w-3" />
               {formatDate(row.next_review_date)}
             </span>
@@ -334,10 +332,20 @@ export default function InterventionListPage() {
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
                   {t('previous')}
                 </Button>
-                <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                  onClick={() => setPage(page + 1)}
+                >
                   {t('next')}
                 </Button>
               </div>

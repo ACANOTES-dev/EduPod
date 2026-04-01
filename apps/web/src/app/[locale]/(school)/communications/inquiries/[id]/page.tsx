@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 import { ArrowLeft, Send, X } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -44,11 +44,13 @@ function MessageBubble({ message }: { message: Message }) {
   const isAdmin = message.sender_type === 'admin';
   return (
     <div className={`flex flex-col gap-1 ${isAdmin ? 'items-end' : 'items-start'}`}>
-      <div className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
-        isAdmin
-          ? 'rounded-se-sm bg-primary-600 text-white'
-          : 'rounded-ss-sm bg-surface-secondary text-text-primary'
-      }`}>
+      <div
+        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
+          isAdmin
+            ? 'rounded-se-sm bg-primary-600 text-white'
+            : 'rounded-ss-sm bg-surface-secondary text-text-primary'
+        }`}
+      >
         {message.body}
       </div>
       <div className="flex items-center gap-1.5 px-1 text-xs text-text-tertiary">
@@ -178,7 +180,9 @@ export default function InquiryAdminDetailPage() {
       {/* Status */}
       <div className="flex items-center gap-3">
         <StatusBadge status={STATUS_VARIANT[inquiry.status]} dot>
-          {inquiry.status === 'in_progress' ? 'In Progress' : inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+          {inquiry.status === 'in_progress'
+            ? 'In Progress'
+            : inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
         </StatusBadge>
         <span className="text-sm text-text-tertiary">
           Opened {new Date(inquiry.created_at).toLocaleDateString()}
@@ -199,7 +203,9 @@ export default function InquiryAdminDetailPage() {
         {/* Reply area */}
         <div className="border-t border-border p-4">
           {isClosed ? (
-            <p className="text-sm text-text-tertiary text-center py-2">{t('inquiry.closedNotice')}</p>
+            <p className="text-sm text-text-tertiary text-center py-2">
+              {t('inquiry.closedNotice')}
+            </p>
           ) : (
             <div className="space-y-3">
               <Textarea
@@ -210,11 +216,7 @@ export default function InquiryAdminDetailPage() {
                 rows={3}
               />
               <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={handleSendReply}
-                  disabled={isSending || !reply.trim()}
-                >
+                <Button size="sm" onClick={handleSendReply} disabled={isSending || !reply.trim()}>
                   <Send className="me-2 h-3.5 w-3.5" />
                   {t('inquiry.sendReply')}
                 </Button>

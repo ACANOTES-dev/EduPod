@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Eraser, PenLine, Type } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
+
+import { Button, Input, Label } from '@school/ui';
 
 import type { SignatureValue } from './engagement-types';
 

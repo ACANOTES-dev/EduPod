@@ -1,5 +1,6 @@
 import { CanActivate } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -30,8 +31,10 @@ describe('AuditLogController', () => {
       controllers: [AuditLogController],
       providers: [{ provide: AuditLogService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue(mockGuard)
-      .overrideGuard(PermissionGuard).useValue(mockGuard)
+      .overrideGuard(AuthGuard)
+      .useValue(mockGuard)
+      .overrideGuard(PermissionGuard)
+      .useValue(mockGuard)
       .compile();
 
     controller = module.get<AuditLogController>(AuditLogController);
@@ -106,8 +109,10 @@ describe('PlatformAuditLogController', () => {
       controllers: [PlatformAuditLogController],
       providers: [{ provide: AuditLogService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue(mockGuard)
-      .overrideGuard(PlatformOwnerGuard).useValue(mockGuard)
+      .overrideGuard(AuthGuard)
+      .useValue(mockGuard)
+      .overrideGuard(PlatformOwnerGuard)
+      .useValue(mockGuard)
       .compile();
 
     controller = module.get<PlatformAuditLogController>(PlatformAuditLogController);
@@ -129,7 +134,10 @@ describe('PlatformAuditLogController', () => {
 
     it('should forward tenant_id filter to service', async () => {
       const query = { page: 1, pageSize: 20, tenant_id: TENANT_ID };
-      mockService.listPlatform.mockResolvedValue({ data: [], meta: { page: 1, pageSize: 20, total: 0 } });
+      mockService.listPlatform.mockResolvedValue({
+        data: [],
+        meta: { page: 1, pageSize: 20, total: 0 },
+      });
 
       await controller.list(query);
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { StatusBadge, cn } from '@school/ui';
 import { CheckCircle2, ChevronDown } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatusBadge, cn } from '@school/ui';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -104,11 +105,7 @@ export function StudentIssuesTable({ data, isLoading }: StudentIssuesTableProps)
   }
 
   if (!data) {
-    return (
-      <p className="text-sm text-text-secondary">
-        {t('octoberReturns.noData')}
-      </p>
-    );
+    return <p className="text-sm text-text-secondary">{t('octoberReturns.noData')}</p>;
   }
 
   // No issues — success state
@@ -130,13 +127,9 @@ export function StudentIssuesTable({ data, isLoading }: StudentIssuesTableProps)
     <div className="space-y-4">
       {/* ─── Summary ─────────────────────────────────────────────────── */}
       <p className="text-sm text-text-secondary">
-        <span className="font-semibold text-text-primary">
-          {data.students_with_issues}
-        </span>{' '}
+        <span className="font-semibold text-text-primary">{data.students_with_issues}</span>{' '}
         {t('octoberReturns.of')}{' '}
-        <span className="font-semibold text-text-primary">
-          {data.total_students}
-        </span>{' '}
+        <span className="font-semibold text-text-primary">{data.total_students}</span>{' '}
         {t('octoberReturns.studentsHaveIssues')}
       </p>
 
@@ -231,9 +224,7 @@ export function StudentIssuesTable({ data, isLoading }: StudentIssuesTableProps)
                               <span className="font-medium text-text-primary">
                                 {problem.field}:
                               </span>
-                              <span className="text-text-secondary">
-                                {problem.message}
-                              </span>
+                              <span className="text-text-secondary">{problem.message}</span>
                             </div>
                           ))}
                         </div>

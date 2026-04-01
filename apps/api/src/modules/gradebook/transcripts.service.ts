@@ -27,8 +27,11 @@ export class TranscriptsService {
       if (cached) {
         return JSON.parse(cached) as TranscriptData;
       }
-    } catch {
-      // Cache miss or connection error — proceed to compute
+    } catch (err) {
+      console.error(
+        '[TranscriptsService.getTranscriptData] cache read failed',
+        err instanceof Error ? err.stack : err,
+      );
     }
 
     // 2. Verify student exists
@@ -82,24 +85,30 @@ export class TranscriptsService {
     });
 
     // 4. Group by academic_year -> period -> subject
-    const yearMap = new Map<string, {
-      academic_year_id: string;
-      academic_year_name: string;
-      periods: Map<string, {
-        period_id: string;
-        period_name: string;
-        start_date: string;
-        end_date: string;
-        subjects: Array<{
-          subject_id: string;
-          subject_name: string;
-          subject_code: string | null;
-          computed_value: number;
-          display_value: string;
-          overridden_value: string | null;
-        }>;
-      }>;
-    }>();
+    const yearMap = new Map<
+      string,
+      {
+        academic_year_id: string;
+        academic_year_name: string;
+        periods: Map<
+          string,
+          {
+            period_id: string;
+            period_name: string;
+            start_date: string;
+            end_date: string;
+            subjects: Array<{
+              subject_id: string;
+              subject_name: string;
+              subject_code: string | null;
+              computed_value: number;
+              display_value: string;
+              overridden_value: string | null;
+            }>;
+          }
+        >;
+      }
+    >();
 
     for (const snapshot of snapshots) {
       const yearId = snapshot.academic_period.academic_year.id;
@@ -160,8 +169,11 @@ export class TranscriptsService {
     try {
       const redis = this.redisService.getClient();
       await redis.set(cacheKey, JSON.stringify(transcriptData), 'EX', TRANSCRIPT_CACHE_TTL_SECONDS);
-    } catch {
-      // Cache write failure should not break the flow
+    } catch (err) {
+      console.error(
+        '[TranscriptsService.getTranscriptData] cache write failed',
+        err instanceof Error ? err.stack : err,
+      );
     }
 
     return transcriptData;
@@ -174,8 +186,11 @@ export class TranscriptsService {
     try {
       const redis = this.redisService.getClient();
       await redis.del(`transcript:${tenantId}:${studentId}`);
-    } catch {
-      // Cache invalidation failure should not break the flow
+    } catch (err) {
+      console.error(
+        '[TranscriptsService.invalidateCache] cache invalidation failed',
+        err instanceof Error ? err.stack : err,
+      );
     }
   }
 }

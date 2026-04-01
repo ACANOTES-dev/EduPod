@@ -1,11 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateBreakGroupDto,
-  UpdateBreakGroupDto,
-} from '@school/shared';
+import { Injectable, NotFoundException } from '@nestjs/common';
+
+import type { CreateBreakGroupDto, UpdateBreakGroupDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';

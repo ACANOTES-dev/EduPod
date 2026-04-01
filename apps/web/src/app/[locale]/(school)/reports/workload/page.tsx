@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -63,9 +57,7 @@ export default function WorkloadReportPage() {
   React.useEffect(() => {
     if (!yearFilter) return;
     setIsLoading(true);
-    apiClient<ListResponse<WorkloadRow>>(
-      `/api/v1/reports/workload?academic_year_id=${yearFilter}`,
-    )
+    apiClient<ListResponse<WorkloadRow>>(`/api/v1/reports/workload?academic_year_id=${yearFilter}`)
       .then((res) => setData(res.data))
       .catch(() => setData([]))
       .finally(() => setIsLoading(false));
@@ -82,7 +74,9 @@ export default function WorkloadReportPage() {
           </SelectTrigger>
           <SelectContent>
             {academicYears.map((y) => (
-              <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+              <SelectItem key={y.id} value={y.id}>
+                {y.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -137,15 +131,24 @@ export default function WorkloadReportPage() {
               </tr>
             ) : (
               data.map((row) => (
-                <tr key={row.teacher_id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors">
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.teacher_name}</td>
+                <tr
+                  key={row.teacher_id}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary transition-colors"
+                >
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {row.teacher_name}
+                  </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{row.monday}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{row.tuesday}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{row.wednesday}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{row.thursday}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{row.friday}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">{row.total_periods}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">{row.total_hours}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {row.total_periods}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                    {row.total_hours}
+                  </td>
                 </tr>
               ))
             )}

@@ -1,5 +1,6 @@
 import { CanActivate } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -48,8 +49,10 @@ describe('RegistrationController', () => {
       controllers: [RegistrationController],
       providers: [{ provide: RegistrationService, useValue: mockService }],
     })
-      .overrideGuard(AuthGuard).useValue(mockGuard)
-      .overrideGuard(PermissionGuard).useValue(mockGuard)
+      .overrideGuard(AuthGuard)
+      .useValue(mockGuard)
+      .overrideGuard(PermissionGuard)
+      .useValue(mockGuard)
       .compile();
 
     controller = module.get<RegistrationController>(RegistrationController);
@@ -73,12 +76,14 @@ describe('RegistrationController', () => {
       const dto = { students: [{ year_group_id: 'yg-1' }] };
       const previewData = {
         students: [{ student_index: 0, year_group_name: 'Year 10', fees: [], subtotal: 500 }],
-        available_discounts: [{ discount_id: 'd-1', name: 'Sibling Discount', discount_type: 'percent', value: 10 }],
+        available_discounts: [
+          { discount_id: 'd-1', name: 'Sibling Discount', discount_type: 'percent', value: 10 },
+        ],
         grand_total: 500,
       };
       mockService.previewFees.mockResolvedValue(previewData);
 
-      const result = await controller.previewFees(tenant, dto as never) as {
+      const result = (await controller.previewFees(tenant, dto as never)) as {
         grand_total: number;
         students: unknown[];
       };
@@ -92,18 +97,49 @@ describe('RegistrationController', () => {
     it('should call service.registerFamily with tenant id, user id, and dto', async () => {
       const dto = {
         household: { household_name: 'Smith Family' },
-        primary_parent: { first_name: 'John', last_name: 'Smith', phone: '+353123456', relationship_label: 'Father' },
-        students: [{ first_name: 'Jane', last_name: 'Smith', date_of_birth: '2015-01-01', gender: 'female', year_group_id: 'yg-1', national_id: '123' }],
+        primary_parent: {
+          first_name: 'John',
+          last_name: 'Smith',
+          phone: '+353123456',
+          relationship_label: 'Father',
+        },
+        students: [
+          {
+            first_name: 'Jane',
+            last_name: 'Smith',
+            date_of_birth: '2015-01-01',
+            gender: 'female',
+            year_group_id: 'yg-1',
+            national_id: '123',
+          },
+        ],
         emergency_contacts: [],
         fee_assignments: [],
         applied_discounts: [],
         adhoc_adjustments: [],
       };
       const registrationResult = {
-        household: { id: 'hh-1', household_number: 'HH-202603-0001', household_name: 'Smith Family' },
+        household: {
+          id: 'hh-1',
+          household_number: 'HH-202603-0001',
+          household_name: 'Smith Family',
+        },
         parents: [{ id: 'p-1', first_name: 'John', last_name: 'Smith' }],
-        students: [{ id: 'stu-1', student_number: 'STU-202603-0001', first_name: 'Jane', last_name: 'Smith' }],
-        invoice: { id: 'inv-1', invoice_number: 'INV-202603-0001', total_amount: 0, balance_amount: 0, status: 'issued' },
+        students: [
+          {
+            id: 'stu-1',
+            student_number: 'STU-202603-0001',
+            first_name: 'Jane',
+            last_name: 'Smith',
+          },
+        ],
+        invoice: {
+          id: 'inv-1',
+          invoice_number: 'INV-202603-0001',
+          total_amount: 0,
+          balance_amount: 0,
+          status: 'issued',
+        },
       };
       mockService.registerFamily.mockResolvedValue(registrationResult);
 
@@ -116,7 +152,12 @@ describe('RegistrationController', () => {
     it('should pass user.sub as the user id', async () => {
       const dto = {
         household: { household_name: 'Doe Family' },
-        primary_parent: { first_name: 'Jane', last_name: 'Doe', phone: '+353654321', relationship_label: 'Mother' },
+        primary_parent: {
+          first_name: 'Jane',
+          last_name: 'Doe',
+          phone: '+353654321',
+          relationship_label: 'Mother',
+        },
         students: [],
         emergency_contacts: [],
         fee_assignments: [],

@@ -5,14 +5,15 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+
 import type { ExportPurpose } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
+import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';
 import { PdfRenderingService } from '../../pdf-rendering/pdf-rendering.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { SequenceService } from '../../tenants/sequence.service';
-import { PastoralEventService } from '../../pastoral/services/pastoral-event.service';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export class CpExportService {
       user_id: userId,
     });
 
-    const records = await rlsClient.$transaction(async (tx) => {
+    const records = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const where: Record<string, unknown> = {
@@ -153,10 +154,16 @@ export class CpExportService {
         where.record_type = { in: dto.record_types };
       }
       if (dto.date_from) {
-        where.created_at = { ...(where.created_at as Record<string, unknown> ?? {}), gte: new Date(dto.date_from) };
+        where.created_at = {
+          ...((where.created_at as Record<string, unknown>) ?? {}),
+          gte: new Date(dto.date_from),
+        };
       }
       if (dto.date_to) {
-        where.created_at = { ...(where.created_at as Record<string, unknown> ?? {}), lte: new Date(dto.date_to) };
+        where.created_at = {
+          ...((where.created_at as Record<string, unknown>) ?? {}),
+          lte: new Date(dto.date_to),
+        };
       }
 
       return db.cpRecord.findMany({
@@ -170,7 +177,7 @@ export class CpExportService {
         },
         orderBy: { created_at: 'desc' },
       }) as Promise<CpRecordRow[]>;
-    }) as CpRecordRow[];
+    })) as CpRecordRow[];
 
     if (records.length === 0) {
       throw new NotFoundException({
@@ -212,12 +219,7 @@ export class CpExportService {
     });
 
     const redis = this.redisService.getClient();
-    await redis.set(
-      `${PREVIEW_TOKEN_PREFIX}${previewToken}`,
-      previewData,
-      'EX',
-      TOKEN_TTL_SECONDS,
-    );
+    await redis.set(`${PREVIEW_TOKEN_PREFIX}${previewToken}`, previewData, 'EX', TOKEN_TTL_SECONDS);
 
     // Audit event
     await this.eventService.write({
@@ -289,7 +291,7 @@ export class CpExportService {
       user_id: userId,
     });
 
-    const records = await rlsClient.$transaction(async (tx) => {
+    const records = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const where: Record<string, unknown> = {
@@ -324,7 +326,7 @@ export class CpExportService {
         },
         orderBy: { created_at: 'desc' },
       }) as Promise<CpRecordRow[]>;
-    }) as CpRecordRow[];
+    })) as CpRecordRow[];
 
     if (records.length === 0) {
       throw new NotFoundException({
@@ -389,12 +391,7 @@ export class CpExportService {
       filename,
       student_id: resolved.student_id,
     });
-    await redis.set(
-      `${DOWNLOAD_TOKEN_PREFIX}${downloadToken}`,
-      tokenData,
-      'EX',
-      TOKEN_TTL_SECONDS,
-    );
+    await redis.set(`${DOWNLOAD_TOKEN_PREFIX}${downloadToken}`, tokenData, 'EX', TOKEN_TTL_SECONDS);
 
     // Store the PDF buffer in Redis with same TTL
     await redis.set(
@@ -447,10 +444,7 @@ export class CpExportService {
    *
    * Generates pastoral_event: record_exported (download_completed step).
    */
-  async download(
-    token: string,
-    ipAddress: string | null,
-  ): Promise<CpExportDownloadResult> {
+  async download(token: string, ipAddress: string | null): Promise<CpExportDownloadResult> {
     const redis = this.redisService.getClient();
 
     // 1. Fetch and atomically delete the download token (one-time use)
@@ -524,10 +518,7 @@ export class CpExportService {
     };
   }
 
-  private validatePurpose(
-    purpose?: ExportPurpose | null,
-    otherReason?: string | null,
-  ): void {
+  private validatePurpose(purpose?: ExportPurpose | null, otherReason?: string | null): void {
     if (!purpose) {
       return;
     }
@@ -562,12 +553,7 @@ export class CpExportService {
 
     if (previewState) {
       this.assertPreviewBoundValue('student_id', dto.student_id, previewState.student_id);
-      this.assertPreviewBoundValue(
-        'purpose',
-        dto.purpose,
-        previewState.purpose ?? undefined,
-        true,
-      );
+      this.assertPreviewBoundValue('purpose', dto.purpose, previewState.purpose ?? undefined, true);
       this.assertPreviewBoundValue(
         'other_reason',
         dto.other_reason,
@@ -635,10 +621,7 @@ export class CpExportService {
 
     const previewState = JSON.parse(raw) as CpExportPreviewState;
 
-    if (
-      previewState.tenant_id !== tenantId ||
-      previewState.user_id !== userId
-    ) {
+    if (previewState.tenant_id !== tenantId || previewState.user_id !== userId) {
       throw new ForbiddenException({
         error: {
           code: 'PREVIEW_TOKEN_FORBIDDEN',

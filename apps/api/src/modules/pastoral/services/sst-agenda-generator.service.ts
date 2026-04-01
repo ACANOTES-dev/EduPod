@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import { pastoralTenantSettingsSchema } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -143,9 +144,8 @@ export class SstAgendaGeneratorService {
       const itemsToInsert = this.mergeAgendaItems(meetingId, existingItems, newItems);
 
       // 7. Assign display_order: start after highest existing order
-      const maxExistingOrder = existingItems.length > 0
-        ? Math.max(...existingItems.map((i) => i.display_order))
-        : 0;
+      const maxExistingOrder =
+        existingItems.length > 0 ? Math.max(...existingItems.map((i) => i.display_order)) : 0;
 
       // Group by source for ordering within groups
       const groupedItems = this.groupBySource(itemsToInsert);
@@ -185,9 +185,9 @@ export class SstAgendaGeneratorService {
     const allItems = result as SstMeetingAgendaItemRow[];
 
     // 9. Write audit event (fire-and-forget)
-    const sourcesQueried = enabledSourceKeys.map(
-      (k) => SOURCE_KEY_TO_AGENDA_SOURCE[k],
-    ).filter((s): s is AgendaSource => !!s);
+    const sourcesQueried = enabledSourceKeys
+      .map((k) => SOURCE_KEY_TO_AGENDA_SOURCE[k])
+      .filter((s): s is AgendaSource => !!s);
 
     void this.eventService.write({
       tenant_id: tenantId,
@@ -284,10 +284,7 @@ export class SstAgendaGeneratorService {
         tenant_id: tenantId,
         next_review_date: { lte: beforeDate },
         status: {
-          in: [
-            'active' as $Enums.PastoralCaseStatus,
-            'monitoring' as $Enums.PastoralCaseStatus,
-          ],
+          in: ['active' as $Enums.PastoralCaseStatus, 'monitoring' as $Enums.PastoralCaseStatus],
         },
       },
       select: {
@@ -310,10 +307,7 @@ export class SstAgendaGeneratorService {
   /**
    * SST meeting actions with status 'overdue'.
    */
-  async queryOverdueActions(
-    db: PrismaService,
-    tenantId: string,
-  ): Promise<AgendaSourceItem[]> {
+  async queryOverdueActions(db: PrismaService, tenantId: string): Promise<AgendaSourceItem[]> {
     const overdueActions = await db.sstMeetingAction.findMany({
       where: {
         tenant_id: tenantId,
@@ -358,10 +352,7 @@ export class SstAgendaGeneratorService {
         student_id: true,
         trigger_reason: true,
       },
-      orderBy: [
-        { detected_date: 'desc' },
-        { created_at: 'desc' },
-      ],
+      orderBy: [{ detected_date: 'desc' }, { created_at: 'desc' }],
     })) as EarlyWarningAlertRow[];
 
     const alertsByStudent = new Map<string, string[]>();
@@ -381,7 +372,9 @@ export class SstAgendaGeneratorService {
       const visibleReasons = reasons.slice(0, 2);
       const remainingCount = Math.max(0, reasons.length - visibleReasons.length);
       const suffix =
-        remainingCount > 0 ? ` (+${remainingCount} more signal${remainingCount > 1 ? 's' : ''})` : '';
+        remainingCount > 0
+          ? ` (+${remainingCount} more signal${remainingCount > 1 ? 's' : ''})`
+          : '';
 
       return {
         source: 'auto_early_warning' as const,
@@ -551,9 +544,20 @@ export class SstAgendaGeneratorService {
         },
       });
       void this.eventService.write({
-        tenant_id: tenantId, event_type: 'agenda_item_added_manual', entity_type: 'meeting',
-        entity_id: meetingId, student_id: dto.student_id ?? null, actor_user_id: actorUserId,
-        tier: 1, payload: { meeting_id: meetingId, agenda_item_id: item.id, description: dto.description, added_by_user_id: actorUserId }, ip_address: null,
+        tenant_id: tenantId,
+        event_type: 'agenda_item_added_manual',
+        entity_type: 'meeting',
+        entity_id: meetingId,
+        student_id: dto.student_id ?? null,
+        actor_user_id: actorUserId,
+        tier: 1,
+        payload: {
+          meeting_id: meetingId,
+          agenda_item_id: item.id,
+          description: dto.description,
+          added_by_user_id: actorUserId,
+        },
+        ip_address: null,
       });
       return { data: item };
     });
@@ -574,9 +578,19 @@ export class SstAgendaGeneratorService {
         data: { ...dto },
       });
       void this.eventService.write({
-        tenant_id: tenantId, event_type: 'agenda_item_updated', entity_type: 'meeting',
-        entity_id: meetingId, student_id: null, actor_user_id: actorUserId,
-        tier: 1, payload: { meeting_id: meetingId, agenda_item_id: itemId, fields_updated: Object.keys(dto) }, ip_address: null,
+        tenant_id: tenantId,
+        event_type: 'agenda_item_updated',
+        entity_type: 'meeting',
+        entity_id: meetingId,
+        student_id: null,
+        actor_user_id: actorUserId,
+        tier: 1,
+        payload: {
+          meeting_id: meetingId,
+          agenda_item_id: itemId,
+          fields_updated: Object.keys(dto),
+        },
+        ip_address: null,
       });
       return { data: item };
     });

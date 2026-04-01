@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type {
   BulkClassRequirementsDto,
   CreateClassRequirementDto,
@@ -36,7 +37,12 @@ describe('ClassRequirementsController', () => {
 
   beforeEach(async () => {
     mockService = {
-      findAll: jest.fn().mockResolvedValue({ data: [], meta: { page: 1, pageSize: 20, total: 0, total_active_classes: 0, configured_count: 0 } }),
+      findAll: jest
+        .fn()
+        .mockResolvedValue({
+          data: [],
+          meta: { page: 1, pageSize: 20, total: 0, total_active_classes: 0, configured_count: 0 },
+        }),
       create: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
       delete: jest.fn().mockResolvedValue({}),
@@ -45,9 +51,7 @@ describe('ClassRequirementsController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ClassRequirementsController],
-      providers: [
-        { provide: ClassRequirementsService, useValue: mockService },
-      ],
+      providers: [{ provide: ClassRequirementsService, useValue: mockService }],
     })
       .overrideGuard(require('../../common/guards/auth.guard').AuthGuard)
       .useValue({ canActivate: () => true })
@@ -68,7 +72,9 @@ describe('ClassRequirementsController', () => {
     const result = await controller.findAll(tenantContext, query);
 
     expect(mockService.findAll).toHaveBeenCalledWith(TENANT_ID, YEAR_ID, { page: 1, pageSize: 20 });
-    expect(result).toEqual(expect.objectContaining({ data: [], meta: expect.objectContaining({ page: 1 }) }));
+    expect(result).toEqual(
+      expect.objectContaining({ data: [], meta: expect.objectContaining({ page: 1 }) }),
+    );
   });
 
   // ─── create ───────────────────────────────────────────────────────────────

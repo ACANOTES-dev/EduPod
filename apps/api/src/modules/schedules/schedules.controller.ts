@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createScheduleSchema,
   updateScheduleSchema,
@@ -19,7 +21,6 @@ import {
   bulkPinSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -62,12 +63,7 @@ export class SchedulesController {
       ? await this.permissionCacheService.getPermissions(user.membership_id)
       : [];
 
-    const result = await this.schedulesService.create(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-      permissions,
-    );
+    const result = await this.schedulesService.create(tenant.tenant_id, user.sub, dto, permissions);
 
     if (result.conflicts.length > 0) {
       return { data: result.schedule, meta: { conflicts: result.conflicts } };
@@ -144,7 +140,8 @@ export class SchedulesController {
   @RequiresPermission('schedule.pin_entries')
   async bulkPin(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Body(new ZodValidationPipe(bulkPinSchema)) dto: { schedule_ids: string[]; pin_reason?: string },
+    @Body(new ZodValidationPipe(bulkPinSchema))
+    dto: { schedule_ids: string[]; pin_reason?: string },
   ) {
     return this.schedulesService.bulkPin(tenant.tenant_id, dto);
   }

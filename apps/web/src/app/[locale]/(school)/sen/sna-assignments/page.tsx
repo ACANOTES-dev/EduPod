@@ -1,6 +1,20 @@
 'use client';
 
 import {
+  AlertTriangle,
+  Calendar,
+  Clock,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  UserMinus,
+  Users,
+} from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
+import {
   Badge,
   Button,
   Dialog,
@@ -16,19 +30,6 @@ import {
   Textarea,
   toast,
 } from '@school/ui';
-import {
-  AlertTriangle,
-  Calendar,
-  Clock,
-  Loader2,
-  Pencil,
-  Plus,
-  Search,
-  UserMinus,
-  Users,
-} from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

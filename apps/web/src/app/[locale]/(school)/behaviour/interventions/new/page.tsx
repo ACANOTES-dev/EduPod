@@ -1,5 +1,11 @@
 'use client';
 
+import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -12,11 +18,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import { ArrowLeft, Plus, Search, Trash2, X } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -173,38 +174,35 @@ export default function CreateInterventionPage() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await apiClient<{ data: { id: string } }>(
-        '/api/v1/behaviour/interventions',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            student_id: selectedStudent.id,
-            intervention_type: interventionType,
-            title: title.trim(),
-            trigger_description: triggerDescription.trim() || undefined,
-            send_awareness: sendAwareness,
-            send_notes: sendAwareness ? sendNotes.trim() || undefined : undefined,
-            goals: goals
-              .filter((g) => g.goal_text.trim())
-              .map((g) => ({
-                goal_text: g.goal_text.trim(),
-                measurable_target: g.measurable_target.trim() || undefined,
-                deadline: g.deadline || undefined,
-              })),
-            strategies: strategies
-              .filter((s) => s.strategy_text.trim())
-              .map((s) => ({
-                strategy_text: s.strategy_text.trim(),
-                responsible_staff_id: s.responsible_staff_id || undefined,
-                frequency: s.frequency.trim() || undefined,
-              })),
-            start_date: startDate,
-            target_end_date: targetEndDate || undefined,
-            review_frequency_days: parseInt(reviewFrequencyDays, 10) || 14,
-            assigned_to: assignedToId || undefined,
-          }),
-        },
-      );
+      const res = await apiClient<{ data: { id: string } }>('/api/v1/behaviour/interventions', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: selectedStudent.id,
+          intervention_type: interventionType,
+          title: title.trim(),
+          trigger_description: triggerDescription.trim() || undefined,
+          send_awareness: sendAwareness,
+          send_notes: sendAwareness ? sendNotes.trim() || undefined : undefined,
+          goals: goals
+            .filter((g) => g.goal_text.trim())
+            .map((g) => ({
+              goal_text: g.goal_text.trim(),
+              measurable_target: g.measurable_target.trim() || undefined,
+              deadline: g.deadline || undefined,
+            })),
+          strategies: strategies
+            .filter((s) => s.strategy_text.trim())
+            .map((s) => ({
+              strategy_text: s.strategy_text.trim(),
+              responsible_staff_id: s.responsible_staff_id || undefined,
+              frequency: s.frequency.trim() || undefined,
+            })),
+          start_date: startDate,
+          target_end_date: targetEndDate || undefined,
+          review_frequency_days: parseInt(reviewFrequencyDays, 10) || 14,
+          assigned_to: assignedToId || undefined,
+        }),
+      });
       router.push(`/${locale}/behaviour/interventions/${res.data.id}`);
     } catch (err: unknown) {
       const ex = err as { error?: { message?: string } };
@@ -238,9 +236,15 @@ export default function CreateInterventionPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-700">
                 {selectedStudent.first_name} {selectedStudent.last_name}
                 {selectedStudent.year_group && (
-                  <span className="text-xs text-primary-500">({selectedStudent.year_group.name})</span>
+                  <span className="text-xs text-primary-500">
+                    ({selectedStudent.year_group.name})
+                  </span>
                 )}
-                <button type="button" onClick={() => setSelectedStudent(null)} className="hover:text-primary-900">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="hover:text-primary-900"
+                >
                   <X className="h-3 w-3" />
                 </button>
               </span>
@@ -326,9 +330,7 @@ export default function CreateInterventionPage() {
           <div className="flex items-center justify-between">
             <div>
               <Label className="text-sm font-medium">{t('labels.sendAwareness')}</Label>
-              <p className="text-xs text-text-tertiary">
-                {t('labels.sendAwarenessDescription')}
-              </p>
+              <p className="text-xs text-text-tertiary">{t('labels.sendAwarenessDescription')}</p>
             </div>
             <Switch checked={sendAwareness} onCheckedChange={setSendAwareness} />
           </div>
@@ -517,9 +519,7 @@ export default function CreateInterventionPage() {
             placeholder="Staff member UUID (defaults to current user)"
             className="font-mono text-sm"
           />
-          <p className="mt-1.5 text-xs text-text-tertiary">
-            Leave blank to assign to yourself
-          </p>
+          <p className="mt-1.5 text-xs text-text-tertiary">Leave blank to assign to yourself</p>
         </div>
 
         {/* Error */}

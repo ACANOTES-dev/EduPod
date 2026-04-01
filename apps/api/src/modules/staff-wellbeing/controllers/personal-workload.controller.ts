@@ -1,4 +1,6 @@
 import { Controller, Get, NotFoundException, Query, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
+
 import { coverHistoryQuerySchema } from '@school/shared';
 import type {
   JwtPayload,
@@ -6,7 +8,6 @@ import type {
   PersonalWorkloadSummary,
   TenantContext,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { BlockImpersonation } from '../../../common/decorators/block-impersonation.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
@@ -36,21 +37,14 @@ export class PersonalWorkloadController {
   // ─── 1. Personal Workload Summary ──────────────────────────────────────
 
   @Get('staff-wellbeing/my-workload/summary')
-  async getSummary(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    const staffProfileId = await this.resolveStaffProfile(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async getSummary(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    const staffProfileId = await this.resolveStaffProfile(tenant.tenant_id, user.sub);
 
-    const cached =
-      await this.cacheService.getCachedPersonal<PersonalWorkloadSummary>(
-        tenant.tenant_id,
-        staffProfileId,
-        'summary',
-      );
+    const cached = await this.cacheService.getCachedPersonal<PersonalWorkloadSummary>(
+      tenant.tenant_id,
+      staffProfileId,
+      'summary',
+    );
     if (cached) return cached;
 
     const result = await this.computeService.getPersonalWorkloadSummary(
@@ -58,12 +52,7 @@ export class PersonalWorkloadController {
       staffProfileId,
     );
 
-    await this.cacheService.setCachedPersonal(
-      tenant.tenant_id,
-      staffProfileId,
-      'summary',
-      result,
-    );
+    await this.cacheService.setCachedPersonal(tenant.tenant_id, staffProfileId, 'summary', result);
 
     return result;
   }
@@ -77,10 +66,7 @@ export class PersonalWorkloadController {
     @Query(new ZodValidationPipe(coverHistoryQuerySchema))
     query: z.infer<typeof coverHistoryQuerySchema>,
   ) {
-    const staffProfileId = await this.resolveStaffProfile(
-      tenant.tenant_id,
-      user.sub,
-    );
+    const staffProfileId = await this.resolveStaffProfile(tenant.tenant_id, user.sub);
 
     return this.computeService.getPersonalCoverHistory(
       tenant.tenant_id,
@@ -97,17 +83,13 @@ export class PersonalWorkloadController {
     @CurrentTenant() tenant: TenantContext,
     @CurrentUser() user: JwtPayload,
   ) {
-    const staffProfileId = await this.resolveStaffProfile(
-      tenant.tenant_id,
-      user.sub,
-    );
+    const staffProfileId = await this.resolveStaffProfile(tenant.tenant_id, user.sub);
 
-    const cached =
-      await this.cacheService.getCachedPersonal<PersonalTimetableQuality>(
-        tenant.tenant_id,
-        staffProfileId,
-        'timetable-quality',
-      );
+    const cached = await this.cacheService.getCachedPersonal<PersonalTimetableQuality>(
+      tenant.tenant_id,
+      staffProfileId,
+      'timetable-quality',
+    );
     if (cached) return cached;
 
     const result = await this.computeService.getPersonalTimetableQuality(
@@ -127,10 +109,7 @@ export class PersonalWorkloadController {
 
   // ─── Staff Profile Resolution ─────────────────────────────────────────
 
-  private async resolveStaffProfile(
-    tenantId: string,
-    userId: string,
-  ): Promise<string> {
+  private async resolveStaffProfile(tenantId: string, userId: string): Promise<string> {
     const profile = await this.prisma.staffProfile.findUnique({
       where: {
         idx_staff_profiles_tenant_user: {

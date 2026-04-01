@@ -1,5 +1,6 @@
-import { updateClassSchema, updateClassStatusSchema } from '@school/shared';
 import { z } from 'zod';
+
+import { updateClassSchema, updateClassStatusSchema } from '@school/shared';
 
 export type UpdateClassDto = z.infer<typeof updateClassSchema>;
 export { updateClassSchema };

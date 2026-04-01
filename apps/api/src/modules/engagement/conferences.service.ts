@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { TimeSlotStatus } from '@prisma/client';
+
 import type { CreateBookingDto, GenerateTimeSlotsDto } from '@school/shared';
 import { BOOKING_VALID_TRANSITIONS, SLOT_VALID_TRANSITIONS } from '@school/shared';
 
@@ -230,6 +231,7 @@ export class ConferencesService {
       const db = tx as unknown as typeof this.prisma;
 
       // Lock the slot row to prevent concurrent booking
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- conference scheduling query with complex time-slot logic
       const slots = await db.$queryRaw<RawTimeSlot[]>`
         SELECT id, status, start_time, end_time, teacher_id
         FROM conference_time_slots
@@ -461,6 +463,7 @@ export class ConferencesService {
       const db = tx as unknown as typeof this.prisma;
 
       // Lock the slot row
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- conference scheduling query with complex time-slot logic
       const slots = await db.$queryRaw<RawTimeSlot[]>`
         SELECT id, status, start_time, end_time, teacher_id
         FROM conference_time_slots

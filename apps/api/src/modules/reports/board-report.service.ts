@@ -1,8 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+
 import type { CreateBoardReportDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -56,7 +54,10 @@ export class BoardReportService {
         data: reports.map((r) => this.toRow(r)),
         meta: { page, pageSize, total },
       };
-    }) as unknown as { data: BoardReportRow[]; meta: { page: number; pageSize: number; total: number } };
+    }) as unknown as {
+      data: BoardReportRow[];
+      meta: { page: number; pageSize: number; total: number };
+    };
   }
 
   async getBoardReport(tenantId: string, reportId: string): Promise<BoardReportRow> {
@@ -101,11 +102,13 @@ export class BoardReportService {
       executiveSummary = null;
     }
 
-    const sectionsJson = JSON.parse(JSON.stringify({
-      sections: dto.sections_json,
-      kpi_snapshot: kpiData,
-      executive_summary: executiveSummary,
-    })) as Prisma.InputJsonValue;
+    const sectionsJson = JSON.parse(
+      JSON.stringify({
+        sections: dto.sections_json,
+        kpi_snapshot: kpiData,
+        executive_summary: executiveSummary,
+      }),
+    ) as Prisma.InputJsonValue;
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 

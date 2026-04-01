@@ -1,15 +1,11 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  StatCard,
-  EmptyState,
-} from '@school/ui';
 import { ClipboardList, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, StatCard, EmptyState } from '@school/ui';
 
 import { ApplicationStatusBadge } from '@/components/admissions/application-status-badge';
 import { DataTable } from '@/components/data-table';
@@ -78,7 +74,8 @@ export default function AdmissionsPage() {
       );
       setApplications(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[fetchApplications]', err);
       setApplications([]);
       setTotal(0);
     } finally {
@@ -90,8 +87,8 @@ export default function AdmissionsPage() {
     try {
       const res = await apiClient<{ data: AnalyticsResponse }>('/api/v1/applications/analytics');
       setAnalytics(res.data);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[fetchAnalytics]', err);
     }
   }, []);
 
@@ -119,14 +116,19 @@ export default function AdmissionsPage() {
       key: 'student_name',
       header: t('studentName'),
       render: (row: Application) => (
-        <span className="font-medium text-text-primary">{row.student_name ?? (`${row.student_first_name ?? ''} ${row.student_last_name ?? ''}`.trim() || '—')}</span>
+        <span className="font-medium text-text-primary">
+          {row.student_name ??
+            (`${row.student_first_name ?? ''} ${row.student_last_name ?? ''}`.trim() || '—')}
+        </span>
       ),
     },
     {
       key: 'form_name',
       header: t('forms'),
       render: (row: Application) => (
-        <span className="text-sm text-text-secondary">{row.form_name ?? row.form_definition?.name ?? '—'}</span>
+        <span className="text-sm text-text-secondary">
+          {row.form_name ?? row.form_definition?.name ?? '—'}
+        </span>
       ),
     },
     {
@@ -196,10 +198,7 @@ export default function AdmissionsPage() {
             >
               {t('analytics')}
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/${locale}/admissions/forms`)}
-            >
+            <Button variant="outline" onClick={() => router.push(`/${locale}/admissions/forms`)}>
               {t('forms')}
             </Button>
           </div>
@@ -218,11 +217,7 @@ export default function AdmissionsPage() {
       )}
 
       {!isLoading && applications.length === 0 && !search && statusFilter === 'all' ? (
-        <EmptyState
-          icon={ClipboardList}
-          title={t('noApplicationsYet')}
-          description=""
-        />
+        <EmptyState icon={ClipboardList} title={t('noApplicationsYet')} description="" />
       ) : (
         <DataTable
           columns={columns}

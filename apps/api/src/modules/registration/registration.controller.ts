@@ -1,15 +1,6 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  familyRegistrationSchema,
-  previewFeesSchema,
-} from '@school/shared';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+
+import { familyRegistrationSchema, previewFeesSchema } from '@school/shared';
 import type {
   FamilyRegistrationDto,
   JwtPayload,

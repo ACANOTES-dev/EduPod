@@ -1,5 +1,10 @@
 'use client';
 
+import { ClipboardList, Plus, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   EmptyState,
@@ -10,10 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ClipboardList, Plus, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useLocale, useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   FORM_TYPE_OPTIONS,

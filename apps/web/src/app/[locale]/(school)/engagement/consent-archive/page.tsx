@@ -1,8 +1,9 @@
 'use client';
 
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 
 import {
   CONSENT_TYPE_OPTIONS,

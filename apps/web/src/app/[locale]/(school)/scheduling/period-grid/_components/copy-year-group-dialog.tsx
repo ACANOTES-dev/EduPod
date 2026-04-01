@@ -1,5 +1,9 @@
 'use client';
 
+import { Copy } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -16,9 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Copy } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -70,7 +71,8 @@ export function CopyYearGroupDialog({
   const [isCopying, setIsCopying] = React.useState(false);
 
   const otherYearGroups = yearGroups.filter((yg) => yg.id !== sourceYearGroupId);
-  const allSelected = otherYearGroups.length > 0 && targetYearGroupIds.length === otherYearGroups.length;
+  const allSelected =
+    otherYearGroups.length > 0 && targetYearGroupIds.length === otherYearGroups.length;
 
   const toggleYearGroup = (id: string) => {
     setTargetYearGroupIds((prev) =>
@@ -165,10 +167,7 @@ export function CopyYearGroupDialog({
                       checked={targetYearGroupIds.includes(yg.id)}
                       onCheckedChange={() => toggleYearGroup(yg.id)}
                     />
-                    <Label
-                      htmlFor={`target-yg-${yg.id}`}
-                      className="cursor-pointer font-normal"
-                    >
+                    <Label htmlFor={`target-yg-${yg.id}`} className="cursor-pointer font-normal">
                       {yg.name}
                     </Label>
                   </div>

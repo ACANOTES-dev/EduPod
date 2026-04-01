@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Input, Label, Checkbox } from '@school/ui';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, Label, Checkbox } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -101,11 +101,7 @@ export default function RegisterPage() {
         communication_preferences: {
           email: commEmail,
           whatsapp: commWhatsApp,
-          whatsapp_phone: commWhatsApp
-            ? sameAsPhone
-              ? phone
-              : whatsAppPhone
-            : undefined,
+          whatsapp_phone: commWhatsApp ? (sameAsPhone ? phone : whatsAppPhone) : undefined,
         },
       };
 
@@ -134,12 +130,8 @@ export default function RegisterPage() {
       <div className="rounded-2xl border border-border bg-surface p-8 shadow-sm">
         <div className="flex flex-col items-center text-center">
           <CheckCircle className="mb-4 h-12 w-12 text-success-text" />
-          <h2 className="text-xl font-semibold text-text-primary">
-            {t('register.successTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-text-secondary">
-            {t('register.successDescription')}
-          </p>
+          <h2 className="text-xl font-semibold text-text-primary">{t('register.successTitle')}</h2>
+          <p className="mt-2 text-sm text-text-secondary">{t('register.successDescription')}</p>
           <a href={`/${locale}/login`} className="mt-6">
             <Button>{t('backToLogin')}</Button>
           </a>
@@ -179,9 +171,7 @@ export default function RegisterPage() {
             </div>
             {i < steps.length - 1 && (
               <div
-                className={`h-0.5 w-8 ${
-                  i < currentStepIndex ? 'bg-primary-700' : 'bg-border'
-                }`}
+                className={`h-0.5 w-8 ${i < currentStepIndex ? 'bg-primary-700' : 'bg-border'}`}
               />
             )}
           </React.Fragment>
@@ -326,9 +316,7 @@ export default function RegisterPage() {
                   checked={sameAsPhone}
                   onCheckedChange={(checked) => setSameAsPhone(checked === true)}
                 />
-                <span className="text-sm text-text-primary">
-                  {t('register.sameAsPhone')}
-                </span>
+                <span className="text-sm text-text-primary">{t('register.sameAsPhone')}</span>
               </label>
 
               {!sameAsPhone && (
@@ -383,12 +371,16 @@ export default function RegisterPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-text-secondary">{t('email')}</span>
-              <span className="text-sm font-medium text-text-primary" dir="ltr">{email}</span>
+              <span className="text-sm font-medium text-text-primary" dir="ltr">
+                {email}
+              </span>
             </div>
             {phone && (
               <div className="flex justify-between">
                 <span className="text-sm text-text-secondary">{t('register.phone')}</span>
-                <span className="text-sm font-medium text-text-primary" dir="ltr">{phone}</span>
+                <span className="text-sm font-medium text-text-primary" dir="ltr">
+                  {phone}
+                </span>
               </div>
             )}
             <div className="flex justify-between">
@@ -416,11 +408,7 @@ export default function RegisterPage() {
             >
               {t('register.back')}
             </Button>
-            <Button
-              className="flex-1"
-              disabled={isSubmitting}
-              onClick={handleSubmit}
-            >
+            <Button className="flex-1" disabled={isSubmitting} onClick={handleSubmit}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="me-2 h-4 w-4 animate-spin" />

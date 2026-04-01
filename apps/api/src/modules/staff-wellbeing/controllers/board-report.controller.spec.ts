@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -11,12 +12,27 @@ import { BoardReportController } from './board-report.controller';
 const TENANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 
 const MOCK_REPORT = {
-  workload_distribution: { average_periods: 20, range: { min: 14, max: 26 }, over_allocated_count: 3 },
-  cover_fairness: { gini_coefficient: 0.18, distribution_shape: 'Normal distribution', assessment: 'Moderate concentration' },
+  workload_distribution: {
+    average_periods: 20,
+    range: { min: 14, max: 26 },
+    over_allocated_count: 3,
+  },
+  cover_fairness: {
+    gini_coefficient: 0.18,
+    distribution_shape: 'Normal distribution',
+    assessment: 'Moderate concentration',
+  },
   timetable_quality: { average_score: 72, label: 'Moderate' as const },
-  substitution_pressure: { composite_score: 0.35, assessment: 'Moderate', trend_direction: 'stable' as const },
+  substitution_pressure: {
+    composite_score: 0.35,
+    assessment: 'Moderate',
+    trend_direction: 'stable' as const,
+  },
   absence_pattern: { current_term_rate: 0.04, previous_term_rate: 0.05, highest_day: 'Monday' },
-  correlation_insight: { status: 'accumulating' as const, summary: 'Collecting data (4 of 12 months).' },
+  correlation_insight: {
+    status: 'accumulating' as const,
+    summary: 'Collecting data (4 of 12 months).',
+  },
   generated_at: '2026-03-27T10:00:00.000Z',
   term_name: 'Term 2',
   academic_year_name: '2025-2026',

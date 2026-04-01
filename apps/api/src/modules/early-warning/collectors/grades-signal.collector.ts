@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { DetectedSignal, SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -15,7 +16,9 @@ const ALERT_TYPE_SCORES: Record<string, { score: number; severity: 'low' | 'medi
 
 // ─── Trajectory Decline Thresholds ──────────────────────────────────────────
 
-function trajectoryScore(declineCount: number): { score: number; severity: 'low' | 'medium' | 'high' } | null {
+function trajectoryScore(
+  declineCount: number,
+): { score: number; severity: 'low' | 'medium' | 'high' } | null {
   if (declineCount >= 3) return { score: 25, severity: 'high' };
   if (declineCount === 2) return { score: 15, severity: 'medium' };
   if (declineCount === 1) return { score: 10, severity: 'low' };
@@ -24,7 +27,9 @@ function trajectoryScore(declineCount: number): { score: number; severity: 'low'
 
 // ─── Missing Assessments Thresholds ─────────────────────────────────────────
 
-function missingScore(count: number): { score: number; severity: 'low' | 'medium' | 'high' } | null {
+function missingScore(
+  count: number,
+): { score: number; severity: 'low' | 'medium' | 'high' } | null {
   if (count >= 6) return { score: 20, severity: 'high' };
   if (count >= 4) return { score: 15, severity: 'medium' };
   if (count >= 2) return { score: 10, severity: 'low' };
@@ -41,7 +46,9 @@ function anomalyScore(count: number): { score: number; severity: 'medium' | 'hig
 
 // ─── Multi-Subject Decline Thresholds ───────────────────────────────────────
 
-function multiSubjectScore(count: number): { score: number; severity: 'medium' | 'high' | 'critical' } | null {
+function multiSubjectScore(
+  count: number,
+): { score: number; severity: 'medium' | 'high' | 'critical' } | null {
   if (count >= 5) return { score: 30, severity: 'critical' };
   if (count === 4) return { score: 20, severity: 'high' };
   if (count === 3) return { score: 15, severity: 'medium' };
@@ -96,9 +103,7 @@ export class GradesSignalCollector {
     ]);
 
     // ─── Signal 1: below_class_mean ───────────────────────────────────────────
-    const atRiskAlerts = riskAlerts.filter(
-      (a) => a.alert_type in ALERT_TYPE_SCORES,
-    );
+    const atRiskAlerts = riskAlerts.filter((a) => a.alert_type in ALERT_TYPE_SCORES);
     const belowClassMeanSignal = this.computeBelowClassMean(atRiskAlerts);
     if (belowClassMeanSignal) {
       signals.push(belowClassMeanSignal);
@@ -305,9 +310,8 @@ export class GradesSignalCollector {
     }
 
     // Use the higher count source
-    const usedSet = progressDeclining.size > snapshotDeclining.size
-      ? progressDeclining
-      : snapshotDeclining;
+    const usedSet =
+      progressDeclining.size > snapshotDeclining.size ? progressDeclining : snapshotDeclining;
 
     return { subjectIds: usedSet, biggestDeclineSnapshotId };
   }
@@ -320,7 +324,7 @@ export class GradesSignalCollector {
     const tier = trajectoryScore(count);
     if (!tier) return null;
 
-    const sourceId = declining.biggestDeclineSnapshotId ?? (snapshots[0]?.id ?? '');
+    const sourceId = declining.biggestDeclineSnapshotId ?? snapshots[0]?.id ?? '';
 
     return buildSignal({
       signalType: 'grade_trajectory_decline',
@@ -372,7 +376,7 @@ export class GradesSignalCollector {
     const tier = multiSubjectScore(count);
     if (!tier) return null;
 
-    const sourceId = declining.biggestDeclineSnapshotId ?? (snapshots[0]?.id ?? '');
+    const sourceId = declining.biggestDeclineSnapshotId ?? snapshots[0]?.id ?? '';
 
     return buildSignal({
       signalType: 'multi_subject_decline',

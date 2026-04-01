@@ -1,15 +1,16 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { AuditLogSensitivity } from '@school/shared';
 import type { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
+import type { AuditLogSensitivity } from '@school/shared';
+
+import { AuditLogService } from '../../modules/audit-log/audit-log.service';
 import {
   SENSITIVE_DATA_ACCESS_KEY,
   type SensitiveDataAccessMetadata,
 } from '../decorators/sensitive-data-access.decorator';
-import { AuditLogService } from '../../modules/audit-log/audit-log.service';
 
 /** Fields to strip from request body before persisting to audit metadata. */
 const SENSITIVE_FIELDS = new Set([

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -150,7 +151,12 @@ describe('BehaviourController', () => {
     const result = await controller.listIncidents(TENANT, USER, query as never);
 
     expect(mockPermissionCacheService.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
-    expect(mockBehaviourService.listIncidents).toHaveBeenCalledWith(TENANT_ID, USER_ID, permissions, query);
+    expect(mockBehaviourService.listIncidents).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      permissions,
+      query,
+    );
     expect(result).toEqual({ data: [], meta: { total: 0 } });
   });
 
@@ -172,7 +178,13 @@ describe('BehaviourController', () => {
 
     const result = await controller.getFeed(TENANT, USER, query);
 
-    expect(mockBehaviourService.getFeed).toHaveBeenCalledWith(TENANT_ID, USER_ID, permissions, 2, 10);
+    expect(mockBehaviourService.getFeed).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      permissions,
+      2,
+      10,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -183,7 +195,12 @@ describe('BehaviourController', () => {
 
     const result = await controller.getIncident(TENANT, USER, INCIDENT_ID);
 
-    expect(mockBehaviourService.getIncident).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, USER_ID, permissions);
+    expect(mockBehaviourService.getIncident).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      USER_ID,
+      permissions,
+    );
     expect(result).toEqual({ id: INCIDENT_ID });
   });
 
@@ -193,27 +210,48 @@ describe('BehaviourController', () => {
 
     const result = await controller.updateIncident(TENANT, USER, INCIDENT_ID, dto as never);
 
-    expect(mockBehaviourService.updateIncident).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+    expect(mockBehaviourService.updateIncident).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INCIDENT_ID });
   });
 
   it('should call behaviourService.transitionStatus with tenant_id, id, user_id, dto', async () => {
     const dto = { status: 'resolved', reason: 'Handled' };
-    mockBehaviourService.transitionStatus.mockResolvedValue({ id: INCIDENT_ID, status: 'resolved' });
+    mockBehaviourService.transitionStatus.mockResolvedValue({
+      id: INCIDENT_ID,
+      status: 'resolved',
+    });
 
     const result = await controller.transitionStatus(TENANT, USER, INCIDENT_ID, dto as never);
 
-    expect(mockBehaviourService.transitionStatus).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+    expect(mockBehaviourService.transitionStatus).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INCIDENT_ID, status: 'resolved' });
   });
 
   it('should call behaviourService.withdrawIncident with tenant_id, id, user_id, dto', async () => {
     const dto = { reason: 'Mistake' };
-    mockBehaviourService.withdrawIncident.mockResolvedValue({ id: INCIDENT_ID, status: 'withdrawn' });
+    mockBehaviourService.withdrawIncident.mockResolvedValue({
+      id: INCIDENT_ID,
+      status: 'withdrawn',
+    });
 
     const result = await controller.withdrawIncident(TENANT, USER, INCIDENT_ID, dto as never);
 
-    expect(mockBehaviourService.withdrawIncident).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+    expect(mockBehaviourService.withdrawIncident).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: INCIDENT_ID, status: 'withdrawn' });
   });
 
@@ -225,7 +263,12 @@ describe('BehaviourController', () => {
 
     const result = await controller.recordFollowUp(TENANT, USER, INCIDENT_ID, dto as never);
 
-    expect(mockAttachmentService.recordFollowUp).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, dto);
+    expect(mockAttachmentService.recordFollowUp).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      INCIDENT_ID,
+      dto,
+    );
     expect(result).toEqual({ data: { incident_id: INCIDENT_ID, follow_up_recorded: true } });
   });
 
@@ -237,7 +280,12 @@ describe('BehaviourController', () => {
 
     const result = await controller.addParticipant(TENANT, USER, INCIDENT_ID, dto as never);
 
-    expect(mockBehaviourService.addParticipant).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, USER_ID, dto);
+    expect(mockBehaviourService.addParticipant).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      USER_ID,
+      dto,
+    );
     expect(result).toEqual({ id: PARTICIPANT_ID });
   });
 
@@ -246,14 +294,24 @@ describe('BehaviourController', () => {
 
     const result = await controller.removeParticipant(TENANT, USER, INCIDENT_ID, PARTICIPANT_ID);
 
-    expect(mockBehaviourService.removeParticipant).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID, PARTICIPANT_ID, USER_ID);
+    expect(mockBehaviourService.removeParticipant).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+      PARTICIPANT_ID,
+      USER_ID,
+    );
     expect(result).toEqual({ deleted: true });
   });
 
   // ─── Attachments ──────────────────────────────────────────────────────────
 
   it('should call attachmentService.uploadAttachment with tenant_id, user_id, id, file, dto', async () => {
-    const file = { buffer: Buffer.from('test'), originalname: 'test.pdf', mimetype: 'application/pdf', size: 1024 };
+    const file = {
+      buffer: Buffer.from('test'),
+      originalname: 'test.pdf',
+      mimetype: 'application/pdf',
+      size: 1024,
+    };
     const dto = { classification: 'staff_statement' };
     mockAttachmentService.uploadAttachment.mockResolvedValue({
       data: { id: ATTACHMENT_ID, file_name: 'test.pdf' },
@@ -261,7 +319,13 @@ describe('BehaviourController', () => {
 
     const result = await controller.uploadAttachment(TENANT, USER, INCIDENT_ID, file, dto as never);
 
-    expect(mockAttachmentService.uploadAttachment).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, file, dto);
+    expect(mockAttachmentService.uploadAttachment).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      INCIDENT_ID,
+      file,
+      dto,
+    );
     expect(result).toEqual({ data: { id: ATTACHMENT_ID, file_name: 'test.pdf' } });
   });
 
@@ -281,8 +345,15 @@ describe('BehaviourController', () => {
 
     const result = await controller.downloadAttachment(TENANT, USER, INCIDENT_ID, ATTACHMENT_ID);
 
-    expect(mockAttachmentService.getAttachment).toHaveBeenCalledWith(TENANT_ID, USER_ID, INCIDENT_ID, ATTACHMENT_ID);
-    expect(result).toEqual({ data: { id: ATTACHMENT_ID, download_url: 'https://example.com/file' } });
+    expect(mockAttachmentService.getAttachment).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      INCIDENT_ID,
+      ATTACHMENT_ID,
+    );
+    expect(result).toEqual({
+      data: { id: ATTACHMENT_ID, download_url: 'https://example.com/file' },
+    });
   });
 
   // ─── History ──────────────────────────────────────────────────────────────
@@ -293,7 +364,13 @@ describe('BehaviourController', () => {
 
     const result = await controller.getIncidentHistory(TENANT, INCIDENT_ID, query);
 
-    expect(mockHistoryService.getHistory).toHaveBeenCalledWith(TENANT_ID, 'incident', INCIDENT_ID, 1, 20);
+    expect(mockHistoryService.getHistory).toHaveBeenCalledWith(
+      TENANT_ID,
+      'incident',
+      INCIDENT_ID,
+      1,
+      20,
+    );
     expect(result).toEqual({ data: [] });
   });
 
@@ -304,7 +381,10 @@ describe('BehaviourController', () => {
 
     const result = await controller.getPolicyEvaluation(TENANT, INCIDENT_ID);
 
-    expect(mockPolicyReplayService.getIncidentEvaluationTrace).toHaveBeenCalledWith(TENANT_ID, INCIDENT_ID);
+    expect(mockPolicyReplayService.getIncidentEvaluationTrace).toHaveBeenCalledWith(
+      TENANT_ID,
+      INCIDENT_ID,
+    );
     expect(result).toEqual({ trace: [] });
   });
 

@@ -1,5 +1,10 @@
 'use client';
 
+import { MoreHorizontal, Plus, Trash2, Edit } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Badge,
@@ -15,17 +20,13 @@ import {
   DropdownMenuTrigger,
   toast,
 } from '@school/ui';
-import { MoreHorizontal, Plus, Trash2, Edit } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
+import { RoomForm } from './_components/room-form';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { RoomForm } from './_components/room-form';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,7 +86,12 @@ export default function RoomsPage() {
     void fetchRooms(page, typeFilter, activeFilter);
   }, [page, typeFilter, activeFilter, fetchRooms]);
 
-  const handleCreate = async (formData: { name: string; room_type: string; capacity: number | null; is_exclusive: boolean }) => {
+  const handleCreate = async (formData: {
+    name: string;
+    room_type: string;
+    capacity: number | null;
+    is_exclusive: boolean;
+  }) => {
     await apiClient('/api/v1/rooms', {
       method: 'POST',
       body: JSON.stringify(formData),
@@ -94,7 +100,12 @@ export default function RoomsPage() {
     void fetchRooms(page, typeFilter, activeFilter);
   };
 
-  const handleEdit = async (formData: { name: string; room_type: string; capacity: number | null; is_exclusive: boolean }) => {
+  const handleEdit = async (formData: {
+    name: string;
+    room_type: string;
+    capacity: number | null;
+    is_exclusive: boolean;
+  }) => {
     if (!editRoom) return;
     await apiClient(`/api/v1/rooms/${editRoom.id}`, {
       method: 'PATCH',
@@ -119,23 +130,21 @@ export default function RoomsPage() {
     {
       key: 'name',
       header: t('roomName'),
-      render: (row: Room) => (
-        <span className="font-medium text-text-primary">{row.name}</span>
-      ),
+      render: (row: Room) => <span className="font-medium text-text-primary">{row.name}</span>,
     },
     {
       key: 'room_type',
       header: t('roomType'),
       render: (row: Room) => (
-        <Badge variant="secondary" className="capitalize">{row.room_type}</Badge>
+        <Badge variant="secondary" className="capitalize">
+          {row.room_type}
+        </Badge>
       ),
     },
     {
       key: 'capacity',
       header: t('capacity'),
-      render: (row: Room) => (
-        <span className="text-text-secondary">{row.capacity ?? '—'}</span>
-      ),
+      render: (row: Room) => <span className="text-text-secondary">{row.capacity ?? '—'}</span>,
     },
     {
       key: 'is_exclusive',
@@ -149,9 +158,13 @@ export default function RoomsPage() {
       header: t('active'),
       render: (row: Room) =>
         row.active ? (
-          <StatusBadge status="success" dot>Active</StatusBadge>
+          <StatusBadge status="success" dot>
+            Active
+          </StatusBadge>
         ) : (
-          <StatusBadge status="neutral" dot>Inactive</StatusBadge>
+          <StatusBadge status="neutral" dot>
+            Inactive
+          </StatusBadge>
         ),
     },
     {
@@ -165,13 +178,21 @@ export default function RoomsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditRoom(row); }}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditRoom(row);
+              }}
+            >
               <Edit className="me-2 h-4 w-4" />
               {tc('edit')}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-red-600"
-              onClick={(e) => { e.stopPropagation(); void handleDelete(row); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleDelete(row);
+              }}
             >
               <Trash2 className="me-2 h-4 w-4" />
               {tc('delete')}
@@ -184,7 +205,13 @@ export default function RoomsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-3">
-      <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+      <Select
+        value={typeFilter}
+        onValueChange={(v) => {
+          setTypeFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-40">
           <SelectValue placeholder={t('roomType')} />
         </SelectTrigger>
@@ -198,7 +225,13 @@ export default function RoomsPage() {
         </SelectContent>
       </Select>
 
-      <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v); setPage(1); }}>
+      <Select
+        value={activeFilter}
+        onValueChange={(v) => {
+          setActiveFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-36">
           <SelectValue />
         </SelectTrigger>
@@ -235,16 +268,14 @@ export default function RoomsPage() {
         onRowClick={(row) => router.push(`/${locale}/rooms/${row.id}`)}
       />
 
-      <RoomForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        onSubmit={handleCreate}
-      />
+      <RoomForm open={formOpen} onOpenChange={setFormOpen} onSubmit={handleCreate} />
 
       {editRoom && (
         <RoomForm
           open={!!editRoom}
-          onOpenChange={(open) => { if (!open) setEditRoom(null); }}
+          onOpenChange={(open) => {
+            if (!open) setEditRoom(null);
+          }}
           onSubmit={handleEdit}
           initialData={{
             name: editRoom.name,

@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, Skeleton, StatusBadge, Textarea, toast } from '@school/ui';
 import { Info, Save, Target } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Skeleton, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

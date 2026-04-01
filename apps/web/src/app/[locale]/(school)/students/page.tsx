@@ -1,5 +1,9 @@
 'use client';
 
+import { Download, FileSpreadsheet, GraduationCap, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
 import {
   Button,
   EmptyState,
@@ -12,14 +16,6 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { Download, FileSpreadsheet, GraduationCap, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import * as React from 'react';
-
-import { DataTable } from '@/components/data-table';
-import { EntityLink } from '@/components/entity-link';
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
 
 import { StudentExportDialog } from './_components/export-dialog';
 import {
@@ -29,6 +25,12 @@ import {
   generateExcel,
   generatePdf,
 } from './_components/export-utils';
+
+import { DataTable } from '@/components/data-table';
+import { EntityLink } from '@/components/entity-link';
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
+
 
 interface YearGroup {
   id: string;
@@ -100,7 +102,8 @@ export default function StudentsPage() {
       if (search) params.set('search', search);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
-      if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
+      if (allergyFilter !== 'all')
+        params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
 
       const res = await apiClient<{ data: ExportStudent[] }>(
         `/api/v1/students/export-data?${params.toString()}`,
@@ -139,14 +142,16 @@ export default function StudentsPage() {
       if (search) params.set('search', search);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (yearGroupFilter !== 'all') params.set('year_group_id', yearGroupFilter);
-      if (allergyFilter !== 'all') params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
+      if (allergyFilter !== 'all')
+        params.set('has_allergy', allergyFilter === 'yes' ? 'true' : 'false');
 
       const res = await apiClient<{ data: Student[]; meta: { total: number } }>(
         `/api/v1/students?${params.toString()}`,
       );
       setStudents(res.data);
       setTotal(res.meta.total);
-    } catch {
+    } catch (err) {
+      console.error('[fetchStudents]', err);
       setStudents([]);
       setTotal(0);
     } finally {
@@ -158,8 +163,8 @@ export default function StudentsPage() {
     try {
       const res = await apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100');
       setYearGroups(res.data);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('[fetchYearGroups]', err);
     }
   }, []);
 

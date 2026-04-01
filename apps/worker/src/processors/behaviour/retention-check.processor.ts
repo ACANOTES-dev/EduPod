@@ -1,8 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Inject, Logger } from '@nestjs/common';
 import { $Enums, Prisma, type PrismaClient } from '@prisma/client';
-import { behaviourSettingsSchema } from '@school/shared';
 import { Job } from 'bullmq';
+
+import { behaviourSettingsSchema } from '@school/shared';
 
 import { QUEUE_NAMES } from '../../base/queue.constants';
 import { TenantAwareJob, type TenantJobPayload } from '../../base/tenant-aware-job';
@@ -67,14 +68,57 @@ interface EntityRetentionConfig {
 }
 
 const _ENTITY_CONFIGS: EntityRetentionConfig[] = [
-  { model: 'behaviourIncident', retentionSettingsKey: 'incident_retention_years', entityType: 'incident', dateField: 'occurred_at' },
-  { model: 'behaviourSanction', retentionSettingsKey: 'sanction_retention_years', entityType: 'sanction', dateField: 'scheduled_date' },
-  { model: 'behaviourIntervention', retentionSettingsKey: 'intervention_retention_years', entityType: 'intervention', dateField: 'created_at' },
-  { model: 'behaviourAppeal', retentionSettingsKey: 'appeal_retention_years', entityType: 'appeal', dateField: 'decided_at' },
-  { model: 'behaviourExclusionCase', retentionSettingsKey: 'exclusion_case_retention_years', entityType: 'exclusion_case', dateField: 'created_at', alwaysHeld: true },
-  { model: 'behaviourTask', retentionSettingsKey: 'task_retention_years', entityType: 'task', dateField: 'completed_at', skipLegalHoldCheck: true },
-  { model: 'behaviourPolicyEvaluation', retentionSettingsKey: 'policy_evaluation_retention_years', entityType: 'incident', dateField: 'created_at' },
-  { model: 'behaviourAlert', retentionSettingsKey: 'alert_retention_years', entityType: 'task', dateField: 'created_at', skipLegalHoldCheck: true },
+  {
+    model: 'behaviourIncident',
+    retentionSettingsKey: 'incident_retention_years',
+    entityType: 'incident',
+    dateField: 'occurred_at',
+  },
+  {
+    model: 'behaviourSanction',
+    retentionSettingsKey: 'sanction_retention_years',
+    entityType: 'sanction',
+    dateField: 'scheduled_date',
+  },
+  {
+    model: 'behaviourIntervention',
+    retentionSettingsKey: 'intervention_retention_years',
+    entityType: 'intervention',
+    dateField: 'created_at',
+  },
+  {
+    model: 'behaviourAppeal',
+    retentionSettingsKey: 'appeal_retention_years',
+    entityType: 'appeal',
+    dateField: 'decided_at',
+  },
+  {
+    model: 'behaviourExclusionCase',
+    retentionSettingsKey: 'exclusion_case_retention_years',
+    entityType: 'exclusion_case',
+    dateField: 'created_at',
+    alwaysHeld: true,
+  },
+  {
+    model: 'behaviourTask',
+    retentionSettingsKey: 'task_retention_years',
+    entityType: 'task',
+    dateField: 'completed_at',
+    skipLegalHoldCheck: true,
+  },
+  {
+    model: 'behaviourPolicyEvaluation',
+    retentionSettingsKey: 'policy_evaluation_retention_years',
+    entityType: 'incident',
+    dateField: 'created_at',
+  },
+  {
+    model: 'behaviourAlert',
+    retentionSettingsKey: 'alert_retention_years',
+    entityType: 'task',
+    dateField: 'created_at',
+    skipLegalHoldCheck: true,
+  },
 ];
 
 // ─── Retention Job ──────────────────────────────────────────────────────────
@@ -133,16 +177,20 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
 
       // Process incidents for this student
       await this.archiveEntitiesForStudent(
-        tx, tenant_id, student.id, student.exit_date, now, settings, dry_run ?? false,
+        tx,
+        tenant_id,
+        student.id,
+        student.exit_date,
+        now,
+        settings,
+        dry_run ?? false,
       );
     }
 
     // ── Pass 2: Anonymisation ───────────────────────────────────────────
 
     // Find archived entities where retention deadline has fully elapsed
-    await this.anonymiseArchivedEntities(
-      tx, tenant_id, now, settings, dry_run ?? false,
-    );
+    await this.anonymiseArchivedEntities(tx, tenant_id, now, settings, dry_run ?? false);
 
     // ── Pass 3: Flag exclusion cases and safeguarding for manual review ─
 
@@ -187,8 +235,8 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
 
     this.logger.log(
       `Retention check complete for tenant ${tenant_id}: ` +
-      `archived=${this.result.archived_count}, anonymised=${this.result.anonymised_count}, ` +
-      `held_skipped=${this.result.held_skipped_count}, restrictions_expired=${this.result.guardian_restrictions_expired}`,
+        `archived=${this.result.archived_count}, anonymised=${this.result.anonymised_count}, ` +
+        `held_skipped=${this.result.held_skipped_count}, restrictions_expired=${this.result.guardian_restrictions_expired}`,
     );
   }
 
@@ -378,7 +426,10 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
             changed_by_id: '00000000-0000-0000-0000-000000000000', // System
             change_type: 'anonymised',
             previous_values: Prisma.DbNull,
-            new_values: { retention_status: 'anonymised', anonymised_at: now.toISOString() } as unknown as Prisma.InputJsonValue,
+            new_values: {
+              retention_status: 'anonymised',
+              anonymised_at: now.toISOString(),
+            } as unknown as Prisma.InputJsonValue,
           },
         });
       }
@@ -436,7 +487,10 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
             changed_by_id: '00000000-0000-0000-0000-000000000000',
             change_type: 'anonymised',
             previous_values: Prisma.DbNull,
-            new_values: { retention_status: 'anonymised', anonymised_at: now.toISOString() } as unknown as Prisma.InputJsonValue,
+            new_values: {
+              retention_status: 'anonymised',
+              anonymised_at: now.toISOString(),
+            } as unknown as Prisma.InputJsonValue,
           },
         });
       }
@@ -493,7 +547,10 @@ class RetentionCheckJob extends TenantAwareJob<RetentionCheckPayload> {
             changed_by_id: '00000000-0000-0000-0000-000000000000',
             change_type: 'anonymised',
             previous_values: Prisma.DbNull,
-            new_values: { retention_status: 'anonymised', anonymised_at: now.toISOString() } as unknown as Prisma.InputJsonValue,
+            new_values: {
+              retention_status: 'anonymised',
+              anonymised_at: now.toISOString(),
+            } as unknown as Prisma.InputJsonValue,
           },
         });
       }

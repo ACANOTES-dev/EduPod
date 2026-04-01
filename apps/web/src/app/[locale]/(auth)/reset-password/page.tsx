@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Input, Label } from '@school/ui';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, Label } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -234,10 +234,7 @@ export default function ResetPasswordPage() {
         <CheckCircle className="mb-4 h-12 w-12 text-success-text" />
         <h2 className="text-xl font-semibold text-text-primary">{t('resetSuccess')}</h2>
         <p className="mt-2 text-sm text-text-secondary">{t('resetSuccessDescription')}</p>
-        <a
-          href={`/${locale}/login`}
-          className="mt-6"
-        >
+        <a href={`/${locale}/login`} className="mt-6">
           <Button>{t('backToLogin')}</Button>
         </a>
       </div>

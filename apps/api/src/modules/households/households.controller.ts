@@ -13,6 +13,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   addStudentToHouseholdSchema,
   createHouseholdSchema,
@@ -31,7 +33,6 @@ import type {
   TenantContext,
   UpdateHouseholdDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -119,10 +120,7 @@ export class HouseholdsController {
 
   @Get(':id')
   @RequiresPermission('students.view')
-  async findOne(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async findOne(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.householdsService.findOne(tenant.tenant_id, id);
   }
 
@@ -193,11 +191,7 @@ export class HouseholdsController {
     @Param('householdId', ParseUUIDPipe) householdId: string,
     @Param('contactId', ParseUUIDPipe) contactId: string,
   ) {
-    return this.householdsService.removeEmergencyContact(
-      tenant.tenant_id,
-      householdId,
-      contactId,
-    );
+    return this.householdsService.removeEmergencyContact(tenant.tenant_id, householdId, contactId);
   }
 
   @Post(':id/parents')
@@ -209,12 +203,7 @@ export class HouseholdsController {
     @Body(new ZodValidationPipe(linkParentSchema))
     body: z.infer<typeof linkParentSchema>,
   ) {
-    return this.householdsService.linkParent(
-      tenant.tenant_id,
-      id,
-      body.parent_id,
-      body.role_label,
-    );
+    return this.householdsService.linkParent(tenant.tenant_id, id, body.parent_id, body.role_label);
   }
 
   @Delete(':householdId/parents/:parentId')
@@ -225,11 +214,7 @@ export class HouseholdsController {
     @Param('householdId', ParseUUIDPipe) householdId: string,
     @Param('parentId', ParseUUIDPipe) parentId: string,
   ) {
-    return this.householdsService.unlinkParent(
-      tenant.tenant_id,
-      householdId,
-      parentId,
-    );
+    return this.householdsService.unlinkParent(tenant.tenant_id, householdId, parentId);
   }
 
   @Post(':id/students')
@@ -246,10 +231,7 @@ export class HouseholdsController {
 
   @Get(':id/preview')
   @RequiresPermission('students.view')
-  async preview(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async preview(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.householdsService.preview(tenant.tenant_id, id);
   }
 }

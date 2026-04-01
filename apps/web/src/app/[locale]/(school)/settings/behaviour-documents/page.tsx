@@ -1,5 +1,9 @@
 'use client';
 
+import { ChevronDown, ChevronRight, Eye, Lock, Pencil, Plus } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -16,9 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { ChevronDown, ChevronRight, Eye, Lock, Pencil, Plus } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -344,9 +345,7 @@ export default function BehaviourDocumentTemplatesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold text-text-primary">
-              {selectedTemplate.name}
-            </h2>
+            <h2 className="text-base font-semibold text-text-primary">{selectedTemplate.name}</h2>
             {selectedTemplate.is_system && (
               <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                 <Lock className="h-3 w-3" />
@@ -363,19 +362,12 @@ export default function BehaviourDocumentTemplatesPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreviewOpen(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
             <Eye className="me-1.5 h-3.5 w-3.5" />
             Preview
           </Button>
           {!selectedTemplate.is_system && (
-            <Button
-              size="sm"
-              onClick={(e) => openEdit(selectedTemplate, e)}
-            >
+            <Button size="sm" onClick={(e) => openEdit(selectedTemplate, e)}>
               <Pencil className="me-1.5 h-3.5 w-3.5" />
               Edit
             </Button>
@@ -472,11 +464,7 @@ export default function BehaviourDocumentTemplatesPage() {
         </div>
 
         {/* Right: editor */}
-        <div
-          className={`flex-1 md:ps-6 ${
-            isMobile && !mobileShowEditor ? 'hidden' : 'block'
-          }`}
-        >
+        <div className={`flex-1 md:ps-6 ${isMobile && !mobileShowEditor ? 'hidden' : 'block'}`}>
           {rightPanel}
         </div>
       </div>
@@ -485,9 +473,7 @@ export default function BehaviourDocumentTemplatesPage() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {editTarget ? 'Edit Template' : 'New Template'}
-            </DialogTitle>
+            <DialogTitle>{editTarget ? 'Edit Template' : 'New Template'}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -522,10 +508,7 @@ export default function BehaviourDocumentTemplatesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Locale</Label>
-                <Select
-                  value={form.locale}
-                  onValueChange={(v) => updateForm('locale', v)}
-                >
+                <Select value={form.locale} onValueChange={(v) => updateForm('locale', v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -550,7 +533,9 @@ export default function BehaviourDocumentTemplatesPage() {
                 onChange={(e) => updateForm('body', e.target.value)}
                 rows={16}
                 className="w-full rounded-lg border border-border bg-gray-50 p-3 font-mono text-xs leading-relaxed text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-600 dark:bg-gray-900"
-                placeholder={'<h1>{{school.name}}</h1>\n\n<p>Dear {{parent.full_name}},</p>\n\n<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>'}
+                placeholder={
+                  '<h1>{{school.name}}</h1>\n\n<p>Dear {{parent.full_name}},</p>\n\n<p>We are writing to inform you about an incident involving {{student.full_name}}...</p>'
+                }
                 spellCheck={false}
               />
             </div>
@@ -594,9 +579,7 @@ export default function BehaviourDocumentTemplatesPage() {
               )}
             </div>
 
-            {saveError && (
-              <p className="text-sm text-danger-text">{saveError}</p>
-            )}
+            {saveError && <p className="text-sm text-danger-text">{saveError}</p>}
           </div>
 
           <DialogFooter>
@@ -618,9 +601,9 @@ export default function BehaviourDocumentTemplatesPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-              This preview shows the raw template with merge fields as-is. In a generated
-              document, all <code className="font-mono">{'{{placeholders}}'}</code> are replaced
-              with real student, incident, and sanction data.
+              This preview shows the raw template with merge fields as-is. In a generated document,
+              all <code className="font-mono">{'{{placeholders}}'}</code> are replaced with real
+              student, incident, and sanction data.
             </div>
             {selectedTemplate && (
               <div

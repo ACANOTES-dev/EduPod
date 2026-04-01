@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertTriangle, Copy, Lock, Star, Unlock } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Checkbox,
@@ -16,9 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertTriangle, Copy, Lock, Star, Unlock } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -26,10 +27,23 @@ import { useAuth } from '@/providers/auth-provider';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface AcademicYear { id: string; name: string }
-interface YearGroup { id: string; name: string }
-interface Subject { id: string; name: string }
-interface StaffProfile { id: string; name: string; roles: string[] }
+interface AcademicYear {
+  id: string;
+  name: string;
+}
+interface YearGroup {
+  id: string;
+  name: string;
+}
+interface Subject {
+  id: string;
+  name: string;
+}
+interface StaffProfile {
+  id: string;
+  name: string;
+  roles: string[];
+}
 
 interface Competency {
   id: string;
@@ -68,7 +82,7 @@ export default function CompetenciesPage() {
     );
   }, [user]);
   const canUnlock = React.useMemo(
-    () => userRoleKeys.some((k) => UNLOCK_ROLES.includes(k as typeof UNLOCK_ROLES[number])),
+    () => userRoleKeys.some((k) => UNLOCK_ROLES.includes(k as (typeof UNLOCK_ROLES)[number])),
     [userRoleKeys],
   );
 
@@ -83,7 +97,9 @@ export default function CompetenciesPage() {
   const [wizardStep, setWizardStep] = React.useState<1 | 2>(1);
   const [wizardTargets, setWizardTargets] = React.useState<Set<string>>(new Set());
   // Map: yearGroupId -> Set of subjectIds available in that target
-  const [wizardTargetSubjects, setWizardTargetSubjects] = React.useState<Map<string, Set<string>>>(new Map());
+  const [wizardTargetSubjects, setWizardTargetSubjects] = React.useState<Map<string, Set<string>>>(
+    new Map(),
+  );
   // Map: "ygId:subjectId" -> checked
   const [wizardSelections, setWizardSelections] = React.useState<Map<string, boolean>>(new Map());
   const [wizardLoading, setWizardLoading] = React.useState(false);
@@ -99,9 +115,8 @@ export default function CompetenciesPage() {
 
   // Subjects filtered to only those in the curriculum for the selected year group
   const matrixSubjects = React.useMemo(
-    () => (curriculumSubjectIds.size > 0
-      ? subjects.filter((s) => curriculumSubjectIds.has(s.id))
-      : []),
+    () =>
+      curriculumSubjectIds.size > 0 ? subjects.filter((s) => curriculumSubjectIds.has(s.id)) : [],
     [subjects, curriculumSubjectIds],
   );
 
@@ -126,26 +141,39 @@ export default function CompetenciesPage() {
       apiClient<{ data: AcademicYear[] }>('/api/v1/academic-years?pageSize=20'),
       apiClient<{ data: YearGroup[] }>('/api/v1/year-groups?pageSize=100'),
       apiClient<{ data: Subject[] }>('/api/v1/subjects?pageSize=100'),
-      apiClient<{ data: Array<{ id: string; user?: { first_name: string; last_name: string }; roles?: string[] }>; meta: { total: number } }>('/api/v1/staff-profiles?pageSize=100'),
-    ]).then(async ([yearsRes, ygRes, subRes, staffRes]) => {
-      setAcademicYears(yearsRes.data);
-      setYearGroups(ygRes.data);
-      setSubjects(subRes.data);
+      apiClient<{
+        data: Array<{
+          id: string;
+          user?: { first_name: string; last_name: string };
+          roles?: string[];
+        }>;
+        meta: { total: number };
+      }>('/api/v1/staff-profiles?pageSize=100'),
+    ])
+      .then(async ([yearsRes, ygRes, subRes, staffRes]) => {
+        setAcademicYears(yearsRes.data);
+        setYearGroups(ygRes.data);
+        setSubjects(subRes.data);
 
-      let allStaff = staffRes.data ?? [];
-      const total = staffRes.meta?.total ?? allStaff.length;
-      if (total > 100) {
-        const remaining = await apiClient<{ data: typeof allStaff }>('/api/v1/staff-profiles?pageSize=100&page=2');
-        allStaff = [...allStaff, ...(remaining.data ?? [])];
-      }
+        let allStaff = staffRes.data ?? [];
+        const total = staffRes.meta?.total ?? allStaff.length;
+        if (total > 100) {
+          const remaining = await apiClient<{ data: typeof allStaff }>(
+            '/api/v1/staff-profiles?pageSize=100&page=2',
+          );
+          allStaff = [...allStaff, ...(remaining.data ?? [])];
+        }
 
-      setTeachers(allStaff.map((s) => ({
-        id: s.id,
-        name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
-        roles: s.roles ?? [],
-      })));
-      if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
-    }).catch(() => toast.error(tc('errorGeneric')));
+        setTeachers(
+          allStaff.map((s) => ({
+            id: s.id,
+            name: s.user ? `${s.user.first_name} ${s.user.last_name}` : s.id,
+            roles: s.roles ?? [],
+          })),
+        );
+        if (yearsRes.data[0]) setSelectedYear(yearsRes.data[0].id);
+      })
+      .catch(() => toast.error(tc('errorGeneric')));
   }, [tc]);
 
   // Fetch subjects assigned to classes in this year group
@@ -204,10 +232,10 @@ export default function CompetenciesPage() {
     );
     try {
       if (existing) {
-        await apiClient(
-          `/api/v1/scheduling/teacher-competencies/${existing.id}`,
-          { method: 'DELETE', silent: true },
-        );
+        await apiClient(`/api/v1/scheduling/teacher-competencies/${existing.id}`, {
+          method: 'DELETE',
+          silent: true,
+        });
         setCompetencies((prev) => prev.filter((c) => c.id !== existing.id));
       } else {
         const res = await apiClient<{ data: Competency }>(
@@ -234,17 +262,12 @@ export default function CompetenciesPage() {
   const togglePrimary = async (competency: Competency) => {
     if (isLocked) return;
     try {
-      await apiClient(
-        `/api/v1/scheduling/teacher-competencies/${competency.id}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ is_primary: !competency.is_primary }),
-        },
-      );
+      await apiClient(`/api/v1/scheduling/teacher-competencies/${competency.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_primary: !competency.is_primary }),
+      });
       setCompetencies((prev) =>
-        prev.map((c) =>
-          c.id === competency.id ? { ...c, is_primary: !c.is_primary } : c,
-        ),
+        prev.map((c) => (c.id === competency.id ? { ...c, is_primary: !c.is_primary } : c)),
       );
     } catch {
       toast.error(tc('errorGeneric'));
@@ -309,9 +332,7 @@ export default function CompetenciesPage() {
 
       for (const { ygId, subjectIds } of results) {
         // Only include subjects that are common with the source year group
-        const commonIds = new Set(
-          [...subjectIds].filter((sid) => curriculumSubjectIds.has(sid)),
-        );
+        const commonIds = new Set([...subjectIds].filter((sid) => curriculumSubjectIds.has(sid)));
         targetSubMap.set(ygId, commonIds);
 
         // Default all applicable cells to checked
@@ -427,7 +448,9 @@ export default function CompetenciesPage() {
               </SelectTrigger>
               <SelectContent>
                 {academicYears.map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                  <SelectItem key={y.id} value={y.id}>
+                    {y.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -437,9 +460,13 @@ export default function CompetenciesPage() {
                 <SelectValue placeholder={tv('copyFromYear')} />
               </SelectTrigger>
               <SelectContent>
-                {academicYears.filter((y) => y.id !== selectedYear).map((y) => (
-                  <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
-                ))}
+                {academicYears
+                  .filter((y) => y.id !== selectedYear)
+                  .map((y) => (
+                    <SelectItem key={y.id} value={y.id}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
@@ -474,7 +501,9 @@ export default function CompetenciesPage() {
               </SelectTrigger>
               <SelectContent>
                 {yearGroups.map((yg) => (
-                  <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                  <SelectItem key={yg.id} value={yg.id}>
+                    {yg.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -509,7 +538,9 @@ export default function CompetenciesPage() {
           </div>
 
           {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length > 0 && (
-            <div className={`rounded-2xl border border-border overflow-hidden transition-opacity ${isLocked ? 'opacity-60' : ''}`}>
+            <div
+              className={`rounded-2xl border border-border overflow-hidden transition-opacity ${isLocked ? 'opacity-60' : ''}`}
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -518,7 +549,10 @@ export default function CompetenciesPage() {
                         {tv('teacherName')}
                       </th>
                       {matrixSubjects.map((subject) => (
-                        <th key={subject.id} className="px-3 py-3 text-center text-xs font-medium text-text-tertiary uppercase">
+                        <th
+                          key={subject.id}
+                          className="px-3 py-3 text-center text-xs font-medium text-text-tertiary uppercase"
+                        >
                           {subject.name}
                         </th>
                       ))}
@@ -571,7 +605,9 @@ export default function CompetenciesPage() {
                                       className={`transition-colors ${comp.is_primary ? 'text-amber-500' : 'text-text-tertiary hover:text-amber-400'}`}
                                       title={tv('primary')}
                                     >
-                                      <Star className={`h-3.5 w-3.5 ${comp.is_primary ? 'fill-current' : ''}`} />
+                                      <Star
+                                        className={`h-3.5 w-3.5 ${comp.is_primary ? 'fill-current' : ''}`}
+                                      />
                                     </button>
                                   )}
                                   {comp && isLocked && comp.is_primary && (
@@ -590,11 +626,14 @@ export default function CompetenciesPage() {
             </div>
           )}
 
-          {selectedTeacherTabYg && teacherRoleStaff.length > 0 && matrixSubjects.length === 0 && !isLoading && (
-            <div className="rounded-2xl border border-border px-4 py-8 text-center text-text-tertiary">
-              {tv('noCurriculumSubjects')}
-            </div>
-          )}
+          {selectedTeacherTabYg &&
+            teacherRoleStaff.length > 0 &&
+            matrixSubjects.length === 0 &&
+            !isLoading && (
+              <div className="rounded-2xl border border-border px-4 py-8 text-center text-text-tertiary">
+                {tv('noCurriculumSubjects')}
+              </div>
+            )}
 
           {selectedTeacherTabYg && teacherRoleStaff.length === 0 && (
             <div className="rounded-2xl border border-border px-4 py-8 text-center text-text-tertiary">
@@ -614,7 +653,9 @@ export default function CompetenciesPage() {
               </SelectTrigger>
               <SelectContent>
                 {subjects.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -624,7 +665,9 @@ export default function CompetenciesPage() {
               </SelectTrigger>
               <SelectContent>
                 {yearGroups.map((yg) => (
-                  <SelectItem key={yg.id} value={yg.id}>{yg.name}</SelectItem>
+                  <SelectItem key={yg.id} value={yg.id}>
+                    {yg.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -656,28 +699,50 @@ export default function CompetenciesPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-surface-secondary">
-                        <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('teacherName')}</th>
-                        <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">{tv('primary')}</th>
+                        <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                          {tv('teacherName')}
+                        </th>
+                        <th className="px-4 py-3 text-start text-xs font-medium text-text-tertiary uppercase">
+                          {tv('primary')}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {isLoading ? (
-                        <tr><td colSpan={2} className="px-4 py-8 text-center text-text-tertiary">{tc('loading')}</td></tr>
+                        <tr>
+                          <td colSpan={2} className="px-4 py-8 text-center text-text-tertiary">
+                            {tc('loading')}
+                          </td>
+                        </tr>
                       ) : (
                         (() => {
                           const eligible = competencies.filter(
-                            (c) => c.subject_id === selectedSubject && c.year_group_id === selectedYearGroup,
+                            (c) =>
+                              c.subject_id === selectedSubject &&
+                              c.year_group_id === selectedYearGroup,
                           );
                           if (eligible.length === 0) {
                             return (
-                              <tr><td colSpan={2} className="px-4 py-8 text-center text-text-tertiary">{tv('noTeachers')}</td></tr>
+                              <tr>
+                                <td
+                                  colSpan={2}
+                                  className="px-4 py-8 text-center text-text-tertiary"
+                                >
+                                  {tv('noTeachers')}
+                                </td>
+                              </tr>
                             );
                           }
                           return eligible.map((comp) => {
                             const teacher = teachers.find((t) => t.id === comp.staff_profile_id);
                             return (
-                              <tr key={comp.id} className="border-t border-border hover:bg-surface-secondary/50">
-                                <td className="px-4 py-3 font-medium text-text-primary">{teacher?.name ?? '—'}</td>
+                              <tr
+                                key={comp.id}
+                                className="border-t border-border hover:bg-surface-secondary/50"
+                              >
+                                <td className="px-4 py-3 font-medium text-text-primary">
+                                  {teacher?.name ?? '—'}
+                                </td>
                                 <td className="px-4 py-3">
                                   {comp.is_primary ? (
                                     <Star className="h-4 w-4 text-amber-500 fill-current" />
@@ -774,7 +839,10 @@ export default function CompetenciesPage() {
                         {tv('targetYear')}
                       </th>
                       {wizardCommonSubjects.map((s) => (
-                        <th key={s.id} className="px-3 py-2 text-center text-xs font-medium text-text-tertiary uppercase">
+                        <th
+                          key={s.id}
+                          className="px-3 py-2 text-center text-xs font-medium text-text-tertiary uppercase"
+                        >
                           {s.name}
                         </th>
                       ))}
@@ -793,7 +861,10 @@ export default function CompetenciesPage() {
                             const isCommon = targetSubs.has(s.id);
                             if (!isCommon) {
                               return (
-                                <td key={s.id} className="px-3 py-2 text-center text-text-tertiary bg-surface-secondary/50">
+                                <td
+                                  key={s.id}
+                                  className="px-3 py-2 text-center text-text-tertiary bg-surface-secondary/50"
+                                >
                                   —
                                 </td>
                               );

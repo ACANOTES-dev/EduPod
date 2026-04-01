@@ -1,5 +1,8 @@
 'use client';
 
+import { Check, ChevronsUpDown } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -21,8 +24,6 @@ import {
   CommandGroup,
   CommandItem,
 } from '@school/ui';
-import { Check, ChevronsUpDown } from 'lucide-react';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -100,8 +101,8 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
         ]);
         setYearGroups(ygRes.data);
         setHouseholds(hhRes.data);
-      } catch {
-        // ignore fetch failures — dropdowns will be empty
+      } catch (err) {
+        console.error('[fetchOptions]', err);
       }
     };
     void fetchOptions();
@@ -186,7 +187,9 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             value={formData.date_of_birth}
             onChange={(e) => set('date_of_birth', e.target.value)}
           />
-          {errors.date_of_birth && <p className="text-xs text-danger-text">{errors.date_of_birth}</p>}
+          {errors.date_of_birth && (
+            <p className="text-xs text-danger-text">{errors.date_of_birth}</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="gender">Gender *</Label>
@@ -218,9 +221,9 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
                 className="w-full justify-between font-normal"
               >
                 {formData.household_id
-                  ? households.find((h) => h.id === formData.household_id)?.household_name ??
+                  ? (households.find((h) => h.id === formData.household_id)?.household_name ??
                     households.find((h) => h.id === formData.household_id)?.name ??
-                    'Select household'
+                    'Select household')
                   : 'Select household'}
                 <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
@@ -244,7 +247,9 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
                           className={`me-2 h-4 w-4 ${formData.household_id === hh.id ? 'opacity-100' : 'opacity-0'}`}
                         />
                         <div>
-                          <p className="text-sm font-medium">{hh.household_name ?? hh.name ?? 'Unnamed'}</p>
+                          <p className="text-sm font-medium">
+                            {hh.household_name ?? hh.name ?? 'Unnamed'}
+                          </p>
                           <p className="text-xs text-text-tertiary">
                             {[
                               hh.household_number,
@@ -279,7 +284,9 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
               ))}
             </SelectContent>
           </Select>
-          {errors.year_group_id && <p className="text-xs text-danger-text">{errors.year_group_id}</p>}
+          {errors.year_group_id && (
+            <p className="text-xs text-danger-text">{errors.year_group_id}</p>
+          )}
         </div>
       </div>
 
@@ -294,9 +301,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             onChange={(e) => set('national_id', e.target.value)}
             placeholder="e.g. 1234567890"
           />
-          {errors.national_id && (
-            <p className="text-xs text-danger-text">{errors.national_id}</p>
-          )}
+          {errors.national_id && <p className="text-xs text-danger-text">{errors.national_id}</p>}
         </div>
         {!isEditMode && (
           <div className="space-y-1.5">
@@ -324,9 +329,7 @@ export function StudentForm({ initialData, onSubmit, isEditMode = false }: Stude
             onChange={(e) => set('nationality', e.target.value)}
             placeholder="e.g. Irish, British, Emirati"
           />
-          {errors.nationality && (
-            <p className="text-xs text-danger-text">{errors.nationality}</p>
-          )}
+          {errors.nationality && <p className="text-xs text-danger-text">{errors.nationality}</p>}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="city_of_birth">City of Birth</Label>

@@ -1,5 +1,8 @@
 'use client';
 
+import { AlertTriangle, Check, Loader2, Lock, Plus, Save, Unlock } from 'lucide-react';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,8 +19,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertTriangle, Check, Loader2, Lock, Plus, Save, Unlock } from 'lucide-react';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -145,7 +146,8 @@ export default function CurriculumMatrixPage() {
         `/api/v1/curriculum-matrix?${params.toString()}`,
       );
       setMatrix(res.data);
-    } catch {
+    } catch (err) {
+      console.error('[fetchMatrix]', err);
       setMatrix(null);
     } finally {
       setIsLoading(false);
@@ -188,8 +190,8 @@ export default function CurriculumMatrixPage() {
         }),
       });
       await fetchMatrix();
-    } catch {
-      // Error toast is handled by apiClient
+    } catch (err) {
+      console.error('[handleToggle]', err);
     } finally {
       setTogglingCells((prev) => {
         const next = new Set(prev);
@@ -236,7 +238,13 @@ export default function CurriculumMatrixPage() {
     apiClient<{ data: AssessmentCategory[] }>('/api/v1/gradebook/assessment-categories')
       .then((res) => setCategories(Array.isArray(res.data) ? res.data : []))
       .catch(() => undefined);
-    setBulkForm({ title: '', academic_period_id: '', category_id: '', max_score: '100', due_date: '' });
+    setBulkForm({
+      title: '',
+      academic_period_id: '',
+      category_id: '',
+      max_score: '100',
+      due_date: '',
+    });
     setBulkDialogOpen(true);
   };
 
@@ -272,11 +280,13 @@ export default function CurriculumMatrixPage() {
           }),
         },
       );
-      toast.success(`Created ${res.created} assessment(s)${res.skipped > 0 ? `, ${res.skipped} skipped` : ''}`);
+      toast.success(
+        `Created ${res.created} assessment(s)${res.skipped > 0 ? `, ${res.skipped} skipped` : ''}`,
+      );
       setBulkDialogOpen(false);
       clearSelection();
-    } catch {
-      // Error toast handled by apiClient
+    } catch (err) {
+      console.error('[handleBulkCreate]', err);
     } finally {
       setIsBulkCreating(false);
     }
@@ -286,12 +296,14 @@ export default function CurriculumMatrixPage() {
 
   const groupedClasses = React.useMemo(() => {
     if (!matrix) return [];
-    const groups: Array<{ yearGroup: string; yearGroupId: string | null; classes: MatrixClass[] }> = [];
+    const groups: Array<{ yearGroup: string; yearGroupId: string | null; classes: MatrixClass[] }> =
+      [];
     const groupMap = new Map<string, { yearGroupId: string | null; classes: MatrixClass[] }>();
 
     for (const c of matrix.classes) {
       const key = c.year_group?.name ?? 'Ungrouped';
-      if (!groupMap.has(key)) groupMap.set(key, { yearGroupId: c.year_group?.id ?? null, classes: [] });
+      if (!groupMap.has(key))
+        groupMap.set(key, { yearGroupId: c.year_group?.id ?? null, classes: [] });
       groupMap.get(key)!.classes.push(c);
     }
 
@@ -379,9 +391,8 @@ export default function CurriculumMatrixPage() {
 
     // We need an academic year to pass to the endpoint
     // Get the academic year from the first class in the matrix
-    const academicYearId = yearFilter !== 'all'
-      ? yearFilter
-      : matrix?.classes[0]?.academic_year?.id;
+    const academicYearId =
+      yearFilter !== 'all' ? yearFilter : matrix?.classes[0]?.academic_year?.id;
 
     if (!academicYearId) {
       toast.error('Please select an academic year first.');
@@ -418,11 +429,13 @@ export default function CurriculumMatrixPage() {
         totalRemoved += res.removed;
       }
 
-      toast.success(`Year-level update complete: ${totalCreated} assigned, ${totalRemoved} removed`);
+      toast.success(
+        `Year-level update complete: ${totalCreated} assigned, ${totalRemoved} removed`,
+      );
       setYearLevelChanges(new Map());
       await fetchMatrix();
-    } catch {
-      // Error toast handled by apiClient
+    } catch (err) {
+      console.error('[handleSaveYearChanges]', err);
     } finally {
       setIsSavingYearChanges(false);
     }
@@ -471,20 +484,14 @@ export default function CurriculumMatrixPage() {
           <div className="flex items-center gap-2">
             {viewMode === 'class' && !isLocked && isSelecting ? (
               <>
-                <span className="text-sm text-text-secondary">
-                  {selectedCells.size} selected
-                </span>
+                <span className="text-sm text-text-secondary">{selectedCells.size} selected</span>
                 <Button size="sm" variant="outline" onClick={selectAllAssigned}>
                   Select All
                 </Button>
                 <Button size="sm" variant="outline" onClick={clearSelection}>
                   Cancel
                 </Button>
-                <Button
-                  size="sm"
-                  disabled={selectedCells.size === 0}
-                  onClick={openBulkDialog}
-                >
+                <Button size="sm" disabled={selectedCells.size === 0} onClick={openBulkDialog}>
                   <Plus className="me-2 h-4 w-4" />
                   Create Assessments ({selectedCells.size})
                 </Button>
@@ -507,9 +514,7 @@ export default function CurriculumMatrixPage() {
                 ) : (
                   <Save className="me-2 h-4 w-4" />
                 )}
-                {isSavingYearChanges
-                  ? 'Saving...'
-                  : `Save Changes (${yearLevelChanges.size})`}
+                {isSavingYearChanges ? 'Saving...' : `Save Changes (${yearLevelChanges.size})`}
               </Button>
             )}
           </div>
@@ -526,7 +531,9 @@ export default function CurriculumMatrixPage() {
             <SelectContent>
               <SelectItem value="all">All Academic Years</SelectItem>
               {academicYears.map((y) => (
-                <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                <SelectItem key={y.id} value={y.id}>
+                  {y.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -582,7 +589,9 @@ export default function CurriculumMatrixPage() {
       </div>
 
       {/* Matrix grid */}
-      <div className={`overflow-x-auto rounded-xl border border-border ${isLocked ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+      <div
+        className={`overflow-x-auto rounded-xl border border-border ${isLocked ? 'opacity-60 pointer-events-none select-none' : ''}`}
+      >
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-surface-secondary">
@@ -606,30 +615,98 @@ export default function CurriculumMatrixPage() {
             </tr>
           </thead>
           <tbody>
-            {viewMode === 'class' ? (
-              /* ─── Class Level View ─────────────────────────────────── */
-              groupedClasses.map((group) => (
-                <React.Fragment key={group.yearGroup}>
-                  {/* Year group header row */}
-                  <tr>
-                    <td
-                      colSpan={matrix.subjects.length + 1}
-                      className="bg-surface-secondary/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-secondary border-y border-border"
+            {viewMode === 'class'
+              ? /* ─── Class Level View ─────────────────────────────────── */
+                groupedClasses.map((group) => (
+                  <React.Fragment key={group.yearGroup}>
+                    {/* Year group header row */}
+                    <tr>
+                      <td
+                        colSpan={matrix.subjects.length + 1}
+                        className="bg-surface-secondary/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-text-secondary border-y border-border"
+                      >
+                        {group.yearGroup}
+                      </td>
+                    </tr>
+                    {/* Class rows */}
+                    {group.classes.map((cls) => (
+                      <tr
+                        key={cls.id}
+                        className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors"
+                      >
+                        <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
+                          {cls.name}
+                        </td>
+                        {matrix.subjects.map((subject) => {
+                          const key = cellKey(cls.id, subject.id);
+                          const assigned = isAssigned(cls.id, subject.id);
+                          const toggling = togglingCells.has(key);
+                          const selected = selectedCells.has(key);
+
+                          return (
+                            <td
+                              key={subject.id}
+                              className="border-e border-border last:border-e-0 p-0"
+                            >
+                              <button
+                                type="button"
+                                className={`flex h-10 w-full items-center justify-center transition-all
+                                ${
+                                  isSelecting && assigned
+                                    ? selected
+                                      ? 'bg-primary-500/20 ring-2 ring-inset ring-primary-500'
+                                      : 'hover:bg-surface-secondary cursor-pointer'
+                                    : ''
+                                }
+                                ${!isSelecting ? 'cursor-pointer hover:bg-surface-secondary' : ''}
+                                ${toggling ? 'opacity-50' : ''}
+                              `}
+                                onClick={() => {
+                                  if (isSelecting) {
+                                    toggleCellSelection(cls.id, subject.id);
+                                  } else {
+                                    void handleToggle(cls.id, subject.id);
+                                  }
+                                }}
+                                disabled={toggling}
+                                aria-label={`${subject.name} for ${cls.name}: ${assigned ? 'assigned' : 'not assigned'}`}
+                              >
+                                {toggling ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
+                                ) : assigned ? (
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-success-fill">
+                                    <Check className="h-4 w-4 text-success-text" strokeWidth={3} />
+                                  </div>
+                                ) : (
+                                  <div className="h-7 w-7 rounded-md border-2 border-border-primary bg-surface-secondary" />
+                                )}
+                              </button>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+              : /* ─── Year Level View ──────────────────────────────────── */
+                groupedClasses
+                  .filter((g) => g.yearGroupId !== null)
+                  .map((group) => (
+                    <tr
+                      key={group.yearGroupId}
+                      className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors"
                     >
-                      {group.yearGroup}
-                    </td>
-                  </tr>
-                  {/* Class rows */}
-                  {group.classes.map((cls) => (
-                    <tr key={cls.id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors">
                       <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
-                        {cls.name}
+                        <div>{group.yearGroup}</div>
+                        <div className="text-[10px] text-text-tertiary">
+                          {group.classes.length} class{group.classes.length !== 1 ? 'es' : ''}
+                        </div>
                       </td>
                       {matrix.subjects.map((subject) => {
-                        const key = cellKey(cls.id, subject.id);
-                        const assigned = isAssigned(cls.id, subject.id);
-                        const toggling = togglingCells.has(key);
-                        const selected = selectedCells.has(key);
+                        const { state, isPending } = getEffectiveYearState(
+                          group.yearGroupId!,
+                          subject.id,
+                        );
 
                         return (
                           <td
@@ -638,34 +715,31 @@ export default function CurriculumMatrixPage() {
                           >
                             <button
                               type="button"
-                              className={`flex h-10 w-full items-center justify-center transition-all
-                                ${isSelecting && assigned
-                                  ? selected
-                                    ? 'bg-primary-500/20 ring-2 ring-inset ring-primary-500'
-                                    : 'hover:bg-surface-secondary cursor-pointer'
-                                  : ''
-                                }
-                                ${!isSelecting ? 'cursor-pointer hover:bg-surface-secondary' : ''}
-                                ${toggling ? 'opacity-50' : ''}
-                              `}
-                              onClick={() => {
-                                if (isSelecting) {
-                                  toggleCellSelection(cls.id, subject.id);
-                                } else {
-                                  void handleToggle(cls.id, subject.id);
-                                }
-                              }}
-                              disabled={toggling}
-                              aria-label={`${subject.name} for ${cls.name}: ${assigned ? 'assigned' : 'not assigned'}`}
+                              className={`flex h-10 w-full items-center justify-center transition-all cursor-pointer hover:bg-surface-secondary/50
+                              ${isPending ? 'ring-2 ring-inset ring-dashed ring-primary-400' : ''}
+                            `}
+                              onClick={() => handleYearLevelToggle(group.yearGroupId!, subject.id)}
+                              aria-label={`${subject.name} for ${group.yearGroup}: ${state}`}
                             >
-                              {toggling ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-text-tertiary" />
-                              ) : assigned ? (
-                                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-success-fill">
+                              {state === 'all' ? (
+                                <div
+                                  className={`flex h-7 w-7 items-center justify-center rounded-md bg-success-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}
+                                >
                                   <Check className="h-4 w-4 text-success-text" strokeWidth={3} />
                                 </div>
+                              ) : state === 'mixed' ? (
+                                <div
+                                  className={`flex h-7 w-7 items-center justify-center rounded-md bg-error-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}
+                                >
+                                  <AlertTriangle
+                                    className="h-4 w-4 text-error-text"
+                                    strokeWidth={2.5}
+                                  />
+                                </div>
                               ) : (
-                                <div className="h-7 w-7 rounded-md border-2 border-border-primary bg-surface-secondary" />
+                                <div
+                                  className={`h-7 w-7 rounded-md border-2 bg-surface-secondary ${isPending ? 'border-dashed border-primary-500' : 'border-border-primary'}`}
+                                />
                               )}
                             </button>
                           </td>
@@ -673,57 +747,6 @@ export default function CurriculumMatrixPage() {
                       })}
                     </tr>
                   ))}
-                </React.Fragment>
-              ))
-            ) : (
-              /* ─── Year Level View ──────────────────────────────────── */
-              groupedClasses
-                .filter((g) => g.yearGroupId !== null)
-                .map((group) => (
-                  <tr
-                    key={group.yearGroupId}
-                    className="border-b border-border last:border-b-0 hover:bg-surface-secondary/30 transition-colors"
-                  >
-                    <td className="sticky start-0 z-10 bg-surface px-4 py-2 text-sm font-medium text-text-primary border-e border-border">
-                      <div>{group.yearGroup}</div>
-                      <div className="text-[10px] text-text-tertiary">
-                        {group.classes.length} class{group.classes.length !== 1 ? 'es' : ''}
-                      </div>
-                    </td>
-                    {matrix.subjects.map((subject) => {
-                      const { state, isPending } = getEffectiveYearState(group.yearGroupId!, subject.id);
-
-                      return (
-                        <td
-                          key={subject.id}
-                          className="border-e border-border last:border-e-0 p-0"
-                        >
-                          <button
-                            type="button"
-                            className={`flex h-10 w-full items-center justify-center transition-all cursor-pointer hover:bg-surface-secondary/50
-                              ${isPending ? 'ring-2 ring-inset ring-dashed ring-primary-400' : ''}
-                            `}
-                            onClick={() => handleYearLevelToggle(group.yearGroupId!, subject.id)}
-                            aria-label={`${subject.name} for ${group.yearGroup}: ${state}`}
-                          >
-                            {state === 'all' ? (
-                              <div className={`flex h-7 w-7 items-center justify-center rounded-md bg-success-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}>
-                                <Check className="h-4 w-4 text-success-text" strokeWidth={3} />
-                              </div>
-                            ) : state === 'mixed' ? (
-                              <div className={`flex h-7 w-7 items-center justify-center rounded-md bg-error-fill ${isPending ? 'border-2 border-dashed border-primary-500' : ''}`}>
-                                <AlertTriangle className="h-4 w-4 text-error-text" strokeWidth={2.5} />
-                              </div>
-                            ) : (
-                              <div className={`h-7 w-7 rounded-md border-2 bg-surface-secondary ${isPending ? 'border-dashed border-primary-500' : 'border-border-primary'}`} />
-                            )}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))
-            )}
           </tbody>
         </table>
       </div>
@@ -735,8 +758,8 @@ export default function CurriculumMatrixPage() {
             <DialogTitle>Create Assessments in Bulk</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-text-secondary">
-            This will create one assessment for each assigned class+subject combination
-            in your selection ({selectedCells.size} cells selected).
+            This will create one assessment for each assigned class+subject combination in your
+            selection ({selectedCells.size} cells selected).
           </p>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -761,7 +784,9 @@ export default function CurriculumMatrixPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {periods.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -777,7 +802,9 @@ export default function CurriculumMatrixPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -809,7 +836,11 @@ export default function CurriculumMatrixPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={isBulkCreating}>
+            <Button
+              variant="outline"
+              onClick={() => setBulkDialogOpen(false)}
+              disabled={isBulkCreating}
+            >
               Cancel
             </Button>
             <Button onClick={() => void handleBulkCreate()} disabled={isBulkCreating}>

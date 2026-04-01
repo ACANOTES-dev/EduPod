@@ -1,5 +1,9 @@
 'use client';
 
+import { Copy } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -16,9 +20,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { Copy } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -63,9 +64,7 @@ export function CopyDayDialog({
   const [isCopying, setIsCopying] = React.useState(false);
 
   const toggleTarget = (day: number) => {
-    setTargetDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
-    );
+    setTargetDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
   };
 
   // Reset targets when source changes
@@ -138,10 +137,7 @@ export function CopyDayDialog({
                     checked={targetDays.includes(d)}
                     onCheckedChange={() => toggleTarget(d)}
                   />
-                  <Label
-                    htmlFor={`target-day-${d}`}
-                    className="cursor-pointer font-normal"
-                  >
+                  <Label htmlFor={`target-day-${d}`} className="cursor-pointer font-normal">
                     {t(WEEKDAY_LABELS[d]!)}
                   </Label>
                 </div>
@@ -154,10 +150,7 @@ export function CopyDayDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {tc('cancel')}
           </Button>
-          <Button
-            onClick={() => void handleCopy()}
-            disabled={isCopying || targetDays.length === 0}
-          >
+          <Button onClick={() => void handleCopy()} disabled={isCopying || targetDays.length === 0}>
             {isCopying ? '...' : tv('copy')}
           </Button>
         </DialogFooter>

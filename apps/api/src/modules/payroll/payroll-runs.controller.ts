@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   createPayrollRunSchema,
   finaliseRunSchema,
@@ -26,7 +28,6 @@ import type {
   TenantContext,
   UpdatePayrollRunDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -58,10 +59,7 @@ export class PayrollRunsController {
 
   @Get(':id')
   @RequiresPermission('payroll.view')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.payrollRunsService.getRun(tenant.tenant_id, id);
   }
 
@@ -142,10 +140,7 @@ export class PayrollRunsController {
   @Post(':id/cancel')
   @RequiresPermission('payroll.create_run')
   @HttpCode(HttpStatus.OK)
-  async cancel(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async cancel(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.payrollRunsService.cancelRun(tenant.tenant_id, id);
   }
 

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Queue } from 'bullmq';
+
 import type { CreateSurveyDto, SubmitSurveyResponseDto, UpdateSurveyDto } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -241,8 +242,7 @@ export class SurveyService {
         const eligibleStaffCount = await db.staffProfile.count({
           where: { tenant_id: tenantId },
         });
-        detail.response_rate =
-          eligibleStaffCount > 0 ? responseCount / eligibleStaffCount : 0;
+        detail.response_rate = eligibleStaffCount > 0 ? responseCount / eligibleStaffCount : 0;
       }
 
       return detail;
@@ -301,11 +301,16 @@ export class SurveyService {
       if (dto.title !== undefined) updateData.title = dto.title;
       if (dto.description !== undefined) updateData.description = dto.description;
       if (dto.frequency !== undefined) updateData.frequency = dto.frequency;
-      if (dto.window_opens_at !== undefined) updateData.window_opens_at = new Date(dto.window_opens_at);
-      if (dto.window_closes_at !== undefined) updateData.window_closes_at = new Date(dto.window_closes_at);
-      if (dto.min_response_threshold !== undefined) updateData.min_response_threshold = dto.min_response_threshold;
-      if (dto.dept_drill_down_threshold !== undefined) updateData.dept_drill_down_threshold = dto.dept_drill_down_threshold;
-      if (dto.moderation_enabled !== undefined) updateData.moderation_enabled = dto.moderation_enabled;
+      if (dto.window_opens_at !== undefined)
+        updateData.window_opens_at = new Date(dto.window_opens_at);
+      if (dto.window_closes_at !== undefined)
+        updateData.window_closes_at = new Date(dto.window_closes_at);
+      if (dto.min_response_threshold !== undefined)
+        updateData.min_response_threshold = dto.min_response_threshold;
+      if (dto.dept_drill_down_threshold !== undefined)
+        updateData.dept_drill_down_threshold = dto.dept_drill_down_threshold;
+      if (dto.moderation_enabled !== undefined)
+        updateData.moderation_enabled = dto.moderation_enabled;
 
       if (Object.keys(updateData).length > 0) {
         await db.staffSurvey.update({
@@ -348,11 +353,7 @@ export class SurveyService {
 
   // ─── B2: CLONE-AS-DRAFT ────────────────────────────────────────────────────
 
-  async clone(
-    tenantId: string,
-    surveyId: string,
-    userId: string,
-  ): Promise<SurveyWithQuestions> {
+  async clone(tenantId: string, surveyId: string, userId: string): Promise<SurveyWithQuestions> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const cloned = (await rlsClient.$transaction(async (tx) => {
@@ -605,11 +606,7 @@ export class SurveyService {
       }
 
       // 4. HMAC double-vote check
-      const tokenHash = await this.hmacService.computeTokenHash(
-        tenantId,
-        surveyId,
-        userId,
-      );
+      const tokenHash = await this.hmacService.computeTokenHash(tenantId, surveyId, userId);
 
       const existingToken = await db.surveyParticipationToken.findUnique({
         where: {
@@ -630,9 +627,7 @@ export class SurveyService {
       }
 
       // 5. Build question lookup for type checks
-      const questionMap = new Map(
-        survey.questions.map((q: QuestionRow) => [q.id, q]),
-      );
+      const questionMap = new Map(survey.questions.map((q: QuestionRow) => [q.id, q]));
 
       moderationEnabled = survey.moderation_enabled;
 
@@ -652,8 +647,7 @@ export class SurveyService {
       for (const answer of dto.answers) {
         const question = questionMap.get(answer.question_id);
         const isFreeform = question?.question_type === 'freeform';
-        const moderationStatus =
-          isFreeform && moderationEnabled ? 'pending' : 'approved';
+        const moderationStatus = isFreeform && moderationEnabled ? 'pending' : 'approved';
 
         const created = await db.surveyResponse.create({
           data: {
@@ -686,10 +680,7 @@ export class SurveyService {
 
   // ─── B5: GET ACTIVE SURVEY FOR STAFF ───────────────────────────────────────
 
-  async getActiveSurvey(
-    tenantId: string,
-    userId: string,
-  ): Promise<ActiveSurveyResult | null> {
+  async getActiveSurvey(tenantId: string, userId: string): Promise<ActiveSurveyResult | null> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     const survey = (await rlsClient.$transaction(async (tx) => {
@@ -707,11 +698,7 @@ export class SurveyService {
       }
 
       // Check if user has already responded via HMAC token
-      const tokenHash = await this.hmacService.computeTokenHash(
-        tenantId,
-        activeSurvey.id,
-        userId,
-      );
+      const tokenHash = await this.hmacService.computeTokenHash(tenantId, activeSurvey.id, userId);
 
       const existingToken = await db.surveyParticipationToken.findUnique({
         where: {

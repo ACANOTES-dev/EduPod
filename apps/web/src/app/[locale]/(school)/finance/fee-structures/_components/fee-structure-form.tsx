@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import type { BillingFrequency } from '@school/shared';
 import {
   Button,
@@ -12,9 +15,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { apiClient } from '@/lib/api-client';
 
@@ -75,10 +75,8 @@ export function FeeStructureForm({
       .catch(() => setYearGroups([]));
   }, []);
 
-  const set =
-    (field: keyof FeeStructureFormValues) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      setValues((prev) => ({ ...prev, [field]: e.target.value }));
+  const set = (field: keyof FeeStructureFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setValues((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,13 +101,7 @@ export function FeeStructureForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="name">{t('feeStructures.fieldName')}</Label>
-            <Input
-              id="name"
-              value={values.name}
-              onChange={set('name')}
-              required
-              maxLength={150}
-            />
+            <Input id="name" value={values.name} onChange={set('name')} required maxLength={150} />
           </div>
 
           <div className="space-y-1.5">
@@ -173,9 +165,7 @@ export function FeeStructureForm({
               <Switch
                 id="active"
                 checked={values.active}
-                onCheckedChange={(checked) =>
-                  setValues((p) => ({ ...p, active: checked }))
-                }
+                onCheckedChange={(checked) => setValues((p) => ({ ...p, active: checked }))}
               />
               <Label htmlFor="active">{t('feeStructures.fieldActive')}</Label>
             </div>

@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+
 import type { JwtPayload } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';

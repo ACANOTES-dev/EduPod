@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../../common/guards/auth.guard';
@@ -80,9 +81,7 @@ describe('AiAuditController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AiAuditController],
-      providers: [
-        { provide: AiAuditService, useValue: mockService },
-      ],
+      providers: [{ provide: AiAuditService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -107,13 +106,7 @@ describe('AiAuditController', () => {
       };
       mockService.getLogsForSubject.mockResolvedValue(expected);
 
-      const result = await controller.getSubjectLogs(
-        TENANT,
-        'student',
-        STUDENT_ID,
-        1,
-        20,
-      );
+      const result = await controller.getSubjectLogs(TENANT, 'student', STUDENT_ID, 1, 20);
 
       expect(mockService.getLogsForSubject).toHaveBeenCalledTimes(1);
       expect(mockService.getLogsForSubject).toHaveBeenCalledWith(
@@ -154,20 +147,10 @@ describe('AiAuditController', () => {
       };
       mockService.getLogsByService.mockResolvedValue(expected);
 
-      const result = await controller.getServiceLogs(
-        TENANT,
-        'ai_grading',
-        1,
-        20,
-      );
+      const result = await controller.getServiceLogs(TENANT, 'ai_grading', 1, 20);
 
       expect(mockService.getLogsByService).toHaveBeenCalledTimes(1);
-      expect(mockService.getLogsByService).toHaveBeenCalledWith(
-        TENANT_ID,
-        'ai_grading',
-        1,
-        20,
-      );
+      expect(mockService.getLogsByService).toHaveBeenCalledWith(TENANT_ID, 'ai_grading', 1, 20);
       expect(result).toBe(expected);
     });
   });
@@ -190,22 +173,14 @@ describe('AiAuditController', () => {
       const result = await controller.getStats(TENANT);
 
       expect(mockService.getStats).toHaveBeenCalledTimes(1);
-      expect(mockService.getStats).toHaveBeenCalledWith(
-        TENANT_ID,
-        undefined,
-        undefined,
-      );
+      expect(mockService.getStats).toHaveBeenCalledWith(TENANT_ID, undefined, undefined);
       expect(result).toBe(expected);
     });
 
     it('should forward date_from and date_to query params', async () => {
       mockService.getStats.mockResolvedValue({ totalLogs: 0 });
 
-      await controller.getStats(
-        TENANT,
-        '2026-01-01T00:00:00Z',
-        '2026-03-31T23:59:59Z',
-      );
+      await controller.getStats(TENANT, '2026-01-01T00:00:00Z', '2026-03-31T23:59:59Z');
 
       expect(mockService.getStats).toHaveBeenCalledWith(
         TENANT_ID,
@@ -285,9 +260,7 @@ describe('AiAuditController', () => {
       const result = await controller.getLogDetail(TENANT, LOG_ID);
 
       expect(result.human_review.accepted).toBe(false);
-      expect(result.human_review.rejected_reason).toBe(
-        'AI grade was inaccurate',
-      );
+      expect(result.human_review.rejected_reason).toBe('AI grade was inaccurate');
     });
 
     it('should set note to null when tokenised is false', async () => {
@@ -303,9 +276,7 @@ describe('AiAuditController', () => {
     it('should throw NotFoundException when log not found', async () => {
       mockService.getLogById.mockResolvedValue(null);
 
-      await expect(
-        controller.getLogDetail(TENANT, LOG_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(controller.getLogDetail(TENANT, LOG_ID)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -318,12 +289,7 @@ describe('AiAuditController', () => {
       mockService.recordDecision.mockResolvedValue(undefined);
 
       const body = { output_used: true };
-      const result = await controller.recordDecision(
-        TENANT,
-        USER,
-        LOG_ID,
-        body,
-      );
+      const result = await controller.recordDecision(TENANT, USER, LOG_ID, body);
 
       expect(mockService.recordDecision).toHaveBeenCalledTimes(1);
       expect(mockService.recordDecision).toHaveBeenCalledWith(

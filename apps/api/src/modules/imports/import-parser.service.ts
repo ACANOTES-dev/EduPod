@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { ImportType } from '@school/shared';
 import * as XLSX from 'xlsx';
+
+import type { ImportType } from '@school/shared';
 
 /** Example data values from the XLSX template, used to detect and skip example rows. */
 const EXAMPLE_FIRST_NAMES = new Set(['aisha', 'omar', 'ahmed', 'sarah', 'stf-001']);

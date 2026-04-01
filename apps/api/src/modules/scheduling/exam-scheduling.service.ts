@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   AddExamSlotDto,
   CreateExamSessionDto,
@@ -41,7 +37,7 @@ export class ExamSchedulingService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const session = await prismaWithRls.$transaction(async (tx) => {
+    const session = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.examSession.create({
         data: {
@@ -53,7 +49,7 @@ export class ExamSchedulingService {
           status: 'planning',
         },
       });
-    }) as unknown as { id: string; status: string; created_at: Date };
+    })) as unknown as { id: string; status: string; created_at: Date };
 
     return {
       id: (session as { id: string }).id,
@@ -142,11 +138,7 @@ export class ExamSchedulingService {
 
   // ─── Update Exam Session ──────────────────────────────────────────────────
 
-  async updateExamSession(
-    tenantId: string,
-    sessionId: string,
-    dto: UpdateExamSessionDto,
-  ) {
+  async updateExamSession(tenantId: string, sessionId: string, dto: UpdateExamSessionDto) {
     const session = await this.prisma.examSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
       select: { id: true, status: true },
@@ -168,7 +160,7 @@ export class ExamSchedulingService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const updated = await prismaWithRls.$transaction(async (tx) => {
+    const updated = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.examSession.update({
         where: { id: sessionId },
@@ -178,7 +170,7 @@ export class ExamSchedulingService {
           ...(dto.end_date ? { end_date: new Date(dto.end_date) } : {}),
         },
       });
-    }) as unknown as { id: string; name: string; status: string; updated_at: Date };
+    })) as unknown as { id: string; name: string; status: string; updated_at: Date };
 
     return {
       id: (updated as { id: string }).id,
@@ -218,11 +210,7 @@ export class ExamSchedulingService {
 
   // ─── Add Exam Slot ────────────────────────────────────────────────────────
 
-  async addExamSlot(
-    tenantId: string,
-    sessionId: string,
-    dto: AddExamSlotDto,
-  ) {
+  async addExamSlot(tenantId: string, sessionId: string, dto: AddExamSlotDto) {
     const session = await this.prisma.examSession.findFirst({
       where: { id: sessionId, tenant_id: tenantId },
       select: { id: true, status: true, start_date: true, end_date: true },
@@ -246,7 +234,7 @@ export class ExamSchedulingService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const slot = await prismaWithRls.$transaction(async (tx) => {
+    const slot = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.examSlot.create({
         data: {
@@ -262,7 +250,7 @@ export class ExamSchedulingService {
           student_count: dto.student_count,
         },
       });
-    }) as unknown as { id: string; created_at: Date };
+    })) as unknown as { id: string; created_at: Date };
 
     return {
       id: (slot as { id: string }).id,
@@ -315,8 +303,8 @@ export class ExamSchedulingService {
         if (slot.room_id) continue; // Already assigned
 
         // Find a room with sufficient capacity
-        const suitableRoom = rooms.find((r) =>
-          r.capacity !== null && r.capacity >= slot.student_count,
+        const suitableRoom = rooms.find(
+          (r) => r.capacity !== null && r.capacity >= slot.student_count,
         );
 
         if (suitableRoom) {

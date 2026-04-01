@@ -1,6 +1,5 @@
 'use client';
 
-
 import { Bell } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -49,8 +48,14 @@ function groupNotifications(notifications: NotificationItem[]) {
   yesterday.setDate(yesterday.getDate() - 1);
 
   const todayGroup: { label: string; items: NotificationItem[] } = { label: 'Today', items: [] };
-  const yesterdayGroup: { label: string; items: NotificationItem[] } = { label: 'Yesterday', items: [] };
-  const earlierGroup: { label: string; items: NotificationItem[] } = { label: 'Earlier', items: [] };
+  const yesterdayGroup: { label: string; items: NotificationItem[] } = {
+    label: 'Yesterday',
+    items: [],
+  };
+  const earlierGroup: { label: string; items: NotificationItem[] } = {
+    label: 'Earlier',
+    items: [],
+  };
 
   for (const n of notifications) {
     const date = new Date(n.created_at);
@@ -98,20 +103,24 @@ export function NotificationPanel() {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const result = await apiClient<{ data: { count: number } }>('/api/v1/notifications/unread-count');
+      const result = await apiClient<{ data: { count: number } }>(
+        '/api/v1/notifications/unread-count',
+      );
       setUnreadCount(result.data.count);
-    } catch {
-      // Silently fail — badge simply shows nothing if count unavailable
+    } catch (err) {
+      console.error('[fetchUnreadCount]', err);
     }
   }, []);
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await apiClient<{ data: NotificationItem[] }>('/api/v1/notifications?pageSize=20');
+      const result = await apiClient<{ data: NotificationItem[] }>(
+        '/api/v1/notifications?pageSize=20',
+      );
       setNotifications(result.data);
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error('[fetchNotifications]', err);
     } finally {
       setLoading(false);
     }
@@ -151,8 +160,8 @@ export function NotificationPanel() {
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, status: 'read', read_at: new Date().toISOString() })),
       );
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error('[handleMarkAllRead]', err);
     }
   };
 
@@ -169,8 +178,8 @@ export function NotificationPanel() {
           n.id === id ? { ...n, status: 'read', read_at: new Date().toISOString() } : n,
         ),
       );
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error('[handleMarkRead]', err);
     }
   };
 

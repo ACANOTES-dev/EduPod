@@ -1,16 +1,18 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatCard } from '@school/ui';
+
+import { ComplianceStatusCard } from './_components/compliance-status-card';
+import { DeadlineTimeline } from './_components/deadline-timeline';
+import { RegulatoryNav } from './_components/regulatory-nav';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
-import { ComplianceStatusCard } from './_components/compliance-status-card';
-import { DeadlineTimeline } from './_components/deadline-timeline';
-import { RegulatoryNav } from './_components/regulatory-nav';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -227,7 +229,8 @@ export default function RegulatoryDashboardPage() {
                   {
                     label: t('dashboard.approachingThreshold'),
                     value: summary.tusla.students_approaching_threshold,
-                    variant: summary.tusla.students_approaching_threshold > 0 ? 'warning' : 'success',
+                    variant:
+                      summary.tusla.students_approaching_threshold > 0 ? 'warning' : 'success',
                   },
                   {
                     label: t('dashboard.exceededThreshold'),
@@ -333,10 +336,7 @@ export default function RegulatoryDashboardPage() {
           {isLoading ? (
             <TimelineSkeleton />
           ) : (
-            <DeadlineTimeline
-              items={overdueItems}
-              emptyMessage={t('dashboard.noOverdueItems')}
-            />
+            <DeadlineTimeline items={overdueItems} emptyMessage={t('dashboard.noOverdueItems')} />
           )}
         </div>
       </div>

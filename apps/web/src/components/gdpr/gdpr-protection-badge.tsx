@@ -1,5 +1,9 @@
 'use client';
 
+import { Info, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -16,9 +20,6 @@ import {
   TooltipTrigger,
   cn,
 } from '@school/ui';
-import { Info, Shield, ShieldCheck, ShieldOff } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 interface GdprProtectionBadgeProps {
   /** The tokenisation policy: 'always' | 'never' | 'configurable' */
@@ -96,7 +97,14 @@ export function GdprProtectionBadge({
           <Tooltip>
             <TooltipTrigger asChild>
               <div className={cn('inline-flex items-center gap-2', className)}>
-                <Badge className={cn(BADGE_CLASSES.green, badgePadding, 'inline-flex items-center gap-1.5 border-0 font-medium', textSize)}>
+                <Badge
+                  className={cn(
+                    BADGE_CLASSES.green,
+                    badgePadding,
+                    'inline-flex items-center gap-1.5 border-0 font-medium',
+                    textSize,
+                  )}
+                >
                   <ShieldCheck className={iconSize} />
                   {t('protected')}
                 </Badge>
@@ -108,9 +116,7 @@ export function GdprProtectionBadge({
                 />
               </div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              {t('protectedTooltip')}
-            </TooltipContent>
+            <TooltipContent className="max-w-xs">{t('protectedTooltip')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </>
@@ -124,7 +130,14 @@ export function GdprProtectionBadge({
         <Tooltip>
           <TooltipTrigger asChild>
             <div className={cn('inline-flex items-center gap-1.5', className)}>
-              <Badge className={cn(BADGE_CLASSES.blue, badgePadding, 'inline-flex items-center gap-1.5 border-0 font-medium', textSize)}>
+              <Badge
+                className={cn(
+                  BADGE_CLASSES.blue,
+                  badgePadding,
+                  'inline-flex items-center gap-1.5 border-0 font-medium',
+                  textSize,
+                )}
+              >
                 <Info className={iconSize} />
                 {t('personalExport')}
               </Badge>
@@ -156,11 +169,7 @@ export function GdprProtectionBadge({
                   textSize,
                 )}
               >
-                {isOn ? (
-                  <ShieldCheck className={iconSize} />
-                ) : (
-                  <ShieldOff className={iconSize} />
-                )}
+                {isOn ? <ShieldCheck className={iconSize} /> : <ShieldOff className={iconSize} />}
                 {isOn ? t('protected') : t('unprotected')}
               </Badge>
               <Switch
@@ -176,7 +185,12 @@ export function GdprProtectionBadge({
         </Tooltip>
       </TooltipProvider>
 
-      <Dialog open={showReasonDialog} onOpenChange={(open) => { if (!open) handleReasonCancel(); }}>
+      <Dialog
+        open={showReasonDialog}
+        onOpenChange={(open) => {
+          if (!open) handleReasonCancel();
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -185,9 +199,7 @@ export function GdprProtectionBadge({
             </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-2">
-            <p className={cn('text-text-secondary', textSize)}>
-              {t('disableReasonDescription')}
-            </p>
+            <p className={cn('text-text-secondary', textSize)}>{t('disableReasonDescription')}</p>
             <Textarea
               value={reason}
               onChange={(e) => {
@@ -201,9 +213,7 @@ export function GdprProtectionBadge({
               aria-invalid={reasonError}
             />
             {reasonError && (
-              <p className="text-xs text-red-600 dark:text-red-400">
-                {t('disableReasonRequired')}
-              </p>
+              <p className="text-xs text-red-600 dark:text-red-400">{t('disableReasonRequired')}</p>
             )}
           </div>
           <DialogFooter>

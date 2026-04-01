@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+
 import type {
   CreateLegalHoldDto,
   LegalHoldListItem,
@@ -23,11 +24,7 @@ export class BehaviourLegalHoldService {
 
   // ─── Create Hold ──────────────────────────────────────────────────────────
 
-  async createHold(
-    tenantId: string,
-    userId: string,
-    dto: CreateLegalHoldDto,
-  ) {
+  async createHold(tenantId: string, userId: string, dto: CreateLegalHoldDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (txRaw) => {
@@ -93,12 +90,7 @@ export class BehaviourLegalHoldService {
 
   // ─── Release Hold ─────────────────────────────────────────────────────────
 
-  async releaseHold(
-    tenantId: string,
-    userId: string,
-    holdId: string,
-    dto: ReleaseLegalHoldDto,
-  ) {
+  async releaseHold(tenantId: string, userId: string, holdId: string, dto: ReleaseLegalHoldDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (txRaw) => {
@@ -168,11 +160,18 @@ export class BehaviourLegalHoldService {
             userId,
             'legal_hold_released',
             { hold_id: linked.id, status: 'active' },
-            { hold_id: linked.id, status: 'released', release_reason: dto.release_reason, released_via: holdId },
+            {
+              hold_id: linked.id,
+              status: 'released',
+              release_reason: dto.release_reason,
+              released_via: holdId,
+            },
           );
         }
 
-        this.logger.log(`Released ${linkedHolds.length} linked holds for legal_basis "${hold.legal_basis}"`);
+        this.logger.log(
+          `Released ${linkedHolds.length} linked holds for legal_basis "${hold.legal_basis}"`,
+        );
       }
 
       this.logger.log(`Legal hold ${holdId} released by user ${userId}`);
@@ -184,7 +183,10 @@ export class BehaviourLegalHoldService {
   async listHolds(
     tenantId: string,
     query: LegalHoldListQuery,
-  ): Promise<{ data: LegalHoldListItem[]; meta: { page: number; pageSize: number; total: number } }> {
+  ): Promise<{
+    data: LegalHoldListItem[];
+    meta: { page: number; pageSize: number; total: number };
+  }> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
     return rlsClient.$transaction(async (txRaw) => {
@@ -233,7 +235,10 @@ export class BehaviourLegalHoldService {
       }));
 
       return { data, meta: { page: query.page, pageSize: query.pageSize, total } };
-    }) as Promise<{ data: LegalHoldListItem[]; meta: { page: number; pageSize: number; total: number } }>;
+    }) as Promise<{
+      data: LegalHoldListItem[];
+      meta: { page: number; pageSize: number; total: number };
+    }>;
   }
 
   // ─── Has Active Hold ──────────────────────────────────────────────────────
@@ -243,7 +248,12 @@ export class BehaviourLegalHoldService {
     tenantId: string,
     entityType: string,
     entityId: string,
-  ): Promise<{ held: boolean; hold_reason?: string; legal_basis?: string | null; hold_id?: string }> {
+  ): Promise<{
+    held: boolean;
+    hold_reason?: string;
+    legal_basis?: string | null;
+    hold_id?: string;
+  }> {
     const activeHold = await tx.behaviourLegalHold.findFirst({
       where: {
         tenant_id: tenantId,
@@ -306,7 +316,12 @@ export class BehaviourLegalHoldService {
         });
         if (appeal) {
           linkedEntityIds.push({ type: 'incident', id: appeal.incident_id });
-          await this.collectIncidentLinkedEntities(tx, tenantId, appeal.incident_id, linkedEntityIds);
+          await this.collectIncidentLinkedEntities(
+            tx,
+            tenantId,
+            appeal.incident_id,
+            linkedEntityIds,
+          );
         }
         break;
       }
@@ -320,7 +335,12 @@ export class BehaviourLegalHoldService {
         if (excCase) {
           linkedEntityIds.push({ type: 'sanction', id: excCase.sanction_id });
           linkedEntityIds.push({ type: 'incident', id: excCase.incident_id });
-          await this.collectIncidentLinkedEntities(tx, tenantId, excCase.incident_id, linkedEntityIds);
+          await this.collectIncidentLinkedEntities(
+            tx,
+            tenantId,
+            excCase.incident_id,
+            linkedEntityIds,
+          );
 
           // Documents linked to the exclusion case (entity_type is a plain string)
           const excDocs = await tx.behaviourDocument.findMany({
@@ -359,7 +379,15 @@ export class BehaviourLegalHoldService {
       }
 
       // Only create if entity_type is valid for LegalHoldEntityType
-      const validTypes = ['incident', 'sanction', 'intervention', 'appeal', 'exclusion_case', 'task', 'attachment'];
+      const validTypes = [
+        'incident',
+        'sanction',
+        'intervention',
+        'appeal',
+        'exclusion_case',
+        'task',
+        'attachment',
+      ];
       if (!validTypes.includes(linked.type)) continue;
 
       await tx.behaviourLegalHold.create({
@@ -398,7 +426,11 @@ export class BehaviourLegalHoldService {
 
     // Tasks linked to this incident
     const tasks = await tx.behaviourTask.findMany({
-      where: { tenant_id: tenantId, entity_id: incidentId, entity_type: 'incident' as $Enums.BehaviourTaskEntityType },
+      where: {
+        tenant_id: tenantId,
+        entity_id: incidentId,
+        entity_type: 'incident' as $Enums.BehaviourTaskEntityType,
+      },
       select: { id: true },
     });
     for (const t of tasks) out.push({ type: 'task', id: t.id });

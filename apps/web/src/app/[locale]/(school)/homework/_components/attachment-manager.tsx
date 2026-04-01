@@ -1,5 +1,9 @@
 'use client';
 
+import { Link as LinkIcon, Paperclip, Plus, Video, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -15,9 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Link as LinkIcon, Paperclip, Plus, Video, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,12 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AttachmentManager({ attachments, onAdd, onRemove, disabled }: AttachmentManagerProps) {
+export function AttachmentManager({
+  attachments,
+  onAdd,
+  onRemove,
+  disabled,
+}: AttachmentManagerProps) {
   const t = useTranslations('homework');
   const [open, setOpen] = React.useState(false);
   const [type, setType] = React.useState<'file' | 'link' | 'video'>('link');
@@ -65,11 +71,18 @@ export function AttachmentManager({ attachments, onAdd, onRemove, disabled }: At
   return (
     <div className="space-y-2">
       {attachments.map((a, i) => (
-        <div key={i} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+        <div
+          key={i}
+          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+        >
           {TYPE_ICON[a.attachment_type]}
           <span className="flex-1 truncate text-text-primary">{a.file_name ?? a.url ?? ''}</span>
           {!disabled && (
-            <button type="button" onClick={() => onRemove(i)} className="text-text-tertiary hover:text-danger-text">
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              className="text-text-tertiary hover:text-danger-text"
+            >
               <X className="h-4 w-4" />
             </button>
           )}
@@ -90,7 +103,9 @@ export function AttachmentManager({ attachments, onAdd, onRemove, disabled }: At
             <div className="space-y-1.5">
               <Label>{t('attachmentType')}</Label>
               <Select value={type} onValueChange={(v) => setType(v as 'file' | 'link' | 'video')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="file">{t('file')}</SelectItem>
                   <SelectItem value="link">{t('link')}</SelectItem>
@@ -100,12 +115,20 @@ export function AttachmentManager({ attachments, onAdd, onRemove, disabled }: At
             </div>
             <div className="space-y-1.5">
               <Label>{type === 'file' ? t('fileName') : t('url')}</Label>
-              <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={type === 'file' ? 'document.pdf' : 'https://...'} />
+              <Input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={type === 'file' ? 'document.pdf' : 'https://...'}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={!value.trim()}>Add</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAdd} disabled={!value.trim()}>
+              Add
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

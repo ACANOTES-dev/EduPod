@@ -1,9 +1,10 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { BookOpen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -103,27 +104,24 @@ export function DiaryHomeworkSection({ classId, date }: DiaryHomeworkSectionProp
         ) : (
           <ul className="divide-y">
             {items.map((hw) => (
-              <li key={hw.id} className="flex flex-wrap items-center gap-2 py-3 first:pt-0 last:pb-0">
+              <li
+                key={hw.id}
+                className="flex flex-wrap items-center gap-2 py-3 first:pt-0 last:pb-0"
+              >
                 {hw.subject && (
                   <Badge variant="secondary" className="text-xs">
                     {hw.subject.name}
                   </Badge>
                 )}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {hw.title}
-                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{hw.title}</span>
                 {hw.due_time && (
-                  <span className="text-muted-foreground text-xs">
-                    {hw.due_time}
-                  </span>
+                  <span className="text-muted-foreground text-xs">{hw.due_time}</span>
                 )}
                 <Badge variant={TYPE_VARIANT[hw.homework_type] ?? 'info'} className="text-xs">
                   {t(`homeworkType.${hw.homework_type}` as Parameters<typeof t>[0])}
                 </Badge>
                 {hw.max_points != null && (
-                  <span className="text-muted-foreground text-xs">
-                    {hw.max_points} pts
-                  </span>
+                  <span className="text-muted-foreground text-xs">{hw.max_points} pts</span>
                 )}
               </li>
             ))}

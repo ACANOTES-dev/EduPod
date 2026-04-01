@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -10,8 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -70,8 +71,8 @@ export default function CommunicationPreferencesPage() {
             preferred_language: comm.preferred_language ?? 'en',
           });
         }
-      } catch {
-        // Silently fall back to defaults
+      } catch (err) {
+        console.error('[loadPrefs]', err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -120,7 +121,9 @@ export default function CommunicationPreferencesPage() {
 
       <section className="rounded-2xl border border-border bg-surface p-6 space-y-6">
         <div>
-          <h2 className="text-base font-semibold text-text-primary">{t('communication.channels')}</h2>
+          <h2 className="text-base font-semibold text-text-primary">
+            {t('communication.channels')}
+          </h2>
           <p className="mt-1 text-sm text-text-secondary">{t('communication.description')}</p>
         </div>
 

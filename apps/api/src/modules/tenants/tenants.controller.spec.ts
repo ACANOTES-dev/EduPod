@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';

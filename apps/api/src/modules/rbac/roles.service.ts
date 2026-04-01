@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type { CreateRoleDto, UpdateRoleDto } from '@school/shared';
 import type { RoleTier } from '@school/shared';
 
@@ -162,10 +159,7 @@ export class RolesService {
     // system roles bypass tier enforcement since they may have mixed-tier permissions)
     if (data.permission_ids) {
       if (!role.is_system_role) {
-        await this.validateTierEnforcement(
-          role.role_tier as RoleTier,
-          data.permission_ids,
-        );
+        await this.validateTierEnforcement(role.role_tier as RoleTier, data.permission_ids);
       }
 
       // Replace permissions — use the role's tenant_id (or the caller's for null-tenant roles)
@@ -253,11 +247,7 @@ export class RolesService {
    * Assign permissions to a role (replace all).
    * Validates tier enforcement.
    */
-  async assignPermissions(
-    tenantId: string,
-    roleId: string,
-    permissionIds: string[],
-  ) {
+  async assignPermissions(tenantId: string, roleId: string, permissionIds: string[]) {
     const role = await this.prisma.role.findFirst({
       where: {
         id: roleId,
@@ -282,10 +272,7 @@ export class RolesService {
 
     // Tier enforcement for custom roles only — system roles may have mixed-tier permissions
     if (!role.is_system_role) {
-      await this.validateTierEnforcement(
-        role.role_tier as RoleTier,
-        permissionIds,
-      );
+      await this.validateTierEnforcement(role.role_tier as RoleTier, permissionIds);
     }
 
     // Replace all permissions — use the role's tenant_id (or the caller's for null-tenant roles)
@@ -376,10 +363,7 @@ export class RolesService {
    * A `staff` tier role can include `staff` and `parent` permissions,
    * but NOT `admin` or `platform` permissions.
    */
-  private async validateTierEnforcement(
-    roleTier: RoleTier,
-    permissionIds: string[],
-  ) {
+  private async validateTierEnforcement(roleTier: RoleTier, permissionIds: string[]) {
     if (permissionIds.length === 0) {
       return;
     }
@@ -406,9 +390,7 @@ export class RolesService {
     for (const perm of permissions) {
       const permRank = TIER_RANK[perm.permission_tier as RoleTier];
       if (permRank > roleRank) {
-        violations.push(
-          `${perm.permission_key} (tier: ${perm.permission_tier})`,
-        );
+        violations.push(`${perm.permission_key} (tier: ${perm.permission_tier})`);
       }
     }
 

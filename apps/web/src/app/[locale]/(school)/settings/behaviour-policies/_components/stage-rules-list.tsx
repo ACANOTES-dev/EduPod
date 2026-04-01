@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge, Button, Switch } from '@school/ui';
 import {
   AlertTriangle,
   Bell,
@@ -13,6 +12,8 @@ import {
   Shield,
   Trash2,
 } from 'lucide-react';
+
+import { Badge, Button, Switch } from '@school/ui';
 
 import type { PolicyRule } from './policy-types';
 import { actionSummary, conditionSummary, STAGES } from './policy-types';

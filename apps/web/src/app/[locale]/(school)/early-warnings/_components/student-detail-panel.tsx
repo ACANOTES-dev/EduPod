@@ -1,5 +1,11 @@
 'use client';
 
+import { ClipboardCheck, ExternalLink, UserPlus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Sheet,
@@ -9,20 +15,16 @@ import {
   SheetTitle,
   toast,
 } from '@school/ui';
-import { ClipboardCheck, ExternalLink, UserPlus } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
-import type { RiskProfileDetail } from '@/lib/early-warning';
 
 import { DomainScoreBars } from './domain-score-bars';
 import { RiskTierBadge } from './risk-tier-badge';
 import { SignalBreakdown } from './signal-breakdown';
 import { TierTransitionTimeline } from './tier-transition-timeline';
 import { TrendSparkline } from './trend-sparkline';
+
+import { apiClient } from '@/lib/api-client';
+import type { RiskProfileDetail } from '@/lib/early-warning';
 
 interface StudentDetailPanelProps {
   studentId: string | null;
@@ -54,9 +56,7 @@ export function StudentDetailPanel({
     let cancelled = false;
     setLoading(true);
 
-    apiClient<{ data: RiskProfileDetail }>(
-      `/api/v1/early-warnings/${studentId}`,
-    )
+    apiClient<{ data: RiskProfileDetail }>(`/api/v1/early-warnings/${studentId}`)
       .then((res) => {
         if (!cancelled) setDetail(res.data);
       })
@@ -116,9 +116,7 @@ export function StudentDetailPanel({
             <div className="mt-6 space-y-6">
               {/* NL Summary */}
               <section>
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {t('detail.summary')}
-                </h3>
+                <h3 className="text-sm font-semibold text-text-primary">{t('detail.summary')}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-text-secondary">
                   {detail.summary_text}
                 </p>
@@ -126,9 +124,7 @@ export function StudentDetailPanel({
 
               {/* Domain Breakdown */}
               <section>
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {t('detail.domains')}
-                </h3>
+                <h3 className="text-sm font-semibold text-text-primary">{t('detail.domains')}</h3>
                 <div className="mt-3">
                   <DomainScoreBars
                     scores={{
@@ -144,23 +140,15 @@ export function StudentDetailPanel({
 
               {/* 30-Day Trend */}
               <section>
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {t('detail.trend')}
-                </h3>
+                <h3 className="text-sm font-semibold text-text-primary">{t('detail.trend')}</h3>
                 <div className="mt-3 rounded-xl border border-border p-4">
-                  <TrendSparkline
-                    data={detail.trend_data}
-                    width={320}
-                    height={48}
-                  />
+                  <TrendSparkline data={detail.trend_data} width={320} height={48} />
                 </div>
               </section>
 
               {/* Signal Breakdown */}
               <section>
-                <h3 className="text-sm font-semibold text-text-primary">
-                  {t('detail.signals')}
-                </h3>
+                <h3 className="text-sm font-semibold text-text-primary">{t('detail.signals')}</h3>
                 <div className="mt-3">
                   <SignalBreakdown signals={detail.signals} />
                 </div>
@@ -194,7 +182,9 @@ export function StudentDetailPanel({
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/${locale}/pastoral/interventions/new?student_id=${detail.student_id}`}>
+                  <Link
+                    href={`/${locale}/pastoral/interventions/new?student_id=${detail.student_id}`}
+                  >
                     <ExternalLink className="me-2 h-4 w-4" />
                     {t('detail.create_intervention')}
                   </Link>

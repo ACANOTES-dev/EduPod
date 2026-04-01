@@ -1,5 +1,11 @@
 'use client';
 
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -9,11 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Plus } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { IncidentCard, type IncidentCardData } from '@/components/behaviour/incident-card';
 import { IncidentStatusBadge } from '@/components/behaviour/incident-status-badge';
@@ -95,7 +96,9 @@ export default function IncidentListPage() {
 
   // Load categories
   React.useEffect(() => {
-    apiClient<{ data: CategoryOption[] }>('/api/v1/behaviour/categories?pageSize=100&is_active=true')
+    apiClient<{ data: CategoryOption[] }>(
+      '/api/v1/behaviour/categories?pageSize=100&is_active=true',
+    )
       .then((res) => setCategories(res.data ?? []))
       .catch(() => undefined);
   }, []);
@@ -111,7 +114,9 @@ export default function IncidentListPage() {
         if (cat !== 'all') params.set('category_id', cat);
         if (from) params.set('date_from', from);
         if (to) params.set('date_to', to);
-        const res = await apiClient<IncidentsResponse>(`/api/v1/behaviour/incidents?${params.toString()}`);
+        const res = await apiClient<IncidentsResponse>(
+          `/api/v1/behaviour/incidents?${params.toString()}`,
+        );
         setData(res.data ?? []);
         setTotal(res.meta?.total ?? 0);
       } catch {
@@ -135,7 +140,7 @@ export default function IncidentListPage() {
 
   const getStudentNames = (row: IncidentRow) =>
     row.participants
-      .map((p) => p.student ? `${p.student.first_name} ${p.student.last_name}` : null)
+      .map((p) => (p.student ? `${p.student.first_name} ${p.student.last_name}` : null))
       .filter(Boolean)
       .join(', ') || '—';
 
@@ -159,7 +164,11 @@ export default function IncidentListPage() {
           <Badge
             variant="secondary"
             className="text-xs"
-            style={row.category.color ? { borderColor: row.category.color, color: row.category.color } : undefined}
+            style={
+              row.category.color
+                ? { borderColor: row.category.color, color: row.category.color }
+                : undefined
+            }
           >
             {row.category.name}
           </Badge>
@@ -200,29 +209,49 @@ export default function IncidentListPage() {
       <input
         type="date"
         value={dateFrom}
-        onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateFrom(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label={t('filters.dateFrom')}
       />
       <input
         type="date"
         value={dateTo}
-        onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setDateTo(e.target.value);
+          setPage(1);
+        }}
         className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary sm:w-auto"
         aria-label={t('filters.dateTo')}
       />
-      <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1); }}>
+      <Select
+        value={categoryFilter}
+        onValueChange={(v) => {
+          setCategoryFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-40">
           <SelectValue placeholder={t('filters.category')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{t('filters.allCategories')}</SelectItem>
           {categories.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+      >
         <SelectTrigger className="w-full sm:w-36">
           <SelectValue placeholder={t('filters.status')} />
         </SelectTrigger>
@@ -300,10 +329,20 @@ export default function IncidentListPage() {
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
                   {t('previous')}
                 </Button>
-                <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                  onClick={() => setPage(page + 1)}
+                >
                   {t('next')}
                 </Button>
               </div>

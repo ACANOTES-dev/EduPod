@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
 import { RoomClosuresController } from './room-closures.controller';
 import { RoomClosuresService } from './room-closures.service';
-
 
 const TENANT: TenantContext = {
   tenant_id: 'tenant-uuid',
@@ -78,11 +78,7 @@ describe('RoomClosuresController', () => {
 
     const result = await controller.create(TENANT, USER, dto);
 
-    expect(mockService.create).toHaveBeenCalledWith(
-      'tenant-uuid',
-      'user-uuid',
-      dto,
-    );
+    expect(mockService.create).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', dto);
     expect(result).toEqual(created);
   });
 

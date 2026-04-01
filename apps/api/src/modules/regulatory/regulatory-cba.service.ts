@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CbaSyncStatus } from '@prisma/client';
+
 import { CBA_GRADE_DESCRIPTORS } from '@school/shared';
 import type { CbaSyncDto } from '@school/shared';
 
@@ -170,9 +171,7 @@ export class RegulatoryCbaService {
     );
     if (byGrade) return byGrade;
 
-    const byCode = CBA_GRADE_DESCRIPTORS.find(
-      (d) => d.code.toLowerCase() === grade.toLowerCase(),
-    );
+    const byCode = CBA_GRADE_DESCRIPTORS.find((d) => d.code.toLowerCase() === grade.toLowerCase());
     return byCode ?? null;
   }
 
@@ -202,16 +201,12 @@ export class RegulatoryCbaService {
         });
 
         if (!desMapping) {
-          throw new Error(
-            `No DES subject code mapping found for subject "${record.subject_id}"`,
-          );
+          throw new Error(`No DES subject code mapping found for subject "${record.subject_id}"`);
         }
 
         const descriptor = this.mapGradeToDescriptor(record.grade);
         if (!descriptor) {
-          throw new Error(
-            `Unable to map grade "${record.grade}" to a CBA descriptor`,
-          );
+          throw new Error(`Unable to map grade "${record.grade}" to a CBA descriptor`);
         }
 
         await db.ppodCbaSyncRecord.update({

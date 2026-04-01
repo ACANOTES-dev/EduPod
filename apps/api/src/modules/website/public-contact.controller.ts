@@ -1,14 +1,7 @@
-import {
-  Body,
-  Controller,
-  Ip,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Ip, Post } from '@nestjs/common';
+
 import { contactFormSchema } from '@school/shared';
-import type {
-  ContactFormDto,
-  TenantContext,
-} from '@school/shared';
+import type { ContactFormDto, TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';

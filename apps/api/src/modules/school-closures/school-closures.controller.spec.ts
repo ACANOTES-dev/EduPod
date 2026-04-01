@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -48,9 +49,7 @@ describe('SchoolClosuresController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SchoolClosuresController],
-      providers: [
-        { provide: SchoolClosuresService, useValue: mockService },
-      ],
+      providers: [{ provide: SchoolClosuresService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -58,9 +57,7 @@ describe('SchoolClosuresController', () => {
       .useValue({ canActivate: () => true })
       .compile();
 
-    controller = module.get<SchoolClosuresController>(
-      SchoolClosuresController,
-    );
+    controller = module.get<SchoolClosuresController>(SchoolClosuresController);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -77,11 +74,7 @@ describe('SchoolClosuresController', () => {
     const result = await controller.create(mockTenant, mockUser, dto);
 
     expect(result).toEqual(expected);
-    expect(mockService.create).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      dto,
-    );
+    expect(mockService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
   });
 
   it('should bulk create closures', async () => {
@@ -98,11 +91,7 @@ describe('SchoolClosuresController', () => {
     const result = await controller.bulkCreate(mockTenant, mockUser, dto);
 
     expect(result).toEqual(expected);
-    expect(mockService.bulkCreate).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      dto,
-    );
+    expect(mockService.bulkCreate).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto);
   });
 
   it('should list closures with filters', async () => {

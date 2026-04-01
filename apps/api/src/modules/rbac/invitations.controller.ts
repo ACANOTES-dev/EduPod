@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   acceptInvitationSchema,
   createInvitationSchema,
@@ -45,11 +46,7 @@ export class InvitationsController {
     @Body(new ZodValidationPipe(createInvitationSchema))
     dto: CreateInvitationDto,
   ) {
-    return this.invitationsService.createInvitation(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.invitationsService.createInvitation(tenant.tenant_id, user.sub, dto);
   }
 
   @Get()
@@ -60,11 +57,7 @@ export class InvitationsController {
     @Query(new ZodValidationPipe(paginationQuerySchema))
     query: PaginationQuery,
   ) {
-    return this.invitationsService.listInvitations(
-      tenant.tenant_id,
-      query.page,
-      query.pageSize,
-    );
+    return this.invitationsService.listInvitations(tenant.tenant_id, query.page, query.pageSize);
   }
 
   @Post(':id/revoke')

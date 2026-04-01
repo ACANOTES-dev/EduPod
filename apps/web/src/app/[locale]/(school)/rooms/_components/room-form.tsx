@@ -1,5 +1,8 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Dialog,
@@ -16,9 +19,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ export function RoomForm({ open, onOpenChange, onSubmit, initialData, isEdit }: 
   const [name, setName] = React.useState(initialData?.name ?? '');
   const [roomType, setRoomType] = React.useState(initialData?.room_type ?? 'classroom');
   const [capacity, setCapacity] = React.useState<string>(
-    initialData?.capacity != null ? String(initialData.capacity) : ''
+    initialData?.capacity != null ? String(initialData.capacity) : '',
   );
   const [isExclusive, setIsExclusive] = React.useState(initialData?.is_exclusive ?? false);
   const [saving, setSaving] = React.useState(false);
@@ -88,12 +88,7 @@ export function RoomForm({ open, onOpenChange, onSubmit, initialData, isEdit }: 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="room-name">{t('roomName')}</Label>
-            <Input
-              id="room-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+            <Input id="room-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
 
           <div className="space-y-2">
@@ -125,11 +120,7 @@ export function RoomForm({ open, onOpenChange, onSubmit, initialData, isEdit }: 
 
           <div className="flex items-center justify-between">
             <Label htmlFor="room-exclusive">{t('exclusive')}</Label>
-            <Switch
-              id="room-exclusive"
-              checked={isExclusive}
-              onCheckedChange={setIsExclusive}
-            />
+            <Switch id="room-exclusive" checked={isExclusive} onCheckedChange={setIsExclusive} />
           </div>
 
           <DialogFooter>

@@ -1,6 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+import { Controller, useForm } from 'react-hook-form';
+
 import { createHomeworkSchema, HOMEWORK_TYPE_VALUES } from '@school/shared';
 import type { CreateHomeworkDto } from '@school/shared';
 import {
@@ -14,9 +18,6 @@ import {
   SelectValue,
   Textarea,
 } from '@school/ui';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-import { Controller, useForm } from 'react-hook-form';
 
 interface ClassOption {
   id: string;
@@ -96,30 +97,40 @@ export function HomeworkQuickForm({
             name="class_id"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="text-base"><SelectValue placeholder={t('class')} /></SelectTrigger>
+                <SelectTrigger className="text-base">
+                  <SelectValue placeholder={t('class')} />
+                </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
-          {form.formState.errors.class_id && <p className="text-sm text-danger-text">{form.formState.errors.class_id.message}</p>}
+          {form.formState.errors.class_id && (
+            <p className="text-sm text-danger-text">{form.formState.errors.class_id.message}</p>
+          )}
         </div>
 
         {/* Title */}
         <div className="space-y-1.5">
           <Label>{t('title')} *</Label>
           <Input {...form.register('title')} className="text-base" maxLength={255} />
-          {form.formState.errors.title && <p className="text-sm text-danger-text">{form.formState.errors.title.message}</p>}
+          {form.formState.errors.title && (
+            <p className="text-sm text-danger-text">{form.formState.errors.title.message}</p>
+          )}
         </div>
 
         {/* Due Date */}
         <div className="space-y-1.5">
           <Label>{t('dueDate')} *</Label>
           <Input type="date" {...form.register('due_date')} className="text-base" />
-          {form.formState.errors.due_date && <p className="text-sm text-danger-text">{form.formState.errors.due_date.message}</p>}
+          {form.formState.errors.due_date && (
+            <p className="text-sm text-danger-text">{form.formState.errors.due_date.message}</p>
+          )}
         </div>
 
         {/* Homework Type */}
@@ -130,10 +141,14 @@ export function HomeworkQuickForm({
             name="homework_type"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="text-base">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {HOMEWORK_TYPE_VALUES.map((v) => (
-                    <SelectItem key={v} value={v}>{v.replace('_', ' ')}</SelectItem>
+                    <SelectItem key={v} value={v}>
+                      {v.replace('_', ' ')}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -149,10 +164,14 @@ export function HomeworkQuickForm({
             name="academic_year_id"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className="text-base"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="text-base">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {academicYears.map((y) => (
-                    <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+                    <SelectItem key={y.id} value={y.id}>
+                      {y.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -161,7 +180,11 @@ export function HomeworkQuickForm({
         </div>
       </div>
 
-      <button type="button" onClick={() => setShowMore(!showMore)} className="text-sm font-medium text-primary-600 hover:text-primary-700">
+      <button
+        type="button"
+        onClick={() => setShowMore(!showMore)}
+        className="text-sm font-medium text-primary-600 hover:text-primary-700"
+      >
         {t('moreOptions')} {showMore ? '▲' : '▼'}
       </button>
 
@@ -177,7 +200,13 @@ export function HomeworkQuickForm({
           </div>
           <div className="space-y-1.5">
             <Label>{t('maxPoints')}</Label>
-            <Input type="number" {...form.register('max_points', { valueAsNumber: true })} min={0} max={100} className="text-base" />
+            <Input
+              type="number"
+              {...form.register('max_points', { valueAsNumber: true })}
+              min={0}
+              max={100}
+              className="text-base"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>{t('subject')}</Label>
@@ -186,10 +215,14 @@ export function HomeworkQuickForm({
               name="subject_id"
               render={({ field }) => (
                 <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                  <SelectTrigger className="text-base"><SelectValue placeholder={t('subject')} /></SelectTrigger>
+                  <SelectTrigger className="text-base">
+                    <SelectValue placeholder={t('subject')} />
+                  </SelectTrigger>
                   <SelectContent>
                     {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -203,10 +236,14 @@ export function HomeworkQuickForm({
               name="academic_period_id"
               render={({ field }) => (
                 <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                  <SelectTrigger className="text-base"><SelectValue placeholder={t('academicPeriod')} /></SelectTrigger>
+                  <SelectTrigger className="text-base">
+                    <SelectValue placeholder={t('academicPeriod')} />
+                  </SelectTrigger>
                   <SelectContent>
                     {academicPeriods.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

@@ -1,5 +1,9 @@
 'use client';
 
+import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,13 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@school/ui';
-import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import type { StudentFormData, WizardAction, WizardState } from './types';
 
 import { apiClient } from '@/lib/api-client';
 
-import type { StudentFormData, WizardAction, WizardState } from './types';
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -142,17 +144,24 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                     ? `${student.first_name} ${student.last_name}`
                     : t('student', { number: index + 1 })}
                 </span>
-                {!isExpanded && (student.year_group_id || student.gender || student.date_of_birth) && (
-                  <span className="text-xs text-text-tertiary">
-                    {[
-                      getYearGroupName(student.year_group_id),
-                      student.gender ? t(student.gender === 'prefer_not_to_say' ? 'preferNotToSay' : student.gender) : '',
-                      student.date_of_birth,
-                    ]
-                      .filter(Boolean)
-                      .join(' \u00B7 ')}
-                  </span>
-                )}
+                {!isExpanded &&
+                  (student.year_group_id || student.gender || student.date_of_birth) && (
+                    <span className="text-xs text-text-tertiary">
+                      {[
+                        getYearGroupName(student.year_group_id),
+                        student.gender
+                          ? t(
+                              student.gender === 'prefer_not_to_say'
+                                ? 'preferNotToSay'
+                                : student.gender,
+                            )
+                          : '',
+                        student.date_of_birth,
+                      ]
+                        .filter(Boolean)
+                        .join(' \u00B7 ')}
+                    </span>
+                  )}
               </div>
 
               {/* Completion indicator */}
@@ -191,9 +200,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
                   {/* First Name */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-first-name`}>
-                      {t('firstName')} *
-                    </Label>
+                    <Label htmlFor={`student-${index}-first-name`}>{t('firstName')} *</Label>
                     <Input
                       id={`student-${index}-first-name`}
                       value={student.first_name}
@@ -203,9 +210,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* Middle Name */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-middle-name`}>
-                      {t('middleName')}
-                    </Label>
+                    <Label htmlFor={`student-${index}-middle-name`}>{t('middleName')}</Label>
                     <Input
                       id={`student-${index}-middle-name`}
                       value={student.middle_name}
@@ -215,9 +220,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* Last Name */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-last-name`}>
-                      {t('lastName')} *
-                    </Label>
+                    <Label htmlFor={`student-${index}-last-name`}>{t('lastName')} *</Label>
                     <Input
                       id={`student-${index}-last-name`}
                       value={student.last_name}
@@ -229,9 +232,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {/* Date of Birth */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-dob`}>
-                      {t('dateOfBirth')} *
-                    </Label>
+                    <Label htmlFor={`student-${index}-dob`}>{t('dateOfBirth')} *</Label>
                     <Input
                       id={`student-${index}-dob`}
                       type="date"
@@ -283,9 +284,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* National ID */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-national-id`}>
-                      {t('nationalId')} *
-                    </Label>
+                    <Label htmlFor={`student-${index}-national-id`}>{t('nationalId')} *</Label>
                     <Input
                       id={`student-${index}-national-id`}
                       dir="ltr"
@@ -296,9 +295,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* Nationality */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-nationality`}>
-                      {t('nationality')} *
-                    </Label>
+                    <Label htmlFor={`student-${index}-nationality`}>{t('nationality')} *</Label>
                     <Input
                       id={`student-${index}-nationality`}
                       value={student.nationality}
@@ -309,9 +306,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
 
                   {/* City of Birth */}
                   <div className="space-y-1.5">
-                    <Label htmlFor={`student-${index}-city-of-birth`}>
-                      {t('cityOfBirth')}
-                    </Label>
+                    <Label htmlFor={`student-${index}-city-of-birth`}>{t('cityOfBirth')}</Label>
                     <Input
                       id={`student-${index}-city-of-birth`}
                       value={student.city_of_birth}
@@ -327,12 +322,7 @@ export function StepStudents({ state, dispatch }: StepStudentsProps) {
       })}
 
       {/* ── Add Another Student ─────────────────────────────────── */}
-      <Button
-        type="button"
-        variant="outline"
-        onClick={handleAddStudent}
-        className="gap-1.5"
-      >
+      <Button type="button" variant="outline" onClick={handleAddStudent} className="gap-1.5">
         <Plus className="h-4 w-4" />
         {t('addStudent')}
       </Button>

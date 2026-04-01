@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   AddAdjustmentDto,
   CreateSchedulingRunDto,
@@ -105,9 +106,10 @@ export class SchedulingRunsService {
           mode,
           status: 'queued',
           config_snapshot: configSnapshot,
-          solver_seed: dto.solver_seed !== undefined && dto.solver_seed !== null
-            ? BigInt(dto.solver_seed)
-            : null,
+          solver_seed:
+            dto.solver_seed !== undefined && dto.solver_seed !== null
+              ? BigInt(dto.solver_seed)
+              : null,
           created_by_user_id: userId,
         },
       });
@@ -305,8 +307,7 @@ export class SchedulingRunsService {
     if (expectedAt !== actualAt) {
       throw new ConflictException({
         code: 'STALE_RUN',
-        message:
-          'The run has been modified since you last loaded it. Reload and try again.',
+        message: 'The run has been modified since you last loaded it. Reload and try again.',
         details: { expected_updated_at: expectedAt, actual_updated_at: actualAt },
       });
     }
@@ -361,8 +362,7 @@ export class SchedulingRunsService {
     if (expectedAt !== actualAt) {
       throw new ConflictException({
         code: 'STALE_RUN',
-        message:
-          'The run has been modified since you last loaded it. Reload and try again.',
+        message: 'The run has been modified since you last loaded it. Reload and try again.',
         details: { expected_updated_at: expectedAt, actual_updated_at: actualAt },
       });
     }
@@ -385,24 +385,26 @@ export class SchedulingRunsService {
   private formatRunPartial(run: Record<string, unknown>): Record<string, unknown> {
     return {
       ...run,
-      solver_seed: run['solver_seed'] !== null && run['solver_seed'] !== undefined
-        ? Number(run['solver_seed'])
-        : null,
-      soft_preference_score: run['soft_preference_score'] !== null
-        ? Number(run['soft_preference_score'])
-        : null,
-      soft_preference_max: run['soft_preference_max'] !== null
-        ? Number(run['soft_preference_max'])
-        : null,
-      created_at: run['created_at'] instanceof Date
-        ? (run['created_at'] as Date).toISOString()
-        : run['created_at'],
-      updated_at: run['updated_at'] instanceof Date
-        ? (run['updated_at'] as Date).toISOString()
-        : run['updated_at'],
-      applied_at: run['applied_at'] instanceof Date
-        ? (run['applied_at'] as Date).toISOString()
-        : run['applied_at'],
+      solver_seed:
+        run['solver_seed'] !== null && run['solver_seed'] !== undefined
+          ? Number(run['solver_seed'])
+          : null,
+      soft_preference_score:
+        run['soft_preference_score'] !== null ? Number(run['soft_preference_score']) : null,
+      soft_preference_max:
+        run['soft_preference_max'] !== null ? Number(run['soft_preference_max']) : null,
+      created_at:
+        run['created_at'] instanceof Date
+          ? (run['created_at'] as Date).toISOString()
+          : run['created_at'],
+      updated_at:
+        run['updated_at'] instanceof Date
+          ? (run['updated_at'] as Date).toISOString()
+          : run['updated_at'],
+      applied_at:
+        run['applied_at'] instanceof Date
+          ? (run['applied_at'] as Date).toISOString()
+          : run['applied_at'],
     };
   }
 

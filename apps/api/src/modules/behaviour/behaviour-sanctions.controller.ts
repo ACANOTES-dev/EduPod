@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   bulkMarkServedSchema,
   createSanctionSchema,
@@ -21,7 +23,6 @@ import {
   updateSanctionSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -38,9 +39,7 @@ import { BehaviourSanctionsService } from './behaviour-sanctions.service';
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourSanctionsController {
-  constructor(
-    private readonly sanctionsService: BehaviourSanctionsService,
-  ) {}
+  constructor(private readonly sanctionsService: BehaviourSanctionsService) {}
 
   // ─── Create ─────────────────────────────────────────────────────────────────
 
@@ -72,22 +71,14 @@ export class BehaviourSanctionsController {
 
   @Get('behaviour/sanctions/today')
   @RequiresPermission('behaviour.manage')
-  async getTodaySanctions(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getTodaySanctions(@CurrentTenant() tenant: TenantContext) {
     return this.sanctionsService.getTodaySanctions(tenant.tenant_id);
   }
 
   @Get('behaviour/sanctions/my-supervision')
   @RequiresPermission('behaviour.view')
-  async getMySupervision(
-    @CurrentTenant() tenant: TenantContext,
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return this.sanctionsService.getMySupervision(
-      tenant.tenant_id,
-      user.sub,
-    );
+  async getMySupervision(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: JwtPayload) {
+    return this.sanctionsService.getMySupervision(tenant.tenant_id, user.sub);
   }
 
   @Get('behaviour/sanctions/calendar')
@@ -102,17 +93,13 @@ export class BehaviourSanctionsController {
 
   @Get('behaviour/sanctions/active-suspensions')
   @RequiresPermission('behaviour.manage')
-  async getActiveSuspensions(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getActiveSuspensions(@CurrentTenant() tenant: TenantContext) {
     return this.sanctionsService.getActiveSuspensions(tenant.tenant_id);
   }
 
   @Get('behaviour/sanctions/returning-soon')
   @RequiresPermission('behaviour.manage')
-  async getReturningSoon(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getReturningSoon(@CurrentTenant() tenant: TenantContext) {
     return this.sanctionsService.getReturningSoon(tenant.tenant_id);
   }
 
@@ -125,21 +112,14 @@ export class BehaviourSanctionsController {
     @Body(new ZodValidationPipe(bulkMarkServedSchema))
     dto: z.infer<typeof bulkMarkServedSchema>,
   ) {
-    return this.sanctionsService.bulkMarkServed(
-      tenant.tenant_id,
-      dto,
-      user.sub,
-    );
+    return this.sanctionsService.bulkMarkServed(tenant.tenant_id, dto, user.sub);
   }
 
   // ─── Parameterised :id routes ───────────────────────────────────────────────
 
   @Get('behaviour/sanctions/:id')
   @RequiresPermission('behaviour.manage')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.sanctionsService.getById(tenant.tenant_id, id);
   }
 
@@ -152,12 +132,7 @@ export class BehaviourSanctionsController {
     @Body(new ZodValidationPipe(updateSanctionSchema))
     dto: z.infer<typeof updateSanctionSchema>,
   ) {
-    return this.sanctionsService.update(
-      tenant.tenant_id,
-      id,
-      dto,
-      user.sub,
-    );
+    return this.sanctionsService.update(tenant.tenant_id, id, dto, user.sub);
   }
 
   @Patch('behaviour/sanctions/:id/status')
@@ -187,27 +162,19 @@ export class BehaviourSanctionsController {
     @Body(new ZodValidationPipe(recordParentMeetingSchema))
     dto: z.infer<typeof recordParentMeetingSchema>,
   ) {
-    return this.sanctionsService.recordParentMeeting(
-      tenant.tenant_id,
-      id,
-      dto,
-    );
+    return this.sanctionsService.recordParentMeeting(tenant.tenant_id, id, dto);
   }
 
   @Post('behaviour/sanctions/:id/appeal')
   @RequiresPermission('behaviour.manage')
   @HttpCode(HttpStatus.OK)
-  async submitAppeal(
-    @Param('id', ParseUUIDPipe) _id: string,
-  ) {
+  async submitAppeal(@Param('id', ParseUUIDPipe) _id: string) {
     return { message: 'Use POST /appeals endpoint' };
   }
 
   @Patch('behaviour/sanctions/:id/appeal-outcome')
   @RequiresPermission('behaviour.manage')
-  async appealOutcome(
-    @Param('id', ParseUUIDPipe) _id: string,
-  ) {
+  async appealOutcome(@Param('id', ParseUUIDPipe) _id: string) {
     return { message: 'Handled by appeals service — use PATCH /appeals/:id/outcome' };
   }
 }

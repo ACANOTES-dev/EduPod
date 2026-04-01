@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge, Button } from '@school/ui';
 import { CalendarClock, CheckCircle2, Plus, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+
+import { Badge, Button } from '@school/ui';
 
 
 import type { InterventionGoal, ReviewEntry } from './intervention-types';

@@ -1,5 +1,9 @@
 'use client';
 
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -17,9 +21,6 @@ import {
   SelectValue,
   Switch,
 } from '@school/ui';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -117,7 +118,8 @@ export default function BehaviourAwardsPage() {
         '/api/v1/behaviour/award-types?pageSize=100&sort=display_order&order=asc',
       );
       setAwards(res.data ?? []);
-    } catch {
+    } catch (err) {
+      console.error('[fetchAwards]', err);
       setAwards([]);
     } finally {
       setLoading(false);
@@ -142,7 +144,8 @@ export default function BehaviourAwardsPage() {
       name_ar: award.name_ar ?? '',
       points_threshold: award.points_threshold != null ? String(award.points_threshold) : '',
       repeat_mode: award.repeat_mode,
-      repeat_max_per_year: award.repeat_max_per_year != null ? String(award.repeat_max_per_year) : '',
+      repeat_max_per_year:
+        award.repeat_max_per_year != null ? String(award.repeat_max_per_year) : '',
       tier_group: award.tier_group ?? '',
       tier_level: award.tier_level != null ? String(award.tier_level) : '',
       supersedes_lower_tiers: award.supersedes_lower_tiers,
@@ -168,7 +171,9 @@ export default function BehaviourAwardsPage() {
         name_ar: form.name_ar.trim() || null,
         points_threshold: form.points_threshold ? parseInt(form.points_threshold, 10) : null,
         repeat_mode: form.repeat_mode,
-        repeat_max_per_year: form.repeat_max_per_year ? parseInt(form.repeat_max_per_year, 10) : null,
+        repeat_max_per_year: form.repeat_max_per_year
+          ? parseInt(form.repeat_max_per_year, 10)
+          : null,
         tier_group: form.tier_group.trim() || null,
         tier_level: form.tier_level ? parseInt(form.tier_level, 10) : null,
         supersedes_lower_tiers: form.supersedes_lower_tiers,
@@ -221,8 +226,8 @@ export default function BehaviourAwardsPage() {
         body: JSON.stringify({ is_active: !award.is_active }),
       });
       void fetchAwards();
-    } catch {
-      // handled by global error handler
+    } catch (err) {
+      console.error('[handleToggleActive]', err);
     }
   };
 
@@ -257,10 +262,7 @@ export default function BehaviourAwardsPage() {
         /* Mobile card view */
         <div className="space-y-3">
           {awards.map((award) => (
-            <div
-              key={award.id}
-              className="rounded-xl border border-border bg-surface p-4"
-            >
+            <div key={award.id} className="rounded-xl border border-border bg-surface p-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   {award.color && (
@@ -297,18 +299,17 @@ export default function BehaviourAwardsPage() {
                   <Pencil className="me-1 h-3.5 w-3.5" />
                   Edit
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleActive(award)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(award)}>
                   {award.is_active ? 'Deactivate' : 'Activate'}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="text-danger-text hover:text-danger-text"
-                  onClick={() => { setDeleteError(''); setDeleteTarget(award); }}
+                  onClick={() => {
+                    setDeleteError('');
+                    setDeleteTarget(award);
+                  }}
                 >
                   <Trash2 className="me-1 h-3.5 w-3.5" />
                   Delete
@@ -323,17 +324,32 @@ export default function BehaviourAwardsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Name</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Points Threshold</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Repeat Mode</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Tier</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Active</th>
-                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">Actions</th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Points Threshold
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Repeat Mode
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Tier
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Active
+                </th>
+                <th className="px-4 py-3 text-start text-xs font-semibold uppercase tracking-wider text-text-tertiary">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {awards.map((award) => (
-                <tr key={award.id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
+                <tr
+                  key={award.id}
+                  className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       {award.color && (
@@ -386,7 +402,10 @@ export default function BehaviourAwardsPage() {
                         variant="ghost"
                         size="sm"
                         className="text-danger-text hover:text-danger-text"
-                        onClick={() => { setDeleteError(''); setDeleteTarget(award); }}
+                        onClick={() => {
+                          setDeleteError('');
+                          setDeleteTarget(award);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>
@@ -440,13 +459,18 @@ export default function BehaviourAwardsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Repeat Mode</Label>
-                <Select value={form.repeat_mode} onValueChange={(v) => updateForm('repeat_mode', v)}>
+                <Select
+                  value={form.repeat_mode}
+                  onValueChange={(v) => updateForm('repeat_mode', v)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {REPEAT_MODE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -555,17 +579,27 @@ export default function BehaviourAwardsPage() {
       </Dialog>
 
       {/* Delete confirm */}
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => {
+          if (!v) setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Award</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-text-secondary">
-            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? Existing recognitions using this award type will not be affected.
+            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? Existing
+            recognitions using this award type will not be affected.
           </p>
           {deleteError && <p className="text-sm text-danger-text">{deleteError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteLoading}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>

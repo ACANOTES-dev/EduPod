@@ -1,5 +1,10 @@
 'use client';
 
+import { ArrowLeft, BarChart2, Pencil, Plus } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -21,17 +26,14 @@ import {
   StatusBadge,
   toast,
 } from '@school/ui';
-import { ArrowLeft, BarChart2, Pencil, Plus } from 'lucide-react';
-import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
+
+import { AnalyticsTab } from './analytics-tab';
+import { ResultsMatrix } from './results-matrix';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { AnalyticsTab } from './analytics-tab';
-import { ResultsMatrix } from './results-matrix';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,21 +146,30 @@ export default function ClassGradebookPage() {
       .catch(() => undefined);
   }, []);
 
-  const fetchAssessments = React.useCallback(async (p: number, subjectId: string) => {
-    setAssessmentsLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), class_id: classId });
-      if (subjectId !== 'all') params.set('subject_id', subjectId);
-      const res = await apiClient<AssessmentsResponse>(`/api/v1/gradebook/assessments?${params.toString()}`);
-      setAssessments(res.data);
-      setAssessmentsTotal(res.meta.total);
-    } catch {
-      setAssessments([]);
-      setAssessmentsTotal(0);
-    } finally {
-      setAssessmentsLoading(false);
-    }
-  }, [classId]);
+  const fetchAssessments = React.useCallback(
+    async (p: number, subjectId: string) => {
+      setAssessmentsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(p),
+          pageSize: String(PAGE_SIZE),
+          class_id: classId,
+        });
+        if (subjectId !== 'all') params.set('subject_id', subjectId);
+        const res = await apiClient<AssessmentsResponse>(
+          `/api/v1/gradebook/assessments?${params.toString()}`,
+        );
+        setAssessments(res.data);
+        setAssessmentsTotal(res.meta.total);
+      } catch {
+        setAssessments([]);
+        setAssessmentsTotal(0);
+      } finally {
+        setAssessmentsLoading(false);
+      }
+    },
+    [classId],
+  );
 
   React.useEffect(() => {
     if (activeTab === 'assessments') {
@@ -194,22 +205,28 @@ export default function ClassGradebookPage() {
       header: 'Status',
       render: (row: Assessment) => (
         <StatusBadge status={STATUS_VARIANT[row.status] ?? 'neutral'} dot>
-          {t(`status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as 'statusDraft' | 'statusOpen' | 'statusClosed' | 'statusLocked')}
+          {t(
+            `status${row.status.charAt(0).toUpperCase() + row.status.slice(1)}` as
+              | 'statusDraft'
+              | 'statusOpen'
+              | 'statusClosed'
+              | 'statusLocked',
+          )}
         </StatusBadge>
       ),
     },
     {
       key: 'category',
       header: t('category'),
-      render: (row: Assessment) => (
-        <span className="text-text-secondary">{row.category_name}</span>
-      ),
+      render: (row: Assessment) => <span className="text-text-secondary">{row.category_name}</span>,
     },
     {
       key: 'max_score',
       header: t('maxScore'),
       render: (row: Assessment) => (
-        <span className="font-mono text-text-secondary" dir="ltr">{row.max_score}</span>
+        <span className="font-mono text-text-secondary" dir="ltr">
+          {row.max_score}
+        </span>
       ),
     },
     {
@@ -280,19 +297,28 @@ export default function ClassGradebookPage() {
     }
   }, [activeTab]);
 
-  const fetchPeriodGrades = React.useCallback(async (subjectId: string, periodId: string) => {
-    if (!subjectId || !periodId) return;
-    setPeriodGradesLoading(true);
-    try {
-      const prms = new URLSearchParams({ class_id: classId, subject_id: subjectId, academic_period_id: periodId });
-      const res = await apiClient<PeriodGradesResponse>(`/api/v1/gradebook/period-grades?${prms.toString()}`);
-      setPeriodGrades(res.data);
-    } catch {
-      setPeriodGrades([]);
-    } finally {
-      setPeriodGradesLoading(false);
-    }
-  }, [classId]);
+  const fetchPeriodGrades = React.useCallback(
+    async (subjectId: string, periodId: string) => {
+      if (!subjectId || !periodId) return;
+      setPeriodGradesLoading(true);
+      try {
+        const prms = new URLSearchParams({
+          class_id: classId,
+          subject_id: subjectId,
+          academic_period_id: periodId,
+        });
+        const res = await apiClient<PeriodGradesResponse>(
+          `/api/v1/gradebook/period-grades?${prms.toString()}`,
+        );
+        setPeriodGrades(res.data);
+      } catch {
+        setPeriodGrades([]);
+      } finally {
+        setPeriodGradesLoading(false);
+      }
+    },
+    [classId],
+  );
 
   React.useEffect(() => {
     if (activeTab === 'grades' && pgSubjectId && pgPeriodId) {
@@ -309,7 +335,11 @@ export default function ClassGradebookPage() {
     try {
       await apiClient('/api/v1/gradebook/period-grades/compute', {
         method: 'POST',
-        body: JSON.stringify({ class_id: classId, subject_id: pgSubjectId, academic_period_id: pgPeriodId }),
+        body: JSON.stringify({
+          class_id: classId,
+          subject_id: pgSubjectId,
+          academic_period_id: pgPeriodId,
+        }),
       });
       void fetchPeriodGrades(pgSubjectId, pgPeriodId);
       toast.success('Grades computed');
@@ -402,7 +432,11 @@ export default function ClassGradebookPage() {
     { key: 'assessments', label: t('assessments') },
     { key: 'results', label: t('results') },
     { key: 'grades', label: t('grades') },
-    { key: 'analytics', label: t('analytics'), icon: <BarChart2 className="inline-block me-1 h-3.5 w-3.5" /> },
+    {
+      key: 'analytics',
+      label: t('analytics'),
+      icon: <BarChart2 className="inline-block me-1 h-3.5 w-3.5" />,
+    },
   ];
 
   return (
@@ -419,9 +453,7 @@ export default function ClassGradebookPage() {
                 {assessmentTemplates.length > 0 && (
                   <Popover open={templatePopoverOpen} onOpenChange={setTemplatePopoverOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline">
-                        {t('fromTemplate')}
-                      </Button>
+                      <Button variant="outline">{t('fromTemplate')}</Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-64 p-0">
                       <div className="p-2">
@@ -435,14 +467,18 @@ export default function ClassGradebookPage() {
                             className="w-full rounded-md px-3 py-2 text-start text-sm hover:bg-surface-secondary transition-colors"
                           >
                             <span className="font-medium text-text-primary">{tpl.name}</span>
-                            <span className="ms-2 text-xs text-text-secondary">/ {tpl.max_score}</span>
+                            <span className="ms-2 text-xs text-text-secondary">
+                              / {tpl.max_score}
+                            </span>
                           </button>
                         ))}
                       </div>
                     </PopoverContent>
                   </Popover>
                 )}
-                <Button onClick={() => router.push(`/${locale}/gradebook/${classId}/assessments/new`)}>
+                <Button
+                  onClick={() => router.push(`/${locale}/gradebook/${classId}/assessments/new`)}
+                >
                   <Plus className="me-2 h-4 w-4" />
                   {t('newAssessment')}
                 </Button>
@@ -457,7 +493,10 @@ export default function ClassGradebookPage() {
       </div>
 
       {/* Tabs */}
-      <nav className="flex gap-1 overflow-x-auto border-b border-border" aria-label="Gradebook tabs">
+      <nav
+        className="flex gap-1 overflow-x-auto border-b border-border"
+        aria-label="Gradebook tabs"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -469,7 +508,8 @@ export default function ClassGradebookPage() {
             }`}
             aria-current={activeTab === tab.key ? 'page' : undefined}
           >
-            {tab.icon}{tab.label}
+            {tab.icon}
+            {tab.label}
           </button>
         ))}
       </nav>
@@ -479,14 +519,22 @@ export default function ClassGradebookPage() {
         <>
           {/* Subject filter for assessments */}
           <div className="flex flex-wrap items-center gap-3">
-            <Select value={assessmentSubjectFilter} onValueChange={(v) => { setAssessmentSubjectFilter(v); setAssessmentsPage(1); }}>
+            <Select
+              value={assessmentSubjectFilter}
+              onValueChange={(v) => {
+                setAssessmentSubjectFilter(v);
+                setAssessmentsPage(1);
+              }}
+            >
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder={t('subject')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Subjects</SelectItem>
                 {assessmentSubjects.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -499,7 +547,9 @@ export default function ClassGradebookPage() {
             pageSize={PAGE_SIZE}
             total={assessmentsTotal}
             onPageChange={setAssessmentsPage}
-            onRowClick={(row) => router.push(`/${locale}/gradebook/${classId}/assessments/${row.id}/grades`)}
+            onRowClick={(row) =>
+              router.push(`/${locale}/gradebook/${classId}/assessments/${row.id}/grades`)
+            }
             keyExtractor={(row) => row.id}
             isLoading={assessmentsLoading}
           />
@@ -541,13 +591,9 @@ export default function ClassGradebookPage() {
         </>
       )}
 
-      {activeTab === 'results' && (
-        <ResultsMatrix classId={classId} />
-      )}
+      {activeTab === 'results' && <ResultsMatrix classId={classId} />}
 
-      {activeTab === 'analytics' && (
-        <AnalyticsTab classId={classId} />
-      )}
+      {activeTab === 'analytics' && <AnalyticsTab classId={classId} />}
 
       {activeTab === 'grades' && (
         <>
@@ -559,7 +605,9 @@ export default function ClassGradebookPage() {
               </SelectTrigger>
               <SelectContent>
                 {pgSubjects.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -569,7 +617,9 @@ export default function ClassGradebookPage() {
               </SelectTrigger>
               <SelectContent>
                 {pgPeriods.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -601,7 +651,10 @@ export default function ClassGradebookPage() {
               <div className="space-y-4">
                 {overrideTarget && (
                   <p className="text-sm text-text-secondary">
-                    Student: <span className="font-medium text-text-primary">{overrideTarget.student_name}</span>
+                    Student:{' '}
+                    <span className="font-medium text-text-primary">
+                      {overrideTarget.student_name}
+                    </span>
                   </p>
                 )}
                 <div>
@@ -628,9 +681,7 @@ export default function ClassGradebookPage() {
                 <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>
                   {tc('cancel')}
                 </Button>
-                <Button onClick={handleOverrideSave}>
-                  {tc('save')}
-                </Button>
+                <Button onClick={handleOverrideSave}>{tc('save')}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

@@ -1,9 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { $Enums } from '@prisma/client';
+
 import type {
   CreateCategoryDto,
   CreateTemplateDto,
@@ -51,18 +48,13 @@ export class BehaviourConfigService {
         requires_follow_up: dto.requires_follow_up,
         requires_parent_notification: dto.requires_parent_notification,
         parent_visible: dto.parent_visible,
-        benchmark_category:
-          dto.benchmark_category as $Enums.BenchmarkCategory,
+        benchmark_category: dto.benchmark_category as $Enums.BenchmarkCategory,
         display_order: dto.display_order,
       },
     });
   }
 
-  async updateCategory(
-    tenantId: string,
-    id: string,
-    dto: UpdateCategoryDto,
-  ) {
+  async updateCategory(tenantId: string, id: string, dto: UpdateCategoryDto) {
     const category = await this.prisma.behaviourCategory.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -94,9 +86,7 @@ export class BehaviourConfigService {
           ? { polarity: dto.polarity as $Enums.BehaviourPolarity }
           : {}),
         ...(dto.severity !== undefined ? { severity: dto.severity } : {}),
-        ...(dto.point_value !== undefined
-          ? { point_value: dto.point_value }
-          : {}),
+        ...(dto.point_value !== undefined ? { point_value: dto.point_value } : {}),
         ...(dto.color !== undefined ? { color: dto.color } : {}),
         ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
         ...(dto.requires_follow_up !== undefined
@@ -104,22 +94,16 @@ export class BehaviourConfigService {
           : {}),
         ...(dto.requires_parent_notification !== undefined
           ? {
-              requires_parent_notification:
-                dto.requires_parent_notification,
+              requires_parent_notification: dto.requires_parent_notification,
             }
           : {}),
-        ...(dto.parent_visible !== undefined
-          ? { parent_visible: dto.parent_visible }
-          : {}),
+        ...(dto.parent_visible !== undefined ? { parent_visible: dto.parent_visible } : {}),
         ...(dto.benchmark_category !== undefined
           ? {
-              benchmark_category:
-                dto.benchmark_category as $Enums.BenchmarkCategory,
+              benchmark_category: dto.benchmark_category as $Enums.BenchmarkCategory,
             }
           : {}),
-        ...(dto.display_order !== undefined
-          ? { display_order: dto.display_order }
-          : {}),
+        ...(dto.display_order !== undefined ? { display_order: dto.display_order } : {}),
       },
     });
   }
@@ -157,15 +141,10 @@ export class BehaviourConfigService {
     });
   }
 
-  async updateTemplate(
-    tenantId: string,
-    id: string,
-    dto: UpdateTemplateDto,
-  ) {
-    const template =
-      await this.prisma.behaviourDescriptionTemplate.findFirst({
-        where: { id, tenant_id: tenantId },
-      });
+  async updateTemplate(tenantId: string, id: string, dto: UpdateTemplateDto) {
+    const template = await this.prisma.behaviourDescriptionTemplate.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
     if (!template) {
       throw new NotFoundException({
         code: 'TEMPLATE_NOT_FOUND',
@@ -178,12 +157,8 @@ export class BehaviourConfigService {
       data: {
         ...(dto.locale !== undefined ? { locale: dto.locale } : {}),
         ...(dto.text !== undefined ? { text: dto.text } : {}),
-        ...(dto.display_order !== undefined
-          ? { display_order: dto.display_order }
-          : {}),
-        ...(dto.is_active !== undefined
-          ? { is_active: dto.is_active }
-          : {}),
+        ...(dto.display_order !== undefined ? { display_order: dto.display_order } : {}),
+        ...(dto.is_active !== undefined ? { is_active: dto.is_active } : {}),
       },
     });
   }

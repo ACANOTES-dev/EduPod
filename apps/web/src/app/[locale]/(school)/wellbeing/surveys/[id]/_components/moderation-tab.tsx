@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Skeleton } from '@school/ui';
 import { AlertTriangle, CheckCircle2, Flag, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Skeleton } from '@school/ui';
 
 import type { ModerationItem } from './survey-types';
 

@@ -12,6 +12,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+
 import {
   createWebsitePageSchema,
   listWebsitePagesSchema,
@@ -61,10 +62,7 @@ export class WebsitePagesController {
   }
 
   @Get('pages/:id')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getById(tenant.tenant_id, id);
   }
 
@@ -90,28 +88,19 @@ export class WebsitePagesController {
 
   @Post('pages/:id/publish')
   @HttpCode(HttpStatus.OK)
-  async publish(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async publish(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.publish(tenant.tenant_id, id);
   }
 
   @Post('pages/:id/unpublish')
   @HttpCode(HttpStatus.OK)
-  async unpublish(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async unpublish(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.unpublish(tenant.tenant_id, id);
   }
 
   @Delete('pages/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async delete(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.delete(tenant.tenant_id, id);
   }
 }

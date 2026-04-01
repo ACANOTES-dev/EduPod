@@ -12,16 +12,9 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import {
-  assignPermissionsSchema,
-  createRoleSchema,
-  updateRoleSchema,
-} from '@school/shared';
-import type {
-  AssignPermissionsDto,
-  CreateRoleDto,
-  UpdateRoleDto,
-} from '@school/shared';
+
+import { assignPermissionsSchema, createRoleSchema, updateRoleSchema } from '@school/shared';
+import type { AssignPermissionsDto, CreateRoleDto, UpdateRoleDto } from '@school/shared';
 import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
@@ -54,10 +47,7 @@ export class RolesController {
 
   @Get(':id')
   @RequiresPermission('roles.manage')
-  async getRole(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getRole(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.getRole(tenant.tenant_id, id);
   }
 
@@ -74,10 +64,7 @@ export class RolesController {
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequiresPermission('roles.manage')
-  async deleteRole(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async deleteRole(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.rolesService.deleteRole(tenant.tenant_id, id);
   }
 
@@ -89,10 +76,6 @@ export class RolesController {
     @Body(new ZodValidationPipe(assignPermissionsSchema))
     dto: AssignPermissionsDto,
   ) {
-    return this.rolesService.assignPermissions(
-      tenant.tenant_id,
-      id,
-      dto.permission_ids,
-    );
+    return this.rolesService.assignPermissions(tenant.tenant_id, id, dto.permission_ids);
   }
 }

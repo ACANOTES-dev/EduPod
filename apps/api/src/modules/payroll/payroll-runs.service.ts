@@ -6,12 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type {
-  CreatePayrollRunDto,
-  UpdatePayrollRunDto,
-  FinaliseRunDto,
-} from '@school/shared';
 import type { Queue } from 'bullmq';
+
+import type { CreatePayrollRunDto, UpdatePayrollRunDto, FinaliseRunDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
@@ -64,7 +61,10 @@ export class PayrollRunsService {
     }
 
     const orderBy: Record<string, string> = {};
-    if (sort && ['created_at', 'period_year', 'period_month', 'total_pay', 'status'].includes(sort)) {
+    if (
+      sort &&
+      ['created_at', 'period_year', 'period_month', 'total_pay', 'status'].includes(sort)
+    ) {
       orderBy[sort] = order ?? 'desc';
     } else {
       orderBy.created_at = 'desc';
@@ -118,8 +118,10 @@ export class PayrollRunsService {
         bonus_pay: Number(e.bonus_pay),
         total_pay: Number(e.total_pay),
         override_total_pay: e.override_total_pay != null ? Number(e.override_total_pay) : null,
-        snapshot_base_salary: e.snapshot_base_salary != null ? Number(e.snapshot_base_salary) : null,
-        snapshot_per_class_rate: e.snapshot_per_class_rate != null ? Number(e.snapshot_per_class_rate) : null,
+        snapshot_base_salary:
+          e.snapshot_base_salary != null ? Number(e.snapshot_base_salary) : null,
+        snapshot_per_class_rate:
+          e.snapshot_per_class_rate != null ? Number(e.snapshot_per_class_rate) : null,
       })),
     };
   }
@@ -234,8 +236,15 @@ export class PayrollRunsService {
         const settings = await this.settingsService.getSettings(tenantId);
         autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
       } catch (err) {
-        if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-          this.logger.warn(`Tenant ${tenantId} has no settings configured, using defaults for payroll`);
+        if (
+          err &&
+          typeof err === 'object' &&
+          'status' in err &&
+          (err as { status: number }).status === 404
+        ) {
+          this.logger.warn(
+            `Tenant ${tenantId} has no settings configured, using defaults for payroll`,
+          );
         } else {
           throw err;
         }
@@ -260,10 +269,7 @@ export class PayrollRunsService {
               tenant_id: tenantId,
               teacher_staff_id: staffProfileId,
               effective_start_date: { lte: lastDayOfMonth },
-              OR: [
-                { effective_end_date: null },
-                { effective_end_date: { gte: firstDayOfMonth } },
-              ],
+              OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDayOfMonth } }],
             },
           });
           autoPopulatedClassCount = scheduleCount;
@@ -272,10 +278,13 @@ export class PayrollRunsService {
         const calcInput: CalcInput = {
           compensation_type: comp.compensation_type as 'salaried' | 'per_class',
           snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-          snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+          snapshot_per_class_rate:
+            comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
           snapshot_assigned_class_count: comp.assigned_class_count,
-          snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-          snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+          snapshot_bonus_class_rate:
+            comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+          snapshot_bonus_day_multiplier:
+            comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
           total_working_days: dto.total_working_days,
           days_worked: comp.compensation_type === 'salaried' ? dto.total_working_days : null,
           classes_taught: autoPopulatedClassCount,
@@ -290,10 +299,13 @@ export class PayrollRunsService {
             staff_profile_id: staffProfileId,
             compensation_type: comp.compensation_type,
             snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-            snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+            snapshot_per_class_rate:
+              comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
             snapshot_assigned_class_count: comp.assigned_class_count,
-            snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-            snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+            snapshot_bonus_class_rate:
+              comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+            snapshot_bonus_day_multiplier:
+              comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
             days_worked: comp.compensation_type === 'salaried' ? dto.total_working_days : null,
             classes_taught: autoPopulatedClassCount,
             auto_populated_class_count: autoPopulatedClassCount,
@@ -336,7 +348,8 @@ export class PayrollRunsService {
     if (Math.abs(expectedTime - actualTime) > 1000) {
       throw new ConflictException({
         code: 'CONCURRENT_MODIFICATION',
-        message: 'This payroll run has been modified by another user. Please refresh and try again.',
+        message:
+          'This payroll run has been modified by another user. Please refresh and try again.',
       });
     }
 
@@ -345,7 +358,8 @@ export class PayrollRunsService {
       updateData.period_label = dto.period_label;
     }
 
-    const totalWorkingDaysChanged = dto.total_working_days !== undefined && dto.total_working_days !== run.total_working_days;
+    const totalWorkingDaysChanged =
+      dto.total_working_days !== undefined && dto.total_working_days !== run.total_working_days;
     if (dto.total_working_days !== undefined) {
       updateData.total_working_days = dto.total_working_days;
     }
@@ -368,11 +382,15 @@ export class PayrollRunsService {
       for (const entry of salariedEntries) {
         const calcInput: CalcInput = {
           compensation_type: 'salaried',
-          snapshot_base_salary: entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
+          snapshot_base_salary:
+            entry.snapshot_base_salary !== null ? Number(entry.snapshot_base_salary) : null,
           snapshot_per_class_rate: null,
           snapshot_assigned_class_count: null,
           snapshot_bonus_class_rate: null,
-          snapshot_bonus_day_multiplier: entry.snapshot_bonus_day_multiplier !== null ? Number(entry.snapshot_bonus_day_multiplier) : null,
+          snapshot_bonus_day_multiplier:
+            entry.snapshot_bonus_day_multiplier !== null
+              ? Number(entry.snapshot_bonus_day_multiplier)
+              : null,
           total_working_days: dto.total_working_days,
           days_worked: entry.days_worked,
           classes_taught: null,
@@ -446,8 +464,15 @@ export class PayrollRunsService {
         const settings = await this.settingsService.getSettings(tenantId);
         autoPopulateClassCounts = settings.payroll.autoPopulateClassCounts;
       } catch (err) {
-        if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-          this.logger.warn(`Tenant ${tenantId} has no settings configured, using defaults for refresh`);
+        if (
+          err &&
+          typeof err === 'object' &&
+          'status' in err &&
+          (err as { status: number }).status === 404
+        ) {
+          this.logger.warn(
+            `Tenant ${tenantId} has no settings configured, using defaults for refresh`,
+          );
         } else {
           throw err;
         }
@@ -470,25 +495,26 @@ export class PayrollRunsService {
               tenant_id: tenantId,
               teacher_staff_id: entry.staff_profile_id,
               effective_start_date: { lte: lastDayOfMonth },
-              OR: [
-                { effective_end_date: null },
-                { effective_end_date: { gte: firstDayOfMonth } },
-              ],
+              OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDayOfMonth } }],
             },
           });
           autoPopulatedClassCount = scheduleCount;
         }
 
         const daysWorked = entry.days_worked;
-        const classesTaught = entry.classes_taught !== null ? Number(entry.classes_taught) : autoPopulatedClassCount;
+        const classesTaught =
+          entry.classes_taught !== null ? Number(entry.classes_taught) : autoPopulatedClassCount;
 
         const calcInput: CalcInput = {
           compensation_type: comp.compensation_type as 'salaried' | 'per_class',
           snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-          snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+          snapshot_per_class_rate:
+            comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
           snapshot_assigned_class_count: comp.assigned_class_count,
-          snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-          snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+          snapshot_bonus_class_rate:
+            comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+          snapshot_bonus_day_multiplier:
+            comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
           total_working_days: run.total_working_days,
           days_worked: daysWorked,
           classes_taught: classesTaught,
@@ -501,10 +527,13 @@ export class PayrollRunsService {
           data: {
             compensation_type: comp.compensation_type,
             snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-            snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+            snapshot_per_class_rate:
+              comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
             snapshot_assigned_class_count: comp.assigned_class_count,
-            snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-            snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+            snapshot_bonus_class_rate:
+              comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+            snapshot_bonus_day_multiplier:
+              comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
             classes_taught: classesTaught,
             auto_populated_class_count: autoPopulatedClassCount,
             basic_pay: result.basic_pay,
@@ -526,10 +555,7 @@ export class PayrollRunsService {
               tenant_id: tenantId,
               teacher_staff_id: comp.staff_profile_id,
               effective_start_date: { lte: lastDayOfMonth },
-              OR: [
-                { effective_end_date: null },
-                { effective_end_date: { gte: firstDayOfMonth } },
-              ],
+              OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDayOfMonth } }],
             },
           });
           autoPopulatedClassCount = scheduleCount;
@@ -538,10 +564,13 @@ export class PayrollRunsService {
         const calcInput: CalcInput = {
           compensation_type: comp.compensation_type as 'salaried' | 'per_class',
           snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-          snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+          snapshot_per_class_rate:
+            comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
           snapshot_assigned_class_count: comp.assigned_class_count,
-          snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-          snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+          snapshot_bonus_class_rate:
+            comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+          snapshot_bonus_day_multiplier:
+            comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
           total_working_days: run.total_working_days,
           days_worked: comp.compensation_type === 'salaried' ? run.total_working_days : null,
           classes_taught: autoPopulatedClassCount,
@@ -556,10 +585,13 @@ export class PayrollRunsService {
             staff_profile_id: comp.staff_profile_id,
             compensation_type: comp.compensation_type,
             snapshot_base_salary: comp.base_salary !== null ? Number(comp.base_salary) : null,
-            snapshot_per_class_rate: comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
+            snapshot_per_class_rate:
+              comp.per_class_rate !== null ? Number(comp.per_class_rate) : null,
             snapshot_assigned_class_count: comp.assigned_class_count,
-            snapshot_bonus_class_rate: comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
-            snapshot_bonus_day_multiplier: comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
+            snapshot_bonus_class_rate:
+              comp.bonus_class_rate !== null ? Number(comp.bonus_class_rate) : null,
+            snapshot_bonus_day_multiplier:
+              comp.bonus_day_multiplier !== null ? Number(comp.bonus_day_multiplier) : null,
             days_worked: comp.compensation_type === 'salaried' ? run.total_working_days : null,
             classes_taught: autoPopulatedClassCount,
             auto_populated_class_count: autoPopulatedClassCount,
@@ -595,7 +627,12 @@ export class PayrollRunsService {
 
     const redisKey = `payroll:session-gen:${tenantId}:${runId}`;
     const redis = this.redisService.getClient();
-    await redis.set(redisKey, JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }), 'EX', 3600);
+    await redis.set(
+      redisKey,
+      JSON.stringify({ status: 'queued', started_at: new Date().toISOString() }),
+      'EX',
+      3600,
+    );
 
     await this.payrollQueue.add('payroll:session-generation', {
       tenant_id: tenantId,
@@ -651,7 +688,8 @@ export class PayrollRunsService {
     if (Math.abs(expectedFinaliseTime - actualFinaliseTime) > 1000) {
       throw new ConflictException({
         code: 'CONCURRENT_MODIFICATION',
-        message: 'This payroll run has been modified by another user. Please refresh and try again.',
+        message:
+          'This payroll run has been modified by another user. Please refresh and try again.',
       });
     }
 
@@ -677,8 +715,15 @@ export class PayrollRunsService {
       const settings = await this.settingsService.getSettings(tenantId);
       requireApproval = settings.payroll.requireApprovalForNonPrincipal;
     } catch (err) {
-      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-        this.logger.warn(`Tenant ${tenantId} has no settings configured, defaulting to requireApproval=true`);
+      if (
+        err &&
+        typeof err === 'object' &&
+        'status' in err &&
+        (err as { status: number }).status === 404
+      ) {
+        this.logger.warn(
+          `Tenant ${tenantId} has no settings configured, defaulting to requireApproval=true`,
+        );
       } else {
         throw err;
       }

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -75,8 +76,8 @@ describe('ContactSubmissionsController', () => {
   it('should propagate service errors to the caller', async () => {
     mockService.list.mockRejectedValueOnce(new Error('DB error'));
 
-    await expect(
-      controller.list(tenant, { page: 1, pageSize: 20 } as never),
-    ).rejects.toThrow('DB error');
+    await expect(controller.list(tenant, { page: 1, pageSize: 20 } as never)).rejects.toThrow(
+      'DB error',
+    );
   });
 });

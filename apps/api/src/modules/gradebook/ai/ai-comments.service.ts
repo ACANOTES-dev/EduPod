@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+
 import type { GdprOutboundData } from '@school/shared';
 import { CONSENT_TYPES, SYSTEM_USER_SENTINEL } from '@school/shared';
 
@@ -61,24 +62,18 @@ export class AiCommentsService {
         );
       }
     } else {
-      this.logger.warn(
-        'ANTHROPIC_API_KEY is not set — AI comment generation will be unavailable',
-      );
+      this.logger.warn('ANTHROPIC_API_KEY is not set — AI comment generation will be unavailable');
     }
   }
 
   // ─── Generate Single Comment ──────────────────────────────────────────────
 
-  async generateComment(
-    tenantId: string,
-    reportCardId: string,
-  ): Promise<AiCommentResult> {
+  async generateComment(tenantId: string, reportCardId: string): Promise<AiCommentResult> {
     if (!this.anthropic) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'AI comment generation is not configured. ANTHROPIC_API_KEY is not set.',
+          message: 'AI comment generation is not configured. ANTHROPIC_API_KEY is not set.',
         },
       });
     }
@@ -121,13 +116,9 @@ export class AiCommentsService {
       | Record<string, unknown>
       | undefined;
 
-    const commentStyle =
-      (aiSettings?.commentStyle as string | undefined) ?? 'balanced';
-    const sampleReference = aiSettings?.commentSampleReference as
-      | string
-      | undefined;
-    const targetWordCount =
-      (aiSettings?.commentTargetWordCount as number | undefined) ?? 100;
+    const commentStyle = (aiSettings?.commentStyle as string | undefined) ?? 'balanced';
+    const sampleReference = aiSettings?.commentSampleReference as string | undefined;
+    const targetWordCount = (aiSettings?.commentTargetWordCount as number | undefined) ?? 100;
 
     const locale = reportCard.template_locale ?? 'en';
 
@@ -144,13 +135,12 @@ export class AiCommentsService {
       entityCount: 1,
     };
 
-    const { processedData, tokenMap } =
-      await this.gdprTokenService.processOutbound(
-        tenantId,
-        'ai_comments',
-        outbound,
-        SYSTEM_USER_SENTINEL,
-      );
+    const { processedData, tokenMap } = await this.gdprTokenService.processOutbound(
+      tenantId,
+      'ai_comments',
+      outbound,
+      SYSTEM_USER_SENTINEL,
+    );
 
     // Build prompt with tokenised student name
     const tokenisedName = processedData.entities[0]?.fields.full_name ?? studentFullName;
@@ -171,9 +161,7 @@ export class AiCommentsService {
       locale,
     );
 
-    this.logger.log(
-      `Generating AI comment for report card ${reportCardId}, tenant ${tenantId}`,
-    );
+    this.logger.log(`Generating AI comment for report card ${reportCardId}, tenant ${tenantId}`);
 
     const startTime = Date.now();
     const response = await this.anthropic.messages.create({
@@ -203,11 +191,7 @@ export class AiCommentsService {
     });
 
     // Detokenise AI response — restore real student name
-    const comment = await this.gdprTokenService.processInbound(
-      tenantId,
-      rawComment,
-      tokenMap,
-    );
+    const comment = await this.gdprTokenService.processInbound(tenantId, rawComment, tokenMap);
 
     return { report_card_id: reportCardId, comment, locale };
   }
@@ -222,8 +206,7 @@ export class AiCommentsService {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_SERVICE_UNAVAILABLE',
-          message:
-            'AI comment generation is not configured. ANTHROPIC_API_KEY is not set.',
+          message: 'AI comment generation is not configured. ANTHROPIC_API_KEY is not set.',
         },
       });
     }
@@ -238,8 +221,7 @@ export class AiCommentsService {
       } catch (err) {
         errors.push({
           report_card_id: id,
-          error:
-            err instanceof Error ? err.message : 'Unknown error',
+          error: err instanceof Error ? err.message : 'Unknown error',
         });
       }
     }
@@ -290,15 +272,9 @@ export class AiCommentsService {
     });
 
     const totalDays = attendanceRecords.length;
-    const presentDays = attendanceRecords.filter(
-      (r) => r.status === 'present',
-    ).length;
-    const absentDays = attendanceRecords.filter((r) =>
-      r.status.startsWith('absent'),
-    ).length;
-    const lateDays = attendanceRecords.filter(
-      (r) => r.status === 'late',
-    ).length;
+    const presentDays = attendanceRecords.filter((r) => r.status === 'present').length;
+    const absentDays = attendanceRecords.filter((r) => r.status.startsWith('absent')).length;
+    const lateDays = attendanceRecords.filter((r) => r.status === 'late').length;
 
     return {
       ...reportCard,
@@ -310,9 +286,7 @@ export class AiCommentsService {
   // ─── Build Prompt ─────────────────────────────────────────────────────────
 
   private buildCommentPrompt(
-    reportCard: NonNullable<
-      Awaited<ReturnType<typeof this.loadReportCardContext>>
-    >,
+    reportCard: NonNullable<Awaited<ReturnType<typeof this.loadReportCardContext>>>,
     commentStyle: string,
     sampleReference: string | undefined,
     targetWordCount: number,
@@ -329,15 +303,12 @@ export class AiCommentsService {
       .join('\n');
 
     const styleDescriptions: Record<string, string> = {
-      formal:
-        'Write in a formal, professional tone suitable for academic reporting.',
+      formal: 'Write in a formal, professional tone suitable for academic reporting.',
       warm: 'Write in a warm, encouraging tone that celebrates progress.',
-      balanced:
-        'Write in a balanced tone — professional yet warm and constructive.',
+      balanced: 'Write in a balanced tone — professional yet warm and constructive.',
     };
 
-    const styleInstruction =
-      styleDescriptions[commentStyle] ?? styleDescriptions.balanced;
+    const styleInstruction = styleDescriptions[commentStyle] ?? styleDescriptions.balanced;
 
     const languageInstruction =
       locale === 'ar'

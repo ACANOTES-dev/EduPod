@@ -1,14 +1,9 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
-import type { JwtPayload, TenantContext } from '@school/shared';
-import { engagementTrackSchema } from '@school/shared';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import type { z } from 'zod';
+
+import type { JwtPayload, TenantContext } from '@school/shared';
+import { engagementTrackSchema } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

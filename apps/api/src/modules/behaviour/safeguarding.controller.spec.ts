@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -86,7 +87,11 @@ describe('SafeguardingController', () => {
 
     const result = await controller.reportConcern(TENANT, USER, dto as never);
 
-    expect(mockSafeguardingService.reportConcern).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', dto);
+    expect(mockSafeguardingService.reportConcern).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      dto,
+    );
     expect(result).toEqual({ id: 'concern-1' });
   });
 
@@ -96,7 +101,11 @@ describe('SafeguardingController', () => {
 
     const result = await controller.getMyReports(TENANT, USER, query as never);
 
-    expect(mockSafeguardingService.getMyReports).toHaveBeenCalledWith('tenant-uuid', 'user-uuid', query);
+    expect(mockSafeguardingService.getMyReports).toHaveBeenCalledWith(
+      'tenant-uuid',
+      'user-uuid',
+      query,
+    );
     expect(result).toEqual({ data: [], meta: { total: 0 } });
   });
 
@@ -107,7 +116,10 @@ describe('SafeguardingController', () => {
     const result = await controller.listConcerns(TENANT, USER, query as never);
 
     expect(mockSafeguardingService.listConcerns).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'mem-1', query,
+      'tenant-uuid',
+      'user-uuid',
+      'mem-1',
+      query,
     );
     expect(result).toEqual({ data: [], meta: { total: 0 } });
   });
@@ -118,7 +130,10 @@ describe('SafeguardingController', () => {
     const result = await controller.getConcernDetail(TENANT, USER, 'concern-1');
 
     expect(mockSafeguardingService.getConcernDetail).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'mem-1', 'concern-1',
+      'tenant-uuid',
+      'user-uuid',
+      'mem-1',
+      'concern-1',
     );
     expect(result).toEqual({ id: 'concern-1' });
   });
@@ -130,19 +145,28 @@ describe('SafeguardingController', () => {
     const result = await controller.updateConcern(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.updateConcern).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'concern-1' });
   });
 
   it('should call safeguardingService.transitionStatus with tenant_id, user sub, id, and dto', async () => {
     const dto = { status: 'investigating' };
-    mockSafeguardingService.transitionStatus.mockResolvedValue({ id: 'concern-1', status: 'investigating' });
+    mockSafeguardingService.transitionStatus.mockResolvedValue({
+      id: 'concern-1',
+      status: 'investigating',
+    });
 
     const result = await controller.transitionStatus(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.transitionStatus).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'concern-1', status: 'investigating' });
   });
@@ -154,7 +178,10 @@ describe('SafeguardingController', () => {
     const result = await controller.assignConcern(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.assignConcern).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'concern-1' });
   });
@@ -168,7 +195,10 @@ describe('SafeguardingController', () => {
     const result = await controller.recordAction(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.recordAction).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'action-1' });
   });
@@ -180,7 +210,11 @@ describe('SafeguardingController', () => {
     const result = await controller.getActions(TENANT, USER, 'concern-1', query as never);
 
     expect(mockSafeguardingService.getActions).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'mem-1', 'concern-1', query,
+      'tenant-uuid',
+      'user-uuid',
+      'mem-1',
+      'concern-1',
+      query,
     );
     expect(result).toEqual({ data: [], meta: { total: 0 } });
   });
@@ -194,7 +228,10 @@ describe('SafeguardingController', () => {
     const result = await controller.recordTuslaReferral(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.recordTuslaReferral).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'ref-1' });
   });
@@ -206,7 +243,10 @@ describe('SafeguardingController', () => {
     const result = await controller.recordGardaReferral(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.recordGardaReferral).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'ref-2' });
   });
@@ -214,14 +254,23 @@ describe('SafeguardingController', () => {
   // ─── Attachments ────────────────────────────────────────────────────────
 
   it('should call attachmentService.uploadAttachment with tenant_id, user sub, id, file, and dto', async () => {
-    const file = { buffer: Buffer.from('test'), originalname: 'doc.pdf', mimetype: 'application/pdf', size: 1024 };
+    const file = {
+      buffer: Buffer.from('test'),
+      originalname: 'doc.pdf',
+      mimetype: 'application/pdf',
+      size: 1024,
+    };
     const dto = { label: 'Evidence photo' };
     mockAttachmentService.uploadAttachment.mockResolvedValue({ id: 'att-1' });
 
     const result = await controller.uploadAttachment(TENANT, USER, 'concern-1', file, dto as never);
 
     expect(mockAttachmentService.uploadAttachment).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', file, dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      file,
+      dto,
     );
     expect(result).toEqual({ id: 'att-1' });
   });
@@ -232,7 +281,11 @@ describe('SafeguardingController', () => {
     const result = await controller.downloadAttachment(TENANT, USER, 'concern-1', 'att-1');
 
     expect(mockAttachmentService.generateDownloadUrl).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'mem-1', 'concern-1', 'att-1',
+      'tenant-uuid',
+      'user-uuid',
+      'mem-1',
+      'concern-1',
+      'att-1',
       expect.any(Function),
     );
     expect(result).toEqual({ url: 'https://s3/download' });
@@ -248,7 +301,9 @@ describe('SafeguardingController', () => {
     await controller.generateCaseFile(TENANT, 'concern-1', mockRes);
 
     expect(mockSafeguardingService.generateCaseFile).toHaveBeenCalledWith(
-      'tenant-uuid', 'concern-1', false,
+      'tenant-uuid',
+      'concern-1',
+      false,
     );
     expect(mockRes.set).toHaveBeenCalledWith({
       'Content-Type': 'application/pdf',
@@ -265,7 +320,9 @@ describe('SafeguardingController', () => {
     await controller.generateRedactedCaseFile(TENANT, 'concern-1', mockRes);
 
     expect(mockSafeguardingService.generateCaseFile).toHaveBeenCalledWith(
-      'tenant-uuid', 'concern-1', true,
+      'tenant-uuid',
+      'concern-1',
+      true,
     );
     expect(mockRes.set).toHaveBeenCalledWith({
       'Content-Type': 'application/pdf',
@@ -278,24 +335,35 @@ describe('SafeguardingController', () => {
 
   it('should call safeguardingService.initiateSeal with tenant_id, user sub, id, and dto', async () => {
     const dto = { reason: 'Case resolved, sealing record' };
-    mockSafeguardingService.initiateSeal.mockResolvedValue({ id: 'concern-1', seal_status: 'pending' });
+    mockSafeguardingService.initiateSeal.mockResolvedValue({
+      id: 'concern-1',
+      seal_status: 'pending',
+    });
 
     const result = await controller.initiateSeal(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.initiateSeal).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
+      dto,
     );
     expect(result).toEqual({ id: 'concern-1', seal_status: 'pending' });
   });
 
   it('should call safeguardingService.approveSeal with tenant_id, user sub, and id', async () => {
     const dto = { approval_note: 'Approved by DLP' };
-    mockSafeguardingService.approveSeal.mockResolvedValue({ id: 'concern-1', seal_status: 'sealed' });
+    mockSafeguardingService.approveSeal.mockResolvedValue({
+      id: 'concern-1',
+      seal_status: 'sealed',
+    });
 
     const result = await controller.approveSeal(TENANT, USER, 'concern-1', dto as never);
 
     expect(mockSafeguardingService.approveSeal).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'concern-1',
+      'tenant-uuid',
+      'user-uuid',
+      'concern-1',
     );
     expect(result).toEqual({ id: 'concern-1', seal_status: 'sealed' });
   });
@@ -339,7 +407,10 @@ describe('SafeguardingController', () => {
     const result = await controller.completeBreakGlassReview(TENANT, USER, 'bg-1', dto as never);
 
     expect(mockBreakGlassService.completeReview).toHaveBeenCalledWith(
-      'tenant-uuid', 'user-uuid', 'bg-1', dto,
+      'tenant-uuid',
+      'user-uuid',
+      'bg-1',
+      dto,
     );
     expect(result).toEqual({ id: 'bg-1', reviewed: true });
   });

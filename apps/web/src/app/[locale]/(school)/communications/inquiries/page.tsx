@@ -1,11 +1,11 @@
 'use client';
 
-import { EmptyState, StatusBadge } from '@school/ui';
 import { MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { EmptyState, StatusBadge } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -93,14 +93,20 @@ export default function CommunicationsInquiriesPage() {
       key: 'parent_name',
       header: t('columns.parent'),
       render: (row: Inquiry) => (
-        <span className="text-text-secondary">{row.parent_name ?? (row.parent ? `${row.parent.first_name} ${row.parent.last_name}` : '—')}</span>
+        <span className="text-text-secondary">
+          {row.parent_name ??
+            (row.parent ? `${row.parent.first_name} ${row.parent.last_name}` : '—')}
+        </span>
       ),
     },
     {
       key: 'student_name',
       header: t('columns.student'),
       render: (row: Inquiry) => (
-        <span className="text-text-secondary">{row.student_name ?? (row.student ? `${row.student.first_name} ${row.student.last_name}` : '—')}</span>
+        <span className="text-text-secondary">
+          {row.student_name ??
+            (row.student ? `${row.student.first_name} ${row.student.last_name}` : '—')}
+        </span>
       ),
     },
     {
@@ -108,7 +114,9 @@ export default function CommunicationsInquiriesPage() {
       header: t('columns.status'),
       render: (row: Inquiry) => (
         <StatusBadge status={STATUS_VARIANT[row.status]} dot>
-          {row.status === 'in_progress' ? 'In Progress' : row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+          {row.status === 'in_progress'
+            ? 'In Progress'
+            : row.status.charAt(0).toUpperCase() + row.status.slice(1)}
         </StatusBadge>
       ),
     },
@@ -116,7 +124,9 @@ export default function CommunicationsInquiriesPage() {
       key: 'message_count',
       header: t('columns.messages'),
       render: (row: Inquiry) => (
-        <span className="text-sm text-text-secondary">{row.message_count ?? row._count?.messages ?? 0}</span>
+        <span className="text-sm text-text-secondary">
+          {row.message_count ?? row._count?.messages ?? 0}
+        </span>
       ),
     },
     {
@@ -150,10 +160,7 @@ export default function CommunicationsInquiriesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('inquiry.title')}
-        description="Parent inquiries and support requests"
-      />
+      <PageHeader title={t('inquiry.title')} description="Parent inquiries and support requests" />
 
       {!isLoading && inquiries.length === 0 && activeTab === 'all' ? (
         <EmptyState

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+
 import { pastoralTenantSettingsSchema } from '@school/shared';
 
 import { createRlsClient } from '../../../common/middleware/rls.middleware';
@@ -44,7 +45,7 @@ export class CheckinAnalyticsService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const results = await rlsClient.$transaction(async (tx) => {
+    const results = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       // Get all check-ins for the date range with year group filter
@@ -67,7 +68,7 @@ export class CheckinAnalyticsService {
       });
 
       return checkins;
-    }) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
+    })) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
 
     return this.aggregateByPeriod(results, granularity, minCohort);
   }
@@ -83,7 +84,7 @@ export class CheckinAnalyticsService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const results = await rlsClient.$transaction(async (tx) => {
+    const results = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const checkins = await db.studentCheckin.findMany({
@@ -102,7 +103,7 @@ export class CheckinAnalyticsService {
       });
 
       return checkins;
-    }) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
+    })) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
 
     return this.aggregateByPeriod(results, granularity, minCohort);
   }
@@ -118,7 +119,7 @@ export class CheckinAnalyticsService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const results = await rlsClient.$transaction(async (tx) => {
+    const results = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const where: Record<string, unknown> = {
@@ -143,7 +144,7 @@ export class CheckinAnalyticsService {
       });
 
       return checkins;
-    }) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
+    })) as Array<{ checkin_date: Date; mood_score: number; student_id: string }>;
 
     return this.aggregateByDayOfWeek(results, minCohort);
   }
@@ -172,39 +173,37 @@ export class CheckinAnalyticsService {
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const [beforeData, duringData, afterData] = await rlsClient.$transaction(
-      async (tx) => {
-        const db = tx as unknown as PrismaService;
+    const [beforeData, duringData, afterData] = (await rlsClient.$transaction(async (tx) => {
+      const db = tx as unknown as PrismaService;
 
-        const buildWhere = (from: Date, to: Date) => {
-          const where: Record<string, unknown> = {
-            tenant_id: tenantId,
-            checkin_date: { gte: from, lte: to },
-          };
-          if (yearGroupId) {
-            where.student = { year_group_id: yearGroupId };
-          }
-          return where;
+      const buildWhere = (from: Date, to: Date) => {
+        const where: Record<string, unknown> = {
+          tenant_id: tenantId,
+          checkin_date: { gte: from, lte: to },
         };
+        if (yearGroupId) {
+          where.student = { year_group_id: yearGroupId };
+        }
+        return where;
+      };
 
-        const [before, during, after] = await Promise.all([
-          db.studentCheckin.findMany({
-            where: buildWhere(beforeStart, beforeEnd),
-            select: { mood_score: true, student_id: true },
-          }),
-          db.studentCheckin.findMany({
-            where: buildWhere(examStart, examEnd),
-            select: { mood_score: true, student_id: true },
-          }),
-          db.studentCheckin.findMany({
-            where: buildWhere(afterStart, afterEnd),
-            select: { mood_score: true, student_id: true },
-          }),
-        ]);
+      const [before, during, after] = await Promise.all([
+        db.studentCheckin.findMany({
+          where: buildWhere(beforeStart, beforeEnd),
+          select: { mood_score: true, student_id: true },
+        }),
+        db.studentCheckin.findMany({
+          where: buildWhere(examStart, examEnd),
+          select: { mood_score: true, student_id: true },
+        }),
+        db.studentCheckin.findMany({
+          where: buildWhere(afterStart, afterEnd),
+          select: { mood_score: true, student_id: true },
+        }),
+      ]);
 
-        return [before, during, after];
-      },
-    ) as [
+      return [before, during, after];
+    })) as [
       Array<{ mood_score: number; student_id: string }>,
       Array<{ mood_score: number; student_id: string }>,
       Array<{ mood_score: number; student_id: string }>,
@@ -249,7 +248,7 @@ export class CheckinAnalyticsService {
   ): Promise<boolean> {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const distinctCount = await rlsClient.$transaction(async (tx) => {
+    const distinctCount = (await rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const where: Record<string, unknown> = {
@@ -271,7 +270,7 @@ export class CheckinAnalyticsService {
       });
 
       return grouped.length;
-    }) as number;
+    })) as number;
 
     return distinctCount >= minCohortSize;
   }

@@ -1,10 +1,6 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+
 import type {
   AssignStudentDto,
   EarlyWarningSummary,
@@ -69,8 +65,8 @@ export class EarlyWarningService {
       return { unrestricted: false, studentIds: [] };
     }
 
-    const permissions = membership.membership_roles.flatMap(
-      (mr) => mr.role.role_permissions.map((rp) => rp.permission.permission_key),
+    const permissions = membership.membership_roles.flatMap((mr) =>
+      mr.role.role_permissions.map((rp) => rp.permission.permission_key),
     );
 
     // Admin / principal with early_warning.manage sees everything
@@ -100,9 +96,7 @@ export class EarlyWarningService {
           },
           select: { student_id: true },
         });
-        const uniqueStudentIds = [
-          ...new Set(enrolments.map((e) => e.student_id)),
-        ];
+        const uniqueStudentIds = [...new Set(enrolments.map((e) => e.student_id))];
         return { unrestricted: false, studentIds: uniqueStudentIds };
       }
     }
@@ -155,11 +149,7 @@ export class EarlyWarningService {
       this.getActiveAcademicYearId(tenantId),
     ]);
 
-    const where = this.buildStudentScopeWhere(
-      tenantId,
-      academicYearId,
-      scope,
-    );
+    const where = this.buildStudentScopeWhere(tenantId, academicYearId, scope);
 
     // Apply optional filters
     if (query.tier) {
@@ -226,8 +216,7 @@ export class EarlyWarningService {
         summaryText?: string;
         topSignals?: Array<{ summaryFragment?: string }>;
       } | null;
-      const topSignal =
-        summaryJson?.topSignals?.[0]?.summaryFragment ?? null;
+      const topSignal = summaryJson?.topSignals?.[0]?.summaryFragment ?? null;
 
       const trendJson = p.trend_json as { dailyScores?: number[] } | null;
       const trendData = trendJson?.dailyScores ?? [];
@@ -242,9 +231,7 @@ export class EarlyWarningService {
       return {
         id: p.id,
         student_id: p.student_id,
-        student_name: student
-          ? `${student.first_name} ${student.last_name}`
-          : 'Unknown',
+        student_name: student ? `${student.first_name} ${student.last_name}` : 'Unknown',
         year_group_name: student?.year_group?.name ?? null,
         class_name: student?.class_enrolments?.[0]?.class_entity?.name ?? null,
         composite_score: Number(p.composite_score),
@@ -277,11 +264,7 @@ export class EarlyWarningService {
       this.getActiveAcademicYearId(tenantId),
     ]);
 
-    const where = this.buildStudentScopeWhere(
-      tenantId,
-      academicYearId,
-      scope,
-    );
+    const where = this.buildStudentScopeWhere(tenantId, academicYearId, scope);
 
     if (query.year_group_id || query.class_id) {
       where.student = {
@@ -335,8 +318,7 @@ export class EarlyWarningService {
     if (!scope.unrestricted && !(scope.studentIds ?? []).includes(studentId)) {
       throw new ForbiddenException({
         code: 'EARLY_WARNING_ACCESS_DENIED',
-        message:
-          "You do not have permission to view this student's risk profile",
+        message: "You do not have permission to view this student's risk profile",
       });
     }
 
@@ -419,8 +401,7 @@ export class EarlyWarningService {
         : 'Unknown',
       composite_score: Number(profile.composite_score),
       risk_tier: profile.risk_tier,
-      tier_entered_at:
-        profile.tier_entered_at?.toISOString() ?? new Date().toISOString(),
+      tier_entered_at: profile.tier_entered_at?.toISOString() ?? new Date().toISOString(),
       attendance_score: Number(profile.attendance_score),
       grades_score: Number(profile.grades_score),
       behaviour_score: Number(profile.behaviour_score),
@@ -439,11 +420,7 @@ export class EarlyWarningService {
 
   // ─── POST /v1/early-warnings/:studentId/acknowledge ───────────────────────
 
-  async acknowledgeProfile(
-    tenantId: string,
-    userId: string,
-    studentId: string,
-  ): Promise<void> {
+  async acknowledgeProfile(tenantId: string, userId: string, studentId: string): Promise<void> {
     const academicYearId = await this.getActiveAcademicYearId(tenantId);
 
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });

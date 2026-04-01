@@ -1,9 +1,21 @@
 'use client';
 
-import { Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Textarea, toast } from '@school/ui';
 import { usePathname, useRouter } from 'next/navigation';
 import * as React from 'react';
 
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Textarea,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -140,9 +152,7 @@ export default function NewWebsitePagePage() {
                     className="font-mono text-sm"
                   />
                 </div>
-                <p className="text-xs text-text-tertiary">
-                  This will be the URL path for the page
-                </p>
+                <p className="text-xs text-text-tertiary">This will be the URL path for the page</p>
               </div>
 
               <div className="space-y-1.5">
@@ -175,9 +185,7 @@ export default function NewWebsitePagePage() {
                 placeholder="<p>Enter your page content here...</p>"
                 className="min-h-[300px] font-mono text-sm"
               />
-              <p className="text-xs text-text-tertiary">
-                HTML content rendered on the public page
-              </p>
+              <p className="text-xs text-text-tertiary">HTML content rendered on the public page</p>
             </div>
           </div>
 
@@ -203,7 +211,9 @@ export default function NewWebsitePagePage() {
                   placeholder="Brief description for search engines (150–160 characters)"
                   className="min-h-[80px]"
                 />
-                <p className="text-xs text-text-tertiary">{metaDescription.length} / 160 characters</p>
+                <p className="text-xs text-text-tertiary">
+                  {metaDescription.length} / 160 characters
+                </p>
               </div>
             </div>
           </div>
@@ -219,10 +229,7 @@ export default function NewWebsitePagePage() {
                   <p className="text-sm font-medium text-text-primary">Show in Navigation</p>
                   <p className="text-xs text-text-tertiary">Display this page in the site menu</p>
                 </div>
-                <Switch
-                  checked={showInNav}
-                  onCheckedChange={setShowInNav}
-                />
+                <Switch checked={showInNav} onCheckedChange={setShowInNav} />
               </div>
 
               {showInNav && (

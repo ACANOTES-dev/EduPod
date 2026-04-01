@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Textarea } from '@school/ui';
 import { Clock, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Textarea } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -50,10 +51,12 @@ export default function BehaviourAIQueryPage() {
 
   async function loadHistory() {
     try {
-      const res = await apiClient<{ entries: QueryHistoryEntry[] }>('/behaviour/analytics/ai-query/history?page=1&pageSize=20');
+      const res = await apiClient<{ entries: QueryHistoryEntry[] }>(
+        '/behaviour/analytics/ai-query/history?page=1&pageSize=20',
+      );
       if (res?.entries) setHistory(res.entries);
-    } catch {
-      // History is optional
+    } catch (err) {
+      console.error('[loadHistory]', err);
     }
   }
 
@@ -73,8 +76,7 @@ export default function BehaviourAIQueryPage() {
         loadHistory();
       }
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'AI is temporarily unavailable.';
+      const message = err instanceof Error ? err.message : 'AI is temporarily unavailable.';
       setError(message);
     } finally {
       setLoading(false);
@@ -85,10 +87,7 @@ export default function BehaviourAIQueryPage() {
     <div className="flex flex-1 min-w-0 flex-col overflow-x-hidden p-4 md:p-6 lg:flex-row lg:gap-6">
       {/* Main area */}
       <div className="flex-1 space-y-6">
-        <PageHeader
-          title={t('title')}
-          description={t('description')}
-        />
+        <PageHeader title={t('title')} description={t('description')} />
 
         {/* Query input */}
         <div className="rounded-lg border bg-card p-4 md:p-6">
@@ -112,7 +111,11 @@ export default function BehaviourAIQueryPage() {
               onClick={submitQuery}
               disabled={loading || !query.trim()}
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </Button>
           </div>
           <div className="mt-1 text-end text-xs text-muted-foreground">{query.length}/500</div>
@@ -195,9 +198,7 @@ export default function BehaviourAIQueryPage() {
 
         <div className={`mt-2 space-y-2 ${showHistory ? '' : 'hidden lg:block'}`}>
           {history.length === 0 && (
-            <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-              {t('noQueries')}
-            </p>
+            <p className="px-3 py-4 text-center text-xs text-muted-foreground">{t('noQueries')}</p>
           )}
           {history.map((entry) => (
             <button

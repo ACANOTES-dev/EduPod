@@ -1,15 +1,25 @@
 'use client';
 
-import { Badge, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@school/ui';
 import { Calendar, CheckCircle, Circle, Clock, List } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import {
+  Badge,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@school/ui';
+
+import { ParentHomeworkCalendar } from '../_components/parent-homework-calendar';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { ParentHomeworkCalendar } from '../_components/parent-homework-calendar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,7 +93,9 @@ export default function ChildHomeworkDetailPage() {
 
     Promise.all([
       apiClient<{ data: SummaryData }>(`/api/v1/parent/homework/${studentId}/summary`),
-      apiClient<{ data: StudentHomework[]; meta: { total: number } }>('/api/v1/parent/homework?page=1&pageSize=100'),
+      apiClient<{ data: StudentHomework[]; meta: { total: number } }>(
+        '/api/v1/parent/homework?page=1&pageSize=100',
+      ),
     ])
       .then(([summaryRes, listRes]) => {
         setSummary(summaryRes.data);
@@ -146,10 +158,26 @@ export default function ChildHomeworkDetailPage() {
       {summary && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label={t('parent.detail.totalAssigned')} value={summary.total_assigned} />
-          <StatCard label={t('parent.detail.completed')} value={summary.completed} colour="text-green-600" />
-          <StatCard label={t('parent.detail.inProgress')} value={summary.in_progress} colour="text-amber-500" />
-          <StatCard label={t('parent.detail.overdue')} value={summary.overdue} colour="text-destructive" />
-          <StatCard label={t('parent.detail.completionRate')} value={`${summary.completion_rate}%`} colour="text-primary-600" />
+          <StatCard
+            label={t('parent.detail.completed')}
+            value={summary.completed}
+            colour="text-green-600"
+          />
+          <StatCard
+            label={t('parent.detail.inProgress')}
+            value={summary.in_progress}
+            colour="text-amber-500"
+          />
+          <StatCard
+            label={t('parent.detail.overdue')}
+            value={summary.overdue}
+            colour="text-destructive"
+          />
+          <StatCard
+            label={t('parent.detail.completionRate')}
+            value={`${summary.completion_rate}%`}
+            colour="text-primary-600"
+          />
         </div>
       )}
 
@@ -164,7 +192,9 @@ export default function ChildHomeworkDetailPage() {
             <SelectContent>
               <SelectItem value="all">{t('parent.detail.allSubjects')}</SelectItem>
               {subjects.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -239,7 +269,8 @@ export default function ChildHomeworkDetailPage() {
           ) : (
             filtered.map((assignment) => {
               const status = assignment.completion?.status ?? null;
-              const typeColour = TYPE_COLOURS[assignment.homework_type] ?? 'bg-gray-100 text-gray-700';
+              const typeColour =
+                TYPE_COLOURS[assignment.homework_type] ?? 'bg-gray-100 text-gray-700';
 
               return (
                 <div key={assignment.id} className="rounded-xl border border-border bg-surface p-4">
@@ -256,16 +287,24 @@ export default function ChildHomeworkDetailPage() {
                     <div className="min-w-0 flex-1 space-y-1">
                       <p className="text-sm font-medium text-text-primary">{assignment.title}</p>
                       {assignment.description && (
-                        <p className="text-xs text-text-secondary line-clamp-2">{assignment.description}</p>
+                        <p className="text-xs text-text-secondary line-clamp-2">
+                          {assignment.description}
+                        </p>
                       )}
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeColour}`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeColour}`}
+                        >
                           {t(`parent.types.${assignment.homework_type}` as never)}
                         </span>
                         {assignment.subject && (
-                          <Badge variant="secondary" className="text-xs">{assignment.subject.name}</Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {assignment.subject.name}
+                          </Badge>
                         )}
-                        <span className="text-xs text-text-tertiary">{assignment.class_entity.name}</span>
+                        <span className="text-xs text-text-tertiary">
+                          {assignment.class_entity.name}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -281,7 +320,15 @@ export default function ChildHomeworkDetailPage() {
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, colour }: { label: string; value: number | string; colour?: string }) {
+function StatCard({
+  label,
+  value,
+  colour,
+}: {
+  label: string;
+  value: number | string;
+  colour?: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 text-center">
       <p className={`text-2xl font-bold ${colour ?? 'text-text-primary'}`}>{value}</p>

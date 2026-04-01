@@ -1,15 +1,16 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { generateTuslaAarSchema } from '@school/shared';
-import type { GenerateTuslaAarDto } from '@school/shared';
-import { Button, Input, Label } from '@school/ui';
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
+
+import type { GenerateTuslaAarDto } from '@school/shared';
+import { generateTuslaAarSchema } from '@school/shared';
+import { Button, Input, Label } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
@@ -39,8 +40,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               i + 1 < currentStep
                 ? 'bg-success-text text-white'
                 : i + 1 === currentStep
-                ? 'bg-primary-700 text-white'
-                : 'bg-surface-secondary text-text-tertiary'
+                  ? 'bg-primary-700 text-white'
+                  : 'bg-surface-secondary text-text-tertiary'
             }`}
           >
             {i + 1 < currentStep ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
@@ -173,9 +174,7 @@ export function AarWizard() {
         {/* Informational Text */}
         <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-          <p className="text-sm text-primary-800">
-            {t('tusla.aarPreviewInfo')}
-          </p>
+          <p className="text-sm text-primary-800">{t('tusla.aarPreviewInfo')}</p>
         </div>
 
         {/* Error from a failed generation attempt */}
@@ -184,7 +183,12 @@ export function AarWizard() {
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
             <div>
               <p className="text-sm font-medium text-danger-text">{generateError}</p>
-              <Button variant="outline" size="sm" className="mt-2 min-h-[44px]" onClick={handleRetry}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 min-h-[44px]"
+                onClick={handleRetry}
+              >
                 {t('tusla.aarRetry')}
               </Button>
             </div>
@@ -217,25 +221,41 @@ export function AarWizard() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarAcademicYear')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{result.academic_year}</p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {result.academic_year}
+              </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarTotalStudents')}</p>
+              <p className="text-xs font-medium text-text-tertiary">
+                {t('tusla.aarTotalStudents')}
+              </p>
               <p className="mt-0.5 text-2xl font-bold text-text-primary">{result.total_students}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarTotalAbsentDays')}</p>
-              <p className="mt-0.5 text-2xl font-bold text-text-primary">{result.total_absent_days}</p>
+              <p className="text-xs font-medium text-text-tertiary">
+                {t('tusla.aarTotalAbsentDays')}
+              </p>
+              <p className="mt-0.5 text-2xl font-bold text-text-primary">
+                {result.total_absent_days}
+              </p>
             </div>
             <div>
-              <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarAverageAttendance')}</p>
-              <p className="mt-0.5 text-2xl font-bold text-text-primary">{result.average_attendance_rate}%</p>
+              <p className="text-xs font-medium text-text-tertiary">
+                {t('tusla.aarAverageAttendance')}
+              </p>
+              <p className="mt-0.5 text-2xl font-bold text-text-primary">
+                {result.average_attendance_rate}%
+              </p>
             </div>
           </div>
           <div className="mt-4 border-t border-border pt-4">
             <div>
-              <p className="text-xs font-medium text-text-tertiary">{t('tusla.aarExceedingThreshold')}</p>
-              <p className="mt-0.5 text-sm font-semibold text-text-primary">{result.students_exceeding_threshold}</p>
+              <p className="text-xs font-medium text-text-tertiary">
+                {t('tusla.aarExceedingThreshold')}
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-text-primary">
+                {result.students_exceeding_threshold}
+              </p>
             </div>
           </div>
         </div>
@@ -269,11 +289,7 @@ export function AarWizard() {
           {t('tusla.aarBack')}
         </Button>
 
-        <Button
-          onClick={handleNext}
-          disabled={isGenerating}
-          className="min-h-[44px]"
-        >
+        <Button onClick={handleNext} disabled={isGenerating} className="min-h-[44px]">
           {isGenerating ? (
             <>
               <Loader2 className="me-2 h-4 w-4 animate-spin" />

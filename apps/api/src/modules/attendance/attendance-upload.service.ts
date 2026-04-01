@@ -310,7 +310,11 @@ export class AttendanceUploadService {
 
       // Validate student_number
       if (!row.student_number || row.student_number.trim() === '') {
-        errors.push({ row: rowNum, field: 'student_number', message: 'Student number is required' });
+        errors.push({
+          row: rowNum,
+          field: 'student_number',
+          message: 'Student number is required',
+        });
         continue;
       }
 
@@ -720,8 +724,11 @@ export class AttendanceUploadService {
             sessionDate,
           );
         }
-      } catch {
-        // Notification failure must never break attendance operations
+      } catch (err) {
+        console.error(
+          '[AttendanceUploadService.processExceptionsUpload] parent notification failed',
+          err instanceof Error ? err.stack : err,
+        );
       }
     }
 
@@ -750,7 +757,8 @@ export class AttendanceUploadService {
     if (!raw) {
       throw new BadRequestException({
         code: 'UNDO_EXPIRED_OR_NOT_FOUND',
-        message: 'Undo window has expired or batch not found. Changes can only be undone within 5 minutes.',
+        message:
+          'Undo window has expired or batch not found. Changes can only be undone within 5 minutes.',
       });
     }
 

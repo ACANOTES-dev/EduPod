@@ -10,10 +10,7 @@ import { BehaviourScopeService } from './behaviour-scope.service';
 const ACTIVE_INCIDENT_FILTER = {
   retention_status: 'active' as $Enums.RetentionStatus,
   status: {
-    notIn: [
-      'draft',
-      'withdrawn',
-    ] as $Enums.IncidentStatus[],
+    notIn: ['draft', 'withdrawn'] as $Enums.IncidentStatus[],
   },
 };
 
@@ -87,11 +84,7 @@ export class BehaviourStudentsService {
     page: number,
     pageSize: number,
   ) {
-    const scopeCtx = await this.scopeService.getUserScope(
-      tenantId,
-      userId,
-      permissions,
-    );
+    const scopeCtx = await this.scopeService.getUserScope(tenantId, userId, permissions);
 
     const studentFilter: Prisma.StudentWhereInput = {
       tenant_id: tenantId,
@@ -100,24 +93,20 @@ export class BehaviourStudentsService {
 
     if (scopeCtx.scope === 'class' && scopeCtx.classStudentIds) {
       studentFilter.id = { in: scopeCtx.classStudentIds };
-    } else if (
-      scopeCtx.scope === 'year_group' &&
-      scopeCtx.yearGroupIds
-    ) {
+    } else if (scopeCtx.scope === 'year_group' && scopeCtx.yearGroupIds) {
       studentFilter.year_group_id = { in: scopeCtx.yearGroupIds };
     } else if (scopeCtx.scope === 'own') {
       // For 'own' scope, show students from user's incidents
-      const participantStudentIds =
-        await this.prisma.behaviourIncidentParticipant.findMany({
-          where: {
-            tenant_id: tenantId,
-            participant_type: 'student',
-            student_id: { not: null },
-            incident: { reported_by_id: userId },
-          },
-          select: { student_id: true },
-          distinct: ['student_id'],
-        });
+      const participantStudentIds = await this.prisma.behaviourIncidentParticipant.findMany({
+        where: {
+          tenant_id: tenantId,
+          participant_type: 'student',
+          student_id: { not: null },
+          incident: { reported_by_id: userId },
+        },
+        select: { student_id: true },
+        distinct: ['student_id'],
+      });
       studentFilter.id = {
         in: participantStudentIds
           .map((p) => p.student_id)
@@ -151,23 +140,19 @@ export class BehaviourStudentsService {
 
     // Get point totals for returned students
     const studentIds = students.map((s) => s.id);
-    const pointAggregates =
-      await this.prisma.behaviourIncidentParticipant.groupBy({
-        by: ['student_id'],
-        where: {
-          student_id: { in: studentIds },
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-      });
+    const pointAggregates = await this.prisma.behaviourIncidentParticipant.groupBy({
+      by: ['student_id'],
+      where: {
+        student_id: { in: studentIds },
+        tenant_id: tenantId,
+        participant_type: 'student',
+        incident: ACTIVE_INCIDENT_FILTER,
+      },
+      _sum: { points_awarded: true },
+    });
 
     const pointsMap = new Map(
-      pointAggregates.map((p) => [
-        p.student_id,
-        p._sum.points_awarded ?? 0,
-      ]),
+      pointAggregates.map((p) => [p.student_id, p._sum.points_awarded ?? 0]),
     );
 
     const data = students.map((s) => ({
@@ -195,34 +180,33 @@ export class BehaviourStudentsService {
     }
 
     // Points via scope-aware service (respects points_reset_frequency)
-    const [pointsResult, incidentCount, positiveCounts, negativeCounts] =
-      await Promise.all([
-        this.pointsService.getStudentPoints(tenantId, studentId),
-        this.prisma.behaviourIncidentParticipant.count({
-          where: {
-            student_id: studentId,
-            tenant_id: tenantId,
-            participant_type: 'student',
-            incident: ACTIVE_INCIDENT_FILTER,
-          },
-        }),
-        this.prisma.behaviourIncidentParticipant.count({
-          where: {
-            student_id: studentId,
-            tenant_id: tenantId,
-            participant_type: 'student',
-            incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'positive' },
-          },
-        }),
-        this.prisma.behaviourIncidentParticipant.count({
-          where: {
-            student_id: studentId,
-            tenant_id: tenantId,
-            participant_type: 'student',
-            incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'negative' },
-          },
-        }),
-      ]);
+    const [pointsResult, incidentCount, positiveCounts, negativeCounts] = await Promise.all([
+      this.pointsService.getStudentPoints(tenantId, studentId),
+      this.prisma.behaviourIncidentParticipant.count({
+        where: {
+          student_id: studentId,
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: ACTIVE_INCIDENT_FILTER,
+        },
+      }),
+      this.prisma.behaviourIncidentParticipant.count({
+        where: {
+          student_id: studentId,
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'positive' },
+        },
+      }),
+      this.prisma.behaviourIncidentParticipant.count({
+        where: {
+          student_id: studentId,
+          tenant_id: tenantId,
+          participant_type: 'student',
+          incident: { ...ACTIVE_INCIDENT_FILTER, polarity: 'negative' },
+        },
+      }),
+    ]);
 
     return {
       student,
@@ -242,12 +226,7 @@ export class BehaviourStudentsService {
   /**
    * Paginated timeline of behaviour incidents for a student.
    */
-  async getStudentTimeline(
-    tenantId: string,
-    studentId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getStudentTimeline(tenantId: string, studentId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourIncidentParticipantWhereInput = {
       tenant_id: tenantId,
       student_id: studentId,
@@ -298,37 +277,30 @@ export class BehaviourStudentsService {
    * Get total points for a student.
    */
   async getStudentPoints(tenantId: string, studentId: string) {
-    const points =
-      await this.prisma.behaviourIncidentParticipant.aggregate({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        _sum: { points_awarded: true },
-      });
+    const points = await this.prisma.behaviourIncidentParticipant.aggregate({
+      where: {
+        student_id: studentId,
+        tenant_id: tenantId,
+        participant_type: 'student',
+        incident: ACTIVE_INCIDENT_FILTER,
+      },
+      _sum: { points_awarded: true },
+    });
     return { total_points: points._sum.points_awarded ?? 0 };
   }
 
   /**
    * Get tasks related to a student's incidents.
    */
-  async getStudentTasks(
-    tenantId: string,
-    studentId: string,
-    page: number,
-    pageSize: number,
-  ) {
-    const incidentIds =
-      await this.prisma.behaviourIncidentParticipant.findMany({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-        },
-        select: { incident_id: true },
-      });
+  async getStudentTasks(tenantId: string, studentId: string, page: number, pageSize: number) {
+    const incidentIds = await this.prisma.behaviourIncidentParticipant.findMany({
+      where: {
+        student_id: studentId,
+        tenant_id: tenantId,
+        participant_type: 'student',
+      },
+      select: { incident_id: true },
+    });
 
     const where: Prisma.BehaviourTaskWhereInput = {
       tenant_id: tenantId,
@@ -415,12 +387,7 @@ export class BehaviourStudentsService {
   /**
    * Paginated sanctions for a student, sorted by scheduled_date DESC.
    */
-  async getStudentSanctions(
-    tenantId: string,
-    studentId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getStudentSanctions(tenantId: string, studentId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourSanctionWhereInput = {
       tenant_id: tenantId,
       student_id: studentId,
@@ -560,12 +527,7 @@ export class BehaviourStudentsService {
   /**
    * Paginated recognition awards for a student, with award type details.
    */
-  async getStudentAwards(
-    tenantId: string,
-    studentId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getStudentAwards(tenantId: string, studentId: string, page: number, pageSize: number) {
     const where: Prisma.BehaviourRecognitionAwardWhereInput = {
       tenant_id: tenantId,
       student_id: studentId,
@@ -647,111 +609,104 @@ export class BehaviourStudentsService {
       });
     }
 
-    const [incidents, sanctions, awards, acknowledgements] =
-      await Promise.all([
-        // Parent-visible incidents only, using parent_description
-        this.prisma.behaviourIncident.findMany({
-          where: {
-            tenant_id: tenantId,
-            category: { parent_visible: true },
-            retention_status: 'active' as $Enums.RetentionStatus,
-            status: {
-              notIn: [
-                'draft' as $Enums.IncidentStatus,
-                'withdrawn' as $Enums.IncidentStatus,
-              ],
+    const [incidents, sanctions, awards, acknowledgements] = await Promise.all([
+      // Parent-visible incidents only, using parent_description
+      this.prisma.behaviourIncident.findMany({
+        where: {
+          tenant_id: tenantId,
+          category: { parent_visible: true },
+          retention_status: 'active' as $Enums.RetentionStatus,
+          status: {
+            notIn: ['draft' as $Enums.IncidentStatus, 'withdrawn' as $Enums.IncidentStatus],
+          },
+          participants: {
+            some: { student_id: studentId, participant_type: 'student' },
+          },
+        },
+        orderBy: { occurred_at: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          incident_number: true,
+          polarity: true,
+          severity: true,
+          parent_description: true,
+          parent_description_ar: true,
+          occurred_at: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              name_ar: true,
+              polarity: true,
             },
+          },
+        },
+      }),
+
+      // Sanctions: type + date only, no staff notes
+      this.prisma.behaviourSanction.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          retention_status: 'active' as $Enums.RetentionStatus,
+          status: {
+            notIn: ['cancelled' as $Enums.SanctionStatus, 'superseded' as $Enums.SanctionStatus],
+          },
+        },
+        orderBy: { scheduled_date: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          sanction_number: true,
+          type: true,
+          status: true,
+          scheduled_date: true,
+          suspension_start_date: true,
+          suspension_end_date: true,
+        },
+      }),
+
+      // Awards
+      this.prisma.behaviourRecognitionAward.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          superseded_by_id: null,
+        },
+        orderBy: { awarded_at: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          awarded_at: true,
+          points_at_award: true,
+          award_type: {
+            select: { name: true, name_ar: true, icon: true, tier_level: true },
+          },
+        },
+      }),
+
+      // Acknowledgement status
+      this.prisma.behaviourParentAcknowledgement.findMany({
+        where: {
+          tenant_id: tenantId,
+          incident: {
             participants: {
               some: { student_id: studentId, participant_type: 'student' },
             },
           },
-          orderBy: { occurred_at: 'desc' },
-          take: 50,
-          select: {
-            id: true,
-            incident_number: true,
-            polarity: true,
-            severity: true,
-            parent_description: true,
-            parent_description_ar: true,
-            occurred_at: true,
-            category: {
-              select: {
-                id: true,
-                name: true,
-                name_ar: true,
-                polarity: true,
-              },
-            },
-          },
-        }),
-
-        // Sanctions: type + date only, no staff notes
-        this.prisma.behaviourSanction.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            retention_status: 'active' as $Enums.RetentionStatus,
-            status: {
-              notIn: [
-                'cancelled' as $Enums.SanctionStatus,
-                'superseded' as $Enums.SanctionStatus,
-              ],
-            },
-          },
-          orderBy: { scheduled_date: 'desc' },
-          take: 20,
-          select: {
-            id: true,
-            sanction_number: true,
-            type: true,
-            status: true,
-            scheduled_date: true,
-            suspension_start_date: true,
-            suspension_end_date: true,
-          },
-        }),
-
-        // Awards
-        this.prisma.behaviourRecognitionAward.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            superseded_by_id: null,
-          },
-          orderBy: { awarded_at: 'desc' },
-          take: 20,
-          select: {
-            id: true,
-            awarded_at: true,
-            points_at_award: true,
-            award_type: {
-              select: { name: true, name_ar: true, icon: true, tier_level: true },
-            },
-          },
-        }),
-
-        // Acknowledgement status
-        this.prisma.behaviourParentAcknowledgement.findMany({
-          where: {
-            tenant_id: tenantId,
-            incident: {
-              participants: {
-                some: { student_id: studentId, participant_type: 'student' },
-              },
-            },
-          },
-          orderBy: { sent_at: 'desc' },
-          take: 50,
-          select: {
-            id: true,
-            incident_id: true,
-            sent_at: true,
-            acknowledged_at: true,
-            acknowledgement_method: true,
-          },
-        }),
-      ]);
+        },
+        orderBy: { sent_at: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          incident_id: true,
+          sent_at: true,
+          acknowledged_at: true,
+          acknowledgement_method: true,
+        },
+      }),
+    ]);
 
     // Map incidents to use parent_description instead of description
     const parentIncidents = incidents.map((inc) => ({
@@ -803,6 +758,7 @@ export class BehaviourStudentsService {
 
     // Try materialized view first
     try {
+      // eslint-disable-next-line school/no-raw-sql-outside-rls -- student behaviour statistics query
       const mvRows = await this.prisma.$queryRaw<MvStudentSummaryRow[]>`
         SELECT positive_count, negative_count, neutral_count, total_points
         FROM mv_student_behaviour_summary
@@ -884,10 +840,7 @@ export class BehaviourStudentsService {
           tenant_id: tenantId,
           student_id: studentId,
           status: {
-            in: [
-              'pending_approval' as $Enums.SanctionStatus,
-              'scheduled' as $Enums.SanctionStatus,
-            ],
+            in: ['pending_approval' as $Enums.SanctionStatus, 'scheduled' as $Enums.SanctionStatus],
           },
           retention_status: 'active' as $Enums.RetentionStatus,
         },
@@ -895,8 +848,7 @@ export class BehaviourStudentsService {
     ]);
 
     const totalIncidents = positiveCount + negativeCount + neutralCount;
-    const positiveRatio =
-      totalIncidents > 0 ? positiveCount / totalIncidents : 0;
+    const positiveRatio = totalIncidents > 0 ? positiveCount / totalIncidents : 0;
 
     return {
       total_incidents: totalIncidents,
@@ -913,10 +865,7 @@ export class BehaviourStudentsService {
   /**
    * Weekly incident counts for the last 90 days.
    */
-  private async computeWeeklyTrend(
-    tenantId: string,
-    studentId: string,
-  ): Promise<WeeklyTrend[]> {
+  private async computeWeeklyTrend(tenantId: string, studentId: string): Promise<WeeklyTrend[]> {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -967,32 +916,28 @@ export class BehaviourStudentsService {
     tenantId: string,
     studentId: string,
   ): Promise<CategoryBreakdownEntry[]> {
-    const grouped =
-      await this.prisma.behaviourIncidentParticipant.findMany({
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        select: {
-          incident: {
-            select: {
-              category_id: true,
-              polarity: true,
-              category: {
-                select: { id: true, name: true },
-              },
+    const grouped = await this.prisma.behaviourIncidentParticipant.findMany({
+      where: {
+        student_id: studentId,
+        tenant_id: tenantId,
+        participant_type: 'student',
+        incident: ACTIVE_INCIDENT_FILTER,
+      },
+      select: {
+        incident: {
+          select: {
+            category_id: true,
+            polarity: true,
+            category: {
+              select: { id: true, name: true },
             },
           },
         },
-      });
+      },
+    });
 
     // Aggregate in application code
-    const categoryMap = new Map<
-      string,
-      { name: string; polarity: string; count: number }
-    >();
+    const categoryMap = new Map<string, { name: string; polarity: string; count: number }>();
     for (const entry of grouped) {
       const catId = entry.incident.category_id;
       const existing = categoryMap.get(catId);
@@ -1090,10 +1035,7 @@ export class BehaviourStudentsService {
     });
 
     // Group by type
-    const typeMap = new Map<
-      string,
-      { total: number; served: number; no_show: number }
-    >();
+    const typeMap = new Map<string, { total: number; served: number; no_show: number }>();
     for (const s of sanctions) {
       const typeKey = s.type;
       const existing = typeMap.get(typeKey) ?? {
@@ -1126,30 +1068,28 @@ export class BehaviourStudentsService {
     studentId: string,
   ): Promise<AttendanceCorrelation | null> {
     // Check if any attendance data exists
-    const attendanceCount =
-      await this.prisma.dailyAttendanceSummary.count({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-        },
-      });
+    const attendanceCount = await this.prisma.dailyAttendanceSummary.count({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+      },
+    });
 
     if (attendanceCount === 0) {
       return null;
     }
 
     // Get all attendance summaries
-    const attendanceDays =
-      await this.prisma.dailyAttendanceSummary.findMany({
-        where: {
-          tenant_id: tenantId,
-          student_id: studentId,
-        },
-        select: {
-          summary_date: true,
-          derived_status: true,
-        },
-      });
+    const attendanceDays = await this.prisma.dailyAttendanceSummary.findMany({
+      where: {
+        tenant_id: tenantId,
+        student_id: studentId,
+      },
+      select: {
+        summary_date: true,
+        derived_status: true,
+      },
+    });
 
     // Build sets of absent and present dates
     const absentDates = new Set<string>();
@@ -1157,9 +1097,7 @@ export class BehaviourStudentsService {
 
     for (const day of attendanceDays) {
       const dateKey = this.toDateString(day.summary_date);
-      if (
-        day.derived_status === ('absent' as $Enums.DailyAttendanceStatus)
-      ) {
+      if (day.derived_status === ('absent' as $Enums.DailyAttendanceStatus)) {
         absentDates.add(dateKey);
       } else if (
         day.derived_status === ('present' as $Enums.DailyAttendanceStatus) ||
@@ -1170,19 +1108,17 @@ export class BehaviourStudentsService {
     }
 
     // Get all incident dates for this student
-    const incidents = await this.prisma.behaviourIncidentParticipant.findMany(
-      {
-        where: {
-          student_id: studentId,
-          tenant_id: tenantId,
-          participant_type: 'student',
-          incident: ACTIVE_INCIDENT_FILTER,
-        },
-        select: {
-          incident: { select: { occurred_at: true } },
-        },
+    const incidents = await this.prisma.behaviourIncidentParticipant.findMany({
+      where: {
+        student_id: studentId,
+        tenant_id: tenantId,
+        participant_type: 'student',
+        incident: ACTIVE_INCIDENT_FILTER,
       },
-    );
+      select: {
+        incident: { select: { occurred_at: true } },
+      },
+    });
 
     let incidentsOnAbsentDays = 0;
     let incidentsOnPresentDays = 0;

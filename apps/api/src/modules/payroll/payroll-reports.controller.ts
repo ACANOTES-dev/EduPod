@@ -1,8 +1,9 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, Res, UseGuards } from '@nestjs/common';
-import { payrollReportQuerySchema } from '@school/shared';
-import type { TenantContext } from '@school/shared';
 import type { Response } from 'express';
 import { z } from 'zod';
+
+import { payrollReportQuerySchema } from '@school/shared';
+import type { TenantContext } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

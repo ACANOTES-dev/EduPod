@@ -1,20 +1,15 @@
 import * as crypto from 'crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { $Enums, Prisma, PrismaClient } from '@prisma/client';
-import type {
-  GenerateDocumentDto,
-  ListDocumentsQuery,
-  SendDocumentDto,
-} from '@school/shared';
+
+import type { GenerateDocumentDto, ListDocumentsQuery, SendDocumentDto } from '@school/shared';
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports -- Handlebars requires CommonJS import
 const Handlebars = require('handlebars') as {
-  compile: (template: string, options?: { strict?: boolean }) => (data: Record<string, unknown>) => string;
+  compile: (
+    template: string,
+    options?: { strict?: boolean },
+  ) => (data: Record<string, unknown>) => string;
 };
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
@@ -69,9 +64,7 @@ export class BehaviourDocumentService {
         }
 
         if (!template) {
-          throw new NotFoundException(
-            `No active template for ${dto.document_type}/${locale}`,
-          );
+          throw new NotFoundException(`No active template for ${dto.document_type}/${locale}`);
         }
 
         // Step 2 — Populate merge fields
@@ -100,12 +93,7 @@ export class BehaviourDocumentService {
 
         // Step 6 — S3 upload
         const s3Key = `behaviour/documents/${dto.document_type}/${documentId}.pdf`;
-        const fullKey = await this.s3Service.upload(
-          tenantId,
-          s3Key,
-          pdfBuffer,
-          'application/pdf',
-        );
+        const fullKey = await this.s3Service.upload(tenantId, s3Key, pdfBuffer, 'application/pdf');
 
         // Step 7 — Create DB record
         const document = await db.behaviourDocument.create({
@@ -262,9 +250,7 @@ export class BehaviourDocumentService {
       }
 
       if (document.status !== 'finalised') {
-        throw new BadRequestException(
-          'Only finalised documents can be sent',
-        );
+        throw new BadRequestException('Only finalised documents can be sent');
       }
 
       // Print channel: generate download URL and log print event, don't change status
@@ -282,9 +268,7 @@ export class BehaviourDocumentService {
           { document_id: documentId, download_url: url },
         );
 
-        this.logger.log(
-          `Print requested for document ${documentId} — download URL generated`,
-        );
+        this.logger.log(`Print requested for document ${documentId} — download URL generated`);
 
         return { data: { ...this.serializeDocument(document), download_url: url } };
       }
@@ -332,9 +316,7 @@ export class BehaviourDocumentService {
         },
       );
 
-      this.logger.log(
-        `Sent document ${documentId} via ${dto.channel}`,
-      );
+      this.logger.log(`Sent document ${documentId} via ${dto.channel}`);
 
       return { data: this.serializeDocument(updated) };
     });
@@ -422,12 +404,7 @@ export class BehaviourDocumentService {
       const sha256Hash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
 
       const s3Key = `behaviour/documents/${documentType}/${documentId}.pdf`;
-      const fullKey = await this.s3Service.upload(
-        tenantId,
-        s3Key,
-        pdfBuffer,
-        'application/pdf',
-      );
+      const fullKey = await this.s3Service.upload(tenantId, s3Key, pdfBuffer, 'application/pdf');
 
       const document = await db.behaviourDocument.create({
         data: {
@@ -534,10 +511,11 @@ export class BehaviourDocumentService {
     snapshot.school_address = settings.school_address ?? '';
     snapshot.school_logo_url = settings.school_logo_url ?? '';
     snapshot.principal_name = settings.principal_name ?? '';
-    snapshot.today_date = new Date().toLocaleDateString(
-      locale === 'ar' ? 'ar-SA' : 'en-IE',
-      { year: 'numeric', month: 'long', day: 'numeric' },
-    );
+    snapshot.today_date = new Date().toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-IE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
     // Load current academic year
     const academicYear = await db.academicYear.findFirst({
@@ -561,7 +539,7 @@ export class BehaviourDocumentService {
     // Load entity-specific data
     switch (entityType) {
       case 'incident': {
-        const incident = await db.behaviourIncident.findFirst({
+        const incident = (await db.behaviourIncident.findFirst({
           where: { id: entityId, tenant_id: tenantId },
           include: {
             category: true,
@@ -575,7 +553,7 @@ export class BehaviourDocumentService {
               take: 1,
             },
           },
-        }) as (IncidentWithParticipants & { occurred_at: Date }) | null;
+        })) as (IncidentWithParticipants & { occurred_at: Date }) | null;
         if (!incident) throw new NotFoundException('Incident not found');
 
         const participant = (incident as IncidentWithParticipants).participants[0];
@@ -597,7 +575,13 @@ export class BehaviourDocumentService {
         if (!rawSanction) throw new NotFoundException('Sanction not found');
         const sanction = rawSanction as typeof rawSanction & {
           student: StudentWithClass | null;
-          incident: { occurred_at: Date; parent_description: string | null; location: string | null; category: { name: string } | null; context_snapshot: unknown } | null;
+          incident: {
+            occurred_at: Date;
+            parent_description: string | null;
+            location: string | null;
+            category: { name: string } | null;
+            context_snapshot: unknown;
+          } | null;
         };
 
         studentId = sanction.student_id;
@@ -621,7 +605,13 @@ export class BehaviourDocumentService {
         if (!rawAppeal) throw new NotFoundException('Appeal not found');
         const appeal = rawAppeal as typeof rawAppeal & {
           student: StudentWithClass | null;
-          incident: { occurred_at: Date; parent_description: string | null; location: string | null; category: { name: string } | null; context_snapshot: unknown } | null;
+          incident: {
+            occurred_at: Date;
+            parent_description: string | null;
+            location: string | null;
+            category: { name: string } | null;
+            context_snapshot: unknown;
+          } | null;
         };
 
         studentId = appeal.student_id;
@@ -646,8 +636,21 @@ export class BehaviourDocumentService {
         if (!rawExclusionCase) throw new NotFoundException('Exclusion case not found');
         const exclusionCase = rawExclusionCase as typeof rawExclusionCase & {
           student: StudentWithClass | null;
-          sanction: { type: string; scheduled_date: Date | null; suspension_start_date: Date | null; suspension_end_date: Date | null; suspension_days: number | null; return_conditions: string | null } | null;
-          incident: { occurred_at: Date; parent_description: string | null; location: string | null; category: { name: string } | null; context_snapshot: unknown } | null;
+          sanction: {
+            type: string;
+            scheduled_date: Date | null;
+            suspension_start_date: Date | null;
+            suspension_end_date: Date | null;
+            suspension_days: number | null;
+            return_conditions: string | null;
+          } | null;
+          incident: {
+            occurred_at: Date;
+            parent_description: string | null;
+            location: string | null;
+            category: { name: string } | null;
+            context_snapshot: unknown;
+          } | null;
         };
 
         studentId = exclusionCase.student_id;
@@ -697,7 +700,11 @@ export class BehaviourDocumentService {
           },
         },
       });
-      const parentData = (studentParent as (typeof studentParent & { parent: { first_name: string; last_name: string } | null }) | null)?.parent;
+      const parentData = (
+        studentParent as
+          | (typeof studentParent & { parent: { first_name: string; last_name: string } | null })
+          | null
+      )?.parent;
       snapshot.parent_name = parentData ? `${parentData.first_name} ${parentData.last_name}` : '';
       snapshot.parent_address = '';
     }
@@ -709,7 +716,16 @@ export class BehaviourDocumentService {
 
   private populateStudentFields(
     snapshot: Record<string, unknown>,
-    student: { first_name: string; last_name: string; date_of_birth?: Date | null; year_group?: { name: string } | null; class_enrolments?: Array<{ class_entity: { name: string } }> } | null | undefined,
+    student:
+      | {
+          first_name: string;
+          last_name: string;
+          date_of_birth?: Date | null;
+          year_group?: { name: string } | null;
+          class_enrolments?: Array<{ class_entity: { name: string } }>;
+        }
+      | null
+      | undefined,
   ) {
     if (!student) return;
     snapshot.student_name = `${student.first_name} ${student.last_name}`;
@@ -722,7 +738,13 @@ export class BehaviourDocumentService {
 
   private populateIncidentFields(
     snapshot: Record<string, unknown>,
-    incident: { occurred_at: Date; parent_description?: string | null; location?: string | null; category?: { name: string } | null; context_snapshot?: unknown },
+    incident: {
+      occurred_at: Date;
+      parent_description?: string | null;
+      location?: string | null;
+      category?: { name: string } | null;
+      context_snapshot?: unknown;
+    },
     locale: string,
   ) {
     snapshot.incident_date = incident.occurred_at.toLocaleDateString(
@@ -786,17 +808,23 @@ export class BehaviourDocumentService {
 
   private mapStatusToPrisma(status: string): $Enums.DocumentStatus {
     switch (status) {
-      case 'draft': return 'draft_doc' as $Enums.DocumentStatus;
-      case 'sent': return 'sent_doc' as $Enums.DocumentStatus;
-      default: return status as $Enums.DocumentStatus;
+      case 'draft':
+        return 'draft_doc' as $Enums.DocumentStatus;
+      case 'sent':
+        return 'sent_doc' as $Enums.DocumentStatus;
+      default:
+        return status as $Enums.DocumentStatus;
     }
   }
 
   private mapStatusToApi(status: $Enums.DocumentStatus): string {
     switch (status) {
-      case 'draft_doc': return 'draft';
-      case 'sent_doc': return 'sent';
-      default: return status;
+      case 'draft_doc':
+        return 'draft';
+      case 'sent_doc':
+        return 'sent';
+      default:
+        return status;
     }
   }
 

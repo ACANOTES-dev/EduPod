@@ -12,6 +12,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import type { JwtPayload } from '@school/shared';
 import {
   absenceQuerySchema,
@@ -36,7 +38,6 @@ import {
   upsertRotationConfigSchema,
   validateSwapSchema,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -112,7 +113,9 @@ export class SchedulingEnhancedController {
   async findEligibleSubstitutes(
     @CurrentTenant() tenant: { tenant_id: string },
     @Param('absenceId', ParseUUIDPipe) absenceId: string,
-    @Query(new ZodValidationPipe(z.object({ schedule_id: z.string().uuid(), date: z.string().date() })))
+    @Query(
+      new ZodValidationPipe(z.object({ schedule_id: z.string().uuid(), date: z.string().date() })),
+    )
     query: { schedule_id: string; date: string },
   ) {
     return this.substitutionService.findEligibleSubstitutes(
@@ -126,7 +129,9 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.manage_substitutions')
   async aiRankSubstitutes(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(z.object({ schedule_id: z.string().uuid(), date: z.string().date() })))
+    @Query(
+      new ZodValidationPipe(z.object({ schedule_id: z.string().uuid(), date: z.string().date() })),
+    )
     query: { schedule_id: string; date: string },
   ) {
     return this.aiSubstitutionService.rankSubstitutes(
@@ -142,7 +147,8 @@ export class SchedulingEnhancedController {
   async assignSubstitute(
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
-    @Body(new ZodValidationPipe(assignSubstituteSchema)) dto: z.infer<typeof assignSubstituteSchema>,
+    @Body(new ZodValidationPipe(assignSubstituteSchema))
+    dto: z.infer<typeof assignSubstituteSchema>,
   ) {
     return this.substitutionService.assignSubstitute(tenant.tenant_id, user.sub, dto);
   }
@@ -169,7 +175,8 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.view_reports')
   async getCoverReport(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(coverReportQuerySchema)) query: z.infer<typeof coverReportQuerySchema>,
+    @Query(new ZodValidationPipe(coverReportQuerySchema))
+    query: z.infer<typeof coverReportQuerySchema>,
   ) {
     return this.coverTrackingService.getCoverReport(tenant.tenant_id, query);
   }
@@ -178,7 +185,8 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.view_reports')
   async getCoverFairness(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(coverReportQuerySchema)) query: z.infer<typeof coverReportQuerySchema>,
+    @Query(new ZodValidationPipe(coverReportQuerySchema))
+    query: z.infer<typeof coverReportQuerySchema>,
   ) {
     return this.coverTrackingService.getCoverFairness(tenant.tenant_id, query);
   }
@@ -187,7 +195,8 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.view_reports')
   async getCoverByDepartment(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(coverReportQuerySchema)) query: z.infer<typeof coverReportQuerySchema>,
+    @Query(new ZodValidationPipe(coverReportQuerySchema))
+    query: z.infer<typeof coverReportQuerySchema>,
   ) {
     return this.coverTrackingService.getCoverByDepartment(tenant.tenant_id, query);
   }
@@ -235,11 +244,7 @@ export class SchedulingEnhancedController {
     @Param('staffId', ParseUUIDPipe) staffId: string,
     @Query(new ZodValidationPipe(timetableQuerySchema)) query: z.infer<typeof timetableQuerySchema>,
   ) {
-    return this.personalTimetableService.getTeacherTimetable(
-      tenant.tenant_id,
-      staffId,
-      query,
-    );
+    return this.personalTimetableService.getTeacherTimetable(tenant.tenant_id, staffId, query);
   }
 
   @Get('timetable/my')
@@ -264,11 +269,7 @@ export class SchedulingEnhancedController {
     @Param('classId', ParseUUIDPipe) classId: string,
     @Query(new ZodValidationPipe(timetableQuerySchema)) query: z.infer<typeof timetableQuerySchema>,
   ) {
-    return this.personalTimetableService.getClassTimetable(
-      tenant.tenant_id,
-      classId,
-      query,
-    );
+    return this.personalTimetableService.getClassTimetable(tenant.tenant_id, classId, query);
   }
 
   @Post('calendar-tokens')
@@ -280,11 +281,7 @@ export class SchedulingEnhancedController {
     @Body(new ZodValidationPipe(createSubscriptionTokenSchema))
     dto: z.infer<typeof createSubscriptionTokenSchema>,
   ) {
-    return this.personalTimetableService.createSubscriptionToken(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.personalTimetableService.createSubscriptionToken(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('calendar-tokens')
@@ -293,10 +290,7 @@ export class SchedulingEnhancedController {
     @CurrentTenant() tenant: { tenant_id: string },
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.personalTimetableService.listSubscriptionTokens(
-      tenant.tenant_id,
-      user.sub,
-    );
+    return this.personalTimetableService.listSubscriptionTokens(tenant.tenant_id, user.sub);
   }
 
   @Delete('calendar-tokens/:tokenId')
@@ -352,7 +346,8 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.view_reports')
   async getCurrentRotationWeek(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(rotationWeekQuerySchema)) query: z.infer<typeof rotationWeekQuerySchema>,
+    @Query(new ZodValidationPipe(rotationWeekQuerySchema))
+    query: z.infer<typeof rotationWeekQuerySchema>,
   ) {
     return this.rotationService.getCurrentRotationWeek(
       tenant.tenant_id,
@@ -378,7 +373,8 @@ export class SchedulingEnhancedController {
   @RequiresPermission('schedule.manage_exams')
   async listExamSessions(
     @CurrentTenant() tenant: { tenant_id: string },
-    @Query(new ZodValidationPipe(examSessionQuerySchema)) query: z.infer<typeof examSessionQuerySchema>,
+    @Query(new ZodValidationPipe(examSessionQuerySchema))
+    query: z.infer<typeof examSessionQuerySchema>,
   ) {
     return this.examSchedulingService.listExamSessions(tenant.tenant_id, query);
   }

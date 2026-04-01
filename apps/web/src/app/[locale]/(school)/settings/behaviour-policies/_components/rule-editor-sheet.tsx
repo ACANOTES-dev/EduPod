@@ -1,5 +1,7 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
+
 import {
   Button,
   Checkbox,
@@ -17,7 +19,6 @@ import {
   Switch,
   Textarea,
 } from '@school/ui';
-import { Plus, Trash2 } from 'lucide-react';
 
 import type { Category, EditorFormState, PolicyAction, PolicyRule } from './policy-types';
 import { ACTION_TYPES, PARTICIPANT_ROLES, STAGES } from './policy-types';

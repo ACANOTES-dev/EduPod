@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -46,7 +47,10 @@ interface ApprovalRequestDetail {
   announcements?: LinkedAnnouncement[];
 }
 
-const STATUS_MAP: Record<ApprovalStatus, { label: string; variant: 'warning' | 'success' | 'danger' | 'neutral' }> = {
+const STATUS_MAP: Record<
+  ApprovalStatus,
+  { label: string; variant: 'warning' | 'success' | 'danger' | 'neutral' }
+> = {
   pending_approval: { label: 'Pending', variant: 'warning' },
   approved: { label: 'Approved', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'danger' },
@@ -160,7 +164,10 @@ export default function ApprovalDetailPage() {
   // ─── Derived values ───────────────────────────────────────────────────────
 
   const isPending = request.status === 'pending_approval';
-  const statusInfo = STATUS_MAP[request.status] ?? { label: request.status, variant: 'neutral' as const };
+  const statusInfo = STATUS_MAP[request.status] ?? {
+    label: request.status,
+    variant: 'neutral' as const,
+  };
   const requesterName = `${request.requester.first_name} ${request.requester.last_name}`.trim();
   const approverName = request.approver
     ? `${request.approver.first_name} ${request.approver.last_name}`.trim()
@@ -184,7 +191,9 @@ export default function ApprovalDetailPage() {
           <div>
             <p className="text-xs font-medium text-text-tertiary">{t('detail.status')}</p>
             <div className="mt-1">
-              <StatusBadge status={statusInfo.variant} dot>{statusInfo.label}</StatusBadge>
+              <StatusBadge status={statusInfo.variant} dot>
+                {statusInfo.label}
+              </StatusBadge>
             </div>
           </div>
           <div>
@@ -216,9 +225,7 @@ export default function ApprovalDetailPage() {
                   minute: '2-digit',
                 })}
               </p>
-              {approverName && (
-                <p className="text-xs text-text-secondary">by {approverName}</p>
-              )}
+              {approverName && <p className="text-xs text-text-secondary">by {approverName}</p>}
             </div>
           )}
         </div>
@@ -276,10 +283,7 @@ export default function ApprovalDetailPage() {
               <X className="me-2 h-4 w-4" />
               {t('detail.reject')}
             </Button>
-            <Button
-              onClick={handleApprove}
-              disabled={actionLoading}
-            >
+            <Button onClick={handleApprove} disabled={actionLoading}>
               <Check className="me-2 h-4 w-4" />
               {t('detail.approve')}
             </Button>

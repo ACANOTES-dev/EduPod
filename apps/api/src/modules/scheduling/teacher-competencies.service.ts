@@ -1,8 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import type {
   CreateTeacherCompetencyDto,
   BulkCreateTeacherCompetenciesDto,
@@ -56,11 +53,7 @@ export class TeacherCompetenciesService {
 
   // ─── List by Teacher ───────────────────────────────────────────────────────
 
-  async listByTeacher(
-    tenantId: string,
-    academicYearId: string,
-    staffProfileId: string,
-  ) {
+  async listByTeacher(tenantId: string, academicYearId: string, staffProfileId: string) {
     const data = await this.prisma.teacherCompetency.findMany({
       where: {
         tenant_id: tenantId,
@@ -144,7 +137,7 @@ export class TeacherCompetenciesService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const created = [];
@@ -164,7 +157,7 @@ export class TeacherCompetenciesService {
       }
 
       return created;
-    }) as unknown as Record<string, unknown>[];
+    })) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { created: result.length } };
   }
@@ -196,14 +189,10 @@ export class TeacherCompetenciesService {
 
   // ─── Delete All for Teacher ────────────────────────────────────────────────
 
-  async deleteAllForTeacher(
-    tenantId: string,
-    academicYearId: string,
-    staffProfileId: string,
-  ) {
+  async deleteAllForTeacher(tenantId: string, academicYearId: string, staffProfileId: string) {
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.teacherCompetency.deleteMany({
         where: {
@@ -212,18 +201,14 @@ export class TeacherCompetenciesService {
           staff_profile_id: staffProfileId,
         },
       });
-    }) as unknown as { count: number };
+    })) as unknown as { count: number };
 
     return { message: 'All competencies deleted', meta: { deleted: result.count } };
   }
 
   // ─── Copy from Academic Year ───────────────────────────────────────────────
 
-  async copyFromAcademicYear(
-    tenantId: string,
-    sourceYearId: string,
-    targetYearId: string,
-  ) {
+  async copyFromAcademicYear(tenantId: string, sourceYearId: string, targetYearId: string) {
     const [sourceYear, targetYear] = await Promise.all([
       this.prisma.academicYear.findFirst({
         where: { id: sourceYearId, tenant_id: tenantId },
@@ -261,7 +246,7 @@ export class TeacherCompetenciesService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
       const created = [];
@@ -280,7 +265,7 @@ export class TeacherCompetenciesService {
       }
 
       return created;
-    }) as unknown as Record<string, unknown>[];
+    })) as unknown as Record<string, unknown>[];
 
     return { data: result, meta: { copied: result.length } };
   }
@@ -289,9 +274,7 @@ export class TeacherCompetenciesService {
 
   async copyToYears(tenantId: string, dto: CopyCompetenciesToYearsDto) {
     // Fetch source competencies for the requested subjects
-    const allSubjectIds = [
-      ...new Set(dto.targets.flatMap((t) => t.subject_ids)),
-    ];
+    const allSubjectIds = [...new Set(dto.targets.flatMap((t) => t.subject_ids))];
 
     const sourceCompetencies = await this.prisma.teacherCompetency.findMany({
       where: {
@@ -311,16 +294,14 @@ export class TeacherCompetenciesService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const result = await prismaWithRls.$transaction(async (tx) => {
+    const result = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       let copied = 0;
       let skipped = 0;
 
       for (const target of dto.targets) {
         const targetSubjectSet = new Set(target.subject_ids);
-        const relevantSource = sourceCompetencies.filter((c) =>
-          targetSubjectSet.has(c.subject_id),
-        );
+        const relevantSource = sourceCompetencies.filter((c) => targetSubjectSet.has(c.subject_id));
 
         for (const src of relevantSource) {
           // Check if this exact competency already exists in the target
@@ -354,7 +335,7 @@ export class TeacherCompetenciesService {
       }
 
       return { copied, skipped };
-    }) as unknown as { copied: number; skipped: number };
+    })) as unknown as { copied: number; skipped: number };
 
     return { data: result };
   }
@@ -388,12 +369,13 @@ export class TeacherCompetenciesService {
 
     // 3. Get all class-subject assignments (curriculum matrix)
     const allClassIds = classes.map((c) => c.id);
-    const configs = allClassIds.length > 0
-      ? await this.prisma.classSubjectGradeConfig.findMany({
-          where: { tenant_id: tenantId, class_id: { in: allClassIds } },
-          select: { class_id: true, subject_id: true },
-        })
-      : [];
+    const configs =
+      allClassIds.length > 0
+        ? await this.prisma.classSubjectGradeConfig.findMany({
+            where: { tenant_id: tenantId, class_id: { in: allClassIds } },
+            select: { class_id: true, subject_id: true },
+          })
+        : [];
 
     // Build set of subject IDs per year group
     const subjectIdsByYg = new Map<string, Set<string>>();
@@ -440,13 +422,14 @@ export class TeacherCompetenciesService {
       for (const sid of subs) allSubjectIds.add(sid);
     }
 
-    const subjectRecords = allSubjectIds.size > 0
-      ? await this.prisma.subject.findMany({
-          where: { id: { in: [...allSubjectIds] }, tenant_id: tenantId },
-          select: { id: true, name: true },
-          orderBy: { name: 'asc' },
-        })
-      : [];
+    const subjectRecords =
+      allSubjectIds.size > 0
+        ? await this.prisma.subject.findMany({
+            where: { id: { in: [...allSubjectIds] }, tenant_id: tenantId },
+            select: { id: true, name: true },
+            orderBy: { name: 'asc' },
+          })
+        : [];
 
     // 6. Build the matrix
     let gaps = 0;
@@ -460,7 +443,13 @@ export class TeacherCompetenciesService {
         const ygSubjects = subjectIdsByYg.get(yg.id) ?? new Set<string>();
         const cells = subjectRecords.map((subject) => {
           const inCurriculum = ygSubjects.has(subject.id);
-          if (!inCurriculum) return { subject_id: subject.id, in_curriculum: false as const, count: 0, teachers: [] };
+          if (!inCurriculum)
+            return {
+              subject_id: subject.id,
+              in_curriculum: false as const,
+              count: 0,
+              teachers: [],
+            };
 
           const key = `${yg.id}:${subject.id}`;
           const teachers = teacherMap.get(key) ?? [];
@@ -469,7 +458,12 @@ export class TeacherCompetenciesService {
           else if (teachers.length === 1) atRisk++;
           else covered++;
 
-          return { subject_id: subject.id, in_curriculum: true as const, count: teachers.length, teachers };
+          return {
+            subject_id: subject.id,
+            in_curriculum: true as const,
+            count: teachers.length,
+            teachers,
+          };
         });
         return { year_group_id: yg.id, year_group_name: yg.name, cells };
       });

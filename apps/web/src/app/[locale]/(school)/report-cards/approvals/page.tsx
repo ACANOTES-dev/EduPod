@@ -1,14 +1,10 @@
 'use client';
 
-import {
-  Button,
-  StatusBadge,
-  Textarea,
-  toast,
-} from '@school/ui';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -57,8 +53,14 @@ export default function ApprovalsPage() {
   const fetchApprovals = React.useCallback(async (p: number) => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE), status: 'pending' });
-      const res = await apiClient<ApprovalResponse>(`/api/v1/report-card-approvals?${params.toString()}`);
+      const params = new URLSearchParams({
+        page: String(p),
+        pageSize: String(PAGE_SIZE),
+        status: 'pending',
+      });
+      const res = await apiClient<ApprovalResponse>(
+        `/api/v1/report-card-approvals?${params.toString()}`,
+      );
       setData(res.data);
       setTotal(res.meta.total);
     } catch {
@@ -181,7 +183,9 @@ export default function ApprovalsPage() {
       render: (row: ApprovalRow) => (
         <div>
           <span className="text-sm text-text-primary">{row.step_label}</span>
-          <span className="ms-2 text-xs text-text-tertiary">{t('step')} {row.step_order}</span>
+          <span className="ms-2 text-xs text-text-tertiary">
+            {t('step')} {row.step_order}
+          </span>
         </div>
       ),
     },

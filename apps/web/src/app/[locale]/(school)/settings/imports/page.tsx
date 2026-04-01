@@ -1,5 +1,9 @@
 'use client';
 
+import { Download, Upload, CheckCircle, AlertTriangle, FileText, Undo2, Home } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Input,
@@ -10,10 +14,6 @@ import {
   SelectValue,
   StatusBadge,
 } from '@school/ui';
-import { Download, Upload, CheckCircle, AlertTriangle, FileText, Undo2, Home } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
@@ -104,10 +104,10 @@ async function downloadXlsxTemplate(importType: ImportType): Promise<void> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(
-    `${API_URL}/api/v1/imports/template?import_type=${importType}`,
-    { headers, credentials: 'include' },
-  );
+  const response = await fetch(`${API_URL}/api/v1/imports/template?import_type=${importType}`, {
+    headers,
+    credentials: 'include',
+  });
 
   if (!response.ok) {
     throw new Error('Failed to download template');
@@ -179,8 +179,14 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
   };
 
   const handleUpload = async () => {
-    if (!importType) { setError(t('selectTypeFirst')); return; }
-    if (!file) { setError(t('selectFileFirst')); return; }
+    if (!importType) {
+      setError(t('selectTypeFirst'));
+      return;
+    }
+    if (!file) {
+      setError(t('selectFileFirst'));
+      return;
+    }
 
     setUploading(true);
     setError('');
@@ -203,7 +209,9 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
         headers,
       });
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: { message: 'Upload failed' } }));
+        const errData = await response
+          .json()
+          .catch(() => ({ error: { message: 'Upload failed' } }));
         throw errData;
       }
       const result = await response.json();
@@ -239,7 +247,12 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
         </div>
 
         {importType && (
-          <Button variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={downloading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadTemplate}
+            disabled={downloading}
+          >
             <Download className="me-1.5 h-3.5 w-3.5" />
             {downloading ? tc('loading') : t('downloadTemplate')}
           </Button>
@@ -249,22 +262,23 @@ function UploadSection({ onUploadComplete }: UploadSectionProps) {
       {/* Dropzone */}
       <div
         className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
-          dragOver
-            ? 'border-primary-500 bg-primary-50/50'
-            : 'border-border bg-surface-secondary/30'
+          dragOver ? 'border-primary-500 bg-primary-50/50' : 'border-border bg-surface-secondary/30'
         }`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+        }}
       >
         <Upload className="h-8 w-8 text-text-tertiary" />
-        <p className="mt-2 text-sm text-text-secondary">
-          {file ? file.name : t('dropzoneText')}
-        </p>
+        <p className="mt-2 text-sm text-text-secondary">{file ? file.name : t('dropzoneText')}</p>
         <p className="mt-1 text-xs text-text-tertiary">{t('xlsxMaxSize')}</p>
         <Input
           ref={fileInputRef}
@@ -305,8 +319,8 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
     try {
       await apiClient(`/api/v1/imports/${job.id}/confirm`, { method: 'POST' });
       onConfirm();
-    } catch {
-      // silently swallowed
+    } catch (err) {
+      console.error('[handleConfirm]', err);
     } finally {
       setConfirming(false);
     }
@@ -350,9 +364,15 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-secondary">
-                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">{t('row')}</th>
-                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">{t('field')}</th>
-                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">{t('errorMessage')}</th>
+                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">
+                  {t('row')}
+                </th>
+                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">
+                  {t('field')}
+                </th>
+                <th className="px-3 py-2 text-start text-xs font-semibold text-text-tertiary">
+                  {t('errorMessage')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -403,7 +423,9 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
                 <p className="text-xs font-medium text-text-tertiary mb-1">Households</p>
                 <div className="flex items-center gap-1">
                   <Home className="h-3.5 w-3.5 text-text-tertiary" />
-                  <span className="text-sm font-medium text-text-primary">{job.preview_json.summary.household_count}</span>
+                  <span className="text-sm font-medium text-text-primary">
+                    {job.preview_json.summary.household_count}
+                  </span>
                 </div>
               </div>
             )}
@@ -413,14 +435,18 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
           {job.preview_json.sample_rows.length > 0 && (
             <div>
               <p className="text-xs text-text-tertiary mb-1">
-                Showing {job.preview_json.sample_rows.length} of {job.preview_json.summary.total_rows} rows
+                Showing {job.preview_json.sample_rows.length} of{' '}
+                {job.preview_json.summary.total_rows} rows
               </p>
               <div className="max-h-72 overflow-auto rounded-lg border border-border">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-border bg-surface-secondary">
                       {job.preview_json.headers.slice(0, 8).map((h) => (
-                        <th key={h} className="px-2 py-1.5 text-start font-semibold text-text-tertiary whitespace-nowrap">
+                        <th
+                          key={h}
+                          className="px-2 py-1.5 text-start font-semibold text-text-tertiary whitespace-nowrap"
+                        >
                           {h.replace(/_/g, ' ')}
                         </th>
                       ))}
@@ -430,7 +456,10 @@ function ValidationResults({ job, onConfirm, onDismiss }: ValidationResultsProps
                     {job.preview_json.sample_rows.map((row, idx) => (
                       <tr key={idx} className="border-b border-border last:border-b-0">
                         {job.preview_json!.headers.slice(0, 8).map((h) => (
-                          <td key={h} className="px-2 py-1.5 text-text-secondary whitespace-nowrap max-w-[150px] truncate">
+                          <td
+                            key={h}
+                            className="px-2 py-1.5 text-text-secondary whitespace-nowrap max-w-[150px] truncate"
+                          >
                             {row[h] || '—'}
                           </td>
                         ))}
@@ -487,10 +516,14 @@ function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () =
         `/api/v1/imports/${jobId}/rollback`,
         { method: 'POST' },
       );
-      setResult(res.rollback_summary ?? (res.data as unknown as { rollback_summary?: RollbackSummary }).rollback_summary ?? null);
+      setResult(
+        res.rollback_summary ??
+          (res.data as unknown as { rollback_summary?: RollbackSummary }).rollback_summary ??
+          null,
+      );
       onRollback();
-    } catch {
-      // error handled by global handler
+    } catch (err) {
+      console.error('[handleRollback]', err);
     } finally {
       setRolling(false);
       setConfirming(false);
@@ -514,7 +547,13 @@ function RollbackButton({ jobId, onRollback }: { jobId: string; onRollback: () =
         <Button size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={rolling}>
           Cancel
         </Button>
-        <Button size="sm" variant="outline" className="text-danger-text border-danger-text" onClick={handleRollback} disabled={rolling}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-danger-text border-danger-text"
+          onClick={handleRollback}
+          disabled={rolling}
+        >
           {rolling ? 'Rolling back...' : 'Confirm'}
         </Button>
       </div>
@@ -551,8 +590,8 @@ export default function ImportsPage() {
       );
       setHistory(res.data);
       setTotal(res.meta.total);
-    } catch {
-      // silently swallowed
+    } catch (err) {
+      console.error('[fetchHistory]', err);
     } finally {
       setIsLoading(false);
     }
@@ -569,9 +608,7 @@ export default function ImportsPage() {
 
     pollingRef.current = setInterval(async () => {
       try {
-        const updated = await apiClient<{ data: ImportJob }>(
-          `/api/v1/imports/${activeJob.id}`,
-        );
+        const updated = await apiClient<{ data: ImportJob }>(`/api/v1/imports/${activeJob.id}`);
         const job = updated.data;
         setActiveJob(job);
         if (['completed', 'failed', 'validated'].includes(job.status)) {
@@ -604,9 +641,7 @@ export default function ImportsPage() {
       key: 'import_type',
       header: t('importType'),
       render: (row: ImportJob) => (
-        <span className="font-medium text-text-primary">
-          {row.import_type.replace(/_/g, ' ')}
-        </span>
+        <span className="font-medium text-text-primary">{row.import_type.replace(/_/g, ' ')}</span>
       ),
     },
     {
@@ -653,15 +688,14 @@ export default function ImportsPage() {
     {
       key: 'actions',
       header: '',
-      render: (row: ImportJob) => (
+      render: (row: ImportJob) =>
         row.status === 'completed' ? (
           <RollbackButton jobId={row.id} onRollback={() => void fetchHistory(page)} />
         ) : row.status === 'rolled_back' ? (
           <span className="text-xs text-text-tertiary">Rolled back</span>
         ) : row.status === 'partially_rolled_back' ? (
           <span className="text-xs text-warning-text">Partial rollback</span>
-        ) : null
-      ),
+        ) : null,
     },
   ];
 

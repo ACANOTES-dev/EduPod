@@ -7,6 +7,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
+import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
+import * as QRCode from 'qrcode';
+
 import {
   BRUTE_FORCE_THRESHOLDS,
   BRUTE_FORCE_WINDOW_SECONDS,
@@ -16,14 +21,10 @@ import {
   type RefreshTokenPayload,
   type SessionMetadata,
 } from '@school/shared';
-import * as bcrypt from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
-import { generateSecret as otpGenerateSecret, generateURI, verify as otpVerify } from 'otplib';
-import * as QRCode from 'qrcode';
 
+import { SecurityAuditService } from '../audit-log/security-audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { SecurityAuditService } from '../audit-log/security-audit.service';
 
 export interface LoginResult {
   access_token: string;
@@ -455,7 +456,11 @@ export class AuthService {
     let payload: RefreshTokenPayload;
     try {
       payload = this.verifyRefreshToken(refreshToken);
-    } catch {
+    } catch (err) {
+      console.error(
+        '[AuthService.refresh] refresh token verification failed',
+        err instanceof Error ? err.stack : err,
+      );
       throw new UnauthorizedException({
         code: 'INVALID_REFRESH_TOKEN',
         message: 'Invalid or expired refresh token',
@@ -952,8 +957,11 @@ export class AuthService {
         session.tenant_id = targetTenantId;
         session.membership_id = membership.id;
         await redisClient.set(key, JSON.stringify(session), 'KEEPTTL');
-      } catch {
-        /* skip malformed sessions */
+      } catch (err) {
+        console.error(
+          '[AuthService.switchTenant] skipping malformed session',
+          err instanceof Error ? err.stack : err,
+        );
       }
     }
 

@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge } from '@school/ui';
 
 import { DOMAIN_COLORS, SEVERITY_COLORS, type RiskSignal } from '@/lib/early-warning';
 import { formatDateTime } from '@/lib/format-date';
@@ -17,9 +18,7 @@ export function SignalBreakdown({ signals }: SignalBreakdownProps) {
   const sorted = [...signals].sort((a, b) => b.score_contribution - a.score_contribution);
 
   if (sorted.length === 0) {
-    return (
-      <p className="text-sm text-text-tertiary">{t('detail.no_signals')}</p>
-    );
+    return <p className="text-sm text-text-tertiary">{t('detail.no_signals')}</p>;
   }
 
   return (
@@ -39,13 +38,9 @@ export function SignalBreakdown({ signals }: SignalBreakdownProps) {
                 <span className="text-xs font-medium uppercase text-text-tertiary">
                   {t(`domains.${signal.domain}` as never)}
                 </span>
-                <Badge className={`${severity.bg} ${severity.text}`}>
-                  {signal.severity}
-                </Badge>
+                <Badge className={`${severity.bg} ${severity.text}`}>{signal.severity}</Badge>
               </div>
-              <p className="mt-1 text-sm text-text-primary">
-                {signal.summary_fragment}
-              </p>
+              <p className="mt-1 text-sm text-text-primary">{signal.summary_fragment}</p>
               <p className="mt-1 text-xs text-text-tertiary">
                 {formatDateTime(signal.detected_at)}
               </p>

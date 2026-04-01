@@ -1,20 +1,6 @@
 'use client';
 
 import {
-  cn,
-  EmptyState,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Skeleton,
-  StatCard,
-  toast,
-} from '@school/ui';
-import {
   AlertTriangle,
   BarChart3,
   Calendar,
@@ -39,6 +25,21 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import {
+  cn,
+  EmptyState,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Skeleton,
+  StatCard,
+  toast,
+} from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';

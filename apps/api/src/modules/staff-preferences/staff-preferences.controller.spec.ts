@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -80,7 +81,11 @@ describe('StaffPreferencesController', () => {
 
     await controller.findOwn(mockTenant, mockJwtPayload, query);
 
-    expect(mockService.findOwnPreferences).toHaveBeenCalledWith(TENANT_ID, USER_ID, ACADEMIC_YEAR_ID);
+    expect(mockService.findOwnPreferences).toHaveBeenCalledWith(
+      TENANT_ID,
+      USER_ID,
+      ACADEMIC_YEAR_ID,
+    );
   });
 
   it('should call create with resolved permissions from cache', async () => {
@@ -96,19 +101,20 @@ describe('StaffPreferencesController', () => {
     const dto = {
       staff_profile_id: 'sp-1',
       academic_year_id: ACADEMIC_YEAR_ID,
-      preference_payload: { type: 'subject' as const, subject_ids: ['sub-1'], mode: 'prefer' as const },
+      preference_payload: {
+        type: 'subject' as const,
+        subject_ids: ['sub-1'],
+        mode: 'prefer' as const,
+      },
       priority: 'medium' as const,
     };
 
     await controller.create(mockTenant, mockJwtPayload, dto);
 
     expect(mockPermissionCache.getPermissions).toHaveBeenCalledWith(MEMBERSHIP_ID);
-    expect(mockService.create).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      dto,
-      ['schedule.manage_preferences'],
-    );
+    expect(mockService.create).toHaveBeenCalledWith(TENANT_ID, USER_ID, dto, [
+      'schedule.manage_preferences',
+    ]);
   });
 
   it('should pass empty permissions when user has no membership_id', async () => {
@@ -124,7 +130,11 @@ describe('StaffPreferencesController', () => {
     const dto = {
       staff_profile_id: 'sp-1',
       academic_year_id: ACADEMIC_YEAR_ID,
-      preference_payload: { type: 'subject' as const, subject_ids: ['sub-1'], mode: 'prefer' as const },
+      preference_payload: {
+        type: 'subject' as const,
+        subject_ids: ['sub-1'],
+        mode: 'prefer' as const,
+      },
       priority: 'medium' as const,
     };
 
@@ -147,11 +157,8 @@ describe('StaffPreferencesController', () => {
 
     await controller.remove(mockTenant, mockJwtPayload, PREF_ID);
 
-    expect(mockService.delete).toHaveBeenCalledWith(
-      TENANT_ID,
-      USER_ID,
-      PREF_ID,
-      ['schedule.manage_preferences'],
-    );
+    expect(mockService.delete).toHaveBeenCalledWith(TENANT_ID, USER_ID, PREF_ID, [
+      'schedule.manage_preferences',
+    ]);
   });
 });

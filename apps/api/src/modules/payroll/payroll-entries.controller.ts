@@ -9,15 +9,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import {
-  calculateEntrySchema,
-  updatePayrollEntrySchema,
-} from '@school/shared';
-import type {
-  CalculateEntryDto,
-  TenantContext,
-  UpdatePayrollEntryDto,
-} from '@school/shared';
+
+import { calculateEntrySchema, updatePayrollEntrySchema } from '@school/shared';
+import type { CalculateEntryDto, TenantContext, UpdatePayrollEntryDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';

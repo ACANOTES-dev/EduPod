@@ -1,16 +1,18 @@
 'use client';
 
-import type { HouseholdStatementData, StatementEntry } from '@school/shared';
-import { Button, EmptyState, StatusBadge } from '@school/ui';
 import { Calendar, FileText } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import type { HouseholdStatementData, StatementEntry } from '@school/shared';
+import { Button, EmptyState, StatusBadge } from '@school/ui';
+
+import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { PdfPreviewModal } from '../../_components/pdf-preview-modal';
 
 // ─── Date Filter (client) ─────────────────────────────────────────────────────
 
@@ -177,7 +179,10 @@ export default function HouseholdStatementPage() {
       {/* Billing parent info */}
       {data.household.billing_parent_name && (
         <p className="text-sm text-text-secondary">
-          {t('billingParent')}: <span className="font-medium text-text-primary">{data.household.billing_parent_name}</span>
+          {t('billingParent')}:{' '}
+          <span className="font-medium text-text-primary">
+            {data.household.billing_parent_name}
+          </span>
         </p>
       )}
 

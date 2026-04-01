@@ -1,11 +1,11 @@
 'use client';
 
-import { Button, Input, Label, StatusBadge, Textarea, toast } from '@school/ui';
 import { Archive, ArrowLeft, Send } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Input, Label, StatusBadge, Textarea, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -180,7 +180,8 @@ export default function AnnouncementDetailPage() {
   const isDraft = announcement.status === 'draft';
   const isPublished = announcement.status === 'published';
   const isArchived = announcement.status === 'archived';
-  const authorName = announcement.author_name ??
+  const authorName =
+    announcement.author_name ??
     (announcement.author
       ? `${announcement.author.first_name} ${announcement.author.last_name}`.trim()
       : 'Unknown');
@@ -196,11 +197,7 @@ export default function AnnouncementDetailPage() {
               <ArrowLeft className="me-2 h-4 w-4 rtl:rotate-180" /> {tc('back')}
             </Button>
             {!isArchived && (
-              <Button
-                variant="outline"
-                onClick={handleArchive}
-                disabled={actionLoading}
-              >
+              <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
                 <Archive className="me-2 h-4 w-4" />
                 Archive
               </Button>
@@ -210,7 +207,10 @@ export default function AnnouncementDetailPage() {
                 <Button variant="outline" onClick={handleSave} disabled={actionLoading}>
                   {tc('save')}
                 </Button>
-                <Button onClick={handlePublish} disabled={actionLoading || !title.trim() || !body.trim()}>
+                <Button
+                  onClick={handlePublish}
+                  disabled={actionLoading || !title.trim() || !body.trim()}
+                >
                   <Send className="me-2 h-4 w-4" />
                   {t('form.publish')}
                 </Button>

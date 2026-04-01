@@ -154,6 +154,7 @@ export class BehaviourExportService {
         // 6. Load points from mv_student_behaviour_summary (graceful if MV empty)
         let mvSummary: MvSummaryRow | null = null;
         try {
+          // eslint-disable-next-line school/no-raw-sql-outside-rls -- export query with complex joins not expressible in Prisma
           const rows = await db.$queryRaw<MvSummaryRow[]>`
             SELECT positive_count, negative_count, neutral_count, total_points, positive_ratio
             FROM mv_student_behaviour_summary
@@ -217,12 +218,15 @@ export class BehaviourExportService {
         }));
 
         const totalIncidents = mvSummary
-          ? Number(mvSummary.positive_count) + Number(mvSummary.negative_count) + Number(mvSummary.neutral_count)
+          ? Number(mvSummary.positive_count) +
+            Number(mvSummary.negative_count) +
+            Number(mvSummary.neutral_count)
           : incidents.length;
 
-        const positiveRatio = mvSummary?.positive_ratio != null
-          ? `${(Number(mvSummary.positive_ratio) * 100).toFixed(1)}%`
-          : 'N/A';
+        const positiveRatio =
+          mvSummary?.positive_ratio != null
+            ? `${(Number(mvSummary.positive_ratio) * 100).toFixed(1)}%`
+            : 'N/A';
 
         const pointsBalance = mvSummary ? Number(mvSummary.total_points) : 0;
 
@@ -273,10 +277,11 @@ function escapeHtml(text: string): string {
 }
 
 function buildStudentPackHtml(data: StudentExportData): string {
-  const incidentTableRows = data.incidents.length > 0
-    ? data.incidents
-        .map(
-          (i) => `<tr>
+  const incidentTableRows =
+    data.incidents.length > 0
+      ? data.incidents
+          .map(
+            (i) => `<tr>
             <td>${escapeHtml(i.date)}</td>
             <td>${escapeHtml(i.category)}</td>
             <td>${escapeHtml(i.polarity)}</td>
@@ -284,47 +289,50 @@ function buildStudentPackHtml(data: StudentExportData): string {
             <td>${escapeHtml(i.reporter)}</td>
             <td>${escapeHtml(i.description)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="6" class="empty">No incidents recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="6" class="empty">No incidents recorded</td></tr>';
 
-  const sanctionTableRows = data.sanctions.length > 0
-    ? data.sanctions
-        .map(
-          (s) => `<tr>
+  const sanctionTableRows =
+    data.sanctions.length > 0
+      ? data.sanctions
+          .map(
+            (s) => `<tr>
             <td>${escapeHtml(s.type)}</td>
             <td>${escapeHtml(s.date)}</td>
             <td>${escapeHtml(s.status)}</td>
             <td>${escapeHtml(s.served)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="4" class="empty">No sanctions recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="4" class="empty">No sanctions recorded</td></tr>';
 
-  const interventionTableRows = data.interventions.length > 0
-    ? data.interventions
-        .map(
-          (iv) => `<tr>
+  const interventionTableRows =
+    data.interventions.length > 0
+      ? data.interventions
+          .map(
+            (iv) => `<tr>
             <td>${escapeHtml(iv.title)}</td>
             <td>${escapeHtml(iv.type)}</td>
             <td>${escapeHtml(iv.status)}</td>
             <td>${escapeHtml(iv.outcome)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="4" class="empty">No interventions recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="4" class="empty">No interventions recorded</td></tr>';
 
-  const awardTableRows = data.awards.length > 0
-    ? data.awards
-        .map(
-          (a) => `<tr>
+  const awardTableRows =
+    data.awards.length > 0
+      ? data.awards
+          .map(
+            (a) => `<tr>
             <td>${escapeHtml(a.award_type)}</td>
             <td>${escapeHtml(a.date)}</td>
             <td>${escapeHtml(a.reason)}</td>
           </tr>`,
-        )
-        .join('')
-    : '<tr><td colspan="3" class="empty">No awards recorded</td></tr>';
+          )
+          .join('')
+      : '<tr><td colspan="3" class="empty">No awards recorded</td></tr>';
 
   return `<!DOCTYPE html>
 <html>

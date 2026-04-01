@@ -1,15 +1,6 @@
 'use client';
 
 import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  toast,
-} from '@school/ui';
-import {
   AlertCircle,
   Calendar,
   ChevronLeft,
@@ -20,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -98,13 +91,7 @@ function CoverAlert({ cells }: { cells: TimetableCell[] }) {
 
 // ─── Weekly Grid (desktop) ────────────────────────────────────────────────────
 
-function WeeklyGrid({
-  data,
-  todayWeekday,
-}: {
-  data: MyTimetableResponse;
-  todayWeekday: number;
-}) {
+function WeeklyGrid({ data, todayWeekday }: { data: MyTimetableResponse; todayWeekday: number }) {
   const t = useTranslations('scheduling.myTimetable');
   const cellMap = new Map<string, TimetableCell>();
   for (const c of data.cells) {
@@ -165,9 +152,7 @@ function WeeklyGrid({
                         <p className="opacity-80">{cell.class_name}</p>
                         {cell.room_name && <p className="opacity-70">{cell.room_name}</p>}
                         {cell.is_cover_duty && (
-                          <p className="font-medium text-warning-700">
-                            {t('cover')}
-                          </p>
+                          <p className="font-medium text-warning-700">{t('cover')}</p>
                         )}
                       </div>
                     ) : null}
@@ -200,7 +185,9 @@ function DailyList({ data, day }: { data: MyTimetableResponse; day: number }) {
         <div
           key={cell.schedule_id}
           className={`rounded-xl border p-4 ${
-            cell.is_cover_duty ? 'border-warning-300 bg-warning-50' : subjectColour(cell.subject_name)
+            cell.is_cover_duty
+              ? 'border-warning-300 bg-warning-50'
+              : subjectColour(cell.subject_name)
           }`}
         >
           <div className="flex items-start justify-between gap-2">
@@ -284,7 +271,7 @@ export default function MyTimetablePage() {
     setLoading(true);
     try {
       const res = await apiClient<MyTimetableResponse>(
-        `/api/v1/scheduling/my-timetable?week_offset=${weekOffset}`
+        `/api/v1/scheduling/my-timetable?week_offset=${weekOffset}`,
       );
       setData(res);
     } catch {
@@ -294,7 +281,9 @@ export default function MyTimetablePage() {
     }
   }, [weekOffset]);
 
-  React.useEffect(() => { void fetchTimetable(); }, [fetchTimetable]);
+  React.useEffect(() => {
+    void fetchTimetable();
+  }, [fetchTimetable]);
 
   const handleExportCalendar = async () => {
     try {
@@ -308,9 +297,7 @@ export default function MyTimetablePage() {
 
   const handlePrint = () => window.print();
 
-  const weekLabel = data?.week.rotation_week_label
-    ? `${data.week.rotation_week_label} · `
-    : '';
+  const weekLabel = data?.week.rotation_week_label ? `${data.week.rotation_week_label} · ` : '';
 
   const weekDateRange = data
     ? `${new Date(data.week.week_start).toLocaleDateString()} – ${new Date(data.week.week_end).toLocaleDateString()}`
@@ -381,8 +368,8 @@ export default function MyTimetablePage() {
                     mobileDay === wd
                       ? 'bg-primary text-white'
                       : wd === todayWeekday
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-surface-secondary text-text-secondary hover:bg-surface'
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-surface-secondary text-text-secondary hover:bg-surface'
                   }`}
                 >
                   {WEEKDAY_SHORT[wd] ?? wd}

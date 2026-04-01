@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { PermissionCacheService } from '../../common/services/permission-cache.service';
@@ -66,10 +67,7 @@ describe('SchedulingDashboardController', () => {
       const result = await controller.overview(TENANT, { academic_year_id: AY_ID });
 
       expect(result).toEqual(overviewData);
-      expect(mockDashboardService.overview).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockDashboardService.overview).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -83,10 +81,7 @@ describe('SchedulingDashboardController', () => {
       const result = await controller.workload(TENANT, { academic_year_id: AY_ID });
 
       expect(result).toEqual(workloadData);
-      expect(mockDashboardService.workload).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockDashboardService.workload).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -100,10 +95,7 @@ describe('SchedulingDashboardController', () => {
       const result = await controller.unassigned(TENANT, { academic_year_id: AY_ID });
 
       expect(result).toEqual(unassignedData);
-      expect(mockDashboardService.unassigned).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockDashboardService.unassigned).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -117,10 +109,7 @@ describe('SchedulingDashboardController', () => {
       const result = await controller.roomUtilisation(TENANT, { academic_year_id: AY_ID });
 
       expect(result).toEqual(roomData);
-      expect(mockDashboardService.roomUtilisation).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockDashboardService.roomUtilisation).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -134,10 +123,7 @@ describe('SchedulingDashboardController', () => {
       const result = await controller.trends(TENANT, { academic_year_id: AY_ID });
 
       expect(result).toEqual(trendData);
-      expect(mockDashboardService.trends).toHaveBeenCalledWith(
-        TENANT.tenant_id,
-        AY_ID,
-      );
+      expect(mockDashboardService.trends).toHaveBeenCalledWith(TENANT.tenant_id, AY_ID);
     });
   });
 
@@ -171,11 +157,10 @@ describe('SchedulingDashboardController', () => {
       const prefData = { run_id: 'run-1', staff_satisfaction: [] };
       mockDashboardService.preferences.mockResolvedValue(prefData);
 
-      const result = await controller.preferences(
-        TENANT,
-        userWithFullAccess,
-        { academic_year_id: AY_ID, staff_id: 'staff-specific' },
-      );
+      const result = await controller.preferences(TENANT, userWithFullAccess, {
+        academic_year_id: AY_ID,
+        staff_id: 'staff-specific',
+      });
 
       expect(result).toEqual(prefData);
       expect(mockDashboardService.preferences).toHaveBeenCalledWith(
@@ -186,18 +171,14 @@ describe('SchedulingDashboardController', () => {
     });
 
     it('should scope to own staff profile when user lacks schedule.view_auto_reports', async () => {
-      mockPermissionCache.getPermissions.mockResolvedValue([
-        'schedule.view_own_satisfaction',
-      ]);
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_own_satisfaction']);
       mockDashboardService.getStaffProfileId.mockResolvedValue('staff-own');
       const prefData = { run_id: 'run-1', staff_satisfaction: [] };
       mockDashboardService.preferences.mockResolvedValue(prefData);
 
-      const result = await controller.preferences(
-        TENANT,
-        userWithOwnOnly,
-        { academic_year_id: AY_ID },
-      );
+      const result = await controller.preferences(TENANT, userWithOwnOnly, {
+        academic_year_id: AY_ID,
+      });
 
       expect(result).toEqual(prefData);
       expect(mockDashboardService.getStaffProfileId).toHaveBeenCalledWith(
@@ -217,11 +198,9 @@ describe('SchedulingDashboardController', () => {
       const prefData = { run_id: null, staff_satisfaction: [] };
       mockDashboardService.preferences.mockResolvedValue(prefData);
 
-      const result = await controller.preferences(
-        TENANT,
-        userWithOwnOnly,
-        { academic_year_id: AY_ID },
-      );
+      const result = await controller.preferences(TENANT, userWithOwnOnly, {
+        academic_year_id: AY_ID,
+      });
 
       expect(result).toEqual(prefData);
       expect(mockDashboardService.preferences).toHaveBeenCalledWith(
@@ -232,16 +211,10 @@ describe('SchedulingDashboardController', () => {
     });
 
     it('should not call getStaffProfileId when user has full access', async () => {
-      mockPermissionCache.getPermissions.mockResolvedValue([
-        'schedule.view_auto_reports',
-      ]);
+      mockPermissionCache.getPermissions.mockResolvedValue(['schedule.view_auto_reports']);
       mockDashboardService.preferences.mockResolvedValue({ run_id: null, staff_satisfaction: [] });
 
-      await controller.preferences(
-        TENANT,
-        userWithFullAccess,
-        { academic_year_id: AY_ID },
-      );
+      await controller.preferences(TENANT, userWithFullAccess, { academic_year_id: AY_ID });
 
       expect(mockDashboardService.getStaffProfileId).not.toHaveBeenCalled();
     });

@@ -11,14 +11,15 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   initTier3ExportSchema,
   reportFilterSchema,
   studentSummaryOptionsSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -53,12 +54,7 @@ export class PastoralReportsController {
     @Query(new ZodValidationPipe(studentSummaryOptionsSchema))
     query: z.infer<typeof studentSummaryOptionsSchema>,
   ) {
-    return this.reportService.getStudentSummary(
-      tenant.tenant_id,
-      user.sub,
-      studentId,
-      query,
-    );
+    return this.reportService.getStudentSummary(tenant.tenant_id, user.sub, studentId, query);
   }
 
   // 2. Student Summary (PDF)
@@ -95,11 +91,7 @@ export class PastoralReportsController {
     @Query(new ZodValidationPipe(reportFilterSchema))
     query: z.infer<typeof reportFilterSchema>,
   ) {
-    return this.reportService.getSstActivity(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    return this.reportService.getSstActivity(tenant.tenant_id, user.sub, query);
   }
 
   // 4. SST Activity (PDF)
@@ -137,11 +129,7 @@ export class PastoralReportsController {
     @Query(new ZodValidationPipe(reportFilterSchema))
     query: z.infer<typeof reportFilterSchema>,
   ) {
-    return this.reportService.getSafeguardingCompliance(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    return this.reportService.getSafeguardingCompliance(tenant.tenant_id, user.sub, query);
   }
 
   // 6. Safeguarding Compliance (PDF)
@@ -184,11 +172,7 @@ export class PastoralReportsController {
     @Query(new ZodValidationPipe(reportFilterSchema))
     query: z.infer<typeof reportFilterSchema>,
   ) {
-    return this.reportService.getWellbeingProgramme(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    return this.reportService.getWellbeingProgramme(tenant.tenant_id, user.sub, query);
   }
 
   // 8. Wellbeing Programme (PDF)
@@ -203,11 +187,7 @@ export class PastoralReportsController {
     @Query('locale') locale: string = 'en',
     @Res() res: Response,
   ) {
-    const data = await this.reportService.getWellbeingProgramme(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    const data = await this.reportService.getWellbeingProgramme(tenant.tenant_id, user.sub, query);
     const buffer = await this.exportService.renderPdf(
       'wellbeing-programme',
       data,
@@ -233,11 +213,7 @@ export class PastoralReportsController {
     @Query('locale') locale: string = 'en',
     @Res() res: Response,
   ) {
-    const data = await this.reportService.getDesInspection(
-      tenant.tenant_id,
-      user.sub,
-      query,
-    );
+    const data = await this.reportService.getDesInspection(tenant.tenant_id, user.sub, query);
     const buffer = await this.exportService.renderPdf(
       'des-inspection',
       data,
@@ -264,12 +240,7 @@ export class PastoralReportsController {
     @Param('studentId', ParseUUIDPipe) studentId: string,
     @Query('locale') locale: string = 'en',
   ) {
-    return this.exportService.exportStudentSummary(
-      tenant.tenant_id,
-      user.sub,
-      studentId,
-      locale,
-    );
+    return this.exportService.exportStudentSummary(tenant.tenant_id, user.sub, studentId, locale);
   }
 
   // 11. Export SST Activity (Tier 1/2)
@@ -284,12 +255,7 @@ export class PastoralReportsController {
     query: z.infer<typeof reportFilterSchema>,
     @Query('locale') locale: string = 'en',
   ) {
-    return this.exportService.exportSstActivity(
-      tenant.tenant_id,
-      user.sub,
-      query,
-      locale,
-    );
+    return this.exportService.exportSstActivity(tenant.tenant_id, user.sub, query, locale);
   }
 
   // 12. Init Tier 3 Export
@@ -303,11 +269,7 @@ export class PastoralReportsController {
     @Body(new ZodValidationPipe(initTier3ExportSchema))
     body: z.infer<typeof initTier3ExportSchema>,
   ) {
-    return this.exportService.initTier3Export(
-      tenant.tenant_id,
-      user.sub,
-      body,
-    );
+    return this.exportService.initTier3Export(tenant.tenant_id, user.sub, body);
   }
 
   // 13. Confirm Tier 3 Export
@@ -320,11 +282,7 @@ export class PastoralReportsController {
     @CurrentUser() user: JwtPayload,
     @Param('exportId', ParseUUIDPipe) exportId: string,
   ) {
-    return this.exportService.confirmTier3Export(
-      tenant.tenant_id,
-      user.sub,
-      exportId,
-    );
+    return this.exportService.confirmTier3Export(tenant.tenant_id, user.sub, exportId);
   }
 
   // 14. Download Tier 3 Export
@@ -336,10 +294,6 @@ export class PastoralReportsController {
     @CurrentUser() user: JwtPayload,
     @Param('exportId', ParseUUIDPipe) exportId: string,
   ) {
-    return this.exportService.downloadTier3Export(
-      tenant.tenant_id,
-      user.sub,
-      exportId,
-    );
+    return this.exportService.downloadTier3Export(tenant.tenant_id, user.sub, exportId);
   }
 }

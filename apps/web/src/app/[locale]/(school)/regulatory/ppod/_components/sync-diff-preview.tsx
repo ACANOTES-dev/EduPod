@@ -1,9 +1,10 @@
 'use client';
 
-import { StatusBadge } from '@school/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { StatusBadge } from '@school/ui';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -93,11 +94,7 @@ function CollapsibleSection({
           <ChevronDown className="h-4 w-4 text-text-tertiary" />
         )}
       </button>
-      {isOpen && (
-        <div className="border-t border-border px-4 py-3 sm:px-6">
-          {children}
-        </div>
-      )}
+      {isOpen && <div className="border-t border-border px-4 py-3 sm:px-6">{children}</div>}
     </div>
   );
 }
@@ -210,9 +207,7 @@ export function SyncDiffPreview({ databaseType }: SyncDiffPreviewProps) {
               <tbody className="divide-y divide-border">
                 {diff.new_records.map((record) => (
                   <tr key={record.student_id}>
-                    <td className="py-2 pe-4 text-text-primary">
-                      {record.student_name}
-                    </td>
+                    <td className="py-2 pe-4 text-text-primary">{record.student_name}</td>
                     <td className="py-2 text-text-secondary">
                       {Object.keys(record.fields).length} {t('ppod.fieldsCount')}
                     </td>
@@ -238,9 +233,7 @@ export function SyncDiffPreview({ databaseType }: SyncDiffPreviewProps) {
                 key={record.student_id}
                 className="rounded-xl border border-border bg-surface-secondary p-3"
               >
-                <p className="text-sm font-medium text-text-primary">
-                  {record.student_name}
-                </p>
+                <p className="text-sm font-medium text-text-primary">{record.student_name}</p>
                 <div className="mt-2 overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -265,9 +258,7 @@ export function SyncDiffPreview({ databaseType }: SyncDiffPreviewProps) {
                           <td className="py-1.5 pe-3 text-danger-text line-through">
                             {change.current || '—'}
                           </td>
-                          <td className="py-1.5 text-success-text">
-                            {change.synced || '—'}
-                          </td>
+                          <td className="py-1.5 text-success-text">{change.synced || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -15,6 +15,8 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { z } from 'zod';
+
 import {
   compensationQuerySchema,
   createCompensationSchema,
@@ -26,7 +28,6 @@ import type {
   TenantContext,
   UpdateCompensationDto,
 } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -61,10 +62,7 @@ export class CompensationController {
 
   @Get(':id')
   @RequiresPermission('payroll.view')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.compensationService.getCompensation(tenant.tenant_id, id);
   }
 

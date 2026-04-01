@@ -1,14 +1,16 @@
 'use client';
 
-import { Button, Input, Label, cn } from '@school/ui';
 import { Check, ChevronLeft, Download, FileDown, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { apiClient } from '@/lib/api-client';
+import { Button, Input, Label, cn } from '@school/ui';
+
 
 import type { DesPreviewResponse } from './file-preview';
 import { FilePreview } from './file-preview';
+
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +25,12 @@ interface DesGenerateResponse {
   file_key: string;
   file_hash: string;
   validation_warnings: Array<{ field: string; message: string; severity: 'error' | 'warning' }>;
-  validation_errors: Array<{ row_index: number; field: string; message: string; severity: 'error' | 'warning' }>;
+  validation_errors: Array<{
+    row_index: number;
+    field: string;
+    message: string;
+    severity: 'error' | 'warning';
+  }>;
 }
 
 // ─── File Type Definitions ────────────────────────────────────────────────────
@@ -104,11 +111,7 @@ function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
                   )}
                   aria-current={isActive ? 'step' : undefined}
                 >
-                  {isComplete ? (
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    stepNum
-                  )}
+                  {isComplete ? <Check className="h-4 w-4" aria-hidden="true" /> : stepNum}
                 </span>
                 <span
                   className={cn(
@@ -151,11 +154,7 @@ function StepIndicator({ currentStep, labels, t }: StepIndicatorProps) {
                 )}
                 aria-current={isActive ? 'step' : undefined}
               >
-                {isComplete ? (
-                  <Check className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  stepNum
-                )}
+                {isComplete ? <Check className="h-4 w-4" aria-hidden="true" /> : stepNum}
               </span>
               <span
                 className={cn(
@@ -244,10 +243,7 @@ function StepSelectFile({
 
       {/* Next Button */}
       <div className="flex justify-end">
-        <Button
-          onClick={onNext}
-          disabled={!selectedFileType || !academicYear.trim()}
-        >
+        <Button onClick={onNext} disabled={!selectedFileType || !academicYear.trim()}>
           {t('desReturns.next')}
         </Button>
       </div>
@@ -300,9 +296,7 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
     return (
       <div className="flex flex-col items-center gap-4 py-12" aria-busy="true">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-700" />
-        <p className="text-sm font-medium text-text-secondary">
-          {t('desReturns.generating')}
-        </p>
+        <p className="text-sm font-medium text-text-secondary">{t('desReturns.generating')}</p>
       </div>
     );
   }
@@ -335,8 +329,7 @@ function StepGenerate({ result, isGenerating, onDownload, onRestart, t }: StepGe
                 {result.academic_year}
               </p>
               <p>
-                <span className="font-medium">{t('desReturns.rowCount')}:</span>{' '}
-                {result.row_count}
+                <span className="font-medium">{t('desReturns.rowCount')}:</span> {result.row_count}
               </p>
               <p>
                 <span className="font-medium">{t('desReturns.generatedAt')}:</span>{' '}
@@ -452,7 +445,10 @@ export function FileGenerationWizard() {
 
   // ─── Check for blocking errors in preview ──────────────────────────────────
   const hasErrors = React.useMemo(
-    () => (preview?.validation_warnings ?? preview?.validation_errors ?? []).some((w) => w.severity === 'error'),
+    () =>
+      (preview?.validation_warnings ?? preview?.validation_errors ?? []).some(
+        (w) => w.severity === 'error',
+      ),
     [preview],
   );
 

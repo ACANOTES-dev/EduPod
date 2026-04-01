@@ -1,5 +1,9 @@
 'use client';
 
+import { AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Badge,
   Button,
@@ -10,10 +14,6 @@ import {
   SelectValue,
   toast,
 } from '@school/ui';
-import { AlertCircle, Plus, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -119,9 +119,7 @@ export default function MyPreferencesPage() {
   React.useEffect(() => {
     if (!selectedYear) return;
     apiClient<{ data: PeriodSlot[] }>(`/api/v1/period-grid?academic_year_id=${selectedYear}`)
-      .then((res) =>
-        setPeriodSlots(res.data.filter((p) => p.period_type === 'teaching')),
-      )
+      .then((res) => setPeriodSlots(res.data.filter((p) => p.period_type === 'teaching')))
       .catch(() => undefined);
   }, [selectedYear]);
 
@@ -207,10 +205,13 @@ export default function MyPreferencesPage() {
   const handleToggleSentiment = async (id: string, current: PreferenceSentiment) => {
     const next = current === 'prefer' ? 'avoid' : 'prefer';
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/own/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ sentiment: next }),
-      });
+      const updated = await apiClient<Preference>(
+        `/api/v1/staff-scheduling-preferences/own/${id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ sentiment: next }),
+        },
+      );
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
     } catch {
       toast.error('Failed to update preference');
@@ -219,10 +220,13 @@ export default function MyPreferencesPage() {
 
   const handleChangePriority = async (id: string, priority: number) => {
     try {
-      const updated = await apiClient<Preference>(`/api/v1/staff-scheduling-preferences/own/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ priority }),
-      });
+      const updated = await apiClient<Preference>(
+        `/api/v1/staff-scheduling-preferences/own/${id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ priority }),
+        },
+      );
       setPreferences((prev) => prev.map((p) => (p.id === id ? updated : p)));
     } catch {
       toast.error('Failed to update preference');
@@ -299,9 +303,7 @@ export default function MyPreferencesPage() {
             <div className="flex items-center gap-3 rounded-lg border border-dashed border-border p-3">
               <Select value={newEntityId} onValueChange={setNewEntityId}>
                 <SelectTrigger className="w-56">
-                  <SelectValue
-                    placeholder={`Select ${TAB_LABELS[activeTab].toLowerCase()}…`}
-                  />
+                  <SelectValue placeholder={`Select ${TAB_LABELS[activeTab].toLowerCase()}…`} />
                 </SelectTrigger>
                 <SelectContent>
                   {entityOptions(activeTab).map((opt) => (

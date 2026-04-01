@@ -1,5 +1,9 @@
 'use client';
 
+import { Download } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Button,
   Checkbox,
@@ -9,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@school/ui';
-import { Download } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
 
 import {
   ALL_EXPORT_COLUMNS,
@@ -39,8 +40,18 @@ const PREVIEW_ROWS = [
     has_allergy: false,
     allergy_details: null,
     parents: [
-      { first_name: 'Omar', last_name: 'Al-Farsi', email: 'omar@example.com', phone: '+971501234567' },
-      { first_name: 'Sara', last_name: 'Al-Farsi', email: 'sara@example.com', phone: '+971507654321' },
+      {
+        first_name: 'Omar',
+        last_name: 'Al-Farsi',
+        email: 'omar@example.com',
+        phone: '+971501234567',
+      },
+      {
+        first_name: 'Sara',
+        last_name: 'Al-Farsi',
+        email: 'sara@example.com',
+        phone: '+971507654321',
+      },
     ],
   },
   {
@@ -57,7 +68,12 @@ const PREVIEW_ROWS = [
     has_allergy: true,
     allergy_details: 'Peanuts',
     parents: [
-      { first_name: 'Sean', last_name: 'Murphy', email: 'sean@example.com', phone: '+353871234567' },
+      {
+        first_name: 'Sean',
+        last_name: 'Murphy',
+        email: 'sean@example.com',
+        phone: '+353871234567',
+      },
     ],
   },
 ];
@@ -124,9 +140,7 @@ export function ExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-auto max-w-[calc(100vw-2rem)] min-w-[min(672px,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}
-          </DialogTitle>
+          <DialogTitle>{exportFormat === 'xlsx' ? t('exportExcel') : t('exportPdf')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -292,10 +306,7 @@ export function ExportDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button
-            disabled={activeColumns.length === 0 || exporting}
-            onClick={onExport}
-          >
+          <Button disabled={activeColumns.length === 0 || exporting} onClick={onExport}>
             <Download className="me-2 h-4 w-4" />
             {exporting ? t('exporting') : t('exportNow')}
           </Button>

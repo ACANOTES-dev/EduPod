@@ -1,5 +1,9 @@
 'use client';
 
+import { TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import * as React from 'react';
+
 import {
   Select,
   SelectContent,
@@ -9,10 +13,6 @@ import {
   StatCard,
   EmptyState,
 } from '@school/ui';
-import { TrendingUp } from 'lucide-react';
-import { useTranslations } from 'next-intl';
-import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -96,7 +96,9 @@ export default function PromotionRolloverPage() {
           </SelectTrigger>
           <SelectContent>
             {academicYears.map((y) => (
-              <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>
+              <SelectItem key={y.id} value={y.id}>
+                {y.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -112,11 +114,7 @@ export default function PromotionRolloverPage() {
           <div className="h-64 animate-pulse rounded-2xl bg-surface-secondary" />
         </div>
       ) : !report ? (
-        <EmptyState
-          icon={TrendingUp}
-          title={t('noData')}
-          description={t('noPromotionData')}
-        />
+        <EmptyState icon={TrendingUp} title={t('noData')} description={t('noPromotionData')} />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -153,12 +151,19 @@ export default function PromotionRolloverPage() {
                   </tr>
                 ) : (
                   (report.details ?? []).map((row) => (
-                    <tr key={row.student_id} className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary">
-                      <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.student_name}</td>
+                    <tr
+                      key={row.student_id}
+                      className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-secondary"
+                    >
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                        {row.student_name}
+                      </td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{row.from_grade}</td>
                       <td className="px-4 py-3 text-sm text-text-secondary">{row.to_grade}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[row.status] ?? ''}`}>
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[row.status] ?? ''}`}
+                        >
                           {t(row.status)}
                         </span>
                       </td>

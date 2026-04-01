@@ -1,17 +1,19 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { AlertTriangle, ChevronDown, Download, Mail, Send } from 'lucide-react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { Button } from '@school/ui';
+
 
 import { EntriesTable } from './_components/entries-table';
 import { FinaliseDialog } from './_components/finalise-dialog';
 import { RunMetadataCard } from './_components/run-metadata-card';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -124,8 +126,8 @@ export default function RunDetailPage() {
       ]);
       setRun(runRes.data);
       setEntries(entriesRes.data);
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[fetchRun]', err);
     } finally {
       setIsLoading(false);
     }
@@ -170,8 +172,8 @@ export default function RunDetailPage() {
           default:
             break;
         }
-      } catch {
-        // silent
+      } catch (err) {
+        console.error('[fetchTabData]', err);
       }
     },
     [runId],
@@ -187,8 +189,8 @@ export default function RunDetailPage() {
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}/refresh-entries`, { method: 'POST' });
       void fetchRun();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleRefreshEntries]', err);
     }
   };
 
@@ -197,8 +199,8 @@ export default function RunDetailPage() {
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}/auto-populate-classes`, { method: 'POST' });
       void fetchRun();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleAutoPopulate]', err);
     } finally {
       setIsPopulating(false);
     }
@@ -213,8 +215,8 @@ export default function RunDetailPage() {
       });
       setFinaliseOpen(false);
       void fetchRun();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleFinalise]', err);
     }
   };
 
@@ -223,8 +225,8 @@ export default function RunDetailPage() {
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}/cancel`, { method: 'POST' });
       void fetchRun();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleCancelRun]', err);
     }
   };
 
@@ -239,15 +241,13 @@ export default function RunDetailPage() {
         }),
       });
       void fetchRun();
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleUpdateWorkingDays]', err);
     }
   };
 
   const handleEntryUpdated = (updatedEntry: PayrollEntry) => {
-    setEntries((prev) =>
-      prev.map((e) => (e.id === updatedEntry.id ? updatedEntry : e)),
-    );
+    setEntries((prev) => prev.map((e) => (e.id === updatedEntry.id ? updatedEntry : e)));
     setRun((prev) => {
       if (!prev) return prev;
       const newEntries = entries.map((e) => (e.id === updatedEntry.id ? updatedEntry : e));
@@ -263,16 +263,16 @@ export default function RunDetailPage() {
   const handleSendToAccountant = async () => {
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}/send-to-accountant`, { method: 'POST' });
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleSendToAccountant]', err);
     }
   };
 
   const handleSendPayslips = async () => {
     try {
       await apiClient(`/api/v1/payroll/runs/${runId}/send-payslips`, { method: 'POST' });
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleSendPayslips]', err);
     }
   };
 
@@ -284,8 +284,8 @@ export default function RunDetailPage() {
       setAnomalies((prev) =>
         prev.map((a) => (a.id === anomalyId ? { ...a, acknowledged: true } : a)),
       );
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('[handleAcknowledgeAnomaly]', err);
     }
   };
 
@@ -310,7 +310,10 @@ export default function RunDetailPage() {
     { key: 'entries', label: t('entries') },
     { key: 'allowances', label: t('allowancesTab') },
     { key: 'adjustments', label: t('adjustmentsTab') },
-    { key: 'anomalies', label: `${t('anomaliesTab')}${anomalies.filter((a) => !a.acknowledged).length > 0 ? ` (${anomalies.filter((a) => !a.acknowledged).length})` : ''}` },
+    {
+      key: 'anomalies',
+      label: `${t('anomaliesTab')}${anomalies.filter((a) => !a.acknowledged).length > 0 ? ` (${anomalies.filter((a) => !a.acknowledged).length})` : ''}`,
+    },
     { key: 'comparison', label: t('comparisonTab') },
   ];
 
@@ -332,11 +335,7 @@ export default function RunDetailPage() {
                   <Button variant="outline" onClick={handleRefreshEntries}>
                     {t('refreshEntries')}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleAutoPopulate}
-                    disabled={isPopulating}
-                  >
+                  <Button variant="outline" onClick={handleAutoPopulate} disabled={isPopulating}>
                     {isPopulating ? t('generatingSessions') : t('autoPopulateClasses')}
                   </Button>
                   <Button variant="outline" onClick={handleCancelRun}>
@@ -358,10 +357,7 @@ export default function RunDetailPage() {
 
                   {/* Export dropdown */}
                   <div className="relative">
-                    <Button
-                      variant="outline"
-                      onClick={() => setExportMenuOpen((v) => !v)}
-                    >
+                    <Button variant="outline" onClick={() => setExportMenuOpen((v) => !v)}>
                       <Download className="me-1.5 h-4 w-4" />
                       {t('export')}
                       <ChevronDown className="ms-1 h-3 w-3" />
@@ -372,9 +368,7 @@ export default function RunDetailPage() {
                           className="block w-full px-4 py-2.5 text-start text-sm text-text-primary hover:bg-surface-secondary"
                           onClick={async () => {
                             setExportMenuOpen(false);
-                            const { downloadAuthenticatedPdf } = await import(
-                              '@/lib/download-pdf'
-                            );
+                            const { downloadAuthenticatedPdf } = await import('@/lib/download-pdf');
                             await downloadAuthenticatedPdf(
                               `/api/v1/payroll/runs/${runId}/payslips`,
                             );
@@ -401,11 +395,7 @@ export default function RunDetailPage() {
         />
       </div>
 
-      <RunMetadataCard
-        run={run}
-        isDraft={isDraft}
-        onUpdateWorkingDays={handleUpdateWorkingDays}
-      />
+      <RunMetadataCard run={run} isDraft={isDraft} onUpdateWorkingDays={handleUpdateWorkingDays} />
 
       {/* Tab bar */}
       <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface-secondary p-1">

@@ -1,15 +1,26 @@
 'use client';
 
-import { StatCard } from '@school/ui';
 import { AlertCircle, Info, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+
+import { StatCard } from '@school/ui';
+
+import { SmallSchoolGuidance } from '../_components/small-school-guidance';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { SmallSchoolGuidance } from '../_components/small-school-guidance';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,7 +135,9 @@ export default function MyWorkloadPage() {
 
     Promise.all([
       apiClient<PersonalWorkloadSummary>('/api/v1/staff-wellbeing/my-workload/summary'),
-      apiClient<CoverHistoryResponse>('/api/v1/staff-wellbeing/my-workload/cover-history?page=1&pageSize=20'),
+      apiClient<CoverHistoryResponse>(
+        '/api/v1/staff-wellbeing/my-workload/cover-history?page=1&pageSize=20',
+      ),
       apiClient<PersonalTimetableQuality>('/api/v1/staff-wellbeing/my-workload/timetable-quality'),
     ])
       .then(([summaryRes, coverRes, qualityRes]) => {
@@ -222,9 +235,7 @@ export default function MyWorkloadPage() {
             label: t('schoolAverage', { avg: summary.school_average_covers }),
           }}
         />
-        <div
-          className={`rounded-2xl p-5 ${qualityBg(qualityLabel)}`}
-        >
+        <div className={`rounded-2xl p-5 ${qualityBg(qualityLabel)}`}>
           <p className="text-xs font-medium uppercase tracking-wider text-text-tertiary">
             {t('timetableQuality')}
           </p>
@@ -249,7 +260,7 @@ export default function MyWorkloadPage() {
           </p>
         </div>
 
-        {(!coverHistory || coverHistory.data.length === 0) ? (
+        {!coverHistory || coverHistory.data.length === 0 ? (
           <p className="mt-4 text-sm text-text-tertiary">{t('noCoverHistory')}</p>
         ) : (
           <>
@@ -276,9 +287,7 @@ export default function MyWorkloadPage() {
                   {coverHistory.data.map((entry, idx) => (
                     <tr key={idx} className="border-b border-border/50 last:border-0">
                       <td className="py-2.5 pe-4 text-text-primary">
-                        <span dir="ltr">
-                          {new Date(entry.date).toLocaleDateString()}
-                        </span>
+                        <span dir="ltr">{new Date(entry.date).toLocaleDateString()}</span>
                       </td>
                       <td className="py-2.5 pe-4 text-text-primary">
                         <span dir="ltr">{entry.period}</span>
@@ -308,13 +317,13 @@ export default function MyWorkloadPage() {
                   </div>
                   <div className="mt-1.5 flex items-center justify-between">
                     <span className="text-xs font-medium text-text-tertiary">{t('period')}</span>
-                    <span className="text-sm text-text-primary" dir="ltr">{entry.period}</span>
+                    <span className="text-sm text-text-primary" dir="ltr">
+                      {entry.period}
+                    </span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between">
                     <span className="text-xs font-medium text-text-tertiary">{t('subject')}</span>
-                    <span className="text-sm text-text-secondary">
-                      {entry.subject ?? '\u2014'}
-                    </span>
+                    <span className="text-sm text-text-secondary">{entry.subject ?? '\u2014'}</span>
                   </div>
                   <div className="mt-1.5 flex items-center justify-between">
                     <span className="text-xs font-medium text-text-tertiary">
@@ -344,7 +353,12 @@ export default function MyWorkloadPage() {
                 <BarChart data={freePeriodData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                   <XAxis dataKey="day" tick={{ fontSize: 12 }} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} tickLine={false} width={28} />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                    width={28}
+                  />
                   <Tooltip
                     contentStyle={{
                       fontSize: 12,
@@ -354,10 +368,7 @@ export default function MyWorkloadPage() {
                   />
                   <Bar dataKey="free" radius={[4, 4, 0, 0]} maxBarSize={40}>
                     {freePeriodData.map((entry, index) => (
-                      <Cell
-                        key={index}
-                        fill={entry.free === 0 ? '#ef4444' : '#3b82f6'}
-                      />
+                      <Cell key={index} fill={entry.free === 0 ? '#ef4444' : '#3b82f6'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -388,9 +399,7 @@ export default function MyWorkloadPage() {
                 </span>
               </div>
               {quality.consecutive_periods.max >= 4 && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                  {t('highlighted')}
-                </p>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{t('highlighted')}</p>
               )}
               <div className="mt-2 flex items-center gap-3 text-xs text-text-tertiary">
                 <span>
@@ -418,9 +427,7 @@ export default function MyWorkloadPage() {
                 </span>
                 <span>
                   {t('average')}:{' '}
-                  <span dir="ltr">
-                    {Math.round(quality.school_averages.split_days_pct * 100)}%
-                  </span>
+                  <span dir="ltr">{Math.round(quality.school_averages.split_days_pct * 100)}%</span>
                 </span>
               </div>
             </div>

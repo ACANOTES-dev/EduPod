@@ -1,8 +1,5 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type {
   AutoPopulateDeliveryDto,
   CalculateClassesTaughtDto,
@@ -24,11 +21,7 @@ export class ClassDeliveryService {
    * Creates a 'delivered' record for each scheduled class on each teaching day.
    * Idempotent — skips records that already exist.
    */
-  async autoPopulateFromSchedule(
-    tenantId: string,
-    userId: string,
-    dto: AutoPopulateDeliveryDto,
-  ) {
+  async autoPopulateFromSchedule(tenantId: string, userId: string, dto: AutoPopulateDeliveryDto) {
     const firstDay = new Date(dto.year, dto.month - 1, 1);
     const lastDay = new Date(dto.year, dto.month, 0);
 
@@ -37,10 +30,7 @@ export class ClassDeliveryService {
       where: {
         tenant_id: tenantId,
         effective_start_date: { lte: lastDay },
-        OR: [
-          { effective_end_date: null },
-          { effective_end_date: { gte: firstDay } },
-        ],
+        OR: [{ effective_end_date: null }, { effective_end_date: { gte: firstDay } }],
       },
       select: {
         id: true,
@@ -130,7 +120,9 @@ export class ClassDeliveryService {
       }
     });
 
-    this.logger.log(`Auto-populated class delivery: ${created} created, ${skipped} skipped for ${dto.month}/${dto.year} tenant=${tenantId}`);
+    this.logger.log(
+      `Auto-populated class delivery: ${created} created, ${skipped} skipped for ${dto.month}/${dto.year} tenant=${tenantId}`,
+    );
     return { created, skipped, month: dto.month, year: dto.year };
   }
 
@@ -171,10 +163,7 @@ export class ClassDeliveryService {
     });
   }
 
-  async getDeliveryRecords(
-    tenantId: string,
-    query: ClassDeliveryQueryDto,
-  ) {
+  async getDeliveryRecords(tenantId: string, query: ClassDeliveryQueryDto) {
     const { staff_profile_id, month, year, date_from, date_to, page, pageSize } = query;
     const skip = (page - 1) * pageSize;
 
@@ -186,8 +175,10 @@ export class ClassDeliveryService {
 
     if (date_from != null || date_to != null) {
       where.delivery_date = {};
-      if (date_from != null) (where.delivery_date as Record<string, unknown>).gte = new Date(date_from!);
-      if (date_to != null) (where.delivery_date as Record<string, unknown>).lte = new Date(date_to!);
+      if (date_from != null)
+        (where.delivery_date as Record<string, unknown>).gte = new Date(date_from!);
+      if (date_to != null)
+        (where.delivery_date as Record<string, unknown>).lte = new Date(date_to!);
     } else if (month && year) {
       const firstDay = new Date(year, month - 1, 1);
       const lastDay = new Date(year, month, 0);
@@ -216,10 +207,7 @@ export class ClassDeliveryService {
     return { data, meta: { page, pageSize, total } };
   }
 
-  async calculateClassesTaught(
-    tenantId: string,
-    dto: CalculateClassesTaughtDto,
-  ) {
+  async calculateClassesTaught(tenantId: string, dto: CalculateClassesTaughtDto) {
     const records = await this.prisma.classDeliveryRecord.findMany({
       where: {
         tenant_id: tenantId,

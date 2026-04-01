@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { FinanceAuditQueryDto } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,9 +28,7 @@ export class FinanceAuditService {
 
     const where: Record<string, unknown> = {
       tenant_id: tenantId,
-      entity_type: entity_type
-        ? entity_type
-        : { in: FINANCE_ENTITY_TYPES },
+      entity_type: entity_type ? entity_type : { in: FINANCE_ENTITY_TYPES },
     };
 
     if (entity_id) {

@@ -1,8 +1,9 @@
 'use client';
 
-import { Badge } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Badge } from '@school/ui';
 
 import { formatDateTime } from '@/lib/format-date';
 
@@ -32,11 +33,7 @@ export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
   }
 
   if (actions.length === 0) {
-    return (
-      <p className="py-8 text-center text-sm text-text-tertiary">
-        {t('noActions')}
-      </p>
-    );
+    return <p className="py-8 text-center text-sm text-text-tertiary">{t('noActions')}</p>;
   }
 
   return (
@@ -59,9 +56,7 @@ export function ActionTimeline({ actions, isLoading }: ActionTimelineProps) {
               </span>
             </div>
 
-            {action.note && (
-              <p className="mt-1 text-sm text-text-secondary">{action.note}</p>
-            )}
+            {action.note && <p className="mt-1 text-sm text-text-secondary">{action.note}</p>}
 
             {action.performed_by_name && (
               <p className="mt-0.5 text-[11px] text-text-tertiary">

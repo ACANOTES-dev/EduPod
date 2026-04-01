@@ -1,15 +1,17 @@
 'use client';
 
-import { Button, Textarea, toast } from '@school/ui';
 import { Loader2, MessageSquare, Plus, Send, X } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, Textarea, toast } from '@school/ui';
+
+import { ParentNoteThread } from '../../_components/parent-note-thread';
+
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
 
-import { ParentNoteThread } from '../../_components/parent-note-thread';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,21 +57,24 @@ export default function ParentTeacherNotesPage() {
 
   // ─── Fetch notes ──────────────────────────────────────────────────────────
 
-  const fetchNotes = React.useCallback(async (p: number) => {
-    if (!studentId) return;
-    setLoading(true);
-    try {
-      const res = await apiClient<NotesResponse>(
-        `/api/v1/diary/${studentId}/parent-notes?page=${p}&pageSize=${pageSize}`,
-      );
-      setNotes(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      console.error('[ParentNotes] Failed to load notes');
-    } finally {
-      setLoading(false);
-    }
-  }, [studentId]);
+  const fetchNotes = React.useCallback(
+    async (p: number) => {
+      if (!studentId) return;
+      setLoading(true);
+      try {
+        const res = await apiClient<NotesResponse>(
+          `/api/v1/diary/${studentId}/parent-notes?page=${p}&pageSize=${pageSize}`,
+        );
+        setNotes(res.data ?? []);
+        setTotal(res.meta?.total ?? 0);
+      } catch {
+        console.error('[ParentNotes] Failed to load notes');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [studentId],
+  );
 
   React.useEffect(() => {
     void fetchNotes(page);
@@ -104,26 +109,29 @@ export default function ParentTeacherNotesPage() {
 
   // ─── Acknowledge ──────────────────────────────────────────────────────────
 
-  const handleAcknowledge = React.useCallback(async (noteId: string) => {
-    setAcknowledgingId(noteId);
-    try {
-      await apiClient(`/api/v1/diary/parent-notes/${noteId}/acknowledge`, {
-        method: 'PATCH',
-      });
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === noteId
-            ? { ...n, acknowledged: true, acknowledged_at: new Date().toISOString() }
-            : n,
-        ),
-      );
-      toast.success(t('parent.notes.acknowledgeSuccess'));
-    } catch {
-      toast.error(t('common.errorGeneric'));
-    } finally {
-      setAcknowledgingId(null);
-    }
-  }, [t]);
+  const handleAcknowledge = React.useCallback(
+    async (noteId: string) => {
+      setAcknowledgingId(noteId);
+      try {
+        await apiClient(`/api/v1/diary/parent-notes/${noteId}/acknowledge`, {
+          method: 'PATCH',
+        });
+        setNotes((prev) =>
+          prev.map((n) =>
+            n.id === noteId
+              ? { ...n, acknowledged: true, acknowledged_at: new Date().toISOString() }
+              : n,
+          ),
+        );
+        toast.success(t('parent.notes.acknowledgeSuccess'));
+      } catch {
+        toast.error(t('common.errorGeneric'));
+      } finally {
+        setAcknowledgingId(null);
+      }
+    },
+    [t],
+  );
 
   // ─── Pagination ───────────────────────────────────────────────────────────
 
@@ -137,7 +145,10 @@ export default function ParentTeacherNotesPage() {
         title={t('parent.notes.title')}
         description={t('parent.notes.description')}
         actions={
-          <Button onClick={() => setShowCompose(!showCompose)} variant={showCompose ? 'ghost' : 'default'}>
+          <Button
+            onClick={() => setShowCompose(!showCompose)}
+            variant={showCompose ? 'ghost' : 'default'}
+          >
             {showCompose ? (
               <>
                 <X className="me-1.5 h-4 w-4" />
@@ -165,13 +176,8 @@ export default function ParentTeacherNotesPage() {
             className="w-full"
           />
           <div className="flex items-center justify-between">
-            <span className="text-xs text-text-tertiary">
-              {noteContent.length}/5000
-            </span>
-            <Button
-              onClick={() => void handleSendNote()}
-              disabled={!noteContent.trim() || sending}
-            >
+            <span className="text-xs text-text-tertiary">{noteContent.length}/5000</span>
+            <Button onClick={() => void handleSendNote()} disabled={!noteContent.trim() || sending}>
               {sending ? (
                 <Loader2 className="me-1.5 h-4 w-4 animate-spin" />
               ) : (

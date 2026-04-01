@@ -11,6 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
+
 import {
   cancelTaskSchema,
   completeTaskSchema,
@@ -18,7 +20,6 @@ import {
   updateTaskSchema,
 } from '@school/shared';
 import type { JwtPayload, TenantContext } from '@school/shared';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -42,9 +43,7 @@ const paginationQuerySchema = z.object({
 @ModuleEnabled('behaviour')
 @UseGuards(AuthGuard, ModuleEnabledGuard, PermissionGuard)
 export class BehaviourTasksController {
-  constructor(
-    private readonly tasksService: BehaviourTasksService,
-  ) {}
+  constructor(private readonly tasksService: BehaviourTasksService) {}
 
   // ─── List Tasks ────────────────────────────────────────────────────────────
 
@@ -68,12 +67,7 @@ export class BehaviourTasksController {
     @Query(new ZodValidationPipe(paginationQuerySchema))
     query: z.infer<typeof paginationQuerySchema>,
   ) {
-    return this.tasksService.getMyTasks(
-      tenant.tenant_id,
-      user.sub,
-      query.page,
-      query.pageSize,
-    );
+    return this.tasksService.getMyTasks(tenant.tenant_id, user.sub, query.page, query.pageSize);
   }
 
   // ─── Overdue Tasks ────────────────────────────────────────────────────────
@@ -85,20 +79,14 @@ export class BehaviourTasksController {
     @Query(new ZodValidationPipe(paginationQuerySchema))
     query: z.infer<typeof paginationQuerySchema>,
   ) {
-    return this.tasksService.getOverdueTasks(
-      tenant.tenant_id,
-      query.page,
-      query.pageSize,
-    );
+    return this.tasksService.getOverdueTasks(tenant.tenant_id, query.page, query.pageSize);
   }
 
   // ─── Dashboard Stats ──────────────────────────────────────────────────────
 
   @Get('behaviour/tasks/stats')
   @RequiresPermission('behaviour.view')
-  async getTaskStats(
-    @CurrentTenant() tenant: TenantContext,
-  ) {
+  async getTaskStats(@CurrentTenant() tenant: TenantContext) {
     return this.tasksService.getTaskStats(tenant.tenant_id);
   }
 
@@ -106,10 +94,7 @@ export class BehaviourTasksController {
 
   @Get('behaviour/tasks/:id')
   @RequiresPermission('behaviour.view')
-  async getTask(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getTask(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.tasksService.getTask(tenant.tenant_id, id);
   }
 
@@ -124,12 +109,7 @@ export class BehaviourTasksController {
     @Body(new ZodValidationPipe(updateTaskSchema))
     dto: z.infer<typeof updateTaskSchema>,
   ) {
-    return this.tasksService.updateTask(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.tasksService.updateTask(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Complete Task ────────────────────────────────────────────────────────
@@ -144,12 +124,7 @@ export class BehaviourTasksController {
     @Body(new ZodValidationPipe(completeTaskSchema))
     dto: z.infer<typeof completeTaskSchema>,
   ) {
-    return this.tasksService.completeTask(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.tasksService.completeTask(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── Cancel Task ──────────────────────────────────────────────────────────
@@ -164,11 +139,6 @@ export class BehaviourTasksController {
     @Body(new ZodValidationPipe(cancelTaskSchema))
     dto: z.infer<typeof cancelTaskSchema>,
   ) {
-    return this.tasksService.cancelTask(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.tasksService.cancelTask(tenant.tenant_id, id, user.sub, dto);
   }
 }

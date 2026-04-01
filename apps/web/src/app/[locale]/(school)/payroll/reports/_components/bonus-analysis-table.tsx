@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, TableWrapper } from '@school/ui';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { Button, TableWrapper } from '@school/ui';
 
 function formatCurrency(value: number): string {
   return Number(value).toLocaleString(undefined, {
@@ -26,7 +26,7 @@ interface BonusAnalysisTableProps {
 
 function exportCsv(data: BonusAnalysisRow[], headers: string[]) {
   const rows = data.map((r) =>
-    [r.staff_name, r.months_with_bonus, r.total_bonus_amount, r.avg_bonus_per_month].join(',')
+    [r.staff_name, r.months_with_bonus, r.total_bonus_amount, r.avg_bonus_per_month].join(','),
   );
   const csv = [headers.join(','), ...rows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -46,11 +46,16 @@ export function BonusAnalysisTable({ data }: BonusAnalysisTableProps) {
       (acc, r) => ({
         total_bonus_amount: acc.total_bonus_amount + r.total_bonus_amount,
       }),
-      { total_bonus_amount: 0 }
+      { total_bonus_amount: 0 },
     );
   }, [data]);
 
-  const headers = [t('staffName'), t('monthsWithBonus'), t('totalBonusAmount'), t('avgBonusPerMonth')];
+  const headers = [
+    t('staffName'),
+    t('monthsWithBonus'),
+    t('totalBonusAmount'),
+    t('avgBonusPerMonth'),
+  ];
 
   return (
     <div className="rounded-2xl border border-border bg-surface">
@@ -87,11 +92,22 @@ export function BonusAnalysisTable({ data }: BonusAnalysisTableProps) {
               </tr>
             ) : (
               data.map((row) => (
-                <tr key={row.staff_profile_id} className="border-b border-border last:border-b-0 hover:bg-surface-secondary">
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{row.staff_name}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{row.months_with_bonus}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(row.total_bonus_amount)}</td>
-                  <td className="px-4 py-3 text-sm text-text-primary text-end">{formatCurrency(row.avg_bonus_per_month)}</td>
+                <tr
+                  key={row.staff_profile_id}
+                  className="border-b border-border last:border-b-0 hover:bg-surface-secondary"
+                >
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {row.staff_name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {row.months_with_bonus}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {formatCurrency(row.total_bonus_amount)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-text-primary text-end">
+                    {formatCurrency(row.avg_bonus_per_month)}
+                  </td>
                 </tr>
               ))
             )}
@@ -99,7 +115,9 @@ export function BonusAnalysisTable({ data }: BonusAnalysisTableProps) {
           {data.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-border bg-surface-secondary">
-                <td className="px-4 py-3 text-sm font-semibold text-text-primary">{t('grandTotal')}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-text-primary">
+                  {t('grandTotal')}
+                </td>
                 <td />
                 <td className="px-4 py-3 text-sm font-bold text-text-primary text-end">
                   {formatCurrency(grandTotals.total_bonus_amount)}

@@ -1,12 +1,7 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  Logger,
-  NestInterceptor,
-} from '@nestjs/common';
-import type { JwtPayload } from '@school/shared';
+import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Observable, map } from 'rxjs';
+
+import type { JwtPayload } from '@school/shared';
 
 import type { AuthenticatedRequest } from '../../../common/types/request.types';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -54,12 +49,7 @@ const AUTHOR_NAME_FIELDS = new Set([
  * Nested author object fields (e.g., `logged_by: { first_name, last_name }`).
  * These are replaced with null when masking is active.
  */
-const AUTHOR_OBJECT_FIELDS = new Set([
-  'logged_by',
-  'reported_by',
-  'created_by',
-  'amended_by',
-]);
+const AUTHOR_OBJECT_FIELDS = new Set(['logged_by', 'reported_by', 'created_by', 'amended_by']);
 
 /** Viewer context resolved from the request for masking decisions. */
 interface ViewerContext {
@@ -92,10 +82,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user: JwtPayload = request.currentUser;
     const tenantId = request.tenantContext?.tenant_id ?? user.tenant_id;
@@ -145,10 +132,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * 1. Whether they have an active CP access grant (DLP status)
    * 2. Whether they are a parent user (has parent.* permissions)
    */
-  private async resolveViewerContext(
-    tenantId: string,
-    user: JwtPayload,
-  ): Promise<ViewerContext> {
+  private async resolveViewerContext(tenantId: string, user: JwtPayload): Promise<ViewerContext> {
     const [isDlp, isParent] = await Promise.all([
       this.checkCpAccess(tenantId, user.sub),
       this.checkIsParent(user.membership_id),
@@ -161,10 +145,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * Checks whether the user has an active (non-revoked) CP access grant.
    * DLP users always see real author information regardless of masking flag.
    */
-  private async checkCpAccess(
-    tenantId: string,
-    userId: string,
-  ): Promise<boolean> {
+  private async checkCpAccess(tenantId: string, userId: string): Promise<boolean> {
     const grant = await this.prisma.cpAccessGrant.findFirst({
       where: {
         tenant_id: tenantId,
@@ -182,9 +163,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * Parents have parent.* permissions and lack staff-level pastoral permissions.
    * If membership_id is null (platform user), they are not a parent.
    */
-  private async checkIsParent(
-    membershipId: string | null,
-  ): Promise<boolean> {
+  private async checkIsParent(membershipId: string | null): Promise<boolean> {
     if (!membershipId) return false;
 
     const membershipRoles = await this.prisma.membershipRole.findMany({
@@ -206,12 +185,9 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
 
     // A user is considered a parent if they have at least one parent.* permission
     // and no staff-level pastoral permissions
-    const hasParentPermission = permissionKeys.some((key) =>
-      key.startsWith('parent.'),
-    );
+    const hasParentPermission = permissionKeys.some((key) => key.startsWith('parent.'));
     const hasStaffPastoralPermission = permissionKeys.some(
-      (key) =>
-        key.startsWith('pastoral.') && !key.startsWith('pastoral.parent_'),
+      (key) => key.startsWith('pastoral.') && !key.startsWith('pastoral.parent_'),
     );
 
     return hasParentPermission && !hasStaffPastoralPermission;
@@ -295,10 +271,7 @@ export class AuthorMaskingInterceptor implements NestInterceptor {
    * Only applies to objects that appear to be concern/case/version records
    * (i.e., objects that have at least one author-related field).
    */
-  private shouldMask(
-    obj: Record<string, unknown>,
-    viewer: ViewerContext,
-  ): boolean {
+  private shouldMask(obj: Record<string, unknown>, viewer: ViewerContext): boolean {
     // Check if this object has any author-related fields
     const hasAuthorFields = this.hasAuthorFields(obj);
     if (!hasAuthorFields) {

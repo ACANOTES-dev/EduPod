@@ -1,15 +1,11 @@
 'use client';
 
-import {
-  Button,
-  Input,
-  StatusBadge,
-  toast,
-} from '@school/ui';
 import { Clock, Download, Loader2, Search, Sparkles } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button, Input, StatusBadge, toast } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -126,10 +122,7 @@ export default function AiQueryPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('aiQueryTitle')}
-        description={t('aiQueryDescription')}
-      />
+      <PageHeader title={t('aiQueryTitle')} description={t('aiQueryDescription')} />
 
       {/* Search bar */}
       <div className="rounded-xl border border-border bg-surface p-4 sm:p-6 space-y-4">
@@ -245,13 +238,8 @@ export default function AiQueryPage() {
                       onClick={() => isStudentRow && handleStudentClick(row)}
                     >
                       {result.columns.map((col) => (
-                        <td
-                          key={col}
-                          className="px-4 py-3 text-sm text-text-primary"
-                        >
-                          {row[col] !== null && row[col] !== undefined
-                            ? String(row[col])
-                            : '—'}
+                        <td key={col} className="px-4 py-3 text-sm text-text-primary">
+                          {row[col] !== null && row[col] !== undefined ? String(row[col]) : '—'}
                         </td>
                       ))}
                     </tr>
@@ -286,9 +274,7 @@ export default function AiQueryPage() {
                   onClick={() => void handleSubmit(item.query_text)}
                   className="flex w-full items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-start hover:bg-surface-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                 >
-                  <span className="text-sm text-text-primary line-clamp-1">
-                    {item.query_text}
-                  </span>
+                  <span className="text-sm text-text-primary line-clamp-1">{item.query_text}</span>
                   <div className="flex shrink-0 items-center gap-3 ms-4">
                     <span className="text-xs text-text-tertiary font-mono" dir="ltr">
                       {item.result_count} {t('aiQueryRows')}

@@ -1,10 +1,10 @@
 'use client';
 
-import { EmptyState } from '@school/ui';
 import { Megaphone } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { EmptyState } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -26,9 +26,7 @@ function AnnouncementCard({ announcement }: { announcement: Announcement }) {
   const t = useTranslations('announcements');
   // Truncate body to 200 chars for preview
   const preview =
-    announcement.body.length > 200
-      ? announcement.body.slice(0, 200) + '…'
-      : announcement.body;
+    announcement.body.length > 200 ? announcement.body.slice(0, 200) + '…' : announcement.body;
 
   return (
     <article className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-3">
@@ -36,10 +34,7 @@ function AnnouncementCard({ announcement }: { announcement: Announcement }) {
         <h2 className="text-base font-semibold text-text-primary leading-snug">
           {announcement.title}
         </h2>
-        <time
-          dateTime={announcement.published_at}
-          className="shrink-0 text-xs text-text-tertiary"
-        >
+        <time dateTime={announcement.published_at} className="shrink-0 text-xs text-text-tertiary">
           {new Date(announcement.published_at).toLocaleDateString()}
         </time>
       </div>

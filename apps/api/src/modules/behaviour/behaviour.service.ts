@@ -6,6 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { $Enums, Prisma } from '@prisma/client';
+import { Queue } from 'bullmq';
+
 import {
   isValidTransition,
   type CreateIncidentDto,
@@ -16,7 +18,6 @@ import {
   type UpdateIncidentDto,
   type WithdrawIncidentDto,
 } from '@school/shared';
-import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -60,11 +61,7 @@ export class BehaviourService {
 
   // ─── Create Incident ────────────────────────────────────────────────────
 
-  async createIncident(
-    tenantId: string,
-    userId: string,
-    dto: CreateIncidentDto,
-  ) {
+  async createIncident(tenantId: string, userId: string, dto: CreateIncidentDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -170,9 +167,7 @@ export class BehaviourService {
           category_severity: category.severity,
           category_point_value: category.point_value,
           category_benchmark_category: category.benchmark_category,
-          reported_by_name: reporter
-            ? `${reporter.first_name} ${reporter.last_name}`
-            : 'Unknown',
+          reported_by_name: reporter ? `${reporter.first_name} ${reporter.last_name}` : 'Unknown',
           reported_by_role: null,
           subject_name: subject?.name ?? null,
           room_name: room?.name ?? null,
@@ -181,14 +176,11 @@ export class BehaviourService {
         };
 
         // Determine initial status and parent notification status
-        const initialStatus: $Enums.IncidentStatus = dto.auto_submit
-          ? 'active'
-          : 'draft';
+        const initialStatus: $Enums.IncidentStatus = dto.auto_submit ? 'active' : 'draft';
 
-        const parentNotifStatus: $Enums.ParentNotifStatus =
-          category.requires_parent_notification
-            ? 'pending'
-            : 'not_required';
+        const parentNotifStatus: $Enums.ParentNotifStatus = category.requires_parent_notification
+          ? 'pending'
+          : 'not_required';
 
         // Create incident
         const incident = await db.behaviourIncident.create({
@@ -217,8 +209,7 @@ export class BehaviourService {
             weekday: dto.weekday ?? null,
             status: initialStatus,
             parent_notification_status: parentNotifStatus,
-            follow_up_required:
-              dto.follow_up_required ?? category.requires_follow_up,
+            follow_up_required: dto.follow_up_required ?? category.requires_follow_up,
             context_snapshot: contextSnapshot,
           },
         });
@@ -229,8 +220,7 @@ export class BehaviourService {
             student_name: `${student.first_name} ${student.last_name}`,
             year_group_id: student.year_group?.id ?? null,
             year_group_name: student.year_group?.name ?? null,
-            class_name:
-              student.class_enrolments?.[0]?.class_entity?.name ?? null,
+            class_name: student.class_enrolments?.[0]?.class_entity?.name ?? null,
             has_send: false,
             house_id: null,
             house_name: null,
@@ -283,59 +273,53 @@ export class BehaviourService {
         }
 
         // Queue parent notification if needed
-        if (
-          parentNotifStatus === 'pending' &&
-          initialStatus === 'active'
-        ) {
+        if (parentNotifStatus === 'pending' && initialStatus === 'active') {
           try {
-            await this.notificationsQueue.add(
-              'behaviour:parent-notification',
-              {
-                tenant_id: tenantId,
-                incident_id: incident.id,
-                student_ids: dto.student_ids,
-              },
+            await this.notificationsQueue.add('behaviour:parent-notification', {
+              tenant_id: tenantId,
+              incident_id: incident.id,
+              student_ids: dto.student_ids,
+            });
+          } catch (err) {
+            console.error(
+              '[BehaviourService.createIncident] parent-notification queue add failed',
+              err instanceof Error ? err.stack : err,
             );
-          } catch {
-            // Don't fail the incident creation if queue add fails
           }
         }
 
         // Queue policy evaluation
         if (initialStatus === 'active') {
           try {
-            await this.behaviourQueue.add(
-              'behaviour:evaluate-policy',
-              {
-                tenant_id: tenantId,
-                incident_id: incident.id,
-                trigger: 'incident_created',
-                triggered_at: new Date().toISOString(),
-              },
+            await this.behaviourQueue.add('behaviour:evaluate-policy', {
+              tenant_id: tenantId,
+              incident_id: incident.id,
+              trigger: 'incident_created',
+              triggered_at: new Date().toISOString(),
+            });
+          } catch (err) {
+            console.error(
+              '[BehaviourService.createIncident] evaluate-policy queue add failed',
+              err instanceof Error ? err.stack : err,
             );
-          } catch {
-            // Don't fail the incident creation if queue add fails
           }
         }
 
         // Queue auto-award check for positive incidents
-        if (
-          initialStatus === 'active' &&
-          category.polarity === 'positive'
-        ) {
+        if (initialStatus === 'active' && category.polarity === 'positive') {
           try {
-            await this.behaviourQueue.add(
-              'behaviour:check-awards',
-              {
-                tenant_id: tenantId,
-                incident_id: incident.id,
-                student_ids: dto.student_ids,
-                academic_year_id: dto.academic_year_id,
-                academic_period_id: dto.academic_period_id ?? null,
-              },
+            await this.behaviourQueue.add('behaviour:check-awards', {
+              tenant_id: tenantId,
+              incident_id: incident.id,
+              student_ids: dto.student_ids,
+              academic_year_id: dto.academic_year_id,
+              academic_period_id: dto.academic_period_id ?? null,
+            });
+          } catch (err) {
+            console.error(
+              '[BehaviourService.createIncident] check-awards queue add failed',
+              err instanceof Error ? err.stack : err,
             );
-          } catch {
-            // Don't fail the incident creation if queue add fails
           }
         }
 
@@ -359,11 +343,7 @@ export class BehaviourService {
     permissions: string[],
     query: ListIncidentsQuery,
   ) {
-    const scopeCtx = await this.scopeService.getUserScope(
-      tenantId,
-      userId,
-      permissions,
-    );
+    const scopeCtx = await this.scopeService.getUserScope(tenantId, userId, permissions);
     const scopeFilter = this.scopeService.buildScopeFilter({
       userId,
       ...scopeCtx,
@@ -396,14 +376,11 @@ export class BehaviourService {
     if (query.status) where.status = query.status;
     if (query.category_id) where.category_id = query.category_id;
     if (query.reported_by_id) where.reported_by_id = query.reported_by_id;
-    if (query.academic_year_id)
-      where.academic_year_id = query.academic_year_id;
-    if (query.follow_up_required !== undefined)
-      where.follow_up_required = query.follow_up_required;
+    if (query.academic_year_id) where.academic_year_id = query.academic_year_id;
+    if (query.follow_up_required !== undefined) where.follow_up_required = query.follow_up_required;
     if (query.date_from || query.date_to) {
       const occurredAt: Record<string, Date> = {};
-      if (query.date_from)
-        occurredAt.gte = new Date(query.date_from);
+      if (query.date_from) occurredAt.gte = new Date(query.date_from);
       if (query.date_to) occurredAt.lte = new Date(query.date_to);
       where.occurred_at = occurredAt;
     }
@@ -475,17 +452,8 @@ export class BehaviourService {
 
   // ─── Get Single Incident ────────────────────────────────────────────────
 
-  async getIncident(
-    tenantId: string,
-    id: string,
-    userId: string,
-    permissions: string[],
-  ) {
-    const scopeCtx = await this.scopeService.getUserScope(
-      tenantId,
-      userId,
-      permissions,
-    );
+  async getIncident(tenantId: string, id: string, userId: string, permissions: string[]) {
+    const scopeCtx = await this.scopeService.getUserScope(tenantId, userId, permissions);
     const scopeFilter = this.scopeService.buildScopeFilter({
       userId,
       ...scopeCtx,
@@ -546,8 +514,7 @@ export class BehaviourService {
     const result = {
       ...incident,
       status:
-        incident.status === 'converted_to_safeguarding' &&
-        !hasSafeguardingView
+        incident.status === 'converted_to_safeguarding' && !hasSafeguardingView
           ? ('closed' as const)
           : incident.status,
       context_notes: permissions.includes('behaviour.view_sensitive')
@@ -560,12 +527,7 @@ export class BehaviourService {
 
   // ─── Update Incident ────────────────────────────────────────────────────
 
-  async updateIncident(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: UpdateIncidentDto,
-  ) {
+  async updateIncident(tenantId: string, id: string, userId: string, dto: UpdateIncidentDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -591,9 +553,7 @@ export class BehaviourService {
           value !== undefined &&
           (incident as unknown as Record<string, unknown>)[key] !== value
         ) {
-          previousValues[key] = (
-            incident as unknown as Record<string, unknown>
-          )[key];
+          previousValues[key] = (incident as unknown as Record<string, unknown>)[key];
           newValues[key] = value;
         }
       }
@@ -601,23 +561,17 @@ export class BehaviourService {
       if (Object.keys(newValues).length === 0) return incident;
 
       // Check parent description lock
-      if (
-        dto.parent_description !== undefined &&
-        incident.parent_description_locked
-      ) {
+      if (dto.parent_description !== undefined && incident.parent_description_locked) {
         throw new ForbiddenException({
           code: 'PARENT_DESCRIPTION_LOCKED',
-          message:
-            'Parent description is locked after notification was sent',
+          message: 'Parent description is locked after notification was sent',
         });
       }
 
       const updated = await db.behaviourIncident.update({
         where: { id },
         data: {
-          ...(dto.description !== undefined
-            ? { description: dto.description }
-            : {}),
+          ...(dto.description !== undefined ? { description: dto.description } : {}),
           ...(dto.parent_description !== undefined
             ? {
                 parent_description: dto.parent_description,
@@ -628,12 +582,8 @@ export class BehaviourService {
           ...(dto.parent_description_ar !== undefined
             ? { parent_description_ar: dto.parent_description_ar }
             : {}),
-          ...(dto.context_notes !== undefined
-            ? { context_notes: dto.context_notes }
-            : {}),
-          ...(dto.location !== undefined
-            ? { location: dto.location }
-            : {}),
+          ...(dto.context_notes !== undefined ? { context_notes: dto.context_notes } : {}),
+          ...(dto.location !== undefined ? { location: dto.location } : {}),
           ...(dto.context_type !== undefined
             ? { context_type: toContextType(dto.context_type) }
             : {}),
@@ -660,12 +610,7 @@ export class BehaviourService {
 
   // ─── Status Transitions ─────────────────────────────────────────────────
 
-  async transitionStatus(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: StatusTransitionDto,
-  ) {
+  async transitionStatus(tenantId: string, id: string, userId: string, dto: StatusTransitionDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -683,12 +628,7 @@ export class BehaviourService {
         });
       }
 
-      if (
-        !isValidTransition(
-          incident.status as IncidentStatus,
-          dto.status as IncidentStatus,
-        )
-      ) {
+      if (!isValidTransition(incident.status as IncidentStatus, dto.status as IncidentStatus)) {
         throw new BadRequestException({
           code: 'INVALID_TRANSITION',
           message: `Cannot transition from "${incident.status}" to "${dto.status}"`,
@@ -718,12 +658,7 @@ export class BehaviourService {
     });
   }
 
-  async withdrawIncident(
-    tenantId: string,
-    id: string,
-    userId: string,
-    dto: WithdrawIncidentDto,
-  ) {
+  async withdrawIncident(tenantId: string, id: string, userId: string, dto: WithdrawIncidentDto) {
     const rlsClient = createRlsClient(this.prisma, {
       tenant_id: tenantId,
     });
@@ -744,12 +679,7 @@ export class BehaviourService {
         }
 
         // 2. Validate the status transition
-        if (
-          !isValidTransition(
-            incident.status as IncidentStatus,
-            'withdrawn' as IncidentStatus,
-          )
-        ) {
+        if (!isValidTransition(incident.status as IncidentStatus, 'withdrawn' as IncidentStatus)) {
           throw new BadRequestException({
             code: 'INVALID_TRANSITION',
             message: `Cannot transition from "${incident.status}" to "withdrawn"`,
@@ -822,8 +752,7 @@ export class BehaviourService {
           'status_changed',
           {
             status: incident.status,
-            parent_notification_status:
-              incident.parent_notification_status,
+            parent_notification_status: incident.parent_notification_status,
           },
           {
             status: 'withdrawn',
@@ -902,8 +831,7 @@ export class BehaviourService {
           student_name: `${student.first_name} ${student.last_name}`,
           year_group_id: student.year_group?.id ?? null,
           year_group_name: student.year_group?.name ?? null,
-          class_name:
-            student.class_enrolments?.[0]?.class_entity?.name ?? null,
+          class_name: student.class_enrolments?.[0]?.class_entity?.name ?? null,
           has_send: false,
           house_id: null,
           house_name: null,
@@ -912,30 +840,23 @@ export class BehaviourService {
         };
       }
 
-      const participant =
-        await db.behaviourIncidentParticipant.create({
-          data: {
-            tenant_id: tenantId,
-            incident_id: incidentId,
-            participant_type:
-              dto.participant_type as $Enums.ParticipantType,
-            student_id: dto.student_id ?? null,
-            staff_id: dto.staff_id ?? null,
-            parent_id: dto.parent_id ?? null,
-            external_name: dto.external_name ?? null,
-            role: (dto.role ?? 'subject') as $Enums.ParticipantRole,
-            points_awarded:
-              dto.participant_type === 'student'
-                ? incident.category.point_value
-                : 0,
-            parent_visible: dto.parent_visible ?? true,
-            notes: dto.notes ?? null,
-            student_snapshot:
-              studentSnapshot !== null
-                ? (studentSnapshot as Prisma.InputJsonValue)
-                : Prisma.DbNull,
-          },
-        });
+      const participant = await db.behaviourIncidentParticipant.create({
+        data: {
+          tenant_id: tenantId,
+          incident_id: incidentId,
+          participant_type: dto.participant_type as $Enums.ParticipantType,
+          student_id: dto.student_id ?? null,
+          staff_id: dto.staff_id ?? null,
+          parent_id: dto.parent_id ?? null,
+          external_name: dto.external_name ?? null,
+          role: (dto.role ?? 'subject') as $Enums.ParticipantRole,
+          points_awarded: dto.participant_type === 'student' ? incident.category.point_value : 0,
+          parent_visible: dto.parent_visible ?? true,
+          notes: dto.notes ?? null,
+          student_snapshot:
+            studentSnapshot !== null ? (studentSnapshot as Prisma.InputJsonValue) : Prisma.DbNull,
+        },
+      });
 
       await this.historyService.recordHistory(
         db,
@@ -955,17 +876,17 @@ export class BehaviourService {
       // Queue policy evaluation for the new participant
       if (dto.participant_type === 'student') {
         try {
-          await this.behaviourQueue.add(
-            'behaviour:evaluate-policy',
-            {
-              tenant_id: tenantId,
-              incident_id: incidentId,
-              trigger: 'participant_added',
-              triggered_at: new Date().toISOString(),
-            },
+          await this.behaviourQueue.add('behaviour:evaluate-policy', {
+            tenant_id: tenantId,
+            incident_id: incidentId,
+            trigger: 'participant_added',
+            triggered_at: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error(
+            '[BehaviourService.addParticipant] evaluate-policy queue add failed',
+            err instanceof Error ? err.stack : err,
           );
-        } catch {
-          // Don't fail the participant creation if queue add fails
         }
       }
 
@@ -986,14 +907,13 @@ export class BehaviourService {
     return rlsClient.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
 
-      const participant =
-        await db.behaviourIncidentParticipant.findFirst({
-          where: {
-            id: participantId,
-            incident_id: incidentId,
-            tenant_id: tenantId,
-          },
-        });
+      const participant = await db.behaviourIncidentParticipant.findFirst({
+        where: {
+          id: participantId,
+          incident_id: incidentId,
+          tenant_id: tenantId,
+        },
+      });
       if (!participant) {
         throw new NotFoundException({
           code: 'PARTICIPANT_NOT_FOUND',
@@ -1003,18 +923,16 @@ export class BehaviourService {
 
       // Domain constraint: can't remove last student participant
       if (participant.participant_type === 'student') {
-        const studentCount =
-          await db.behaviourIncidentParticipant.count({
-            where: {
-              incident_id: incidentId,
-              participant_type: 'student',
-            },
-          });
+        const studentCount = await db.behaviourIncidentParticipant.count({
+          where: {
+            incident_id: incidentId,
+            participant_type: 'student',
+          },
+        });
         if (studentCount <= 1) {
           throw new BadRequestException({
             code: 'LAST_STUDENT_PARTICIPANT',
-            message:
-              'Cannot remove the last student participant from an incident',
+            message: 'Cannot remove the last student participant from an incident',
           });
         }
       }
@@ -1044,12 +962,7 @@ export class BehaviourService {
 
   // ─── My Incidents ───────────────────────────────────────────────────────
 
-  async getMyIncidents(
-    tenantId: string,
-    userId: string,
-    page: number,
-    pageSize: number,
-  ) {
+  async getMyIncidents(tenantId: string, userId: string, page: number, pageSize: number) {
     const where = {
       tenant_id: tenantId,
       reported_by_id: userId,

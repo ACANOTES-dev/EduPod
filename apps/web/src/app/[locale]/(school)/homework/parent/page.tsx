@@ -1,16 +1,18 @@
 'use client';
 
-import { toast } from '@school/ui';
 import { BookOpen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
-import { apiClient } from '@/lib/api-client';
+import { toast } from '@school/ui';
+
 
 import { ChildSwitcher } from './_components/child-switcher';
 import { OverdueAlertCard } from './_components/overdue-alert-card';
 import { ParentHomeworkList } from './_components/parent-homework-list';
+
+import { PageHeader } from '@/components/page-header';
+import { apiClient } from '@/lib/api-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,21 +147,24 @@ export default function ParentHomeworkPage() {
 
   // ─── Mark as done ─────────────────────────────────────────────────────────
 
-  const handleMarkDone = React.useCallback(async (assignmentId: string) => {
-    setMarkingId(assignmentId);
-    try {
-      await apiClient(`/api/v1/homework/${assignmentId}/completions`, {
-        method: 'POST',
-        body: JSON.stringify({ status: 'completed' }),
-      });
-      toast.success(t('parent.markAsDoneSuccess'));
-      void fetchData();
-    } catch {
-      toast.error(t('common.errorGeneric'));
-    } finally {
-      setMarkingId(null);
-    }
-  }, [fetchData, t]);
+  const handleMarkDone = React.useCallback(
+    async (assignmentId: string) => {
+      setMarkingId(assignmentId);
+      try {
+        await apiClient(`/api/v1/homework/${assignmentId}/completions`, {
+          method: 'POST',
+          body: JSON.stringify({ status: 'completed' }),
+        });
+        toast.success(t('parent.markAsDoneSuccess'));
+        void fetchData();
+      } catch {
+        toast.error(t('common.errorGeneric'));
+      } finally {
+        setMarkingId(null);
+      }
+    },
+    [fetchData, t],
+  );
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -220,9 +225,7 @@ export default function ParentHomeworkPage() {
 
           {/* Today's homework */}
           <section>
-            <h2 className="mb-3 text-base font-semibold text-text-primary">
-              {t('parent.today')}
-            </h2>
+            <h2 className="mb-3 text-base font-semibold text-text-primary">{t('parent.today')}</h2>
             <ParentHomeworkList
               assignments={childTodayAssignments}
               onMarkDone={handleMarkDone}

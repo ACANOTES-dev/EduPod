@@ -1,15 +1,17 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { FileText, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
-import { PageHeader } from '@/components/page-header';
+import { Button } from '@school/ui';
 
 import { RegulatoryNav } from '../_components/regulatory-nav';
+
+import { PageHeader } from '@/components/page-header';
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,7 +44,8 @@ const SAFEGUARDING_LINKS: SafeguardingLink[] = [
   },
   {
     titleKey: 'mandatoryReporting',
-    descriptionKey: 'Submit and track mandatory reports to Tusla under the Children First Act 2015.',
+    descriptionKey:
+      'Submit and track mandatory reports to Tusla under the Children First Act 2015.',
     icon: FileText,
     href: '/safeguarding',
   },
@@ -57,18 +60,13 @@ export default function RegulatorySafeguardingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        description={t('description')}
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       <RegulatoryNav />
 
       {/* Info card */}
       <div className="rounded-2xl border border-border bg-surface-secondary px-4 py-4 sm:px-6 sm:py-5">
-        <p className="text-sm text-text-secondary leading-relaxed">
-          {t('safeguardingInfo')}
-        </p>
+        <p className="text-sm text-text-secondary leading-relaxed">{t('safeguardingInfo')}</p>
       </div>
 
       {/* Link cards */}
@@ -86,9 +84,7 @@ export default function RegulatorySafeguardingPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-text-primary">
-                    {t(link.titleKey)}
-                  </h3>
+                  <h3 className="text-sm font-semibold text-text-primary">{t(link.titleKey)}</h3>
                   <p className="mt-1 text-xs text-text-tertiary leading-relaxed">
                     {link.descriptionKey}
                   </p>

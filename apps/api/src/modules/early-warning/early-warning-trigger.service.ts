@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
+
+import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
 

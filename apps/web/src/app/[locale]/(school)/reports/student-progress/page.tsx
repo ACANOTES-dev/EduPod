@@ -1,6 +1,5 @@
 'use client';
 
-import { Button, EmptyState, Input } from '@school/ui';
 import { GraduationCap, Search, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
@@ -15,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+
+import { Button, EmptyState, Input } from '@school/ui';
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -34,38 +35,57 @@ interface SearchResponse {
 
 // ─── Mock student progress data ───────────────────────────────────────────────
 
-interface SubjectGrade { subject: string; T1: number; T2: number; T3: number }
-interface AttendancePoint { month: string; rate: number }
-interface Alert { date: string; type: string; description: string }
-interface Competency { name: string; score: number }
+interface SubjectGrade {
+  subject: string;
+  T1: number;
+  T2: number;
+  T3: number;
+}
+interface AttendancePoint {
+  month: string;
+  rate: number;
+}
+interface Alert {
+  date: string;
+  type: string;
+  description: string;
+}
+interface Competency {
+  name: string;
+  score: number;
+}
 
 const MOCK_GRADES: SubjectGrade[] = [
-  { subject: 'Math',    T1: 72, T2: 75, T3: 78 },
+  { subject: 'Math', T1: 72, T2: 75, T3: 78 },
   { subject: 'Science', T1: 68, T2: 74, T3: 80 },
   { subject: 'English', T1: 83, T2: 85, T3: 86 },
-  { subject: 'Arabic',  T1: 79, T2: 81, T3: 82 },
+  { subject: 'Arabic', T1: 79, T2: 81, T3: 82 },
 ];
 
 const MOCK_ATTENDANCE: AttendancePoint[] = [
-  { month: 'Oct', rate: 88 }, { month: 'Nov', rate: 91 }, { month: 'Dec', rate: 84 },
-  { month: 'Jan', rate: 93 }, { month: 'Feb', rate: 96 }, { month: 'Mar', rate: 94 },
+  { month: 'Oct', rate: 88 },
+  { month: 'Nov', rate: 91 },
+  { month: 'Dec', rate: 84 },
+  { month: 'Jan', rate: 93 },
+  { month: 'Feb', rate: 96 },
+  { month: 'Mar', rate: 94 },
 ];
 
 const MOCK_ALERTS: Alert[] = [
   { date: '2025-01-15', type: 'Attendance', description: 'Attendance dropped below 85% threshold' },
-  { date: '2025-02-10', type: 'Grade',      description: 'Math grade below passing threshold in T1' },
+  { date: '2025-02-10', type: 'Grade', description: 'Math grade below passing threshold in T1' },
 ];
 
 const MOCK_COMPETENCIES: Competency[] = [
   { name: 'Critical Thinking', score: 72 },
-  { name: 'Communication',     score: 85 },
-  { name: 'Numeracy',          score: 68 },
-  { name: 'Literacy',          score: 80 },
-  { name: 'Digital Skills',    score: 78 },
+  { name: 'Communication', score: 85 },
+  { name: 'Numeracy', score: 68 },
+  { name: 'Literacy', score: 80 },
+  { name: 'Digital Skills', score: 78 },
 ];
 
 const TERMS = ['T1', 'T2', 'T3'] as const;
-type Term = typeof TERMS[number];
+type Term = (typeof TERMS)[number];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -107,9 +127,7 @@ export default function StudentProgressPage() {
     setAiLoading(true);
     try {
       await new Promise((r) => setTimeout(r, 800));
-      setAiSummary(
-        `${selectedStudent.name} ${t('studentProgress.aiSummaryFallback')}`,
-      );
+      setAiSummary(`${selectedStudent.name} ${t('studentProgress.aiSummaryFallback')}`);
     } finally {
       setAiLoading(false);
     }
@@ -117,7 +135,10 @@ export default function StudentProgressPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('studentProgress.title')} description={t('studentProgress.description')} />
+      <PageHeader
+        title={t('studentProgress.title')}
+        description={t('studentProgress.description')}
+      />
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -134,7 +155,12 @@ export default function StudentProgressPage() {
               <button
                 key={s.id}
                 type="button"
-                onClick={() => { setSelectedStudent(s); setSearch(s.name); setSearchResults([]); setAiSummary(null); }}
+                onClick={() => {
+                  setSelectedStudent(s);
+                  setSearch(s.name);
+                  setSearchResults([]);
+                  setAiSummary(null);
+                }}
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-start text-sm hover:bg-surface-secondary first:rounded-t-xl last:rounded-b-xl"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
@@ -142,7 +168,9 @@ export default function StudentProgressPage() {
                 </div>
                 <div>
                   <p className="font-medium text-text-primary">{s.name}</p>
-                  <p className="text-xs text-text-tertiary">{s.year_group} {s.student_number ? `· ${s.student_number}` : ''}</p>
+                  <p className="text-xs text-text-tertiary">
+                    {s.year_group} {s.student_number ? `· ${s.student_number}` : ''}
+                  </p>
                 </div>
               </button>
             ))}
@@ -183,7 +211,12 @@ export default function StudentProgressPage() {
                   </button>
                 ))}
               </div>
-              <Button size="sm" variant="outline" onClick={() => void handleAiSummarise()} disabled={aiLoading}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleAiSummarise()}
+                disabled={aiLoading}
+              >
                 <Sparkles className="me-2 h-4 w-4 text-violet-500" />
                 {aiLoading ? t('analytics.generating') : t('analytics.summarise')}
               </Button>
@@ -200,7 +233,9 @@ export default function StudentProgressPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {/* Grade Sparklines per Subject */}
             <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('studentProgress.gradesTitle')}</h3>
+              <h3 className="mb-4 text-sm font-semibold text-text-primary">
+                {t('studentProgress.gradesTitle')}
+              </h3>
               <div className="space-y-3">
                 {MOCK_GRADES.map((sg) => {
                   const current = sg[selectedTerm];
@@ -208,10 +243,17 @@ export default function StudentProgressPage() {
                     <div key={sg.subject} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-text-secondary">{sg.subject}</span>
-                        <span className={`text-sm font-semibold ${current >= 80 ? 'text-emerald-600' : current >= 65 ? 'text-amber-600' : 'text-red-500'}`}>{current}%</span>
+                        <span
+                          className={`text-sm font-semibold ${current >= 80 ? 'text-emerald-600' : current >= 65 ? 'text-amber-600' : 'text-red-500'}`}
+                        >
+                          {current}%
+                        </span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-surface-secondary">
-                        <div className={`h-2 rounded-full ${current >= 80 ? 'bg-emerald-500' : current >= 65 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${current}%` }} />
+                        <div
+                          className={`h-2 rounded-full ${current >= 80 ? 'bg-emerald-500' : current >= 65 ? 'bg-amber-400' : 'bg-red-400'}`}
+                          style={{ width: `${current}%` }}
+                        />
                       </div>
                     </div>
                   );
@@ -221,14 +263,22 @@ export default function StudentProgressPage() {
 
             {/* Attendance trend */}
             <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-              <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('studentProgress.attendanceTitle')}</h3>
+              <h3 className="mb-4 text-sm font-semibold text-text-primary">
+                {t('studentProgress.attendanceTitle')}
+              </h3>
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart data={MOCK_ATTENDANCE} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="month" className="text-xs" />
                   <YAxis domain={[75, 100]} className="text-xs" />
                   <Tooltip formatter={(v) => [`${String(v)}%`, t('attendance.attendanceRate')]} />
-                  <Line type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="rate"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -236,7 +286,9 @@ export default function StudentProgressPage() {
 
           {/* Alerts Timeline */}
           <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-            <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('studentProgress.alertsTitle')}</h3>
+            <h3 className="mb-4 text-sm font-semibold text-text-primary">
+              {t('studentProgress.alertsTitle')}
+            </h3>
             {MOCK_ALERTS.length === 0 ? (
               <p className="text-sm text-text-tertiary">{t('studentProgress.noAlerts')}</p>
             ) : (
@@ -245,7 +297,9 @@ export default function StudentProgressPage() {
                   <li key={alert.date} className="ms-2">
                     <div className="absolute -start-1.5 mt-1 h-3 w-3 rounded-full border border-border bg-amber-400" />
                     <time className="text-xs text-text-tertiary">{alert.date}</time>
-                    <span className="ms-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">{alert.type}</span>
+                    <span className="ms-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      {alert.type}
+                    </span>
                     <p className="mt-1 text-sm text-text-secondary">{alert.description}</p>
                   </li>
                 ))}
@@ -255,9 +309,15 @@ export default function StudentProgressPage() {
 
           {/* Competency Bars */}
           <div className="rounded-xl border border-border bg-surface p-4 sm:p-6">
-            <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('studentProgress.competenciesTitle')}</h3>
+            <h3 className="mb-4 text-sm font-semibold text-text-primary">
+              {t('studentProgress.competenciesTitle')}
+            </h3>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={MOCK_COMPETENCIES} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 100 }}>
+              <BarChart
+                data={MOCK_COMPETENCIES}
+                layout="vertical"
+                margin={{ top: 0, right: 16, bottom: 0, left: 100 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis type="number" domain={[0, 100]} className="text-xs" />
                 <YAxis dataKey="name" type="category" className="text-xs" width={100} />

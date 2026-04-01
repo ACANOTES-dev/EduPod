@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import type { JwtPayload, TenantContext } from '@school/shared';
 
 import { AuthGuard } from '../../common/guards/auth.guard';
@@ -43,9 +44,7 @@ describe('StripeConfigController', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StripeConfigController],
-      providers: [
-        { provide: StripeConfigService, useValue: mockService },
-      ],
+      providers: [{ provide: StripeConfigService, useValue: mockService }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

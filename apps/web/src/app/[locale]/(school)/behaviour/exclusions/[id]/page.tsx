@@ -1,11 +1,12 @@
 'use client';
 
-import { Button } from '@school/ui';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import * as React from 'react';
+
+import { Button } from '@school/ui';
 
 
 import { DecisionDialog } from './_components/decision-dialog';
@@ -79,7 +80,8 @@ export default function ExclusionDetailPage() {
       if (res.hearing_date) setHearingDate(res.hearing_date.split('T')[0] ?? '');
       if (res.hearing_attendees) setAttendees(res.hearing_attendees as HearingAttendee[]);
       if (res.student_representation) setRepresentation(res.student_representation);
-    } catch {
+    } catch (err) {
+      console.error('[refreshData]', err);
       setExclusion(null);
     }
   }, [exclusionId]);
@@ -169,8 +171,8 @@ export default function ExclusionDetailPage() {
         `/api/v1/behaviour/exclusion-cases/${exclusion.id}/timeline`,
       );
       setTimeline(res.data ?? []);
-    } catch {
-      // silently handled
+    } catch (err) {
+      console.error('[handleMarkTimelineComplete]', err);
     } finally {
       setMarkingComplete(null);
     }

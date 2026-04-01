@@ -12,6 +12,9 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { z } from 'zod';
+
 import {
   generateBatchReportCardsSchema,
   generateReportCardsSchema,
@@ -19,8 +22,6 @@ import {
   updateReportCardSchema,
 } from '@school/shared';
 import type { JwtPayload } from '@school/shared';
-import type { Response } from 'express';
-import { z } from 'zod';
 
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -159,12 +160,7 @@ export class ReportCardsController {
     const htmlPages: string[] = [];
     for (const snap of snapshots) {
       // Render each student individually. We use 'en' as default locale.
-      const html = this.pdfRenderingService.renderHtml(
-        templateKey,
-        'en',
-        snap.payload,
-        branding,
-      );
+      const html = this.pdfRenderingService.renderHtml(templateKey, 'en', snap.payload, branding);
       htmlPages.push(html);
     }
 
@@ -232,9 +228,12 @@ export class ReportCardsController {
   </style>
 </head>
 <body>
-  ${bodies.map((body, i) =>
-    `<div class="page-break"${i === bodies.length - 1 ? ' style="page-break-after: avoid;"' : ''}>${body}</div>`,
-  ).join('\n  ')}
+  ${bodies
+    .map(
+      (body, i) =>
+        `<div class="page-break"${i === bodies.length - 1 ? ' style="page-break-after: avoid;"' : ''}>${body}</div>`,
+    )
+    .join('\n  ')}
 </body>
 </html>`;
   }

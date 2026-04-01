@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type {
   AbsenceQuery,
   AssignSubstituteDto,
@@ -30,11 +31,7 @@ export class SubstitutionService {
 
   // ─── Report Absence ───────────────────────────────────────────────────────
 
-  async reportAbsence(
-    tenantId: string,
-    userId: string,
-    dto: ReportAbsenceDto,
-  ) {
+  async reportAbsence(tenantId: string, userId: string, dto: ReportAbsenceDto) {
     // Verify staff exists in tenant
     const staff = await this.prisma.staffProfile.findFirst({
       where: { id: dto.staff_id, tenant_id: tenantId },
@@ -65,7 +62,7 @@ export class SubstitutionService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const absence = await prismaWithRls.$transaction(async (tx) => {
+    const absence = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.teacherAbsence.create({
         data: {
@@ -80,7 +77,7 @@ export class SubstitutionService {
           reported_at: new Date(),
         },
       });
-    }) as unknown as { id: string; absence_date: Date; created_at: Date };
+    })) as unknown as { id: string; absence_date: Date; created_at: Date };
 
     return {
       id: (absence as { id: string }).id,
@@ -132,9 +129,7 @@ export class SubstitutionService {
     });
 
     const busyIds = new Set(
-      busyTeachers
-        .map((s) => s.teacher_staff_id)
-        .filter((id): id is string => id !== null),
+      busyTeachers.map((s) => s.teacher_staff_id).filter((id): id is string => id !== null),
     );
 
     // All staff
@@ -147,17 +142,18 @@ export class SubstitutionService {
     });
 
     // Competencies
-    const competencies = (subjectId || yearGroupId)
-      ? await this.prisma.teacherCompetency.findMany({
-          where: {
-            tenant_id: tenantId,
-            academic_year_id: academicYearId,
-            ...(subjectId ? { subject_id: subjectId } : {}),
-            ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
-          },
-          select: { staff_profile_id: true, is_primary: true },
-        })
-      : [];
+    const competencies =
+      subjectId || yearGroupId
+        ? await this.prisma.teacherCompetency.findMany({
+            where: {
+              tenant_id: tenantId,
+              academic_year_id: academicYearId,
+              ...(subjectId ? { subject_id: subjectId } : {}),
+              ...(yearGroupId ? { year_group_id: yearGroupId } : {}),
+            },
+            select: { staff_profile_id: true, is_primary: true },
+          })
+        : [];
 
     const competencyMap = new Map<string, { is_primary: boolean }>();
     for (const comp of competencies) {
@@ -181,10 +177,7 @@ export class SubstitutionService {
 
     const coverCountMap = new Map<string, number>();
     for (const r of coverRecords) {
-      coverCountMap.set(
-        r.substitute_staff_id,
-        (coverCountMap.get(r.substitute_staff_id) ?? 0) + 1,
-      );
+      coverCountMap.set(r.substitute_staff_id, (coverCountMap.get(r.substitute_staff_id) ?? 0) + 1);
     }
 
     const results: SubstituteCandidate[] = [];
@@ -223,11 +216,7 @@ export class SubstitutionService {
 
   // ─── Assign Substitute ────────────────────────────────────────────────────
 
-  async assignSubstitute(
-    tenantId: string,
-    userId: string,
-    dto: AssignSubstituteDto,
-  ) {
+  async assignSubstitute(tenantId: string, userId: string, dto: AssignSubstituteDto) {
     // Verify absence exists
     const absence = await this.prisma.teacherAbsence.findFirst({
       where: { id: dto.absence_id, tenant_id: tenantId },
@@ -263,7 +252,7 @@ export class SubstitutionService {
 
     const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
 
-    const record = await prismaWithRls.$transaction(async (tx) => {
+    const record = (await prismaWithRls.$transaction(async (tx) => {
       const db = tx as unknown as PrismaService;
       return db.substitutionRecord.create({
         data: {
@@ -277,7 +266,7 @@ export class SubstitutionService {
           notes: dto.notes ?? null,
         },
       });
-    }) as unknown as { id: string; status: string; created_at: Date };
+    })) as unknown as { id: string; status: string; created_at: Date };
 
     return {
       id: (record as { id: string }).id,
@@ -348,7 +337,8 @@ export class SubstitutionService {
           id: sr.id,
           status: sr.status,
           substitute_staff_id: sr.substitute_staff_id,
-          substitute_name: `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
+          substitute_name:
+            `${sr.substitute.user.first_name} ${sr.substitute.user.last_name}`.trim(),
         })),
       })),
       meta: { page: query.page, pageSize: query.pageSize, total },
@@ -409,7 +399,8 @@ export class SubstitutionService {
         schedule_id: r.schedule_id,
         substitute_staff_id: r.substitute_staff_id,
         substitute_name: `${r.substitute.user.first_name} ${r.substitute.user.last_name}`.trim(),
-        absent_staff_name: `${r.absence.staff_profile.user.first_name} ${r.absence.staff_profile.user.last_name}`.trim(),
+        absent_staff_name:
+          `${r.absence.staff_profile.user.first_name} ${r.absence.staff_profile.user.last_name}`.trim(),
         absence_date: r.absence.absence_date.toISOString().slice(0, 10),
         status: r.status,
         assigned_at: r.assigned_at.toISOString(),
@@ -468,7 +459,7 @@ export class SubstitutionService {
       (a) => a.absence_date.toISOString().slice(0, 10) !== todayStr,
     );
 
-    const formatAbsence = (a: typeof absences[0]) => ({
+    const formatAbsence = (a: (typeof absences)[0]) => ({
       id: a.id,
       staff_name: `${a.staff_profile.user.first_name} ${a.staff_profile.user.last_name}`.trim(),
       absence_date: a.absence_date.toISOString().slice(0, 10),

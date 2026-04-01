@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { PrerequisiteCheck, PrerequisitesResult } from '@school/shared';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -164,7 +165,12 @@ export class SchedulingPrerequisitesService {
       // Build map: staffProfileId -> availability rows
       const availMap = new Map<
         string,
-        Array<{ staff_profile_id: string; weekday: number; available_from: Date; available_to: Date }>
+        Array<{
+          staff_profile_id: string;
+          weekday: number;
+          available_from: Date;
+          available_to: Date;
+        }>
       >();
 
       for (const avail of availabilities) {
@@ -189,10 +195,7 @@ export class SchedulingPrerequisitesService {
         }
 
         // Check the pinned slot is within the availability window
-        if (
-          dayAvail.available_from > entry.start_time ||
-          dayAvail.available_to < entry.end_time
-        ) {
+        if (dayAvail.available_from > entry.start_time || dayAvail.available_to < entry.end_time) {
           availabilityViolations = true;
           violationDetails.push({ entry_id: entry.id, teacher: entry.teacher_staff_id });
         }

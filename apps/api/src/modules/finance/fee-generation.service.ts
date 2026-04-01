@@ -1,7 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+
 import type { FeeGenerationPreview, FeeGenerationPreviewLine } from '@school/shared';
 import type { FeeGenerationConfirmDto, FeeGenerationPreviewDto } from '@school/shared';
 
@@ -103,7 +101,7 @@ export class FeeGenerationService {
       if (assignment.discount) {
         discountName = assignment.discount.name;
         if (assignment.discount.discount_type === 'percent') {
-          discountAmount = roundMoney(baseAmount * Number(assignment.discount.value) / 100);
+          discountAmount = roundMoney((baseAmount * Number(assignment.discount.value)) / 100);
         } else {
           discountAmount = Math.min(Number(assignment.discount.value), baseAmount);
         }
@@ -146,9 +144,7 @@ export class FeeGenerationService {
         total_households: uniqueHouseholds.size,
         total_lines: previewLines.filter((l) => !l.is_duplicate).length,
         total_amount: roundMoney(
-          previewLines
-            .filter((l) => !l.is_duplicate)
-            .reduce((sum, l) => sum + l.line_total, 0),
+          previewLines.filter((l) => !l.is_duplicate).reduce((sum, l) => sum + l.line_total, 0),
         ),
         duplicates_excluded: duplicatesExcluded,
         missing_billing_parent_count: missingBillingParentCount,
@@ -202,7 +198,12 @@ export class FeeGenerationService {
 
     const result = await rlsClient.$transaction(async (tx) => {
       const prisma = tx as unknown as typeof this.prisma;
-      const createdInvoices: Array<{ id: string; invoice_number: string; household_id: string; total_amount: number }> = [];
+      const createdInvoices: Array<{
+        id: string;
+        invoice_number: string;
+        household_id: string;
+        total_amount: number;
+      }> = [];
 
       for (const [householdId, lines] of householdLineMap.entries()) {
         const invoiceNumber = await this.sequenceService.nextNumber(
@@ -228,9 +229,7 @@ export class FeeGenerationService {
           };
         });
         subtotal = roundMoney(subtotal);
-        const discountAmount = roundMoney(
-          lines.reduce((sum, l) => sum + l.discount_amount, 0),
-        );
+        const discountAmount = roundMoney(lines.reduce((sum, l) => sum + l.discount_amount, 0));
 
         const invoice = await prisma.invoice.create({
           data: {

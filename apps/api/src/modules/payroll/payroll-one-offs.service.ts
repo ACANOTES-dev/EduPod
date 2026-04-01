@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import type {
-  CreateOneOffItemDto,
-  UpdateOneOffItemDto,
-} from '@school/shared';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import type { CreateOneOffItemDto, UpdateOneOffItemDto } from '@school/shared';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { PrismaService } from '../prisma/prisma.service';
@@ -95,11 +89,7 @@ export class PayrollOneOffsService {
     return this.serializeItem(item);
   }
 
-  async updateOneOffItem(
-    tenantId: string,
-    itemId: string,
-    dto: UpdateOneOffItemDto,
-  ) {
+  async updateOneOffItem(tenantId: string, itemId: string, dto: UpdateOneOffItemDto) {
     const item = await this.prisma.payrollOneOffItem.findFirst({
       where: { id: itemId, tenant_id: tenantId },
       include: {
