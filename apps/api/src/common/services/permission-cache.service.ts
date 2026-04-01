@@ -31,6 +31,7 @@ export class PermissionCacheService {
     private readonly redis: RedisService,
   ) {}
 
+  /** Return cached permission keys for a membership, loading from DB on cache miss (TTL: 60s). */
   async getPermissions(membershipId: string): Promise<string[]> {
     const client = this.redis.getClient();
     const cacheKey = `permissions:${membershipId}`;
@@ -72,6 +73,11 @@ export class PermissionCacheService {
     await client.del(`permissions:${membershipId}`);
   }
 
+  /**
+   * Invalidate all cached permission entries for every membership in a tenant.
+   * Call this when a role or permission is changed tenant-wide (e.g., role assignment update).
+   * Uses a Redis pipeline for atomic batch deletion.
+   */
   async invalidateAllForTenant(tenantId: string): Promise<void> {
     // Find all memberships for tenant and invalidate each
     const memberships = await this.prisma.tenantMembership.findMany({

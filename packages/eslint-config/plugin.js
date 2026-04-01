@@ -1,3 +1,4 @@
+const maxPublicMethods = require('./rules/max-public-methods');
 const noCrossModuleInternalImport = require('./rules/no-cross-module-internal-import');
 const noEmptyCatch = require('./rules/no-empty-catch');
 const noHandRolledForms = require('./rules/no-hand-rolled-forms');
@@ -8,6 +9,7 @@ const noUntranslatedStrings = require('./rules/no-untranslated-strings');
 
 module.exports = {
   rules: {
+    'max-public-methods': maxPublicMethods,
     'no-cross-module-internal-import': noCrossModuleInternalImport,
     'no-empty-catch': noEmptyCatch,
     'no-hand-rolled-forms': noHandRolledForms,

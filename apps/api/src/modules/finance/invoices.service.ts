@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import type {
   CreateInvoiceDto,
   InvoiceStatus,
@@ -44,6 +45,11 @@ export class InvoicesService {
     private readonly settingsService: SettingsService,
   ) {}
 
+  /**
+   * List invoices with filters. When `parentHouseholdIds` is provided the query is
+   * automatically scoped to those households and hides draft/pending/cancelled statuses
+   * (parent portal view — parents must not see unpublished invoices).
+   */
   async findAll(tenantId: string, filters: InvoiceFilters, parentHouseholdIds?: string[]) {
     const { page, pageSize, status, household_id, date_from, date_to, search, sort, order } =
       filters;
@@ -158,6 +164,11 @@ export class InvoicesService {
     return this.serializeInvoiceFull(invoice);
   }
 
+  /**
+   * Create a draft invoice. Generates a sequential invoice number (using branding prefix),
+   * calculates line totals, and persists within an RLS-scoped interactive transaction.
+   * Status is always 'draft' on creation — use `issue()` to publish.
+   */
   async create(tenantId: string, userId: string, dto: CreateInvoiceDto) {
     const rlsClient = createRlsClient(this.prisma, { tenant_id: tenantId });
 
@@ -239,6 +250,11 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Update a draft invoice. Throws if invoice is not in 'draft' status.
+   * Replaces all lines atomically when `dto.lines` is provided.
+   * Enforces optimistic concurrency via `expected_updated_at` — throws ConflictException on mismatch.
+   */
   async update(tenantId: string, id: string, dto: UpdateInvoiceDto) {
     const existing = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
@@ -317,6 +333,12 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Transition a draft invoice to 'issued'. When `finance.requireApprovalForInvoiceIssue` is
+   * enabled in tenant settings, creates an approval request and sets status to 'pending_approval'
+   * instead. The transition to 'issued' is completed by the approval callback worker.
+   * Throws BadRequestException if invoice is not in 'draft' status.
+   */
   async issue(tenantId: string, id: string, userId: string, hasDirectAuthority: boolean) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
@@ -395,6 +417,10 @@ export class InvoicesService {
     return this.serializeInvoice(updated);
   }
 
+  /**
+   * Void an invoice. Requires that no payments have been allocated (balance ≈ total).
+   * Validates the status transition via the state machine — throws if transition is invalid.
+   */
   async voidInvoice(tenantId: string, id: string) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
@@ -424,6 +450,10 @@ export class InvoicesService {
     return this.serializeInvoice(updated);
   }
 
+  /**
+   * Cancel an invoice. If the invoice is in 'pending_approval' status, also cancels the
+   * linked approval request before updating the invoice status.
+   */
   async cancel(tenantId: string, id: string, userId: string) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
@@ -450,6 +480,7 @@ export class InvoicesService {
     return this.serializeInvoice(updated);
   }
 
+  /** Write off the remaining balance of an invoice. Sets balance to zero and records the write-off amount and reason. */
   async writeOff(tenantId: string, id: string, dto: WriteOffDto) {
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
@@ -477,6 +508,12 @@ export class InvoicesService {
     return this.serializeInvoice(updated);
   }
 
+  /**
+   * Recompute and persist the invoice balance from actual payment allocations and write-offs.
+   * Also derives and updates the invoice status (paid, partial, overdue, etc.) via the state machine.
+   * Pass an existing Prisma client (`client`) to run inside a caller's transaction.
+   * Called by the payments service after each payment or allocation change.
+   */
   async recalculateBalance(tenantId: string, invoiceId: string, client?: typeof this.prisma) {
     const db = client ?? this.prisma;
     const invoice = await db.invoice.findFirst({
@@ -568,6 +605,11 @@ export class InvoicesService {
     }));
   }
 
+  /**
+   * Replace all installments for an invoice atomically.
+   * Validates that installment amounts sum to the invoice total (within ±0.01 tolerance).
+   * Deletes existing installments before creating new ones within an RLS-scoped transaction.
+   */
   async createInstallments(
     tenantId: string,
     invoiceId: string,
