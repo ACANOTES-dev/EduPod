@@ -6,8 +6,10 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { HomeworkAnalyticsService } from './homework-analytics.service';
+
 import { PrismaService } from '../prisma/prisma.service';
+
+import { HomeworkAnalyticsService } from './homework-analytics.service';
 
 const TENANT_ID = 'load-test-tenant-000000000001';
 const ACADEMIC_YEAR_ID = 'load-test-year-000000000001';
@@ -91,7 +93,7 @@ describe('Homework Performance Load Tests', () => {
         tenant_id: TENANT_ID,
         homework_assignment_id: assignment.id,
         student_id: studentId,
-        status: idx < NUM_STUDENTS * 0.7 ? 'completed' as const : 'not_started' as const,
+        status: idx < NUM_STUDENTS * 0.7 ? ('completed' as const) : ('not_started' as const),
         completed_at: idx < NUM_STUDENTS * 0.7 ? new Date() : null,
       }));
 

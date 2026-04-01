@@ -334,7 +334,9 @@ describe('AuthController', () => {
       const req = buildMockRequest({ cookies: {} });
 
       await expect(controller.refresh(req)).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'MISSING_REFRESH_TOKEN' }),
+        response: {
+          error: expect.objectContaining({ code: 'MISSING_REFRESH_TOKEN' }),
+        },
       });
     });
 
@@ -430,10 +432,7 @@ describe('AuthController', () => {
         new_password: 'NewSecure123!',
       });
 
-      expect(service.confirmPasswordReset).toHaveBeenCalledWith(
-        'reset-token',
-        'NewSecure123!',
-      );
+      expect(service.confirmPasswordReset).toHaveBeenCalledWith('reset-token', 'NewSecure123!');
       expect(result).toBe(expected);
     });
   });

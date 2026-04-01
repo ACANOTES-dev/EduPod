@@ -28,6 +28,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -86,14 +87,9 @@ export class BehaviourRecognitionController {
 
   @Get('behaviour/recognition/houses')
   @RequiresPermission('behaviour.view')
-  async getHouseStandings(
-    @CurrentTenant() tenant: TenantContext,
-  ): Promise<HouseStanding[]> {
+  async getHouseStandings(@CurrentTenant() tenant: TenantContext): Promise<HouseStanding[]> {
     const academicYear = await this.getActiveAcademicYear(tenant.tenant_id);
-    return this.pointsService.getHouseStandings(
-      tenant.tenant_id,
-      academicYear.id,
-    );
+    return this.pointsService.getHouseStandings(tenant.tenant_id, academicYear.id);
   }
 
   @Get('behaviour/recognition/houses/:id')
@@ -103,11 +99,7 @@ export class BehaviourRecognitionController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ id: string; name: string; members: HouseMemberWithPoints[] }> {
     const academicYear = await this.getActiveAcademicYear(tenant.tenant_id);
-    return this.houseService.getHouseDetail(
-      tenant.tenant_id,
-      id,
-      academicYear.id,
-    );
+    return this.houseService.getHouseDetail(tenant.tenant_id, id, academicYear.id);
   }
 
   // ─── Awards ───────────────────────────────────────────────────────────────
@@ -121,11 +113,7 @@ export class BehaviourRecognitionController {
     @Body(new ZodValidationPipe(createManualAwardSchema))
     dto: z.infer<typeof createManualAwardSchema>,
   ) {
-    return this.awardService.createManualAward(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.awardService.createManualAward(tenant.tenant_id, user.sub, dto);
   }
 
   @Get('behaviour/recognition/awards')
@@ -150,19 +138,14 @@ export class BehaviourRecognitionController {
   ) {
     const settings = await this.getBehaviourSettings(tenant.tenant_id);
 
-    return this.recognitionService.createPublicationApproval(
-      this.prisma,
-      tenant.tenant_id,
-      {
-        publication_type: dto.publication_type,
-        entity_type: dto.entity_type,
-        entity_id: dto.entity_id,
-        student_id: dto.student_id,
-        requires_parent_consent: settings.recognition_wall_requires_consent,
-        admin_approval_required:
-          settings.recognition_wall_admin_approval_required,
-      },
-    );
+    return this.recognitionService.createPublicationApproval(this.prisma, tenant.tenant_id, {
+      publication_type: dto.publication_type,
+      entity_type: dto.entity_type,
+      entity_id: dto.entity_id,
+      student_id: dto.student_id,
+      requires_parent_consent: settings.recognition_wall_requires_consent,
+      admin_approval_required: settings.recognition_wall_admin_approval_required,
+    });
   }
 
   @Get('behaviour/recognition/publications/:id')
@@ -171,10 +154,7 @@ export class BehaviourRecognitionController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.recognitionService.getPublicationDetail(
-      tenant.tenant_id,
-      id,
-    );
+    return this.recognitionService.getPublicationDetail(tenant.tenant_id, id);
   }
 
   @Patch('behaviour/recognition/publications/:id/approve')
@@ -186,11 +166,7 @@ export class BehaviourRecognitionController {
     @Body(new ZodValidationPipe(approvePublicationSchema))
     _dto: z.infer<typeof approvePublicationSchema>,
   ) {
-    return this.recognitionService.approvePublication(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.recognitionService.approvePublication(tenant.tenant_id, id, user.sub);
   }
 
   @Patch('behaviour/recognition/publications/:id/reject')
@@ -200,18 +176,13 @@ export class BehaviourRecognitionController {
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.recognitionService.rejectPublication(
-      tenant.tenant_id,
-      id,
-      user.sub,
-    );
+    return this.recognitionService.rejectPublication(tenant.tenant_id, id, user.sub);
   }
 
   // ─── Public Feed ──────────────────────────────────────────────────────────
 
-  // TODO: This endpoint should be truly public (no auth). There is no @Public()
-  // or @SkipAuth() decorator in the codebase. For now it requires behaviour.view
-  // permission. When a public access pattern is added, remove the guard.
+  // Access remains permission-gated until the app has a shared public-route
+  // decorator. This limitation is tracked in Plans/phases-results/BH-E-results.md.
   @Get('behaviour/recognition/public/feed')
   @RequiresPermission('behaviour.view')
   async getPublicFeed(
@@ -219,11 +190,7 @@ export class BehaviourRecognitionController {
     @Query(new ZodValidationPipe(publicFeedQuerySchema))
     query: z.infer<typeof publicFeedQuerySchema>,
   ) {
-    return this.recognitionService.getPublicFeed(
-      tenant.tenant_id,
-      query.page,
-      query.pageSize,
-    );
+    return this.recognitionService.getPublicFeed(tenant.tenant_id, query.page, query.pageSize);
   }
 
   // ─── Bulk House Assignment ────────────────────────────────────────────────
@@ -236,28 +203,21 @@ export class BehaviourRecognitionController {
     @Body(new ZodValidationPipe(bulkHouseAssignSchema))
     dto: z.infer<typeof bulkHouseAssignSchema>,
   ) {
-    return this.houseService.bulkAssign(
-      tenant.tenant_id,
-      dto.academic_year_id,
-      dto.assignments,
-    );
+    return this.houseService.bulkAssign(tenant.tenant_id, dto.academic_year_id, dto.assignments);
   }
 
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
-  private async getActiveAcademicYear(
-    tenantId: string,
-  ): Promise<{ id: string }> {
+  private async getActiveAcademicYear(tenantId: string): Promise<{ id: string }> {
     const academicYear = await this.prisma.academicYear.findFirst({
       where: { tenant_id: tenantId, status: 'active' },
       select: { id: true },
     });
 
     if (!academicYear) {
-      throw new BadRequestException({
-        code: 'NO_ACTIVE_ACADEMIC_YEAR',
-        message: 'No active academic year found',
-      });
+      throw new BadRequestException(
+        apiError('NO_ACTIVE_ACADEMIC_YEAR', 'No active academic year found'),
+      );
     }
 
     return academicYear;

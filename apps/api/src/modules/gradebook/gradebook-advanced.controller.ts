@@ -40,6 +40,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -228,9 +229,7 @@ export class GradebookAdvancedController {
 
   @Get('gradebook/competency-scales')
   @RequiresPermission('gradebook.view')
-  async listCompetencyScales(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async listCompetencyScales(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.competencyScaleService.list(tenant.tenant_id);
   }
 
@@ -294,11 +293,7 @@ export class GradebookAdvancedController {
     @Body(new ZodValidationPipe(computeGpaSchema))
     dto: z.infer<typeof computeGpaSchema>,
   ) {
-    return this.gpaService.computeGpa(
-      tenant.tenant_id,
-      dto.student_id,
-      dto.academic_period_id,
-    );
+    return this.gpaService.computeGpa(tenant.tenant_id, dto.student_id, dto.academic_period_id);
   }
 
   // ─── C5: Grade Curve ─────────────────────────────────────────────────────
@@ -313,12 +308,7 @@ export class GradebookAdvancedController {
     @Body(new ZodValidationPipe(applyCurveSchema))
     dto: z.infer<typeof applyCurveSchema>,
   ) {
-    return this.gradeCurveService.applyCurve(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.gradeCurveService.applyCurve(tenant.tenant_id, id, user.sub, dto);
   }
 
   @Delete('gradebook/assessments/:id/curve')
@@ -433,17 +423,18 @@ export class GradebookAdvancedController {
     });
 
     if (!assessment) {
-      throw new NotFoundException({
-        code: 'ASSESSMENT_NOT_FOUND',
-        message: `Assessment with id "${assessmentId}" not found`,
-      });
+      throw new NotFoundException(
+        apiError('ASSESSMENT_NOT_FOUND', `Assessment with id "${assessmentId}" not found`),
+      );
     }
 
     if (dto.default_score > Number(assessment.max_score)) {
-      throw new NotFoundException({
-        code: 'SCORE_EXCEEDS_MAX',
-        message: `Default score ${dto.default_score} exceeds max score ${assessment.max_score}`,
-      });
+      throw new NotFoundException(
+        apiError(
+          'SCORE_EXCEEDS_MAX',
+          `Default score ${dto.default_score} exceeds max score ${assessment.max_score}`,
+        ),
+      );
     }
 
     // Load enrolled students

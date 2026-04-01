@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -53,9 +54,7 @@ export class ParentGradebookController {
 
   @Get('parent/academic-periods')
   @RequiresPermission('parent.view_grades')
-  async getAcademicPeriods(
-    @CurrentTenant() tenant: { tenant_id: string },
-  ) {
+  async getAcademicPeriods(@CurrentTenant() tenant: { tenant_id: string }) {
     return this.academicPeriodsService.findAll(tenant.tenant_id, 50);
   }
 
@@ -107,23 +106,21 @@ export class ParentGradebookController {
     await this.verifyParentStudentLink(user.sub, tenant.tenant_id, studentId);
 
     // Load the report card and verify it belongs to the student and is published
-    const reportCard = await this.reportCardsService.findOne(
-      tenant.tenant_id,
-      reportCardId,
-    );
+    const reportCard = await this.reportCardsService.findOne(tenant.tenant_id, reportCardId);
 
     if (reportCard.student_id !== studentId) {
-      throw new ForbiddenException({
-        code: 'NOT_LINKED_TO_STUDENT',
-        message: 'This report card does not belong to the specified student',
-      });
+      throw new ForbiddenException(
+        apiError(
+          'NOT_LINKED_TO_STUDENT',
+          'This report card does not belong to the specified student',
+        ),
+      );
     }
 
     if (reportCard.status !== 'published') {
-      throw new ForbiddenException({
-        code: 'REPORT_CARD_NOT_PUBLISHED',
-        message: 'This report card is not yet published',
-      });
+      throw new ForbiddenException(
+        apiError('REPORT_CARD_NOT_PUBLISHED', 'This report card is not yet published'),
+      );
     }
 
     const branding = await this.loadBranding(tenant.tenant_id);
@@ -196,10 +193,9 @@ export class ParentGradebookController {
     });
 
     if (!parent) {
-      throw new NotFoundException({
-        code: 'PARENT_NOT_FOUND',
-        message: 'No parent profile found for the current user',
-      });
+      throw new NotFoundException(
+        apiError('PARENT_NOT_FOUND', 'No parent profile found for the current user'),
+      );
     }
 
     const link = await this.prisma.studentParent.findUnique({
@@ -212,10 +208,9 @@ export class ParentGradebookController {
     });
 
     if (!link || link.tenant_id !== tenantId) {
-      throw new ForbiddenException({
-        code: 'NOT_LINKED_TO_STUDENT',
-        message: 'You are not linked to this student',
-      });
+      throw new ForbiddenException(
+        apiError('NOT_LINKED_TO_STUDENT', 'You are not linked to this student'),
+      );
     }
   }
 

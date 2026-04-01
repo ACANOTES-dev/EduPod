@@ -1,8 +1,9 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
+import { computeStudentJobPayloadSchema, EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 import { Queue } from 'bullmq';
 
+import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -33,8 +34,10 @@ export class EarlyWarningTriggerService {
       return;
     }
 
-    await this.earlyWarningQueue.add(
+    await addValidatedJob(
+      this.earlyWarningQueue,
       EARLY_WARNING_COMPUTE_STUDENT_JOB,
+      computeStudentJobPayloadSchema,
       {
         tenant_id: tenantId,
         student_id: studentId,

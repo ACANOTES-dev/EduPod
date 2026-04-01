@@ -15,10 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  importFilterSchema,
-  importUploadSchema,
-} from '@school/shared';
+import { importFilterSchema, importUploadSchema } from '@school/shared';
 import type {
   ImportFilterDto,
   ImportType,
@@ -32,6 +29,7 @@ import { z } from 'zod';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -47,7 +45,14 @@ interface UploadedFileShape {
 }
 
 const templateQuerySchema = z.object({
-  import_type: z.enum(['students', 'parents', 'staff', 'fees', 'exam_results', 'staff_compensation']),
+  import_type: z.enum([
+    'students',
+    'parents',
+    'staff',
+    'fees',
+    'exam_results',
+    'staff_compensation',
+  ]),
 });
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -91,24 +96,19 @@ export class ImportController {
     @Body(new ZodValidationPipe(importUploadSchema)) body: ImportUploadDto,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'FILE_REQUIRED',
-        message: 'A file must be uploaded (.csv or .xlsx)',
-      });
+      throw new BadRequestException(
+        apiError('FILE_REQUIRED', 'A file must be uploaded (.csv or .xlsx)'),
+      );
     }
 
     if (!hasAcceptedMime(file.mimetype) && !hasAcceptedExtension(file.originalname)) {
-      throw new BadRequestException({
-        code: 'INVALID_FILE_TYPE',
-        message: 'Only CSV (.csv) and Excel (.xlsx) files are accepted',
-      });
+      throw new BadRequestException(
+        apiError('INVALID_FILE_TYPE', 'Only CSV (.csv) and Excel (.xlsx) files are accepted'),
+      );
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException({
-        code: 'FILE_TOO_LARGE',
-        message: 'File size must not exceed 10MB',
-      });
+      throw new BadRequestException(apiError('FILE_TOO_LARGE', 'File size must not exceed 10MB'));
     }
 
     return this.importService.upload(
@@ -151,30 +151,21 @@ export class ImportController {
 
   @Get(':id')
   @RequiresPermission('settings.manage')
-  async get(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async get(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.get(tenant.tenant_id, id);
   }
 
   @Post(':id/confirm')
   @RequiresPermission('settings.manage')
   @HttpCode(HttpStatus.OK)
-  async confirm(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async confirm(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.confirm(tenant.tenant_id, id);
   }
 
   @Post(':id/rollback')
   @RequiresPermission('settings.manage')
   @HttpCode(HttpStatus.OK)
-  async rollback(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async rollback(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.importService.rollback(tenant.tenant_id, id);
   }
 }

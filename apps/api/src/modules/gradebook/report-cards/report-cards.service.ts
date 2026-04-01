@@ -6,6 +6,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import type { UpdateReportCardDto } from '../dto/gradebook.dto';
 
+import { ReportCardGenerationService } from './report-card-generation.service';
+import { ReportCardTranscriptService } from './report-card-transcript.service';
+
 interface ListReportCardsParams {
   page: number;
   pageSize: number;
@@ -18,249 +21,23 @@ interface ListReportCardsParams {
 @Injectable()
 export class ReportCardsService {
   private readonly logger = new Logger(ReportCardsService.name);
+  private readonly generationService: ReportCardGenerationService;
+  private readonly transcriptService: ReportCardTranscriptService;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly redisService: RedisService,
-  ) {}
+    redisService: RedisService,
+  ) {
+    this.generationService = new ReportCardGenerationService(this.prisma);
+    this.transcriptService = new ReportCardTranscriptService(this.prisma, redisService);
+  }
 
   /**
    * Generate report cards for multiple students in a given period.
    * Builds snapshot_payload_json from period_grade_snapshots + attendance + metadata.
    */
   async generate(tenantId: string, studentIds: string[], periodId: string) {
-    // 1. Validate period exists
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      include: {
-        academic_year: {
-          select: { id: true, name: true },
-        },
-      },
-    });
-
-    if (!period) {
-      throw new NotFoundException({
-        code: 'PERIOD_NOT_FOUND',
-        message: `Academic period with id "${periodId}" not found`,
-      });
-    }
-
-    // 2. Validate all students exist
-    const students = await this.prisma.student.findMany({
-      where: {
-        id: { in: studentIds },
-        tenant_id: tenantId,
-      },
-      include: {
-        year_group: {
-          select: { id: true, name: true },
-        },
-        homeroom_class: {
-          select: { id: true, name: true },
-        },
-        household: {
-          select: {
-            id: true,
-            billing_parent: {
-              select: {
-                id: true,
-                user: {
-                  select: { preferred_locale: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (students.length !== studentIds.length) {
-      const foundIds = new Set(students.map((s) => s.id));
-      const missing = studentIds.filter((id) => !foundIds.has(id));
-      throw new NotFoundException({
-        code: 'STUDENTS_NOT_FOUND',
-        message: `Students not found: ${missing.join(', ')}`,
-      });
-    }
-
-    // 3. Load tenant for default locale
-    const tenant = await this.prisma.tenant.findFirst({
-      where: { id: tenantId },
-      select: { default_locale: true },
-    });
-
-    const tenantDefaultLocale = tenant?.default_locale ?? 'en';
-
-    // 4. Batch-load all data BEFORE the per-student loop (avoids N+1 queries)
-
-    // 4a. Load ALL period grade snapshots for ALL students in one query
-    const allSnapshots = await this.prisma.periodGradeSnapshot.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        academic_period_id: periodId,
-      },
-      include: {
-        subject: {
-          select: { id: true, name: true, code: true },
-        },
-      },
-    });
-
-    // Group snapshots by student_id for fast lookup
-    const snapshotsByStudent = new Map<string, typeof allSnapshots>();
-    for (const snap of allSnapshots) {
-      const existing = snapshotsByStudent.get(snap.student_id) ?? [];
-      existing.push(snap);
-      snapshotsByStudent.set(snap.student_id, existing);
-    }
-
-    // 4b. Load ALL assessments for ALL subjects/classes across all students
-    const allSubjectIds = [...new Set(allSnapshots.map((s) => s.subject_id))];
-    const allClassIds = [...new Set(allSnapshots.map((s) => s.class_id))];
-    const allAssessments =
-      allSubjectIds.length > 0
-        ? await this.prisma.assessment.findMany({
-            where: {
-              tenant_id: tenantId,
-              academic_period_id: periodId,
-              subject_id: { in: allSubjectIds },
-              class_id: { in: allClassIds },
-              status: { not: 'draft' },
-            },
-            include: {
-              grades: {
-                where: { student_id: { in: studentIds } },
-              },
-              category: {
-                select: { name: true },
-              },
-            },
-          })
-        : [];
-
-    // 4c. Load ALL attendance summaries for ALL students in one groupBy query
-    const allAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
-      by: ['student_id', 'derived_status'],
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        summary_date: {
-          gte: period.start_date,
-          lte: period.end_date,
-        },
-      },
-      _count: { id: true },
-    });
-
-    // Group attendance by student_id
-    const attendanceByStudent = new Map<string, typeof allAttendance>();
-    for (const row of allAttendance) {
-      const existing = attendanceByStudent.get(row.student_id) ?? [];
-      existing.push(row);
-      attendanceByStudent.set(row.student_id, existing);
-    }
-
-    // 5. Build report cards from pre-loaded data
-    const prismaWithRls = createRlsClient(this.prisma, { tenant_id: tenantId });
-    const reportCards = [];
-
-    for (const student of students) {
-      const studentSnapshots = snapshotsByStudent.get(student.id) ?? [];
-
-      // Build subjects array from pre-loaded snapshots + assessments
-      const subjects = studentSnapshots.map((snapshot) => {
-        const subjectAssessments = allAssessments.filter(
-          (a) => a.subject_id === snapshot.subject_id && a.class_id === snapshot.class_id,
-        );
-
-        return {
-          subject_name: snapshot.subject.name,
-          subject_code: snapshot.subject.code ?? null,
-          computed_value: Number(snapshot.computed_value),
-          display_value: snapshot.overridden_value ?? snapshot.display_value,
-          overridden_value: snapshot.overridden_value ?? null,
-          assessments: subjectAssessments.map((a) => {
-            const grade = a.grades.find((g) => g.student_id === student.id);
-            return {
-              title: a.title,
-              category: a.category.name,
-              max_score: Number(a.max_score),
-              raw_score:
-                grade?.raw_score !== null && grade?.raw_score !== undefined
-                  ? Number(grade.raw_score)
-                  : null,
-              is_missing: grade?.is_missing ?? true,
-            };
-          }),
-        };
-      });
-
-      // Build attendance summary from pre-loaded data
-      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
-      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
-
-      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
-      const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
-      const absentDays =
-        (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
-      const lateDays = statusCounts.get('late') ?? 0;
-
-      const attendanceSummary =
-        totalDays > 0
-          ? {
-              total_days: totalDays,
-              present_days: presentDays,
-              absent_days: absentDays,
-              late_days: lateDays,
-            }
-          : undefined;
-
-      // Determine template locale
-      const billingParentLocale = student.household?.billing_parent?.user?.preferred_locale;
-      const templateLocale = billingParentLocale ?? tenantDefaultLocale;
-
-      // Build snapshot payload
-      const snapshotPayload = {
-        student: {
-          full_name: `${student.first_name} ${student.last_name}`,
-          student_number: student.student_number ?? null,
-          year_group: student.year_group?.name ?? '',
-          class_homeroom: student.homeroom_class?.name ?? null,
-        },
-        period: {
-          name: period.name,
-          academic_year: period.academic_year.name,
-          start_date: period.start_date.toISOString().slice(0, 10),
-          end_date: period.end_date.toISOString().slice(0, 10),
-        },
-        subjects,
-        attendance_summary: attendanceSummary,
-        teacher_comment: null,
-        principal_comment: null,
-      };
-
-      // Create draft report card
-      const reportCard = await prismaWithRls.$transaction(async (tx) => {
-        const db = tx as unknown as PrismaService;
-
-        return db.reportCard.create({
-          data: {
-            tenant_id: tenantId,
-            student_id: student.id,
-            academic_period_id: periodId,
-            status: 'draft',
-            template_locale: templateLocale,
-            snapshot_payload_json: snapshotPayload as unknown as Prisma.InputJsonValue,
-          },
-        });
-      });
-
-      reportCards.push(reportCard);
-    }
-
-    return { data: reportCards };
+    return this.generationService.generate(tenantId, studentIds, periodId);
   }
 
   /**
@@ -544,156 +321,7 @@ export class ReportCardsService {
    * Returns an array of { student, snapshotPayload } objects, one per student.
    */
   async buildBatchSnapshots(tenantId: string, classId: string, periodId: string) {
-    // 1. Validate period
-    const period = await this.prisma.academicPeriod.findFirst({
-      where: { id: periodId, tenant_id: tenantId },
-      include: {
-        academic_year: { select: { id: true, name: true } },
-      },
-    });
-
-    if (!period) {
-      throw new NotFoundException({
-        code: 'PERIOD_NOT_FOUND',
-        message: `Academic period with id "${periodId}" not found`,
-      });
-    }
-
-    // 2. Get active students enrolled in this class
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: {
-        tenant_id: tenantId,
-        class_id: classId,
-        status: 'active',
-      },
-      include: {
-        student: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            student_number: true,
-            year_group: { select: { name: true } },
-            homeroom_class: { select: { name: true } },
-          },
-        },
-      },
-    });
-
-    if (enrolments.length === 0) {
-      return [];
-    }
-
-    const students = enrolments.map((e) => e.student);
-    const studentIds = students.map((s) => s.id);
-
-    // 3. Load all period grade snapshots for these students + period
-    const allSnapshots = await this.prisma.periodGradeSnapshot.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        academic_period_id: periodId,
-      },
-      include: {
-        subject: { select: { id: true, name: true, code: true } },
-      },
-    });
-
-    // Group snapshots by student_id
-    const snapshotsByStudent = new Map<string, typeof allSnapshots>();
-    for (const snap of allSnapshots) {
-      const existing = snapshotsByStudent.get(snap.student_id) ?? [];
-      existing.push(snap);
-      snapshotsByStudent.set(snap.student_id, existing);
-    }
-
-    // 4. Batch-load ALL attendance summaries (avoids N+1 per student)
-    const batchAttendance = await this.prisma.dailyAttendanceSummary.groupBy({
-      by: ['student_id', 'derived_status'],
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        summary_date: {
-          gte: period.start_date,
-          lte: period.end_date,
-        },
-      },
-      _count: { id: true },
-    });
-
-    // Group attendance by student_id
-    const attendanceByStudent = new Map<string, typeof batchAttendance>();
-    for (const row of batchAttendance) {
-      const existing = attendanceByStudent.get(row.student_id) ?? [];
-      existing.push(row);
-      attendanceByStudent.set(row.student_id, existing);
-    }
-
-    // 5. Build payloads from pre-loaded data
-    const results: Array<{
-      studentId: string;
-      studentName: string;
-      payload: Record<string, unknown>;
-    }> = [];
-
-    for (const student of students) {
-      const snapshots = snapshotsByStudent.get(student.id) ?? [];
-
-      const subjects = snapshots.map((snapshot) => ({
-        subject_name: snapshot.subject.name,
-        subject_code: snapshot.subject.code ?? null,
-        computed_value: Number(snapshot.computed_value),
-        display_value: snapshot.overridden_value ?? snapshot.display_value,
-        overridden_value: snapshot.overridden_value ?? null,
-      }));
-
-      // Build attendance summary from pre-loaded data
-      const studentAttendance = attendanceByStudent.get(student.id) ?? [];
-      const statusCounts = new Map(studentAttendance.map((s) => [s.derived_status, s._count.id]));
-
-      const totalDays = studentAttendance.reduce((sum, s) => sum + s._count.id, 0);
-      const presentDays = (statusCounts.get('present') ?? 0) + (statusCounts.get('late') ?? 0);
-      const absentDays =
-        (statusCounts.get('absent') ?? 0) + (statusCounts.get('partially_absent') ?? 0);
-      const lateDays = statusCounts.get('late') ?? 0;
-
-      const attendanceSummary =
-        totalDays > 0
-          ? {
-              total_days: totalDays,
-              present_days: presentDays,
-              absent_days: absentDays,
-              late_days: lateDays,
-            }
-          : undefined;
-
-      const payload = {
-        student: {
-          full_name: `${student.first_name} ${student.last_name}`,
-          student_number: student.student_number ?? null,
-          year_group: student.year_group?.name ?? '',
-          class_homeroom: student.homeroom_class?.name ?? null,
-        },
-        period: {
-          name: period.name,
-          academic_year: period.academic_year.name,
-          start_date: period.start_date.toISOString().slice(0, 10),
-          end_date: period.end_date.toISOString().slice(0, 10),
-        },
-        subjects,
-        attendance_summary: attendanceSummary,
-        teacher_comment: null,
-        principal_comment: null,
-      };
-
-      results.push({
-        studentId: student.id,
-        studentName: `${student.first_name} ${student.last_name}`,
-        payload,
-      });
-    }
-
-    return results;
+    return this.generationService.buildBatchSnapshots(tenantId, classId, periodId);
   }
 
   /**
@@ -772,12 +400,7 @@ export class ReportCardsService {
    * Invalidate transcript cache for a given tenant+student.
    */
   async invalidateTranscriptCache(tenantId: string, studentId: string) {
-    try {
-      const redis = this.redisService.getClient();
-      await redis.del(`transcript:${tenantId}:${studentId}`);
-    } catch (err) {
-      this.logger.warn(`Failed to invalidate transcript cache for student ${studentId}`, err);
-    }
+    return this.transcriptService.invalidateTranscriptCache(tenantId, studentId);
   }
 
   /**
@@ -785,43 +408,7 @@ export class ReportCardsService {
    * Skips students who already have a report card for this period.
    */
   async generateBulkDrafts(tenantId: string, classId: string, periodId: string) {
-    // Get all active students in this class
-    const enrolments = await this.prisma.classEnrolment.findMany({
-      where: { tenant_id: tenantId, class_id: classId, status: 'active' },
-      select: { student_id: true },
-    });
-
-    if (enrolments.length === 0) {
-      return { data: [], skipped: 0, generated: 0 };
-    }
-
-    const studentIds = enrolments.map((e) => e.student_id);
-
-    // Find which students already have a report card for this period
-    const existing = await this.prisma.reportCard.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: { in: studentIds },
-        academic_period_id: periodId,
-        status: { not: 'revised' },
-      },
-      select: { student_id: true },
-    });
-
-    const existingStudentIds = new Set(existing.map((rc) => rc.student_id));
-    const newStudentIds = studentIds.filter((id) => !existingStudentIds.has(id));
-
-    if (newStudentIds.length === 0) {
-      return { data: [], skipped: studentIds.length, generated: 0 };
-    }
-
-    const result = await this.generate(tenantId, newStudentIds, periodId);
-
-    return {
-      data: result.data,
-      skipped: existingStudentIds.size,
-      generated: result.data.length,
-    };
+    return this.generationService.generateBulkDrafts(tenantId, classId, periodId);
   }
 
   /**
@@ -854,156 +441,6 @@ export class ReportCardsService {
    * Aggregates period_grade_snapshots and gpa_snapshots, grouped by year -> period.
    */
   async generateTranscript(tenantId: string, studentId: string) {
-    const student = await this.prisma.student.findFirst({
-      where: { id: studentId, tenant_id: tenantId },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        student_number: true,
-        year_group: { select: { id: true, name: true } },
-      },
-    });
-
-    if (!student) {
-      throw new NotFoundException({
-        code: 'STUDENT_NOT_FOUND',
-        message: `Student "${studentId}" not found`,
-      });
-    }
-
-    // Load all period grade snapshots
-    const snapshots = await this.prisma.periodGradeSnapshot.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
-      include: {
-        subject: { select: { id: true, name: true, code: true } },
-        academic_period: {
-          select: {
-            id: true,
-            name: true,
-            start_date: true,
-            end_date: true,
-            academic_year: { select: { id: true, name: true } },
-          },
-        },
-      },
-      orderBy: [
-        { academic_period: { academic_year: { start_date: 'asc' } } },
-        { academic_period: { start_date: 'asc' } },
-        { subject: { name: 'asc' } },
-      ],
-    });
-
-    // Load all GPA snapshots
-    const gpaSnapshots = await this.prisma.gpaSnapshot.findMany({
-      where: { tenant_id: tenantId, student_id: studentId },
-      select: { academic_period_id: true, gpa_value: true },
-    });
-    const gpaByPeriod = new Map(
-      gpaSnapshots.map((g) => [g.academic_period_id, Number(g.gpa_value)]),
-    );
-
-    // Load published report cards to get comment data
-    const reportCards = await this.prisma.reportCard.findMany({
-      where: {
-        tenant_id: tenantId,
-        student_id: studentId,
-        status: 'published',
-      },
-      select: {
-        academic_period_id: true,
-        teacher_comment: true,
-        principal_comment: true,
-        published_at: true,
-      },
-    });
-    const rcByPeriod = new Map(reportCards.map((rc) => [rc.academic_period_id, rc]));
-
-    // Group by year -> period -> subject
-    const yearMap = new Map<
-      string,
-      {
-        academic_year_id: string;
-        academic_year_name: string;
-        periods: Map<
-          string,
-          {
-            period_id: string;
-            period_name: string;
-            start_date: string;
-            end_date: string;
-            gpa: number | null;
-            teacher_comment: string | null;
-            principal_comment: string | null;
-            subjects: Array<{
-              subject_id: string;
-              subject_name: string;
-              subject_code: string | null;
-              computed_value: number;
-              display_value: string;
-              overridden_value: string | null;
-            }>;
-          }
-        >;
-      }
-    >();
-
-    for (const snapshot of snapshots) {
-      const yearId = snapshot.academic_period.academic_year.id;
-      const yearName = snapshot.academic_period.academic_year.name;
-      const periodId = snapshot.academic_period.id;
-
-      if (!yearMap.has(yearId)) {
-        yearMap.set(yearId, {
-          academic_year_id: yearId,
-          academic_year_name: yearName,
-          periods: new Map(),
-        });
-      }
-
-      const year = yearMap.get(yearId)!;
-
-      if (!year.periods.has(periodId)) {
-        const rc = rcByPeriod.get(periodId);
-        year.periods.set(periodId, {
-          period_id: periodId,
-          period_name: snapshot.academic_period.name,
-          start_date: snapshot.academic_period.start_date.toISOString().slice(0, 10),
-          end_date: snapshot.academic_period.end_date.toISOString().slice(0, 10),
-          gpa: gpaByPeriod.get(periodId) ?? null,
-          teacher_comment: rc?.teacher_comment ?? null,
-          principal_comment: rc?.principal_comment ?? null,
-          subjects: [],
-        });
-      }
-
-      const period = year.periods.get(periodId)!;
-
-      period.subjects.push({
-        subject_id: snapshot.subject.id,
-        subject_name: snapshot.subject.name,
-        subject_code: snapshot.subject.code ?? null,
-        computed_value: Number(snapshot.computed_value),
-        display_value: snapshot.display_value,
-        overridden_value: snapshot.overridden_value ?? null,
-      });
-    }
-
-    const academicYears = [...yearMap.values()].map((year) => ({
-      academic_year_id: year.academic_year_id,
-      academic_year_name: year.academic_year_name,
-      periods: [...year.periods.values()],
-    }));
-
-    return {
-      student: {
-        id: student.id,
-        first_name: student.first_name,
-        last_name: student.last_name,
-        student_number: student.student_number ?? null,
-        year_group: student.year_group?.name ?? null,
-      },
-      academic_years: academicYears,
-    };
+    return this.transcriptService.generateTranscript(tenantId, studentId);
   }
 }

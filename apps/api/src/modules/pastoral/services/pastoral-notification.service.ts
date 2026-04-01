@@ -1,8 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PastoralConcernSeverity } from '@prisma/client';
-import { Queue } from 'bullmq';
 import { pastoralTenantSettingsSchema } from '@school/shared';
+import { Queue } from 'bullmq';
 
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -115,11 +115,7 @@ export class PastoralNotificationService {
       // Build notification payload variables
       const studentName = this.formatStudentName(concern);
       const templateKey = TEMPLATE_KEYS[severity];
-      const payloadVariables = this.buildPayloadVariables(
-        concern,
-        studentName,
-        severity,
-      );
+      const payloadVariables = this.buildPayloadVariables(concern, studentName, severity);
 
       // Create notifications for each active channel
       await this.createNotificationsForChannels(
@@ -261,9 +257,7 @@ export class PastoralNotificationService {
       }
 
       const studentName = this.formatStudentName(concern);
-      const minutesElapsed = Math.round(
-        (Date.now() - concern.created_at.getTime()) / 60_000,
-      );
+      const minutesElapsed = Math.round((Date.now() - concern.created_at.getTime()) / 60_000);
       const payloadVariables = {
         ...this.buildPayloadVariables(concern, studentName, 'critical'),
         escalation_reason: `Critical concern unacknowledged for ${minutesElapsed} minutes`,
@@ -302,14 +296,8 @@ export class PastoralNotificationService {
    * Cancels all pending escalation timeout jobs for a concern.
    * Called when a concern is acknowledged (via ConcernService.getById).
    */
-  async cancelEscalationTimeout(
-    tenantId: string,
-    concernId: string,
-  ): Promise<void> {
-    const escalationTypes: EscalationType[] = [
-      'urgent_to_critical',
-      'critical_second_round',
-    ];
+  async cancelEscalationTimeout(tenantId: string, concernId: string): Promise<void> {
+    const escalationTypes: EscalationType[] = ['urgent_to_critical', 'critical_second_round'];
 
     for (const escalationType of escalationTypes) {
       try {
@@ -317,9 +305,7 @@ export class PastoralNotificationService {
         const job = await this.pastoralQueue.getJob(jobId);
         if (job) {
           await job.remove();
-          this.logger.log(
-            `Cancelled escalation job ${jobId} for concern ${concernId}`,
-          );
+          this.logger.log(`Cancelled escalation job ${jobId} for concern ${concernId}`);
         }
       } catch (error: unknown) {
         // Best-effort cancellation — log but do not propagate
@@ -369,11 +355,7 @@ export class PastoralNotificationService {
     } else {
       // Fall back to role-based resolution
       const fallbackRoles = DEFAULT_FALLBACK_ROLES[severity];
-      userIds = await this.resolveUsersByRoles(
-        tenantId,
-        fallbackRoles,
-        studentId,
-      );
+      userIds = await this.resolveUsersByRoles(tenantId, fallbackRoles, studentId);
     }
 
     // Deduplicate and exclude author
@@ -394,11 +376,7 @@ export class PastoralNotificationService {
     const userIds: string[] = [];
 
     for (const roleKey of roleKeys) {
-      const resolved = await this.resolveUsersForRole(
-        tenantId,
-        roleKey,
-        studentId,
-      );
+      const resolved = await this.resolveUsersForRole(tenantId, roleKey, studentId);
       userIds.push(...resolved);
     }
 
@@ -449,10 +427,7 @@ export class PastoralNotificationService {
    * Looks up the student's year group, then finds users with the 'year_head'
    * role who are assigned to that year group (via role-based lookup).
    */
-  private async resolveYearHeadForStudent(
-    tenantId: string,
-    studentId: string,
-  ): Promise<string[]> {
+  private async resolveYearHeadForStudent(tenantId: string, studentId: string): Promise<string[]> {
     // Get the student's year group
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
@@ -472,10 +447,7 @@ export class PastoralNotificationService {
    * Resolves user IDs by looking up users who have a specific role_key
    * in this tenant via the roles -> membership_roles -> tenant_memberships chain.
    */
-  private async resolveUsersByRoleKey(
-    tenantId: string,
-    roleKey: string,
-  ): Promise<string[]> {
+  private async resolveUsersByRoleKey(tenantId: string, roleKey: string): Promise<string[]> {
     const memberships = await this.prisma.membershipRole.findMany({
       where: {
         tenant_id: tenantId,
@@ -635,9 +607,7 @@ export class PastoralNotificationService {
       },
     );
 
-    this.logger.log(
-      `Enqueued escalation timeout job ${jobId} with delay=${delayMinutes}min`,
-    );
+    this.logger.log(`Enqueued escalation timeout job ${jobId} with delay=${delayMinutes}min`);
 
     return jobId;
   }

@@ -1,17 +1,18 @@
 import {
   BadRequestException,
   Controller,
+  Headers,
   HttpCode,
   HttpStatus,
   Logger,
   Post,
   RawBodyRequest,
   Req,
-  Headers,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
 
+import { apiError } from '../../common/errors/api-error';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { StripeService } from './stripe.service';
@@ -57,10 +58,9 @@ export class StripeWebhookController {
       this.logger.error(
         'Stripe webhook received without tenant_id in metadata — returning 400 for Stripe retry',
       );
-      throw new BadRequestException({
-        code: 'MISSING_TENANT_ID',
-        message: 'Webhook event missing tenant_id in metadata',
-      });
+      throw new BadRequestException(
+        apiError('MISSING_TENANT_ID', 'Webhook event missing tenant_id in metadata'),
+      );
     }
 
     return this.stripeService.handleWebhook(tenantId, rawBody, signature ?? '');

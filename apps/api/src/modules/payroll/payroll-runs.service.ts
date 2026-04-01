@@ -6,16 +6,20 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { isValidPayrollRunTransition } from '@school/shared';
+import {
+  isValidPayrollRunTransition,
+  payrollSessionGenerationJobPayloadSchema,
+} from '@school/shared';
 import type {
   CreatePayrollRunDto,
-  UpdatePayrollRunDto,
   FinaliseRunDto,
   PayrollRunStatus,
+  UpdatePayrollRunDto,
 } from '@school/shared';
 import type { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
+import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { SettingsService } from '../configuration/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -639,10 +643,15 @@ export class PayrollRunsService {
       3600,
     );
 
-    await this.payrollQueue.add('payroll:session-generation', {
-      tenant_id: tenantId,
-      run_id: runId,
-    });
+    await addValidatedJob(
+      this.payrollQueue,
+      'payroll:session-generation',
+      payrollSessionGenerationJobPayloadSchema,
+      {
+        tenant_id: tenantId,
+        run_id: runId,
+      },
+    );
 
     return { status: 'queued', run_id: runId };
   }

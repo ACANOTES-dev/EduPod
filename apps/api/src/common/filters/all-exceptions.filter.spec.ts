@@ -1,9 +1,6 @@
-import {
-  ArgumentsHost,
-  BadRequestException,
-  HttpStatus,
-  NotFoundException,
-} from '@nestjs/common';
+import { ArgumentsHost, BadRequestException, HttpStatus, NotFoundException } from '@nestjs/common';
+
+import { apiError } from '../errors/api-error';
 
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
@@ -50,9 +47,7 @@ describe('AllExceptionsFilter', () => {
 
     filter.catch(exception, mockHost);
 
-    expect(mockResponse.status).toHaveBeenCalledWith(
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(mockResponse.json).toHaveBeenCalledWith({
       error: {
         code: 'INTERNAL_ERROR',
@@ -74,5 +69,23 @@ describe('AllExceptionsFilter', () => {
         }),
       }),
     );
+  });
+
+  it('should preserve nested API error details', () => {
+    const details = [{ field: 'tenant_id', reason: 'missing' }];
+    const exception = new BadRequestException(
+      apiError('VALIDATION_ERROR', 'Invalid input', details),
+    );
+
+    filter.catch(exception, mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expect(mockResponse.json).toHaveBeenCalledWith({
+      error: {
+        code: 'VALIDATION_ERROR',
+        details,
+        message: 'Invalid input',
+      },
+    });
   });
 });

@@ -9,6 +9,7 @@ import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { apiClient } from '@/lib/api-client';
 import { formatDate } from '@/lib/format-date';
 
@@ -40,28 +41,11 @@ interface InterventionsResponse {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const TABS = [
-  { key: 'active', label: 'Active' },
-  { key: 'overdue', label: 'Overdue' },
-  { key: 'monitoring', label: 'Monitoring' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'all', label: 'All' },
-] as const;
+const TAB_KEYS = ['active', 'overdue', 'monitoring', 'completed', 'all'] as const;
 
-type TabKey = (typeof TABS)[number]['key'];
+type TabKey = (typeof TAB_KEYS)[number];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const TYPE_LABELS: Record<string, string> = {
-  behaviour_plan: 'Behaviour Plan',
-  mentoring: 'Mentoring',
-  counselling_referral: 'Counselling',
-  restorative: 'Restorative',
-  academic_support: 'Academic Support',
-  parent_engagement: 'Parent Engagement',
-  external_agency: 'External Agency',
-  other: 'Other',
-};
 
 const TYPE_COLORS: Record<string, string> = {
   behaviour_plan: 'bg-blue-100 text-blue-700',
@@ -107,36 +91,26 @@ export default function InterventionListPage() {
     (searchParams?.get('tab') as TabKey) ?? 'active',
   );
 
-  // Mobile detection
-  const [isMobile, setIsMobile] = React.useState(false);
-  React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Fetch interventions
-  const fetchInterventions = React.useCallback(
-    async (p: number, tab: TabKey) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
-        if (tab !== 'all') params.set('status', tab);
-        const res = await apiClient<InterventionsResponse>(
-          `/api/v1/behaviour/interventions?${params.toString()}`,
-        );
-        setData(res.data ?? []);
-        setTotal(res.meta?.total ?? 0);
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchInterventions = React.useCallback(async (p: number, tab: TabKey) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: String(PAGE_SIZE) });
+      if (tab !== 'all') params.set('status', tab);
+      const res = await apiClient<InterventionsResponse>(
+        `/api/v1/behaviour/interventions?${params.toString()}`,
+      );
+      setData(res.data ?? []);
+      setTotal(res.meta?.total ?? 0);
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchInterventions(page, activeTab);
@@ -155,9 +129,7 @@ export default function InterventionListPage() {
       header: t('columns.student'),
       render: (row: InterventionRow) => (
         <span className="text-sm font-medium text-text-primary">
-          {row.student
-            ? `${row.student.first_name} ${row.student.last_name}`
-            : '—'}
+          {row.student ? `${row.student.first_name} ${row.student.last_name}` : '—'}
         </span>
       ),
     },
@@ -176,7 +148,7 @@ export default function InterventionListPage() {
           variant="secondary"
           className={`text-xs ${TYPE_COLORS[row.intervention_type] ?? 'bg-gray-100 text-gray-700'}`}
         >
-          {TYPE_LABELS[row.intervention_type] ?? row.intervention_type}
+          {t(`types.${row.intervention_type}` as Parameters<typeof t>[0])}
         </Badge>
       ),
     },
@@ -195,9 +167,7 @@ export default function InterventionListPage() {
       key: 'start_date',
       header: t('columns.startDate'),
       render: (row: InterventionRow) => (
-        <span className="font-mono text-xs text-text-primary">
-          {formatDate(row.start_date)}
-        </span>
+        <span className="font-mono text-xs text-text-primary">{formatDate(row.start_date)}</span>
       ),
     },
     {
@@ -207,7 +177,9 @@ export default function InterventionListPage() {
         if (!row.next_review_date) return <span className="text-text-tertiary">—</span>;
         const overdue = isOverdue(row.next_review_date);
         return (
-          <span className={`font-mono text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-primary'}`}>
+          <span
+            className={`font-mono text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-primary'}`}
+          >
             {formatDate(row.next_review_date)}
             {overdue && <AlertTriangle className="ms-1 inline h-3 w-3" />}
           </span>
@@ -261,10 +233,12 @@ export default function InterventionListPage() {
             variant="secondary"
             className={`text-xs ${TYPE_COLORS[row.intervention_type] ?? ''}`}
           >
-            {TYPE_LABELS[row.intervention_type] ?? row.intervention_type}
+            {t(`types.${row.intervention_type}` as Parameters<typeof t>[0])}
           </Badge>
           {row.next_review_date && (
-            <span className={`flex items-center gap-1 text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-tertiary'}`}>
+            <span
+              className={`flex items-center gap-1 text-xs ${overdue ? 'font-semibold text-red-600' : 'text-text-tertiary'}`}
+            >
               <CalendarClock className="h-3 w-3" />
               {formatDate(row.next_review_date)}
             </span>
@@ -298,18 +272,18 @@ export default function InterventionListPage() {
       {/* Tabs */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border">
-          {TABS.map((tab) => (
+          {TAB_KEYS.map((tabKey) => (
             <button
-              key={tab.key}
+              key={tabKey}
               type="button"
-              onClick={() => handleTabChange(tab.key)}
+              onClick={() => handleTabChange(tabKey)}
               className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === tab.key
+                activeTab === tabKey
                   ? 'border-primary-600 text-primary-600'
                   : 'border-transparent text-text-tertiary hover:text-text-primary'
               }`}
             >
-              {tab.label}
+              {t(`tabs.${tabKey}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
@@ -334,10 +308,20 @@ export default function InterventionListPage() {
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
               <span>{t('pagination', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
                   {t('previous')}
                 </Button>
-                <Button variant="outline" size="sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(page + 1)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                  onClick={() => setPage(page + 1)}
+                >
                   {t('next')}
                 </Button>
               </div>

@@ -13,8 +13,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 
+import { ErrorBoundary } from '@/components/error-boundary';
 import { apiClient } from '@/lib/api-client';
 import { RequireAuth } from '@/providers/auth-provider';
 
@@ -29,6 +31,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const params = useParams();
   const locale = (params?.locale as string) ?? 'en';
+  const t = useTranslations();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openIncidentCount, setOpenIncidentCount] = React.useState(0);
 
@@ -40,8 +43,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           '/api/v1/admin/security-incidents?pageSize=1&severity=high',
         );
         setOpenIncidentCount(res.meta.total);
-      } catch {
-        // Silently ignore — badge just won't show
+      } catch (err) {
+        console.error('[PlatformLayout.fetchOpenIncidents]', err);
       }
     }
     void fetchOpenIncidents();
@@ -50,11 +53,16 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   }, []);
 
   const navItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: `/${locale}/admin` },
-    { icon: Building2, label: 'Tenants', href: `/${locale}/admin/tenants` },
-    { icon: Activity, label: 'Health', href: `/${locale}/admin/health` },
-    { icon: ClipboardList, label: 'Audit Log', href: `/${locale}/admin/audit-log` },
-    { icon: ShieldAlert, label: 'Security Incidents', href: `/${locale}/admin/security-incidents`, badge: openIncidentCount },
+    { icon: LayoutDashboard, label: t('platform.admin.dashboard'), href: `/${locale}/admin` },
+    { icon: Building2, label: t('platform.tenants'), href: `/${locale}/admin/tenants` },
+    { icon: Activity, label: t('platform.admin.systemHealth'), href: `/${locale}/admin/health` },
+    { icon: ClipboardList, label: t('auditLog.title'), href: `/${locale}/admin/audit-log` },
+    {
+      icon: ShieldAlert,
+      label: t('platform.admin.securityIncidents'),
+      href: `/${locale}/admin/security-incidents`,
+      badge: openIncidentCount,
+    },
   ];
 
   const isActive = (href: string) => {
@@ -95,59 +103,60 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
 
   return (
     <RequireAuth>
-    <div className="flex h-screen bg-background">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
-        <div className="flex h-14 items-center border-b border-border px-5">
-          <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {sidebarNav}
-        </div>
-      </aside>
+      <div className="flex h-screen bg-background">
+        {/* Desktop sidebar */}
+        <aside className="hidden lg:flex w-[240px] flex-col border-e border-border bg-surface">
+          <div className="flex h-14 items-center border-b border-border px-5">
+            <span className="text-sm font-semibold text-text-primary">
+              {t('platform.admin.title')}
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+        </aside>
 
-      {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
-            <div className="flex h-14 items-center justify-between border-b border-border px-5">
-              <span className="text-sm font-semibold text-text-primary">Platform Admin</span>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="p-1 text-text-secondary hover:text-text-primary"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {sidebarNav}
-            </div>
-          </aside>
-        </div>
-      )}
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+            <aside className="absolute inset-y-0 start-0 z-50 flex w-[260px] flex-col bg-surface shadow-lg">
+              <div className="flex h-14 items-center justify-between border-b border-border px-5">
+                <span className="text-sm font-semibold text-text-primary">
+                  {t('platform.admin.title')}
+                </span>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="p-1 text-text-secondary hover:text-text-primary"
+                  aria-label={t('common.close')}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">{sidebarNav}</div>
+            </aside>
+          </div>
+        )}
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
-          <button
-            className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <h1 className="text-lg font-semibold text-text-primary lg:hidden">Platform Admin</h1>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8">
-          <div className="mx-auto max-w-content">{children}</div>
-        </main>
+        {/* Main content */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-surface px-6">
+            <button
+              className="lg:hidden p-2 text-text-secondary hover:text-text-primary"
+              onClick={() => setMobileOpen(true)}
+              aria-label={t('sidebar.openMenu')}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-text-primary lg:hidden">
+              {t('platform.admin.title')}
+            </h1>
+          </header>
+          <main className="flex-1 overflow-y-auto p-6 sm:p-8">
+            <ErrorBoundary resetKeys={[pathname]}>
+              <div className="mx-auto max-w-content">{children}</div>
+            </ErrorBoundary>
+          </main>
+        </div>
       </div>
-    </div>
     </RequireAuth>
   );
 }

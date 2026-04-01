@@ -29,8 +29,6 @@ import {
 import type { JwtPayload, TenantContext } from '@school/shared';
 import { z } from 'zod';
 
-import type { DeclareIncidentDto } from '../services/critical-incident.service';
-
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ModuleEnabled } from '../../../common/decorators/module-enabled.decorator';
@@ -40,6 +38,7 @@ import { ModuleEnabledGuard } from '../../../common/guards/module-enabled.guard'
 import { PermissionGuard } from '../../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { AffectedTrackingService } from '../services/affected-tracking.service';
+import type { DeclareIncidentDto } from '../services/critical-incident.service';
 import { CriticalIncidentService } from '../services/critical-incident.service';
 
 const removeAffectedReasonSchema = z.object({
@@ -66,11 +65,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(createCriticalIncidentSchema))
     dto: DeclareIncidentDto,
   ) {
-    return this.incidentService.declare(
-      tenant.tenant_id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.declare(tenant.tenant_id, user.sub, dto);
   }
 
   // ─── 2. List Incidents ────────────────────────────────────────────────────
@@ -83,22 +78,14 @@ export class CriticalIncidentsController {
     query: z.infer<typeof criticalIncidentFiltersSchema>,
   ) {
     const { page, pageSize, ...filters } = query;
-    return this.incidentService.list(
-      tenant.tenant_id,
-      filters,
-      page,
-      pageSize,
-    );
+    return this.incidentService.list(tenant.tenant_id, filters, page, pageSize);
   }
 
   // ─── 3. Get Incident Detail ───────────────────────────────────────────────
 
   @Get('pastoral/critical-incidents/:id')
   @RequiresPermission('pastoral.manage_critical_incidents')
-  async getById(
-    @CurrentTenant() tenant: TenantContext,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getById(@CurrentTenant() tenant: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.incidentService.getById(tenant.tenant_id, id);
   }
 
@@ -113,12 +100,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(updateCriticalIncidentSchema))
     dto: z.infer<typeof updateCriticalIncidentSchema>,
   ) {
-    return this.incidentService.update(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.update(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 5. Transition Status ────────────────────────────────────────────────
@@ -133,12 +115,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(transitionCriticalIncidentStatusSchema))
     dto: z.infer<typeof transitionCriticalIncidentStatusSchema>,
   ) {
-    return this.incidentService.transitionStatus(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.transitionStatus(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 6. Get Response Plan ────────────────────────────────────────────────
@@ -149,10 +126,7 @@ export class CriticalIncidentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.incidentService.getResponsePlanProgress(
-      tenant.tenant_id,
-      id,
-    );
+    return this.incidentService.getResponsePlanProgress(tenant.tenant_id, id);
   }
 
   // ─── 7. Update Response Plan Item ────────────────────────────────────────
@@ -167,12 +141,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(updateResponsePlanItemSchema))
     dto: z.infer<typeof updateResponsePlanItemSchema>,
   ) {
-    return this.incidentService.updateResponsePlanItem(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.updateResponsePlanItem(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 8. Add Response Plan Item ───────────────────────────────────────────
@@ -187,12 +156,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(addResponsePlanItemSchema))
     dto: z.infer<typeof addResponsePlanItemSchema>,
   ) {
-    return this.incidentService.addResponsePlanItem(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.addResponsePlanItem(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 9. List Affected Persons ────────────────────────────────────────────
@@ -205,11 +169,7 @@ export class CriticalIncidentsController {
     @Query(new ZodValidationPipe(affectedPersonFiltersSchema))
     filters: z.infer<typeof affectedPersonFiltersSchema>,
   ) {
-    return this.affectedService.listAffectedPersons(
-      tenant.tenant_id,
-      id,
-      filters,
-    );
+    return this.affectedService.listAffectedPersons(tenant.tenant_id, id, filters);
   }
 
   // ─── 10. Add Affected Person ─────────────────────────────────────────────
@@ -224,12 +184,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(addAffectedPersonSchema))
     dto: z.infer<typeof addAffectedPersonSchema>,
   ) {
-    return this.affectedService.addAffectedPerson(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.affectedService.addAffectedPerson(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 11. Bulk Add Affected ───────────────────────────────────────────────
@@ -244,12 +199,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(bulkAddAffectedSchema))
     dto: z.infer<typeof bulkAddAffectedSchema>,
   ) {
-    return this.affectedService.bulkAddAffected(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto.persons,
-    );
+    return this.affectedService.bulkAddAffected(tenant.tenant_id, id, user.sub, dto.persons);
   }
 
   // ─── 12. Update Affected Person ──────────────────────────────────────────
@@ -264,12 +214,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(updateAffectedPersonSchema))
     dto: z.infer<typeof updateAffectedPersonSchema>,
   ) {
-    return this.affectedService.updateAffectedPerson(
-      tenant.tenant_id,
-      personId,
-      user.sub,
-      dto,
-    );
+    return this.affectedService.updateAffectedPerson(tenant.tenant_id, personId, user.sub, dto);
   }
 
   // ─── 13. Remove Affected Person ──────────────────────────────────────────
@@ -322,10 +267,7 @@ export class CriticalIncidentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.affectedService.getAffectedSummary(
-      tenant.tenant_id,
-      id,
-    );
+    return this.affectedService.getAffectedSummary(tenant.tenant_id, id);
   }
 
   // ─── 16. List External Support ───────────────────────────────────────────
@@ -336,10 +278,7 @@ export class CriticalIncidentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.incidentService.listExternalSupport(
-      tenant.tenant_id,
-      id,
-    );
+    return this.incidentService.listExternalSupport(tenant.tenant_id, id);
   }
 
   // ─── 17. Add External Support ────────────────────────────────────────────
@@ -354,12 +293,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(addExternalSupportSchema))
     dto: z.infer<typeof addExternalSupportSchema>,
   ) {
-    return this.incidentService.addExternalSupport(
-      tenant.tenant_id,
-      id,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.addExternalSupport(tenant.tenant_id, id, user.sub, dto);
   }
 
   // ─── 18. Update External Support ─────────────────────────────────────────
@@ -374,13 +308,7 @@ export class CriticalIncidentsController {
     @Body(new ZodValidationPipe(addExternalSupportSchema))
     dto: z.infer<typeof addExternalSupportSchema>,
   ) {
-    return this.incidentService.updateExternalSupport(
-      tenant.tenant_id,
-      id,
-      entryId,
-      user.sub,
-      dto,
-    );
+    return this.incidentService.updateExternalSupport(tenant.tenant_id, id, entryId, user.sub, dto);
   }
 
   // ─── 19. Student Wellbeing Flags ─────────────────────────────────────────
@@ -391,9 +319,6 @@ export class CriticalIncidentsController {
     @CurrentTenant() tenant: TenantContext,
     @Param('studentId', ParseUUIDPipe) studentId: string,
   ) {
-    return this.affectedService.getStudentWellbeingFlags(
-      tenant.tenant_id,
-      studentId,
-    );
+    return this.affectedService.getStudentWellbeingFlags(tenant.tenant_id, studentId);
   }
 }

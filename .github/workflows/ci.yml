@@ -65,6 +65,12 @@ jobs:
       - name: Verify worker processor specs
         run: pnpm check:worker-processor-specs
 
+      - name: Check i18n completeness
+        run: pnpm i18n:check
+
+      - name: Check hotspot complexity budgets
+        run: pnpm hotspots:check
+
       - name: Lint
         run: pnpm turbo run lint
 

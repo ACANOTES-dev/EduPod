@@ -1,15 +1,9 @@
+import { handleApiError, type ApiErrorPayload } from './handle-api-error';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
-
-/** Global error listener — set by the app to show toasts on API failures. */
-export interface ApiErrorPayload {
-  code: string;
-  message: string;
-  redirect?: string;
-  status: number;
-}
 
 let onApiError: ((error: ApiErrorPayload) => void) | null = null;
 
@@ -59,30 +53,31 @@ export async function apiClient<T>(path: string, options: FetchOptions = {}): Pr
         credentials: 'include',
       });
       if (!retryResponse.ok) {
-        const error = await retryResponse
-          .json()
-          .catch(() => ({
-            error: { code: 'UNKNOWN', message: 'Request failed after token refresh' },
-          }));
-        throw error;
+        const error = await retryResponse.json().catch(() => null);
+        throw (
+          error ??
+          handleApiError(null, {
+            fallbackMessage: 'Request failed after token refresh',
+            status: retryResponse.status,
+          })
+        );
       }
       return parseResponse<T>(retryResponse);
     }
   }
 
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ error: { code: 'UNKNOWN', message: 'Unknown error' } }));
+    const error = await response.json().catch(() => null);
+    const normalizedError = handleApiError(error, {
+      fallbackMessage: `Request failed (${response.status})`,
+      status: response.status,
+    });
+
     if (!silent && onApiError && response.status !== 401) {
-      onApiError({
-        code: error?.error?.code ?? 'UNKNOWN',
-        message: error?.error?.message ?? `Request failed (${response.status})`,
-        redirect: error?.error?.redirect,
-        status: response.status,
-      });
+      onApiError(normalizedError);
     }
-    throw error;
+
+    throw error ?? normalizedError;
   }
 
   return parseResponse<T>(response);
@@ -121,7 +116,8 @@ async function doRefresh(): Promise<boolean> {
       return !!accessToken;
     }
     return false;
-  } catch {
+  } catch (err) {
+    console.error('[apiClient.doRefresh]', err);
     return false;
   }
 }

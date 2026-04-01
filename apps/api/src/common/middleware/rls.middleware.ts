@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-
 import { SYSTEM_USER_SENTINEL } from '@school/shared';
 
 /**
@@ -42,22 +41,28 @@ export function createRlsClient(
       },
     },
     client: {
-      async $transaction(fn: (tx: PrismaClient) => Promise<unknown>, options?: { timeout?: number; maxWait?: number }) {
+      async $transaction(
+        fn: (tx: PrismaClient) => Promise<unknown>,
+        options?: { timeout?: number; maxWait?: number },
+      ) {
         return prisma.$transaction(async (tx) => {
           // Set RLS context for this transaction using parameterised set_config()
-          await (tx as unknown as { $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown> })
-            .$executeRawUnsafe(
-              `SELECT set_config('app.current_tenant_id', $1, true)`,
-              context.tenant_id,
-            );
+          await (
+            tx as unknown as {
+              $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown>;
+            }
+          ).$executeRawUnsafe(
+            `SELECT set_config('app.current_tenant_id', $1, true)`,
+            context.tenant_id,
+          );
 
           // Set user context — defaults to sentinel for system operations
           const userId = context.user_id || SYSTEM_USER_SENTINEL;
-          await (tx as unknown as { $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown> })
-            .$executeRawUnsafe(
-              `SELECT set_config('app.current_user_id', $1, true)`,
-              userId,
-            );
+          await (
+            tx as unknown as {
+              $executeRawUnsafe: (sql: string, ...args: string[]) => Promise<unknown>;
+            }
+          ).$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, userId);
 
           return fn(tx as unknown as PrismaClient);
         }, options);

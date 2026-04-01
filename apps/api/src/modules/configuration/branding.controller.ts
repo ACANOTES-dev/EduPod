@@ -15,6 +15,7 @@ import type { TenantContext, UpdateBrandingDto } from '@school/shared';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -56,10 +57,7 @@ export class BrandingController {
     @UploadedFile() file: UploadedFileShape | undefined,
   ) {
     if (!file) {
-      throw new BadRequestException({
-        code: 'FILE_REQUIRED',
-        message: 'A file must be uploaded',
-      });
+      throw new BadRequestException(apiError('FILE_REQUIRED', 'A file must be uploaded'));
     }
 
     return this.brandingService.uploadLogo(tenant.tenant_id, file);

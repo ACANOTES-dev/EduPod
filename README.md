@@ -22,6 +22,8 @@ Multi-tenant school management SaaS platform. Single codebase, single deployment
 
 ## Getting Started
 
+The quick-start in this README is enough for a local boot, but the canonical contributor onboarding flow lives at [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
+
 ### 1. Clone and install
 
 ```bash
@@ -115,6 +117,12 @@ This project is built phase-by-phase. See `plans/` for the full structure. Each 
 - **Testing result** (`plans/phases-testing-result/P{N}-testing-result.md`) — test outcomes
 
 Build order: P0 → P1 → P2 → P3 → P4 → P5 → P6 → P6B → P7 → P8 → P9
+
+## Additional Developer References
+
+- [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) — full onboarding and local workflow
+- [docs/api-versioning.md](docs/api-versioning.md) — when to stay in `/v1/` and when to create `/v2/`
+- [architecture/README.md](architecture/README.md) — architecture document table of contents
 
 ## Seed Data (Development)
 

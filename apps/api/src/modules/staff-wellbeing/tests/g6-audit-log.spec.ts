@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
-
 import { BoardReportService } from '../services/board-report.service';
 import { HmacService } from '../services/hmac.service';
 import { SurveyResultsService } from '../services/survey-results.service';
@@ -85,9 +84,7 @@ jest.mock('../../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
     $transaction: jest
       .fn()
-      .mockImplementation(
-        async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-      ),
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -278,10 +275,8 @@ describe('G6 -- Audit Log Verification', () => {
 
     mockRlsTx.staffSurvey.findFirst
       .mockResolvedValueOnce(draftSurvey) // find survey
-      .mockResolvedValueOnce(null);        // no other active survey
-    mockRlsTx.staffSurvey.update.mockResolvedValue(
-      makeSurveyRow({ status: 'active' }),
-    );
+      .mockResolvedValueOnce(null); // no other active survey
+    mockRlsTx.staffSurvey.update.mockResolvedValue(makeSurveyRow({ status: 'active' }));
 
     const result = await surveyService.activate(TENANT_ID, SURVEY_ID);
 

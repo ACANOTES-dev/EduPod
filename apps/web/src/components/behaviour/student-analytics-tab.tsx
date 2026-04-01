@@ -17,7 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import { apiClient } from '@/lib/api-client';
+import { useApiQuery } from '@/hooks/use-api-query';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,29 +60,23 @@ interface StudentAnalyticsData {
 
 export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
   const t = useTranslations('behaviour.components.studentAnalytics');
-  const [data, setData] = React.useState<StudentAnalyticsData | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const {
+    data,
+    error,
+    isLoading: loading,
+  } = useApiQuery<{ data: StudentAnalyticsData }, StudentAnalyticsData>(
+    studentId ? `/api/v1/behaviour/students/${studentId}/analytics` : null,
+    {
+      fallbackMessage: t('errors.loadFailed'),
+      select: (response) => response.data,
+    },
+  );
 
-  React.useEffect(() => {
-    if (!studentId) return;
-    setLoading(true);
-    setError(null);
-
-    apiClient<{ data: StudentAnalyticsData }>(
-      `/api/v1/behaviour/students/${studentId}/analytics`,
-    )
-      .then((res) => setData(res.data))
-      .catch((err: unknown) => {
-        const errorObj = err as { status?: number; error?: { message?: string } };
-        if (errorObj?.status === 403) {
-          setError(t('errors.noPermission'));
-        } else {
-          setError(t('errors.loadFailed'));
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [studentId, t]);
+  const errorMessage = error
+    ? error.status === 403
+      ? t('errors.noPermission')
+      : error.message
+    : null;
 
   // ─── Loading state ──────────────────────────────────────────────────────────
 
@@ -107,11 +101,11 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
 
   // ─── Error state ────────────────────────────────────────────────────────────
 
-  if (error) {
+  if (errorMessage) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-12 text-center">
         <AlertTriangle className="mb-2 h-8 w-8 text-text-tertiary" />
-        <p className="text-sm text-text-tertiary">{error}</p>
+        <p className="text-sm text-text-tertiary">{errorMessage}</p>
       </div>
     );
   }
@@ -123,9 +117,7 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface py-12 text-center">
         <BarChart3 className="mb-2 h-8 w-8 text-text-tertiary" />
         <p className="text-sm font-medium text-text-tertiary">{t('empty.title')}</p>
-        <p className="mt-1 text-xs text-text-tertiary">
-          {t('empty.description')}
-        </p>
+        <p className="mt-1 text-xs text-text-tertiary">{t('empty.description')}</p>
       </div>
     );
   }
@@ -143,11 +135,7 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
         />
         <SummaryCard
           title={t('cards.positiveRatio')}
-          value={
-            data.positive_ratio !== null
-              ? `${Math.round(data.positive_ratio * 100)}%`
-              : '--'
-          }
+          value={data.positive_ratio !== null ? `${Math.round(data.positive_ratio * 100)}%` : '--'}
           icon={
             data.positive_ratio !== null && data.positive_ratio >= 0.5 ? (
               <TrendingUp className="h-4 w-4 text-green-600" />
@@ -175,7 +163,9 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       {/* Trend Line Chart */}
       {data.trends.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('charts.weeklyTrends')}</h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('charts.weeklyTrends')}
+          </h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.trends}>
@@ -209,7 +199,9 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       {/* Category Breakdown — Horizontal BarChart */}
       {data.categories.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('charts.categoryBreakdown')}</h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('charts.categoryBreakdown')}
+          </h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.categories.slice(0, 10)} layout="vertical">
@@ -245,7 +237,9 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       {/* Period Comparison — Grouped BarChart (only if multiple periods) */}
       {data.period_comparisons.length > 1 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('charts.periodComparison')}</h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('charts.periodComparison')}
+          </h3>
           <div className="h-64 w-full overflow-x-auto">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.period_comparisons}>
@@ -275,15 +269,25 @@ export function StudentAnalyticsTab({ studentId }: { studentId: string }) {
       {/* Sanction History Table */}
       {data.sanctions.length > 0 && (
         <div className="rounded-lg border border-border bg-surface p-4 md:p-6">
-          <h3 className="mb-4 text-sm font-semibold text-text-primary">{t('charts.sanctionHistory')}</h3>
+          <h3 className="mb-4 text-sm font-semibold text-text-primary">
+            {t('charts.sanctionHistory')}
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="pb-2 text-start font-medium text-text-tertiary">{t('sanctions.type')}</th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">{t('sanctions.served')}</th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">{t('sanctions.noShow')}</th>
-                  <th className="pb-2 text-end font-medium text-text-tertiary">{t('sanctions.total')}</th>
+                  <th className="pb-2 text-start font-medium text-text-tertiary">
+                    {t('sanctions.type')}
+                  </th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">
+                    {t('sanctions.served')}
+                  </th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">
+                    {t('sanctions.noShow')}
+                  </th>
+                  <th className="pb-2 text-end font-medium text-text-tertiary">
+                    {t('sanctions.total')}
+                  </th>
                 </tr>
               </thead>
               <tbody>

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-
 import type { DetectedSignal, SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -75,14 +74,13 @@ export class EngagementSignalCollector {
     const thirtyDaysAgo = new Date(now.getTime() - LOOKBACK_DAYS * MS_PER_DAY);
 
     // ─── Fetch all data in parallel ───────────────────────────────────────────
-    const [notifications, users, inquiryCount, acknowledgements, academicYear] =
-      await Promise.all([
-        this.fetchNotifications(tenantId, userIds, thirtyDaysAgo),
-        this.fetchUsers(userIds),
-        this.fetchParentInquiryCount(tenantId, parentIds, academicYearId),
-        this.fetchAcknowledgements(tenantId, parentIds, thirtyDaysAgo),
-        this.fetchAcademicYear(tenantId, academicYearId),
-      ]);
+    const [notifications, users, inquiryCount, acknowledgements, academicYear] = await Promise.all([
+      this.fetchNotifications(tenantId, userIds, thirtyDaysAgo),
+      this.fetchUsers(userIds),
+      this.fetchParentInquiryCount(tenantId, parentIds, academicYearId),
+      this.fetchAcknowledgements(tenantId, parentIds, thirtyDaysAgo),
+      this.fetchAcademicYear(tenantId, academicYearId),
+    ]);
 
     // ─── Signal 1: low_notification_read_rate ─────────────────────────────────
     this.checkNotificationReadRate(notifications, parentUsers, signals);
@@ -237,9 +235,7 @@ export class EngagementSignalCollector {
     let bestUserId = '';
 
     for (const pu of parentUsers) {
-      const parentNotifs = notifications.filter(
-        (n) => n.recipient_user_id === pu.userId,
-      );
+      const parentNotifs = notifications.filter((n) => n.recipient_user_id === pu.userId);
       if (parentNotifs.length === 0) continue;
 
       const readCount = parentNotifs.filter((n) => n.read_at !== null).length;
@@ -358,9 +354,7 @@ export class EngagementSignalCollector {
     if (inquiryCount > 0 || !academicYear) return;
 
     const yearStartMs = new Date(academicYear.start_date).getTime();
-    const monthsElapsed = Math.floor(
-      (now.getTime() - yearStartMs) / (MS_PER_DAY * 30),
-    );
+    const monthsElapsed = Math.floor((now.getTime() - yearStartMs) / (MS_PER_DAY * 30));
 
     let scoreContribution: number;
     if (monthsElapsed > 6) {
@@ -398,9 +392,7 @@ export class EngagementSignalCollector {
     let slowestAckId = firstAck?.id ?? '';
 
     for (const pu of parentUsers) {
-      const parentAcks = acknowledgements.filter(
-        (a) => a.parent_id === pu.parentId,
-      );
+      const parentAcks = acknowledgements.filter((a) => a.parent_id === pu.parentId);
       if (parentAcks.length === 0) continue;
 
       let totalHours = 0;
@@ -410,8 +402,7 @@ export class EngagementSignalCollector {
       for (const ack of parentAcks) {
         if (ack.acknowledged_at) {
           const hours =
-            (new Date(ack.acknowledged_at).getTime() -
-              new Date(ack.sent_at).getTime()) /
+            (new Date(ack.acknowledged_at).getTime() - new Date(ack.sent_at).getTime()) /
             MS_PER_HOUR;
           totalHours += hours;
           countWithResponse++;
@@ -452,9 +443,7 @@ export class EngagementSignalCollector {
     let slowestTime = -1;
     for (const ack of acknowledgements) {
       if (ack.acknowledged_at) {
-        const time =
-          new Date(ack.acknowledged_at).getTime() -
-          new Date(ack.sent_at).getTime();
+        const time = new Date(ack.acknowledged_at).getTime() - new Date(ack.sent_at).getTime();
         if (time > slowestTime) {
           slowestTime = time;
           slowestAckId = ack.id;
@@ -466,8 +455,7 @@ export class EngagementSignalCollector {
       }
     }
 
-    const displayHours =
-      bestAvgHours === Infinity ? 'never' : `${Math.round(bestAvgHours)}`;
+    const displayHours = bestAvgHours === Infinity ? 'never' : `${Math.round(bestAvgHours)}`;
 
     signals.push(
       buildSignal({
@@ -498,9 +486,7 @@ export class EngagementSignalCollector {
     let bestWeeklyRates: number[] = [];
 
     for (const pu of parentUsers) {
-      const parentNotifs = notifications.filter(
-        (n) => n.recipient_user_id === pu.userId,
-      );
+      const parentNotifs = notifications.filter((n) => n.recipient_user_id === pu.userId);
       if (parentNotifs.length === 0) continue;
 
       const weeklyRates = computeWeeklyReadRates(parentNotifs, now, WEEKS_TO_TRACK);
@@ -508,12 +494,10 @@ export class EngagementSignalCollector {
       // "Best" parent = the one with fewer consecutive declining weeks
       // But we need per-parent rates to check decline. Pick the parent with
       // highest average rate (most engaged).
-      const avg =
-        weeklyRates.reduce((sum, r) => sum + r, 0) / weeklyRates.length;
+      const avg = weeklyRates.reduce((sum, r) => sum + r, 0) / weeklyRates.length;
       const bestAvg =
         bestWeeklyRates.length > 0
-          ? bestWeeklyRates.reduce((sum, r) => sum + r, 0) /
-            bestWeeklyRates.length
+          ? bestWeeklyRates.reduce((sum, r) => sum + r, 0) / bestWeeklyRates.length
           : -1;
 
       if (avg > bestAvg) {

@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Post,
   Req,
@@ -26,6 +27,7 @@ import type { Request, Response } from 'express';
 
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { apiError } from '../../common/errors/api-error';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 
@@ -38,6 +40,8 @@ import type { SwitchTenantDto } from './dto/switch-tenant.dto';
 
 @Controller('v1/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private authService: AuthService) {}
 
   @Post('login')
@@ -50,9 +54,7 @@ export class AuthController {
     @CurrentTenant() tenantContext: TenantContext | null,
   ) {
     const ipAddress =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip ||
-      'unknown';
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     // Use tenant_id from body, or from tenant resolution middleware
@@ -93,10 +95,9 @@ export class AuthController {
     const refreshToken = req.cookies?.refresh_token as string | undefined;
 
     if (!refreshToken) {
-      throw new UnauthorizedException({
-        code: 'MISSING_REFRESH_TOKEN',
-        message: 'No refresh token provided',
-      });
+      throw new UnauthorizedException(
+        apiError('MISSING_REFRESH_TOKEN', 'No refresh token provided'),
+      );
     }
 
     const result = await this.authService.refresh(refreshToken);
@@ -119,8 +120,9 @@ export class AuthController {
       try {
         const payload = this.authService.verifyRefreshToken(refreshToken);
         await this.authService.logout(payload.session_id, user.sub);
-      } catch {
-        // If refresh token is invalid, just clear the cookie
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`Logout completed after refresh token verification failed: ${message}`);
       }
     }
 
@@ -158,10 +160,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(mfaVerifySchema))
-  async verifyMfaSetup(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: MfaVerifyDto,
-  ) {
+  async verifyMfaSetup(@CurrentUser() user: JwtPayload, @Body() dto: MfaVerifyDto) {
     return this.authService.verifyMfaSetup(user.sub, dto.code);
   }
 
@@ -174,9 +173,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const ipAddress =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.ip ||
-      'unknown';
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     const result = await this.authService.loginWithRecoveryCode(
@@ -206,15 +203,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(switchTenantSchema))
-  async switchTenant(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: SwitchTenantDto,
-  ) {
-    return this.authService.switchTenant(
-      user.sub,
-      user.email,
-      dto.tenant_id,
-    );
+  async switchTenant(@CurrentUser() user: JwtPayload, @Body() dto: SwitchTenantDto) {
+    return this.authService.switchTenant(user.sub, user.email, dto.tenant_id);
   }
 
   @Get('me')
@@ -233,10 +223,7 @@ export class AuthController {
   @Delete('sessions/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AuthGuard)
-  async revokeSession(
-    @CurrentUser() user: JwtPayload,
-    @Param('id') sessionId: string,
-  ) {
+  async revokeSession(@CurrentUser() user: JwtPayload, @Param('id') sessionId: string) {
     await this.authService.revokeSession(user.sub, sessionId);
   }
 }

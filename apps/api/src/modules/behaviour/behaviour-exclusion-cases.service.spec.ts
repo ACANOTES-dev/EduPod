@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,9 +44,9 @@ const mockRlsTx = {
 
 jest.mock('../../common/middleware/rls.middleware', () => ({
   createRlsClient: jest.fn().mockReturnValue({
-    $transaction: jest.fn().mockImplementation(
-      async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx),
-    ),
+    $transaction: jest
+      .fn()
+      .mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockRlsTx)),
   }),
 }));
 
@@ -141,9 +141,7 @@ describe('BehaviourExclusionCasesService', () => {
       // No school closures
       mockRlsTx.schoolClosure!.findFirst.mockResolvedValue(null);
       // Mocks for create and related updates
-      mockRlsTx.behaviourExclusionCase!.create.mockResolvedValue(
-        makeExclusionCase(),
-      );
+      mockRlsTx.behaviourExclusionCase!.create.mockResolvedValue(makeExclusionCase());
       mockRlsTx.behaviourIncident!.update.mockResolvedValue({});
       mockRlsTx.behaviourSanction!.update.mockResolvedValue({});
       mockRlsTx.behaviourTask!.create.mockResolvedValue({});
@@ -182,7 +180,14 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       const createCall = mockRlsTx.behaviourExclusionCase!.create.mock.calls[0]![0] as {
-        data: { statutory_timeline: Array<{ step: string; required_by: string | null; completed_at: string | null; status: string }> };
+        data: {
+          statutory_timeline: Array<{
+            step: string;
+            required_by: string | null;
+            completed_at: string | null;
+            status: string;
+          }>;
+        };
       };
       const timeline = createCall.data.statutory_timeline;
 
@@ -231,9 +236,7 @@ describe('BehaviourExclusionCasesService', () => {
 
     it('should not create duplicate exclusion case if one already exists for sanction', async () => {
       // Existing case found — idempotency guard
-      mockRlsTx.behaviourExclusionCase!.findFirst.mockResolvedValue(
-        makeExclusionCase(),
-      );
+      mockRlsTx.behaviourExclusionCase!.findFirst.mockResolvedValue(makeExclusionCase());
 
       const result = await service.createFromSanction(
         TENANT_ID,
@@ -337,13 +340,7 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID,
-          CASE_ID,
-          'hearing_held',
-          undefined,
-          USER_ID,
-        ),
+        service.transitionStatus(TENANT_ID, CASE_ID, 'hearing_held', undefined, USER_ID),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -359,8 +356,18 @@ describe('BehaviourExclusionCasesService', () => {
         makeExclusionCase({
           status: 'hearing_held',
           statutory_timeline: [
-            { step: 'Decision communicated to parents in writing', required_by: null, completed_at: null, status: 'not_started' },
-            { step: 'Appeal window (15 school days from decision date)', required_by: null, completed_at: null, status: 'not_started' },
+            {
+              step: 'Decision communicated to parents in writing',
+              required_by: null,
+              completed_at: null,
+              status: 'not_started',
+            },
+            {
+              step: 'Appeal window (15 school days from decision date)',
+              required_by: null,
+              completed_at: null,
+              status: 'not_started',
+            },
           ],
         }),
       );
@@ -408,13 +415,7 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID,
-          CASE_ID,
-          'notice_issued',
-          undefined,
-          USER_ID,
-        ),
+        service.transitionStatus(TENANT_ID, CASE_ID, 'notice_issued', undefined, USER_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -424,13 +425,7 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID,
-          CASE_ID,
-          'notice_issued',
-          undefined,
-          USER_ID,
-        ),
+        service.transitionStatus(TENANT_ID, CASE_ID, 'notice_issued', undefined, USER_ID),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -440,13 +435,7 @@ describe('BehaviourExclusionCasesService', () => {
       );
 
       await expect(
-        service.transitionStatus(
-          TENANT_ID,
-          CASE_ID,
-          'hearing_scheduled_exc',
-          undefined,
-          USER_ID,
-        ),
+        service.transitionStatus(TENANT_ID, CASE_ID, 'hearing_scheduled_exc', undefined, USER_ID),
       ).rejects.toThrow(BadRequestException);
     });
   });

@@ -2,6 +2,7 @@ import { getQueueToken } from '@nestjs/bullmq';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EARLY_WARNING_COMPUTE_STUDENT_JOB } from '@school/shared';
 
+import { buildMockPrisma, buildMockQueue } from '../../../test/mock-factories';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { EarlyWarningTriggerService } from './early-warning-trigger.service';
@@ -13,30 +14,23 @@ const STUDENT_ID = '22222222-2222-2222-2222-222222222222';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-function buildMockPrisma() {
-  return {
-    earlyWarningConfig: {
-      findFirst: jest.fn(),
-    },
-  };
-}
+const createMockPrisma = () =>
+  buildMockPrisma({
+    earlyWarningConfig: ['findFirst'],
+  } as const);
 
-function buildMockQueue() {
-  return {
-    add: jest.fn().mockResolvedValue(undefined),
-  };
-}
+const createMockQueue = () => buildMockQueue();
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('EarlyWarningTriggerService', () => {
   let service: EarlyWarningTriggerService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
-  let mockQueue: ReturnType<typeof buildMockQueue>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let mockQueue: ReturnType<typeof createMockQueue>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
-    mockQueue = buildMockQueue();
+    mockPrisma = createMockPrisma();
+    mockQueue = createMockQueue();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,11 +49,7 @@ describe('EarlyWarningTriggerService', () => {
     it('should enqueue compute-student job when enabled and event matches', async () => {
       mockPrisma.earlyWarningConfig.findFirst.mockResolvedValue({
         is_enabled: true,
-        high_severity_events_json: [
-          'suspension',
-          'critical_incident',
-          'third_consecutive_absence',
-        ],
+        high_severity_events_json: ['suspension', 'critical_incident', 'third_consecutive_absence'],
       });
 
       await service.triggerStudentRecompute(TENANT_ID, STUDENT_ID, 'suspension');

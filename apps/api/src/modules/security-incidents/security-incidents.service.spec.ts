@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { buildMockPrisma } from '../../../test/mock-factories';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -47,21 +48,11 @@ function buildBaseIncident(overrides: Record<string, unknown> = {}) {
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 
-function buildMockPrisma() {
-  return {
-    securityIncident: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      count: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-    securityIncidentEvent: {
-      create: jest.fn(),
-    },
-  };
-}
+const createMockPrisma = () =>
+  buildMockPrisma({
+    securityIncident: ['findMany', 'findUnique', 'findFirst', 'count', 'create', 'update'],
+    securityIncidentEvent: ['create'],
+  } as const);
 
 function buildMockAuditLogService() {
   return {
@@ -73,11 +64,11 @@ function buildMockAuditLogService() {
 
 describe('SecurityIncidentsService', () => {
   let service: SecurityIncidentsService;
-  let mockPrisma: ReturnType<typeof buildMockPrisma>;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
   let mockAuditLog: ReturnType<typeof buildMockAuditLogService>;
 
   beforeEach(async () => {
-    mockPrisma = buildMockPrisma();
+    mockPrisma = createMockPrisma();
     mockAuditLog = buildMockAuditLogService();
 
     const module: TestingModule = await Test.createTestingModule({
@@ -301,11 +292,7 @@ describe('SecurityIncidentsService', () => {
       const updatedIncident = { ...existing, status: 'investigating' };
       mockPrisma.securityIncident.update.mockResolvedValue(updatedIncident);
 
-      const result = await service.update(
-        INCIDENT_ID,
-        { status: 'investigating' },
-        USER_ID,
-      );
+      const result = await service.update(INCIDENT_ID, { status: 'investigating' }, USER_ID);
 
       expect(result.status).toBe('investigating');
 
@@ -339,9 +326,9 @@ describe('SecurityIncidentsService', () => {
       const existing = buildBaseIncident({ status: 'detected' });
       mockPrisma.securityIncident.findUnique.mockResolvedValue(existing);
 
-      await expect(
-        service.update(INCIDENT_ID, { status: 'closed' }, USER_ID),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.update(INCIDENT_ID, { status: 'closed' }, USER_ID)).rejects.toThrow(
+        BadRequestException,
+      );
 
       await expect(
         service.update(INCIDENT_ID, { status: 'closed' }, USER_ID),
@@ -356,9 +343,9 @@ describe('SecurityIncidentsService', () => {
     it('should throw NotFoundException for missing incident', async () => {
       mockPrisma.securityIncident.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.update(INCIDENT_ID, { severity: 'critical' }, USER_ID),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(INCIDENT_ID, { severity: 'critical' }, USER_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should update non-status fields without adding status_change event', async () => {
@@ -436,11 +423,7 @@ describe('SecurityIncidentsService', () => {
       mockPrisma.securityIncident.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.addEvent(
-          INCIDENT_ID,
-          { event_type: 'note', description: 'Some note' },
-          USER_ID,
-        ),
+        service.addEvent(INCIDENT_ID, { event_type: 'note', description: 'Some note' }, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrisma.securityIncidentEvent.create).not.toHaveBeenCalled();
@@ -461,7 +444,10 @@ describe('SecurityIncidentsService', () => {
 
       const result = await service.notifyControllers(
         INCIDENT_ID,
-        { tenant_ids: [TENANT_ID_A, TENANT_ID_B], message: 'A data breach has been detected affecting your tenant.' },
+        {
+          tenant_ids: [TENANT_ID_A, TENANT_ID_B],
+          message: 'A data breach has been detected affecting your tenant.',
+        },
         USER_ID,
       );
 
@@ -559,11 +545,7 @@ describe('SecurityIncidentsService', () => {
       mockPrisma.securityIncident.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.notifyDpc(
-          INCIDENT_ID,
-          { dpc_reference_number: 'DPC-2026-002' },
-          USER_ID,
-        ),
+        service.notifyDpc(INCIDENT_ID, { dpc_reference_number: 'DPC-2026-002' }, USER_ID),
       ).rejects.toThrow(NotFoundException);
 
       expect(mockPrisma.securityIncident.update).not.toHaveBeenCalled();

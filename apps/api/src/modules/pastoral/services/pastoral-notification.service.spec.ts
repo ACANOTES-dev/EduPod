@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
+import { Test, TestingModule } from '@nestjs/testing';
 
 import { NotificationsService } from '../../communications/notifications.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -175,8 +175,8 @@ describe('PastoralNotificationService', () => {
       // Elevated: no explicit IDs, fallback roles = ['year_head', 'pastoral_coordinator']
       // Mock role resolution to return users
       mockPrisma.membershipRole.findMany
-        .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_ID } }])  // year_head
-        .mockResolvedValueOnce([{ membership: { user_id: DEPUTY_ID } }]);     // pastoral_coordinator
+        .mockResolvedValueOnce([{ membership: { user_id: YEAR_HEAD_ID } }]) // year_head
+        .mockResolvedValueOnce([{ membership: { user_id: DEPUTY_ID } }]); // pastoral_coordinator
 
       const concern = makeConcern({ severity: 'elevated', tier: 1 });
 
@@ -302,9 +302,7 @@ describe('PastoralNotificationService', () => {
       );
 
       // Mock role resolution: 'dlp' fallback resolves via cpAccessGrant
-      mockPrisma.cpAccessGrant.findMany.mockResolvedValue([
-        { user_id: DLP_USER_ID },
-      ]);
+      mockPrisma.cpAccessGrant.findMany.mockResolvedValue([{ user_id: DLP_USER_ID }]);
 
       // Mock 'deputy_principal' role resolution via membershipRole
       mockPrisma.membershipRole.findMany.mockResolvedValue([
@@ -489,7 +487,7 @@ describe('PastoralNotificationService', () => {
     it('should look up and remove both pending escalation job types', async () => {
       const mockJob = { remove: jest.fn().mockResolvedValue(undefined) };
       mockPastoralQueue.getJob
-        .mockResolvedValueOnce(mockJob)  // urgent_to_critical
+        .mockResolvedValueOnce(mockJob) // urgent_to_critical
         .mockResolvedValueOnce(mockJob); // critical_second_round
 
       await service.cancelEscalationTimeout(TENANT_ID, CONCERN_ID);
@@ -511,9 +509,7 @@ describe('PastoralNotificationService', () => {
       mockPastoralQueue.getJob.mockResolvedValue(null);
 
       // Should not throw
-      await expect(
-        service.cancelEscalationTimeout(TENANT_ID, CONCERN_ID),
-      ).resolves.toBeUndefined();
+      await expect(service.cancelEscalationTimeout(TENANT_ID, CONCERN_ID)).resolves.toBeUndefined();
 
       // Still checked both job IDs
       expect(mockPastoralQueue.getJob).toHaveBeenCalledTimes(2);

@@ -55,6 +55,7 @@ import * as React from 'react';
 
 import { RegistrationWizard } from './_components/registration-wizard/registration-wizard';
 
+import { ErrorBoundary } from '@/components/error-boundary';
 import { GlobalSearch } from '@/components/global-search';
 import { PrivacyNoticeBanner } from '@/components/legal/privacy-notice-banner';
 import { NotificationPanel } from '@/components/notifications/notification-panel';
@@ -529,7 +530,9 @@ export default function SchoolLayout({ children }: { children: React.ReactNode }
         }
       >
         <PrivacyNoticeBanner />
-        <RequireRole>{children}</RequireRole>
+        <ErrorBoundary resetKeys={[pathname]}>
+          <RequireRole>{children}</RequireRole>
+        </ErrorBoundary>
       </AppShell>
 
       <MobileSidebar open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>

@@ -14,12 +14,10 @@ jest.mock('../../base/redis.helpers', () => ({
 import type { PrismaClient } from '@prisma/client';
 
 import { getRedisClient } from '../../base/redis.helpers';
-import { deleteSearchDocument } from '../../base/search.helpers';
 import { deleteFromS3 } from '../../base/s3.helpers';
+import { deleteSearchDocument } from '../../base/search.helpers';
 
-import {
-  ComplianceExecutionJob,
-} from './compliance-execution.processor';
+import { ComplianceExecutionJob } from './compliance-execution.processor';
 
 describe('ComplianceExecutionJob', () => {
   const TENANT_ID = '11111111-1111-1111-1111-111111111111';
@@ -101,10 +99,7 @@ describe('ComplianceExecutionJob', () => {
 
   describe('ComplianceExecutionJob — processJob', () => {
     it('delegates erasure to the shared anonymisation core and runs cleanup', async () => {
-      const job = new ComplianceExecutionJob(
-        {} as PrismaClient,
-        mockCore as never,
-      );
+      const job = new ComplianceExecutionJob({} as PrismaClient, mockCore as never);
 
       await (
         job as unknown as {
@@ -165,10 +160,7 @@ describe('ComplianceExecutionJob', () => {
         status: 'approved',
       });
 
-      const job = new ComplianceExecutionJob(
-        {} as PrismaClient,
-        mockCore as never,
-      );
+      const job = new ComplianceExecutionJob({} as PrismaClient, mockCore as never);
 
       await (
         job as unknown as {

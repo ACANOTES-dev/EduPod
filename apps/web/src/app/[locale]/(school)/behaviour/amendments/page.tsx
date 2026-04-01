@@ -17,6 +17,7 @@ import * as React from 'react';
 
 import { DataTable } from '@/components/data-table';
 import { PageHeader } from '@/components/page-header';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format-date';
 
@@ -55,12 +56,9 @@ interface AmendmentsResponse {
 // ─── Badge Colors ─────────────────────────────────────────────────────────────
 
 const AMENDMENT_TYPE_COLORS: Record<string, string> = {
-  correction:
-    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  supersession:
-    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  retraction:
-    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  correction: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  supersession: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  retraction: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
 };
 
 function formatLabel(value: string): string {
@@ -110,41 +108,30 @@ export default function AmendmentListPage() {
 
   // Confirmation dialog
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const [selectedAmendment, setSelectedAmendment] =
-    React.useState<AmendmentRow | null>(null);
+  const [selectedAmendment, setSelectedAmendment] = React.useState<AmendmentRow | null>(null);
   const [sending, setSending] = React.useState(false);
   const [sendError, setSendError] = React.useState('');
 
-  // Mobile detection
-  const [isMobile, setIsMobile] = React.useState(false);
-  React.useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Fetch amendments
-  const fetchAmendments = React.useCallback(
-    async (p: number, tab: TabKey) => {
-      setIsLoading(true);
-      try {
-        const endpoint =
-          tab === 'pending'
-            ? `/api/v1/behaviour/amendments/pending?page=${p}&pageSize=${PAGE_SIZE}`
-            : `/api/v1/behaviour/amendments?page=${p}&pageSize=${PAGE_SIZE}`;
-        const res = await apiClient<AmendmentsResponse>(endpoint);
-        setData(res.data ?? []);
-        setTotal(res.meta?.total ?? 0);
-      } catch {
-        setData([]);
-        setTotal(0);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [],
-  );
+  const fetchAmendments = React.useCallback(async (p: number, tab: TabKey) => {
+    setIsLoading(true);
+    try {
+      const endpoint =
+        tab === 'pending'
+          ? `/api/v1/behaviour/amendments/pending?page=${p}&pageSize=${PAGE_SIZE}`
+          : `/api/v1/behaviour/amendments?page=${p}&pageSize=${PAGE_SIZE}`;
+      const res = await apiClient<AmendmentsResponse>(endpoint);
+      setData(res.data ?? []);
+      setTotal(res.meta?.total ?? 0);
+    } catch {
+      setData([]);
+      setTotal(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     void fetchAmendments(page, activeTab);
@@ -168,10 +155,9 @@ export default function AmendmentListPage() {
     setSending(true);
     setSendError('');
     try {
-      await apiClient(
-        `/api/v1/behaviour/amendments/${selectedAmendment.id}/send-correction`,
-        { method: 'POST' },
-      );
+      await apiClient(`/api/v1/behaviour/amendments/${selectedAmendment.id}/send-correction`, {
+        method: 'POST',
+      });
       setConfirmOpen(false);
       setSelectedAmendment(null);
       // Refresh list
@@ -198,9 +184,7 @@ export default function AmendmentListPage() {
       key: 'entity',
       header: t('columns.entity'),
       render: (row: AmendmentRow) => (
-        <span className="text-sm font-medium text-text-primary">
-          {getEntityRef(row)}
-        </span>
+        <span className="text-sm font-medium text-text-primary">{getEntityRef(row)}</span>
       ),
     },
     {
@@ -218,9 +202,7 @@ export default function AmendmentListPage() {
       key: 'what_changed',
       header: t('columns.changeSummary'),
       render: (row: AmendmentRow) => (
-        <span className="text-sm text-text-secondary">
-          {renderChangeSummary(row.what_changed)}
-        </span>
+        <span className="text-sm text-text-secondary">{renderChangeSummary(row.what_changed)}</span>
       ),
     },
     {
@@ -271,9 +253,7 @@ export default function AmendmentListPage() {
             Send
           </Button>
         ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">
-            Sent
-          </span>
+          <span className="text-xs text-green-600 dark:text-green-400">Sent</span>
         ),
     },
   ];
@@ -281,15 +261,10 @@ export default function AmendmentListPage() {
   // ─── Mobile Card ────────────────────────────────────────────────────────
 
   const renderMobileCard = (row: AmendmentRow) => (
-    <div
-      key={row.id}
-      className="rounded-xl border border-border bg-surface p-4"
-    >
+    <div key={row.id} className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-medium text-text-primary">
-            {getEntityRef(row)}
-          </span>
+          <span className="text-sm font-medium text-text-primary">{getEntityRef(row)}</span>
           <div className="mt-1 flex flex-wrap gap-2">
             <span
               className={`rounded-full px-2 py-0.5 text-xs font-medium ${AMENDMENT_TYPE_COLORS[row.amendment_type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'}`}
@@ -313,19 +288,13 @@ export default function AmendmentListPage() {
             <Send className="h-3.5 w-3.5" />
           </Button>
         ) : (
-          <span className="text-xs text-green-600 dark:text-green-400">
-            Sent
-          </span>
+          <span className="text-xs text-green-600 dark:text-green-400">Sent</span>
         )}
       </div>
-      <p className="mt-2 text-xs text-text-secondary">
-        {renderChangeSummary(row.what_changed)}
-      </p>
+      <p className="mt-2 text-xs text-text-secondary">{renderChangeSummary(row.what_changed)}</p>
       <div className="mt-2 flex items-center justify-between text-xs text-text-tertiary">
         <span>
-          {row.changed_by
-            ? `${row.changed_by.first_name} ${row.changed_by.last_name}`
-            : '--'}
+          {row.changed_by ? `${row.changed_by.first_name} ${row.changed_by.last_name}` : '--'}
         </span>
         <span>{formatDateTime(row.created_at)}</span>
       </div>
@@ -338,12 +307,8 @@ export default function AmendmentListPage() {
     activeTab === 'pending' ? (
       <div className="rounded-xl border border-border bg-surface py-12 text-center">
         <CheckCircle className="mx-auto h-8 w-8 text-green-500" />
-        <p className="mt-2 text-sm font-medium text-text-primary">
-          {t('noCorrectionsPending')}
-        </p>
-        <p className="mt-1 text-xs text-text-tertiary">
-          {t('allNoticesSent')}
-        </p>
+        <p className="mt-2 text-sm font-medium text-text-primary">{t('noCorrectionsPending')}</p>
+        <p className="mt-1 text-xs text-text-tertiary">{t('allNoticesSent')}</p>
       </div>
     ) : (
       <div className="rounded-xl border border-border bg-surface py-12 text-center">
@@ -392,25 +357,18 @@ export default function AmendmentListPage() {
       {isMobile ? (
         <div>
           <div className="space-y-2">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-24 animate-pulse rounded-xl bg-surface-secondary"
-                />
-              ))
-            ) : data.length === 0 ? (
-              emptyState
-            ) : (
-              data.map(renderMobileCard)
-            )}
+            {isLoading
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-xl bg-surface-secondary" />
+                ))
+              : data.length === 0
+                ? emptyState
+                : data.map(renderMobileCard)}
           </div>
           {/* Mobile pagination */}
           {total > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-sm text-text-secondary">
-              <span>
-                {t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}
-              </span>
+              <span>{t('pageOf', { page, total: Math.ceil(total / PAGE_SIZE) })}</span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -455,9 +413,7 @@ export default function AmendmentListPage() {
           </DialogHeader>
           {selectedAmendment && (
             <div className="space-y-4 py-2">
-              <p className="text-sm text-text-secondary">
-                {t('sendCorrectionDescription')}
-              </p>
+              <p className="text-sm text-text-secondary">{t('sendCorrectionDescription')}</p>
               <div className="rounded-lg bg-surface-secondary p-3">
                 <p className="text-sm font-medium text-text-primary">
                   {getEntityRef(selectedAmendment)}
@@ -465,11 +421,9 @@ export default function AmendmentListPage() {
                 <div className="mt-2 space-y-1">
                   {selectedAmendment.what_changed.map((change, idx) => (
                     <p key={idx} className="text-xs text-text-secondary">
-                      <span className="font-medium">
-                        {formatFieldName(change.field)}
-                      </span>
-                      : &ldquo;{change.old_value ?? 'none'}&rdquo; &rarr;
-                      &ldquo;{change.new_value ?? 'none'}&rdquo;
+                      <span className="font-medium">{formatFieldName(change.field)}</span>: &ldquo;
+                      {change.old_value ?? 'none'}&rdquo; &rarr; &ldquo;{change.new_value ?? 'none'}
+                      &rdquo;
                     </p>
                   ))}
                 </div>
@@ -484,19 +438,11 @@ export default function AmendmentListPage() {
                   </div>
                 )}
               </div>
-              {sendError && (
-                <p className="text-sm text-red-600 dark:text-red-400">
-                  {sendError}
-                </p>
-              )}
+              {sendError && <p className="text-sm text-red-600 dark:text-red-400">{sendError}</p>}
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-              disabled={sending}
-            >
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={sending}>
               {t('cancel')}
             </Button>
             <Button onClick={handleSendCorrection} disabled={sending}>

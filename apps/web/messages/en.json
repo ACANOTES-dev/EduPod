@@ -2530,6 +2530,7 @@
     "admin": {
       "title": "Platform Admin",
       "dashboard": "Platform Dashboard",
+      "securityIncidents": "Security Incidents",
       "tenantsManaged": "Tenants Managed",
       "systemHealth": "System Health"
     },

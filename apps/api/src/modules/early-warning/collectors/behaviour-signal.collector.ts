@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-
 import type { SignalResult } from '@school/shared';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -63,86 +62,91 @@ export class BehaviourSignalCollector {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - SEVERITY_LOOKBACK_DAYS);
 
     // Fetch all data in parallel
-    const [incidentParticipants14d, incidentParticipants30d, sanctions, exclusionCases, interventions] =
-      await Promise.all([
-        // 14-day incidents for frequency signal
-        this.prisma.behaviourIncidentParticipant.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            role: 'subject',
-            incident: {
-              polarity: 'negative',
-              occurred_at: { gte: fourteenDaysAgo },
-            },
+    const [
+      incidentParticipants14d,
+      incidentParticipants30d,
+      sanctions,
+      exclusionCases,
+      interventions,
+    ] = await Promise.all([
+      // 14-day incidents for frequency signal
+      this.prisma.behaviourIncidentParticipant.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          role: 'subject',
+          incident: {
+            polarity: 'negative',
+            occurred_at: { gte: fourteenDaysAgo },
           },
-          include: {
-            incident: {
-              select: { id: true, polarity: true, severity: true, occurred_at: true },
-            },
+        },
+        include: {
+          incident: {
+            select: { id: true, polarity: true, severity: true, occurred_at: true },
           },
-          orderBy: { incident: { occurred_at: 'desc' } },
-        }) as Promise<IncidentParticipantRow[]>,
+        },
+        orderBy: { incident: { occurred_at: 'desc' } },
+      }) as Promise<IncidentParticipantRow[]>,
 
-        // 30-day incidents for escalating severity signal
-        this.prisma.behaviourIncidentParticipant.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            role: 'subject',
-            incident: {
-              polarity: 'negative',
-              occurred_at: { gte: thirtyDaysAgo },
+      // 30-day incidents for escalating severity signal
+      this.prisma.behaviourIncidentParticipant.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          role: 'subject',
+          incident: {
+            polarity: 'negative',
+            occurred_at: { gte: thirtyDaysAgo },
+          },
+        },
+        include: {
+          incident: {
+            select: { id: true, polarity: true, severity: true, occurred_at: true },
+          },
+        },
+        orderBy: { incident: { occurred_at: 'desc' } },
+      }) as Promise<IncidentParticipantRow[]>,
+
+      // Active sanctions
+      this.prisma.behaviourSanction.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          status: { in: ['scheduled', 'partially_served'] },
+        },
+      }) as Promise<SanctionRow[]>,
+
+      // Exclusion cases in current academic year
+      this.prisma.behaviourExclusionCase.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          incident: { academic_year_id: academicYearId },
+        },
+        include: {
+          incident: { select: { academic_year_id: true } },
+        },
+      }) as Promise<ExclusionCaseRow[]>,
+
+      // Failed/overdue interventions
+      this.prisma.behaviourIntervention.findMany({
+        where: {
+          tenant_id: tenantId,
+          student_id: studentId,
+          OR: [
+            {
+              status: 'completed_intervention',
+              outcome: { in: ['deteriorated', 'no_change'] },
             },
-          },
-          include: {
-            incident: {
-              select: { id: true, polarity: true, severity: true, occurred_at: true },
+            { status: 'abandoned' },
+            {
+              status: 'active_intervention',
+              target_end_date: { lt: now },
             },
-          },
-          orderBy: { incident: { occurred_at: 'desc' } },
-        }) as Promise<IncidentParticipantRow[]>,
-
-        // Active sanctions
-        this.prisma.behaviourSanction.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            status: { in: ['scheduled', 'partially_served'] },
-          },
-        }) as Promise<SanctionRow[]>,
-
-        // Exclusion cases in current academic year
-        this.prisma.behaviourExclusionCase.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            incident: { academic_year_id: academicYearId },
-          },
-          include: {
-            incident: { select: { academic_year_id: true } },
-          },
-        }) as Promise<ExclusionCaseRow[]>,
-
-        // Failed/overdue interventions
-        this.prisma.behaviourIntervention.findMany({
-          where: {
-            tenant_id: tenantId,
-            student_id: studentId,
-            OR: [
-              {
-                status: 'completed_intervention',
-                outcome: { in: ['deteriorated', 'no_change'] },
-              },
-              { status: 'abandoned' },
-              {
-                status: 'active_intervention',
-                target_end_date: { lt: now },
-              },
-            ],
-          },
-        }) as Promise<InterventionRow[]>,
-      ]);
+          ],
+        },
+      }) as Promise<InterventionRow[]>,
+    ]);
 
     const result: SignalResult = {
       domain: 'behaviour',
@@ -226,9 +230,7 @@ export class BehaviourSignalCollector {
     const fifteenDaysAgo = new Date(now);
     fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
 
-    const firstHalf = participants.filter(
-      (p) => new Date(p.incident.occurred_at) < fifteenDaysAgo,
-    );
+    const firstHalf = participants.filter((p) => new Date(p.incident.occurred_at) < fifteenDaysAgo);
     const secondHalf = participants.filter(
       (p) => new Date(p.incident.occurred_at) >= fifteenDaysAgo,
     );
@@ -236,8 +238,7 @@ export class BehaviourSignalCollector {
     // Only emit if incidents exist in both halves
     if (firstHalf.length === 0 || secondHalf.length === 0) return;
 
-    const avgFirst =
-      firstHalf.reduce((sum, p) => sum + p.incident.severity, 0) / firstHalf.length;
+    const avgFirst = firstHalf.reduce((sum, p) => sum + p.incident.severity, 0) / firstHalf.length;
     const avgSecond =
       secondHalf.reduce((sum, p) => sum + p.incident.severity, 0) / secondHalf.length;
 
@@ -273,10 +274,7 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 3: active_sanction ──────────────────────────────────────────────
 
-  private checkActiveSanction(
-    sanctions: SanctionRow[],
-    result: SignalResult,
-  ): void {
+  private checkActiveSanction(sanctions: SanctionRow[], result: SignalResult): void {
     if (sanctions.length === 0) return;
 
     // Score each sanction, pick the highest-scored one
@@ -311,10 +309,7 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 4: exclusion_history ────────────────────────────────────────────
 
-  private checkExclusionHistory(
-    exclusionCases: ExclusionCaseRow[],
-    result: SignalResult,
-  ): void {
+  private checkExclusionHistory(exclusionCases: ExclusionCaseRow[], result: SignalResult): void {
     const count = exclusionCases.length;
     if (count === 0) return;
 
@@ -336,10 +331,7 @@ export class BehaviourSignalCollector {
 
   // ─── Signal 5: failed_intervention ──────────────────────────────────────────
 
-  private checkFailedIntervention(
-    interventions: InterventionRow[],
-    result: SignalResult,
-  ): void {
+  private checkFailedIntervention(interventions: InterventionRow[], result: SignalResult): void {
     const count = interventions.length;
     if (count === 0) return;
 

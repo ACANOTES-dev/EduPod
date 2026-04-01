@@ -1,13 +1,8 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  Logger,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { BadRequestException, Controller, Get, Logger, Query, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
+
+import { apiError } from '../../common/errors/api-error';
 
 import { UnsubscribeService } from './unsubscribe.service';
 
@@ -25,17 +20,11 @@ export class UnsubscribeController {
   ) {}
 
   @Get('unsubscribe')
-  async unsubscribe(
-    @Query('token') token: string,
-    @Res() res: Response,
-  ): Promise<void> {
+  async unsubscribe(@Query('token') token: string, @Res() res: Response): Promise<void> {
     const appUrl = this.configService.get<string>('APP_URL', 'http://localhost:5551');
 
     if (!token) {
-      throw new BadRequestException({
-        code: 'MISSING_TOKEN',
-        message: 'Unsubscribe token is required',
-      });
+      throw new BadRequestException(apiError('MISSING_TOKEN', 'Unsubscribe token is required'));
     }
 
     try {

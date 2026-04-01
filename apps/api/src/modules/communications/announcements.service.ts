@@ -1,10 +1,12 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { publishAnnouncementJobPayloadSchema } from '@school/shared';
 import { Queue } from 'bullmq';
 
 import { createRlsClient } from '../../common/middleware/rls.middleware';
 import { sanitiseHtml } from '../../common/utils/sanitise-html';
+import { addValidatedJob } from '../../common/utils/validated-job.util';
 import { ApprovalRequestsService } from '../approvals/approval-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -247,8 +249,10 @@ export class AnnouncementsService {
 
       // Enqueue delayed job
       const delay = scheduledAt.getTime() - Date.now();
-      await this.notificationsQueue.add(
+      await addValidatedJob(
+        this.notificationsQueue,
         'communications:publish-announcement',
+        publishAnnouncementJobPayloadSchema,
         { tenant_id: tenantId, announcement_id: id },
         { delay, attempts: 3, backoff: { type: 'exponential', delay: 60_000 } },
       );

@@ -65,7 +65,9 @@ describe('UnsubscribeController', () => {
       await expect(
         controller.unsubscribe('', mockResponse as unknown as Response),
       ).rejects.toMatchObject({
-        response: expect.objectContaining({ code: 'MISSING_TOKEN' }),
+        response: {
+          error: expect.objectContaining({ code: 'MISSING_TOKEN' }),
+        },
       });
     });
 
