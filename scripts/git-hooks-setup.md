@@ -1,16 +1,19 @@
 # Git Hooks Setup (Husky + lint-staged)
 
-This runs automatically on every commit to catch lint errors and type issues before they hit the repo.
+This repo uses Husky to keep the local developer workflow honest without turning every commit into a full CI run.
 
 ## What It Does
 
 **Pre-commit hook** — runs on every `git commit`:
+
+- Runs `pnpm lint-staged`
 - Lints staged `.ts`/`.tsx` files with ESLint
-- Checks for physical CSS classes (ml-, mr-, pl-, pr-, left-, right-) in staged files
-- Runs type-check on changed packages
+- Formats staged source, JSON, Markdown, and CSS files with Prettier
 
 **Pre-push hook** — runs on every `git push`:
-- Runs the full type-check across the monorepo
+
+- Prints an architecture-doc freshness reminder when code changed but nothing under `architecture/` changed
+- Does not block the push; it is a safety nudge before production-facing changes leave your machine
 
 ## Setup
 
@@ -24,22 +27,23 @@ pnpm exec husky init
 ## Configuration
 
 ### `.husky/pre-commit`
+
 ```bash
-pnpm exec lint-staged
+pnpm lint-staged
 ```
 
 ### `.husky/pre-push`
+
 ```bash
-pnpm type-check
+bash scripts/check-architecture-freshness.sh
 ```
 
 ### `lint-staged` config in root `package.json`
+
 ```json
 {
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix --max-warnings=0"
-    ],
+    "*.{ts,tsx}": ["eslint --fix --max-warnings=0"],
     "apps/web/**/*.{ts,tsx}": [
       "bash -c 'grep -rn \"\\bml-\\|\\bmr-\\|\\bpl-\\|\\bpr-\\|\\bleft-\\|\\bright-\\|\\btext-left\\|\\btext-right\\|\\brounded-l-\\|\\brounded-r-\" \"$@\" && echo \"ERROR: Physical CSS classes found. Use logical equivalents (ms-, me-, ps-, pe-, start-, end-)\" && exit 1 || exit 0' --"
     ]
@@ -57,9 +61,8 @@ pnpm type-check
 
 ## Why This Matters
 
-The three most dangerous mistakes in this codebase are:
-1. **Physical CSS classes** — breaks RTL for Arabic locale
-2. **Missing tenant_id** — RLS leakage (caught by linting rules once ESLint is configured in P0)
-3. **any types** — type safety erosion (caught by strict TypeScript)
+The main goal is fast local feedback:
 
-The git hooks catch #1 and #3 before code leaves your machine.
+1. Catch obvious staged-file issues before they land in a commit
+2. Remind you to update `architecture/` when the code change likely has cross-cutting impact
+3. Keep the heavier checks (`pnpm validate`, integration tests, visual smoke) available on demand instead of forcing them into every commit

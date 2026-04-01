@@ -105,6 +105,13 @@
     "permission": null
   },
   {
+    "method": "GET",
+    "path": "/v1/admin/health",
+    "controller": "AdminHealthController",
+    "module": "health",
+    "permission": null
+  },
+  {
     "method": "POST",
     "path": "/v1/admin/impersonate",
     "controller": "TenantsController",

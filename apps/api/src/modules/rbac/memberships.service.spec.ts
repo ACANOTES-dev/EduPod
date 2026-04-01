@@ -135,6 +135,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SCHOOL_OWNER_PROTECTED',
       });
@@ -153,6 +154,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'LAST_SCHOOL_PRINCIPAL',
       });
@@ -205,6 +207,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'MEMBERSHIP_NOT_FOUND',
       });
@@ -224,6 +227,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ALREADY_SUSPENDED',
       });
@@ -311,6 +315,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'NOT_SUSPENDED',
       });
@@ -327,6 +332,7 @@ describe('MembershipsService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'MEMBERSHIP_NOT_FOUND',
       });

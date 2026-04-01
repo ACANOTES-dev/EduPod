@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { Client } from 'pg';
 
-
 import {
   DEV_TENANTS,
   DEV_PLATFORM_USER,
@@ -123,15 +122,22 @@ function getDefaultModuleEnabledState(moduleKey: string): boolean {
   return moduleKey !== 'sen';
 }
 
+function getDirectDatabaseUrl(): string {
+  const connectionString = process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error('DATABASE_URL or DATABASE_MIGRATE_URL environment variable is required');
+  }
+
+  return connectionString;
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Seed script must not run in production. Set NODE_ENV != production.');
   }
 
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is required');
-  }
+  const connectionString = getDirectDatabaseUrl();
 
   // Step 1-2: Extensions and trigger function via raw pg
   const pgClient = new Client({ connectionString });
@@ -158,7 +164,13 @@ async function main() {
   }
 
   // Steps 3-6: Prisma operations
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    datasources: {
+      db: {
+        url: connectionString,
+      },
+    },
+  });
   try {
     // Step 3: Seed global permissions
     console.log('Seed: Step 3 — Global permissions');

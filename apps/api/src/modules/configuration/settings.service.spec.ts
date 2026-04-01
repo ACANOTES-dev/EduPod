@@ -483,6 +483,7 @@ describe('SettingsService', () => {
         expect(true).toBe(false);
       } catch (err) {
         expect(err).toBeInstanceOf(BadRequestException);
+        expect(err).toMatchObject({ response: { code: expect.any(String) } });
         const response = (err as BadRequestException).getResponse() as Record<string, unknown>;
         expect(response['code']).toBe('SETTINGS_VALIDATION_FAILED');
         expect(response['message']).toContain('attendance');

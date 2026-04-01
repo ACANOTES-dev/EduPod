@@ -164,6 +164,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
         status: 'open',
         student_id: alNoorStudentId,
         owner_user_id: alNoorAdminUserId,
+        opened_by_user_id: alNoorAdminUserId,
         opened_reason: `RLS test case ${UNIQUE_MARKER}`,
         tier: 1,
       },
@@ -181,6 +182,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
       data: {
         case_id: alNoorCaseId,
         student_id: alNoorStudentId,
+        tenant_id: alNoorTenantId,
       },
     });
 
@@ -254,12 +256,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     it('tenant isolation -- Tenant B cannot see Tenant A cases via GET /cases', async () => {
       if (!tablesExist) return;
 
-      const res = await authGet(
-        app,
-        '/api/v1/pastoral/cases',
-        cedarAdminToken,
-        CEDAR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/pastoral/cases', cedarAdminToken, CEDAR_DOMAIN);
 
       if (res.status === 200) {
         const cases = res.body.data ?? [];
@@ -332,12 +329,7 @@ describe('Pastoral Cases -- RLS & Lifecycle Tests (e2e)', () => {
     it('403 without pastoral.manage_cases on GET /cases', async () => {
       if (!tablesExist) return;
 
-      const res = await authGet(
-        app,
-        '/api/v1/pastoral/cases',
-        cedarAdminToken,
-        CEDAR_DOMAIN,
-      );
+      const res = await authGet(app, '/api/v1/pastoral/cases', cedarAdminToken, CEDAR_DOMAIN);
 
       // If pastoral module not enabled or user lacks manage_cases, should be 403
       expect([200, 403]).toContain(res.status);

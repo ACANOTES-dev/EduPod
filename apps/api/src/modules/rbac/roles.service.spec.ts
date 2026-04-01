@@ -152,6 +152,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'TIER_VIOLATION',
       });
@@ -216,6 +217,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -301,6 +303,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -354,6 +357,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ROLE_IN_USE',
       });
@@ -371,6 +375,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as NotFoundException).getResponse()).toMatchObject({
         code: 'ROLE_NOT_FOUND',
       });
@@ -398,6 +403,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_NAME_LOCKED',
       });
@@ -464,6 +470,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'SYSTEM_ROLE_IMMUTABLE',
       });
@@ -557,6 +564,7 @@ describe('RolesService', () => {
       }
 
       expect(caught).toBeInstanceOf(BadRequestException);
+      expect(caught).toMatchObject({ response: { code: expect.any(String) } });
       expect((caught as BadRequestException).getResponse()).toMatchObject({
         code: 'ROLE_KEY_EXISTS',
       });

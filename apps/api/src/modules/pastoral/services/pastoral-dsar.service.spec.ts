@@ -347,6 +347,89 @@ describe('PastoralDsarService', () => {
     });
   });
 
+  // ─── getReview ──────────────────────────────────────────────────────────
+
+  describe('getReview', () => {
+    it('should return review with correct record summaries for all entity types', async () => {
+      const reviewCase = makeReview({ id: 'r-case', entity_type: 'case', entity_id: 'case-1' });
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(reviewCase);
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue({
+        id: 'case-1',
+        case_number: 'C-1',
+        tier: 2,
+        opened_reason: 'reason that is long to review',
+        created_at: NOW,
+      });
+
+      const resCase = await service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-case');
+      expect(resCase.record_summary).toContain('Case (C-1, tier 2):');
+      expect(resCase.record_summary).toContain('reason that is long');
+
+      // Test intervention
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(
+        makeReview({ id: 'r-int', entity_type: 'intervention', entity_id: 'i-1' }),
+      );
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue({
+        id: 'i-1',
+        intervention_type: 'time_out',
+        continuum_level: 1,
+        outcome_notes: 'timeout was effective',
+        case: { case_number: 'C-1' },
+      });
+      const resInt = await service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-int');
+      expect(resInt.record_summary).toContain('Intervention (time_out, C-1):');
+      expect(resInt.record_summary).toContain('timeout was effective');
+
+      // Test referral
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(
+        makeReview({ id: 'r-ref', entity_type: 'referral', entity_id: 'ref-1' }),
+      );
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue({
+        id: 'ref-1',
+        referral_type: 'counsellor',
+        report_summary: 'Report findings',
+        case: { case_number: 'C-1' },
+      });
+      const resRef = await service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-ref');
+      expect(resRef.record_summary).toContain('Referral (counsellor, C-1):');
+      expect(resRef.record_summary).toContain('Report findings');
+
+      // Test checkin
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(
+        makeReview({ id: 'r-chk', entity_type: 'checkin', entity_id: 'chk-1' }),
+      );
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue({
+        id: 'chk-1',
+        mood_score: 1,
+        checkin_date: NOW,
+        freeform_text: 'feeling sick',
+        flagged: true,
+        flag_reason: 'keyword',
+      });
+      const resChk = await service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-chk');
+      expect(resChk.record_summary).toContain('Check-in');
+      expect(resChk.record_summary).toContain('feeling sick');
+
+      // Unknown type
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(
+        makeReview({ id: 'r-unk', entity_type: 'unknown_type', entity_id: 'u-1' }),
+      );
+      const resUnk = await service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-unk');
+      expect(resUnk.record_summary).toBe('Unknown record type');
+    });
+
+    it('should throw NotFoundException if review does not exist', async () => {
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(null);
+      await expect(service.getReview(TENANT_ID, ACTOR_USER_ID, 'non-existent')).rejects.toThrow();
+    });
+
+    it('should throw NotFoundException if tier 3 and no cp_access', async () => {
+      mockPrisma.cpAccessGrant.findFirst.mockResolvedValue(null);
+      mockRlsTx.pastoralDsarReview.findFirst.mockResolvedValue(makeReview({ tier: 3 }));
+      await expect(service.getReview(TENANT_ID, ACTOR_USER_ID, 'r-t3')).rejects.toThrow();
+    });
+  });
+
   // ─── submitDecision ─────────────────────────────────────────────────────
 
   describe('submitDecision', () => {
@@ -545,6 +628,129 @@ describe('PastoralDsarService', () => {
         tenant_id: TENANT_ID,
         user_id: ACTOR_USER_ID,
       });
+    });
+
+    it('should apply redactions to case, intervention, referral, and checkin records', async () => {
+      const reviewCase = makeReview({
+        id: 'r-case',
+        decision: 'redact',
+        entity_type: 'case',
+        entity_id: 'case-1',
+        reviewed_by_user_id: ACTOR_USER_ID,
+      });
+      const reviewInt = makeReview({
+        id: 'r-int',
+        decision: 'redact',
+        entity_type: 'intervention',
+        entity_id: 'int-1',
+        reviewed_by_user_id: ACTOR_USER_ID,
+      });
+      const reviewRef = makeReview({
+        id: 'r-ref',
+        decision: 'redact',
+        entity_type: 'referral',
+        entity_id: 'ref-1',
+        reviewed_by_user_id: ACTOR_USER_ID,
+      });
+      const reviewChk = makeReview({
+        id: 'r-chk',
+        decision: 'redact',
+        entity_type: 'checkin',
+        entity_id: 'chk-1',
+        reviewed_by_user_id: ACTOR_USER_ID,
+      });
+
+      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([
+        reviewCase,
+        reviewInt,
+        reviewRef,
+        reviewChk,
+      ]);
+
+      mockRlsTx.pastoralCase.findFirst.mockResolvedValue({
+        id: 'case-1',
+        case_number: 'C-1',
+        tier: 2,
+        opened_reason: 'Sensitive reason details',
+        status: 'open',
+        created_at: NOW,
+      });
+      mockRlsTx.pastoralIntervention.findFirst.mockResolvedValue({
+        id: 'int-1',
+        intervention_type: 'type',
+        continuum_level: 1,
+        outcome_notes: 'Sensitive outcome detail',
+        status: 'active',
+        next_review_date: NOW,
+        created_at: NOW,
+        case: { case_number: 'C-1', tier: 2 },
+      });
+      mockRlsTx.pastoralReferral.findFirst.mockResolvedValue({
+        id: 'ref-1',
+        referral_type: 'type',
+        status: 'active',
+        reason: 'Sensitive reason',
+        report_summary: 'Sensitive report detail',
+        created_at: NOW,
+        case: { case_number: 'C-1', tier: 2 },
+      });
+      mockRlsTx.studentCheckin.findFirst.mockResolvedValue({
+        id: 'chk-1',
+        mood_score: 1,
+        freeform_text: 'Sensitive checkin text',
+        flagged: false,
+        flag_reason: null,
+        checkin_date: NOW,
+        created_at: NOW,
+      });
+
+      const results = await service.getReviewedRecords(TENANT_ID, COMPLIANCE_REQUEST_ID);
+
+      expect(results).toHaveLength(4);
+      expect(results.find((r) => r.entity_type === 'case')!.record_data.opened_reason).toBe(
+        '[REDACTED]',
+      );
+      expect(results.find((r) => r.entity_type === 'intervention')!.record_data.outcome_notes).toBe(
+        '[REDACTED]',
+      );
+
+      const refData = results.find((r) => r.entity_type === 'referral')!.record_data;
+      expect(refData.reason).toBe('[REDACTED]');
+      expect(refData.report_summary).toBe('[REDACTED]');
+
+      expect(results.find((r) => r.entity_type === 'checkin')!.record_data.freeform_text).toBe(
+        '[REDACTED]',
+      );
+    });
+
+    it('should ignore and skip unknown entity types for getReviewedRecords', async () => {
+      const reviewUnk = makeReview({
+        id: 'r-unk',
+        decision: 'include',
+        entity_type: 'unknown',
+        entity_id: 'u-1',
+        reviewed_by_user_id: ACTOR_USER_ID,
+      });
+      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([reviewUnk]);
+
+      const results = await service.getReviewedRecords(TENANT_ID, COMPLIANCE_REQUEST_ID);
+
+      expect(results).toHaveLength(0); // Because fetchEntityRecord returns null for unknown
+    });
+
+    it('should skip tier 3 records if no reviewer context is present', async () => {
+      const reviewT3 = makeReview({
+        id: 'r-t3',
+        decision: 'include',
+        entity_type: 'cp_record',
+        entity_id: 'cp-1',
+        tier: 3,
+        reviewed_by_user_id: null,
+      });
+      mockRlsTx.pastoralDsarReview.findMany.mockResolvedValue([reviewT3]);
+
+      const results = await service.getReviewedRecords(TENANT_ID, COMPLIANCE_REQUEST_ID);
+      expect(results).toHaveLength(0);
     });
   });
 

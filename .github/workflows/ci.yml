@@ -1,4 +1,4 @@
-name: CI
+name: CI / Deploy
 
 on:
   push:
@@ -9,6 +9,27 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: ci
+      SENTRY_RELEASE: ${{ github.sha }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: prisma
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: edupod_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
     steps:
       - uses: actions/checkout@v5
         with:
@@ -45,10 +66,10 @@ jobs:
         run: pnpm check:worker-processor-specs
 
       - name: Lint
-        run: pnpm -r run lint
+        run: pnpm turbo run lint
 
       - name: Type check
-        run: pnpm -r run type-check
+        run: pnpm turbo run type-check
 
       - name: Run unit tests with coverage enforcement
         run: pnpm --filter @school/api --filter @school/worker run test:coverage && pnpm --filter @school/shared --filter @school/web --filter @school/prisma run test
@@ -56,15 +77,147 @@ jobs:
       - name: Test coverage gate
         run: pnpm run check:test-gate
 
+      - name: Setup Test Database
+        run: pnpm --filter @school/prisma exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+
+      - name: Run integration and e2e tests
+        run: |
+          pnpm --filter @school/api run test:integration
+          pnpm --filter @school/api run test:e2e
+        env:
+          DATABASE_URL: postgresql://prisma:password@localhost:5432/edupod_test?schema=public
+          REDIS_URL: redis://localhost:6379
+
       - name: Build
         run: pnpm build --force
 
-      # ── RLS integration tests (S-21) ──────────────────────────────
-      # Requires Docker PostgreSQL service container (DX-03).
-      # Uncomment when DX-03 is implemented. See apps/api/test/rls-integration.md.
-      #
-      # - name: RLS integration tests (restricted DB role)
-      #   run: pnpm --filter @school/api test:integration
-      #   env:
-      #     DATABASE_URL: postgresql://edupod_app:test@localhost:5432/edupod_test
-      #     NODE_ENV: test
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [ci]
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_ENVIRONMENT: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.0
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m
+          envs: DEPLOY_SHA
+          script: |
+            cd /opt/edupod/app
+            DEPLOY_SHA="$DEPLOY_SHA" SENTRY_ENVIRONMENT="$SENTRY_ENVIRONMENT" bash scripts/deploy-production.sh
+
+  integration:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: school_platform
+          POSTGRES_PASSWORD: localpassword
+          POSTGRES_USER: postgres
+        ports:
+          - 5553:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d school_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 5554:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      API_PORT: '0'
+      APP_URL: http://localhost:5551
+      DATABASE_URL: postgresql://postgres:localpassword@localhost:5553/school_platform
+      ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      JWT_REFRESH_SECRET: 1a5be597a11a3d357ec51c55b88bdd4fe6a138f9f816dd0e8f048d802f87b2b3
+      JWT_SECRET: 73e10ad593c9fb3e3c0aaef14332e1f4f38dfe27bb579e35ef57e8303a767d48
+      MFA_ISSUER: SchoolOS-Test
+      NODE_ENV: test
+      PLATFORM_DOMAIN: edupod.app
+      REDIS_URL: redis://localhost:5554
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @school/prisma exec prisma generate
+
+      - name: Apply Prisma migrations
+        run: pnpm --filter @school/prisma exec prisma migrate deploy
+
+      - name: Apply post-migrate SQL
+        run: pnpm db:post-migrate
+
+      - name: Seed base data
+        run: pnpm db:seed
+
+      - name: Run integration tests
+        run: pnpm test:integration
+
+  visual:
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_URL: http://localhost:5552
+      APP_URL: http://localhost:5551
+      NEXT_PUBLIC_API_URL: ''
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter @school/web exec playwright install --with-deps chromium
+
+      - name: Run visual smoke tests
+        run: pnpm test:visual
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-visual-report
+          path: |
+            apps/web/e2e/playwright-report
+            apps/web/e2e/test-results
+          if-no-files-found: ignore

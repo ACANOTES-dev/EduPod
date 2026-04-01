@@ -2,8 +2,8 @@
 
 import { Skeleton, StatCard } from '@school/ui';
 import { Activity, AlertTriangle, Building2, Users } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import * as React from 'react';
-
 
 import { PageHeader } from '@/components/page-header';
 import { apiClient } from '@/lib/api-client';
@@ -24,6 +24,8 @@ interface DashboardData {
 }
 
 export default function PlatformDashboardPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) ?? 'en';
   const [data, setData] = React.useState<DashboardData['data'] | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -43,7 +45,10 @@ export default function PlatformDashboardPage() {
         if (!cancelled) {
           const message =
             err && typeof err === 'object' && 'error' in err
-              ? String((err as { error: { message?: string } }).error?.message ?? 'Failed to load dashboard')
+              ? String(
+                  (err as { error: { message?: string } }).error?.message ??
+                    'Failed to load dashboard',
+                )
               : 'Failed to load dashboard';
           setError(message);
         }
@@ -88,18 +93,9 @@ export default function PlatformDashboardPage() {
               value={data.tenants?.active ?? 0}
               className="relative"
             />
-            <StatCard
-              label="Total Users"
-              value={data.users?.total ?? 0}
-            />
-            <StatCard
-              label="Suspended Tenants"
-              value={data.tenants?.suspended ?? 0}
-            />
-            <StatCard
-              label="Total Tenants"
-              value={data.tenants?.total ?? 0}
-            />
+            <StatCard label="Total Users" value={data.users?.total ?? 0} />
+            <StatCard label="Suspended Tenants" value={data.tenants?.suspended ?? 0} />
+            <StatCard label="Total Tenants" value={data.tenants?.total ?? 0} />
           </>
         ) : null}
       </div>
@@ -112,25 +108,25 @@ export default function PlatformDashboardPage() {
               icon={Building2}
               title="Manage Tenants"
               description="Create, suspend, or configure school tenants"
-              href="/en/admin/tenants"
+              href={`/${locale}/admin/tenants`}
             />
             <QuickActionCard
               icon={Users}
               title="View Users"
               description="Browse all platform users across tenants"
-              href="/en/admin"
+              href={`/${locale}/admin`}
             />
             <QuickActionCard
               icon={Activity}
               title="System Health"
               description="Check service status and diagnostics"
-              href="/en/admin/health"
+              href={`/${locale}/admin/health`}
             />
             <QuickActionCard
               icon={AlertTriangle}
               title="Audit Log"
               description="Review recent administrative actions"
-              href="/en/admin"
+              href={`/${locale}/admin/audit-log`}
             />
           </div>
         </div>
